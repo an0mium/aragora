@@ -65,19 +65,26 @@ def _set_body(mock_handler: MagicMock, body: dict[str, Any]) -> None:
 
 
 class TestRegisterWorkspace:
-    def test_register_workspace_success(self, handler: ControlPlaneHandler, mock_http_handler: MagicMock):
-        _set_body(mock_http_handler, {
-            "id": "ws-1",
-            "name": "Primary",
-            "org_id": "org-1",
-            "federation_mode": "readonly",
-        })
-        result = handler._handle_register_workspace({
-            "id": "ws-1",
-            "name": "Primary",
-            "org_id": "org-1",
-            "federation_mode": "readonly",
-        })
+    def test_register_workspace_success(
+        self, handler: ControlPlaneHandler, mock_http_handler: MagicMock
+    ):
+        _set_body(
+            mock_http_handler,
+            {
+                "id": "ws-1",
+                "name": "Primary",
+                "org_id": "org-1",
+                "federation_mode": "readonly",
+            },
+        )
+        result = handler._handle_register_workspace(
+            {
+                "id": "ws-1",
+                "name": "Primary",
+                "org_id": "org-1",
+                "federation_mode": "readonly",
+            }
+        )
         assert result.status_code == 201
         data = json.loads(result.body)
         assert data["id"] == "ws-1"
@@ -90,10 +97,12 @@ class TestRegisterWorkspace:
         assert "id" in json.loads(result.body).get("error", "").lower()
 
     def test_register_workspace_invalid_mode(self, handler: ControlPlaneHandler):
-        result = handler._handle_register_workspace({
-            "id": "ws-bad",
-            "federation_mode": "invalid_mode",
-        })
+        result = handler._handle_register_workspace(
+            {
+                "id": "ws-bad",
+                "federation_mode": "invalid_mode",
+            }
+        )
         assert result.status_code == 400
 
 
@@ -105,7 +114,9 @@ class TestListWorkspaces:
         assert data["total"] == 0
         assert data["workspaces"] == []
 
-    def test_list_after_register(self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator):
+    def test_list_after_register(
+        self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator
+    ):
         ws = FederatedWorkspace(id="ws-1", name="Test", org_id="org-1")
         coordinator.register_workspace(ws)
         result = handler._handle_list_workspaces({})
@@ -115,7 +126,9 @@ class TestListWorkspaces:
 
 
 class TestUnregisterWorkspace:
-    def test_unregister_success(self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator):
+    def test_unregister_success(
+        self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator
+    ):
         ws = FederatedWorkspace(id="ws-1", name="Test", org_id="org-1")
         coordinator.register_workspace(ws)
         result = handler._handle_unregister_workspace("ws-1")
@@ -132,13 +145,15 @@ class TestUnregisterWorkspace:
 
 class TestCreateFederationPolicy:
     def test_create_policy_success(self, handler: ControlPlaneHandler):
-        result = handler._handle_create_federation_policy({
-            "name": "test-policy",
-            "description": "A test policy",
-            "mode": "bidirectional",
-            "sharing_scope": "metadata",
-            "allowed_operations": ["read_knowledge", "query_mound"],
-        })
+        result = handler._handle_create_federation_policy(
+            {
+                "name": "test-policy",
+                "description": "A test policy",
+                "mode": "bidirectional",
+                "sharing_scope": "metadata",
+                "allowed_operations": ["read_knowledge", "query_mound"],
+            }
+        )
         assert result.status_code == 201
         data = json.loads(result.body)
         assert data["name"] == "test-policy"
@@ -149,10 +164,12 @@ class TestCreateFederationPolicy:
         assert result.status_code == 400
 
     def test_create_policy_invalid_mode(self, handler: ControlPlaneHandler):
-        result = handler._handle_create_federation_policy({
-            "name": "bad-policy",
-            "mode": "nonexistent",
-        })
+        result = handler._handle_create_federation_policy(
+            {
+                "name": "bad-policy",
+                "mode": "nonexistent",
+            }
+        )
         assert result.status_code == 400
 
 
@@ -164,7 +181,9 @@ class TestListFederationPolicies:
         # Should include at least the default policy
         assert data["total"] >= 1
 
-    def test_list_after_create(self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator):
+    def test_list_after_create(
+        self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator
+    ):
         policy = FederationPolicy(name="custom", mode=FederationMode.BIDIRECTIONAL)
         coordinator.set_policy(policy, workspace_id="ws-1")
         result = handler._handle_list_federation_policies({})
@@ -184,21 +203,25 @@ class TestExecute:
         assert result.status_code == 400
 
     def test_execute_workspace_not_found(self, handler: ControlPlaneHandler):
-        result = handler._handle_execute({
-            "operation": "read_knowledge",
-            "source_workspace_id": "ws-missing",
-            "target_workspace_id": "ws-also-missing",
-        })
+        result = handler._handle_execute(
+            {
+                "operation": "read_knowledge",
+                "source_workspace_id": "ws-missing",
+                "target_workspace_id": "ws-also-missing",
+            }
+        )
         # Should return 422 because the coordinator returns failure
         data = json.loads(result.body)
         assert data["success"] is False
 
     def test_execute_invalid_operation(self, handler: ControlPlaneHandler):
-        result = handler._handle_execute({
-            "operation": "not_real_op",
-            "source_workspace_id": "ws-1",
-            "target_workspace_id": "ws-2",
-        })
+        result = handler._handle_execute(
+            {
+                "operation": "not_real_op",
+                "source_workspace_id": "ws-1",
+                "target_workspace_id": "ws-2",
+            }
+        )
         assert result.status_code == 400
 
 
@@ -221,14 +244,16 @@ class TestListExecutions:
 
 class TestGrantConsent:
     def test_grant_consent_success(self, handler: ControlPlaneHandler):
-        result = handler._handle_grant_consent({
-            "source_workspace_id": "ws-1",
-            "target_workspace_id": "ws-2",
-            "scope": "metadata",
-            "data_types": ["debates"],
-            "operations": ["read_knowledge"],
-            "granted_by": "admin",
-        })
+        result = handler._handle_grant_consent(
+            {
+                "source_workspace_id": "ws-1",
+                "target_workspace_id": "ws-2",
+                "scope": "metadata",
+                "data_types": ["debates"],
+                "operations": ["read_knowledge"],
+                "granted_by": "admin",
+            }
+        )
         assert result.status_code == 201
         data = json.loads(result.body)
         assert data["source_workspace_id"] == "ws-1"
@@ -244,7 +269,9 @@ class TestRevokeConsent:
         result = handler._handle_revoke_consent("nonexistent-id", {})
         assert result.status_code == 404
 
-    def test_revoke_consent_success(self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator):
+    def test_revoke_consent_success(
+        self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator
+    ):
         consent = coordinator.grant_consent(
             source_workspace_id="ws-1",
             target_workspace_id="ws-2",
@@ -265,7 +292,9 @@ class TestListConsents:
         data = json.loads(result.body)
         assert data["total"] == 0
 
-    def test_list_with_workspace_filter(self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator):
+    def test_list_with_workspace_filter(
+        self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator
+    ):
         coordinator.grant_consent(
             source_workspace_id="ws-1",
             target_workspace_id="ws-2",
@@ -289,7 +318,9 @@ class TestApproveRequest:
         result = handler._handle_approve_request("nonexistent", {})
         assert result.status_code == 404
 
-    def test_approve_success(self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator):
+    def test_approve_success(
+        self, handler: ControlPlaneHandler, coordinator: CrossWorkspaceCoordinator
+    ):
         # Manually add a pending request
         req = CrossWorkspaceRequest(
             operation=OperationType.READ_KNOWLEDGE,
@@ -346,19 +377,25 @@ class TestRouteDispatch:
         assert handler.can_handle("/api/v1/coordination/workspaces")
         assert handler.can_handle("/api/v1/coordination/health")
 
-    def test_get_coordination_workspaces(self, handler: ControlPlaneHandler, mock_http_handler: MagicMock):
+    def test_get_coordination_workspaces(
+        self, handler: ControlPlaneHandler, mock_http_handler: MagicMock
+    ):
         mock_http_handler.path = "/api/v1/coordination/workspaces"
         result = handler.handle("/api/v1/coordination/workspaces", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
-    def test_get_coordination_stats(self, handler: ControlPlaneHandler, mock_http_handler: MagicMock):
+    def test_get_coordination_stats(
+        self, handler: ControlPlaneHandler, mock_http_handler: MagicMock
+    ):
         mock_http_handler.path = "/api/v1/coordination/stats"
         result = handler.handle("/api/v1/coordination/stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
-    def test_get_coordination_health(self, handler: ControlPlaneHandler, mock_http_handler: MagicMock):
+    def test_get_coordination_health(
+        self, handler: ControlPlaneHandler, mock_http_handler: MagicMock
+    ):
         mock_http_handler.path = "/api/v1/coordination/health"
         result = handler.handle("/api/v1/coordination/health", {}, mock_http_handler)
         assert result is not None

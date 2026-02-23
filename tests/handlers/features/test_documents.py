@@ -106,10 +106,12 @@ class MockHTTPHandler:
 
     path: str = "/"
     command: str = "POST"
-    headers: dict[str, str] = field(default_factory=lambda: {
-        "Content-Length": "0",
-        "Content-Type": "application/octet-stream",
-    })
+    headers: dict[str, str] = field(
+        default_factory=lambda: {
+            "Content-Length": "0",
+            "Content-Type": "application/octet-stream",
+        }
+    )
     client_address: tuple = ("127.0.0.1", 12345)
     _rfile_data: bytes = b""
 
@@ -415,9 +417,14 @@ class TestGetSupportedFormats:
             create=True,
         ):
             # Need to patch at the import site inside _get_supported_formats
-            with patch.dict("sys.modules", {
-                "aragora.server.documents": MagicMock(get_supported_formats=MagicMock(return_value=mock_formats))
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.documents": MagicMock(
+                        get_supported_formats=MagicMock(return_value=mock_formats)
+                    )
+                },
+            ):
                 result = handler.handle("/api/v1/documents/formats", {}, mock)
         assert _status(result) == 200
         body = _body(result)
@@ -549,12 +556,15 @@ class TestUploadDocument:
         mock_doc = MockDocument()
         mock_parse.return_value = mock_doc
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                parse_document=mock_parse,
-                SUPPORTED_EXTENSIONS={".txt", ".pdf", ".md"},
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    parse_document=mock_parse,
+                    SUPPORTED_EXTENSIONS={".txt", ".pdf", ".md"},
+                ),
+            },
+        ):
             result = self._upload(handler, content=b"x" * 24, filename="test.txt")
 
         assert _status(result) == 200
@@ -568,21 +578,15 @@ class TestUploadDocument:
         assert result is None
 
     def test_upload_no_store(self, handler_no_store):
-        http_handler = _make_http_handler(
-            content=b"Hello data here!!!!!!!!!", filename="test.txt"
-        )
-        result = handler_no_store.handle_post(
-            "/api/v1/documents/upload", {}, http_handler
-        )
+        http_handler = _make_http_handler(content=b"Hello data here!!!!!!!!!", filename="test.txt")
+        result = handler_no_store.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 500
         body = _body(result)
         assert body["error_code"] == "storage_not_configured"
 
     def test_upload_zero_content_length(self, handler):
         http_handler = _make_http_handler(content=b"", filename="test.txt")
-        result = handler.handle_post(
-            "/api/v1/documents/upload", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 400
         body = _body(result)
         assert body["error_code"] == "no_content"
@@ -590,9 +594,7 @@ class TestUploadDocument:
     def test_upload_invalid_content_length(self, handler):
         http_handler = _make_http_handler(content=b"data", filename="test.txt")
         http_handler.headers["Content-Length"] = "not-a-number"
-        result = handler.handle_post(
-            "/api/v1/documents/upload", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 400
         body = _body(result)
         assert body["error_code"] == "invalid_content_length"
@@ -601,9 +603,7 @@ class TestUploadDocument:
         http_handler = _make_http_handler(content=b"x", filename="test.txt")
         # Set Content-Length to exceed max
         http_handler.headers["Content-Length"] = str(200 * 1024 * 1024)
-        result = handler.handle_post(
-            "/api/v1/documents/upload", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 413
         body = _body(result)
         assert body["error_code"] == "file_too_large"
@@ -612,19 +612,18 @@ class TestUploadDocument:
     def test_upload_unsupported_extension(self, mock_validate, handler, store):
         mock_validate.return_value = MagicMock(valid=True)
         content = b"x" * 20
-        http_handler = _make_http_handler(
-            content=content, filename="test.exe"
-        )
+        http_handler = _make_http_handler(content=content, filename="test.exe")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt", ".pdf"},
-                parse_document=MagicMock(),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt", ".pdf"},
+                    parse_document=MagicMock(),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 400
         body = _body(result)
         assert body["error_code"] == "unsupported_format"
@@ -635,15 +634,16 @@ class TestUploadDocument:
         content = b"x" * 20
         http_handler = _make_http_handler(content=content, filename="test.txt")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(side_effect=ValueError("bad format")),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(side_effect=ValueError("bad format")),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 400
         body = _body(result)
         assert body["error_code"] == "parsing_failed"
@@ -657,15 +657,16 @@ class TestUploadDocument:
 
         store.add = MagicMock(side_effect=RuntimeError("storage full"))
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 500
         body = _body(result)
         assert body["error_code"] == "storage_failed"
@@ -677,9 +678,7 @@ class TestUploadDocument:
         http_handler = _make_http_handler(content=content, filename="test.txt")
 
         with patch.dict("sys.modules", {"aragora.server.documents": None}):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
         assert _status(result) == 500
         body = _body(result)
         assert body["error_code"] == "parsing_failed"
@@ -710,15 +709,18 @@ class TestUploadDocument:
         http_handler = _make_http_handler(content=content, filename="test.txt")
         knowledge_result = {"knowledge_processing": {"status": "queued", "job_id": "job-1"}}
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-            "aragora.knowledge.integration": MagicMock(
-                process_uploaded_document=MagicMock(return_value=knowledge_result),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+                "aragora.knowledge.integration": MagicMock(
+                    process_uploaded_document=MagicMock(return_value=knowledge_result),
+                ),
+            },
+        ):
             result = handler.handle_post(
                 "/api/v1/documents/upload",
                 {"process_knowledge": ["true"]},
@@ -737,13 +739,16 @@ class TestUploadDocument:
         mock_doc = MockDocument()
         http_handler = _make_http_handler(content=content, filename="test.txt")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-            "aragora.knowledge.integration": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+                "aragora.knowledge.integration": None,
+            },
+        ):
             result = handler.handle_post(
                 "/api/v1/documents/upload",
                 {"process_knowledge": ["true"]},
@@ -764,13 +769,16 @@ class TestUploadDocument:
         knowledge_mod = MagicMock()
         knowledge_mod.process_uploaded_document.side_effect = ValueError("pipeline error")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-            "aragora.knowledge.integration": knowledge_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+                "aragora.knowledge.integration": knowledge_mod,
+            },
+        ):
             result = handler.handle_post(
                 "/api/v1/documents/upload",
                 {"process_knowledge": ["true"]},
@@ -789,12 +797,15 @@ class TestUploadDocument:
         mock_doc = MockDocument()
         http_handler = _make_http_handler(content=content, filename="test.txt")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+            },
+        ):
             result = handler.handle_post(
                 "/api/v1/documents/upload",
                 {"process_knowledge": ["false"]},
@@ -816,15 +827,16 @@ class TestUploadDocument:
         # Lie about content length
         http_handler.headers["Content-Length"] = "20"
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
 
         assert _status(result) == 400
         body = _body(result)
@@ -965,10 +977,14 @@ class TestMultipartParsing:
         boundary = "testboundary123"
         file_content = b"file data here"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
-            f"Content-Type: text/plain\r\n\r\n"
-        ).encode() + file_content + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+                f"Content-Type: text/plain\r\n\r\n"
+            ).encode()
+            + file_content
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
@@ -983,9 +999,13 @@ class TestMultipartParsing:
     def test_boundary_with_quotes(self, handler):
         boundary = "myboundary"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="doc.pdf"\r\n\r\n'
-        ).encode() + b"data" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="doc.pdf"\r\n\r\n'
+            ).encode()
+            + b"data"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f'multipart/form-data; boundary="{boundary}"'
@@ -999,64 +1019,71 @@ class TestMultipartParsing:
     def test_empty_filename_in_multipart(self, handler):
         boundary = "bound"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename=""\r\n\r\n'
-        ).encode() + b"data" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename=""\r\n\r\n'
+            ).encode()
+            + b"data"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         assert err is not None
         assert err.code == UploadErrorCode.INVALID_FILENAME
 
     def test_null_bytes_in_filename(self, handler):
         boundary = "bound"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="test\x00.txt"\r\n\r\n'
-        ).encode() + b"data" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="test\x00.txt"\r\n\r\n'
+            ).encode()
+            + b"data"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         assert err is not None
         assert err.code == UploadErrorCode.INVALID_FILENAME
 
     def test_path_traversal_in_filename(self, handler):
         boundary = "bound"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="..test.txt"\r\n\r\n'
-        ).encode() + b"data" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="..test.txt"\r\n\r\n'
+            ).encode()
+            + b"data"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         assert err is not None
         assert err.code == UploadErrorCode.INVALID_FILENAME
 
     def test_dots_only_filename(self, handler):
         boundary = "bound"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="..."\r\n\r\n'
-        ).encode() + b"data" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="..."\r\n\r\n'
+            ).encode()
+            + b"data"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         assert err is not None
         assert err.code == UploadErrorCode.INVALID_FILENAME
 
@@ -1065,16 +1092,16 @@ class TestMultipartParsing:
         # Create body with too many parts
         parts = []
         for i in range(MAX_MULTIPART_PARTS + 5):
-            parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"field{i}\"\r\n\r\nvalue{i}")
+            parts.append(
+                f'--{boundary}\r\nContent-Disposition: form-data; name="field{i}"\r\n\r\nvalue{i}'
+            )
         body_str = "\r\n".join(parts) + f"\r\n--{boundary}--"
         body = body_str.encode()
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         assert err is not None
         assert err.code == UploadErrorCode.MULTIPART_PARSE_ERROR
 
@@ -1082,16 +1109,14 @@ class TestMultipartParsing:
         boundary = "bound"
         body = (
             f"--{boundary}\r\n"
-            f"Content-Disposition: form-data; name=\"field\"\r\n\r\nvalue"
+            f'Content-Disposition: form-data; name="field"\r\n\r\nvalue'
             f"\r\n--{boundary}--\r\n"
         ).encode()
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         assert err is not None
         assert err.code == UploadErrorCode.MULTIPART_PARSE_ERROR
 
@@ -1108,9 +1133,13 @@ class TestMultipartParsing:
         """os.path.basename should strip directory components."""
         boundary = "bound"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="/etc/passwd"\r\n\r\n'
-        ).encode() + b"data" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="/etc/passwd"\r\n\r\n'
+            ).encode()
+            + b"data"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
@@ -1133,9 +1162,7 @@ class TestRawUploadParsing:
     def test_successful_raw_upload(self, handler):
         content = b"file data"
         http_handler = _make_http_handler(content=content, filename="test.txt")
-        data, filename, err = handler._parse_raw_upload_with_error(
-            http_handler, len(content)
-        )
+        data, filename, err = handler._parse_raw_upload_with_error(http_handler, len(content))
         assert err is None
         assert filename == "test.txt"
         assert data == content
@@ -1144,9 +1171,7 @@ class TestRawUploadParsing:
         content = b"data"
         http_handler = _make_http_handler(content=content)
         # No X-Filename header
-        data, filename, err = handler._parse_raw_upload_with_error(
-            http_handler, len(content)
-        )
+        data, filename, err = handler._parse_raw_upload_with_error(http_handler, len(content))
         assert err is None
         assert filename == "document.txt"
 
@@ -1196,9 +1221,13 @@ class TestLegacyMethods:
     def test_parse_upload_multipart(self, handler):
         boundary = "testbound"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="doc.txt"\r\n\r\n'
-        ).encode() + b"content" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="doc.txt"\r\n\r\n'
+            ).encode()
+            + b"content"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
@@ -1209,16 +1238,22 @@ class TestLegacyMethods:
     def test_parse_upload_raw(self, handler):
         content = b"data"
         http_handler = _make_http_handler(content=content, filename="test.txt")
-        data, filename = handler._parse_upload(http_handler, "application/octet-stream", len(content))
+        data, filename = handler._parse_upload(
+            http_handler, "application/octet-stream", len(content)
+        )
         assert filename == "test.txt"
         assert data == content
 
     def test_parse_multipart_legacy(self, handler):
         boundary = "b"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="f.txt"\r\n\r\n'
-        ).encode() + b"x" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="f.txt"\r\n\r\n'
+            ).encode()
+            + b"x"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
@@ -1427,9 +1462,13 @@ class TestParseUploadDispatch:
     def test_dispatches_multipart(self, handler):
         boundary = "b"
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="f.txt"\r\n\r\n'
-        ).encode() + b"x" + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="f.txt"\r\n\r\n'
+            ).encode()
+            + b"x"
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
@@ -1508,9 +1547,7 @@ class TestEdgeCases:
         mock_mod.parse_document.side_effect = ImportError("missing dep")
 
         with patch.dict("sys.modules", {"aragora.server.documents": mock_mod}):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
 
         assert _status(result) == 400
         body = _body(result)
@@ -1526,15 +1563,16 @@ class TestEdgeCases:
 
         store.add = MagicMock(side_effect=KeyError("key"))
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
 
         assert _status(result) == 500
         body = _body(result)
@@ -1550,15 +1588,16 @@ class TestEdgeCases:
 
         store.add = MagicMock(side_effect=OSError("disk full"))
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
 
         assert _status(result) == 500
         body = _body(result)
@@ -1577,13 +1616,16 @@ class TestEdgeCases:
 
         http_handler = _make_http_handler(content=content, filename="test.txt")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-            "aragora.knowledge.integration": None,  # Disable knowledge processing
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+                "aragora.knowledge.integration": None,  # Disable knowledge processing
+            },
+        ):
             result = handler.handle_post(
                 "/api/v1/documents/upload",
                 {"process_knowledge": ["true"]},
@@ -1623,6 +1665,7 @@ class TestEdgeCases:
         http_handler = _make_http_handler(content=content, filename="test.txt")
 
         captured_kwargs = {}
+
         def capture_process(*args, **kwargs):
             captured_kwargs.update(kwargs)
             return {"knowledge_processing": {"status": "queued"}}
@@ -1630,13 +1673,16 @@ class TestEdgeCases:
         knowledge_mod = MagicMock()
         knowledge_mod.process_uploaded_document = capture_process
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-            "aragora.knowledge.integration": knowledge_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+                "aragora.knowledge.integration": knowledge_mod,
+            },
+        ):
             result = handler.handle_post(
                 "/api/v1/documents/upload",
                 {"workspace_id": ["my-workspace"], "process_knowledge": ["true"]},
@@ -1656,15 +1702,16 @@ class TestEdgeCases:
 
         store.add = MagicMock(side_effect=TypeError("type err"))
 
-        with patch.dict("sys.modules", {
-            "aragora.server.documents": MagicMock(
-                SUPPORTED_EXTENSIONS={".txt"},
-                parse_document=MagicMock(return_value=mock_doc),
-            ),
-        }):
-            result = handler.handle_post(
-                "/api/v1/documents/upload", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.documents": MagicMock(
+                    SUPPORTED_EXTENSIONS={".txt"},
+                    parse_document=MagicMock(return_value=mock_doc),
+                ),
+            },
+        ):
+            result = handler.handle_post("/api/v1/documents/upload", {}, http_handler)
 
         assert _status(result) == 500
         body = _body(result)
@@ -1676,16 +1723,14 @@ class TestEdgeCases:
         # A part without \r\n\r\n separator will raise ValueError on index()
         body = (
             f"--{boundary}\r\n"
-            f"Content-Disposition: form-data; name=\"broken\"\r\nNO_DOUBLE_CRLF"
+            f'Content-Disposition: form-data; name="broken"\r\nNO_DOUBLE_CRLF'
             f"\r\n--{boundary}--\r\n"
         ).encode()
 
         http_handler = MockHTTPHandler(_rfile_data=body)
         content_type = f"multipart/form-data; boundary={boundary}"
 
-        _, _, err = handler._parse_multipart_with_error(
-            http_handler, content_type, len(body)
-        )
+        _, _, err = handler._parse_multipart_with_error(http_handler, content_type, len(body))
         # Should fail with no valid file found
         assert err is not None
         assert err.code == UploadErrorCode.MULTIPART_PARSE_ERROR

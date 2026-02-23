@@ -194,7 +194,11 @@ class EncryptionMigrator:
             result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
             logger.info(
-                "Migration complete for %s: %s migrated, %s already encrypted, %s failed", store_name, result.migrated_records, result.already_encrypted, result.failed_records
+                "Migration complete for %s: %s migrated, %s already encrypted, %s failed",
+                store_name,
+                result.migrated_records,
+                result.already_encrypted,
+                result.failed_records,
             )
 
         except (TypeError, RuntimeError, OSError, ValueError) as e:
@@ -243,7 +247,9 @@ def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
         )
     except ImportError as e:
         logger.warning("Integration store not available: %s", e)
-        return MigrationResult(store_name="integration_store", errors=["Integration store not available"])
+        return MigrationResult(
+            store_name="integration_store", errors=["Integration store not available"]
+        )
 
 
 def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
@@ -274,7 +280,9 @@ def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
         )
     except ImportError as e:
         logger.warning("Gmail token store not available: %s", e)
-        return MigrationResult(store_name="gmail_token_store", errors=["Gmail token store not available"])
+        return MigrationResult(
+            store_name="gmail_token_store", errors=["Gmail token store not available"]
+        )
 
 
 def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
@@ -493,7 +501,9 @@ def rotate_and_reencrypt_store(
         result.total_records = len(records)
 
         logger.info(
-            "Starting key rotation re-encryption for %s: %s records", store_name, result.total_records
+            "Starting key rotation re-encryption for %s: %s records",
+            store_name,
+            result.total_records,
         )
 
         for record in records:
@@ -543,7 +553,11 @@ def rotate_and_reencrypt_store(
         result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
         logger.info(
-            "Key rotation re-encryption complete for %s: %s re-encrypted, %s skipped, %s failed", store_name, result.migrated_records, result.already_encrypted, result.failed_records
+            "Key rotation re-encryption complete for %s: %s re-encrypted, %s skipped, %s failed",
+            store_name,
+            result.migrated_records,
+            result.already_encrypted,
+            result.failed_records,
         )
 
     except (TypeError, RuntimeError, OSError, ValueError) as e:
@@ -594,7 +608,10 @@ def rotate_encryption_key(
 
     if dry_run:
         logger.info(
-            "[DRY RUN] Would rotate key %s from v%s to v%s", old_key_id, old_version, old_version + 1
+            "[DRY RUN] Would rotate key %s from v%s to v%s",
+            old_key_id,
+            old_version,
+            old_version + 1,
         )
         # Audit log would go here
         from aragora.audit.unified import audit_security
@@ -612,7 +629,9 @@ def rotate_encryption_key(
         result.new_key_id = new_key.key_id
         result.new_key_version = new_key.version
 
-        logger.info("Rotated encryption key: %s v%s -> v%s", old_key_id, old_version, new_key.version)
+        logger.info(
+            "Rotated encryption key: %s v%s -> v%s", old_key_id, old_version, new_key.version
+        )
 
         # Audit log key rotation
         try:
@@ -668,7 +687,10 @@ def rotate_encryption_key(
         result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
         logger.info(
-            "Key rotation complete: %s stores, %s records re-encrypted, %s failures", result.stores_processed, result.records_reencrypted, result.failed_records
+            "Key rotation complete: %s stores, %s records re-encrypted, %s failures",
+            result.stores_processed,
+            result.records_reencrypted,
+            result.failed_records,
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, ImportError, AttributeError) as e:

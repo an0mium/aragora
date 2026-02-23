@@ -125,9 +125,7 @@ class PruningOperationsMixin:
     # These attributes/methods are expected from the composed class:
     _staleness_detector: _StalenessDetectorProtocol
 
-    async def _archive_node_with_reason(
-        self, node_id: str, workspace_id: str, reason: str
-    ) -> None:
+    async def _archive_node_with_reason(self, node_id: str, workspace_id: str, reason: str) -> None:
         await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[misc]
 
     async def _delete_node(self, node_id: str) -> bool:

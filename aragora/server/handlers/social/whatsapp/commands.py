@@ -256,7 +256,10 @@ async def run_debate_async(
 
             if resolution.matched and resolution.binding:
                 logger.debug(
-                    "Binding resolved: %s type=%s reason=%s", resolution.agent_binding, resolution.binding_type, resolution.match_reason
+                    "Binding resolved: %s type=%s reason=%s",
+                    resolution.agent_binding,
+                    resolution.binding_type,
+                    resolution.match_reason,
                 )
 
                 # Apply agent binding

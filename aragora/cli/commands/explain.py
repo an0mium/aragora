@@ -101,9 +101,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
     return 0
 
 
-def _try_api_explanation(
-    debate_id: str, args: argparse.Namespace
-) -> dict[str, Any] | None:
+def _try_api_explanation(debate_id: str, args: argparse.Namespace) -> dict[str, Any] | None:
     """Try to get explanation via the API client."""
     try:
         import os
@@ -252,9 +250,7 @@ def _try_local_explanation(debate_id: str) -> dict[str, Any] | None:
                     "alternative_outcome": c.outcome_change,
                     "probability": c.likelihood,
                     "sensitivity": c.sensitivity,
-                    "key_differences": [
-                        f"Affected agents: {', '.join(c.affected_agents)}"
-                    ]
+                    "key_differences": [f"Affected agents: {', '.join(c.affected_agents)}"]
                     if c.affected_agents
                     else [],
                 }

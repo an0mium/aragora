@@ -596,7 +596,8 @@ class SyncScheduler:
                 # Alert if we're having persistent issues
                 if consecutive_errors == 5:
                     logger.critical(
-                        "Scheduler experiencing persistent errors: %s consecutive failures", consecutive_errors
+                        "Scheduler experiencing persistent errors: %s consecutive failures",
+                        consecutive_errors,
                     )
 
                 await asyncio.sleep(delay)

@@ -314,7 +314,9 @@ class TestShareStore:
         assert len(share_store._settings) == MAX_SHARE_SETTINGS
 
         # Adding one more should trigger eviction
-        share_store.save(ShareSettings(debate_id="new_entry", created_at=float(MAX_SHARE_SETTINGS + 1)))
+        share_store.save(
+            ShareSettings(debate_id="new_entry", created_at=float(MAX_SHARE_SETTINGS + 1))
+        )
         # Should have evicted oldest 10%
         assert len(share_store._settings) <= MAX_SHARE_SETTINGS
         # The very oldest entry should be gone
@@ -325,9 +327,13 @@ class TestShareStore:
     def test_eviction_cleans_up_tokens(self, share_store):
         """Eviction should also clean up token references."""
         for i in range(MAX_SHARE_SETTINGS):
-            share_store.save(ShareSettings(debate_id=f"d{i}", share_token=f"tok{i}", created_at=float(i)))
+            share_store.save(
+                ShareSettings(debate_id=f"d{i}", share_token=f"tok{i}", created_at=float(i))
+            )
         # Adding one more should trigger eviction of oldest entries and their tokens
-        share_store.save(ShareSettings(debate_id="new_entry", created_at=float(MAX_SHARE_SETTINGS + 1)))
+        share_store.save(
+            ShareSettings(debate_id="new_entry", created_at=float(MAX_SHARE_SETTINGS + 1))
+        )
         assert share_store.get_by_token("tok0") is None
 
     def test_no_eviction_when_updating_existing(self, share_store):
@@ -395,7 +401,9 @@ class TestSocialShareStore:
     """Tests for the SocialShareStore."""
 
     def test_create_and_get_by_id(self, social_share_store):
-        ss = SocialShare(id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1")
+        ss = SocialShare(
+            id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
         created = social_share_store.create(ss)
         assert created.id == "s1"
         retrieved = social_share_store.get_by_id("s1")
@@ -406,9 +414,15 @@ class TestSocialShareStore:
         assert social_share_store.get_by_id("missing") is None
 
     def test_get_by_org(self, social_share_store):
-        ss1 = SocialShare(id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1")
-        ss2 = SocialShare(id="s2", org_id="o1", resource_type="debate", resource_id="d2", shared_by="u1")
-        ss3 = SocialShare(id="s3", org_id="o2", resource_type="debate", resource_id="d3", shared_by="u2")
+        ss1 = SocialShare(
+            id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
+        ss2 = SocialShare(
+            id="s2", org_id="o1", resource_type="debate", resource_id="d2", shared_by="u1"
+        )
+        ss3 = SocialShare(
+            id="s3", org_id="o2", resource_type="debate", resource_id="d3", shared_by="u2"
+        )
         social_share_store.create(ss1)
         social_share_store.create(ss2)
         social_share_store.create(ss3)
@@ -421,7 +435,9 @@ class TestSocialShareStore:
         assert social_share_store.get_by_org("none") == []
 
     def test_delete(self, social_share_store):
-        ss = SocialShare(id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1")
+        ss = SocialShare(
+            id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
         social_share_store.create(ss)
         assert social_share_store.delete("s1") is True
         assert social_share_store.get_by_id("s1") is None
@@ -478,7 +494,9 @@ class TestListSocialShares:
 
     def test_list_with_shares(self, handler, mock_http_handler, social_share_store):
         mock_http_handler.command = "GET"
-        ss = SocialShare(id="s1", org_id="test-org-001", resource_type="debate", resource_id="d1", shared_by="u1")
+        ss = SocialShare(
+            id="s1", org_id="test-org-001", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
         social_share_store.create(ss)
         result = handler.handle("/api/v1/social/shares", {}, mock_http_handler, "GET")
         assert _status(result) == 200
@@ -488,11 +506,17 @@ class TestListSocialShares:
 
     def test_list_filter_by_resource_type(self, handler, mock_http_handler, social_share_store):
         mock_http_handler.command = "GET"
-        ss1 = SocialShare(id="s1", org_id="test-org-001", resource_type="debate", resource_id="d1", shared_by="u1")
-        ss2 = SocialShare(id="s2", org_id="test-org-001", resource_type="report", resource_id="r1", shared_by="u1")
+        ss1 = SocialShare(
+            id="s1", org_id="test-org-001", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
+        ss2 = SocialShare(
+            id="s2", org_id="test-org-001", resource_type="report", resource_id="r1", shared_by="u1"
+        )
         social_share_store.create(ss1)
         social_share_store.create(ss2)
-        result = handler.handle("/api/v1/social/shares", {"resource_type": "debate"}, mock_http_handler, "GET")
+        result = handler.handle(
+            "/api/v1/social/shares", {"resource_type": "debate"}, mock_http_handler, "GET"
+        )
         body = _body(result)
         assert body["total"] == 1
         assert body["shares"][0]["resource_type"] == "debate"
@@ -503,7 +527,9 @@ class TestGetSocialShare:
 
     def test_get_existing(self, handler, mock_http_handler, social_share_store):
         mock_http_handler.command = "GET"
-        ss = SocialShare(id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1")
+        ss = SocialShare(
+            id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
         social_share_store.create(ss)
         result = handler.handle("/api/v1/social/shares/s1", {}, mock_http_handler, "GET")
         assert _status(result) == 200
@@ -521,14 +547,17 @@ class TestCreateSocialShare:
 
     def test_create_success(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
-        _set_body(mock_http_handler, {
-            "resource_type": "debate",
-            "resource_id": "d1",
-            "shared_with": ["u2"],
-            "channel_id": "ch1",
-            "platform": "slack",
-            "message": "Look at this",
-        })
+        _set_body(
+            mock_http_handler,
+            {
+                "resource_type": "debate",
+                "resource_id": "d1",
+                "shared_with": ["u2"],
+                "channel_id": "ch1",
+                "platform": "slack",
+                "message": "Look at this",
+            },
+        )
         result = handler.handle("/api/v1/social/shares", {}, mock_http_handler, "POST")
         assert _status(result) == 201
         body = _body(result)
@@ -578,7 +607,9 @@ class TestDeleteSocialShare:
 
     def test_delete_existing(self, handler, mock_http_handler, social_share_store):
         mock_http_handler.command = "DELETE"
-        ss = SocialShare(id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1")
+        ss = SocialShare(
+            id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
         social_share_store.create(ss)
         result = handler.handle("/api/v1/social/shares/s1", {}, mock_http_handler, "DELETE")
         assert _status(result) == 200
@@ -696,7 +727,9 @@ class TestUpdateShareSettings:
         assert body["settings"]["visibility"] == "public"
         assert body["settings"]["share_token"] is not None
 
-    def test_update_visibility_to_private_revokes_token(self, handler, mock_http_handler, share_store):
+    def test_update_visibility_to_private_revokes_token(
+        self, handler, mock_http_handler, share_store
+    ):
         mock_http_handler.command = "POST"
         # First make it public
         settings = ShareSettings(
@@ -753,7 +786,9 @@ class TestUpdateShareSettings:
         body = _body(result)
         assert body["settings"]["expires_at"] is not None
 
-    def test_update_expires_in_zero_removes_expiration(self, handler, mock_http_handler, share_store):
+    def test_update_expires_in_zero_removes_expiration(
+        self, handler, mock_http_handler, share_store
+    ):
         mock_http_handler.command = "POST"
         # First set expiration
         settings = ShareSettings(
@@ -795,12 +830,15 @@ class TestUpdateShareSettings:
 
     def test_update_multiple_fields(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
-        _set_body(mock_http_handler, {
-            "visibility": "public",
-            "allow_comments": True,
-            "allow_forking": True,
-            "expires_in_hours": 48,
-        })
+        _set_body(
+            mock_http_handler,
+            {
+                "visibility": "public",
+                "allow_comments": True,
+                "allow_forking": True,
+                "expires_in_hours": 48,
+            },
+        )
         result = handler.handle("/api/v1/debates/d1/share", {}, mock_http_handler, "POST")
         assert _status(result) == 200
         body = _body(result)
@@ -810,7 +848,9 @@ class TestUpdateShareSettings:
         assert body["settings"]["expires_at"] is not None
         assert body["settings"]["share_token"] is not None
 
-    def test_update_public_does_not_regenerate_existing_token(self, handler, mock_http_handler, share_store):
+    def test_update_public_does_not_regenerate_existing_token(
+        self, handler, mock_http_handler, share_store
+    ):
         """Setting visibility to public when token exists should keep existing token."""
         mock_http_handler.command = "POST"
         settings = ShareSettings(
@@ -864,7 +904,9 @@ class TestGetSharedDebate:
         assert _status(result) == 403
 
     @patch("aragora.server.handlers.social.sharing.SharingHandler._get_debate_data")
-    def test_valid_token_debate_found(self, mock_get_debate, handler, mock_http_handler, share_store):
+    def test_valid_token_debate_found(
+        self, mock_get_debate, handler, mock_http_handler, share_store
+    ):
         mock_http_handler.command = "GET"
         mock_get_debate.return_value = {"id": "d1", "topic": "Test debate"}
         settings = ShareSettings(
@@ -886,7 +928,9 @@ class TestGetSharedDebate:
         assert body["sharing"]["view_count"] == 6  # incremented from 5 to 6 before response
 
     @patch("aragora.server.handlers.social.sharing.SharingHandler._get_debate_data")
-    def test_valid_token_debate_not_found(self, mock_get_debate, handler, mock_http_handler, share_store):
+    def test_valid_token_debate_not_found(
+        self, mock_get_debate, handler, mock_http_handler, share_store
+    ):
         mock_http_handler.command = "GET"
         mock_get_debate.return_value = None
         settings = ShareSettings(
@@ -899,7 +943,9 @@ class TestGetSharedDebate:
         assert _status(result) == 404
 
     @patch("aragora.server.handlers.social.sharing.SharingHandler._get_debate_data")
-    def test_shared_debate_increments_view_count(self, mock_get_debate, handler, mock_http_handler, share_store):
+    def test_shared_debate_increments_view_count(
+        self, mock_get_debate, handler, mock_http_handler, share_store
+    ):
         mock_http_handler.command = "GET"
         mock_get_debate.return_value = {"id": "d1", "topic": "Test"}
         settings = ShareSettings(
@@ -1043,7 +1089,9 @@ class TestEdgeCases:
 
     def test_get_debate_data_import_error(self, handler):
         """_get_debate_data returns None on ImportError."""
-        with patch("aragora.server.handlers.social.sharing.SharingHandler._get_debate_data") as mock_method:
+        with patch(
+            "aragora.server.handlers.social.sharing.SharingHandler._get_debate_data"
+        ) as mock_method:
             mock_method.return_value = None
             result = handler._get_debate_data("d1")
             assert result is None
@@ -1093,7 +1141,9 @@ class TestEdgeCases:
     def test_social_shares_trailing_slash(self, handler, mock_http_handler, social_share_store):
         """GET on social share with trailing slash extracts share_id correctly."""
         mock_http_handler.command = "GET"
-        ss = SocialShare(id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1")
+        ss = SocialShare(
+            id="s1", org_id="o1", resource_type="debate", resource_id="d1", shared_by="u1"
+        )
         social_share_store.create(ss)
         result = handler.handle("/api/v1/social/shares/s1/", {}, mock_http_handler, "GET")
         # The handler strips trailing "/" with rstrip

@@ -100,7 +100,11 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 length = int(content_length)
                 if length > self.limits.max_body_size:
                     logger.warning(
-                        "Request body too large: %s bytes (max %s) for %s %s", length, self.limits.max_body_size, request.method, request.url.path
+                        "Request body too large: %s bytes (max %s) for %s %s",
+                        length,
+                        self.limits.max_body_size,
+                        request.method,
+                        request.url.path,
                     )
                     if self.limits.blocking_mode:
                         return JSONResponse(
@@ -126,7 +130,10 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 # Check actual body size
                 if len(body) > self.limits.max_body_size:
                     logger.warning(
-                        "Request body too large: %s bytes for %s %s", len(body), request.method, request.url.path
+                        "Request body too large: %s bytes for %s %s",
+                        len(body),
+                        request.method,
+                        request.url.path,
                     )
                     if self.limits.blocking_mode:
                         return JSONResponse(
@@ -147,7 +154,10 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                     )
                     if error:
                         logger.warning(
-                            "JSON structure validation failed for %s %s: %s", request.method, request.url.path, error
+                            "JSON structure validation failed for %s %s: %s",
+                            request.method,
+                            request.url.path,
+                            error,
                         )
                         if self.limits.blocking_mode:
                             return JSONResponse(

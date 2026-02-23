@@ -142,12 +142,14 @@ class TestLearningBusInjection:
 
         LearningBus.reset_instance()
         bus = LearningBus.get_instance()
-        bus.publish(Finding(
-            agent_id="test_agent",
-            topic="code_review",
-            description="Critical security flaw in auth handler",
-            severity="critical",
-        ))
+        bus.publish(
+            Finding(
+                agent_id="test_agent",
+                topic="code_review",
+                description="Critical security flaw in auth handler",
+                severity="critical",
+            )
+        )
 
         planner = MetaPlanner(MetaPlannerConfig(enable_cross_cycle_learning=True))
         context = PlanningContext()
@@ -164,12 +166,14 @@ class TestLearningBusInjection:
 
         LearningBus.reset_instance()
         bus = LearningBus.get_instance()
-        bus.publish(Finding(
-            agent_id="test_runner",
-            topic="test_failure",
-            description="test_login_flow failed: timeout",
-            severity="warning",
-        ))
+        bus.publish(
+            Finding(
+                agent_id="test_runner",
+                topic="test_failure",
+                description="test_login_flow failed: timeout",
+                severity="warning",
+            )
+        )
 
         planner = MetaPlanner(MetaPlannerConfig(enable_cross_cycle_learning=True))
         context = PlanningContext()
@@ -211,9 +215,7 @@ class TestLearningBusInjection:
         config = MetaPlannerConfig(enable_cross_cycle_learning=False)
         planner = MetaPlanner(config)
 
-        with patch.object(
-            planner, "_inject_learning_bus_findings"
-        ) as mock_inject:
+        with patch.object(planner, "_inject_learning_bus_findings") as mock_inject:
             # Quick mode avoids debate infrastructure; use heuristic path
             # The injection call is in prioritize_work, so we test the full flow
             # by checking the flag directly.

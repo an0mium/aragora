@@ -374,7 +374,7 @@ class TestTokenHealthChecker:
     def test_custom_thresholds(self):
         """Custom thresholds should shift the boundaries."""
         checker = TokenHealthChecker(
-            expiring_soon_threshold=600,   # 10 minutes
+            expiring_soon_threshold=600,  # 10 minutes
             expiring_today_threshold=7200,  # 2 hours
         )
         now = 1000.0
@@ -495,6 +495,7 @@ class TestOAuthStateDataExtractor:
 
     def test_get_from_metadata_object_dict_metadata(self):
         """Object state with dict metadata."""
+
         @dataclass
         class State:
             metadata: dict = None
@@ -621,10 +622,12 @@ class TestOAuthStateDataExtractor:
 
     def test_tenant_id_direct_takes_priority_over_metadata(self):
         """Direct tenant_id should be preferred over metadata tenant_id."""
-        ext = OAuthStateDataExtractor({
-            "tenant_id": "direct",
-            "metadata": {"tenant_id": "meta"},
-        })
+        ext = OAuthStateDataExtractor(
+            {
+                "tenant_id": "direct",
+                "metadata": {"tenant_id": "meta"},
+            }
+        )
         assert ext.get_tenant_id() == "direct"
 
 
@@ -708,7 +711,9 @@ class TestOAuthPermissionHelper:
         auth_ctx = MagicMock()
 
         result = helper.check(
-            handler, auth_ctx, "oauth.install",
+            handler,
+            auth_ctx,
+            "oauth.install",
             fallback_permission="connectors.authorize",
         )
 
@@ -726,7 +731,9 @@ class TestOAuthPermissionHelper:
         auth_ctx = MagicMock()
 
         result = helper.check(
-            handler, auth_ctx, "oauth.install",
+            handler,
+            auth_ctx,
+            "oauth.install",
             fallback_permission="connectors.authorize",
         )
 
@@ -747,7 +754,9 @@ class TestOAuthPermissionHelper:
         auth_ctx = MagicMock()
 
         result = helper.check(
-            handler, auth_ctx, "oauth.install",
+            handler,
+            auth_ctx,
+            "oauth.install",
             fallback_permission="connectors.authorize",
         )
 
@@ -774,7 +783,10 @@ class TestOAuthPermissionHelper:
         auth_ctx = MagicMock()
 
         result = helper.check(
-            handler, auth_ctx, "oauth.install", resource_id="res-123",
+            handler,
+            auth_ctx,
+            "oauth.install",
+            resource_id="res-123",
         )
 
         assert result.allowed is True
@@ -883,7 +895,10 @@ class TestOAuthPermissionHelper:
             handler._check_permission.side_effect = [error_resp, exc_cls("test")]
 
             result = helper.check(
-                handler, auth_ctx, "perm", fallback_permission="fallback",
+                handler,
+                auth_ctx,
+                "perm",
+                fallback_permission="fallback",
             )
             assert result.allowed is False
 
@@ -916,10 +931,12 @@ class TestOAuthHandlerProtocol:
 
     def test_protocol_importable(self):
         from aragora.server.handlers._oauth.utils import OAuthHandlerProtocol
+
         assert OAuthHandlerProtocol is not None
 
     def test_protocol_has_expected_methods(self):
         from aragora.server.handlers._oauth.utils import OAuthHandlerProtocol
+
         expected = [
             "_get_user_store",
             "_redirect_with_error",
@@ -956,10 +973,12 @@ class TestImplModuleConstant:
 
     def test_value(self):
         from aragora.server.handlers._oauth.utils import _IMPL_MODULE
+
         assert _IMPL_MODULE == "aragora.server.handlers._oauth_impl"
 
     def test_module_exists_in_sys_modules_after_import(self):
         """The _oauth_impl module is available in sys.modules after importing it."""
         import aragora.server.handlers._oauth_impl  # noqa: F401
         from aragora.server.handlers._oauth.utils import _IMPL_MODULE
+
         assert _IMPL_MODULE in sys.modules

@@ -809,7 +809,10 @@ class ContinuousLearner:
         summary["ratings_decayed"] = len(rating_decay)
 
         logger.info(
-            "Periodic learning: %s patterns, %s decayed, %s rating adjustments", summary['patterns_extracted'], summary['knowledge_decayed'], summary['ratings_decayed']
+            "Periodic learning: %s patterns, %s decayed, %s rating adjustments",
+            summary["patterns_extracted"],
+            summary["knowledge_decayed"],
+            summary["ratings_decayed"],
         )
 
         return summary

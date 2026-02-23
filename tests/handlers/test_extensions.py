@@ -199,38 +199,26 @@ def full_state() -> MagicMock:
     _created_ws.status = "active"
     state.coordinator.create_workspace = AsyncMock(return_value=_created_ws)
     state.workspace_manager = MagicMock()
-    state.workspace_manager.list_workspaces = AsyncMock(
-        return_value=[_make_workspace()]
-    )
+    state.workspace_manager.list_workspaces = AsyncMock(return_value=[_make_workspace()])
     state.convoy_tracker = MagicMock()
-    state.convoy_tracker.list_convoys = AsyncMock(
-        return_value=[_make_convoy()]
-    )
+    state.convoy_tracker.list_convoys = AsyncMock(return_value=[_make_convoy()])
 
     # Moltbot
     state.inbox_manager = MagicMock()
     state.inbox_manager.get_stats = AsyncMock(
         return_value={"messages_pending": 12, "channels_active": 3}
     )
-    state.inbox_manager.list_messages = AsyncMock(
-        return_value=[_make_message()]
-    )
+    state.inbox_manager.list_messages = AsyncMock(return_value=[_make_message()])
     state.local_gateway = MagicMock()
-    state.local_gateway.get_stats = AsyncMock(
-        return_value={"devices_connected": 5}
-    )
+    state.local_gateway.get_stats = AsyncMock(return_value={"devices_connected": 5})
     state.local_gateway.list_devices = AsyncMock(
         return_value=[_make_device(last_seen=datetime(2025, 3, 1, 12, 0, tzinfo=timezone.utc))]
     )
     state.voice_processor = MagicMock()
-    state.voice_processor.get_stats = AsyncMock(
-        return_value={"active_sessions": 2}
-    )
+    state.voice_processor.get_stats = AsyncMock(return_value={"active_sessions": 2})
     state.onboarding = MagicMock()
     state.onboarding.get_stats = AsyncMock(return_value={"flows_active": 3})
-    state.onboarding.list_flows = AsyncMock(
-        return_value=[_make_flow()]
-    )
+    state.onboarding.list_flows = AsyncMock(return_value=[_make_flow()])
 
     return state
 
@@ -485,9 +473,7 @@ class TestHandleExtensionsStats:
     ):
         from aragora.server.handlers.extensions import handle_extensions_stats
 
-        getattr(full_state, component).get_stats = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        getattr(full_state, component).get_stats = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_extensions_stats(auth_ctx)
@@ -623,9 +609,7 @@ class TestHandleGastownWorkspacesList:
     async def test_list_workspaces_exception(self, full_state, auth_ctx, exc_class):
         from aragora.server.handlers.extensions import handle_gastown_workspaces_list
 
-        full_state.workspace_manager.list_workspaces = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        full_state.workspace_manager.list_workspaces = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_gastown_workspaces_list(auth_ctx)
@@ -732,9 +716,7 @@ class TestHandleGastownWorkspaceCreate:
     async def test_create_workspace_exception(self, full_state, auth_ctx, exc_class):
         from aragora.server.handlers.extensions import handle_gastown_workspace_create
 
-        full_state.coordinator.create_workspace = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        full_state.coordinator.create_workspace = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_gastown_workspace_create(auth_ctx, {"name": "x"})
@@ -837,9 +819,7 @@ class TestHandleGastownConvoysList:
     async def test_list_convoys_exception(self, full_state, auth_ctx, exc_class):
         from aragora.server.handlers.extensions import handle_gastown_convoys_list
 
-        full_state.convoy_tracker.list_convoys = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        full_state.convoy_tracker.list_convoys = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_gastown_convoys_list(auth_ctx)
@@ -892,9 +872,7 @@ class TestHandleMoltbotInboxMessages:
         with patch(PATCH_TARGET, return_value=full_state):
             await handle_moltbot_inbox_messages(None)
 
-        full_state.inbox_manager.list_messages.assert_awaited_once_with(
-            user_id=None, limit=100
-        )
+        full_state.inbox_manager.list_messages.assert_awaited_once_with(user_id=None, limit=100)
 
     @pytest.mark.asyncio
     async def test_long_content_truncated(self, full_state, auth_ctx):
@@ -981,9 +959,7 @@ class TestHandleMoltbotInboxMessages:
     async def test_list_messages_exception(self, full_state, auth_ctx, exc_class):
         from aragora.server.handlers.extensions import handle_moltbot_inbox_messages
 
-        full_state.inbox_manager.list_messages = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        full_state.inbox_manager.list_messages = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_moltbot_inbox_messages(auth_ctx)
@@ -1036,8 +1012,9 @@ class TestHandleMoltbotGatewayDevices:
 
         full_state.local_gateway.list_devices = AsyncMock(
             return_value=[
-                _make_device("d1", "Camera", "camera", "online",
-                             datetime(2025, 1, 1, tzinfo=timezone.utc)),
+                _make_device(
+                    "d1", "Camera", "camera", "online", datetime(2025, 1, 1, tzinfo=timezone.utc)
+                ),
                 _make_device("d2", "Lock", "actuator", "offline", None),
             ]
         )
@@ -1101,9 +1078,7 @@ class TestHandleMoltbotGatewayDevices:
     async def test_list_devices_exception(self, full_state, auth_ctx, exc_class):
         from aragora.server.handlers.extensions import handle_moltbot_gateway_devices
 
-        full_state.local_gateway.list_devices = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        full_state.local_gateway.list_devices = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_moltbot_gateway_devices(auth_ctx)
@@ -1248,9 +1223,7 @@ class TestHandleMoltbotOnboardingFlows:
     async def test_list_flows_exception(self, full_state, auth_ctx, exc_class):
         from aragora.server.handlers.extensions import handle_moltbot_onboarding_flows
 
-        full_state.onboarding.list_flows = AsyncMock(
-            side_effect=exc_class("fail")
-        )
+        full_state.onboarding.list_flows = AsyncMock(side_effect=exc_class("fail"))
 
         with patch(PATCH_TARGET, return_value=full_state):
             result = await handle_moltbot_onboarding_flows(auth_ctx)
@@ -1564,9 +1537,7 @@ class TestExtensionsCrossCutting:
         )
 
         with patch(PATCH_TARGET, return_value=full_state):
-            create = await handle_gastown_workspace_create(
-                auth_ctx, {"name": "Test"}
-            )
+            create = await handle_gastown_workspace_create(auth_ctx, {"name": "Test"})
             listing = await handle_gastown_workspaces_list(auth_ctx)
 
         assert create["status"] == "ok"

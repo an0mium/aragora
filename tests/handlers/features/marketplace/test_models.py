@@ -1085,21 +1085,15 @@ class TestTemplateRatingConstruction:
         assert tr.rating == 5
 
     def test_default_review_none(self):
-        tr = TemplateRating(
-            id="r", template_id="t", tenant_id="tn", user_id="u", rating=3
-        )
+        tr = TemplateRating(id="r", template_id="t", tenant_id="tn", user_id="u", rating=3)
         assert tr.review is None
 
     def test_default_created_at_is_datetime(self):
-        tr = TemplateRating(
-            id="r", template_id="t", tenant_id="tn", user_id="u", rating=3
-        )
+        tr = TemplateRating(id="r", template_id="t", tenant_id="tn", user_id="u", rating=3)
         assert isinstance(tr.created_at, datetime)
 
     def test_default_created_at_has_timezone(self):
-        tr = TemplateRating(
-            id="r", template_id="t", tenant_id="tn", user_id="u", rating=3
-        )
+        tr = TemplateRating(id="r", template_id="t", tenant_id="tn", user_id="u", rating=3)
         assert tr.created_at.tzinfo is not None
 
     def test_full_construction_with_review(self):
@@ -1117,9 +1111,7 @@ class TestTemplateRatingConstruction:
 
     def test_all_valid_ratings_1_to_5(self):
         for val in range(1, 6):
-            tr = TemplateRating(
-                id="r", template_id="t", tenant_id="tn", user_id="u", rating=val
-            )
+            tr = TemplateRating(id="r", template_id="t", tenant_id="tn", user_id="u", rating=val)
             assert tr.rating == val
 
     def test_empty_string_review(self):

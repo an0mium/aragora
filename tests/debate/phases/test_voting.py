@@ -30,6 +30,7 @@ from aragora.debate.phases.voting import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeVote:
     """Lightweight stand-in for aragora.core.Vote."""
@@ -40,7 +41,9 @@ class FakeVote:
     confidence: float | None = 0.9
 
 
-def _make_protocol(*, vote_grouping: bool = False, threshold: float = 0.85, consensus_threshold: float = 0.6):
+def _make_protocol(
+    *, vote_grouping: bool = False, threshold: float = 0.85, consensus_threshold: float = 0.6
+):
     """Return a mock DebateProtocol with the attributes VotingPhase reads."""
     proto = MagicMock()
     proto.vote_grouping = vote_grouping
@@ -64,6 +67,7 @@ def _make_backend(similarity_map: dict[tuple[str, str], float] | None = None):
 # ============================================================================
 # VoteWeightCalculator tests
 # ============================================================================
+
 
 class TestVoteWeightCalculator:
     """Tests for VoteWeightCalculator."""
@@ -164,6 +168,7 @@ class TestVoteWeightCalculator:
 # VotingPhase.group_similar_votes tests
 # ============================================================================
 
+
 class TestGroupSimilarVotes:
     """Tests for VotingPhase.group_similar_votes."""
 
@@ -211,14 +216,16 @@ class TestGroupSimilarVotes:
     def test_multiple_groups(self):
         """Distinct clusters form separate groups."""
         proto = _make_protocol(vote_grouping=True, threshold=0.8)
-        backend = _make_backend({
-            ("A1", "A2"): 0.95,
-            ("B1", "B2"): 0.90,
-            ("A1", "B1"): 0.1,
-            ("A1", "B2"): 0.1,
-            ("A2", "B1"): 0.1,
-            ("A2", "B2"): 0.1,
-        })
+        backend = _make_backend(
+            {
+                ("A1", "A2"): 0.95,
+                ("B1", "B2"): 0.90,
+                ("A1", "B1"): 0.1,
+                ("A1", "B2"): 0.1,
+                ("A2", "B1"): 0.1,
+                ("A2", "B2"): 0.1,
+            }
+        )
         vp = VotingPhase(proto, similarity_backend=backend)
         votes = [
             FakeVote("a", "A1"),
@@ -237,6 +244,7 @@ class TestGroupSimilarVotes:
 # ============================================================================
 # VotingPhase.apply_vote_grouping tests
 # ============================================================================
+
 
 class TestApplyVoteGrouping:
     """Tests for VotingPhase.apply_vote_grouping."""
@@ -266,6 +274,7 @@ class TestApplyVoteGrouping:
 # ============================================================================
 # VotingPhase.compute_vote_distribution tests
 # ============================================================================
+
 
 class TestComputeVoteDistribution:
     """Tests for VotingPhase.compute_vote_distribution."""
@@ -315,6 +324,7 @@ class TestComputeVoteDistribution:
 # ============================================================================
 # VotingPhase.determine_winner tests
 # ============================================================================
+
 
 class TestDetermineWinner:
     """Tests for VotingPhase.determine_winner."""
@@ -367,6 +377,7 @@ class TestDetermineWinner:
 # ============================================================================
 # VotingPhase.count_weighted_votes tests
 # ============================================================================
+
 
 class TestCountWeightedVotes:
     """Tests for VotingPhase.count_weighted_votes."""
@@ -449,6 +460,7 @@ class TestCountWeightedVotes:
 # VotingPhase.compute_consensus_strength tests
 # ============================================================================
 
+
 class TestComputeConsensusStrength:
     """Tests for VotingPhase.compute_consensus_strength."""
 
@@ -494,6 +506,7 @@ class TestComputeConsensusStrength:
 # ============================================================================
 # VotingPhase.check_unanimous tests
 # ============================================================================
+
 
 class TestCheckUnanimous:
     """Tests for VotingPhase.check_unanimous."""

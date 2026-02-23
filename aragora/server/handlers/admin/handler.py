@@ -363,13 +363,18 @@ class AdminHandler(
                 # backward compatibility while still recording the check for audit.
                 if user_role in ADMIN_ROLES:
                     logger.debug(
-                        "RBAC permission %s not explicitly granted, allowing admin %s by role fallback", permission_key, auth_ctx.user_id
+                        "RBAC permission %s not explicitly granted, allowing admin %s by role fallback",
+                        permission_key,
+                        auth_ctx.user_id,
                     )
                     record_rbac_check(permission_key, granted=True)  # type: ignore[call-arg]
                     return None
 
                 logger.warning(
-                    "RBAC permission denied: %s for user %s: %s", permission_key, auth_ctx.user_id, decision.reason
+                    "RBAC permission denied: %s for user %s: %s",
+                    permission_key,
+                    auth_ctx.user_id,
+                    decision.reason,
                 )
                 record_rbac_check(permission_key, granted=False)  # type: ignore[call-arg]
                 return error_response("Permission denied", 403)

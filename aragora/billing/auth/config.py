@@ -180,7 +180,9 @@ def get_secret() -> bytes:
             logger.debug("TEST MODE: JWT secret is weak (< %s chars)", MIN_SECRET_LENGTH)
         else:
             logger.error(
-                "[JWT_DEBUG] get_secret: Secret too weak! Length=%s, required=%s", len(jwt_secret), MIN_SECRET_LENGTH
+                "[JWT_DEBUG] get_secret: Secret too weak! Length=%s, required=%s",
+                len(jwt_secret),
+                MIN_SECRET_LENGTH,
             )
             raise ConfigurationError(
                 component="JWT Authentication",
@@ -193,7 +195,9 @@ def get_secret() -> bytes:
 
     secret_fingerprint = hashlib.sha256(jwt_secret.encode()).hexdigest()[:8]
     logger.info(
-        "[JWT_DEBUG] get_secret: Using secret with fingerprint=%s, length=%s", secret_fingerprint, len(jwt_secret)
+        "[JWT_DEBUG] get_secret: Using secret with fingerprint=%s, length=%s",
+        secret_fingerprint,
+        len(jwt_secret),
     )
 
     return jwt_secret.encode("utf-8")

@@ -112,7 +112,10 @@ class PineconeVectorStore(BaseVectorStore):
                     spec=ServerlessSpec(cloud=cloud, region=environment),
                 )
                 logger.info(
-                    "Created Pinecone serverless index: %s in %s/%s", self._index_name, cloud, environment
+                    "Created Pinecone serverless index: %s in %s/%s",
+                    self._index_name,
+                    cloud,
+                    environment,
                 )
 
             self._index = self._client.Index(self._index_name)

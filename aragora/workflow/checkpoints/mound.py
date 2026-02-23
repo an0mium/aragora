@@ -121,7 +121,10 @@ class KnowledgeMoundCheckpointStore:
             add_node_method: Any = getattr(self.mound, "add_node")
             node_id: str = await add_node_method(node)
             logger.info(
-                "Saved workflow checkpoint: workflow=%s, step=%s, node_id=%s", checkpoint.workflow_id, checkpoint.current_step, node_id
+                "Saved workflow checkpoint: workflow=%s, step=%s, node_id=%s",
+                checkpoint.workflow_id,
+                checkpoint.current_step,
+                node_id,
             )
             return node_id
 

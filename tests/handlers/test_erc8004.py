@@ -86,9 +86,7 @@ class MockHTTPHandler:
             self.headers = {"Content-Length": "2"}
 
 
-def _make_handler(
-    body: dict[str, Any] | None = None, method: str = "GET"
-) -> MockHTTPHandler:
+def _make_handler(body: dict[str, Any] | None = None, method: str = "GET") -> MockHTTPHandler:
     """Create a MockHTTPHandler with optional body and method."""
     h = MockHTTPHandler(body=body)
     h.command = method
@@ -362,8 +360,14 @@ class TestSerializeIdentity:
         identity = _mock_identity()
         result = _serialize_identity(identity)
         expected_keys = {
-            "token_id", "owner", "agent_uri", "wallet_address",
-            "chain_id", "aragora_agent_id", "registered_at", "tx_hash",
+            "token_id",
+            "owner",
+            "agent_uri",
+            "wallet_address",
+            "chain_id",
+            "aragora_agent_id",
+            "registered_at",
+            "tx_hash",
         }
         assert set(result.keys()) == expected_keys
 
@@ -634,11 +638,14 @@ class TestGetAgent:
             create=True,
         ):
             # Patch the import inside the function
-            with patch.dict("sys.modules", {
-                "aragora.blockchain.contracts.identity": MagicMock(
-                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
-                )
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.blockchain.contracts.identity": MagicMock(
+                        IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                    )
+                },
+            ):
                 result = await handle_get_agent(42)
 
         assert _status(result) == 200
@@ -664,9 +671,12 @@ class TestGetAgent:
         mock_get_cb.return_value = cb
         mock_get_provider.return_value = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": None,
+            },
+        ):
             # Force ImportError on internal import
             result = await handle_get_agent(1)
         assert _status(result) in (404, 503)
@@ -683,11 +693,14 @@ class TestGetAgent:
         contract_inst = MagicMock()
         contract_inst.get_agent.side_effect = LookupError("not found")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_agent(999)
 
         assert _status(result) == 404
@@ -715,11 +728,14 @@ class TestGetReputation:
         contract_inst = MagicMock()
         contract_inst.get_summary.return_value = summary
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": MagicMock(
-                ReputationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": MagicMock(
+                    ReputationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_reputation(1, tag1="skill", tag2="domain")
 
         assert _status(result) == 200
@@ -751,11 +767,14 @@ class TestGetReputation:
         contract_inst = MagicMock()
         contract_inst.get_summary.side_effect = LookupError("no rep")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": MagicMock(
-                ReputationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": MagicMock(
+                    ReputationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_reputation(999)
 
         assert _status(result) == 404
@@ -769,9 +788,12 @@ class TestGetReputation:
         mock_get_cb.return_value = cb
         mock_get_provider.return_value = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": None,
+            },
+        ):
             result = await handle_get_reputation(1)
         assert _status(result) in (404, 503)
 
@@ -788,11 +810,14 @@ class TestGetReputation:
         contract_inst = MagicMock()
         contract_inst.get_summary.return_value = summary
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": MagicMock(
-                ReputationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": MagicMock(
+                    ReputationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_reputation(1)
 
         assert _status(result) == 200
@@ -822,11 +847,14 @@ class TestGetValidations:
         contract_inst = MagicMock()
         contract_inst.get_summary.return_value = summary
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": MagicMock(
-                ValidationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": MagicMock(
+                    ValidationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_validations(5, tag="accuracy")
 
         assert _status(result) == 200
@@ -857,11 +885,14 @@ class TestGetValidations:
         contract_inst = MagicMock()
         contract_inst.get_summary.side_effect = ValueError("bad token")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": MagicMock(
-                ValidationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": MagicMock(
+                    ValidationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_validations(999)
 
         assert _status(result) == 404
@@ -879,11 +910,14 @@ class TestGetValidations:
         contract_inst = MagicMock()
         contract_inst.get_summary.return_value = summary
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": MagicMock(
-                ValidationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": MagicMock(
+                    ValidationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_validations(1)
 
         assert _status(result) == 200
@@ -1114,11 +1148,14 @@ class TestListAgents:
         contract_inst.get_total_supply.return_value = 1
         contract_inst.get_agent.return_value = identity
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=0, limit=100)
 
         assert _status(result) == 200
@@ -1143,11 +1180,14 @@ class TestListAgents:
         contract_inst = MagicMock()
         contract_inst.get_total_supply.return_value = 0
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents()
 
         assert _status(result) == 200
@@ -1168,9 +1208,7 @@ class TestListAgents:
         provider.get_config.return_value = config
         mock_get_provider.return_value = provider
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock()
-        }):
+        with patch.dict("sys.modules", {"aragora.blockchain.contracts.identity": MagicMock()}):
             result = await handle_list_agents()
 
         assert _status(result) == 503
@@ -1202,11 +1240,14 @@ class TestListAgents:
         contract_inst = MagicMock()
         contract_inst.get_total_supply.return_value = 5
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=10, limit=100)
 
         assert _status(result) == 200
@@ -1232,11 +1273,14 @@ class TestListAgents:
         contract_inst.get_total_supply.return_value = 2
         contract_inst.get_agent.return_value = _mock_identity()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             # limit=1000 should be clamped to 500
             result = await handle_list_agents(skip=0, limit=1000)
 
@@ -1262,11 +1306,14 @@ class TestListAgents:
         contract_inst.get_total_supply.return_value = 1
         contract_inst.get_agent.return_value = _mock_identity()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=-5, limit=100)
 
         assert _status(result) == 200
@@ -1299,11 +1346,14 @@ class TestListAgents:
             identity3,
         ]
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=0, limit=100)
 
         assert _status(result) == 200
@@ -1320,9 +1370,12 @@ class TestListAgents:
         mock_get_cb.return_value = cb
         mock_get_provider.return_value = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": None,
+            },
+        ):
             result = await handle_list_agents()
         assert _status(result) == 503
 
@@ -1376,11 +1429,14 @@ class TestRegisterAgent:
         provider.get_config.return_value = config
         mock_get_provider.return_value = provider
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(),
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(),
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": MagicMock(),
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
         assert _status(result) == 503
@@ -1413,11 +1469,14 @@ class TestRegisterAgent:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": mock_models_mod,
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": mock_models_mod,
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(
                 agent_uri="https://agent.example.com",
                 metadata={"role": "verifier"},
@@ -1446,11 +1505,14 @@ class TestRegisterAgent:
         mock_wallet_mod = MagicMock()
         mock_wallet_mod.WalletSigner.from_env.side_effect = ValueError("no key")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(),
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(),
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
         assert _status(result) == 400
@@ -1478,11 +1540,14 @@ class TestRegisterAgent:
         # MetadataEntry side-effect: _coerce_metadata_value will raise for list
         mock_models_mod.MetadataEntry = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(),
-            "aragora.blockchain.models": mock_models_mod,
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(),
+                "aragora.blockchain.models": mock_models_mod,
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(
                 agent_uri="https://agent.example.com",
                 metadata={"bad": [1, 2, 3]},  # list value is invalid
@@ -1516,11 +1581,14 @@ class TestRegisterAgent:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
         assert _status(result) == 500
@@ -1534,11 +1602,14 @@ class TestRegisterAgent:
         mock_get_cb.return_value = cb
         mock_get_provider.return_value = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": None,
-            "aragora.blockchain.models": None,
-            "aragora.blockchain.wallet": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": None,
+                "aragora.blockchain.models": None,
+                "aragora.blockchain.wallet": None,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
         assert _status(result) == 503
 
@@ -1567,11 +1638,14 @@ class TestRegisterAgent:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(
                 agent_uri="https://agent.example.com",
                 metadata=None,
@@ -1696,7 +1770,9 @@ class TestHandlerRoutingErrors:
         assert _status(result) == 400
 
     def test_metadata_not_object(self, handler):
-        h = _make_handler(body={"agent_uri": "https://test.com", "metadata": "string"}, method="POST")
+        h = _make_handler(
+            body={"agent_uri": "https://test.com", "metadata": "string"}, method="POST"
+        )
         result = handler.handle("/api/v1/blockchain/agents", {}, h)
         assert _status(result) == 400
         assert "metadata must be an object" in _body(result).get("error", "")
@@ -1968,9 +2044,12 @@ class TestLazyInitializers:
         mock_adapter_mod = MagicMock()
         mock_adapter_mod.ERC8004Adapter.return_value = mock_adapter
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.erc8004_adapter": mock_adapter_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.erc8004_adapter": mock_adapter_mod,
+            },
+        ):
             result = _get_adapter()
         assert result is mock_adapter
         mock_adapter_mod.ERC8004Adapter.assert_called_once_with(provider=mock_provider)
@@ -2129,8 +2208,14 @@ class TestBlockchainConfigEdgeCases:
         result = await handle_blockchain_config()
         body = _body(result)
         expected_keys = {
-            "chain_id", "rpc_url", "identity_registry", "reputation_registry",
-            "validation_registry", "block_confirmations", "is_connected", "health",
+            "chain_id",
+            "rpc_url",
+            "identity_registry",
+            "reputation_registry",
+            "validation_registry",
+            "block_confirmations",
+            "is_connected",
+            "health",
         }
         assert set(body.keys()) == expected_keys
 
@@ -2155,11 +2240,14 @@ class TestGetAgentEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_agent.side_effect = TimeoutError("rpc timeout")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_agent(1)
         assert _status(result) == 404
 
@@ -2175,11 +2263,14 @@ class TestGetAgentEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_agent.side_effect = ValueError("invalid token id")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_agent(0)
         assert _status(result) == 404
 
@@ -2195,11 +2286,14 @@ class TestGetAgentEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_agent.side_effect = RuntimeError("contract reverted")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_agent(1)
         assert _status(result) == 404
 
@@ -2215,11 +2309,14 @@ class TestGetAgentEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_agent.side_effect = ConnectionError("connection lost")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_agent(1)
         assert _status(result) == 404
 
@@ -2244,11 +2341,14 @@ class TestGetReputationEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_summary.side_effect = TimeoutError("rpc timeout")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": MagicMock(
-                ReputationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": MagicMock(
+                    ReputationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_reputation(1)
         assert _status(result) == 404
 
@@ -2264,11 +2364,14 @@ class TestGetReputationEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_summary.side_effect = RuntimeError("bad state")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": MagicMock(
-                ReputationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": MagicMock(
+                    ReputationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_reputation(1)
         assert _status(result) == 404
 
@@ -2283,24 +2386,36 @@ class TestGetReputationEdgeCases:
         mock_get_provider.return_value = MagicMock()
 
         summary = _mock_reputation_summary(
-            agent_id=1, count=20, summary_value=900,
-            summary_value_decimals=3, normalized_value=0.9,
-            tag1="skill", tag2="domain",
+            agent_id=1,
+            count=20,
+            summary_value=900,
+            summary_value_decimals=3,
+            normalized_value=0.9,
+            tag1="skill",
+            tag2="domain",
         )
         contract_inst = MagicMock()
         contract_inst.get_summary.return_value = summary
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.reputation": MagicMock(
-                ReputationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.reputation": MagicMock(
+                    ReputationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_reputation(1, tag1="skill", tag2="domain")
 
         body = _body(result)
         expected_keys = {
-            "agent_id", "count", "summary_value",
-            "summary_value_decimals", "normalized_value", "tag1", "tag2",
+            "agent_id",
+            "count",
+            "summary_value",
+            "summary_value_decimals",
+            "normalized_value",
+            "tag1",
+            "tag2",
         }
         assert set(body.keys()) == expected_keys
         assert body["summary_value"] == 900
@@ -2328,11 +2443,14 @@ class TestGetValidationsEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_summary.side_effect = TimeoutError("rpc timeout")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": MagicMock(
-                ValidationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": MagicMock(
+                    ValidationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_validations(1)
         assert _status(result) == 404
 
@@ -2345,9 +2463,12 @@ class TestGetValidationsEdgeCases:
         mock_get_cb.return_value = cb
         mock_get_provider.return_value = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": None,
+            },
+        ):
             result = await handle_get_validations(1)
         assert _status(result) in (404, 503)
 
@@ -2362,16 +2483,22 @@ class TestGetValidationsEdgeCases:
         mock_get_provider.return_value = MagicMock()
 
         summary = _mock_validation_summary(
-            agent_id=7, count=15, average_response=0.95, tag="precision",
+            agent_id=7,
+            count=15,
+            average_response=0.95,
+            tag="precision",
         )
         contract_inst = MagicMock()
         contract_inst.get_summary.return_value = summary
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": MagicMock(
-                ValidationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": MagicMock(
+                    ValidationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_validations(7, tag="precision")
 
         body = _body(result)
@@ -2391,11 +2518,14 @@ class TestGetValidationsEdgeCases:
         contract_inst = MagicMock()
         contract_inst.get_summary.side_effect = OSError("socket error")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.validation": MagicMock(
-                ValidationRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.validation": MagicMock(
+                    ValidationRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_get_validations(1)
         assert _status(result) == 404
 
@@ -2501,7 +2631,9 @@ class TestBlockchainSyncEdgeCases:
 
         adapter = AsyncMock()
         adapter.sync_to_km.return_value = _mock_sync_result(
-            records_synced=0, records_skipped=0, records_failed=0,
+            records_synced=0,
+            records_skipped=0,
+            records_failed=0,
         )
         mock_get_adapter.return_value = adapter
 
@@ -2534,8 +2666,11 @@ class TestBlockchainSyncEdgeCases:
         result = await handle_blockchain_sync()
         body = _body(result)
         expected_keys = {
-            "records_synced", "records_skipped", "records_failed",
-            "duration_ms", "errors",
+            "records_synced",
+            "records_skipped",
+            "records_failed",
+            "duration_ms",
+            "errors",
         }
         assert set(body.keys()) == expected_keys
 
@@ -2670,11 +2805,14 @@ class TestListAgentsEdgeCases:
         identities = [_mock_identity(token_id=i) for i in range(3, 6)]
         contract_inst.get_agent.side_effect = identities
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=2, limit=3)
 
         assert _status(result) == 200
@@ -2702,11 +2840,14 @@ class TestListAgentsEdgeCases:
         contract_inst.get_total_supply.return_value = 5
         contract_inst.get_agent.return_value = _mock_identity()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=0, limit=0)
 
         assert _status(result) == 200
@@ -2757,11 +2898,14 @@ class TestListAgentsEdgeCases:
         contract_inst.get_total_supply.return_value = 3
         contract_inst.get_agent.side_effect = LookupError("missing")
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents(skip=0, limit=100)
 
         assert _status(result) == 200
@@ -2788,11 +2932,14 @@ class TestListAgentsEdgeCases:
         contract_inst.get_total_supply.return_value = 1
         contract_inst.get_agent.return_value = _mock_identity()
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": MagicMock(
-                IdentityRegistryContract=MagicMock(return_value=contract_inst)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": MagicMock(
+                    IdentityRegistryContract=MagicMock(return_value=contract_inst)
+                )
+            },
+        ):
             result = await handle_list_agents()
 
         body = _body(result)
@@ -2833,11 +2980,14 @@ class TestRegisterAgentEdgeCases:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
         assert _status(result) == 500
@@ -2867,11 +3017,14 @@ class TestRegisterAgentEdgeCases:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
         assert _status(result) == 500
@@ -2901,11 +3054,14 @@ class TestRegisterAgentEdgeCases:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
         assert _status(result) == 500
@@ -2936,11 +3092,14 @@ class TestRegisterAgentEdgeCases:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(
                 agent_uri="https://agent.example.com",
                 metadata={"role": "verifier", "level": 42, "active": True},
@@ -2976,11 +3135,14 @@ class TestRegisterAgentEdgeCases:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(
                 agent_uri="https://agent.example.com",
                 metadata={},
@@ -3014,11 +3176,14 @@ class TestRegisterAgentEdgeCases:
         mock_identity_mod = MagicMock()
         mock_identity_mod.IdentityRegistryContract.return_value = contract_inst
 
-        with patch.dict("sys.modules", {
-            "aragora.blockchain.contracts.identity": mock_identity_mod,
-            "aragora.blockchain.models": MagicMock(),
-            "aragora.blockchain.wallet": mock_wallet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.blockchain.contracts.identity": mock_identity_mod,
+                "aragora.blockchain.models": MagicMock(),
+                "aragora.blockchain.wallet": mock_wallet_mod,
+            },
+        ):
             result = await handle_register_agent(agent_uri="https://a.com")
 
         body = _body(result)

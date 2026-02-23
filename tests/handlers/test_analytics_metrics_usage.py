@@ -59,18 +59,21 @@ class MockHTTPHandler:
 
 class AdminAuth:
     """Mock admin auth context."""
+
     org_id = "test-org-001"
     roles = {"admin"}
 
 
 class UserAuth:
     """Mock non-admin auth context."""
+
     org_id = "user-org-001"
     roles = set()
 
 
 class PlatformAdminAuth:
     """Mock platform admin auth context."""
+
     org_id = "platform-org"
     roles = {"platform_admin"}
 
@@ -1546,7 +1549,11 @@ class TestIntegration:
         """user_store.get_active_user_counts is called with org_id."""
         user_store = MagicMock()
         user_store.get_active_user_counts.return_value = {"daily": 0, "weekly": 0, "monthly": 0}
-        user_store.get_user_growth.return_value = {"new_users": 0, "churned_users": 0, "net_growth": 0}
+        user_store.get_user_growth.return_value = {
+            "new_users": 0,
+            "churned_users": 0,
+            "net_growth": 0,
+        }
         h = AnalyticsMetricsHandler({"user_store": user_store})
 
         h._get_active_users(
@@ -1560,7 +1567,11 @@ class TestIntegration:
         """user_store.get_user_growth is called with org_id and days."""
         user_store = MagicMock()
         user_store.get_active_user_counts.return_value = {"daily": 0, "weekly": 0, "monthly": 0}
-        user_store.get_user_growth.return_value = {"new_users": 0, "churned_users": 0, "net_growth": 0}
+        user_store.get_user_growth.return_value = {
+            "new_users": 0,
+            "churned_users": 0,
+            "net_growth": 0,
+        }
         h = AnalyticsMetricsHandler({"user_store": user_store})
 
         h._get_active_users(

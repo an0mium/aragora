@@ -181,7 +181,9 @@ class LeaderboardViewHandler(SecureHandler):
         )
 
         logger.info(
-            "Leaderboard view: %s failed sections, %s agents", len(errors), len(data.get('rankings', {}).get('agents', []))
+            "Leaderboard view: %s failed sections, %s agents",
+            len(errors),
+            len(data.get("rankings", {}).get("agents", [])),
         )
         return json_response(
             {

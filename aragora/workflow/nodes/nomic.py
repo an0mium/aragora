@@ -90,7 +90,11 @@ class NomicLoopStep(BaseStep):
             phases = self.ALL_PHASES
 
         logger.info(
-            "NomicLoopStep '%s' starting: cycles=%s, phases=%s, workspace=%s", self.name, cycles, phases, workspace_id
+            "NomicLoopStep '%s' starting: cycles=%s, phases=%s, workspace=%s",
+            self.name,
+            cycles,
+            phases,
+            workspace_id,
         )
 
         try:

@@ -46,6 +46,7 @@ from aragora.server.handlers.metrics_endpoint import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -112,6 +113,7 @@ class MockHTTPHandler:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_metrics_registry():
     """Reset MetricsRegistry state between tests."""
@@ -134,14 +136,17 @@ def handler():
 @pytest.fixture
 def mock_http():
     """Create a mock HTTP handler factory."""
+
     def _make(body=None, token="test-valid-token"):
         return MockHTTPHandler(body=body, token=token)
+
     return _make
 
 
 # ============================================================================
 # CardinalityConfig tests
 # ============================================================================
+
 
 class TestCardinalityConfig:
     """Tests for CardinalityConfig dataclass."""
@@ -185,6 +190,7 @@ class TestCardinalityConfig:
 # ============================================================================
 # _normalize_endpoint tests
 # ============================================================================
+
 
 class TestNormalizeEndpoint:
     """Tests for _normalize_endpoint function."""
@@ -241,6 +247,7 @@ class TestNormalizeEndpoint:
 # _normalize_table tests
 # ============================================================================
 
+
 class TestNormalizeTable:
     """Tests for _normalize_table function."""
 
@@ -283,6 +290,7 @@ class TestNormalizeTable:
 # _limit_label_cardinality tests
 # ============================================================================
 
+
 class TestLimitLabelCardinality:
     """Tests for _limit_label_cardinality function."""
 
@@ -295,18 +303,14 @@ class TestLimitLabelCardinality:
     def test_high_cardinality_normalizes_endpoint(self):
         config = CardinalityConfig()
         labels = {"endpoint": "/api/v1/users/42", "method": "GET"}
-        result = _limit_label_cardinality(
-            "aragora_http_requests_total", labels, config
-        )
+        result = _limit_label_cardinality("aragora_http_requests_total", labels, config)
         assert "/:id" in result["endpoint"]
         assert result["method"] == "GET"
 
     def test_high_cardinality_normalizes_table(self):
         config = CardinalityConfig()
         labels = {"table": "events_001", "operation": "SELECT"}
-        result = _limit_label_cardinality(
-            "aragora_db_query_duration_seconds", labels, config
-        )
+        result = _limit_label_cardinality("aragora_db_query_duration_seconds", labels, config)
         assert result["table"] == "events_:shard"
         assert result["operation"] == "SELECT"
 
@@ -320,25 +324,19 @@ class TestLimitLabelCardinality:
     def test_no_endpoint_or_table_labels(self):
         config = CardinalityConfig()
         labels = {"method": "GET", "status": "200"}
-        result = _limit_label_cardinality(
-            "aragora_http_requests_total", labels, config
-        )
+        result = _limit_label_cardinality("aragora_http_requests_total", labels, config)
         assert result == {"method": "GET", "status": "200"}
 
     def test_both_endpoint_and_table(self):
         config = CardinalityConfig()
         labels = {"endpoint": "/api/v1/users/42", "table": "events_001"}
-        result = _limit_label_cardinality(
-            "aragora_http_requests_total", labels, config
-        )
+        result = _limit_label_cardinality("aragora_http_requests_total", labels, config)
         assert "/:id" in result["endpoint"]
         assert result["table"] == "events_:shard"
 
     def test_empty_labels(self):
         config = CardinalityConfig()
-        result = _limit_label_cardinality(
-            "aragora_http_requests_total", {}, config
-        )
+        result = _limit_label_cardinality("aragora_http_requests_total", {}, config)
         assert result == {}
 
     def test_custom_high_cardinality_list(self):
@@ -351,6 +349,7 @@ class TestLimitLabelCardinality:
 # ============================================================================
 # MetricsRegistry tests
 # ============================================================================
+
 
 class TestMetricsRegistry:
     """Tests for MetricsRegistry class."""
@@ -367,50 +366,104 @@ class TestMetricsRegistry:
         ):
             # Mock all the imports to succeed
             mock_init = MagicMock(return_value=True)
-            with patch.dict("sys.modules", {
-                "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
-                "aragora.observability.metrics.agents": MagicMock(init_agent_provider_metrics=MagicMock()),
-                "aragora.observability.metrics.bridge": MagicMock(init_bridge_metrics=MagicMock()),
-                "aragora.observability.metrics.km": MagicMock(init_km_metrics=MagicMock()),
-                "aragora.observability.metrics.slo": MagicMock(init_slo_metrics=MagicMock()),
-                "aragora.observability.metrics.security": MagicMock(init_security_metrics=MagicMock()),
-                "aragora.observability.metrics.notification": MagicMock(init_notification_metrics=MagicMock()),
-                "aragora.observability.metrics.gauntlet": MagicMock(init_gauntlet_metrics=MagicMock()),
-                "aragora.observability.metrics.stores": MagicMock(init_store_metrics=MagicMock()),
-                "aragora.observability.metrics.debate": MagicMock(init_debate_metrics=MagicMock()),
-                "aragora.observability.metrics.request": MagicMock(init_request_metrics=MagicMock()),
-                "aragora.observability.metrics.agent": MagicMock(init_agent_metrics=MagicMock()),
-                "aragora.observability.metrics.marketplace": MagicMock(init_marketplace_metrics=MagicMock()),
-                "aragora.observability.metrics.explainability": MagicMock(init_explainability_metrics=MagicMock()),
-                "aragora.observability.metrics.fabric": MagicMock(init_fabric_metrics=MagicMock()),
-                "aragora.observability.metrics.task_queue": MagicMock(init_task_queue_metrics=MagicMock()),
-                "aragora.observability.metrics.governance": MagicMock(init_governance_metrics=MagicMock()),
-                "aragora.observability.metrics.user_mapping": MagicMock(init_user_mapping_metrics=MagicMock()),
-                "aragora.observability.metrics.checkpoint": MagicMock(init_checkpoint_metrics=MagicMock()),
-                "aragora.observability.metrics.consensus": MagicMock(
-                    init_consensus_metrics=MagicMock(),
-                    init_enhanced_consensus_metrics=MagicMock(),
-                ),
-                "aragora.observability.metrics.tts": MagicMock(init_tts_metrics=MagicMock()),
-                "aragora.observability.metrics.cache": MagicMock(init_cache_metrics=MagicMock()),
-                "aragora.observability.metrics.convergence": MagicMock(init_convergence_metrics=MagicMock()),
-                "aragora.observability.metrics.workflow": MagicMock(init_workflow_metrics=MagicMock()),
-                "aragora.observability.metrics.memory": MagicMock(init_memory_metrics=MagicMock()),
-                "aragora.observability.metrics.evidence": MagicMock(init_evidence_metrics=MagicMock()),
-                "aragora.observability.metrics.ranking": MagicMock(init_ranking_metrics=MagicMock()),
-                "aragora.observability.metrics.control_plane": MagicMock(_init_control_plane_metrics=MagicMock()),
-                "aragora.observability.metrics.platform": MagicMock(_initialize_platform_metrics=MagicMock()),
-                "aragora.observability.metrics.webhook": MagicMock(_init_metrics=MagicMock()),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
+                    "aragora.observability.metrics.agents": MagicMock(
+                        init_agent_provider_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.bridge": MagicMock(
+                        init_bridge_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.km": MagicMock(init_km_metrics=MagicMock()),
+                    "aragora.observability.metrics.slo": MagicMock(init_slo_metrics=MagicMock()),
+                    "aragora.observability.metrics.security": MagicMock(
+                        init_security_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.notification": MagicMock(
+                        init_notification_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.gauntlet": MagicMock(
+                        init_gauntlet_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.stores": MagicMock(
+                        init_store_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.debate": MagicMock(
+                        init_debate_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.request": MagicMock(
+                        init_request_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.agent": MagicMock(
+                        init_agent_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.marketplace": MagicMock(
+                        init_marketplace_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.explainability": MagicMock(
+                        init_explainability_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.fabric": MagicMock(
+                        init_fabric_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.task_queue": MagicMock(
+                        init_task_queue_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.governance": MagicMock(
+                        init_governance_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.user_mapping": MagicMock(
+                        init_user_mapping_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.checkpoint": MagicMock(
+                        init_checkpoint_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.consensus": MagicMock(
+                        init_consensus_metrics=MagicMock(),
+                        init_enhanced_consensus_metrics=MagicMock(),
+                    ),
+                    "aragora.observability.metrics.tts": MagicMock(init_tts_metrics=MagicMock()),
+                    "aragora.observability.metrics.cache": MagicMock(
+                        init_cache_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.convergence": MagicMock(
+                        init_convergence_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.workflow": MagicMock(
+                        init_workflow_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.memory": MagicMock(
+                        init_memory_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.evidence": MagicMock(
+                        init_evidence_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.ranking": MagicMock(
+                        init_ranking_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.control_plane": MagicMock(
+                        _init_control_plane_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.platform": MagicMock(
+                        _initialize_platform_metrics=MagicMock()
+                    ),
+                    "aragora.observability.metrics.webhook": MagicMock(_init_metrics=MagicMock()),
+                },
+            ):
                 result = MetricsRegistry.ensure_initialized()
                 assert result is True
                 assert MetricsRegistry._initialized is True
 
     def test_core_metrics_disabled_returns_false(self):
         mock_init = MagicMock(return_value=False)
-        with patch.dict("sys.modules", {
-            "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
+            },
+        ):
             result = MetricsRegistry.ensure_initialized()
             assert result is False
             assert MetricsRegistry._initialized is True
@@ -429,9 +482,12 @@ class TestMetricsRegistry:
     def test_value_error_handled(self):
         """ValueError during initialization is handled gracefully."""
         mock_init = MagicMock(side_effect=ValueError("bad value"))
-        with patch.dict("sys.modules", {
-            "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
+            },
+        ):
             result = MetricsRegistry.ensure_initialized()
             assert result is False
             assert MetricsRegistry._initialized is True
@@ -439,9 +495,12 @@ class TestMetricsRegistry:
     def test_runtime_error_handled(self):
         """RuntimeError during initialization is handled gracefully."""
         mock_init = MagicMock(side_effect=RuntimeError("runtime fail"))
-        with patch.dict("sys.modules", {
-            "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.observability.metrics": MagicMock(init_core_metrics=mock_init),
+            },
+        ):
             result = MetricsRegistry.ensure_initialized()
             assert result is False
             assert MetricsRegistry._initialized is True
@@ -458,6 +517,7 @@ class TestMetricsRegistry:
 # ============================================================================
 # _generate_fallback_metrics tests
 # ============================================================================
+
 
 class TestGenerateFallbackMetrics:
     """Tests for _generate_fallback_metrics function."""
@@ -502,17 +562,23 @@ class TestGenerateFallbackMetrics:
 # generate_prometheus_metrics tests
 # ============================================================================
 
+
 class TestGeneratePrometheusMetrics:
     """Tests for generate_prometheus_metrics function."""
 
     def test_returns_tuple_of_string_and_content_type(self):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             mock_registry = MagicMock()
-            with patch.dict("sys.modules", {"prometheus_client": MagicMock(
-                REGISTRY=mock_registry,
-                generate_latest=MagicMock(return_value=b"# metrics\n"),
-                CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
-            )}):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(
+                        REGISTRY=mock_registry,
+                        generate_latest=MagicMock(return_value=b"# metrics\n"),
+                        CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
+                    )
+                },
+            ):
                 content, ct = generate_prometheus_metrics()
                 assert isinstance(content, str)
                 assert isinstance(ct, str)
@@ -527,11 +593,16 @@ class TestGeneratePrometheusMetrics:
     def test_aggregate_parameter_forwarded(self):
         """aggregate_high_cardinality parameter is accepted."""
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {"prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=MagicMock(return_value=b"# metrics\n"),
-                CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
-            )}):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(
+                        REGISTRY=MagicMock(),
+                        generate_latest=MagicMock(return_value=b"# metrics\n"),
+                        CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
+                    )
+                },
+            ):
                 content, ct = generate_prometheus_metrics(aggregate_high_cardinality=True)
                 assert isinstance(content, str)
 
@@ -539,6 +610,7 @@ class TestGeneratePrometheusMetrics:
 # ============================================================================
 # get_metrics_summary tests
 # ============================================================================
+
 
 class TestGetMetricsSummary:
     """Tests for get_metrics_summary function."""
@@ -578,10 +650,13 @@ class TestGetMetricsSummary:
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             mock_prom = MagicMock()
             mock_prom.REGISTRY = mock_registry
-            with patch.dict("sys.modules", {
-                "prometheus_client": mock_prom,
-                "aragora.observability.metrics.cardinality": None,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": mock_prom,
+                    "aragora.observability.metrics.cardinality": None,
+                },
+            ):
                 summary = get_metrics_summary()
                 assert "metrics" in summary
                 assert summary["metrics"]["counters"] >= 0
@@ -594,10 +669,13 @@ class TestGetMetricsSummary:
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             mock_prom = MagicMock()
             mock_prom.REGISTRY = mock_registry
-            with patch.dict("sys.modules", {
-                "prometheus_client": mock_prom,
-                "aragora.observability.metrics.cardinality": None,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": mock_prom,
+                    "aragora.observability.metrics.cardinality": None,
+                },
+            ):
                 summary = get_metrics_summary()
                 assert summary["cardinality"] == {"available": False}
 
@@ -605,6 +683,7 @@ class TestGetMetricsSummary:
 # ============================================================================
 # ensure_all_metrics_registered tests
 # ============================================================================
+
 
 class TestEnsureAllMetricsRegistered:
     """Tests for ensure_all_metrics_registered convenience function."""
@@ -623,6 +702,7 @@ class TestEnsureAllMetricsRegistered:
 # ============================================================================
 # get_registered_metric_names tests
 # ============================================================================
+
 
 class TestGetRegisteredMetricNames:
     """Tests for get_registered_metric_names function."""
@@ -672,6 +752,7 @@ class TestGetRegisteredMetricNames:
 # PROMETHEUS_CONTENT_TYPE constant
 # ============================================================================
 
+
 class TestConstants:
     """Tests for module constants."""
 
@@ -682,6 +763,7 @@ class TestConstants:
 # ============================================================================
 # UnifiedMetricsHandler initialization tests
 # ============================================================================
+
 
 class TestHandlerInit:
     """Tests for UnifiedMetricsHandler initialization."""
@@ -715,6 +797,7 @@ class TestHandlerInit:
 # ============================================================================
 # can_handle tests
 # ============================================================================
+
 
 class TestCanHandle:
     """Tests for UnifiedMetricsHandler.can_handle()."""
@@ -759,6 +842,7 @@ class TestCanHandle:
 # ROUTES constant tests
 # ============================================================================
 
+
 class TestRoutes:
     """Tests for the ROUTES class attribute."""
 
@@ -778,6 +862,7 @@ class TestRoutes:
 # ============================================================================
 # handle() routing tests - GET /metrics
 # ============================================================================
+
 
 class TestHandleMetricsRoute:
     """Tests for handle() routing to GET /metrics."""
@@ -813,6 +898,7 @@ class TestHandleMetricsRoute:
 # ============================================================================
 # handle() routing tests - GET /api/v1/metrics/prometheus
 # ============================================================================
+
 
 class TestHandleApiPrometheusRoute:
     """Tests for handle() routing to GET /api/v1/metrics/prometheus."""
@@ -857,18 +943,19 @@ class TestHandleApiPrometheusRoute:
 # handle() routing tests - GET /api/v1/metrics/prometheus/summary
 # ============================================================================
 
+
 class TestHandleApiSummaryRoute:
     """Tests for handle() routing to GET /api/v1/metrics/prometheus/summary."""
 
     def test_summary_returns_200(self, handler, mock_http):
         with patch.object(handler, "_get_metrics_summary") as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle("/api/v1/metrics/prometheus/summary", {}, mock_http())
             assert _status(result) == 200
 
     def test_summary_dispatches_correctly(self, handler, mock_http):
         with patch.object(handler, "_get_metrics_summary") as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/metrics/prometheus/summary", {}, mock_http())
             mock_get.assert_called_once()
 
@@ -879,7 +966,7 @@ class TestHandleApiSummaryRoute:
             with patch.object(handler, "require_permission_or_error") as mock_perm:
                 mock_perm.return_value = (MagicMock(), None)
                 with patch.object(handler, "_get_metrics_summary") as mock_get:
-                    mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+                    mock_get.return_value = MagicMock(status_code=200, body=b"{}")
                     handler.handle("/api/v1/metrics/prometheus/summary", {}, mock_http())
                     mock_auth.assert_called_once()
 
@@ -887,6 +974,7 @@ class TestHandleApiSummaryRoute:
 # ============================================================================
 # handle() - auth failure tests
 # ============================================================================
+
 
 class TestHandleAuthFailure:
     """Tests for auth failures on protected endpoints."""
@@ -930,6 +1018,7 @@ class TestHandleAuthFailure:
 # handle() - unmatched routes
 # ============================================================================
 
+
 class TestHandleUnmatchedRoute:
     """Tests for handle() returning None for unrecognized paths."""
 
@@ -953,6 +1042,7 @@ class TestHandleUnmatchedRoute:
 # ============================================================================
 # _get_prometheus_metrics tests
 # ============================================================================
+
 
 class TestGetPrometheusMetrics:
     """Tests for _get_prometheus_metrics handler method."""
@@ -1068,6 +1158,7 @@ class TestGetPrometheusMetrics:
 # _get_metrics_summary tests
 # ============================================================================
 
+
 class TestGetMetricsSummaryHandler:
     """Tests for _get_metrics_summary handler method."""
 
@@ -1161,6 +1252,7 @@ class TestGetMetricsSummaryHandler:
 # Integration-style tests (full path through handle)
 # ============================================================================
 
+
 class TestIntegration:
     """Integration-style tests exercising full handle path."""
 
@@ -1188,7 +1280,11 @@ class TestIntegration:
         """Full path through /api/v1/metrics/prometheus/summary."""
         with patch(
             "aragora.server.handlers.metrics_endpoint.get_metrics_summary",
-            return_value={"initialized": True, "initialization_time_seconds": 0.5, "metrics": {"counters": 5}},
+            return_value={
+                "initialized": True,
+                "initialization_time_seconds": 0.5,
+                "metrics": {"counters": 5},
+            },
         ):
             result = handler.handle("/api/v1/metrics/prometheus/summary", {}, mock_http())
             assert _status(result) == 200
@@ -1238,11 +1334,14 @@ class TestIntegration:
 # Edge case and additional coverage tests
 # ============================================================================
 
+
 class TestEdgeCases:
     """Edge case tests for comprehensive coverage."""
 
     def test_normalize_endpoint_multiple_uuids(self):
-        endpoint = "/api/550e8400-e29b-41d4-a716-446655440000/sub/660e8400-e29b-41d4-a716-446655440001"
+        endpoint = (
+            "/api/550e8400-e29b-41d4-a716-446655440000/sub/660e8400-e29b-41d4-a716-446655440001"
+        )
         result = _normalize_endpoint(endpoint)
         # Both UUIDs should be replaced
         assert result.count(":id") == 2
@@ -1306,6 +1405,7 @@ class TestEdgeCases:
     def test_handler_exports(self):
         """Verify __all__ exports match expected."""
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "UnifiedMetricsHandler" in __all__
         assert "CardinalityConfig" in __all__
         assert "MetricsRegistry" in __all__

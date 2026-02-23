@@ -147,9 +147,7 @@ class TestGetTemplates:
 
     @pytest.mark.asyncio
     async def test_returns_templates(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/v1/orchestration/templates", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -159,9 +157,7 @@ class TestGetTemplates:
 
     @pytest.mark.asyncio
     async def test_templates_have_required_fields(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/v1/orchestration/templates", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
         body = _body(result)
         for tmpl in body["templates"]:
             assert "name" in tmpl
@@ -259,9 +255,7 @@ class TestGetStatus:
             final_answer="Use microservices",
             consensus_reached=True,
         )
-        result = await handler.handle(
-            "/api/v1/orchestration/status/req-1", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/orchestration/status/req-1", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "completed"
@@ -323,7 +317,6 @@ class TestGetStatus:
 
 
 class TestGetRouting:
-
     @pytest.mark.asyncio
     async def test_unmatched_get_returns_none(self, handler, mock_http_handler):
         result = await handler.handle(
@@ -333,9 +326,7 @@ class TestGetRouting:
 
     @pytest.mark.asyncio
     async def test_deliberate_path_not_handled_by_get(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/v1/orchestration/deliberate", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/orchestration/deliberate", {}, mock_http_handler)
         assert result is None
 
 
@@ -437,9 +428,7 @@ class TestPostDeliberate:
     async def test_cost_estimation_failure_is_non_blocking(self, handler, mock_http_handler):
         data = _make_request_data()
         with (
-            patch(
-                "aragora.server.handlers.orchestration.handler.asyncio.create_task"
-            ) as mock_task,
+            patch("aragora.server.handlers.orchestration.handler.asyncio.create_task") as mock_task,
             patch(
                 "aragora.server.handlers.debates.cost_estimation.estimate_debate_cost",
                 side_effect=ImportError("no module"),
@@ -482,6 +471,7 @@ class TestPostDeliberateSync:
         def mock_run_async(coro, timeout=30.0):
             """Synchronously resolve the coroutine by scheduling on the running loop."""
             import asyncio as _aio
+
             loop = _aio.get_event_loop()
             task = loop.create_task(coro)
             # The task won't complete until the event loop yields, but
@@ -489,6 +479,7 @@ class TestPostDeliberateSync:
             # We need nest_asyncio to allow run_until_complete inside a running loop.
             try:
                 import nest_asyncio
+
                 nest_asyncio.apply(loop)
                 return loop.run_until_complete(task)
             except ImportError:
@@ -496,11 +487,14 @@ class TestPostDeliberateSync:
                 task.cancel()
                 return fake_result
 
-        with patch.object(
-            handler, "_execute_deliberation", new_callable=AsyncMock, return_value=fake_result
-        ), patch(
-            "aragora.server.handlers.orchestration.handler.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch.object(
+                handler, "_execute_deliberation", new_callable=AsyncMock, return_value=fake_result
+            ),
+            patch(
+                "aragora.server.handlers.orchestration.handler.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = await handler.handle_post(
                 "/api/v1/orchestration/deliberate/sync",
@@ -523,19 +517,24 @@ class TestPostDeliberateSync:
 
         def mock_run_async(coro, timeout=30.0):
             import asyncio as _aio
+
             loop = _aio.get_event_loop()
             try:
                 import nest_asyncio
+
                 nest_asyncio.apply(loop)
                 return loop.run_until_complete(coro)
             except ImportError:
                 return fake_result
 
-        with patch.object(
-            handler, "_execute_deliberation", new_callable=AsyncMock, return_value=fake_result
-        ), patch(
-            "aragora.server.handlers.orchestration.handler.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch.object(
+                handler, "_execute_deliberation", new_callable=AsyncMock, return_value=fake_result
+            ),
+            patch(
+                "aragora.server.handlers.orchestration.handler.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             await handler.handle_post(
                 "/api/v1/orchestration/deliberate/sync",
@@ -642,9 +641,7 @@ class TestTemplateApplication:
 
     @pytest.mark.asyncio
     async def test_explicit_agents_not_overridden_by_template(self, handler, mock_http_handler):
-        data = _make_request_data(
-            template="code_review", agents=["my-custom-agent"], dry_run=True
-        )
+        data = _make_request_data(template="code_review", agents=["my-custom-agent"], dry_run=True)
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -665,9 +662,7 @@ class TestKnowledgeSourceValidation:
 
     @pytest.mark.asyncio
     async def test_path_traversal_in_source_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            knowledge_sources=[{"type": "slack", "id": "../../etc/passwd"}]
-        )
+        data = _make_request_data(knowledge_sources=[{"type": "slack", "id": "../../etc/passwd"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -678,9 +673,7 @@ class TestKnowledgeSourceValidation:
 
     @pytest.mark.asyncio
     async def test_absolute_path_source_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            knowledge_sources=[{"type": "slack", "id": "/etc/passwd"}]
-        )
+        data = _make_request_data(knowledge_sources=[{"type": "slack", "id": "/etc/passwd"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -691,9 +684,7 @@ class TestKnowledgeSourceValidation:
 
     @pytest.mark.asyncio
     async def test_null_byte_in_source_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            knowledge_sources=[{"type": "document", "id": "doc\x00evil"}]
-        )
+        data = _make_request_data(knowledge_sources=[{"type": "document", "id": "doc\x00evil"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -745,9 +736,7 @@ class TestKnowledgeSourceValidation:
 
     @pytest.mark.asyncio
     async def test_too_long_source_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            knowledge_sources=[{"type": "document", "id": "x" * 300}]
-        )
+        data = _make_request_data(knowledge_sources=[{"type": "document", "id": "x" * 300}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -781,9 +770,7 @@ class TestOutputChannelValidation:
 
     @pytest.mark.asyncio
     async def test_path_traversal_channel_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            output_channels=[{"type": "slack", "id": "../../secret"}]
-        )
+        data = _make_request_data(output_channels=[{"type": "slack", "id": "../../secret"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -794,9 +781,7 @@ class TestOutputChannelValidation:
 
     @pytest.mark.asyncio
     async def test_empty_channel_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            output_channels=[{"type": "slack", "id": ""}]
-        )
+        data = _make_request_data(output_channels=[{"type": "slack", "id": ""}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -807,9 +792,7 @@ class TestOutputChannelValidation:
 
     @pytest.mark.asyncio
     async def test_null_byte_channel_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            output_channels=[{"type": "slack", "id": "chan\x00evil"}]
-        )
+        data = _make_request_data(output_channels=[{"type": "slack", "id": "chan\x00evil"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -820,9 +803,7 @@ class TestOutputChannelValidation:
 
     @pytest.mark.asyncio
     async def test_webhook_invalid_url_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            output_channels=[{"type": "webhook", "id": "not-a-url"}]
-        )
+        data = _make_request_data(output_channels=[{"type": "webhook", "id": "not-a-url"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -861,9 +842,7 @@ class TestOutputChannelValidation:
 
     @pytest.mark.asyncio
     async def test_absolute_path_channel_id_rejected(self, handler, mock_http_handler):
-        data = _make_request_data(
-            output_channels=[{"type": "teams", "id": "/etc/shadow"}]
-        )
+        data = _make_request_data(output_channels=[{"type": "teams", "id": "/etc/shadow"}])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -906,7 +885,6 @@ class TestOutputChannelValidation:
 
 
 class TestRBACPermissions:
-
     @pytest.mark.no_auto_auth
     @pytest.mark.asyncio
     async def test_get_unauthenticated_returns_401(self, handler, mock_http_handler):
@@ -918,9 +896,7 @@ class TestRBACPermissions:
             raise UnauthorizedError("no token")
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
-            result = await handler.handle(
-                "/api/v1/orchestration/templates", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
         assert _status(result) == 401
 
     @pytest.mark.no_auto_auth
@@ -957,9 +933,7 @@ class TestRBACPermissions:
             return mock_ctx
 
         with patch.object(SecureHandler, "get_auth_context", return_ctx):
-            result = await handler.handle(
-                "/api/v1/orchestration/templates", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
         assert _status(result) == 403
 
     @pytest.mark.no_auto_auth
@@ -998,9 +972,7 @@ class TestRBACPermissions:
             raise ForbiddenError("Denied")
 
         with patch.object(SecureHandler, "get_auth_context", raise_forbidden):
-            result = await handler.handle(
-                "/api/v1/orchestration/templates", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
         assert _status(result) == 403
 
     @pytest.mark.no_auto_auth
@@ -1013,9 +985,7 @@ class TestRBACPermissions:
             raise ValueError("bad token")
 
         with patch.object(SecureHandler, "get_auth_context", raise_value_error):
-            result = await handler.handle(
-                "/api/v1/orchestration/templates", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
         assert _status(result) == 401
 
 
@@ -1025,13 +995,10 @@ class TestRBACPermissions:
 
 
 class TestKnowledgeSourceRBAC:
-
     def test_validate_known_source_type_passes(self, handler):
         from aragora.rbac.models import AuthorizationContext
 
-        ctx = AuthorizationContext(
-            user_id="u1", permissions={"*"}, roles=set()
-        )
+        ctx = AuthorizationContext(user_id="u1", permissions={"*"}, roles=set())
         source = KnowledgeContextSource(source_type="slack", source_id="C012ABC")
         err = handler._validate_knowledge_source(source, ctx)
         assert err is None
@@ -1040,9 +1007,7 @@ class TestKnowledgeSourceRBAC:
         """Unknown source type checks admin permission."""
         from aragora.rbac.models import AuthorizationContext
 
-        ctx = AuthorizationContext(
-            user_id="u1", permissions={"*"}, roles=set()
-        )
+        ctx = AuthorizationContext(user_id="u1", permissions={"*"}, roles=set())
         source = KnowledgeContextSource(source_type="ftp", source_id="some-server")
         # With wildcard, still passes
         err = handler._validate_knowledge_source(source, ctx)
@@ -1051,9 +1016,7 @@ class TestKnowledgeSourceRBAC:
     def test_invalid_source_id_fails_validation(self, handler):
         from aragora.rbac.models import AuthorizationContext
 
-        ctx = AuthorizationContext(
-            user_id="u1", permissions={"*"}, roles=set()
-        )
+        ctx = AuthorizationContext(user_id="u1", permissions={"*"}, roles=set())
         source = KnowledgeContextSource(source_type="slack", source_id="../bad")
         err = handler._validate_knowledge_source(source, ctx)
         assert err is not None
@@ -1066,13 +1029,10 @@ class TestKnowledgeSourceRBAC:
 
 
 class TestOutputChannelRBAC:
-
     def test_validate_known_channel_passes(self, handler):
         from aragora.rbac.models import AuthorizationContext
 
-        ctx = AuthorizationContext(
-            user_id="u1", permissions={"*"}, roles=set()
-        )
+        ctx = AuthorizationContext(user_id="u1", permissions={"*"}, roles=set())
         channel = OutputChannel(channel_type="slack", channel_id="C012ABC")
         err = handler._validate_output_channel(channel, ctx)
         assert err is None
@@ -1080,9 +1040,7 @@ class TestOutputChannelRBAC:
     def test_validate_unknown_channel_type_requires_admin(self, handler):
         from aragora.rbac.models import AuthorizationContext
 
-        ctx = AuthorizationContext(
-            user_id="u1", permissions={"*"}, roles=set()
-        )
+        ctx = AuthorizationContext(user_id="u1", permissions={"*"}, roles=set())
         channel = OutputChannel(channel_type="fax", channel_id="123456")
         # With wildcard still passes
         err = handler._validate_output_channel(channel, ctx)
@@ -1091,9 +1049,7 @@ class TestOutputChannelRBAC:
     def test_invalid_channel_id_fails(self, handler):
         from aragora.rbac.models import AuthorizationContext
 
-        ctx = AuthorizationContext(
-            user_id="u1", permissions={"*"}, roles=set()
-        )
+        ctx = AuthorizationContext(user_id="u1", permissions={"*"}, roles=set())
         channel = OutputChannel(channel_type="slack", channel_id="../etc/passwd")
         err = handler._validate_output_channel(channel, ctx)
         assert err is not None
@@ -1106,7 +1062,6 @@ class TestOutputChannelRBAC:
 
 
 class TestAgentTeamSelection:
-
     @pytest.mark.asyncio
     async def test_explicit_agents_returned(self, handler):
         req = OrchestrationRequest(question="q", agents=["claude", "gpt4"])
@@ -1115,33 +1070,25 @@ class TestAgentTeamSelection:
 
     @pytest.mark.asyncio
     async def test_fast_strategy_returns_two(self, handler):
-        req = OrchestrationRequest(
-            question="q", team_strategy=TeamStrategy.FAST, agents=[]
-        )
+        req = OrchestrationRequest(question="q", team_strategy=TeamStrategy.FAST, agents=[])
         agents = await handler._select_agent_team(req)
         assert len(agents) == 2
 
     @pytest.mark.asyncio
     async def test_diverse_strategy_returns_all(self, handler):
-        req = OrchestrationRequest(
-            question="q", team_strategy=TeamStrategy.DIVERSE, agents=[]
-        )
+        req = OrchestrationRequest(question="q", team_strategy=TeamStrategy.DIVERSE, agents=[])
         agents = await handler._select_agent_team(req)
         assert len(agents) == 4
 
     @pytest.mark.asyncio
     async def test_random_strategy_returns_subset(self, handler):
-        req = OrchestrationRequest(
-            question="q", team_strategy=TeamStrategy.RANDOM, agents=[]
-        )
+        req = OrchestrationRequest(question="q", team_strategy=TeamStrategy.RANDOM, agents=[])
         agents = await handler._select_agent_team(req)
         assert 1 <= len(agents) <= 4
 
     @pytest.mark.asyncio
     async def test_specified_no_agents_returns_default_subset(self, handler):
-        req = OrchestrationRequest(
-            question="q", team_strategy=TeamStrategy.SPECIFIED, agents=[]
-        )
+        req = OrchestrationRequest(question="q", team_strategy=TeamStrategy.SPECIFIED, agents=[])
         agents = await handler._select_agent_team(req)
         assert len(agents) == 2
 
@@ -1152,6 +1099,7 @@ class TestAgentTeamSelection:
         )
         # The handler does `import aragora.server.handlers.routing`, so make it fail
         import sys
+
         with patch.dict(sys.modules, {"aragora.server.handlers.routing": None}):
             agents = await handler._select_agent_team(req)
         assert len(agents) >= 1
@@ -1172,7 +1120,6 @@ class TestAgentTeamSelection:
 
 
 class TestFormatResult:
-
     def test_summary_format(self, handler):
         result = OrchestrationResult(
             request_id="r1",
@@ -1180,9 +1127,7 @@ class TestFormatResult:
             final_answer="Use Kubernetes",
             agents_participated=["claude"],
         )
-        req = OrchestrationRequest(
-            question="q", output_format=OutputFormat.SUMMARY
-        )
+        req = OrchestrationRequest(question="q", output_format=OutputFormat.SUMMARY)
         msg = handler._format_result_for_channel(result, req)
         assert "Use Kubernetes" in msg
         assert "Deliberation Complete" in msg
@@ -1216,20 +1161,14 @@ class TestFormatResult:
             agents_participated=["claude"],
             duration_seconds=5.0,
         )
-        req = OrchestrationRequest(
-            question="q", output_format=OutputFormat.STANDARD
-        )
+        req = OrchestrationRequest(question="q", output_format=OutputFormat.STANDARD)
         msg = handler._format_result_for_channel(result, req)
         assert "No consensus" in msg
         assert "No conclusion reached." in msg
 
     def test_summary_no_answer(self, handler):
-        result = OrchestrationResult(
-            request_id="r1", success=True, agents_participated=[]
-        )
-        req = OrchestrationRequest(
-            question="q", output_format=OutputFormat.SUMMARY
-        )
+        result = OrchestrationResult(request_id="r1", success=True, agents_participated=[])
+        req = OrchestrationRequest(question="q", output_format=OutputFormat.SUMMARY)
         msg = handler._format_result_for_channel(result, req)
         assert "No conclusion reached." in msg
 
@@ -1240,7 +1179,6 @@ class TestFormatResult:
 
 
 class TestExecuteAndStore:
-
     @pytest.mark.asyncio
     async def test_stores_result_on_success(self, handler):
         req = OrchestrationRequest(question="q", request_id="bg-1")
@@ -1296,7 +1234,6 @@ class TestExecuteAndStore:
 
 
 class TestFetchKnowledgeContext:
-
     @pytest.mark.asyncio
     async def test_chat_platforms_dispatch(self, handler):
         for platform in ["slack", "teams", "discord", "telegram", "whatsapp", "google_chat"]:
@@ -1312,7 +1249,10 @@ class TestFetchKnowledgeContext:
     async def test_confluence_dispatch(self, handler):
         source = KnowledgeContextSource(source_type="confluence", source_id="page-123")
         with patch.object(
-            handler, "_fetch_confluence_context", new_callable=AsyncMock, return_value="page content"
+            handler,
+            "_fetch_confluence_context",
+            new_callable=AsyncMock,
+            return_value="page content",
         ):
             result = await handler._fetch_knowledge_context(source)
             assert result == "page content"
@@ -1358,7 +1298,6 @@ class TestFetchKnowledgeContext:
 
 
 class TestFetchGitHubContext:
-
     @pytest.mark.asyncio
     async def test_path_traversal_returns_none(self, handler):
         source = KnowledgeContextSource(source_type="github", source_id="../../etc/passwd")
@@ -1373,9 +1312,7 @@ class TestFetchGitHubContext:
 
     @pytest.mark.asyncio
     async def test_invalid_owner_format_returns_none(self, handler):
-        source = KnowledgeContextSource(
-            source_type="github", source_id="<script>/repo/pr/1"
-        )
+        source = KnowledgeContextSource(source_type="github", source_id="<script>/repo/pr/1")
         with patch(
             "aragora.server.handlers.orchestration.handler.re.compile",
             return_value=__import__("re").compile(r"^[a-zA-Z0-9_\-]+$"),
@@ -1385,33 +1322,25 @@ class TestFetchGitHubContext:
 
     @pytest.mark.asyncio
     async def test_invalid_item_type_returns_none(self, handler):
-        source = KnowledgeContextSource(
-            source_type="github", source_id="owner/repo/blob/123"
-        )
+        source = KnowledgeContextSource(source_type="github", source_id="owner/repo/blob/123")
         result = await handler._fetch_github_context(source)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_non_numeric_number_returns_none(self, handler):
-        source = KnowledgeContextSource(
-            source_type="github", source_id="owner/repo/pr/abc"
-        )
+        source = KnowledgeContextSource(source_type="github", source_id="owner/repo/pr/abc")
         result = await handler._fetch_github_context(source)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_too_few_parts_returns_none(self, handler):
-        source = KnowledgeContextSource(
-            source_type="github", source_id="owner/repo"
-        )
+        source = KnowledgeContextSource(source_type="github", source_id="owner/repo")
         result = await handler._fetch_github_context(source)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_valid_pr_fetched(self, handler):
-        source = KnowledgeContextSource(
-            source_type="github", source_id="owner/repo/pr/42"
-        )
+        source = KnowledgeContextSource(source_type="github", source_id="owner/repo/pr/42")
         mock_evidence = MagicMock()
         mock_evidence.content = "PR description"
         mock_connector = MagicMock()
@@ -1425,9 +1354,7 @@ class TestFetchGitHubContext:
 
     @pytest.mark.asyncio
     async def test_valid_issue_fetched(self, handler):
-        source = KnowledgeContextSource(
-            source_type="github", source_id="owner/repo/issue/10"
-        )
+        source = KnowledgeContextSource(source_type="github", source_id="owner/repo/issue/10")
         mock_evidence = MagicMock()
         mock_evidence.content = "Issue body"
         mock_connector = MagicMock()
@@ -1446,7 +1373,6 @@ class TestFetchGitHubContext:
 
 
 class TestFetchChatContext:
-
     @pytest.mark.asyncio
     async def test_returns_context_string(self, handler):
         mock_ctx = MagicMock()
@@ -1459,9 +1385,9 @@ class TestFetchChatContext:
             "aragora.connectors.chat.registry.get_connector",
             return_value=mock_connector,
         ):
-            result = await handler._fetch_chat_context("slack", KnowledgeContextSource(
-                source_type="slack", source_id="C123", max_items=10
-            ))
+            result = await handler._fetch_chat_context(
+                "slack", KnowledgeContextSource(source_type="slack", source_id="C123", max_items=10)
+            )
         assert result == "msg1\nmsg2"
 
     @pytest.mark.asyncio
@@ -1470,9 +1396,9 @@ class TestFetchChatContext:
             "aragora.connectors.chat.registry.get_connector",
             return_value=None,
         ):
-            result = await handler._fetch_chat_context("slack", KnowledgeContextSource(
-                source_type="slack", source_id="C123"
-            ))
+            result = await handler._fetch_chat_context(
+                "slack", KnowledgeContextSource(source_type="slack", source_id="C123")
+            )
         assert result is None
 
     @pytest.mark.asyncio
@@ -1486,9 +1412,9 @@ class TestFetchChatContext:
             "aragora.connectors.chat.registry.get_connector",
             return_value=mock_connector,
         ):
-            result = await handler._fetch_chat_context("slack", KnowledgeContextSource(
-                source_type="slack", source_id="C123"
-            ))
+            result = await handler._fetch_chat_context(
+                "slack", KnowledgeContextSource(source_type="slack", source_id="C123")
+            )
         assert result is None
 
     @pytest.mark.asyncio
@@ -1497,9 +1423,9 @@ class TestFetchChatContext:
             "aragora.connectors.chat.registry.get_connector",
             side_effect=ImportError("no module"),
         ):
-            result = await handler._fetch_chat_context("slack", KnowledgeContextSource(
-                source_type="slack", source_id="C123"
-            ))
+            result = await handler._fetch_chat_context(
+                "slack", KnowledgeContextSource(source_type="slack", source_id="C123")
+            )
         assert result is None
 
 
@@ -1509,7 +1435,6 @@ class TestFetchChatContext:
 
 
 class TestFetchDocumentContext:
-
     @pytest.mark.asyncio
     async def test_returns_content(self, handler):
         mock_item = MagicMock()
@@ -1557,7 +1482,6 @@ class TestFetchDocumentContext:
 
 
 class TestFetchConfluenceContext:
-
     @pytest.mark.asyncio
     async def test_no_url_returns_none(self, handler):
         source = KnowledgeContextSource(source_type="confluence", source_id="12345")
@@ -1604,7 +1528,6 @@ class TestFetchConfluenceContext:
 
 
 class TestFetchJiraContext:
-
     @pytest.mark.asyncio
     async def test_no_url_returns_none(self, handler):
         source = KnowledgeContextSource(source_type="jira", source_id="PROJ-123")
@@ -1649,7 +1572,6 @@ class TestFetchJiraContext:
 
 
 class TestRouteToChannel:
-
     @pytest.mark.asyncio
     async def test_slack_routing(self, handler):
         channel = OutputChannel(channel_type="slack", channel_id="C123", thread_id="ts1")
@@ -1734,7 +1656,6 @@ class TestRouteToChannel:
 
 
 class TestSendToChannelErrors:
-
     @pytest.mark.asyncio
     async def test_send_to_slack_import_error(self, handler):
         """Import error should not propagate."""
@@ -1783,7 +1704,6 @@ class TestSendToChannelErrors:
 
 
 class TestExecuteDeliberation:
-
     @pytest.mark.asyncio
     async def test_with_coordinator(self, handler):
         """Test execution path through control plane coordinator."""
@@ -2025,7 +1945,6 @@ class TestExecuteDeliberation:
 
 
 class TestHandlePostCallingConvention:
-
     @pytest.mark.asyncio
     async def test_handler_as_second_positional_swapped(self, handler, mock_http_handler):
         """When handler is passed as query_params (2nd pos), it's swapped."""
@@ -2056,7 +1975,6 @@ class TestHandlePostCallingConvention:
 
 
 class TestOrchestrationRequestFromDict:
-
     def test_minimal_request(self):
         req = OrchestrationRequest.from_dict({"question": "Test?"})
         assert req.question == "Test?"
@@ -2065,20 +1983,22 @@ class TestOrchestrationRequestFromDict:
         assert req.require_consensus is True
 
     def test_all_fields(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "Q?",
-            "agents": ["claude"],
-            "team_strategy": "fast",
-            "output_format": "summary",
-            "require_consensus": False,
-            "priority": "high",
-            "max_rounds": 5,
-            "timeout_seconds": 60.0,
-            "template": "code_review",
-            "notify": False,
-            "dry_run": True,
-            "metadata": {"key": "val"},
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "Q?",
+                "agents": ["claude"],
+                "team_strategy": "fast",
+                "output_format": "summary",
+                "require_consensus": False,
+                "priority": "high",
+                "max_rounds": 5,
+                "timeout_seconds": 60.0,
+                "template": "code_review",
+                "notify": False,
+                "dry_run": True,
+                "metadata": {"key": "val"},
+            }
+        )
         assert req.team_strategy == TeamStrategy.FAST
         assert req.output_format == OutputFormat.SUMMARY
         assert req.require_consensus is False
@@ -2087,38 +2007,46 @@ class TestOrchestrationRequestFromDict:
         assert req.dry_run is True
 
     def test_invalid_strategy_defaults(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "team_strategy": "invalid",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "team_strategy": "invalid",
+            }
+        )
         assert req.team_strategy == TeamStrategy.BEST_FOR_DOMAIN
 
     def test_invalid_format_defaults(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_format": "invalid",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_format": "invalid",
+            }
+        )
         assert req.output_format == OutputFormat.STANDARD
 
     def test_knowledge_context_nested_format(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_context": {
-                "sources": ["slack:C123"],
-                "workspaces": ["ws1"],
-            },
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_context": {
+                    "sources": ["slack:C123"],
+                    "workspaces": ["ws1"],
+                },
+            }
+        )
         assert len(req.knowledge_sources) == 1
         assert req.knowledge_sources[0].source_type == "slack"
         assert req.workspaces == ["ws1"]
 
     def test_output_channels_dict_format(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_channels": [
-                {"type": "slack", "id": "C123", "thread_id": "ts1"},
-            ],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_channels": [
+                    {"type": "slack", "id": "C123", "thread_id": "ts1"},
+                ],
+            }
+        )
         assert len(req.output_channels) == 1
         assert req.output_channels[0].channel_type == "slack"
         assert req.output_channels[0].thread_id == "ts1"
@@ -2130,7 +2058,6 @@ class TestOrchestrationRequestFromDict:
 
 
 class TestOrchestrationResultToDict:
-
     def test_all_fields_present(self):
         result = OrchestrationResult(
             request_id="r1",
@@ -2157,9 +2084,7 @@ class TestOrchestrationResultToDict:
         assert "created_at" in d
 
     def test_error_field(self):
-        result = OrchestrationResult(
-            request_id="r1", success=False, error="oops"
-        )
+        result = OrchestrationResult(request_id="r1", success=False, error="oops")
         d = result.to_dict()
         assert d["error"] == "oops"
         assert d["success"] is False
@@ -2171,7 +2096,6 @@ class TestOrchestrationResultToDict:
 
 
 class TestKnowledgeContextSource:
-
     def test_from_string_with_colon(self):
         src = KnowledgeContextSource.from_string("slack:C123")
         assert src.source_type == "slack"
@@ -2189,7 +2113,6 @@ class TestKnowledgeContextSource:
 
 
 class TestOutputChannel:
-
     def test_from_string_slack(self):
         ch = OutputChannel.from_string("slack:C123")
         assert ch.channel_type == "slack"
@@ -2222,9 +2145,9 @@ class TestOutputChannel:
 
 
 class TestModuleSingleton:
-
     def test_handler_singleton_exists(self):
         from aragora.server.handlers.orchestration.handler import handler as singleton
+
         assert isinstance(singleton, OrchestrationHandler)
 
     def test_handler_routes_defined(self):
@@ -2240,7 +2163,6 @@ class TestModuleSingleton:
 
 
 class TestPermissionMappings:
-
     def test_knowledge_source_permissions_cover_all_chat_platforms(self, handler):
         chat_platforms = ["slack", "teams", "discord", "telegram", "whatsapp", "google_chat"]
         for platform in chat_platforms:
@@ -2251,10 +2173,16 @@ class TestPermissionMappings:
             assert ch_type in handler.CHANNEL_PERMISSIONS
 
     def test_confluence_has_own_permission(self, handler):
-        assert handler.KNOWLEDGE_SOURCE_PERMISSIONS["confluence"] != handler.KNOWLEDGE_SOURCE_PERMISSIONS["slack"]
+        assert (
+            handler.KNOWLEDGE_SOURCE_PERMISSIONS["confluence"]
+            != handler.KNOWLEDGE_SOURCE_PERMISSIONS["slack"]
+        )
 
     def test_github_has_own_permission(self, handler):
-        assert handler.KNOWLEDGE_SOURCE_PERMISSIONS["github"] != handler.KNOWLEDGE_SOURCE_PERMISSIONS["slack"]
+        assert (
+            handler.KNOWLEDGE_SOURCE_PERMISSIONS["github"]
+            != handler.KNOWLEDGE_SOURCE_PERMISSIONS["slack"]
+        )
 
     def test_document_aliases(self, handler):
         doc_perm = handler.KNOWLEDGE_SOURCE_PERMISSIONS["document"]

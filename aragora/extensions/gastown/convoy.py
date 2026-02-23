@@ -126,7 +126,9 @@ class ConvoyTracker:
             except ValueError as e:
                 logger.debug("from workspace convoy encountered an error: %s", e)
         created_at = (
-            datetime.utcfromtimestamp(convoy.created_at) if convoy.created_at else datetime.now(timezone.utc)
+            datetime.utcfromtimestamp(convoy.created_at)
+            if convoy.created_at
+            else datetime.now(timezone.utc)
         )
         updated_at = (
             datetime.utcfromtimestamp(convoy.updated_at) if convoy.updated_at else created_at

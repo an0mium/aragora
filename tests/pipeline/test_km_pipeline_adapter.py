@@ -114,29 +114,45 @@ class TestIngestionResult:
 
     def test_success_when_items_ingested(self):
         result = PipelineIngestionResult(
-            pipeline_id="pipe-1", items_ingested=3, transitions_recorded=2,
-            provenance_links_recorded=5, knowledge_item_ids=["a", "b", "c"], errors=[],
+            pipeline_id="pipe-1",
+            items_ingested=3,
+            transitions_recorded=2,
+            provenance_links_recorded=5,
+            knowledge_item_ids=["a", "b", "c"],
+            errors=[],
         )
         assert result.success is True
 
     def test_not_success_when_errors(self):
         result = PipelineIngestionResult(
-            pipeline_id="pipe-1", items_ingested=1, transitions_recorded=0,
-            provenance_links_recorded=0, knowledge_item_ids=["a"], errors=["boom"],
+            pipeline_id="pipe-1",
+            items_ingested=1,
+            transitions_recorded=0,
+            provenance_links_recorded=0,
+            knowledge_item_ids=["a"],
+            errors=["boom"],
         )
         assert result.success is False
 
     def test_not_success_when_no_items(self):
         result = PipelineIngestionResult(
-            pipeline_id="pipe-1", items_ingested=0, transitions_recorded=0,
-            provenance_links_recorded=0, knowledge_item_ids=[], errors=[],
+            pipeline_id="pipe-1",
+            items_ingested=0,
+            transitions_recorded=0,
+            provenance_links_recorded=0,
+            knowledge_item_ids=[],
+            errors=[],
         )
         assert result.success is False
 
     def test_to_dict(self):
         result = PipelineIngestionResult(
-            pipeline_id="pipe-1", items_ingested=2, transitions_recorded=1,
-            provenance_links_recorded=4, knowledge_item_ids=["x"], errors=[],
+            pipeline_id="pipe-1",
+            items_ingested=2,
+            transitions_recorded=1,
+            provenance_links_recorded=4,
+            knowledge_item_ids=["x"],
+            errors=[],
         )
         d = result.to_dict()
         assert d["pipeline_id"] == "pipe-1"
@@ -154,9 +170,14 @@ class TestSimilarPipeline:
 
     def test_to_dict(self):
         sp = SimilarPipeline(
-            pipeline_id="pipe-old", description="API refactor",
-            similarity=0.8, status="complete", stages_completed=4,
-            goals_extracted=3, tasks_executed=5, what_worked=["caching"],
+            pipeline_id="pipe-old",
+            description="API refactor",
+            similarity=0.8,
+            status="complete",
+            stages_completed=4,
+            goals_extracted=3,
+            tasks_executed=5,
+            what_worked=["caching"],
         )
         d = sp.to_dict()
         assert d["pipeline_id"] == "pipe-old"
@@ -208,8 +229,7 @@ class TestPipelineIngestion:
         await adapter.ingest_pipeline_result(sample_pipeline_data)
         # Find calls with "PIPELINE TASK OUTCOME" content
         task_calls = [
-            c for c in mock_mound.store.call_args_list
-            if "PIPELINE TASK OUTCOME" in c[0][0].content
+            c for c in mock_mound.store.call_args_list if "PIPELINE TASK OUTCOME" in c[0][0].content
         ]
         assert len(task_calls) == 4
 

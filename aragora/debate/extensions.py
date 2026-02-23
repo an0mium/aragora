@@ -617,7 +617,14 @@ class ArenaExtensions:
                             score.score,
                             score.confidence,
                         )
-                except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    ConnectionError,
+                    OSError,
+                ) as e:
                     logger.warning("evaluation_async_failed: %s", e)
 
             # Try to schedule in running loop, otherwise skip
@@ -806,9 +813,7 @@ class ArenaExtensions:
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
-                logger.debug(
-                    "explanation_skipped: no running event loop for async build"
-                )
+                logger.debug("explanation_skipped: no running event loop for async build")
                 return
 
             async def _build_and_attach() -> None:

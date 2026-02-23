@@ -366,7 +366,9 @@ class ConvoyManager:
             self._convoys[convoy.id] = convoy
             await self._save_convoy(convoy)
 
-            logger.info("Created convoy: %s (%s) with %s beads", convoy.id, convoy.title, len(bead_ids))
+            logger.info(
+                "Created convoy: %s (%s) with %s beads", convoy.id, convoy.title, len(bead_ids)
+            )
             return convoy
 
     async def create_convoy_from_subtasks(

@@ -309,7 +309,11 @@ class EmailActionsService:
                 self._action_logs = self._action_logs[-10000:]
 
         logger.info(
-            "[EmailActions] %s by %s: %s message(s), status=%s", action_type.value, user_id, len(message_ids), status.value
+            "[EmailActions] %s by %s: %s message(s), status=%s",
+            action_type.value,
+            user_id,
+            len(message_ids),
+            status.value,
         )
 
         return log

@@ -70,9 +70,7 @@ class TestDispatchChatEvent:
             {"aragora.events": MagicMock(dispatch_event=mock_dispatch_fn)},
         ):
             _dispatch_chat_event("chat.test_event", {"key": "value"})
-            mock_dispatch_fn.assert_called_once_with(
-                "chat.test_event", {"key": "value"}
-            )
+            mock_dispatch_fn.assert_called_once_with("chat.test_event", {"key": "value"})
 
     def test_handles_import_error_gracefully(self):
         """Does not raise when aragora.events is not importable."""
@@ -114,9 +112,7 @@ class TestDispatchChatEvent:
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
             data = {"platform": "telegram", "chat_id": "123"}
             _dispatch_chat_event("chat.custom_event", data)
-            mock_events.dispatch_event.assert_called_once_with(
-                "chat.custom_event", data
-            )
+            mock_events.dispatch_event.assert_called_once_with("chat.custom_event", data)
 
     def test_empty_data_dict(self):
         """Empty data dict is passed without error."""
@@ -131,9 +127,7 @@ class TestDispatchChatEvent:
         large_data = {f"key_{i}": f"value_{i}" for i in range(1000)}
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
             _dispatch_chat_event("chat.large", large_data)
-            mock_events.dispatch_event.assert_called_once_with(
-                "chat.large", large_data
-            )
+            mock_events.dispatch_event.assert_called_once_with("chat.large", large_data)
 
 
 # ============================================================================
@@ -148,9 +142,7 @@ class TestEmitMessageReceived:
         """Event type is 'chat.message_received'."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "telegram", "chat1", "user1", "alice", "hello"
-            )
+            emit_message_received("telegram", "chat1", "user1", "alice", "hello")
             event_type = mock_events.dispatch_event.call_args[0][0]
             assert event_type == "chat.message_received"
 
@@ -158,9 +150,7 @@ class TestEmitMessageReceived:
         """All expected fields are present in the event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "telegram", "chat1", "user1", "alice", "hello world"
-            )
+            emit_message_received("telegram", "chat1", "user1", "alice", "hello world")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "telegram"
             assert data["chat_id"] == "chat1"
@@ -175,9 +165,7 @@ class TestEmitMessageReceived:
         """Custom message_type parameter is passed through."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "whatsapp", "c2", "u2", "bob", "cmd", message_type="command"
-            )
+            emit_message_received("whatsapp", "c2", "u2", "bob", "cmd", message_type="command")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["message_type"] == "command"
 
@@ -287,9 +275,7 @@ class TestEmitCommandReceived:
         """All expected fields are present in the event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_command_received(
-                "telegram", "c1", "u1", "alice", "debate", "is AI safe?"
-            )
+            emit_command_received("telegram", "c1", "u1", "alice", "debate", "is AI safe?")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "telegram"
             assert data["chat_id"] == "c1"
@@ -312,9 +298,7 @@ class TestEmitCommandReceived:
         mock_events = MagicMock()
         long_args = "y" * 200
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_command_received(
-                "telegram", "c1", "u1", "alice", "debate", long_args
-            )
+            emit_command_received("telegram", "c1", "u1", "alice", "debate", long_args)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["args_preview"]) == 100
 
@@ -323,9 +307,7 @@ class TestEmitCommandReceived:
         mock_events = MagicMock()
         args_100 = "b" * 100
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_command_received(
-                "telegram", "c1", "u1", "alice", "debate", args_100
-            )
+            emit_command_received("telegram", "c1", "u1", "alice", "debate", args_100)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["args_preview"] == args_100
 
@@ -349,9 +331,7 @@ class TestEmitCommandReceived:
         """Command name with special characters is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_command_received(
-                "telegram", "c1", "u1", "alice", "debate-v2"
-            )
+            emit_command_received("telegram", "c1", "u1", "alice", "debate-v2")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["command"] == "debate-v2"
 
@@ -376,9 +356,7 @@ class TestEmitDebateStarted:
         """All expected fields are present in the event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_started(
-                "telegram", "c1", "u1", "alice", "AI safety", "d-001"
-            )
+            emit_debate_started("telegram", "c1", "u1", "alice", "AI safety", "d-001")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "telegram"
             assert data["chat_id"] == "c1"
@@ -401,9 +379,7 @@ class TestEmitDebateStarted:
         mock_events = MagicMock()
         long_topic = "t" * 500
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_started(
-                "telegram", "c1", "u1", "alice", long_topic
-            )
+            emit_debate_started("telegram", "c1", "u1", "alice", long_topic)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["topic"]) == 200
 
@@ -445,9 +421,7 @@ class TestEmitDebateCompleted:
         """Event type is 'chat.debate_completed'."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.95, 3
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.95, 3)
             event_type = mock_events.dispatch_event.call_args[0][0]
             assert event_type == "chat.debate_completed"
 
@@ -480,9 +454,7 @@ class TestEmitDebateCompleted:
         """consensus_reached=False is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", False, 0.3, 3
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", False, 0.3, 3)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["consensus_reached"] is False
 
@@ -490,9 +462,7 @@ class TestEmitDebateCompleted:
         """final_answer_preview is None when final_answer not provided."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 3
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 3)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["final_answer_preview"] is None
 
@@ -501,9 +471,7 @@ class TestEmitDebateCompleted:
         mock_events = MagicMock()
         long_answer = "a" * 500
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 3, long_answer
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 3, long_answer)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["final_answer_preview"]) == 300
 
@@ -512,9 +480,7 @@ class TestEmitDebateCompleted:
         mock_events = MagicMock()
         answer_300 = "f" * 300
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 3, answer_300
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 3, answer_300)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["final_answer_preview"] == answer_300
 
@@ -523,9 +489,7 @@ class TestEmitDebateCompleted:
         mock_events = MagicMock()
         long_topic = "q" * 400
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", long_topic, True, 0.9, 3
-            )
+            emit_debate_completed("telegram", "c1", "d1", long_topic, True, 0.9, 3)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["topic"]) == 200
 
@@ -541,9 +505,7 @@ class TestEmitDebateCompleted:
         """Confidence of 0.0 is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", False, 0.0, 1
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", False, 0.0, 1)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["confidence"] == 0.0
 
@@ -551,9 +513,7 @@ class TestEmitDebateCompleted:
         """Confidence of 1.0 is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 1.0, 10
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 1.0, 10)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["confidence"] == 1.0
 
@@ -561,9 +521,7 @@ class TestEmitDebateCompleted:
         """rounds_used integer is preserved in event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 7
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 7)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["rounds_used"] == 7
 
@@ -580,9 +538,7 @@ class TestEmitGauntletStarted:
         """Event type is 'chat.gauntlet_started'."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_started(
-                "telegram", "c1", "u1", "alice", "AI is safe"
-            )
+            emit_gauntlet_started("telegram", "c1", "u1", "alice", "AI is safe")
             event_type = mock_events.dispatch_event.call_args[0][0]
             assert event_type == "chat.gauntlet_started"
 
@@ -590,9 +546,7 @@ class TestEmitGauntletStarted:
         """All expected fields are present in the event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_started(
-                "telegram", "c1", "u1", "alice", "statement", "g-001"
-            )
+            emit_gauntlet_started("telegram", "c1", "u1", "alice", "statement", "g-001")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "telegram"
             assert data["chat_id"] == "c1"
@@ -615,9 +569,7 @@ class TestEmitGauntletStarted:
         mock_events = MagicMock()
         long_stmt = "s" * 500
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_started(
-                "telegram", "c1", "u1", "alice", long_stmt
-            )
+            emit_gauntlet_started("telegram", "c1", "u1", "alice", long_stmt)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["statement"]) == 200
 
@@ -659,9 +611,7 @@ class TestEmitGauntletCompleted:
         """Event type is 'chat.gauntlet_completed'."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "passed", 0.9, 5, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "passed", 0.9, 5, 5)
             event_type = mock_events.dispatch_event.call_args[0][0]
             assert event_type == "chat.gauntlet_completed"
 
@@ -669,9 +619,7 @@ class TestEmitGauntletCompleted:
         """All expected fields are present in the event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "AI is safe", "passed", 0.85, 4, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "AI is safe", "passed", 0.85, 4, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "telegram"
             assert data["chat_id"] == "c1"
@@ -688,9 +636,7 @@ class TestEmitGauntletCompleted:
         mock_events = MagicMock()
         long_stmt = "g" * 400
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", long_stmt, "failed", 0.3, 1, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", long_stmt, "failed", 0.3, 1, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["statement"]) == 200
 
@@ -698,9 +644,7 @@ class TestEmitGauntletCompleted:
         """Verdict 'failed' is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "failed", 0.2, 1, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "failed", 0.2, 1, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["verdict"] == "failed"
 
@@ -708,9 +652,7 @@ class TestEmitGauntletCompleted:
         """Custom verdict string is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "inconclusive", 0.5, 3, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "inconclusive", 0.5, 3, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["verdict"] == "inconclusive"
 
@@ -718,9 +660,7 @@ class TestEmitGauntletCompleted:
         """Numeric chat_id is coerced to string."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", 321, "g1", "stmt", "passed", 0.9, 5, 5
-            )
+            emit_gauntlet_completed("telegram", 321, "g1", "stmt", "passed", 0.9, 5, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["chat_id"] == "321"
 
@@ -728,9 +668,7 @@ class TestEmitGauntletCompleted:
         """Zero challenges passed and zero total are valid."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "failed", 0.0, 0, 0
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "failed", 0.0, 0, 0)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["challenges_passed"] == 0
             assert data["challenges_total"] == 0
@@ -739,9 +677,7 @@ class TestEmitGauntletCompleted:
         """All challenges passed scenario."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "passed", 1.0, 10, 10
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "passed", 1.0, 10, 10)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["challenges_passed"] == 10
             assert data["challenges_total"] == 10
@@ -750,9 +686,7 @@ class TestEmitGauntletCompleted:
         """Confidence at boundary values 0.0 and 1.0."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "failed", 0.0, 0, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "failed", 0.0, 0, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["confidence"] == 0.0
 
@@ -777,9 +711,7 @@ class TestEmitVoteReceived:
         """All expected fields are present in the event data."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_vote_received(
-                "telegram", "c1", "u1", "alice", "d1", "agree"
-            )
+            emit_vote_received("telegram", "c1", "u1", "alice", "d1", "agree")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "telegram"
             assert data["chat_id"] == "c1"
@@ -793,9 +725,7 @@ class TestEmitVoteReceived:
         """Vote 'disagree' is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_vote_received(
-                "telegram", "c1", "u1", "alice", "d1", "disagree"
-            )
+            emit_vote_received("telegram", "c1", "u1", "alice", "d1", "disagree")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["vote"] == "disagree"
 
@@ -819,9 +749,7 @@ class TestEmitVoteReceived:
         """Arbitrary vote string is preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_vote_received(
-                "telegram", "c1", "u1", "alice", "d1", "abstain"
-            )
+            emit_vote_received("telegram", "c1", "u1", "alice", "d1", "abstain")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["vote"] == "abstain"
 
@@ -854,9 +782,7 @@ class TestEdgeCases:
         """Special characters in chat_id are preserved."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "telegram", "chat-123_abc", "u1", "alice", "hi"
-            )
+            emit_message_received("telegram", "chat-123_abc", "u1", "alice", "hi")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["chat_id"] == "chat-123_abc"
 
@@ -874,9 +800,7 @@ class TestEdgeCases:
         mock_events = MagicMock()
         msg_with_newlines = "line1\nline2\nline3"
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "telegram", "c1", "u1", "alice", msg_with_newlines
-            )
+            emit_message_received("telegram", "c1", "u1", "alice", msg_with_newlines)
             data = mock_events.dispatch_event.call_args[0][1]
             assert "line1\nline2\nline3" == data["message_preview"]
 
@@ -902,9 +826,7 @@ class TestEdgeCases:
         """Empty string final_answer produces empty preview."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 3, ""
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 3, "")
             data = mock_events.dispatch_event.call_args[0][1]
             # Empty string is falsy, so final_answer[:300] would be ""
             # but the code checks `if final_answer` so "" -> None? Let's check
@@ -917,9 +839,7 @@ class TestEdgeCases:
         mock_events = MagicMock()
         uuid_id = "550e8400-e29b-41d4-a716-446655440000"
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_started(
-                "telegram", "c1", "u1", "alice", "topic", uuid_id
-            )
+            emit_debate_started("telegram", "c1", "u1", "alice", "topic", uuid_id)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["debate_id"] == uuid_id
 
@@ -931,9 +851,7 @@ class TestSecurityConcerns:
         """Path traversal attempt in platform is just passed as string."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "../../etc/passwd", "c1", "u1", "alice", "hi"
-            )
+            emit_message_received("../../etc/passwd", "c1", "u1", "alice", "hi")
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["platform"] == "../../etc/passwd"
 
@@ -942,9 +860,7 @@ class TestSecurityConcerns:
         mock_events = MagicMock()
         xss_msg = "<script>alert('xss')</script>"
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "telegram", "c1", "u1", "alice", xss_msg
-            )
+            emit_message_received("telegram", "c1", "u1", "alice", xss_msg)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["message_preview"] == xss_msg
 
@@ -953,9 +869,7 @@ class TestSecurityConcerns:
         mock_events = MagicMock()
         sql_cmd = "'; DROP TABLE users; --"
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_command_received(
-                "telegram", "c1", "u1", "alice", sql_cmd
-            )
+            emit_command_received("telegram", "c1", "u1", "alice", sql_cmd)
             data = mock_events.dispatch_event.call_args[0][1]
             assert data["command"] == sql_cmd
 
@@ -973,9 +887,7 @@ class TestSecurityConcerns:
         mock_events = MagicMock()
         huge_topic = "T" * 100_000
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_started(
-                "telegram", "c1", "u1", "alice", huge_topic
-            )
+            emit_debate_started("telegram", "c1", "u1", "alice", huge_topic)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["topic"]) == 200
 
@@ -984,9 +896,7 @@ class TestSecurityConcerns:
         mock_events = MagicMock()
         huge_stmt = "S" * 100_000
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_started(
-                "telegram", "c1", "u1", "alice", huge_stmt
-            )
+            emit_gauntlet_started("telegram", "c1", "u1", "alice", huge_stmt)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["statement"]) == 200
 
@@ -995,9 +905,7 @@ class TestSecurityConcerns:
         mock_events = MagicMock()
         huge_answer = "A" * 100_000
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 3, huge_answer
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 3, huge_answer)
             data = mock_events.dispatch_event.call_args[0][1]
             assert len(data["final_answer_preview"]) == 300
 
@@ -1050,15 +958,9 @@ class TestIntegrationScenarios:
         """Track a debate from message to vote through all events."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_message_received(
-                "telegram", "c1", "u1", "alice", "/debate AI safety"
-            )
-            emit_command_received(
-                "telegram", "c1", "u1", "alice", "debate", "AI safety"
-            )
-            emit_debate_started(
-                "telegram", "c1", "u1", "alice", "AI safety", "d-123"
-            )
+            emit_message_received("telegram", "c1", "u1", "alice", "/debate AI safety")
+            emit_command_received("telegram", "c1", "u1", "alice", "debate", "AI safety")
+            emit_debate_started("telegram", "c1", "u1", "alice", "AI safety", "d-123")
             emit_debate_completed(
                 "telegram",
                 "c1",
@@ -1069,14 +971,10 @@ class TestIntegrationScenarios:
                 3,
                 "AI is generally safe with proper guardrails",
             )
-            emit_vote_received(
-                "telegram", "c1", "u1", "alice", "d-123", "agree"
-            )
+            emit_vote_received("telegram", "c1", "u1", "alice", "d-123", "agree")
 
         assert mock_events.dispatch_event.call_count == 5
-        event_types = [
-            c[0][0] for c in mock_events.dispatch_event.call_args_list
-        ]
+        event_types = [c[0][0] for c in mock_events.dispatch_event.call_args_list]
         assert event_types == [
             "chat.message_received",
             "chat.command_received",
@@ -1089,20 +987,12 @@ class TestIntegrationScenarios:
         """Track a gauntlet from command to completion."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_command_received(
-                "whatsapp", "c2", "u2", "bob", "gauntlet", "Earth is flat"
-            )
-            emit_gauntlet_started(
-                "whatsapp", "c2", "u2", "bob", "Earth is flat", "g-456"
-            )
-            emit_gauntlet_completed(
-                "whatsapp", "c2", "g-456", "Earth is flat", "failed", 0.1, 0, 5
-            )
+            emit_command_received("whatsapp", "c2", "u2", "bob", "gauntlet", "Earth is flat")
+            emit_gauntlet_started("whatsapp", "c2", "u2", "bob", "Earth is flat", "g-456")
+            emit_gauntlet_completed("whatsapp", "c2", "g-456", "Earth is flat", "failed", 0.1, 0, 5)
 
         assert mock_events.dispatch_event.call_count == 3
-        event_types = [
-            c[0][0] for c in mock_events.dispatch_event.call_args_list
-        ]
+        event_types = [c[0][0] for c in mock_events.dispatch_event.call_args_list]
         assert event_types == [
             "chat.command_received",
             "chat.gauntlet_started",
@@ -1126,9 +1016,7 @@ class TestIntegrationScenarios:
         """Debate that ends without consensus."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_started(
-                "telegram", "c1", "u1", "alice", "Controversial topic"
-            )
+            emit_debate_started("telegram", "c1", "u1", "alice", "Controversial topic")
             emit_debate_completed(
                 "telegram",
                 "c1",
@@ -1149,21 +1037,12 @@ class TestIntegrationScenarios:
         """Multiple votes on the same debate each produce separate events."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_vote_received(
-                "telegram", "c1", "u1", "alice", "d1", "agree"
-            )
-            emit_vote_received(
-                "telegram", "c1", "u2", "bob", "d1", "disagree"
-            )
-            emit_vote_received(
-                "telegram", "c1", "u3", "carol", "d1", "agree"
-            )
+            emit_vote_received("telegram", "c1", "u1", "alice", "d1", "agree")
+            emit_vote_received("telegram", "c1", "u2", "bob", "d1", "disagree")
+            emit_vote_received("telegram", "c1", "u3", "carol", "d1", "agree")
 
         assert mock_events.dispatch_event.call_count == 3
-        votes = [
-            c[0][1]["vote"]
-            for c in mock_events.dispatch_event.call_args_list
-        ]
+        votes = [c[0][1]["vote"] for c in mock_events.dispatch_event.call_args_list]
         assert votes == ["agree", "disagree", "agree"]
 
     def test_timestamps_are_monotonically_increasing(self):
@@ -1174,10 +1053,7 @@ class TestIntegrationScenarios:
             emit_message_received("telegram", "c1", "u1", "alice", "msg2")
             emit_message_received("telegram", "c1", "u1", "alice", "msg3")
 
-        timestamps = [
-            c[0][1]["timestamp"]
-            for c in mock_events.dispatch_event.call_args_list
-        ]
+        timestamps = [c[0][1]["timestamp"] for c in mock_events.dispatch_event.call_args_list]
         assert timestamps[0] <= timestamps[1] <= timestamps[2]
 
     def test_dispatch_failure_does_not_prevent_subsequent_calls(self):
@@ -1231,9 +1107,7 @@ class TestTimestamps:
         """emit_debate_completed includes a float timestamp."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_debate_completed(
-                "telegram", "c1", "d1", "topic", True, 0.9, 3
-            )
+            emit_debate_completed("telegram", "c1", "d1", "topic", True, 0.9, 3)
             data = mock_events.dispatch_event.call_args[0][1]
             assert isinstance(data["timestamp"], float)
 
@@ -1249,9 +1123,7 @@ class TestTimestamps:
         """emit_gauntlet_completed includes a float timestamp."""
         mock_events = MagicMock()
         with patch.dict("sys.modules", {"aragora.events": mock_events}):
-            emit_gauntlet_completed(
-                "telegram", "c1", "g1", "stmt", "passed", 0.9, 5, 5
-            )
+            emit_gauntlet_completed("telegram", "c1", "g1", "stmt", "passed", 0.9, 5, 5)
             data = mock_events.dispatch_event.call_args[0][1]
             assert isinstance(data["timestamp"], float)
 

@@ -17,8 +17,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 SAMPLE_CARTOGRAPHER_DATA = {
     "nodes": [
         {"id": "n1", "node_type": "proposal", "content": "We should implement rate limiting"},
-        {"id": "n2", "node_type": "consensus", "content": "Implement a token bucket rate limiter with configurable limits"},
-        {"id": "n3", "node_type": "vote", "content": "Agreed: per-user rate limits with 100 req/min default"},
+        {
+            "id": "n2",
+            "node_type": "consensus",
+            "content": "Implement a token bucket rate limiter with configurable limits",
+        },
+        {
+            "id": "n3",
+            "node_type": "vote",
+            "content": "Agreed: per-user rate limits with 100 req/min default",
+        },
         {"id": "n4", "node_type": "critique", "content": "Needs burst handling for spiky traffic"},
     ],
     "edges": [
@@ -185,7 +193,11 @@ class TestAsyncPipelineRun:
         event_types = [e[0] for e in events_received]
         assert "stage_started" in event_types
         # Either completed or failed
-        assert "stage_completed" in event_types or "stage_failed" in event_types or "failed" in event_types
+        assert (
+            "stage_completed" in event_types
+            or "stage_failed" in event_types
+            or "failed" in event_types
+        )
 
 
 class TestPipelineStreamEmitter:
@@ -269,9 +281,7 @@ class TestSDKPipelineNamespace:
         api = PipelineAPI(mock_client)
         api.status("p1")
 
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v1/canvas/pipeline/p1/status"
-        )
+        mock_client.request.assert_called_once_with("GET", "/api/v1/canvas/pipeline/p1/status")
 
     def test_graph_with_stage_filter(self):
         """PipelineAPI.graph() should pass stage as query param."""
@@ -296,6 +306,4 @@ class TestSDKPipelineNamespace:
         api = PipelineAPI(mock_client)
         api.receipt("p1")
 
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v1/canvas/pipeline/p1/receipt"
-        )
+        mock_client.request.assert_called_once_with("GET", "/api/v1/canvas/pipeline/p1/receipt")

@@ -103,7 +103,9 @@ _SECURITY_PATTERNS: list[tuple[re.Pattern[str], IssueSeverity, str, str | None]]
         "Use shell=False with a list of arguments",
     ),
     (
-        re.compile(r"""(?:api[_-]?key|password|secret|token)\s*=\s*["'][^"']{8,}["']""", re.IGNORECASE),
+        re.compile(
+            r"""(?:api[_-]?key|password|secret|token)\s*=\s*["'][^"']{8,}["']""", re.IGNORECASE
+        ),
         IssueSeverity.CRITICAL,
         "Possible hardcoded secret",
         "Use environment variables or a secrets manager",
@@ -297,7 +299,9 @@ class CodeReviewerAgent:
     # Public API
     # ------------------------------------------------------------------
 
-    def review_diff(self, diff: str, goal: str = "", context: dict[str, Any] | None = None) -> ReviewResult:
+    def review_diff(
+        self, diff: str, goal: str = "", context: dict[str, Any] | None = None
+    ) -> ReviewResult:
         """Review a git diff for quality issues.
 
         Extracts added lines from the diff and runs pattern and security
@@ -340,25 +344,29 @@ class CodeReviewerAgent:
                     content = f.read()
             except OSError as e:
                 logger.warning("Cannot read file %s: %s", filepath, e)
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.ERROR,
-                    category="io",
-                    file=filepath,
-                    line=None,
-                    description=f"Cannot read file: {type(e).__name__}",
-                ))
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.ERROR,
+                        category="io",
+                        file=filepath,
+                        line=None,
+                        description=f"Cannot read file: {type(e).__name__}",
+                    )
+                )
                 continue
 
             try:
                 tree = ast.parse(content)
             except SyntaxError:
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.ERROR,
-                    category="syntax",
-                    file=filepath,
-                    line=None,
-                    description="Cannot parse file: SyntaxError",
-                ))
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.ERROR,
+                        category="syntax",
+                        file=filepath,
+                        line=None,
+                        description="Cannot parse file: SyntaxError",
+                    )
+                )
                 continue
 
             if self.config.check_patterns:
@@ -392,15 +400,17 @@ class CodeReviewerAgent:
         issues: list[ReviewIssue] = []
         for pattern, severity, desc, suggestion in _PATTERN_CHECKS:
             for match in pattern.finditer(content):
-                line = content[:match.start()].count("\n") + 1
-                issues.append(ReviewIssue(
-                    severity=severity,
-                    category="pattern",
-                    file=filepath,
-                    line=line,
-                    description=desc,
-                    suggestion=suggestion,
-                ))
+                line = content[: match.start()].count("\n") + 1
+                issues.append(
+                    ReviewIssue(
+                        severity=severity,
+                        category="pattern",
+                        file=filepath,
+                        line=line,
+                        description=desc,
+                        suggestion=suggestion,
+                    )
+                )
 
         # Check handler methods missing @handle_errors
         if "handlers/" in filepath and filepath.endswith(".py"):
@@ -423,7 +433,19 @@ class CodeReviewerAgent:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             name = node.name
-            if not any(name.startswith(prefix) for prefix in ("do_POST", "do_PUT", "do_PATCH", "do_DELETE", "handle_post", "handle_put", "handle_patch", "handle_delete")):
+            if not any(
+                name.startswith(prefix)
+                for prefix in (
+                    "do_POST",
+                    "do_PUT",
+                    "do_PATCH",
+                    "do_DELETE",
+                    "handle_post",
+                    "handle_put",
+                    "handle_patch",
+                    "handle_delete",
+                )
+            ):
                 continue
             # Check outermost decorator is handle_errors
             has_handle_errors = False
@@ -437,14 +459,16 @@ class CodeReviewerAgent:
                     has_handle_errors = True
                     break
             if not has_handle_errors:
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.ERROR,
-                    category="pattern",
-                    file=filepath,
-                    line=node.lineno,
-                    description=f"Handler method '{name}' missing @handle_errors decorator",
-                    suggestion="Add @handle_errors as the outermost decorator",
-                ))
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.ERROR,
+                        category="pattern",
+                        file=filepath,
+                        line=node.lineno,
+                        description=f"Handler method '{name}' missing @handle_errors decorator",
+                        suggestion="Add @handle_errors as the outermost decorator",
+                    )
+                )
         return issues
 
     def _check_str_e_leaks(self, content: str, filepath: str) -> list[ReviewIssue]:
@@ -454,24 +478,45 @@ class CodeReviewerAgent:
         # Exclude lines that are clearly logging
         for i, line in enumerate(content.splitlines(), 1):
             stripped = line.strip()
-            if "str(e)" not in stripped and "str(err)" not in stripped and "str(ex)" not in stripped:
+            if (
+                "str(e)" not in stripped
+                and "str(err)" not in stripped
+                and "str(ex)" not in stripped
+            ):
                 continue
             # Skip logging lines
-            if any(kw in stripped for kw in ("logger.", "logging.", "log.", ".warning(", ".error(", ".info(", ".debug(", ".exception(")):
+            if any(
+                kw in stripped
+                for kw in (
+                    "logger.",
+                    "logging.",
+                    "log.",
+                    ".warning(",
+                    ".error(",
+                    ".info(",
+                    ".debug(",
+                    ".exception(",
+                )
+            ):
                 continue
             # Skip comments and docstrings
             if stripped.startswith("#"):
                 continue
             # Flag response-context uses
-            if any(kw in stripped for kw in ("return", "response", "json", "message", "body", "detail", "error")):
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.WARNING,
-                    category="security",
-                    file=filepath,
-                    line=i,
-                    description="str(e) in response context -- may leak internal details",
-                    suggestion="Use a static error message and log the exception separately",
-                ))
+            if any(
+                kw in stripped
+                for kw in ("return", "response", "json", "message", "body", "detail", "error")
+            ):
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.WARNING,
+                        category="security",
+                        file=filepath,
+                        line=i,
+                        description="str(e) in response context -- may leak internal details",
+                        suggestion="Use a static error message and log the exception separately",
+                    )
+                )
         return issues
 
     # ------------------------------------------------------------------
@@ -483,15 +528,17 @@ class CodeReviewerAgent:
         issues: list[ReviewIssue] = []
         for pattern, severity, desc, suggestion in _SECURITY_PATTERNS:
             for match in pattern.finditer(content):
-                line = content[:match.start()].count("\n") + 1
-                issues.append(ReviewIssue(
-                    severity=severity,
-                    category="security",
-                    file=filepath,
-                    line=line,
-                    description=desc,
-                    suggestion=suggestion,
-                ))
+                line = content[: match.start()].count("\n") + 1
+                issues.append(
+                    ReviewIssue(
+                        severity=severity,
+                        category="security",
+                        file=filepath,
+                        line=line,
+                        description=desc,
+                        suggestion=suggestion,
+                    )
+                )
         return issues
 
     # ------------------------------------------------------------------
@@ -507,7 +554,9 @@ class CodeReviewerAgent:
         issues, _ = self._check_file_complexity(filepath, tree)
         return issues
 
-    def _check_file_complexity(self, filepath: str, tree: ast.Module) -> tuple[list[ReviewIssue], int]:
+    def _check_file_complexity(
+        self, filepath: str, tree: ast.Module
+    ) -> tuple[list[ReviewIssue], int]:
         """Check complexity metrics for all functions in a parsed AST."""
         issues: list[ReviewIssue] = []
 
@@ -518,37 +567,43 @@ class CodeReviewerAgent:
 
         for name, lineno, complexity, length in cv.functions:
             if complexity > self.config.max_complexity:
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.WARNING,
-                    category="complexity",
-                    file=filepath,
-                    line=lineno,
-                    description=f"Function '{name}' has cyclomatic complexity {complexity} (max {self.config.max_complexity})",
-                    suggestion="Consider breaking this function into smaller pieces",
-                ))
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.WARNING,
+                        category="complexity",
+                        file=filepath,
+                        line=lineno,
+                        description=f"Function '{name}' has cyclomatic complexity {complexity} (max {self.config.max_complexity})",
+                        suggestion="Consider breaking this function into smaller pieces",
+                    )
+                )
             if length > self.config.max_function_length:
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.WARNING,
-                    category="complexity",
-                    file=filepath,
-                    line=lineno,
-                    description=f"Function '{name}' is {length} lines long (max {self.config.max_function_length})",
-                    suggestion="Extract helper functions to reduce length",
-                ))
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.WARNING,
+                        category="complexity",
+                        file=filepath,
+                        line=lineno,
+                        description=f"Function '{name}' is {length} lines long (max {self.config.max_function_length})",
+                        suggestion="Extract helper functions to reduce length",
+                    )
+                )
 
         # Nesting depth
         nv = _NestingVisitor()
         nv.visit(tree)
         for name, lineno, depth in nv.functions:
             if depth > self.config.max_nesting_depth:
-                issues.append(ReviewIssue(
-                    severity=IssueSeverity.WARNING,
-                    category="complexity",
-                    file=filepath,
-                    line=lineno,
-                    description=f"Function '{name}' has nesting depth {depth} (max {self.config.max_nesting_depth})",
-                    suggestion="Use early returns or extract nested blocks into helper functions",
-                ))
+                issues.append(
+                    ReviewIssue(
+                        severity=IssueSeverity.WARNING,
+                        category="complexity",
+                        file=filepath,
+                        line=lineno,
+                        description=f"Function '{name}' has nesting depth {depth} (max {self.config.max_nesting_depth})",
+                        suggestion="Use early returns or extract nested blocks into helper functions",
+                    )
+                )
 
         return issues, func_count
 
@@ -566,14 +621,16 @@ class CodeReviewerAgent:
                 continue
             for imp_name, lineno in imports:
                 if forbidden_pattern in imp_name:
-                    issues.append(ReviewIssue(
-                        severity=IssueSeverity.ERROR,
-                        category="architecture",
-                        file=filepath,
-                        line=lineno,
-                        description=f"{desc}: imports '{imp_name}'",
-                        suggestion="Invert the dependency or use an interface/protocol",
-                    ))
+                    issues.append(
+                        ReviewIssue(
+                            severity=IssueSeverity.ERROR,
+                            category="architecture",
+                            file=filepath,
+                            line=lineno,
+                            description=f"{desc}: imports '{imp_name}'",
+                            suggestion="Invert the dependency or use an interface/protocol",
+                        )
+                    )
 
         return issues
 
@@ -657,8 +714,7 @@ class CodeReviewerAgent:
                 )
             elif issue.category == "pattern":
                 recommendations.append(
-                    f"Patterns: {count} anti-pattern(s) detected. "
-                    "Align with codebase conventions."
+                    f"Patterns: {count} anti-pattern(s) detected. Align with codebase conventions."
                 )
             elif issue.category == "complexity":
                 recommendations.append(

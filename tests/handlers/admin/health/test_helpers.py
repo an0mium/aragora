@@ -473,8 +473,7 @@ class TestSlowDebatesStatus:
 
     def test_no_active_no_historical_healthy(self):
         """Returns healthy when no slow debates found."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor():
+        with _patch_state_manager(debates={}), _patch_performance_monitor():
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -485,11 +484,13 @@ class TestSlowDebatesStatus:
 
     def test_response_includes_threshold(self):
         """Response includes slow_threshold_seconds."""
-        with patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "45"}), \
-             _block_module(
-                 "aragora.server.stream.state_manager",
-                 "aragora.debate.performance_monitor",
-             ):
+        with (
+            patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "45"}),
+            _block_module(
+                "aragora.server.stream.state_manager",
+                "aragora.debate.performance_monitor",
+            ),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -531,8 +532,10 @@ class TestSlowDebatesStateManager:
     @pytest.mark.parametrize("exc_class", [OSError, RuntimeError, ValueError])
     def test_state_manager_exceptions(self, exc_class):
         """State manager exceptions are caught and logged."""
-        with _patch_state_manager(error=exc_class("fail")), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(error=exc_class("fail")),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -551,8 +554,10 @@ class TestSlowDebatesStateManager:
                 "total_rounds": 3,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -570,8 +575,10 @@ class TestSlowDebatesStateManager:
                 "total_rounds": 3,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -597,8 +604,10 @@ class TestSlowDebatesStateManager:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -630,8 +639,10 @@ class TestSlowDebatesStateManager:
                 "total_rounds": 1,
             },
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -648,8 +659,10 @@ class TestSlowDebatesStateManager:
                 # Missing: task, agents, current_round, total_rounds
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -669,8 +682,10 @@ class TestSlowDebatesStateManager:
                 "agents": [],
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -689,8 +704,10 @@ class TestSlowDebatesStateManager:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -708,8 +725,10 @@ class TestSlowDebatesStateManager:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -728,8 +747,7 @@ class TestSlowDebatesMonitor:
 
     def test_monitor_import_error(self):
         """Handles ImportError from performance_monitor gracefully."""
-        with _patch_state_manager(debates={}), \
-             _block_module("aragora.debate.performance_monitor"):
+        with _patch_state_manager(debates={}), _block_module("aragora.debate.performance_monitor"):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -739,8 +757,7 @@ class TestSlowDebatesMonitor:
     @pytest.mark.parametrize("exc_class", [OSError, RuntimeError, ValueError])
     def test_monitor_exceptions(self, exc_class):
         """Performance monitor exceptions are caught and logged."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor(error=exc_class("fail")):
+        with _patch_state_manager(debates={}), _patch_performance_monitor(error=exc_class("fail")):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -753,8 +770,7 @@ class TestSlowDebatesMonitor:
             {"debate_id": "hist-1", "duration_seconds": 60},
             {"debate_id": "hist-2", "duration_seconds": 45},
         ]
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor(slow_debates=historical):
+        with _patch_state_manager(debates={}), _patch_performance_monitor(slow_debates=historical):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -772,12 +788,14 @@ class TestSlowDebatesMonitor:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _patch_performance_monitor(
-                 current_slow_debates=[
-                     {"debate_id": "debate-dup", "duration_seconds": 60},
-                 ],
-             ):
+        with (
+            _patch_state_manager(debates=debates),
+            _patch_performance_monitor(
+                current_slow_debates=[
+                    {"debate_id": "debate-dup", "duration_seconds": 60},
+                ],
+            ),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -786,12 +804,14 @@ class TestSlowDebatesMonitor:
 
     def test_monitor_adds_non_duplicate_current(self):
         """Monitor current debates not in state_manager are added."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor(
-                 current_slow_debates=[
-                     {"debate_id": "monitor-only", "duration_seconds": 90},
-                 ],
-             ):
+        with (
+            _patch_state_manager(debates={}),
+            _patch_performance_monitor(
+                current_slow_debates=[
+                    {"debate_id": "monitor-only", "duration_seconds": 90},
+                ],
+            ),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -805,11 +825,13 @@ class TestSlowDebatesMonitor:
         monitor.get_current_slow_debates.return_value = []
         get_monitor = MagicMock(return_value=monitor)
 
-        with _patch_state_manager(debates={}), \
-             _mock_module(
-                 "aragora.debate.performance_monitor",
-                 get_debate_monitor=get_monitor,
-             ):
+        with (
+            _patch_state_manager(debates={}),
+            _mock_module(
+                "aragora.debate.performance_monitor",
+                get_debate_monitor=get_monitor,
+            ),
+        ):
             slow_debates_status(_make_mock_handler())
 
         monitor.get_slow_debates.assert_called_once_with(limit=20)
@@ -825,8 +847,7 @@ class TestSlowDebatesStatusLogic:
 
     def test_healthy_when_no_slow_and_no_errors(self):
         """Status is 'healthy' when no slow debates and no errors."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor():
+        with _patch_state_manager(debates={}), _patch_performance_monitor():
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -844,8 +865,7 @@ class TestSlowDebatesStatusLogic:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _patch_performance_monitor():
+        with _patch_state_manager(debates=debates), _patch_performance_monitor():
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -864,10 +884,12 @@ class TestSlowDebatesStatusLogic:
 
     def test_degraded_when_historical_slow_exists(self):
         """Status is 'degraded' when recent historical slow debates exist."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor(
-                 slow_debates=[{"debate_id": "hist-1", "duration_seconds": 60}],
-             ):
+        with (
+            _patch_state_manager(debates={}),
+            _patch_performance_monitor(
+                slow_debates=[{"debate_id": "hist-1", "duration_seconds": 60}],
+            ),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -875,8 +897,7 @@ class TestSlowDebatesStatusLogic:
 
     def test_errors_null_when_no_errors(self):
         """Errors field is null when no errors occurred."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor():
+        with _patch_state_manager(debates={}), _patch_performance_monitor():
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -894,8 +915,10 @@ class TestSlowDebatesStatusLogic:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -923,11 +946,13 @@ class TestSlowDebatesThreshold:
 
     def test_custom_threshold_from_env(self):
         """Custom threshold from ARAGORA_SLOW_DEBATE_THRESHOLD env var."""
-        with patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "10"}), \
-             _block_module(
-                 "aragora.server.stream.state_manager",
-                 "aragora.debate.performance_monitor",
-             ):
+        with (
+            patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "10"}),
+            _block_module(
+                "aragora.server.stream.state_manager",
+                "aragora.debate.performance_monitor",
+            ),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -945,9 +970,11 @@ class TestSlowDebatesThreshold:
                 "total_rounds": 1,
             }
         }
-        with patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "10"}), \
-             _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "10"}),
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -965,9 +992,11 @@ class TestSlowDebatesThreshold:
                 "total_rounds": 1,
             }
         }
-        with patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "120"}), \
-             _patch_state_manager(debates=debates), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            patch.dict("os.environ", {"ARAGORA_SLOW_DEBATE_THRESHOLD": "120"}),
+            _patch_state_manager(debates=debates),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -994,8 +1023,7 @@ class TestSlowDebatesEdgeCases:
                 "current_round": 1,
                 "total_rounds": 1,
             }
-        with _patch_state_manager(debates=debates), \
-             _patch_performance_monitor():
+        with _patch_state_manager(debates=debates), _patch_performance_monitor():
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -1006,8 +1034,7 @@ class TestSlowDebatesEdgeCases:
     def test_recent_slow_capped_at_20(self):
         """recent_slow response is capped at 20 entries."""
         recent = [{"debate_id": f"hist-{i}"} for i in range(25)]
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor(slow_debates=recent):
+        with _patch_state_manager(debates={}), _patch_performance_monitor(slow_debates=recent):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -1015,8 +1042,7 @@ class TestSlowDebatesEdgeCases:
 
     def test_empty_debates_dict(self):
         """Handles empty active debates dict."""
-        with _patch_state_manager(debates={}), \
-             _patch_performance_monitor():
+        with _patch_state_manager(debates={}), _patch_performance_monitor():
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -1035,12 +1061,14 @@ class TestSlowDebatesEdgeCases:
                 "total_rounds": 1,
             }
         }
-        with _patch_state_manager(debates=debates), \
-             _patch_performance_monitor(
-                 current_slow_debates=[
-                     {"debate_id": "monitor-debate", "duration_seconds": 45},
-                 ],
-             ):
+        with (
+            _patch_state_manager(debates=debates),
+            _patch_performance_monitor(
+                current_slow_debates=[
+                    {"debate_id": "monitor-debate", "duration_seconds": 45},
+                ],
+            ),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -1153,7 +1181,9 @@ class TestCircuitBreakersStatus:
 
     def test_timestamp_present(self):
         """Response includes ISO timestamp."""
-        with _patch_resilience(metrics={"health": {"status": "ok"}, "summary": {}, "circuit_breakers": {}}):
+        with _patch_resilience(
+            metrics={"health": {"status": "ok"}, "summary": {}, "circuit_breakers": {}}
+        ):
             result = circuit_breakers_status(_make_mock_handler())
 
         body = _body(result)
@@ -1465,8 +1495,10 @@ class TestSecurity:
 
     def test_slow_debates_error_type_only(self):
         """slow_debates_status only exposes exception type, not message."""
-        with _patch_state_manager(error=RuntimeError("secret data")), \
-             _block_module("aragora.debate.performance_monitor"):
+        with (
+            _patch_state_manager(error=RuntimeError("secret data")),
+            _block_module("aragora.debate.performance_monitor"),
+        ):
             result = slow_debates_status(_make_mock_handler())
 
         body = _body(result)
@@ -1483,7 +1515,12 @@ class TestSecurity:
             "aragora.server.stream.state_manager",
             "aragora.debate.performance_monitor",
         ):
-            for func in [sync_status, circuit_breakers_status, component_health_status, slow_debates_status]:
+            for func in [
+                sync_status,
+                circuit_breakers_status,
+                component_health_status,
+                slow_debates_status,
+            ]:
                 result = func(_make_mock_handler())
                 body = _body(result)
                 assert "timestamp" in body, f"{func.__name__} missing timestamp"
@@ -1497,7 +1534,12 @@ class TestSecurity:
             "aragora.server.stream.state_manager",
             "aragora.debate.performance_monitor",
         ):
-            for func in [sync_status, circuit_breakers_status, component_health_status, slow_debates_status]:
+            for func in [
+                sync_status,
+                circuit_breakers_status,
+                component_health_status,
+                slow_debates_status,
+            ]:
                 result = func(None)
                 assert _status(result) == 200
 
@@ -1559,7 +1601,12 @@ class TestReturnTypes:
             "aragora.server.stream.state_manager",
             "aragora.debate.performance_monitor",
         ):
-            for func in [sync_status, circuit_breakers_status, component_health_status, slow_debates_status]:
+            for func in [
+                sync_status,
+                circuit_breakers_status,
+                component_health_status,
+                slow_debates_status,
+            ]:
                 result = func(_make_mock_handler())
                 body = json.loads(result.body)
                 assert isinstance(body, dict)
@@ -1573,6 +1620,11 @@ class TestReturnTypes:
             "aragora.server.stream.state_manager",
             "aragora.debate.performance_monitor",
         ):
-            for func in [sync_status, circuit_breakers_status, component_health_status, slow_debates_status]:
+            for func in [
+                sync_status,
+                circuit_breakers_status,
+                component_health_status,
+                slow_debates_status,
+            ]:
                 result = func(_make_mock_handler())
                 assert _status(result) == 200, f"{func.__name__} returned non-200"

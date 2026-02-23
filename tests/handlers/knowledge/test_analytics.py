@@ -446,9 +446,7 @@ class TestFederationStats:
     @pytest.mark.asyncio
     async def test_federation_stats_success(self, handler, http_handler, mock_federation_scheduler):
         """Returns federation stats from scheduler."""
-        with patch(
-            f"{_MOD}.get_federation_scheduler", return_value=mock_federation_scheduler
-        ):
+        with patch(f"{_MOD}.get_federation_scheduler", return_value=mock_federation_scheduler):
             with patch(f"{_MOD}._analytics_limiter") as limiter:
                 limiter.is_allowed.return_value = True
                 result = await handler.handle(
@@ -477,9 +475,7 @@ class TestFederationStats:
         run2 = MockFederationRun(started_at=now, items_pushed=3, items_pulled=2)
         mock_federation_scheduler.get_history.return_value = [run1, run2]
 
-        with patch(
-            f"{_MOD}.get_federation_scheduler", return_value=mock_federation_scheduler
-        ):
+        with patch(f"{_MOD}.get_federation_scheduler", return_value=mock_federation_scheduler):
             with patch(f"{_MOD}._analytics_limiter") as limiter:
                 limiter.is_allowed.return_value = True
                 result = await handler.handle(
@@ -500,9 +496,7 @@ class TestFederationStats:
         self, handler, http_handler, mock_federation_scheduler
     ):
         """Passes workspace_id through to response."""
-        with patch(
-            f"{_MOD}.get_federation_scheduler", return_value=mock_federation_scheduler
-        ):
+        with patch(f"{_MOD}.get_federation_scheduler", return_value=mock_federation_scheduler):
             with patch(f"{_MOD}._analytics_limiter") as limiter:
                 limiter.is_allowed.return_value = True
                 result = await handler.handle(
@@ -851,9 +845,10 @@ class TestRateLimiting:
 
         assert _status(result) == 429
         body = _body(result)
-        assert "rate limit" in body.get("error", "").lower() or "rate limit" in body.get(
-            "message", ""
-        ).lower()
+        assert (
+            "rate limit" in body.get("error", "").lower()
+            or "rate limit" in body.get("message", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_rate_limit_uses_client_ip_from_handler_method(self, handler):
@@ -1104,7 +1099,10 @@ class TestRouteDispatching:
         """The mound stats path calls _get_mound_stats."""
         with (
             patch.object(
-                handler, "_get_mound_stats", new_callable=AsyncMock, return_value=MagicMock(status_code=200, body=b'{}')
+                handler,
+                "_get_mound_stats",
+                new_callable=AsyncMock,
+                return_value=MagicMock(status_code=200, body=b"{}"),
             ) as mock_method,
             patch(f"{_MOD}.emit_handler_event"),
             patch(f"{_MOD}._analytics_limiter") as limiter,
@@ -1122,7 +1120,7 @@ class TestRouteDispatching:
         """The sharing stats path calls _get_sharing_stats."""
         with (
             patch.object(
-                handler, "_get_sharing_stats", return_value=MagicMock(status_code=200, body=b'{}')
+                handler, "_get_sharing_stats", return_value=MagicMock(status_code=200, body=b"{}")
             ) as mock_method,
             patch(f"{_MOD}._analytics_limiter") as limiter,
         ):
@@ -1139,7 +1137,9 @@ class TestRouteDispatching:
         """The federation stats path calls _get_federation_stats."""
         with (
             patch.object(
-                handler, "_get_federation_stats", return_value=MagicMock(status_code=200, body=b'{}')
+                handler,
+                "_get_federation_stats",
+                return_value=MagicMock(status_code=200, body=b"{}"),
             ) as mock_method,
             patch(f"{_MOD}._analytics_limiter") as limiter,
         ):
@@ -1156,7 +1156,10 @@ class TestRouteDispatching:
         """The analytics summary path calls _get_summary."""
         with (
             patch.object(
-                handler, "_get_summary", new_callable=AsyncMock, return_value=MagicMock(status_code=200, body=b'{}')
+                handler,
+                "_get_summary",
+                new_callable=AsyncMock,
+                return_value=MagicMock(status_code=200, body=b"{}"),
             ) as mock_method,
             patch(f"{_MOD}._analytics_limiter") as limiter,
         ):
@@ -1173,7 +1176,7 @@ class TestRouteDispatching:
         """The learning stats path calls _get_learning_stats."""
         with (
             patch.object(
-                handler, "_get_learning_stats", return_value=MagicMock(status_code=200, body=b'{}')
+                handler, "_get_learning_stats", return_value=MagicMock(status_code=200, body=b"{}")
             ) as mock_method,
             patch(f"{_MOD}._analytics_limiter") as limiter,
         ):

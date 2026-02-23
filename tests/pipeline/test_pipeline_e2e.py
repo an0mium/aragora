@@ -86,6 +86,7 @@ class TestStageTypes:
 
     def test_pipeline_stages(self):
         from aragora.canvas.stages import PipelineStage
+
         assert set(PipelineStage) == {
             PipelineStage.IDEAS,
             PipelineStage.GOALS,
@@ -95,20 +96,24 @@ class TestStageTypes:
 
     def test_idea_node_types(self):
         from aragora.canvas.stages import IdeaNodeType
+
         assert len(IdeaNodeType) >= 7  # concept, cluster, question, insight, etc.
 
     def test_goal_node_types(self):
         from aragora.canvas.stages import GoalNodeType
+
         assert len(GoalNodeType) >= 5  # goal, principle, strategy, milestone, etc.
 
     def test_action_node_types(self):
         from aragora.canvas.stages import ActionNodeType
+
         expected = {"task", "epic", "checkpoint", "deliverable", "dependency"}
         actual = {t.value for t in ActionNodeType}
         assert expected == actual
 
     def test_orchestration_node_types(self):
         from aragora.canvas.stages import OrchestrationNodeType
+
         expected = {"agent_task", "debate", "human_gate", "parallel_fan", "merge", "verification"}
         actual = {t.value for t in OrchestrationNodeType}
         assert expected == actual
@@ -128,7 +133,8 @@ class TestGoalsToActions:
 
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {
-            "id": "goals-1", "name": "Q1 Goals",
+            "id": "goals-1",
+            "name": "Q1 Goals",
             "metadata": {"stage": "goals"},
         }
         mock_get_store.return_value = mock_store
@@ -159,7 +165,8 @@ class TestActionsToOrchestration:
 
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {
-            "id": "actions-1", "name": "Sprint 1",
+            "id": "actions-1",
+            "name": "Sprint 1",
             "metadata": {"stage": "actions"},
         }
         mock_get_store.return_value = mock_store
@@ -172,9 +179,7 @@ class TestActionsToOrchestration:
                 mock_run.return_value = canvas_mock
 
                 ctx = MagicMock()
-                result = handler._advance_to_orchestration(
-                    ctx, "actions-1", {}, "u1"
-                )
+                result = handler._advance_to_orchestration(ctx, "actions-1", {}, "u1")
                 assert result is not None
 
                 body = _parse_result(result)
@@ -192,7 +197,8 @@ class TestOrchestrationExecution:
 
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {
-            "id": "orch-1", "name": "Pipeline",
+            "id": "orch-1",
+            "name": "Pipeline",
             "metadata": {"stage": "orchestration"},
         }
         mock_get_store.return_value = mock_store
@@ -228,7 +234,12 @@ class TestStoreRoundTrip:
 
         store = ActionCanvasStore(str(tmp_path / "test_actions.db"))
         saved = store.save_canvas(
-            "ac-1", "Sprint 1", "u1", "ws1", "Test", "goals-1",
+            "ac-1",
+            "Sprint 1",
+            "u1",
+            "ws1",
+            "Test",
+            "goals-1",
         )
         assert saved["id"] == "ac-1"
         assert saved["source_canvas_id"] == "goals-1"
@@ -254,7 +265,12 @@ class TestStoreRoundTrip:
 
         store = OrchestrationCanvasStore(str(tmp_path / "test_orch.db"))
         saved = store.save_canvas(
-            "orch-1", "Pipeline A", "u1", "ws1", "Test", "actions-1",
+            "orch-1",
+            "Pipeline A",
+            "u1",
+            "ws1",
+            "Test",
+            "actions-1",
         )
         assert saved["id"] == "orch-1"
         assert saved["source_canvas_id"] == "actions-1"

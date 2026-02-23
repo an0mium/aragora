@@ -113,6 +113,7 @@ async def rotate_elevenlabs_key(
     # Step 7: Refresh the secrets module cache
     try:
         from aragora.config.secrets import refresh_secrets
+
         refresh_secrets()
     except (ImportError, RuntimeError, OSError, ValueError):
         logger.debug("Could not refresh secrets cache")
@@ -126,6 +127,7 @@ def _get_current_key(svc_config: Any) -> str | None:
     # Try secrets module first
     try:
         from aragora.config.secrets import get_secret
+
         key = get_secret(svc_config.secret_manager_key)
         if key:
             return key
@@ -189,9 +191,7 @@ async def _create_elevenlabs_key(current_key: str) -> dict[str, Any] | None:
                     "name": key_name,
                 }
             else:
-                logger.error(
-                    "ElevenLabs key creation failed: %s %s", resp.status_code, resp.text
-                )
+                logger.error("ElevenLabs key creation failed: %s %s", resp.status_code, resp.text)
                 return None
 
     except Exception as e:
@@ -199,9 +199,7 @@ async def _create_elevenlabs_key(current_key: str) -> dict[str, Any] | None:
         return None
 
 
-async def _get_key_id_by_value(
-    auth_key: str, target_key: str
-) -> str | None:
+async def _get_key_id_by_value(auth_key: str, target_key: str) -> str | None:
     """Find the ElevenLabs key ID for a given key value.
 
     Lists all keys and matches by prefix/suffix fingerprint.
@@ -368,10 +366,12 @@ def _update_local_env(key_name: str, new_value: str) -> None:
 # Auto-register with APIKeyProxy
 # =============================================================================
 
+
 def _register() -> None:
     """Register the ElevenLabs rotation handler with the proxy system."""
     try:
         from aragora.security.api_key_proxy import register_rotation_handler
+
         register_rotation_handler("elevenlabs", rotate_elevenlabs_key)
         logger.debug("ElevenLabs rotation handler registered")
     except ImportError:

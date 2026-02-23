@@ -205,9 +205,7 @@ class NomicPipelineBridge:
         from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
 
         # Convert Nomic subtasks to ImplementTasks
-        implement_tasks = [
-            _subtask_to_implement_task(st, i + 1) for i, st in enumerate(subtasks)
-        ]
+        implement_tasks = [_subtask_to_implement_task(st, i + 1) for i, st in enumerate(subtasks)]
 
         # Resolve cross-task dependencies
         _resolve_dependencies(subtasks, implement_tasks)
@@ -352,12 +350,14 @@ class NomicPipelineBridge:
         ideas: list[dict[str, Any]] = []
 
         # The top-level goal becomes the primary insight
-        ideas.append({
-            "id": f"nomic-idea-{uuid.uuid4().hex[:8]}",
-            "label": cycle_result.goal,
-            "description": cycle_result.summary or cycle_result.goal,
-            "idea_type": "insight",
-        })
+        ideas.append(
+            {
+                "id": f"nomic-idea-{uuid.uuid4().hex[:8]}",
+                "label": cycle_result.goal,
+                "description": cycle_result.summary or cycle_result.goal,
+                "idea_type": "insight",
+            }
+        )
 
         # Each assignment becomes a concept idea
         for assignment in cycle_result.assignments:
@@ -366,12 +366,14 @@ class NomicPipelineBridge:
             if subtask.file_scope:
                 idea_type = "evidence"  # Grounded in specific files
 
-            ideas.append({
-                "id": f"nomic-idea-{uuid.uuid4().hex[:8]}",
-                "label": subtask.title,
-                "description": subtask.description,
-                "idea_type": idea_type,
-            })
+            ideas.append(
+                {
+                    "id": f"nomic-idea-{uuid.uuid4().hex[:8]}",
+                    "label": subtask.title,
+                    "description": subtask.description,
+                    "idea_type": idea_type,
+                }
+            )
 
         return ideas
 
@@ -396,13 +398,15 @@ class NomicPipelineBridge:
         # Primary goal from the design
         goal_text = design_output.get("goal", "")
         if goal_text:
-            goals.append({
-                "id": f"nomic-goal-{uuid.uuid4().hex[:8]}",
-                "label": goal_text,
-                "description": design_output.get("rationale", goal_text),
-                "goal_type": "goal",
-                "confidence": 0.8,
-            })
+            goals.append(
+                {
+                    "id": f"nomic-goal-{uuid.uuid4().hex[:8]}",
+                    "label": goal_text,
+                    "description": design_output.get("rationale", goal_text),
+                    "goal_type": "goal",
+                    "confidence": 0.8,
+                }
+            )
 
         # Each subtask becomes a milestone
         subtasks = design_output.get("subtasks", [])
@@ -415,13 +419,15 @@ class NomicPipelineBridge:
                 complexity = st.get("estimated_complexity", "medium")
 
             confidence_map = {"low": 0.9, "medium": 0.7, "high": 0.5}
-            goals.append({
-                "id": f"nomic-goal-{uuid.uuid4().hex[:8]}",
-                "label": title,
-                "description": desc,
-                "goal_type": "milestone",
-                "confidence": confidence_map.get(complexity, 0.7),
-            })
+            goals.append(
+                {
+                    "id": f"nomic-goal-{uuid.uuid4().hex[:8]}",
+                    "label": title,
+                    "description": desc,
+                    "goal_type": "milestone",
+                    "confidence": confidence_map.get(complexity, 0.7),
+                }
+            )
 
         return goals
 

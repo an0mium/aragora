@@ -108,13 +108,15 @@ def _mock_orch_nodes(count: int = 2) -> list[dict[str, Any]]:
     """Create mock orchestration nodes."""
     nodes = []
     for i in range(count):
-        nodes.append({
-            "id": f"orch-node-{i}",
-            "stage": "orchestration",
-            "label": f"Task {i + 1}",
-            "orch_type": "agent_task",
-            "assigned_agent": "claude",
-        })
+        nodes.append(
+            {
+                "id": f"orch-node-{i}",
+                "stage": "orchestration",
+                "label": f"Task {i + 1}",
+                "orch_type": "agent_task",
+                "assigned_agent": "claude",
+            }
+        )
     return nodes
 
 
@@ -352,9 +354,7 @@ class TestPostExecution:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                result = await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert _status(result) == 202
         data = _body(result)
@@ -382,9 +382,7 @@ class TestPostExecution:
         h = _make_handler()
         http = _make_http_handler(body={})
 
-        result = await h.handle_post(
-            "/api/v1/pipeline//execute", {}, http
-        )
+        result = await h.handle_post("/api/v1/pipeline//execute", {}, http)
 
         assert _status(result) == 400
 
@@ -394,9 +392,7 @@ class TestPostExecution:
         http = _make_http_handler(body={})
 
         with patch.object(h, "_load_orchestration_nodes", return_value=[]):
-            result = await h.handle_post(
-                "/api/v1/pipeline/pipe-123/execute", {}, http
-            )
+            result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert _status(result) == 404
         data = _body(result)
@@ -414,9 +410,7 @@ class TestPostExecution:
         _execution_tasks["pipe-123"] = mock_task
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
-            result = await h.handle_post(
-                "/api/v1/pipeline/pipe-123/execute", {}, http
-            )
+            result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert _status(result) == 409
         data = _body(result)
@@ -435,9 +429,7 @@ class TestPostExecution:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                result = await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert _status(result) == 202
 
@@ -450,9 +442,7 @@ class TestPostExecution:
         # Exhaust rate limit
         with patch.object(_execute_limiter, "is_allowed", return_value=False):
             http = _make_http_handler(body={})
-            result = await h.handle_post(
-                "/api/v1/pipeline/pipe-123/execute", {}, http
-            )
+            result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert _status(result) == 429
 
@@ -464,9 +454,7 @@ class TestPostExecution:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock) as mock_exec:
-                await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         # Budget limit should be forwarded to _execute_pipeline
         call_args = mock_exec.call_args
@@ -480,9 +468,7 @@ class TestPostExecution:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock) as mock_exec:
-                await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         call_args = mock_exec.call_args
         assert call_args[0][4] is True  # 5th positional arg = require_approval
@@ -501,9 +487,7 @@ class TestDryRun:
         orch_nodes = _mock_orch_nodes(2)
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
-            result = await h.handle_post(
-                "/api/v1/pipeline/pipe-dry/execute", {}, http
-            )
+            result = await h.handle_post("/api/v1/pipeline/pipe-dry/execute", {}, http)
 
         assert _status(result) == 200
         data = _body(result)
@@ -517,13 +501,16 @@ class TestDryRun:
         h = _make_handler()
         http = _make_http_handler(body={"dry_run": True})
         orch_nodes = [
-            {"id": "n1", "stage": "orchestration", "label": "Research task", "orch_type": "verification"},
+            {
+                "id": "n1",
+                "stage": "orchestration",
+                "label": "Research task",
+                "orch_type": "verification",
+            },
         ]
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
-            result = await h.handle_post(
-                "/api/v1/pipeline/pipe-dry/execute", {}, http
-            )
+            result = await h.handle_post("/api/v1/pipeline/pipe-dry/execute", {}, http)
 
         data = _body(result)
         goal = data["goals"][0]
@@ -541,9 +528,7 @@ class TestDryRun:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock) as mock_exec:
-                await h.handle_post(
-                    "/api/v1/pipeline/pipe-dry/execute", {}, http
-                )
+                await h.handle_post("/api/v1/pipeline/pipe-dry/execute", {}, http)
 
         mock_exec.assert_not_called()
         assert "pipe-dry" not in _execution_tasks
@@ -555,9 +540,7 @@ class TestDryRun:
         orch_nodes = _mock_orch_nodes()
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
-            await h.handle_post(
-                "/api/v1/pipeline/pipe-dry/execute", {}, http
-            )
+            await h.handle_post("/api/v1/pipeline/pipe-dry/execute", {}, http)
 
         assert _executions["pipe-dry"]["status"] == "preview"
 
@@ -574,9 +557,7 @@ class TestLoadOrchestrationNodes:
         mock_node = {"stage": "orchestration", "label": "Task 1"}
         mock_graph.nodes = {"n1": mock_node}
 
-        with patch(
-            "aragora.pipeline.graph_store.get_graph_store"
-        ) as mock_get_store:
+        with patch("aragora.pipeline.graph_store.get_graph_store") as mock_get_store:
             mock_store = MagicMock()
             mock_store.get.return_value = mock_graph
             mock_get_store.return_value = mock_store
@@ -596,9 +577,7 @@ class TestLoadOrchestrationNodes:
             "n3": {"stage": "goal", "label": "Goal Node"},
         }
 
-        with patch(
-            "aragora.pipeline.graph_store.get_graph_store"
-        ) as mock_get_store:
+        with patch("aragora.pipeline.graph_store.get_graph_store") as mock_get_store:
             mock_store = MagicMock()
             mock_store.get.return_value = mock_graph
             mock_get_store.return_value = mock_store
@@ -611,9 +590,7 @@ class TestLoadOrchestrationNodes:
     def test_load_nodes_graph_not_found(self):
         h = _make_handler()
 
-        with patch(
-            "aragora.pipeline.graph_store.get_graph_store"
-        ) as mock_get_store:
+        with patch("aragora.pipeline.graph_store.get_graph_store") as mock_get_store:
             mock_store = MagicMock()
             mock_store.get.return_value = None
             mock_get_store.return_value = mock_store
@@ -685,9 +662,7 @@ class TestLoadOrchestrationNodes:
         mock_graph.nodes = {"n1": mock_node_obj}
 
         # Need to make isinstance(node, dict) return False
-        with patch(
-            "aragora.pipeline.graph_store.get_graph_store"
-        ) as mock_get_store:
+        with patch("aragora.pipeline.graph_store.get_graph_store") as mock_get_store:
             mock_store = MagicMock()
             mock_store.get.return_value = mock_graph
             mock_get_store.return_value = mock_store
@@ -701,9 +676,7 @@ class TestLoadOrchestrationNodes:
         mock_graph = MagicMock()
         mock_graph.nodes = {}
 
-        with patch(
-            "aragora.pipeline.graph_store.get_graph_store"
-        ) as mock_get_store:
+        with patch("aragora.pipeline.graph_store.get_graph_store") as mock_get_store:
             mock_store = MagicMock()
             mock_store.get.return_value = mock_graph
             mock_get_store.return_value = mock_store
@@ -843,12 +816,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1"), MagicMock(description="Goal 2")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -874,12 +843,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -897,12 +862,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=asyncio.CancelledError())
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -930,12 +891,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=RuntimeError("Boom"))
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -950,12 +907,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=ValueError("Bad value"))
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -969,12 +922,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=TypeError("Type mismatch"))
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -988,12 +937,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=OSError("Disk full"))
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -1013,12 +958,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1037,12 +978,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=RuntimeError("Boom"))
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -1057,12 +994,8 @@ class TestExecutePipeline:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=asyncio.CancelledError())
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -1088,12 +1021,8 @@ class TestReceiptGeneration:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1118,12 +1047,8 @@ class TestReceiptGeneration:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1148,12 +1073,8 @@ class TestReceiptGeneration:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1183,12 +1104,8 @@ class TestSelfImproveConfig:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ) as MockConfig:
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1214,12 +1131,8 @@ class TestSelfImproveConfig:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ) as MockConfig:
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1243,12 +1156,8 @@ class TestSelfImproveConfig:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ) as MockConfig:
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1273,12 +1182,8 @@ class TestSelfImproveConfig:
 
         goals = [MagicMock(description="Goal 1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ) as MockConfig:
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1303,12 +1208,8 @@ class TestSelfImproveConfig:
 
         goals = [MagicMock(description=f"Goal {i}") for i in range(5)]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ) as MockConfig:
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1340,12 +1241,8 @@ class TestCombinedGoalDescription:
         # Create 15 goals but only first 10 should be in combined description
         goals = [MagicMock(description=f"Goal {i}") for i in range(15)]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1408,9 +1305,7 @@ class TestEdgeCases:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                result = await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert _status(result) == 202
 
@@ -1423,9 +1318,7 @@ class TestEdgeCases:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock) as mock_exec:
-                await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         # Verify defaults
         call_args = mock_exec.call_args
@@ -1441,9 +1334,7 @@ class TestEdgeCases:
             http = _make_http_handler(body={})
             with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
                 with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                    result = await h.handle_post(
-                        f"/api/v1/pipeline/{pid}/execute", {}, http
-                    )
+                    result = await h.handle_post(f"/api/v1/pipeline/{pid}/execute", {}, http)
                     assert _status(result) == 202
 
         assert "pipe-a" in _executions
@@ -1467,9 +1358,7 @@ class TestEdgeCases:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         assert "started_at" in _executions["pipe-123"]
 
@@ -1481,9 +1370,7 @@ class TestEdgeCases:
 
         with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
             with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                result = await h.handle_post(
-                    "/api/v1/pipeline/pipe-123/execute", {}, http
-                )
+                result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
 
         data = _body(result)
         assert data["cycle_id"].startswith("pipe-")
@@ -1570,16 +1457,12 @@ class TestRateLimiterBehavior:
             http1 = _make_http_handler(body={}, client_ip="10.0.0.1")
             with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
                 with patch.object(h, "_execute_pipeline", new_callable=AsyncMock):
-                    result1 = await h.handle_post(
-                        "/api/v1/pipeline/pipe-1/execute", {}, http1
-                    )
+                    result1 = await h.handle_post("/api/v1/pipeline/pipe-1/execute", {}, http1)
             assert _status(result1) == 202
 
             # Second IP not allowed
             http2 = _make_http_handler(body={}, client_ip="10.0.0.2")
-            result2 = await h.handle_post(
-                "/api/v1/pipeline/pipe-2/execute", {}, http2
-            )
+            result2 = await h.handle_post("/api/v1/pipeline/pipe-2/execute", {}, http2)
             assert _status(result2) == 429
 
 
@@ -1601,12 +1484,8 @@ class TestExecutionStateTransitions:
 
         goals = [MagicMock(description="G1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(return_value=mock_result)
                 with patch(
@@ -1625,12 +1504,8 @@ class TestExecutionStateTransitions:
 
         goals = [MagicMock(description="G1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=RuntimeError("Oops"))
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)
@@ -1646,12 +1521,8 @@ class TestExecutionStateTransitions:
 
         goals = [MagicMock(description="G1")]
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline"
-        ) as MockPipeline:
-            with patch(
-                "aragora.nomic.self_improve.SelfImproveConfig"
-            ):
+        with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
+            with patch("aragora.nomic.self_improve.SelfImproveConfig"):
                 mock_instance = MockPipeline.return_value
                 mock_instance.run = AsyncMock(side_effect=asyncio.CancelledError())
                 await h._execute_pipeline("pipe-123", "cycle-1", goals, None, False)

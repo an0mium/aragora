@@ -389,7 +389,9 @@ class TestEmitScanEvents:
             cvss_score=9.8,
             remediation_guidance="Upgrade to v3.0",
         )
-        dep = _make_dep(name="libxml2", version="2.9.10", ecosystem="system", vulnerabilities=[vuln])
+        dep = _make_dep(
+            name="libxml2", version="2.9.10", ecosystem="system", vulnerabilities=[vuln]
+        )
         result = _make_scan_result(dependencies=[dep])
 
         mock_emitter = AsyncMock()
@@ -823,7 +825,9 @@ class TestEmitSecretsEvents:
         assert "deploy/config.py" in finding.description
         assert finding.file_path == "deploy/config.py"
         assert finding.line_number == 100
-        assert finding.recommendation == "Rotate the credential immediately and remove from codebase"
+        assert (
+            finding.recommendation == "Rotate the credential immediately and remove from codebase"
+        )
         assert finding.metadata["secret_type"] == "aws_access_key"
         assert finding.metadata["confidence"] == 0.99
         assert finding.metadata["is_in_history"] is True

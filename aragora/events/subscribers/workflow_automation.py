@@ -95,9 +95,7 @@ class PostDebateWorkflowSubscriber:
 
         self._trigger_workflow(template_name, workflow_context)
 
-    def _trigger_workflow(
-        self, template_name: str, context: dict[str, Any]
-    ) -> None:
+    def _trigger_workflow(self, template_name: str, context: dict[str, Any]) -> None:
         """Trigger a workflow from template with the given context."""
         try:
             from aragora.workflow.engine import WorkflowEngine
@@ -136,9 +134,7 @@ class PostDebateWorkflowSubscriber:
             self.stats["workflows_triggered"] += 1
 
         except ImportError:
-            logger.debug(
-                "Workflow engine not available for post-debate automation"
-            )
+            logger.debug("Workflow engine not available for post-debate automation")
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.warning("Failed to trigger post-debate workflow: %s", e)
             self.stats["errors"] += 1

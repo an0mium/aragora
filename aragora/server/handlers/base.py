@@ -557,9 +557,7 @@ def _enrich_with_calibration(
             result["calibration"] = {
                 "brier_score": round(summary.brier_score, 4),
                 "ece": round(summary.ece, 4),
-                "trust_tier": _compute_trust_tier(
-                    summary.brier_score, summary.total_predictions
-                ),
+                "trust_tier": _compute_trust_tier(summary.brier_score, summary.total_predictions),
                 "prediction_count": summary.total_predictions,
             }
     except (AttributeError, TypeError, ValueError, OSError):

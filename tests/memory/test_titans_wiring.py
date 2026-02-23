@@ -173,8 +173,9 @@ class TestCoordinatorPostWriteRetention:
 
         tx = MemoryTransaction(id="tx-1", debate_id="d-1")
         op = WriteOperation(
-            id="op-1", target="mound",
-            data={"confidence": 0.8, "task": "novel machine learning approach"}
+            id="op-1",
+            target="mound",
+            data={"confidence": 0.8, "task": "novel machine learning approach"},
         )
         op.mark_success("item-456")
         tx.operations = [op]

@@ -111,9 +111,7 @@ class TestHandlerResult:
 
     def test_to_dict_with_json_body(self):
         body = json.dumps({"key": "value"}).encode("utf-8")
-        result = HandlerResult(
-            status_code=200, content_type="application/json", body=body
-        )
+        result = HandlerResult(status_code=200, content_type="application/json", body=body)
         d = result.to_dict()
         assert d["status"] == 200
         assert d["body"] == {"key": "value"}
@@ -121,16 +119,12 @@ class TestHandlerResult:
         assert isinstance(d["headers"], dict)
 
     def test_to_dict_with_empty_body(self):
-        result = HandlerResult(
-            status_code=204, content_type="application/json", body=b""
-        )
+        result = HandlerResult(status_code=204, content_type="application/json", body=b"")
         d = result.to_dict()
         assert d["body"] == {}
 
     def test_to_dict_with_non_json_body(self):
-        result = HandlerResult(
-            status_code=200, content_type="text/plain", body=b"\x80\x81invalid"
-        )
+        result = HandlerResult(status_code=200, content_type="text/plain", body=b"\x80\x81invalid")
         d = result.to_dict()
         # Should gracefully fall back to empty dict
         assert d["body"] == {}
@@ -147,22 +141,16 @@ class TestHandlerResult:
     # -- _tuple_body --
 
     def test_tuple_body_none_body(self):
-        result = HandlerResult(
-            status_code=200, content_type="text/plain", body=None
-        )
+        result = HandlerResult(status_code=200, content_type="text/plain", body=None)
         assert result._tuple_body() == b""
 
     def test_tuple_body_json_content(self):
         body = json.dumps({"x": 1}).encode("utf-8")
-        result = HandlerResult(
-            status_code=200, content_type="application/json", body=body
-        )
+        result = HandlerResult(status_code=200, content_type="application/json", body=body)
         assert result._tuple_body() == {"x": 1}
 
     def test_tuple_body_json_empty_string(self):
-        result = HandlerResult(
-            status_code=200, content_type="application/json", body=b""
-        )
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"")
         assert result._tuple_body() == {}
 
     def test_tuple_body_scim_content_returns_raw_string(self):
@@ -177,15 +165,11 @@ class TestHandlerResult:
         assert tb == raw
 
     def test_tuple_body_non_json_content(self):
-        result = HandlerResult(
-            status_code=200, content_type="text/html", body=b"<p>hello</p>"
-        )
+        result = HandlerResult(status_code=200, content_type="text/html", body=b"<p>hello</p>")
         assert result._tuple_body() == b"<p>hello</p>"
 
     def test_tuple_body_invalid_json_returns_raw_bytes(self):
-        result = HandlerResult(
-            status_code=200, content_type="application/json", body=b"\x80bad"
-        )
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"\x80bad")
         # Should hit the UnicodeDecodeError/JSONDecodeError fallback
         assert result._tuple_body() == b"\x80bad"
 
@@ -253,9 +237,7 @@ class TestHandlerResult:
         assert json.loads(body_str) == {"x": 1}
 
     def test_getitem_string_body_empty(self):
-        result = HandlerResult(
-            status_code=200, content_type="text/plain", body=b""
-        )
+        result = HandlerResult(status_code=200, content_type="text/plain", body=b"")
         assert result["body"] == ""
 
     def test_getitem_string_body_non_decodable(self):
@@ -725,9 +707,7 @@ class TestHtmlResponse:
             "aragora.server.middleware.xss_protection.escape_html",
             return_value="&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;",
         ) as mock_escape:
-            result = html_response(
-                "<script>alert('xss')</script>", escape_content=True
-            )
+            result = html_response("<script>alert('xss')</script>", escape_content=True)
             mock_escape.assert_called_once_with("<script>alert('xss')</script>")
         decoded = result.body.decode("utf-8")
         assert "&lt;script&gt;" in decoded
@@ -801,9 +781,7 @@ class TestRedirectResponse:
         assert result.status_code == 301
 
     def test_with_additional_headers(self):
-        result = redirect_response(
-            "https://example.com", headers={"X-H": "v"}
-        )
+        result = redirect_response("https://example.com", headers={"X-H": "v"})
         assert result.headers["Location"] == "https://example.com"
         assert result.headers["X-H"] == "v"
 
@@ -827,9 +805,7 @@ class TestPaginatedResponse:
     """Tests for the paginated_response helper function."""
 
     def test_basic(self):
-        result = paginated_response(
-            items=[1, 2, 3], total=10, limit=3, offset=0
-        )
+        result = paginated_response(items=[1, 2, 3], total=10, limit=3, offset=0)
         body = json.loads(result.body)
         assert body["data"] == [1, 2, 3]
         assert body["pagination"]["total"] == 10
@@ -838,16 +814,12 @@ class TestPaginatedResponse:
         assert body["pagination"]["has_more"] is True
 
     def test_last_page(self):
-        result = paginated_response(
-            items=[8, 9, 10], total=10, limit=3, offset=9
-        )
+        result = paginated_response(items=[8, 9, 10], total=10, limit=3, offset=9)
         body = json.loads(result.body)
         assert body["pagination"]["has_more"] is False
 
     def test_exact_fit(self):
-        result = paginated_response(
-            items=[1, 2, 3], total=3, limit=3, offset=0
-        )
+        result = paginated_response(items=[1, 2, 3], total=3, limit=3, offset=0)
         body = json.loads(result.body)
         assert body["pagination"]["has_more"] is False
 
@@ -858,9 +830,7 @@ class TestPaginatedResponse:
         assert body["pagination"]["has_more"] is False
 
     def test_with_headers(self):
-        result = paginated_response(
-            items=[], total=0, limit=10, headers={"X-H": "v"}
-        )
+        result = paginated_response(items=[], total=0, limit=10, headers={"X-H": "v"})
         assert result.headers["X-H"] == "v"
 
     def test_status_is_200(self):
@@ -882,9 +852,7 @@ class TestParsePaginationParams:
         assert offset == 0
 
     def test_valid_params(self):
-        limit, offset = parse_pagination_params(
-            {"limit": "50", "offset": "10"}
-        )
+        limit, offset = parse_pagination_params({"limit": "50", "offset": "10"})
         assert limit == 50
         assert offset == 10
 
@@ -910,15 +878,11 @@ class TestParsePaginationParams:
         assert offset == 0
 
     def test_custom_defaults(self):
-        limit, offset = parse_pagination_params(
-            {}, default_limit=50, max_limit=200
-        )
+        limit, offset = parse_pagination_params({}, default_limit=50, max_limit=200)
         assert limit == 50
 
     def test_custom_max_limit(self):
-        limit, offset = parse_pagination_params(
-            {"limit": "150"}, max_limit=200
-        )
+        limit, offset = parse_pagination_params({"limit": "150"}, max_limit=200)
         assert limit == 150
 
     def test_non_numeric_limit(self):

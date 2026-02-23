@@ -290,7 +290,9 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         confidence = getattr(debate_result, "confidence", 0.5)
         if confidence < self._min_importance:
             logger.debug(
-                "Skipping sync for debate with confidence %s (threshold: %s)", confidence, self._min_importance
+                "Skipping sync for debate with confidence %s (threshold: %s)",
+                confidence,
+                self._min_importance,
             )
             return SyncOutcomeResult(
                 success=True,

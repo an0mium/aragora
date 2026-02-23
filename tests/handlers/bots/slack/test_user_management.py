@@ -97,6 +97,7 @@ def _status(result) -> int:
 def um():
     """Import the user_management module lazily."""
     import aragora.server.handlers.bots.slack.user_management as mod
+
     return mod
 
 
@@ -108,9 +109,7 @@ def _patch_rbac_defaults(monkeypatch):
     mock_decision.reason = "granted"
 
     # Patch on the constants module (source of truth)
-    monkeypatch.setattr(
-        "aragora.server.handlers.bots.slack.constants.RBAC_AVAILABLE", True
-    )
+    monkeypatch.setattr("aragora.server.handlers.bots.slack.constants.RBAC_AVAILABLE", True)
     monkeypatch.setattr(
         "aragora.server.handlers.bots.slack.constants.check_permission",
         MagicMock(return_value=mock_decision),
@@ -121,9 +120,7 @@ def _patch_rbac_defaults(monkeypatch):
     )
 
     # Patch on the user_management module (which imports from constants)
-    monkeypatch.setattr(
-        "aragora.server.handlers.bots.slack.user_management.RBAC_AVAILABLE", True
-    )
+    monkeypatch.setattr("aragora.server.handlers.bots.slack.user_management.RBAC_AVAILABLE", True)
     monkeypatch.setattr(
         "aragora.server.handlers.bots.slack.user_management.check_permission",
         MagicMock(return_value=mock_decision),
@@ -173,7 +170,11 @@ class TestGetOrgFromTeam:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_org_from_team("T12345ABC")
         assert result == "org-123"
@@ -184,7 +185,11 @@ class TestGetOrgFromTeam:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_org_from_team("T12345ABC")
         assert result is None
@@ -195,7 +200,11 @@ class TestGetOrgFromTeam:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_org_from_team("T12345ABC")
         assert result is None
@@ -227,7 +236,11 @@ class TestGetOrgFromTeam:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_org_from_team("T12345ABC")
         assert result is None
@@ -238,7 +251,11 @@ class TestGetOrgFromTeam:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             um.get_org_from_team("TABC123")
         mock_store.get_workspace.assert_called_once_with("TABC123")
@@ -258,7 +275,11 @@ class TestGetUserRolesFromSlack:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_user_roles_from_slack("T12345", "U12345")
         assert result == {"admin", "moderator"}
@@ -269,7 +290,11 @@ class TestGetUserRolesFromSlack:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_user_roles_from_slack("T12345", "U12345")
         assert isinstance(result, set)
@@ -280,7 +305,11 @@ class TestGetUserRolesFromSlack:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_user_roles_from_slack("T12345", "U12345")
         assert result == {"user"}
@@ -291,7 +320,11 @@ class TestGetUserRolesFromSlack:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_user_roles_from_slack("T12345", "U12345")
         assert result == {"user"}
@@ -320,7 +353,11 @@ class TestGetUserRolesFromSlack:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             um.get_user_roles_from_slack("TABC", "UXYZ")
         mock_store.get_user_roles.assert_called_once_with("TABC", "UXYZ")
@@ -331,7 +368,11 @@ class TestGetUserRolesFromSlack:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.get_user_roles_from_slack("T12345", "U12345")
         assert result == {"admin", "user"}
@@ -351,7 +392,11 @@ class TestCheckWorkspaceAuthorized:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             authorized, error = um.check_workspace_authorized("T12345ABC")
         assert authorized is True
@@ -374,7 +419,11 @@ class TestCheckWorkspaceAuthorized:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             authorized, error = um.check_workspace_authorized("T12345ABC")
         assert authorized is False
@@ -386,7 +435,11 @@ class TestCheckWorkspaceAuthorized:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             authorized, error = um.check_workspace_authorized("T12345ABC")
         assert authorized is False
@@ -398,7 +451,11 @@ class TestCheckWorkspaceAuthorized:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             authorized, error = um.check_workspace_authorized("T12345ABC")
         assert authorized is True
@@ -410,7 +467,11 @@ class TestCheckWorkspaceAuthorized:
         mock_get_store = MagicMock(return_value=mock_store)
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             authorized, error = um.check_workspace_authorized("T12345ABC")
         # dict.get("revoked") returns None -> falsy -> authorized
@@ -1445,6 +1506,7 @@ class TestPermissionFlowIntegration:
         )
 
         from aragora.rbac.models import AuthorizationContext as RealAuthCtx
+
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.user_management.AuthorizationContext",
             RealAuthCtx,
@@ -1452,7 +1514,11 @@ class TestPermissionFlowIntegration:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.check_user_permission("T12345ABC", "U12345", "slack.commands.execute")
 
@@ -1488,6 +1554,7 @@ class TestPermissionFlowIntegration:
         )
 
         from aragora.rbac.models import AuthorizationContext as RealAuthCtx
+
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.user_management.AuthorizationContext",
             RealAuthCtx,
@@ -1495,7 +1562,11 @@ class TestPermissionFlowIntegration:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.check_user_permission("T12345ABC", "U12345", "slack.commands.execute")
 
@@ -1517,7 +1588,11 @@ class TestPermissionFlowIntegration:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.storage.slack_workspace_store": MagicMock(get_slack_workspace_store=mock_get_store)},
+            {
+                "aragora.storage.slack_workspace_store": MagicMock(
+                    get_slack_workspace_store=mock_get_store
+                )
+            },
         ):
             result = um.check_user_permission("T12345ABC", "U12345", "slack.commands.execute")
 
@@ -1545,9 +1620,7 @@ class TestPermissionFlowIntegration:
             lambda t, u, channel_id=None: MagicMock(),
         )
 
-        result = um.check_user_permission_or_admin(
-            "T12345ABC", "U12345", "slack.commands.execute"
-        )
+        result = um.check_user_permission_or_admin("T12345ABC", "U12345", "slack.commands.execute")
         assert result is None
         # Only admin check, specific permission not checked
         assert perms_checked == ["slack.admin"]
@@ -1578,7 +1651,5 @@ class TestPermissionFlowIntegration:
             lambda t: (True, None),
         )
 
-        result = um.check_user_permission_or_admin(
-            "T12345ABC", "U12345", "slack.debates.create"
-        )
+        result = um.check_user_permission_or_admin("T12345ABC", "U12345", "slack.debates.create")
         assert result is None

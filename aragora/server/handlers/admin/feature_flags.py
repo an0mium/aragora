@@ -63,7 +63,9 @@ class FeatureFlagAdminHandler(BaseHandler):
 
     @handle_errors("feature flags GET")
     @require_permission("admin:feature_flags:read")
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None
+    ) -> HandlerResult | None:
         """Handle GET requests for feature flag endpoints."""
         path = strip_version_prefix(path)
 

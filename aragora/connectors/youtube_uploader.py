@@ -238,7 +238,8 @@ class YouTubeUploaderConnector:
             if not self.refresh_token:
                 missing.append("YOUTUBE_REFRESH_TOKEN")
             logger.warning(
-                "YouTube credentials incomplete. Missing: %s. Uploads will fail.", ', '.join(missing)
+                "YouTube credentials incomplete. Missing: %s. Uploads will fail.",
+                ", ".join(missing),
             )
 
     @property

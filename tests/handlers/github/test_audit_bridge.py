@@ -129,9 +129,7 @@ def sample_findings():
 @pytest.fixture
 def mock_github_client():
     """Create a mock GitHubAuditClient that returns demo-like responses."""
-    with patch(
-        "aragora.server.handlers.github.audit_bridge.GitHubAuditClient"
-    ) as MockClientClass:
+    with patch("aragora.server.handlers.github.audit_bridge.GitHubAuditClient") as MockClientClass:
         client_instance = AsyncMock()
         client_instance.create_issue = AsyncMock(
             return_value={
@@ -687,10 +685,7 @@ class TestHandlePostBulkCreateIssues:
             }
 
         mock_github_client.create_issue.side_effect = alternating_create
-        findings = [
-            {"id": f"f-{i}", "title": f"F{i}", "severity": "low"}
-            for i in range(4)
-        ]
+        findings = [{"id": f"f-{i}", "title": f"F{i}", "severity": "low"} for i in range(4)]
         data = {
             "repository": "owner/repo",
             "findings": findings,
@@ -875,9 +870,7 @@ class TestHandleGetSyncStatus:
 
     @pytest.mark.asyncio
     async def test_empty_session_returns_empty_list(self, handler):
-        result = await handler.handle_get_sync_status(
-            params={}, session_id="nonexistent-session"
-        )
+        result = await handler.handle_get_sync_status(params={}, session_id="nonexistent-session")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["syncs"] == []
@@ -895,9 +888,7 @@ class TestHandleGetSyncStatus:
         _sync_results["sync-abc"] = sync_result
         _session_syncs["sess-get-001"] = ["sync-abc"]
 
-        result = await handler.handle_get_sync_status(
-            params={}, session_id="sess-get-001"
-        )
+        result = await handler.handle_get_sync_status(params={}, session_id="sess-get-001")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["total"] == 1
@@ -948,9 +939,7 @@ class TestHandleGetFindingIssues:
 
     @pytest.mark.asyncio
     async def test_empty_session(self, handler):
-        result = await handler.handle_get_finding_issues(
-            params={"session_id": "sess-issues-001"}
-        )
+        result = await handler.handle_get_finding_issues(params={"session_id": "sess-issues-001"})
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["total"] == 0
@@ -962,9 +951,7 @@ class TestHandleGetFindingIssues:
             "finding-a": 10,
             "finding-b": 20,
         }
-        result = await handler.handle_get_finding_issues(
-            params={"session_id": "sess-issues-002"}
-        )
+        result = await handler.handle_get_finding_issues(params={"session_id": "sess-issues-002"})
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["total"] == 2
@@ -1045,6 +1032,7 @@ class TestStandaloneCreateIssue:
         with patch.dict("os.environ", {}, clear=False):
             # Ensure no GITHUB_TOKEN
             import os
+
             env_backup = os.environ.pop("GITHUB_TOKEN", None)
             try:
                 result = await handle_create_issue(
@@ -1118,9 +1106,7 @@ class TestStandaloneCreateFixPR:
     @pytest.mark.asyncio
     async def test_many_findings_pr_body_limit(self, mock_github_client):
         """PR body limits listing to 20 findings."""
-        findings = [
-            {"title": f"Finding {i}", "severity": "low"} for i in range(25)
-        ]
+        findings = [{"title": f"Finding {i}", "severity": "low"} for i in range(25)]
         result = await handle_create_fix_pr(
             repository="owner/repo",
             session_id="sess-many",
@@ -1170,11 +1156,15 @@ class TestStandaloneGetSyncStatus:
     @pytest.mark.asyncio
     async def test_all_syncs_for_session(self):
         s1 = SyncResult(
-            sync_id="s1", session_id="sess-all", repository="o/r",
+            sync_id="s1",
+            session_id="sess-all",
+            repository="o/r",
             status=SyncStatus.COMPLETED,
         )
         s2 = SyncResult(
-            sync_id="s2", session_id="sess-all", repository="o/r",
+            sync_id="s2",
+            session_id="sess-all",
+            repository="o/r",
             status=SyncStatus.FAILED,
         )
         _sync_results["s1"] = s1
@@ -1212,18 +1202,14 @@ class TestStandaloneGetFindingIssues:
     @pytest.mark.asyncio
     async def test_specific_finding_found(self):
         _finding_issues["sess-fi2"] = {"f-target": 77}
-        result = await handle_get_finding_issues(
-            session_id="sess-fi2", finding_id="f-target"
-        )
+        result = await handle_get_finding_issues(session_id="sess-fi2", finding_id="f-target")
         assert result["success"] is True
         assert result["issue_number"] == 77
 
     @pytest.mark.asyncio
     async def test_specific_finding_not_found(self):
         _finding_issues["sess-fi3"] = {}
-        result = await handle_get_finding_issues(
-            session_id="sess-fi3", finding_id="missing"
-        )
+        result = await handle_get_finding_issues(session_id="sess-fi3", finding_id="missing")
         assert result["success"] is False
         assert "no issue found" in result["error"].lower()
 
@@ -1403,8 +1389,14 @@ class TestLabelMappings:
 
     def test_all_categories_have_labels(self):
         for cat in [
-            "security", "performance", "quality", "compliance",
-            "consistency", "documentation", "testing", "accessibility",
+            "security",
+            "performance",
+            "quality",
+            "compliance",
+            "consistency",
+            "documentation",
+            "testing",
+            "accessibility",
         ]:
             assert cat in CATEGORY_LABELS
             assert len(CATEGORY_LABELS[cat]) > 0
@@ -1496,11 +1488,15 @@ class TestEdgeCases:
     async def test_sync_status_multiple_sessions_isolated(self, handler):
         """Sync results for different sessions do not leak."""
         s1 = SyncResult(
-            sync_id="s1", session_id="sess-A", repository="o/r",
+            sync_id="s1",
+            session_id="sess-A",
+            repository="o/r",
             status=SyncStatus.COMPLETED,
         )
         s2 = SyncResult(
-            sync_id="s2", session_id="sess-B", repository="o/r",
+            sync_id="s2",
+            session_id="sess-B",
+            repository="o/r",
             status=SyncStatus.FAILED,
         )
         _sync_results["s1"] = s1

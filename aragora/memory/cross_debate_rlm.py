@@ -658,7 +658,10 @@ class CrossDebateMemory:
                 if result.answer and len(result.answer) < len(context):
                     approach = "TRUE RLM" if result.used_true_rlm else "compression fallback"
                     logger.debug(
-                        "[CrossDebateMemory] Compressed %s -> %s chars via %s", len(context), len(result.answer), approach
+                        "[CrossDebateMemory] Compressed %s -> %s chars via %s",
+                        len(context),
+                        len(result.answer),
+                        approach,
                     )
                     return result.answer
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
@@ -845,11 +848,13 @@ class CrossDebateMemory:
                 # Log which approach was used
                 if result.used_true_rlm:
                     logger.info(
-                        "[CrossDebateMemory] query_past_debates used TRUE RLM (REPL-based), strategy=%s", strategy
+                        "[CrossDebateMemory] query_past_debates used TRUE RLM (REPL-based), strategy=%s",
+                        strategy,
                     )
                 elif result.used_compression_fallback:
                     logger.info(
-                        "[CrossDebateMemory] query_past_debates used compression fallback, strategy=%s", strategy
+                        "[CrossDebateMemory] query_past_debates used compression fallback, strategy=%s",
+                        strategy,
                     )
 
                 return result.answer if hasattr(result, "answer") else str(result)

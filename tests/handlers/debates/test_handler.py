@@ -210,7 +210,7 @@ class TestHandleCostEstimation:
         with patch(
             "aragora.server.handlers.debates.cost_estimation.handle_estimate_cost"
         ) as mock_est:
-            mock_est.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_est.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle(
                 "/api/debates/estimate-cost",
                 {"num_agents": "5", "num_rounds": "3", "model_types": "gpt-4o,claude"},
@@ -223,7 +223,7 @@ class TestHandleCostEstimation:
         with patch(
             "aragora.server.handlers.debates.cost_estimation.handle_estimate_cost"
         ) as mock_est:
-            mock_est.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_est.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle(
                 "/api/debates/estimate-cost",
                 {"model_types": ["gpt-4o", "claude"]},
@@ -236,7 +236,7 @@ class TestHandleCostEstimation:
         with patch(
             "aragora.server.handlers.debates.cost_estimation.handle_estimate_cost"
         ) as mock_est:
-            mock_est.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_est.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle("/api/v1/debates/estimate-cost", {}, mock_http_handler)
             assert result is not None
 
@@ -255,9 +255,7 @@ class TestHandleQueueStatus:
 
     def test_queue_status_v1_path(self, mock_http_handler):
         handler = _make_handler()
-        handler._get_queue_status = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._get_queue_status = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/v1/debates/queue/status", {}, mock_http_handler)
         assert result is not None
 
@@ -279,9 +277,7 @@ class TestHandleBatchStatusRoute:
     def test_batch_status_v1_path(self, mock_http_handler):
         """V1 paths normalize to unversioned; parts[3] = 'batch' for /api/debates/batch/xyz/status."""
         handler = _make_handler()
-        handler._get_batch_status = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._get_batch_status = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/v1/debates/batch/xyz/status", {}, mock_http_handler)
         # After normalization: /api/debates/batch/xyz/status -> parts[3] = "batch"
         handler._get_batch_status.assert_called_with("batch")
@@ -301,33 +297,25 @@ class TestHandleListBatches:
 
     def test_list_batches_trailing_slash(self, mock_http_handler):
         handler = _make_handler()
-        handler._list_batches = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._list_batches = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/batch/", {}, mock_http_handler)
         assert result is not None
 
     def test_list_batches_with_limit(self, mock_http_handler):
         handler = _make_handler()
-        handler._list_batches = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._list_batches = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/batch", {"limit": "10"}, mock_http_handler)
         handler._list_batches.assert_called_with(10, None)
 
     def test_list_batches_limit_capped_at_100(self, mock_http_handler):
         handler = _make_handler()
-        handler._list_batches = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._list_batches = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/batch", {"limit": "999"}, mock_http_handler)
         handler._list_batches.assert_called_with(100, None)
 
     def test_list_batches_with_status_filter(self, mock_http_handler):
         handler = _make_handler()
-        handler._list_batches = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._list_batches = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/batch", {"status": "completed"}, mock_http_handler)
         handler._list_batches.assert_called_with(50, "completed")
 
@@ -338,7 +326,7 @@ class TestHandleBatchExport:
     def test_batch_export_route(self, mock_http_handler):
         handler = _make_handler()
         handler._handle_batch_export = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
+            return_value=MagicMock(status_code=200, body=b"{}")
         )
         result = handler.handle("/api/debates/export/batch", {}, mock_http_handler)
         assert result is not None
@@ -346,7 +334,7 @@ class TestHandleBatchExport:
     def test_batch_export_with_subpath(self, mock_http_handler):
         handler = _make_handler()
         handler._handle_batch_export = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
+            return_value=MagicMock(status_code=200, body=b"{}")
         )
         result = handler.handle("/api/debates/export/batch/job1/status", {}, mock_http_handler)
         assert result is not None
@@ -643,26 +631,20 @@ class TestHandleExportRoute:
 
     def test_export_json(self, mock_storage, mock_http_handler):
         handler = _make_handler(storage=mock_storage)
-        handler._export_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._export_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/d1/export/json", {}, mock_http_handler)
         assert result is not None
         handler._export_debate.assert_called_once_with(mock_http_handler, "d1", "json", "summary")
 
     def test_export_csv(self, mock_storage, mock_http_handler):
         handler = _make_handler(storage=mock_storage)
-        handler._export_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._export_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/d1/export/csv", {}, mock_http_handler)
         handler._export_debate.assert_called_once_with(mock_http_handler, "d1", "csv", "summary")
 
     def test_export_html(self, mock_storage, mock_http_handler):
         handler = _make_handler(storage=mock_storage)
-        handler._export_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._export_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/debates/d1/export/html", {}, mock_http_handler)
         handler._export_debate.assert_called_once_with(mock_http_handler, "d1", "html", "summary")
 
@@ -682,15 +664,11 @@ class TestHandleExportRoute:
 
     def test_export_valid_table(self, mock_storage, mock_http_handler):
         handler = _make_handler(storage=mock_storage)
-        handler._export_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._export_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle(
             "/api/debates/d1/export/json", {"table": "messages"}, mock_http_handler
         )
-        handler._export_debate.assert_called_once_with(
-            mock_http_handler, "d1", "json", "messages"
-        )
+        handler._export_debate.assert_called_once_with(mock_http_handler, "d1", "json", "messages")
 
     def test_export_invalid_debate_id(self, mock_http_handler):
         handler = _make_handler()
@@ -700,9 +678,7 @@ class TestHandleExportRoute:
     def test_export_all_allowed_formats(self, mock_storage, mock_http_handler):
         handler = _make_handler(storage=mock_storage)
         for fmt in ("json", "csv", "html", "txt", "md"):
-            handler._export_debate = MagicMock(
-                return_value=MagicMock(status_code=200, body=b'{}')
-            )
+            handler._export_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
             result = handler.handle(f"/api/debates/d1/export/{fmt}", {}, mock_http_handler)
             assert result is not None, f"Export format '{fmt}' should be valid"
 
@@ -760,9 +736,7 @@ class TestHandlePost:
 
     def test_debate_this_unversioned(self, mock_http_handler):
         handler = _make_handler(json_body={"question": "test"})
-        handler._debate_this = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._debate_this = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle_post("/api/debate-this", {}, mock_http_handler)
         handler._debate_this.assert_called_once()
 
@@ -791,7 +765,7 @@ class TestHandlePost:
         handler = _make_handler(json_body={"question": "test"})
         mock_result = MagicMock()
         mock_result.status_code = 200
-        mock_result.body = b'{}'
+        mock_result.body = b"{}"
         mock_result.headers = None
         handler._create_debate = MagicMock(return_value=mock_result)
         result = handler.handle_post("/api/debate", {}, mock_http_handler)
@@ -799,49 +773,39 @@ class TestHandlePost:
 
     def test_batch_submission(self, mock_http_handler):
         handler = _make_handler()
-        handler._submit_batch = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._submit_batch = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle_post("/api/v1/debates/batch", {}, mock_http_handler)
         handler._submit_batch.assert_called_once()
 
     def test_batch_submission_trailing_slash(self, mock_http_handler):
         handler = _make_handler()
-        handler._submit_batch = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._submit_batch = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle_post("/api/debates/batch/", {}, mock_http_handler)
         handler._submit_batch.assert_called_once()
 
     def test_fork_post(self, mock_http_handler):
         handler = _make_handler()
-        handler._fork_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._fork_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle_post("/api/v1/debates/d1/fork", {}, mock_http_handler)
         handler._fork_debate.assert_called_once_with(mock_http_handler, "d1")
 
     def test_verify_post(self, mock_http_handler):
         handler = _make_handler()
-        handler._verify_outcome = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._verify_outcome = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle_post("/api/v1/debates/d1/verify", {}, mock_http_handler)
         handler._verify_outcome.assert_called_once_with(mock_http_handler, "d1")
 
     def test_followup_post(self, mock_http_handler):
         handler = _make_handler()
         handler._create_followup_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
+            return_value=MagicMock(status_code=200, body=b"{}")
         )
         result = handler.handle_post("/api/v1/debates/d1/followup", {}, mock_http_handler)
         handler._create_followup_debate.assert_called_once_with(mock_http_handler, "d1")
 
     def test_cancel_post(self, mock_http_handler):
         handler = _make_handler()
-        handler._cancel_debate = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._cancel_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle_post("/api/v1/debates/d1/cancel", {}, mock_http_handler)
         handler._cancel_debate.assert_called_once_with(mock_http_handler, "d1")
 
@@ -923,9 +887,7 @@ class TestHandlePatch:
 
     def test_patch_not_found(self, mock_storage, mock_http_handler):
         mock_storage.get_debate.return_value = None
-        handler = _make_handler(
-            storage=mock_storage, json_body={"title": "New"}
-        )
+        handler = _make_handler(storage=mock_storage, json_body={"title": "New"})
         result = handler.handle_patch("/api/v1/debates/d1", {}, mock_http_handler)
         assert _status(result) == 404
 
@@ -1014,28 +976,20 @@ class TestHandleBatchExport:
 
     def test_batch_export_post_no_body(self, mock_http_handler):
         handler = _make_handler(json_body=None)
-        result = handler._handle_batch_export(
-            "/api/debates/export/batch", {}, mock_http_handler
-        )
+        result = handler._handle_batch_export("/api/debates/export/batch", {}, mock_http_handler)
         assert _status(result) == 400
 
     def test_batch_export_post_with_body(self, mock_http_handler):
-        handler = _make_handler(
-            json_body={"debate_ids": ["d1", "d2"], "format": "json"}
-        )
-        handler._start_batch_export = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
-        result = handler._handle_batch_export(
-            "/api/debates/export/batch", {}, mock_http_handler
-        )
+        handler = _make_handler(json_body={"debate_ids": ["d1", "d2"], "format": "json"})
+        handler._start_batch_export = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
+        result = handler._handle_batch_export("/api/debates/export/batch", {}, mock_http_handler)
         handler._start_batch_export.assert_called_once()
 
     def test_batch_export_status(self, mock_http_handler):
         """Batch export status extracts parts[4] from /api/debates/export/batch/{id}/status."""
         handler = _make_handler()
         handler._get_batch_export_status = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
+            return_value=MagicMock(status_code=200, body=b"{}")
         )
         result = handler._handle_batch_export(
             "/api/debates/export/batch/job1/status", {}, mock_http_handler
@@ -1047,7 +1001,7 @@ class TestHandleBatchExport:
     def test_batch_export_results(self, mock_http_handler):
         handler = _make_handler()
         handler._get_batch_export_results = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
+            return_value=MagicMock(status_code=200, body=b"{}")
         )
         result = handler._handle_batch_export(
             "/api/debates/export/batch/job1/results", {}, mock_http_handler
@@ -1079,9 +1033,7 @@ class TestHandleBatchExport:
 
     def test_batch_export_short_path(self, mock_http_handler):
         handler = _make_handler()
-        result = handler._handle_batch_export(
-            "/api/debates/export", {}, mock_http_handler
-        )
+        result = handler._handle_batch_export("/api/debates/export", {}, mock_http_handler)
         assert _status(result) == 400
 
 
@@ -1183,9 +1135,7 @@ class TestAuthDispatch:
         handler = _make_handler()
         handler._requires_auth = MagicMock(return_value=True)
         handler._check_auth = MagicMock(return_value=None)
-        handler._search_debates = MagicMock(
-            return_value=MagicMock(status_code=200, body=b'{}')
-        )
+        handler._search_debates = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
         result = handler.handle("/api/search", {"q": "test"}, mock_http_handler)
         handler._check_auth.assert_called_once_with(mock_http_handler)
 
@@ -1247,7 +1197,7 @@ class TestEdgeCases:
         with patch(
             "aragora.server.handlers.debates.cost_estimation.handle_estimate_cost"
         ) as mock_est:
-            mock_est.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_est.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle(
                 "/api/debates/estimate-cost",
                 {"model_types": []},

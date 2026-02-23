@@ -149,15 +149,19 @@ def mock_user():
 @pytest.fixture()
 def handler(store, mock_user):
     """OpenClawGatewayHandler with _get_store and get_current_user patched."""
-    with patch(
-        "aragora.server.handlers.openclaw.orchestrator._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.credentials._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.policies._get_store",
-        return_value=store,
+    with (
+        patch(
+            "aragora.server.handlers.openclaw.orchestrator._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.credentials._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.policies._get_store",
+            return_value=store,
+        ),
     ):
         h = OpenClawGatewayHandler(server_context={})
         h.get_current_user = lambda handler: mock_user
@@ -338,7 +342,12 @@ class TestAddPolicyRule:
         """When store has add_policy_rule, it's used."""
         mock_rule = _MockPolicyRule("stored_rule", ["type_a"], "allow", 10)
         store.add_policy_rule = MagicMock(return_value=mock_rule)
-        body = {"name": "stored_rule", "action_types": ["type_a"], "decision": "allow", "priority": 10}
+        body = {
+            "name": "stored_rule",
+            "action_types": ["type_a"],
+            "decision": "allow",
+            "priority": 10,
+        }
         result = handler.handle_post(
             "/api/v1/openclaw/policy/rules", {}, mock_http(body=body, method="POST")
         )
@@ -451,9 +460,7 @@ class TestRemovePolicyRule:
     def test_remove_policy_rule_success(self, handler, mock_http, store):
         """Successfully remove a policy rule."""
         store.remove_policy_rule = MagicMock(return_value=True)
-        result = handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/block_shell", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/policy/rules/block_shell", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -462,18 +469,14 @@ class TestRemovePolicyRule:
     def test_remove_policy_rule_not_found(self, handler, mock_http, store):
         """Removing a non-existent rule returns success=False from store."""
         store.remove_policy_rule = MagicMock(return_value=False)
-        result = handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/nonexistent", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/policy/rules/nonexistent", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is False
 
     def test_remove_policy_rule_store_without_method(self, handler, mock_http, store):
         """Without remove_policy_rule method, returns success=True fallback."""
-        result = handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/any_rule", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/policy/rules/any_rule", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -481,9 +484,7 @@ class TestRemovePolicyRule:
     def test_remove_policy_rule_creates_audit_entry(self, handler, mock_http, store):
         """Removing a rule creates an audit entry."""
         store.remove_policy_rule = MagicMock(return_value=True)
-        handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/audited_rule", {}, mock_http()
-        )
+        handler.handle_delete("/api/v1/openclaw/policy/rules/audited_rule", {}, mock_http())
         entries, total = store.get_audit_log(action="policy.rule.remove")
         assert total >= 1
         entry = entries[0]
@@ -495,9 +496,7 @@ class TestRemovePolicyRule:
     def test_remove_policy_rule_audit_actor(self, handler, mock_http, store, mock_user):
         """Audit entry records authenticated user."""
         store.remove_policy_rule = MagicMock(return_value=True)
-        handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/tracked_rule", {}, mock_http()
-        )
+        handler.handle_delete("/api/v1/openclaw/policy/rules/tracked_rule", {}, mock_http())
         entries, _ = store.get_audit_log(action="policy.rule.remove")
         assert entries[0].actor_id == mock_user.user_id
 
@@ -585,9 +584,7 @@ class TestListApprovals:
     def test_list_approvals_custom_limit(self, handler, mock_http, store):
         """Custom limit query parameter is used."""
         store.list_approvals = MagicMock(return_value=([], 0))
-        result = handler.handle(
-            "/api/v1/openclaw/approvals", {"limit": "10"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/approvals", {"limit": "10"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["limit"] == 10
@@ -595,9 +592,7 @@ class TestListApprovals:
     def test_list_approvals_custom_offset(self, handler, mock_http, store):
         """Custom offset query parameter is used."""
         store.list_approvals = MagicMock(return_value=([], 0))
-        result = handler.handle(
-            "/api/v1/openclaw/approvals", {"offset": "25"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/approvals", {"offset": "25"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["offset"] == 25
@@ -950,6 +945,7 @@ class TestHealth:
         """Status is degraded when running actions exceed 100."""
         # Create 101 running actions
         from aragora.server.handlers.openclaw.models import ActionStatus
+
         session = store.create_session(user_id="test-user-001")
         for i in range(101):
             action = store.create_action(
@@ -1156,9 +1152,7 @@ class TestAudit:
         """Audit entries can be filtered by action."""
         store.add_audit_entry(action="a.create", actor_id="u1", resource_type="a")
         store.add_audit_entry(action="b.delete", actor_id="u1", resource_type="b")
-        result = handler.handle(
-            "/api/v1/openclaw/audit", {"action": "a.create"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/audit", {"action": "a.create"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -1168,9 +1162,7 @@ class TestAudit:
         """Audit entries can be filtered by actor_id."""
         store.add_audit_entry(action="test", actor_id="user-1", resource_type="r")
         store.add_audit_entry(action="test", actor_id="user-2", resource_type="r")
-        result = handler.handle(
-            "/api/v1/openclaw/audit", {"actor_id": "user-1"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/audit", {"actor_id": "user-1"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -1180,9 +1172,7 @@ class TestAudit:
         """Audit entries can be filtered by resource_type."""
         store.add_audit_entry(action="t", actor_id="u", resource_type="session")
         store.add_audit_entry(action="t", actor_id="u", resource_type="credential")
-        result = handler.handle(
-            "/api/v1/openclaw/audit", {"resource_type": "session"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/audit", {"resource_type": "session"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -1192,9 +1182,7 @@ class TestAudit:
         """Audit respects limit parameter."""
         for i in range(5):
             store.add_audit_entry(action=f"a{i}", actor_id="u", resource_type="r")
-        result = handler.handle(
-            "/api/v1/openclaw/audit", {"limit": "2"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/audit", {"limit": "2"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert len(body["entries"]) == 2
@@ -1205,9 +1193,7 @@ class TestAudit:
         """Audit respects offset parameter."""
         for i in range(5):
             store.add_audit_entry(action=f"a{i}", actor_id="u", resource_type="r")
-        result = handler.handle(
-            "/api/v1/openclaw/audit", {"offset": "3"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/audit", {"offset": "3"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["offset"] == 3
@@ -1226,8 +1212,14 @@ class TestAudit:
         result = handler.handle("/api/v1/openclaw/audit", {}, mock_http())
         entry = _body(result)["entries"][0]
         expected_fields = {
-            "id", "timestamp", "action", "actor_id",
-            "resource_type", "resource_id", "result", "details",
+            "id",
+            "timestamp",
+            "action",
+            "actor_id",
+            "resource_type",
+            "resource_id",
+            "result",
+            "details",
         }
         assert expected_fields.issubset(set(entry.keys()))
 
@@ -1358,11 +1350,13 @@ class TestPolicyHandlerMixinBase:
     def test_mixin_inherits_from_openclaw_mixin_base(self):
         """PolicyHandlerMixin inherits from OpenClawMixinBase."""
         from aragora.server.handlers.openclaw._base import OpenClawMixinBase
+
         assert issubclass(PolicyHandlerMixin, OpenClawMixinBase)
 
     def test_mixin_exports(self):
         """Module exports PolicyHandlerMixin."""
         from aragora.server.handlers.openclaw.policies import __all__
+
         assert "PolicyHandlerMixin" in __all__
 
 
@@ -1437,9 +1431,7 @@ class TestPathRouting:
     def test_delete_rule_via_v1(self, handler, mock_http, store):
         """DELETE /api/v1/openclaw/policy/rules/:name works."""
         store.remove_policy_rule = MagicMock(return_value=True)
-        result = handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/my_rule", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/policy/rules/my_rule", {}, mock_http())
         assert _status(result) == 200
 
     def test_can_handle_v1_openclaw(self, handler):

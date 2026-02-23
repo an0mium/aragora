@@ -39,9 +39,7 @@ class SpectateStreamHandler(BaseHandler):
     ]
 
     @handle_errors("spectate")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests to the appropriate sub-handler."""
         if not path.startswith("/api/v1/spectate"):
             return None

@@ -125,7 +125,9 @@ class TestPermissionConstants:
             shared.PERM_ANALYTICS_DELIBERATIONS,
         ]
         for perm in perms:
-            assert perm.startswith("analytics:"), f"Permission {perm!r} doesn't start with 'analytics:'"
+            assert perm.startswith("analytics:"), (
+                f"Permission {perm!r} doesn't start with 'analytics:'"
+            )
 
     def test_permissions_are_unique(self, shared):
         perms = [
@@ -524,7 +526,9 @@ class TestStubAgents:
     def test_agents_win_rates_between_0_and_1(self, shared):
         data = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/agents"]
         for agent in data["agents"]:
-            assert 0.0 <= agent["win_rate"] <= 1.0, f"Win rate {agent['win_rate']} for {agent['agent_id']} out of range"
+            assert 0.0 <= agent["win_rate"] <= 1.0, (
+                f"Win rate {agent['win_rate']} for {agent['agent_id']} out of range"
+            )
 
     def test_agents_elo_positive(self, shared):
         data = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/agents"]
@@ -981,7 +985,9 @@ class TestAllExports:
 
     def test_all_entries_resolve_to_attributes(self, shared):
         for name in shared.__all__:
-            assert hasattr(shared, name), f"{name} listed in __all__ but not an attribute of the module"
+            assert hasattr(shared, name), (
+                f"{name} listed in __all__ but not an attribute of the module"
+            )
 
     def test_no_duplicates_in_all(self, shared):
         assert len(shared.__all__) == len(set(shared.__all__)), "Duplicates in __all__"
@@ -1055,13 +1061,19 @@ class TestCrossEndpointConsistency:
     """Verify data consistency between related stub responses."""
 
     def test_cost_total_matches_breakdown_total(self, shared):
-        cost_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/cost"]["analysis"]["total_cost_usd"]
-        breakdown_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/cost/breakdown"]["breakdown"]["total_spend_usd"]
+        cost_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/cost"]["analysis"][
+            "total_cost_usd"
+        ]
+        breakdown_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/cost/breakdown"][
+            "breakdown"
+        ]["total_spend_usd"]
         assert cost_total == breakdown_total
 
     def test_agent_count_consistent_across_endpoints(self, shared):
         agents_count = len(shared.ANALYTICS_STUB_RESPONSES["/api/analytics/agents"]["agents"])
-        breakdown_count = len(shared.ANALYTICS_STUB_RESPONSES["/api/analytics/cost/breakdown"]["breakdown"]["agents"])
+        breakdown_count = len(
+            shared.ANALYTICS_STUB_RESPONSES["/api/analytics/cost/breakdown"]["breakdown"]["agents"]
+        )
         assert agents_count == breakdown_count
 
     def test_token_agents_and_models_same_count(self, shared):
@@ -1069,17 +1081,27 @@ class TestCrossEndpointConsistency:
         assert len(data["by_agent"]) == len(data["by_model"])
 
     def test_deliberation_total_consistent(self, shared):
-        summary_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/deliberations"]["summary"]["total"]
+        summary_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/deliberations"]["summary"][
+            "total"
+        ]
         # The summary total debates and deliberations total should be the same
-        main_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/summary"]["summary"]["total_debates"]
+        main_total = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/summary"]["summary"][
+            "total_debates"
+        ]
         assert summary_total == main_total
 
     def test_flips_consistency_agent_count_matches_agents(self, shared):
-        flip_agents = len(shared.ANALYTICS_STUB_RESPONSES["/api/analytics/flips/consistency"]["consistency"])
+        flip_agents = len(
+            shared.ANALYTICS_STUB_RESPONSES["/api/analytics/flips/consistency"]["consistency"]
+        )
         all_agents = len(shared.ANALYTICS_STUB_RESPONSES["/api/analytics/agents"]["agents"])
         assert flip_agents == all_agents
 
     def test_consensus_rate_consistent(self, shared):
-        summary_rate = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/summary"]["summary"]["consensus_rate"]
-        deliberation_rate = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/deliberations"]["summary"]["consensus_rate"]
+        summary_rate = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/summary"]["summary"][
+            "consensus_rate"
+        ]
+        deliberation_rate = shared.ANALYTICS_STUB_RESPONSES["/api/analytics/deliberations"][
+            "summary"
+        ]["consensus_rate"]
         assert summary_rate == deliberation_rate

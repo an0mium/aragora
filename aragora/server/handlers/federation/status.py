@@ -91,9 +91,7 @@ class FederationStatusHandler(BaseHandler):
         tags=["Federation"],
     )
     @require_permission("federation:read")
-    def _handle_federation_status(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_federation_status(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return a high-level federation status overview.
 
         Response includes connected workspace count, shared knowledge
@@ -101,14 +99,16 @@ class FederationStatusHandler(BaseHandler):
         """
         coordinator = _safe_import_coordinator()
         if not coordinator:
-            return json_response({
-                "status": "unavailable",
-                "connected_workspaces": 0,
-                "shared_knowledge_count": 0,
-                "sync_health": "offline",
-                "federation_mode": "isolated",
-                "message": "Federation service not initialized",
-            })
+            return json_response(
+                {
+                    "status": "unavailable",
+                    "connected_workspaces": 0,
+                    "shared_knowledge_count": 0,
+                    "sync_health": "offline",
+                    "federation_mode": "isolated",
+                    "message": "Federation service not initialized",
+                }
+            )
 
         try:
             stats = coordinator.get_stats()
@@ -129,28 +129,26 @@ class FederationStatusHandler(BaseHandler):
                 sync_health = "offline"
 
             # Compute shared knowledge count from consent usage
-            shared_knowledge_count = sum(
-                c.times_used for c in consents if c.is_valid()
-            )
+            shared_knowledge_count = sum(c.times_used for c in consents if c.is_valid())
 
             # Get the default federation mode
             default_policy = getattr(coordinator, "_default_policy", None)
-            federation_mode = (
-                default_policy.mode.value if default_policy else "isolated"
-            )
+            federation_mode = default_policy.mode.value if default_policy else "isolated"
 
-            return json_response({
-                "status": "active" if total_count > 0 else "idle",
-                "connected_workspaces": total_count,
-                "online_workspaces": online_count,
-                "shared_knowledge_count": shared_knowledge_count,
-                "valid_consents": stats.get("valid_consents", 0),
-                "pending_requests": stats.get("pending_requests", 0),
-                "sync_health": sync_health,
-                "federation_mode": federation_mode,
-                "registered_handlers": stats.get("registered_handlers", []),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            return json_response(
+                {
+                    "status": "active" if total_count > 0 else "idle",
+                    "connected_workspaces": total_count,
+                    "online_workspaces": online_count,
+                    "shared_knowledge_count": shared_knowledge_count,
+                    "valid_consents": stats.get("valid_consents", 0),
+                    "pending_requests": stats.get("pending_requests", 0),
+                    "sync_health": sync_health,
+                    "federation_mode": federation_mode,
+                    "registered_handlers": stats.get("registered_handlers", []),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error fetching federation status: %s", e)
             return error_response(safe_error_message(e, "federation"), 500)
@@ -166,9 +164,7 @@ class FederationStatusHandler(BaseHandler):
         tags=["Federation"],
     )
     @require_permission("federation:read")
-    def _handle_list_workspaces(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_list_workspaces(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return all federated workspaces with status and sync metadata."""
         coordinator = _safe_import_coordinator()
         if not coordinator:
@@ -184,10 +180,7 @@ class FederationStatusHandler(BaseHandler):
                 ws_consents = [
                     c
                     for c in consents
-                    if (
-                        c.source_workspace_id == ws.id
-                        or c.target_workspace_id == ws.id
-                    )
+                    if (c.source_workspace_id == ws.id or c.target_workspace_id == ws.id)
                     and c.is_valid()
                 ]
                 shared_items = sum(c.times_used for c in ws_consents)
@@ -200,32 +193,34 @@ class FederationStatusHandler(BaseHandler):
                 else:
                     status = "disconnected"
 
-                result.append({
-                    "id": ws.id,
-                    "name": ws.name or ws.id,
-                    "org_id": ws.org_id,
-                    "status": status,
-                    "is_online": ws.is_online,
-                    "federation_mode": ws.federation_mode.value,
-                    "last_heartbeat": (
-                        ws.last_heartbeat.isoformat()
-                        if ws.last_heartbeat
-                        else None
-                    ),
-                    "latency_ms": ws.latency_ms,
-                    "shared_items": shared_items,
-                    "active_consents": len(ws_consents),
-                    "capabilities": {
-                        "agent_execution": ws.supports_agent_execution,
-                        "workflow_execution": ws.supports_workflow_execution,
-                        "knowledge_query": ws.supports_knowledge_query,
-                    },
-                })
+                result.append(
+                    {
+                        "id": ws.id,
+                        "name": ws.name or ws.id,
+                        "org_id": ws.org_id,
+                        "status": status,
+                        "is_online": ws.is_online,
+                        "federation_mode": ws.federation_mode.value,
+                        "last_heartbeat": (
+                            ws.last_heartbeat.isoformat() if ws.last_heartbeat else None
+                        ),
+                        "latency_ms": ws.latency_ms,
+                        "shared_items": shared_items,
+                        "active_consents": len(ws_consents),
+                        "capabilities": {
+                            "agent_execution": ws.supports_agent_execution,
+                            "workflow_execution": ws.supports_workflow_execution,
+                            "knowledge_query": ws.supports_knowledge_query,
+                        },
+                    }
+                )
 
-            return json_response({
-                "workspaces": result,
-                "total": len(result),
-            })
+            return json_response(
+                {
+                    "workspaces": result,
+                    "total": len(result),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error listing federation workspaces: %s", e)
             return error_response(safe_error_message(e, "federation"), 500)
@@ -241,9 +236,7 @@ class FederationStatusHandler(BaseHandler):
         tags=["Federation"],
     )
     @require_permission("federation:read")
-    def _handle_sync_activity(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_sync_activity(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return recent cross-workspace sync events.
 
         Aggregates consent usage and pending requests into a
@@ -280,23 +273,27 @@ class FederationStatusHandler(BaseHandler):
 
             # Add pending request activity
             for req in pending:
-                activity.append({
-                    "id": req.id,
-                    "type": "pending_approval",
-                    "operation": req.operation.value,
-                    "source_workspace": req.source_workspace_id,
-                    "target_workspace": req.target_workspace_id,
-                    "requester": req.requester_id,
-                    "timestamp": req.created_at.isoformat(),
-                })
+                activity.append(
+                    {
+                        "id": req.id,
+                        "type": "pending_approval",
+                        "operation": req.operation.value,
+                        "source_workspace": req.source_workspace_id,
+                        "target_workspace": req.target_workspace_id,
+                        "requester": req.requester_id,
+                        "timestamp": req.created_at.isoformat(),
+                    }
+                )
 
             # Sort by timestamp descending
             activity.sort(key=lambda a: a.get("timestamp", ""), reverse=True)
 
-            return json_response({
-                "activity": activity,
-                "total": len(activity),
-            })
+            return json_response(
+                {
+                    "activity": activity,
+                    "total": len(activity),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error fetching sync activity: %s", e)
             return error_response(safe_error_message(e, "federation"), 500)
@@ -312,9 +309,7 @@ class FederationStatusHandler(BaseHandler):
         tags=["Federation"],
     )
     @require_permission("federation:read")
-    def _handle_federation_config(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_federation_config(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return the current federation configuration.
 
         Includes default policy, knowledge sharing settings,
@@ -322,20 +317,20 @@ class FederationStatusHandler(BaseHandler):
         """
         coordinator = _safe_import_coordinator()
         if not coordinator:
-            return json_response({
-                "default_policy": None,
-                "knowledge_sharing": {
-                    "types": [],
-                    "approval_required": True,
-                    "scope": "none",
-                },
-            })
+            return json_response(
+                {
+                    "default_policy": None,
+                    "knowledge_sharing": {
+                        "types": [],
+                        "approval_required": True,
+                        "scope": "none",
+                    },
+                }
+            )
 
         try:
             default_policy = getattr(coordinator, "_default_policy", None)
-            workspace_policies = getattr(
-                coordinator, "_workspace_policies", {}
-            )
+            workspace_policies = getattr(coordinator, "_workspace_policies", {})
 
             policy_dict = default_policy.to_dict() if default_policy else None
 
@@ -347,28 +342,18 @@ class FederationStatusHandler(BaseHandler):
 
             knowledge_sharing = {
                 "types": sorted(sharing_types),
-                "approval_required": (
-                    default_policy.require_approval
-                    if default_policy
-                    else True
-                ),
-                "scope": (
-                    default_policy.sharing_scope.value
-                    if default_policy
-                    else "none"
-                ),
-                "audit_enabled": (
-                    default_policy.audit_all_requests
-                    if default_policy
-                    else True
-                ),
+                "approval_required": (default_policy.require_approval if default_policy else True),
+                "scope": (default_policy.sharing_scope.value if default_policy else "none"),
+                "audit_enabled": (default_policy.audit_all_requests if default_policy else True),
             }
 
-            return json_response({
-                "default_policy": policy_dict,
-                "workspace_policy_count": len(workspace_policies),
-                "knowledge_sharing": knowledge_sharing,
-            })
+            return json_response(
+                {
+                    "default_policy": policy_dict,
+                    "workspace_policy_count": len(workspace_policies),
+                    "knowledge_sharing": knowledge_sharing,
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error fetching federation config: %s", e)
             return error_response(safe_error_message(e, "federation"), 500)

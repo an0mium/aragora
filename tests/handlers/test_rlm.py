@@ -222,24 +222,26 @@ class TestHandleStats:
     def test_stats_success_with_rlm_available(self, handler):
         """Stats returns cache info and system status when RLM is available."""
         mock_cache_stats = {"hits": 10, "misses": 5, "size": 3}
-        with patch(
-            "aragora.server.handlers.rlm.RLMContextHandler._get_compressor",
-            return_value=MagicMock(),
-        ), patch(
-            "aragora.server.handlers.rlm.RLMContextHandler._get_rlm",
-            return_value=MagicMock(),
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.rlm.compressor": MagicMock(
-                    get_compression_cache_stats=MagicMock(return_value=mock_cache_stats)
-                ),
-                "aragora.rlm": MagicMock(HAS_OFFICIAL_RLM=False),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.rlm.RLMContextHandler._get_compressor",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.rlm.RLMContextHandler._get_rlm",
+                return_value=MagicMock(),
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.rlm.compressor": MagicMock(
+                        get_compression_cache_stats=MagicMock(return_value=mock_cache_stats)
+                    ),
+                    "aragora.rlm": MagicMock(HAS_OFFICIAL_RLM=False),
+                },
+            ),
         ):
-            result = handler.handle_stats(
-                "/api/v1/rlm/stats", {}, MockHTTPHandler()
-            )
+            result = handler.handle_stats("/api/v1/rlm/stats", {}, MockHTTPHandler())
 
         body = _body(result)
         assert _status(result) == 200
@@ -251,13 +253,14 @@ class TestHandleStats:
     def test_stats_import_error_fallback(self, handler):
         """Stats returns graceful fallback when RLM module unavailable."""
         # Force ImportError by making the import inside handle_stats fail
-        with patch.dict("sys.modules", {
-            "aragora.rlm.compressor": None,
-            "aragora.rlm": None,
-        }):
-            result = handler.handle_stats(
-                "/api/v1/rlm/stats", {}, MockHTTPHandler()
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.rlm.compressor": None,
+                "aragora.rlm": None,
+            },
+        ):
+            result = handler.handle_stats("/api/v1/rlm/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert _status(result) == 200
         assert body["system"]["has_official_rlm"] is False
@@ -271,13 +274,14 @@ class TestHandleStats:
         _add_context(handler, "ctx_2")
         _add_context(handler, "ctx_3")
 
-        with patch(
-            "aragora.rlm.compressor.get_compression_cache_stats",
-            return_value={"hits": 0},
-        ), patch("aragora.rlm.HAS_OFFICIAL_RLM", False):
-            result = handler.handle_stats(
-                "/api/v1/rlm/stats", {}, MockHTTPHandler()
-            )
+        with (
+            patch(
+                "aragora.rlm.compressor.get_compression_cache_stats",
+                return_value={"hits": 0},
+            ),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+        ):
+            result = handler.handle_stats("/api/v1/rlm/stats", {}, MockHTTPHandler())
 
         body = _body(result)
         assert _status(result) == 200
@@ -285,7 +289,9 @@ class TestHandleStats:
 
     def test_stats_via_handle_dispatch(self, handler):
         """Stats route is dispatched correctly via handle()."""
-        with patch.object(handler, "handle_stats", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
+        with patch.object(
+            handler, "handle_stats", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
             handler.handle("/api/v1/rlm/stats", {}, MockHTTPHandler())
             mock.assert_called_once()
 
@@ -300,9 +306,7 @@ class TestHandleStrategies:
 
     def test_strategies_returns_all(self, handler):
         """Strategies returns all 6 known strategies."""
-        result = handler.handle_strategies(
-            "/api/v1/rlm/strategies", {}, MockHTTPHandler()
-        )
+        result = handler.handle_strategies("/api/v1/rlm/strategies", {}, MockHTTPHandler())
         body = _body(result)
         assert _status(result) == 200
         strategies = body["strategies"]
@@ -311,26 +315,20 @@ class TestHandleStrategies:
 
     def test_strategies_default_is_auto(self, handler):
         """Strategies lists 'auto' as the default."""
-        result = handler.handle_strategies(
-            "/api/v1/rlm/strategies", {}, MockHTTPHandler()
-        )
+        result = handler.handle_strategies("/api/v1/rlm/strategies", {}, MockHTTPHandler())
         body = _body(result)
         assert body["default"] == "auto"
 
     def test_strategies_includes_documentation(self, handler):
         """Strategies includes documentation link."""
-        result = handler.handle_strategies(
-            "/api/v1/rlm/strategies", {}, MockHTTPHandler()
-        )
+        result = handler.handle_strategies("/api/v1/rlm/strategies", {}, MockHTTPHandler())
         body = _body(result)
         assert "documentation" in body
         assert "github.com" in body["documentation"]
 
     def test_strategy_fields(self, handler):
         """Each strategy has name, description, use_case, and token_reduction."""
-        result = handler.handle_strategies(
-            "/api/v1/rlm/strategies", {}, MockHTTPHandler()
-        )
+        result = handler.handle_strategies("/api/v1/rlm/strategies", {}, MockHTTPHandler())
         body = _body(result)
         for key, strategy in body["strategies"].items():
             assert "name" in strategy, f"Strategy {key} missing 'name'"
@@ -340,7 +338,9 @@ class TestHandleStrategies:
 
     def test_strategies_via_handle_dispatch(self, handler):
         """Strategies route is dispatched correctly via handle()."""
-        with patch.object(handler, "handle_strategies", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
+        with patch.object(
+            handler, "handle_strategies", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
             handler.handle("/api/v1/rlm/strategies", {}, MockHTTPHandler())
             mock.assert_called_once()
 
@@ -355,9 +355,7 @@ class TestHandleListContexts:
 
     def test_list_empty(self, handler):
         """Returns empty list when no contexts exist."""
-        result = handler.handle_list_contexts(
-            "/api/v1/rlm/contexts", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_contexts("/api/v1/rlm/contexts", {}, MockHTTPHandler())
         body = _body(result)
         assert _status(result) == 200
         assert body["contexts"] == []
@@ -368,9 +366,7 @@ class TestHandleListContexts:
         _add_context(handler, "ctx_1", source_type="text")
         _add_context(handler, "ctx_2", source_type="code")
 
-        result = handler.handle_list_contexts(
-            "/api/v1/rlm/contexts", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_contexts("/api/v1/rlm/contexts", {}, MockHTTPHandler())
         body = _body(result)
         assert _status(result) == 200
         assert body["total"] == 2
@@ -380,9 +376,7 @@ class TestHandleListContexts:
         """Each context includes expected fields."""
         _add_context(handler, "ctx_1", source_type="code", original_tokens=500)
 
-        result = handler.handle_list_contexts(
-            "/api/v1/rlm/contexts", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_contexts("/api/v1/rlm/contexts", {}, MockHTTPHandler())
         body = _body(result)
         ctx = body["contexts"][0]
         assert ctx["id"] == "ctx_1"
@@ -429,7 +423,9 @@ class TestHandleListContexts:
 
     def test_list_via_handle_dispatch(self, handler):
         """Contexts route is dispatched correctly via handle()."""
-        with patch.object(handler, "handle_list_contexts", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
+        with patch.object(
+            handler, "handle_list_contexts", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
             handler.handle("/api/v1/rlm/contexts", {}, MockHTTPHandler())
             mock.assert_called_once()
 
@@ -483,9 +479,7 @@ class TestGetContext:
         """Does not include summary when include_content=false."""
         _add_context(handler, "ctx_abc123")
 
-        result = handler._get_context(
-            "ctx_abc123", {"include_content": "false"}, MockHTTPHandler()
-        )
+        result = handler._get_context("ctx_abc123", {"include_content": "false"}, MockHTTPHandler())
         body = _body(result)
         assert "summary_preview" not in body
 
@@ -510,9 +504,7 @@ class TestGetContext:
         _add_context(handler, "ctx_abc123")
 
         mock_http = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/v1/rlm/context/ctx_abc123", {}, mock_http
-        )
+        result = handler.handle("/api/v1/rlm/context/ctx_abc123", {}, mock_http)
         body = _body(result)
         assert _status(result) == 200
         assert body["id"] == "ctx_abc123"
@@ -528,34 +520,26 @@ class TestContextRouteValidation:
 
     def test_empty_context_id(self, handler):
         """Empty context ID after prefix returns 400."""
-        result = handler._handle_context_route(
-            "/api/v1/rlm/context/", {}, MockHTTPHandler()
-        )
+        result = handler._handle_context_route("/api/v1/rlm/context/", {}, MockHTTPHandler())
         assert _status(result) == 400
 
     def test_context_id_with_slash(self, handler):
         """Context ID containing slash returns 400."""
-        result = handler._handle_context_route(
-            "/api/v1/rlm/context/foo/bar", {}, MockHTTPHandler()
-        )
+        result = handler._handle_context_route("/api/v1/rlm/context/foo/bar", {}, MockHTTPHandler())
         assert _status(result) == 400
 
     def test_context_id_valid_format(self, handler):
         """Valid context ID format passes validation."""
         _add_context(handler, "ctx_abc123")
         mock_http = MockHTTPHandler(method="GET")
-        result = handler._handle_context_route(
-            "/api/v1/rlm/context/ctx_abc123", {}, mock_http
-        )
+        result = handler._handle_context_route("/api/v1/rlm/context/ctx_abc123", {}, mock_http)
         assert _status(result) == 200
 
     def test_context_unsupported_method(self, handler):
         """Non GET/DELETE method returns 405."""
         _add_context(handler, "ctx_abc123")
         mock_http = MockHTTPHandler(method="PUT")
-        result = handler._handle_context_route(
-            "/api/v1/rlm/context/ctx_abc123", {}, mock_http
-        )
+        result = handler._handle_context_route("/api/v1/rlm/context/ctx_abc123", {}, mock_http)
         assert _status(result) == 405
 
 
@@ -588,32 +572,24 @@ class TestDeleteContext:
         """DELETE dispatch works through handle_delete."""
         _add_context(handler, "ctx_abc123")
 
-        result = handler.handle_delete(
-            "/api/v1/rlm/context/ctx_abc123", {}, MockHTTPHandler()
-        )
+        result = handler.handle_delete("/api/v1/rlm/context/ctx_abc123", {}, MockHTTPHandler())
         body = _body(result)
         assert _status(result) == 200
         assert body["success"] is True
 
     def test_delete_empty_id_returns_none(self, handler):
         """DELETE with empty ID returns None (no handler match)."""
-        result = handler.handle_delete(
-            "/api/v1/rlm/context/", {}, MockHTTPHandler()
-        )
+        result = handler.handle_delete("/api/v1/rlm/context/", {}, MockHTTPHandler())
         assert result is None
 
     def test_delete_id_with_slash_returns_none(self, handler):
         """DELETE with ID containing slash returns None."""
-        result = handler.handle_delete(
-            "/api/v1/rlm/context/foo/bar", {}, MockHTTPHandler()
-        )
+        result = handler.handle_delete("/api/v1/rlm/context/foo/bar", {}, MockHTTPHandler())
         assert result is None
 
     def test_delete_wrong_prefix_returns_none(self, handler):
         """DELETE on non-context path returns None."""
-        result = handler.handle_delete(
-            "/api/v1/rlm/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_delete("/api/v1/rlm/stats", {}, MockHTTPHandler())
         assert result is None
 
 
@@ -630,8 +606,10 @@ class TestHandleCompress:
         mock_ctx = _make_mock_context(original_tokens=1000, total_tokens=200)
 
         mock_compressor = MagicMock()
-        with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx):
+        with (
+            patch.object(handler, "_get_compressor", return_value=mock_compressor),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx),
+        ):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
@@ -689,9 +667,7 @@ class TestHandleCompress:
         big_content = "x" * (10_000_001)
         # Mock read_json_body to bypass the body-size limit in read_json_body itself
         # so the handler's own content-length check can run
-        with patch.object(
-            handler, "read_json_body", return_value={"content": big_content}
-        ):
+        with patch.object(handler, "read_json_body", return_value={"content": big_content}):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
@@ -714,8 +690,10 @@ class TestHandleCompress:
         mock_compressor = MagicMock()
 
         for src_type in ("text", "code", "debate"):
-            with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-                 patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx):
+            with (
+                patch.object(handler, "_get_compressor", return_value=mock_compressor),
+                patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx),
+            ):
                 result = handler.handle_compress(
                     "/api/v1/rlm/compress",
                     {},
@@ -768,8 +746,10 @@ class TestHandleCompress:
         mock_compressor = MagicMock()
 
         for lvl in (1, 2, 3, 4, 5):
-            with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-                 patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx):
+            with (
+                patch.object(handler, "_get_compressor", return_value=mock_compressor),
+                patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx),
+            ):
                 result = handler.handle_compress(
                     "/api/v1/rlm/compress",
                     {},
@@ -796,8 +776,10 @@ class TestHandleCompress:
     def test_compress_runtime_error(self, handler):
         """Compress returns 500 on RuntimeError."""
         mock_compressor = MagicMock()
-        with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-             patch("aragora.server.handlers.rlm.run_async", side_effect=RuntimeError("boom")):
+        with (
+            patch.object(handler, "_get_compressor", return_value=mock_compressor),
+            patch("aragora.server.handlers.rlm.run_async", side_effect=RuntimeError("boom")),
+        ):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
@@ -811,8 +793,10 @@ class TestHandleCompress:
     def test_compress_value_error(self, handler):
         """Compress returns 500 on ValueError."""
         mock_compressor = MagicMock()
-        with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-             patch("aragora.server.handlers.rlm.run_async", side_effect=ValueError("bad data")):
+        with (
+            patch.object(handler, "_get_compressor", return_value=mock_compressor),
+            patch("aragora.server.handlers.rlm.run_async", side_effect=ValueError("bad data")),
+        ):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
@@ -828,8 +812,10 @@ class TestHandleCompress:
         mock_ctx = _make_mock_context()
         mock_compressor = MagicMock()
 
-        with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx):
+        with (
+            patch.object(handler, "_get_compressor", return_value=mock_compressor),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx),
+        ):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
@@ -846,10 +832,10 @@ class TestHandleCompress:
 
     def test_compress_via_handle_post(self, handler):
         """Compress dispatched correctly via handle_post."""
-        with patch.object(handler, "handle_compress", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
-            handler.handle_post(
-                "/api/v1/rlm/compress", {}, MockHTTPHandler(method="POST")
-            )
+        with patch.object(
+            handler, "handle_compress", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
+            handler.handle_post("/api/v1/rlm/compress", {}, MockHTTPHandler(method="POST"))
             mock.assert_called_once()
 
 
@@ -872,8 +858,10 @@ class TestHandleQuery:
         mock_result.tokens_processed = 500
         mock_result.sub_calls_made = 3
 
-        with patch.object(handler, "_get_rlm", return_value=MagicMock()), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_result):
+        with (
+            patch.object(handler, "_get_rlm", return_value=MagicMock()),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_result),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},
@@ -999,8 +987,10 @@ class TestHandleQuery:
 
         valid = ["peek", "grep", "partition_map", "summarize", "hierarchical", "auto"]
         for strategy in valid:
-            with patch.object(handler, "_get_rlm", return_value=MagicMock()), \
-                 patch("aragora.server.handlers.rlm.run_async", return_value=mock_result):
+            with (
+                patch.object(handler, "_get_rlm", return_value=MagicMock()),
+                patch("aragora.server.handlers.rlm.run_async", return_value=mock_result),
+            ):
                 result = handler.handle_query(
                     "/api/v1/rlm/query",
                     {},
@@ -1025,8 +1015,10 @@ class TestHandleQuery:
         mock_result.confidence = 0.99
         mock_result.iteration = 3
 
-        with patch.object(handler, "_get_rlm", return_value=mock_rlm), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_result):
+        with (
+            patch.object(handler, "_get_rlm", return_value=mock_rlm),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_result),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},
@@ -1051,8 +1043,10 @@ class TestHandleQuery:
         mock_result = MagicMock()
         mock_result.answer = "answer"
 
-        with patch.object(handler, "_get_rlm", return_value=MagicMock()), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_result):
+        with (
+            patch.object(handler, "_get_rlm", return_value=MagicMock()),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_result),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},
@@ -1076,8 +1070,10 @@ class TestHandleQuery:
         mock_node.content = "Fallback summary content"
         ctx.get_at_level.return_value = [mock_node]
 
-        with patch.object(handler, "_get_rlm", return_value=None), \
-             patch("aragora.rlm.AbstractionLevel") as mock_level:
+        with (
+            patch.object(handler, "_get_rlm", return_value=None),
+            patch("aragora.rlm.AbstractionLevel") as mock_level,
+        ):
             mock_level.SUMMARY = "SUMMARY"
             result = handler.handle_query(
                 "/api/v1/rlm/query",
@@ -1099,8 +1095,10 @@ class TestHandleQuery:
         """Fallback query returns generic message when no summary nodes."""
         ctx = _add_context(handler, "ctx_abc123")
 
-        with patch.object(handler, "_get_rlm", return_value=None), \
-             patch("aragora.rlm.AbstractionLevel") as mock_level:
+        with (
+            patch.object(handler, "_get_rlm", return_value=None),
+            patch("aragora.rlm.AbstractionLevel") as mock_level,
+        ):
             mock_level.SUMMARY = "SUMMARY"
             ctx.get_at_level.return_value = []
             result = handler.handle_query(
@@ -1123,8 +1121,10 @@ class TestHandleQuery:
         """Fallback handles ImportError gracefully."""
         _add_context(handler, "ctx_abc123")
 
-        with patch.object(handler, "_get_rlm", return_value=None), \
-             patch.dict("sys.modules", {"aragora.rlm": None}):
+        with (
+            patch.object(handler, "_get_rlm", return_value=None),
+            patch.dict("sys.modules", {"aragora.rlm": None}),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},
@@ -1145,8 +1145,10 @@ class TestHandleQuery:
         """Query returns 500 on RuntimeError."""
         _add_context(handler, "ctx_abc123")
 
-        with patch.object(handler, "_get_rlm", return_value=MagicMock()), \
-             patch("aragora.server.handlers.rlm.run_async", side_effect=RuntimeError("boom")):
+        with (
+            patch.object(handler, "_get_rlm", return_value=MagicMock()),
+            patch("aragora.server.handlers.rlm.run_async", side_effect=RuntimeError("boom")),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},
@@ -1161,8 +1163,10 @@ class TestHandleQuery:
         """Query returns 500 on ValueError."""
         _add_context(handler, "ctx_abc123")
 
-        with patch.object(handler, "_get_rlm", return_value=MagicMock()), \
-             patch("aragora.server.handlers.rlm.run_async", side_effect=ValueError("bad")):
+        with (
+            patch.object(handler, "_get_rlm", return_value=MagicMock()),
+            patch("aragora.server.handlers.rlm.run_async", side_effect=ValueError("bad")),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},
@@ -1175,10 +1179,10 @@ class TestHandleQuery:
 
     def test_query_via_handle_post(self, handler):
         """Query dispatched correctly via handle_post."""
-        with patch.object(handler, "handle_query", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
-            handler.handle_post(
-                "/api/v1/rlm/query", {}, MockHTTPHandler(method="POST")
-            )
+        with patch.object(
+            handler, "handle_query", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
+            handler.handle_post("/api/v1/rlm/query", {}, MockHTTPHandler(method="POST"))
             mock.assert_called_once()
 
 
@@ -1204,9 +1208,7 @@ class TestHandleStreamModes:
                 "aragora.rlm.streaming": MagicMock(StreamMode=mock_stream_mode),
             },
         ):
-            result = handler.handle_stream_modes(
-                "/api/v1/rlm/stream/modes", {}, MockHTTPHandler()
-            )
+            result = handler.handle_stream_modes("/api/v1/rlm/stream/modes", {}, MockHTTPHandler())
 
         body = _body(result)
         assert _status(result) == 200
@@ -1216,9 +1218,7 @@ class TestHandleStreamModes:
     def test_stream_modes_fallback(self, handler):
         """Returns fallback modes when streaming module unavailable."""
         with patch.dict("sys.modules", {"aragora.rlm.streaming": None}):
-            result = handler.handle_stream_modes(
-                "/api/v1/rlm/stream/modes", {}, MockHTTPHandler()
-            )
+            result = handler.handle_stream_modes("/api/v1/rlm/stream/modes", {}, MockHTTPHandler())
 
         body = _body(result)
         assert _status(result) == 200
@@ -1228,7 +1228,9 @@ class TestHandleStreamModes:
 
     def test_stream_modes_via_handle_dispatch(self, handler):
         """Stream modes route dispatched via handle()."""
-        with patch.object(handler, "handle_stream_modes", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
+        with patch.object(
+            handler, "handle_stream_modes", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
             handler.handle("/api/v1/rlm/stream/modes", {}, MockHTTPHandler())
             mock.assert_called_once()
 
@@ -1297,8 +1299,10 @@ class TestHandleStream:
         mock_streaming_module.StreamMode.TARGETED = "targeted"
         mock_streaming_module.StreamMode.PROGRESSIVE = "progressive"
 
-        with patch.dict("sys.modules", {"aragora.rlm.streaming": mock_streaming_module}), \
-             patch("aragora.server.handlers.rlm.run_async") as mock_run:
+        with (
+            patch.dict("sys.modules", {"aragora.rlm.streaming": mock_streaming_module}),
+            patch("aragora.server.handlers.rlm.run_async") as mock_run,
+        ):
             # run_async should execute the async collect_chunks function
             mock_run.return_value = None
             result = handler.handle_stream(
@@ -1324,8 +1328,10 @@ class TestHandleStream:
         mock_node.content = "Summary node content"
         ctx.get_at_level.return_value = [mock_node]
 
-        with patch.dict("sys.modules", {"aragora.rlm.streaming": None}), \
-             patch("aragora.rlm.AbstractionLevel") as mock_level:
+        with (
+            patch.dict("sys.modules", {"aragora.rlm.streaming": None}),
+            patch("aragora.rlm.AbstractionLevel") as mock_level,
+        ):
             mock_level.SUMMARY = "SUMMARY"
             result = handler.handle_stream(
                 "/api/v1/rlm/stream",
@@ -1360,10 +1366,10 @@ class TestHandleStream:
 
     def test_stream_via_handle_post(self, handler):
         """Stream dispatched correctly via handle_post."""
-        with patch.object(handler, "handle_stream", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
-            handler.handle_post(
-                "/api/v1/rlm/stream", {}, MockHTTPHandler(method="POST")
-            )
+        with patch.object(
+            handler, "handle_stream", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
+            handler.handle_post("/api/v1/rlm/stream", {}, MockHTTPHandler(method="POST"))
             mock.assert_called_once()
 
 
@@ -1377,10 +1383,12 @@ class TestHandleCodebaseHealth:
 
     def test_health_basic(self, handler, tmp_path):
         """Returns health info for a valid codebase root."""
-        with patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}), \
-             patch("aragora.rlm.HAS_OFFICIAL_RLM", False), \
-             patch("aragora.rlm.codebase_context.CodebaseContextBuilder") as mock_builder_cls, \
-             patch.object(handler, "_get_rlm", return_value=None):
+        with (
+            patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+            patch("aragora.rlm.codebase_context.CodebaseContextBuilder") as mock_builder_cls,
+            patch.object(handler, "_get_rlm", return_value=None),
+        ):
             result = handler.handle_codebase_health(
                 "/api/v1/rlm/codebase/health", {}, MockHTTPHandler()
             )
@@ -1399,10 +1407,12 @@ class TestHandleCodebaseHealth:
         manifest = context_dir / "codebase_manifest.tsv"
         manifest.write_text("# Aragora files=42 lines=1000\nfile\tlines\n")
 
-        with patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}), \
-             patch("aragora.rlm.HAS_OFFICIAL_RLM", False), \
-             patch("aragora.rlm.codebase_context.CodebaseContextBuilder"), \
-             patch.object(handler, "_get_rlm", return_value=None):
+        with (
+            patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+            patch("aragora.rlm.codebase_context.CodebaseContextBuilder"),
+            patch.object(handler, "_get_rlm", return_value=None),
+        ):
             result = handler.handle_codebase_health(
                 "/api/v1/rlm/codebase/health", {}, MockHTTPHandler()
             )
@@ -1415,10 +1425,12 @@ class TestHandleCodebaseHealth:
 
     def test_health_no_manifest(self, handler, tmp_path):
         """Status is 'missing' when manifest does not exist and no refresh."""
-        with patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}), \
-             patch("aragora.rlm.HAS_OFFICIAL_RLM", False), \
-             patch("aragora.rlm.codebase_context.CodebaseContextBuilder"), \
-             patch.object(handler, "_get_rlm", return_value=None):
+        with (
+            patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+            patch("aragora.rlm.codebase_context.CodebaseContextBuilder"),
+            patch.object(handler, "_get_rlm", return_value=None),
+        ):
             result = handler.handle_codebase_health(
                 "/api/v1/rlm/codebase/health", {}, MockHTTPHandler()
             )
@@ -1439,11 +1451,13 @@ class TestHandleCodebaseHealth:
         mock_builder = MagicMock()
         mock_builder.build_index = MagicMock()
 
-        with patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}), \
-             patch("aragora.rlm.HAS_OFFICIAL_RLM", False), \
-             patch("aragora.rlm.codebase_context.CodebaseContextBuilder", return_value=mock_builder), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_index), \
-             patch.object(handler, "_get_rlm", return_value=None):
+        with (
+            patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+            patch("aragora.rlm.codebase_context.CodebaseContextBuilder", return_value=mock_builder),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_index),
+            patch.object(handler, "_get_rlm", return_value=None),
+        ):
             result = handler.handle_codebase_health(
                 "/api/v1/rlm/codebase/health",
                 {"refresh": "true"},
@@ -1459,11 +1473,13 @@ class TestHandleCodebaseHealth:
         """rlm=true triggers RLM context build."""
         mock_builder = MagicMock()
 
-        with patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}), \
-             patch("aragora.rlm.HAS_OFFICIAL_RLM", True), \
-             patch("aragora.rlm.codebase_context.CodebaseContextBuilder", return_value=mock_builder), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=MagicMock()), \
-             patch.object(handler, "_get_rlm", return_value=MagicMock()):
+        with (
+            patch.dict("os.environ", {"ARAGORA_CODEBASE_ROOT": str(tmp_path)}),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", True),
+            patch("aragora.rlm.codebase_context.CodebaseContextBuilder", return_value=mock_builder),
+            patch("aragora.server.handlers.rlm.run_async", return_value=MagicMock()),
+            patch.object(handler, "_get_rlm", return_value=MagicMock()),
+        ):
             result = handler.handle_codebase_health(
                 "/api/v1/rlm/codebase/health",
                 {"rlm": "true"},
@@ -1476,25 +1492,32 @@ class TestHandleCodebaseHealth:
 
     def test_health_via_handle_dispatch(self, handler):
         """Codebase health dispatched via handle()."""
-        with patch.object(handler, "handle_codebase_health", return_value=MagicMock(status_code=200, body=b'{}')) as mock:
+        with patch.object(
+            handler, "handle_codebase_health", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock:
             handler.handle("/api/v1/rlm/codebase/health", {}, MockHTTPHandler())
             mock.assert_called_once()
 
     def test_health_env_fallback_to_repo_root(self, handler, tmp_path):
         """Uses ARAGORA_REPO_ROOT when ARAGORA_CODEBASE_ROOT not set."""
-        with patch.dict(
-            "os.environ",
-            {"ARAGORA_REPO_ROOT": str(tmp_path)},
-            clear=False,
-        ), patch.dict(
-            "os.environ",
-            {},
-            clear=False,
-        ), patch("aragora.rlm.HAS_OFFICIAL_RLM", False), \
-             patch("aragora.rlm.codebase_context.CodebaseContextBuilder"), \
-             patch.object(handler, "_get_rlm", return_value=None):
+        with (
+            patch.dict(
+                "os.environ",
+                {"ARAGORA_REPO_ROOT": str(tmp_path)},
+                clear=False,
+            ),
+            patch.dict(
+                "os.environ",
+                {},
+                clear=False,
+            ),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+            patch("aragora.rlm.codebase_context.CodebaseContextBuilder"),
+            patch.object(handler, "_get_rlm", return_value=None),
+        ):
             # Clear ARAGORA_CODEBASE_ROOT if set
             import os
+
             old = os.environ.pop("ARAGORA_CODEBASE_ROOT", None)
             try:
                 result = handler.handle_codebase_health(
@@ -1526,28 +1549,38 @@ class TestHandleDispatch:
             mock.assert_called_once()
 
     def test_handle_strategies(self, handler):
-        with patch.object(handler, "handle_strategies", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "handle_strategies", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle("/api/v1/rlm/strategies", {}, MockHTTPHandler())
             mock.assert_called_once()
 
     def test_handle_contexts(self, handler):
-        with patch.object(handler, "handle_list_contexts", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "handle_list_contexts", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle("/api/v1/rlm/contexts", {}, MockHTTPHandler())
             mock.assert_called_once()
 
     def test_handle_stream_modes(self, handler):
-        with patch.object(handler, "handle_stream_modes", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "handle_stream_modes", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle("/api/v1/rlm/stream/modes", {}, MockHTTPHandler())
             mock.assert_called_once()
 
     def test_handle_codebase_health(self, handler):
-        with patch.object(handler, "handle_codebase_health", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "handle_codebase_health", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle("/api/v1/rlm/codebase/health", {}, MockHTTPHandler())
             mock.assert_called_once()
 
     def test_handle_context_id_route(self, handler):
         _add_context(handler, "ctx_abc123")
-        with patch.object(handler, "_handle_context_route", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "_handle_context_route", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle("/api/v1/rlm/context/ctx_abc123", {}, MockHTTPHandler())
             mock.assert_called_once()
 
@@ -1556,7 +1589,9 @@ class TestHandlePostDispatch:
     """Tests for handle_post() dispatch."""
 
     def test_post_compress(self, handler):
-        with patch.object(handler, "handle_compress", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "handle_compress", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle_post("/api/v1/rlm/compress", {}, MockHTTPHandler(method="POST"))
             mock.assert_called_once()
 
@@ -1566,7 +1601,9 @@ class TestHandlePostDispatch:
             mock.assert_called_once()
 
     def test_post_stream(self, handler):
-        with patch.object(handler, "handle_stream", return_value=MagicMock(status_code=200)) as mock:
+        with patch.object(
+            handler, "handle_stream", return_value=MagicMock(status_code=200)
+        ) as mock:
             handler.handle_post("/api/v1/rlm/stream", {}, MockHTTPHandler(method="POST"))
             mock.assert_called_once()
 
@@ -1580,9 +1617,7 @@ class TestHandleDeleteDispatch:
 
     def test_delete_context(self, handler):
         _add_context(handler, "ctx_abc123")
-        result = handler.handle_delete(
-            "/api/v1/rlm/context/ctx_abc123", {}, MockHTTPHandler()
-        )
+        result = handler.handle_delete("/api/v1/rlm/context/ctx_abc123", {}, MockHTTPHandler())
         body = _body(result)
         assert _status(result) == 200
         assert body["success"] is True
@@ -1672,8 +1707,10 @@ class TestGetCompressor:
     def test_get_rlm_caches(self, handler):
         """RLM instance is cached after first call."""
         mock_rlm = MagicMock()
-        with patch("aragora.rlm.get_rlm", return_value=mock_rlm), \
-             patch("aragora.rlm.HAS_OFFICIAL_RLM", False):
+        with (
+            patch("aragora.rlm.get_rlm", return_value=mock_rlm),
+            patch("aragora.rlm.HAS_OFFICIAL_RLM", False),
+        ):
             first = handler._get_rlm()
             second = handler._get_rlm()
         assert first is second
@@ -1708,9 +1745,7 @@ class TestEdgeCases:
         _add_context(handler, "ctx_2")
 
         # List
-        result = handler.handle_list_contexts(
-            "/api/v1/rlm/contexts", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_contexts("/api/v1/rlm/contexts", {}, MockHTTPHandler())
         assert _body(result)["total"] == 2
 
         # Get
@@ -1722,9 +1757,7 @@ class TestEdgeCases:
         assert _status(result) == 200
 
         # Verify deleted
-        result = handler.handle_list_contexts(
-            "/api/v1/rlm/contexts", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_contexts("/api/v1/rlm/contexts", {}, MockHTTPHandler())
         assert _body(result)["total"] == 1
 
     def test_multiple_compress_different_ids(self, handler):
@@ -1734,8 +1767,10 @@ class TestEdgeCases:
         ids = set()
 
         for i in range(5):
-            with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-                 patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx):
+            with (
+                patch.object(handler, "_get_compressor", return_value=mock_compressor),
+                patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx),
+            ):
                 result = handler.handle_compress(
                     "/api/v1/rlm/compress",
                     {},
@@ -1773,8 +1808,10 @@ class TestEdgeCases:
         mock_ctx = _make_mock_context()
         mock_compressor = MagicMock()
 
-        with patch.object(handler, "_get_compressor", return_value=mock_compressor), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx):
+        with (
+            patch.object(handler, "_get_compressor", return_value=mock_compressor),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_ctx),
+        ):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
@@ -1793,8 +1830,10 @@ class TestEdgeCases:
         mock_result = MagicMock()
         mock_result.answer = "answer"
 
-        with patch.object(handler, "_get_rlm", return_value=MagicMock()), \
-             patch("aragora.server.handlers.rlm.run_async", return_value=mock_result):
+        with (
+            patch.object(handler, "_get_rlm", return_value=MagicMock()),
+            patch("aragora.server.handlers.rlm.run_async", return_value=mock_result),
+        ):
             result = handler.handle_query(
                 "/api/v1/rlm/query",
                 {},

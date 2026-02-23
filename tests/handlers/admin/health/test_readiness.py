@@ -148,6 +148,7 @@ def _clear_health_cache():
         _HEALTH_CACHE,
         _HEALTH_CACHE_TIMESTAMPS,
     )
+
     _HEALTH_CACHE.clear()
     _HEALTH_CACHE_TIMESTAMPS.clear()
     yield
@@ -460,10 +461,12 @@ class TestHandleEdgeCases:
 
     def test_handler_is_instance_of_secure_handler(self, handler):
         from aragora.server.handlers.secure import SecureHandler
+
         assert isinstance(handler, SecureHandler)
 
     def test_handler_module_all_export(self):
         import aragora.server.handlers.admin.health.readiness as mod
+
         assert "ReadinessHandler" in mod.__all__
 
     @pytest.mark.asyncio
@@ -491,13 +494,16 @@ class TestFastProbeIntegration:
         """Run the fast probe with degraded_mode / unified_server / handler_registry
         made un-importable so the fast path skips those checks."""
         with (
-            patch.dict(sys.modules, {
-                _DEGRADED_MOD: None,
-                _UNIFIED_SERVER_MOD: None,
-                _HANDLER_REGISTRY_MOD: None,
-                _REDIS_CACHE_MOD: None,
-                _PG_POOL_MOD: None,
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    _DEGRADED_MOD: None,
+                    _UNIFIED_SERVER_MOD: None,
+                    _HANDLER_REGISTRY_MOD: None,
+                    _REDIS_CACHE_MOD: None,
+                    _PG_POOL_MOD: None,
+                },
+            ),
         ):
             return handler._readiness_probe_fast()
 
@@ -541,6 +547,7 @@ class TestFastProbeIntegration:
     def test_fast_probe_returns_cached_result(self, handler):
         """Second call returns cached result (5s cache TTL)."""
         from aragora.server.handlers.admin.health import _set_cached_health
+
         cached_data = {"status": "ready", "checks": {}, "cached": True}
         _set_cached_health("readiness_fast", cached_data)
         result = handler._readiness_probe_fast()
@@ -551,6 +558,7 @@ class TestFastProbeIntegration:
     def test_fast_probe_cached_not_ready_returns_503(self, handler):
         """Cached not_ready result returns 503."""
         from aragora.server.handlers.admin.health import _set_cached_health
+
         cached_data = {"status": "not_ready", "checks": {}}
         _set_cached_health("readiness_fast", cached_data)
         result = handler._readiness_probe_fast()
@@ -568,11 +576,14 @@ class TestFastProbeIntegration:
         mock_degraded_mod.get_degraded_state.return_value = mock_state
 
         h = _make_handler_with_mocks()
-        with patch.dict(sys.modules, {
-            _DEGRADED_MOD: mock_degraded_mod,
-            _UNIFIED_SERVER_MOD: None,
-            _HANDLER_REGISTRY_MOD: None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                _DEGRADED_MOD: mock_degraded_mod,
+                _UNIFIED_SERVER_MOD: None,
+                _HANDLER_REGISTRY_MOD: None,
+            },
+        ):
             result = h._readiness_probe_fast()
             assert _status(result) == 503
             body = _body(result)
@@ -627,11 +638,14 @@ class TestDependenciesIntegration:
 
     def _run_deps_probe(self, handler):
         """Run the dependencies probe with external modules un-importable."""
-        with patch.dict(sys.modules, {
-            _DEGRADED_MOD: None,
-            _LEADER_MOD: None,
-            _STARTUP_MOD: None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                _DEGRADED_MOD: None,
+                _LEADER_MOD: None,
+                _STARTUP_MOD: None,
+            },
+        ):
             return handler._readiness_dependencies()
 
     def test_dependencies_returns_ready_when_all_pass(self):
@@ -691,6 +705,7 @@ class TestDependenciesIntegration:
 
     def test_dependencies_cached_result(self):
         from aragora.server.handlers.admin.health import _set_cached_health
+
         cached = {"status": "ready", "checks": {}, "cached_marker": True}
         _set_cached_health("readiness", cached)
         h = ReadinessHandler(ctx={})
@@ -701,6 +716,7 @@ class TestDependenciesIntegration:
 
     def test_dependencies_cached_not_ready_returns_503(self):
         from aragora.server.handlers.admin.health import _set_cached_health
+
         cached = {"status": "not_ready", "checks": {}}
         _set_cached_health("readiness", cached)
         h = ReadinessHandler(ctx={})
@@ -719,11 +735,14 @@ class TestDependenciesIntegration:
         mock_degraded_mod.get_degraded_state.return_value = mock_state
 
         h = _make_handler_with_mocks()
-        with patch.dict(sys.modules, {
-            _DEGRADED_MOD: mock_degraded_mod,
-            _LEADER_MOD: None,
-            _STARTUP_MOD: None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                _DEGRADED_MOD: mock_degraded_mod,
+                _LEADER_MOD: None,
+                _STARTUP_MOD: None,
+            },
+        ):
             result = h._readiness_dependencies()
             assert _status(result) == 503
             body = _body(result)

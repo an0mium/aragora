@@ -815,7 +815,9 @@ class TestCreatePortal:
         # Add user with org that has no stripe_customer_id
         store = handler.ctx["user_store"]
         store.add_user(
-            MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_no_stripe")
+            MockUser(
+                id="test-user-001", email="test@example.com", role="owner", org_id="org_no_stripe"
+            )
         )
         store.add_organization(
             MockOrganization(
@@ -876,7 +878,9 @@ class TestCancelSubscription:
     def test_cancel_no_subscription_returns_404(self, handler):
         store = handler.ctx["user_store"]
         store.add_user(
-            MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_no_sub")
+            MockUser(
+                id="test-user-001", email="test@example.com", role="owner", org_id="org_no_sub"
+            )
         )
         store.add_organization(
             MockOrganization(
@@ -938,7 +942,9 @@ class TestResumeSubscription:
     def test_resume_no_subscription_returns_404(self, handler):
         store = handler.ctx["user_store"]
         store.add_user(
-            MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_no_sub")
+            MockUser(
+                id="test-user-001", email="test@example.com", role="owner", org_id="org_no_sub"
+            )
         )
         store.add_organization(
             MockOrganization(
@@ -1134,8 +1140,11 @@ class TestStripeWebhook:
         http.headers["Content-Length"] = "200"
         http.rfile.read.return_value = b'{"type": "invoice.payment_succeeded"}'
 
-        with self._webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store",
+        with (
+            self._webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store",
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
 
@@ -1169,12 +1178,15 @@ class TestRateLimiting:
                 return lambda event_id, result="success": None
             return fallback
 
-        with patch(
-            "aragora.billing.stripe_client.parse_webhook_event",
-            return_value=event,
-        ), patch(
-            "aragora.server.handlers.billing.core_webhooks._get_admin_billing_callable",
-            side_effect=mock_get_callable,
+        with (
+            patch(
+                "aragora.billing.stripe_client.parse_webhook_event",
+                return_value=event,
+            ),
+            patch(
+                "aragora.server.handlers.billing.core_webhooks._get_admin_billing_callable",
+                side_effect=mock_get_callable,
+            ),
         ):
             # Should never get 429 for webhooks
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")

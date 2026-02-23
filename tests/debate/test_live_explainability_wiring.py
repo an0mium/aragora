@@ -154,9 +154,7 @@ class TestStreamCreation:
         await setup_debate_infrastructure(fake_arena, execution_state)
 
         assert fake_arena.live_explainability_stream is not None
-        assert isinstance(
-            fake_arena.live_explainability_stream, LiveExplainabilityStream
-        )
+        assert isinstance(fake_arena.live_explainability_stream, LiveExplainabilityStream)
 
     @pytest.mark.asyncio
     async def test_stream_not_created_when_disabled(self, fake_arena, execution_state):
@@ -168,9 +166,7 @@ class TestStreamCreation:
         assert fake_arena.live_explainability_stream is None
 
     @pytest.mark.asyncio
-    async def test_stream_graceful_on_missing_event_bus(
-        self, fake_arena, execution_state
-    ):
+    async def test_stream_graceful_on_missing_event_bus(self, fake_arena, execution_state):
         """Stream should be created even without EventBus (just no subscriptions)."""
         fake_arena.event_bus = None
 
@@ -335,14 +331,27 @@ class TestEventBusSubscription:
         _subscribe_live_explainability(bus, stream)
 
         # Proposal
-        bus.emit_sync("agent_message", debate_id="test",
-                       agent="claude", content="Proposal A", role="proposer", round_num=1)
+        bus.emit_sync(
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Proposal A",
+            role="proposer",
+            round_num=1,
+        )
         # Critique
-        bus.emit_sync("agent_message", debate_id="test",
-                       agent="gpt4", content="Critique of A", role="critic", round_num=1)
+        bus.emit_sync(
+            "agent_message",
+            debate_id="test",
+            agent="gpt4",
+            content="Critique of A",
+            role="critic",
+            round_num=1,
+        )
         # Vote
-        bus.emit_sync("vote", debate_id="test",
-                       agent="claude", choice="A", confidence=0.8, round_num=2)
+        bus.emit_sync(
+            "vote", debate_id="test", agent="claude", choice="A", confidence=0.8, round_num=2
+        )
 
         assert len(stream._evidence) == 2
         assert len(stream._votes) == 1
@@ -357,9 +366,7 @@ class TestSnapshotAttachment:
     """Tests for attaching explainability snapshot to DebateResult."""
 
     @pytest.mark.asyncio
-    async def test_snapshot_attached_to_result_metadata(
-        self, fake_arena, execution_state
-    ):
+    async def test_snapshot_attached_to_result_metadata(self, fake_arena, execution_state):
         """Final snapshot should be in result.metadata['live_explainability']."""
         # Create and populate a real stream
         stream = LiveExplainabilityStream()
@@ -384,9 +391,7 @@ class TestSnapshotAttachment:
         assert explainability["vote_count"] == 2
 
     @pytest.mark.asyncio
-    async def test_snapshot_not_attached_when_stream_is_none(
-        self, fake_arena, execution_state
-    ):
+    async def test_snapshot_not_attached_when_stream_is_none(self, fake_arena, execution_state):
         """No snapshot when stream is None (disabled)."""
         fake_arena.live_explainability_stream = None
 
@@ -396,9 +401,7 @@ class TestSnapshotAttachment:
         assert "live_explainability" not in result.metadata
 
     @pytest.mark.asyncio
-    async def test_snapshot_factors_are_serializable(
-        self, fake_arena, execution_state
-    ):
+    async def test_snapshot_factors_are_serializable(self, fake_arena, execution_state):
         """Factors in metadata should be plain dicts (JSON-serializable)."""
         stream = LiveExplainabilityStream()
         stream.on_proposal("claude", "Position A", round_num=1)
@@ -416,9 +419,7 @@ class TestSnapshotAttachment:
             assert isinstance(factor["contribution"], (int, float))
 
     @pytest.mark.asyncio
-    async def test_snapshot_has_round_and_counts(
-        self, fake_arena, execution_state
-    ):
+    async def test_snapshot_has_round_and_counts(self, fake_arena, execution_state):
         """Snapshot metadata should include round number and event counts."""
         stream = LiveExplainabilityStream()
         stream.on_proposal("claude", "Proposal", round_num=3)
@@ -455,36 +456,56 @@ class TestFullRoundTrip:
         # Step 2: Simulate debate events through EventBus
         # Round 1: proposals
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Rate limiting with token bucket",
-            role="proposer", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Rate limiting with token bucket",
+            role="proposer",
+            round_num=1,
         )
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="gpt4", content="Circuit breaker pattern instead",
-            role="proposer", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="gpt4",
+            content="Circuit breaker pattern instead",
+            role="proposer",
+            round_num=1,
         )
 
         # Round 1: critiques
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="gpt4", content="Token bucket is too simple",
-            role="critic", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="gpt4",
+            content="Token bucket is too simple",
+            role="critic",
+            round_num=1,
         )
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Circuit breakers don't limit rate",
-            role="critic", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Circuit breakers don't limit rate",
+            role="critic",
+            round_num=1,
         )
 
         # Round 2: votes
         bus.emit_sync(
-            "vote", debate_id="test",
-            agent="claude", choice="token_bucket", confidence=0.85, round_num=2,
+            "vote",
+            debate_id="test",
+            agent="claude",
+            choice="token_bucket",
+            confidence=0.85,
+            round_num=2,
         )
         bus.emit_sync(
-            "vote", debate_id="test",
-            agent="gpt4", choice="token_bucket", confidence=0.7, round_num=2,
+            "vote",
+            debate_id="test",
+            agent="gpt4",
+            choice="token_bucket",
+            confidence=0.7,
+            round_num=2,
         )
 
         # Verify stream accumulated events

@@ -26,11 +26,13 @@ class TestHighSurpriseAction:
             "aragora.security.anomaly_detection.get_anomaly_detector",
             return_value=mock_detector,
         ):
-            await _log_high_surprise({
-                "item_id": "km_1",
-                "surprise": 0.85,
-                "content_preview": "test content",
-            })
+            await _log_high_surprise(
+                {
+                    "item_id": "km_1",
+                    "surprise": 0.85,
+                    "content_preview": "test content",
+                }
+            )
         mock_detector.report_anomaly.assert_called_once()
         call_kwargs = mock_detector.report_anomaly.call_args
         assert call_kwargs.kwargs["source"] == "memory"
@@ -49,17 +51,22 @@ class TestHighSurpriseAction:
 
     @pytest.mark.asyncio
     async def test_dispatches_event(self):
-        with patch(
-            "aragora.security.anomaly_detection.get_anomaly_detector",
-            side_effect=ImportError,
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
-        ) as mock_dispatch:
-            await _log_high_surprise({
-                "item_id": "km_1",
-                "surprise": 0.8,
-                "source": "mound",
-            })
+        with (
+            patch(
+                "aragora.security.anomaly_detection.get_anomaly_detector",
+                side_effect=ImportError,
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+            ) as mock_dispatch,
+        ):
+            await _log_high_surprise(
+                {
+                    "item_id": "km_1",
+                    "surprise": 0.8,
+                    "source": "mound",
+                }
+            )
         mock_dispatch.assert_called_once_with(
             "memory.high_surprise",
             {"item_id": "km_1", "surprise": 0.8, "source": "mound"},
@@ -67,10 +74,13 @@ class TestHighSurpriseAction:
 
     @pytest.mark.asyncio
     async def test_graceful_on_import_error(self):
-        with patch.dict("sys.modules", {
-            "aragora.security.anomaly_detection": None,
-            "aragora.events.dispatcher": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.anomaly_detection": None,
+                "aragora.events.dispatcher": None,
+            },
+        ):
             # Should not raise
             await _log_high_surprise({"item_id": "km_1", "surprise": 0.9})
 
@@ -86,11 +96,13 @@ class TestRevalidationAction:
             "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
             return_value=mock_manager,
         ):
-            await _mark_for_revalidation({
-                "item_id": "km_2",
-                "days_since_access": 14,
-                "confidence": 0.3,
-            })
+            await _mark_for_revalidation(
+                {
+                    "item_id": "km_2",
+                    "days_since_access": 14,
+                    "confidence": 0.3,
+                }
+            )
         mock_manager.apply_decay.assert_called_once_with(
             item_id="km_2",
             reason="stale_trigger",
@@ -99,17 +111,22 @@ class TestRevalidationAction:
 
     @pytest.mark.asyncio
     async def test_dispatches_event(self):
-        with patch(
-            "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
-            side_effect=ImportError,
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
-        ) as mock_dispatch:
-            await _mark_for_revalidation({
-                "item_id": "km_2",
-                "days_since_access": 14,
-                "confidence": 0.3,
-            })
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
+                side_effect=ImportError,
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+            ) as mock_dispatch,
+        ):
+            await _mark_for_revalidation(
+                {
+                    "item_id": "km_2",
+                    "days_since_access": 14,
+                    "confidence": 0.3,
+                }
+            )
         mock_dispatch.assert_called_once_with(
             "memory.stale_revalidation",
             {"item_id": "km_2", "days_since_access": 14, "confidence": 0.3},
@@ -117,10 +134,13 @@ class TestRevalidationAction:
 
     @pytest.mark.asyncio
     async def test_graceful_on_import_error(self):
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.ops.confidence_decay": None,
-            "aragora.events.dispatcher": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.ops.confidence_decay": None,
+                "aragora.events.dispatcher": None,
+            },
+        ):
             await _mark_for_revalidation({"item_id": "km_2"})
 
 
@@ -134,9 +154,11 @@ class TestContradictionAction:
             "aragora.nomic.improvement_queue.get_improvement_queue",
             return_value=mock_queue,
         ):
-            await _create_debate_topic({
-                "description": "Claim A contradicts Claim B",
-            })
+            await _create_debate_topic(
+                {
+                    "description": "Claim A contradicts Claim B",
+                }
+            )
         mock_queue.enqueue.assert_called_once()
         suggestion = mock_queue.enqueue.call_args[0][0]
         assert "contradiction" in suggestion.category.lower()
@@ -144,12 +166,15 @@ class TestContradictionAction:
 
     @pytest.mark.asyncio
     async def test_dispatches_event(self):
-        with patch(
-            "aragora.nomic.improvement_queue.get_improvement_queue",
-            side_effect=ImportError,
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
-        ) as mock_dispatch:
+        with (
+            patch(
+                "aragora.nomic.improvement_queue.get_improvement_queue",
+                side_effect=ImportError,
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+            ) as mock_dispatch,
+        ):
             await _create_debate_topic({"description": "test conflict"})
         mock_dispatch.assert_called_once_with(
             "memory.contradiction_detected",
@@ -158,10 +183,13 @@ class TestContradictionAction:
 
     @pytest.mark.asyncio
     async def test_graceful_on_import_error(self):
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": None,
-            "aragora.events.dispatcher": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": None,
+                "aragora.events.dispatcher": None,
+            },
+        ):
             await _create_debate_topic({"description": "test"})
 
 
@@ -193,10 +221,12 @@ class TestPatternAction:
         with patch(
             "aragora.events.dispatcher.dispatch_event",
         ) as mock_dispatch:
-            await _extract_pattern({
-                "pattern": "repeated fix in auth module",
-                "surprise_ema_trend": "decreasing",
-            })
+            await _extract_pattern(
+                {
+                    "pattern": "repeated fix in auth module",
+                    "surprise_ema_trend": "decreasing",
+                }
+            )
         mock_dispatch.assert_called_once_with(
             "memory.pattern_emerged",
             {"pattern": "repeated fix in auth module", "trend": "decreasing"},
@@ -216,14 +246,20 @@ class TestTriggerEngineIntegration:
         engine = MemoryTriggerEngine()
         mock_detector = MagicMock()
 
-        with patch(
-            "aragora.security.anomaly_detection.get_anomaly_detector",
-            return_value=mock_detector,
-        ), patch("aragora.events.dispatcher.dispatch_event"):
-            triggered = await engine.fire("high_surprise", {
-                "item_id": "km_99",
-                "surprise": 0.85,
-            })
+        with (
+            patch(
+                "aragora.security.anomaly_detection.get_anomaly_detector",
+                return_value=mock_detector,
+            ),
+            patch("aragora.events.dispatcher.dispatch_event"),
+        ):
+            triggered = await engine.fire(
+                "high_surprise",
+                {
+                    "item_id": "km_99",
+                    "surprise": 0.85,
+                },
+            )
 
         assert "high_surprise_investigate" in triggered
         mock_detector.report_anomaly.assert_called_once()
@@ -233,13 +269,19 @@ class TestTriggerEngineIntegration:
         engine = MemoryTriggerEngine()
         mock_queue = MagicMock()
 
-        with patch(
-            "aragora.nomic.improvement_queue.get_improvement_queue",
-            return_value=mock_queue,
-        ), patch("aragora.events.dispatcher.dispatch_event"):
-            triggered = await engine.fire("contradiction", {
-                "description": "A contradicts B",
-            })
+        with (
+            patch(
+                "aragora.nomic.improvement_queue.get_improvement_queue",
+                return_value=mock_queue,
+            ),
+            patch("aragora.events.dispatcher.dispatch_event"),
+        ):
+            triggered = await engine.fire(
+                "contradiction",
+                {
+                    "description": "A contradicts B",
+                },
+            )
 
         assert "contradiction_detected" in triggered
         mock_queue.enqueue.assert_called_once()
@@ -250,15 +292,21 @@ class TestTriggerEngineIntegration:
         mock_manager = MagicMock()
         mock_manager.apply_decay = AsyncMock()
 
-        with patch(
-            "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
-            return_value=mock_manager,
-        ), patch("aragora.events.dispatcher.dispatch_event"):
-            triggered = await engine.fire("stale_knowledge", {
-                "item_id": "km_old",
-                "days_since_access": 14,
-                "confidence": 0.3,
-            })
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
+                return_value=mock_manager,
+            ),
+            patch("aragora.events.dispatcher.dispatch_event"),
+        ):
+            triggered = await engine.fire(
+                "stale_knowledge",
+                {
+                    "item_id": "km_old",
+                    "days_since_access": 14,
+                    "confidence": 0.3,
+                },
+            )
 
         assert "stale_knowledge_revalidate" in triggered
         mock_manager.apply_decay.assert_called_once()

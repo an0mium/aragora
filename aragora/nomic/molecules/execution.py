@@ -136,7 +136,11 @@ class ParallelStepExecutor(StepExecutor):
                     return {"agent": agent.name, "result": result, "success": True}
                 except (RuntimeError, OSError, ValueError) as e:
                     logger.warning("Agent %s execution failed: %s", agent.name, e)
-                    return {"agent": agent.name, "error": f"Agent execution failed: {type(e).__name__}", "success": False}
+                    return {
+                        "agent": agent.name,
+                        "error": f"Agent execution failed: {type(e).__name__}",
+                        "success": False,
+                    }
 
             results = await asyncio.gather(*[run_agent(a) for a in agents])
 
@@ -367,7 +371,9 @@ class MoleculeEngine:
             snapshot=snapshot,
         )
         self._transactions[transaction.transaction_id] = transaction
-        logger.info("Started transaction %s for molecule %s", transaction.transaction_id, molecule.id)
+        logger.info(
+            "Started transaction %s for molecule %s", transaction.transaction_id, molecule.id
+        )
         return transaction
 
     async def _commit_transaction(self, transaction: MoleculeTransaction) -> bool:
@@ -611,9 +617,13 @@ class MoleculeEngine:
                                     step.max_attempts,
                                 )
                             else:
-                                step_results[step.id] = {"error": f"Step execution failed: {type(e).__name__}"}
+                                step_results[step.id] = {
+                                    "error": f"Step execution failed: {type(e).__name__}"
+                                }
                                 molecule.status = MoleculeStatus.FAILED
-                                molecule.error_message = f"Step {step.name} failed: {type(e).__name__}"
+                                molecule.error_message = (
+                                    f"Step {step.name} failed: {type(e).__name__}"
+                                )
                                 execution_failed = True
                                 failure_reason = molecule.error_message
                                 await self._checkpoint(molecule)
@@ -862,7 +872,9 @@ class MoleculeEngine:
                     continue
 
                 # Transaction was incomplete - attempt rollback
-                logger.warning("Found incomplete transaction %s for molecule %s", txn_id, molecule_id)
+                logger.warning(
+                    "Found incomplete transaction %s for molecule %s", txn_id, molecule_id
+                )
 
                 molecule = self._molecules.get(molecule_id)
                 if molecule:

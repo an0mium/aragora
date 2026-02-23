@@ -393,7 +393,10 @@ class LockoutTracker:
                 if lockout_duration is None or duration > lockout_duration:
                     lockout_duration = duration
                 logger.warning(
-                    "Lockout triggered: key=%s, attempts=%s, duration=%ss", key, entry.failed_attempts, duration
+                    "Lockout triggered: key=%s, attempts=%s, duration=%ss",
+                    key,
+                    entry.failed_attempts,
+                    duration,
                 )
 
             # Store with TTL

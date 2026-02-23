@@ -190,10 +190,11 @@ def _run_diagnostics(result_obj, *, use_loop=False):
     """
     mock_validate = AsyncMock(return_value=result_obj)
 
-    with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-         patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-         patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
-
+    with (
+        patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+        patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+        patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+    ):
         if use_loop:
             # Simulate running event loop -> uses ThreadPoolExecutor
             mock_asyncio_mod.get_running_loop.return_value = MagicMock()
@@ -254,8 +255,7 @@ class TestCheckDiagnosticsPermission:
         """When auth is disabled globally, permission check returns None (allow)."""
         mock_auth_config = MagicMock()
         mock_auth_config.enabled = False
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT):
+        with patch(self._AUTH_CONFIG, mock_auth_config), patch(self._EXTRACT):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -265,8 +265,10 @@ class TestCheckDiagnosticsPermission:
         mock_auth_config.enabled = True
         mock_ctx = MagicMock()
         mock_ctx.is_authenticated = False
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert _status(result) == 401
         assert "Authentication required" in _body(result).get("error", "")
@@ -286,9 +288,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = True
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -307,9 +311,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = False
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert _status(result) == 403
         assert "Permission denied" in _body(result).get("error", "")
@@ -322,9 +328,11 @@ class TestCheckDiagnosticsPermission:
         mock_ctx.is_authenticated = True
         mock_ctx.user_id = "user-3"
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, side_effect=ImportError("no rbac")):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, side_effect=ImportError("no rbac")),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -336,9 +344,11 @@ class TestCheckDiagnosticsPermission:
         mock_ctx.is_authenticated = True
         mock_ctx.user_id = "user-4"
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=None):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=None),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -351,9 +361,11 @@ class TestCheckDiagnosticsPermission:
 
         mock_checker = MagicMock()
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -372,9 +384,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = True
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -398,9 +412,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = True
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             result = _check_diagnostics_permission(MockHTTPHandler())
         assert result is None
 
@@ -423,9 +439,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = True
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             _check_diagnostics_permission(MockHTTPHandler())
 
         mock_checker.check_permission.assert_called_once()
@@ -447,9 +465,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = True
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             _check_diagnostics_permission(MockHTTPHandler())
 
         call_args = mock_checker.check_permission.call_args
@@ -473,9 +493,11 @@ class TestCheckDiagnosticsPermission:
         perm_result.allowed = True
         mock_checker.check_permission.return_value = perm_result
 
-        with patch(self._AUTH_CONFIG, mock_auth_config), \
-             patch(self._EXTRACT, return_value=mock_ctx), \
-             patch(self._GET_CHECKER, return_value=mock_checker):
+        with (
+            patch(self._AUTH_CONFIG, mock_auth_config),
+            patch(self._EXTRACT, return_value=mock_ctx),
+            patch(self._GET_CHECKER, return_value=mock_checker),
+        ):
             _check_diagnostics_permission(MockHTTPHandler())
 
         call_args = mock_checker.check_permission.call_args
@@ -651,8 +673,10 @@ class TestDeploymentDiagnostics:
                 raise ImportError("Deployment validator not available")
             return original_import(name, *args, **kwargs)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch("builtins.__import__", side_effect=_mock_import):
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch("builtins.__import__", side_effect=_mock_import),
+        ):
             result = deployment_diagnostics(MockHTTPHandler())
 
         assert _status(result) == 500
@@ -667,10 +691,12 @@ class TestDeploymentDiagnostics:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod, \
-             patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as mock_pool:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+            patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as mock_pool,
+        ):
             mock_asyncio_mod.get_running_loop.return_value = MagicMock()
             mock_executor = MagicMock()
             mock_pool.return_value.__enter__ = MagicMock(return_value=mock_executor)
@@ -690,9 +716,11 @@ class TestDeploymentDiagnostics:
         """RuntimeError during validation returns 500."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = RuntimeError("Broken")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -706,9 +734,11 @@ class TestDeploymentDiagnostics:
         """ValueError during validation returns 500."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = ValueError("bad value")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -721,9 +751,11 @@ class TestDeploymentDiagnostics:
         """TypeError during validation returns 500."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = TypeError("wrong type")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -734,9 +766,11 @@ class TestDeploymentDiagnostics:
         """KeyError during validation returns 500."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = KeyError("missing key")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -747,9 +781,11 @@ class TestDeploymentDiagnostics:
         """AttributeError during validation returns 500."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = AttributeError("no attr")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -760,9 +796,11 @@ class TestDeploymentDiagnostics:
         """OSError during validation returns 500."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = OSError("disk error")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -773,9 +811,11 @@ class TestDeploymentDiagnostics:
         """Error responses still include timestamp."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = RuntimeError("Broken")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -788,9 +828,11 @@ class TestDeploymentDiagnostics:
         """Error responses still include response_time_ms."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = RuntimeError("Broken")
             result = deployment_diagnostics(MockHTTPHandler())
@@ -806,9 +848,11 @@ class TestDeploymentDiagnostics:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.return_value = result_obj
             deployment_diagnostics(MockHTTPHandler())
@@ -874,10 +918,12 @@ class TestDeploymentDiagnostics:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod, \
-             patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as mock_pool:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+            patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as mock_pool,
+        ):
             mock_asyncio_mod.get_running_loop.return_value = MagicMock()
             mock_executor = MagicMock()
             mock_pool.return_value.__enter__ = MagicMock(return_value=mock_executor)
@@ -1157,9 +1203,11 @@ class TestDiagnosticsViaHealthHandler:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.return_value = result_obj
             result = await handler.handle("/api/diagnostics", {}, mock_http)
@@ -1174,9 +1222,11 @@ class TestDiagnosticsViaHealthHandler:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.return_value = result_obj
             result = await handler.handle("/api/diagnostics/deployment", {}, mock_http)
@@ -1189,9 +1239,11 @@ class TestDiagnosticsViaHealthHandler:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.return_value = result_obj
             result = await handler.handle("/api/v1/diagnostics", {}, mock_http)
@@ -1204,9 +1256,11 @@ class TestDiagnosticsViaHealthHandler:
         result_obj = _make_result()
         mock_validate = AsyncMock(return_value=result_obj)
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.return_value = result_obj
             result = await handler.handle("/api/v1/diagnostics/deployment", {}, mock_http)
@@ -1230,9 +1284,11 @@ class TestDiagnosticsViaHealthHandler:
         """Error from diagnostics endpoint propagated through handler."""
         mock_validate = AsyncMock(return_value=_make_result())
 
-        with patch(f"{_MOD}._check_diagnostics_permission", return_value=None), \
-             patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate), \
-             patch(f"{_MOD}.asyncio") as mock_asyncio_mod:
+        with (
+            patch(f"{_MOD}._check_diagnostics_permission", return_value=None),
+            patch(f"{_VALIDATOR_MOD}.validate_deployment", mock_validate),
+            patch(f"{_MOD}.asyncio") as mock_asyncio_mod,
+        ):
             mock_asyncio_mod.get_running_loop.side_effect = RuntimeError("no loop")
             mock_asyncio_mod.run.side_effect = RuntimeError("Broken")
 
@@ -1271,8 +1327,10 @@ class TestDeploymentDiagnosticsEdgeCases:
         """Response includes all fields from result.to_dict()."""
         components = [
             MockComponentHealth(
-                "jwt_secret", MockComponentStatus.HEALTHY,
-                latency_ms=1.5, message="OK",
+                "jwt_secret",
+                MockComponentStatus.HEALTHY,
+                latency_ms=1.5,
+                message="OK",
             ),
         ]
         result_obj = _make_result(
@@ -1364,9 +1422,7 @@ class TestDeploymentDiagnosticsEdgeCases:
 
     def test_validation_duration_preserved(self):
         """validation_duration_ms from the result is preserved in response."""
-        result_obj = MockValidationResult(
-            ready=True, live=True, validation_duration_ms=42.5
-        )
+        result_obj = MockValidationResult(ready=True, live=True, validation_duration_ms=42.5)
         result = _run_diagnostics(result_obj)
 
         body = _body(result)
@@ -1390,8 +1446,10 @@ class TestDeploymentDiagnosticsEdgeCases:
         """Component metadata from to_dict() is preserved."""
         components = [
             MockComponentHealth(
-                "database", MockComponentStatus.HEALTHY,
-                latency_ms=5.2, message="Connected",
+                "database",
+                MockComponentStatus.HEALTHY,
+                latency_ms=5.2,
+                message="Connected",
                 metadata={"version": "15.0"},
             ),
         ]
@@ -1460,8 +1518,10 @@ class TestGenerateChecklistEdgeCases:
         result = _make_result()
         checklist = _generate_checklist(result)
 
-        assert "provider" in checklist["api"]["api_keys"]["description"].lower() or \
-               "AI" in checklist["api"]["api_keys"]["description"]
+        assert (
+            "provider" in checklist["api"]["api_keys"]["description"].lower()
+            or "AI" in checklist["api"]["api_keys"]["description"]
+        )
         assert "ate" in checklist["api"]["rate_limiting"]["description"]
 
     def test_environment_descriptions(self):

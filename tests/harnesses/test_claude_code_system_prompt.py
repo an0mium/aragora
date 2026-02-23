@@ -34,7 +34,9 @@ class TestBuildSystemPromptInjection:
     def test_system_prompt_includes_claude_md(self, harness: ClaudeCodeHarness, tmp_path: Path):
         """CLAUDE.md content from repo root should appear in the system prompt."""
         claude_md = tmp_path / "CLAUDE.md"
-        claude_md.write_text("# Project Rules\nAlways run tests before committing.", encoding="utf-8")
+        claude_md.write_text(
+            "# Project Rules\nAlways run tests before committing.", encoding="utf-8"
+        )
 
         result = harness._build_system_prompt_injection(tmp_path)
 
@@ -50,7 +52,9 @@ class TestBuildSystemPromptInjection:
         project_memory_dir = fake_home / ".claude" / "projects" / "my-project" / "memory"
         project_memory_dir.mkdir(parents=True)
         memory_file = project_memory_dir / "MEMORY.md"
-        memory_file.write_text("# Memory\nKey pattern: use static error messages.", encoding="utf-8")
+        memory_file.write_text(
+            "# Memory\nKey pattern: use static error messages.", encoding="utf-8"
+        )
 
         with patch.object(Path, "home", return_value=fake_home):
             result = harness._build_system_prompt_injection(tmp_path)
@@ -127,8 +131,10 @@ class TestExecuteImplementationSystemPrompt:
         mock_proc.returncode = 0
         mock_proc.kill = MagicMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
-             patch("asyncio.wait_for", return_value=(b"implementation done", b"")):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+            patch("asyncio.wait_for", return_value=(b"implementation done", b"")),
+        ):
             stdout, stderr = await harness.execute_implementation(tmp_path, "Add logging")
 
             assert mock_exec.called

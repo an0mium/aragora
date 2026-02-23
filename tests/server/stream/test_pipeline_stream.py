@@ -21,6 +21,7 @@ from aragora.events.types import StreamEventType
 # Fixtures
 # =========================================================================
 
+
 @pytest.fixture
 def emitter():
     return PipelineStreamEmitter()
@@ -39,12 +40,14 @@ def mock_ws_factory():
         ws = AsyncMock()
         ws.send_str = AsyncMock()
         return ws
+
     return factory
 
 
 # =========================================================================
 # Client management
 # =========================================================================
+
 
 class TestClientManagement:
     def test_add_client(self, emitter, mock_ws):
@@ -71,7 +74,9 @@ class TestClientManagement:
 
     def test_client_with_subscriptions(self, emitter, mock_ws):
         client_id = emitter.add_client(
-            mock_ws, "pipe-1", subscriptions={"pipeline_stage_started"},
+            mock_ws,
+            "pipe-1",
+            subscriptions={"pipeline_stage_started"},
         )
         assert emitter._clients[client_id].subscriptions == {"pipeline_stage_started"}
 
@@ -79,6 +84,7 @@ class TestClientManagement:
 # =========================================================================
 # Event emission
 # =========================================================================
+
 
 class TestEventEmission:
     @pytest.mark.asyncio
@@ -119,6 +125,7 @@ class TestEventEmission:
 # Event history
 # =========================================================================
 
+
 class TestEventHistory:
     @pytest.mark.asyncio
     async def test_history_stored(self, emitter):
@@ -151,6 +158,7 @@ class TestEventHistory:
 # =========================================================================
 # Convenience methods
 # =========================================================================
+
 
 class TestConvenienceMethods:
     @pytest.mark.asyncio
@@ -204,7 +212,11 @@ class TestConvenienceMethods:
     async def test_emit_transition_pending(self, emitter, mock_ws):
         emitter.add_client(mock_ws, "pipe-1")
         await emitter.emit_transition_pending(
-            "pipe-1", "ideas", "goals", 0.72, "Extracted 3 goals from 4 ideas",
+            "pipe-1",
+            "ideas",
+            "goals",
+            0.72,
+            "Extracted 3 goals from 4 ideas",
         )
         sent = json.loads(mock_ws.send_str.call_args[0][0])
         assert sent["type"] == "pipeline_transition_pending"
@@ -219,6 +231,7 @@ class TestConvenienceMethods:
 # Event callback adapter
 # =========================================================================
 
+
 class TestEventCallback:
     def test_as_event_callback_returns_callable(self, emitter):
         cb = emitter.as_event_callback("pipe-1")
@@ -228,6 +241,7 @@ class TestEventCallback:
 # =========================================================================
 # Global emitter
 # =========================================================================
+
 
 class TestGlobalEmitter:
     def test_get_creates_singleton(self):

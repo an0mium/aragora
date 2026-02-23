@@ -100,14 +100,21 @@ def with_retry(
                 except SupermemoryRateLimitError as e:
                     wait_time = e.retry_after or (delay * (2**attempt))
                     logger.warning(
-                        "Rate limited, waiting %ss (attempt %s/%s)", wait_time, attempt + 1, max_retries
+                        "Rate limited, waiting %ss (attempt %s/%s)",
+                        wait_time,
+                        attempt + 1,
+                        max_retries,
                     )
                     await asyncio.sleep(wait_time)
                     last_error = e
                 except SupermemoryConnectionError as e:
                     wait_time = delay * (2**attempt)
                     logger.warning(
-                        "Connection error, retrying in %ss (attempt %s/%s): %s", wait_time, attempt + 1, max_retries, e
+                        "Connection error, retrying in %ss (attempt %s/%s): %s",
+                        wait_time,
+                        attempt + 1,
+                        max_retries,
+                        e,
                     )
                     await asyncio.sleep(wait_time)
                     last_error = e

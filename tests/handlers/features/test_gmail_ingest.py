@@ -94,6 +94,7 @@ def mock_http():
 def reset_rate_limiter():
     """Reset the Gmail rate limiter between tests."""
     from aragora.server.handlers.features.gmail_ingest import _gmail_limiter
+
     _gmail_limiter._buckets.clear()
     yield
     _gmail_limiter._buckets.clear()
@@ -227,11 +228,14 @@ class TestGetStatus:
     @pytest.mark.asyncio
     async def test_status_not_connected_unconfigured(self, handler, mock_http, mock_auth_context):
         """Returns not connected when no user state exists."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch.dict("os.environ", {}, clear=True):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
             result = await handler.handle("/api/v1/gmail/status", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -241,11 +245,14 @@ class TestGetStatus:
     @pytest.mark.asyncio
     async def test_status_not_connected_but_configured(self, handler, mock_http, mock_auth_context):
         """Returns configured=True when Gmail client ID is set."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch.dict("os.environ", {"GMAIL_CLIENT_ID": "test-client-id"}, clear=False):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.dict("os.environ", {"GMAIL_CLIENT_ID": "test-client-id"}, clear=False),
+        ):
             result = await handler.handle("/api/v1/gmail/status", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -258,11 +265,14 @@ class TestGetStatus:
         state = _make_user_state(
             last_sync=datetime(2026, 2, 1, tzinfo=timezone.utc),
         )
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("os.environ", {"GMAIL_CLIENT_ID": "cid"}, clear=False):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict("os.environ", {"GMAIL_CLIENT_ID": "cid"}, clear=False),
+        ):
             result = await handler.handle("/api/v1/gmail/status", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -330,11 +340,14 @@ class TestGetAuthUrl:
             "aragora.server.handlers.features.gmail_ingest.GmailIngestHandler._get_auth_url",
             wraps=handler._get_auth_url,
         ):
-            with patch.dict("sys.modules", {
-                "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                    GmailConnector=MagicMock(return_value=mock_connector)
-                )
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ):
                 result = await handler.handle("/api/v1/gmail/auth/url", {}, mock_http)
                 assert _status(result) == 200
                 body = _body(result)
@@ -347,20 +360,21 @@ class TestGetAuthUrl:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.return_value = "https://auth.url"
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/auth/url",
                 {"redirect_uri": "https://myapp.com/callback"},
                 mock_http,
             )
             assert _status(result) == 200
-            mock_connector.get_oauth_url.assert_called_once_with(
-                "https://myapp.com/callback", ""
-            )
+            mock_connector.get_oauth_url.assert_called_once_with("https://myapp.com/callback", "")
 
     @pytest.mark.asyncio
     async def test_get_auth_url_with_state(self, handler, mock_http, mock_auth_context):
@@ -368,11 +382,14 @@ class TestGetAuthUrl:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.return_value = "https://auth.url"
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/auth/url",
                 {"state": "csrf-token-123"},
@@ -388,11 +405,14 @@ class TestGetAuthUrl:
         """Returns 500 when Gmail connector raises an import-related error."""
         mock_cls = MagicMock(side_effect=AttributeError("module has no attribute"))
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=mock_cls
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=mock_cls
+                )
+            },
+        ):
             result = await handler.handle("/api/v1/gmail/auth/url", {}, mock_http)
             assert _status(result) == 500
             body = _body(result)
@@ -404,11 +424,14 @@ class TestGetAuthUrl:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.side_effect = ValueError("Missing client ID")
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle("/api/v1/gmail/auth/url", {}, mock_http)
             assert _status(result) == 500
 
@@ -433,14 +456,20 @@ class TestOAuthCallbackGet:
         mock_connector._refresh_token = "new-refresh-token"
         mock_connector._token_expiry = None
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_user_state",
-            new_callable=AsyncMock,
-        ) as mock_save:
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_user_state",
+                new_callable=AsyncMock,
+            ) as mock_save,
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/auth/callback",
                 {"code": "auth-code-123", "state": "test-user-001"},
@@ -491,14 +520,20 @@ class TestOAuthCallbackGet:
         mock_connector._refresh_token = "rt"
         mock_connector._token_expiry = None
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_user_state",
-            new_callable=AsyncMock,
-        ) as mock_save:
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_user_state",
+                new_callable=AsyncMock,
+            ) as mock_save,
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/auth/callback",
                 {"code": "code-123", "state": "different-user-id"},
@@ -515,11 +550,14 @@ class TestOAuthCallbackGet:
         mock_connector = MagicMock()
         mock_connector.authenticate = AsyncMock(return_value=False)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/auth/callback",
                 {"code": "bad-code"},
@@ -533,11 +571,14 @@ class TestOAuthCallbackGet:
         mock_connector = MagicMock()
         mock_connector.authenticate = AsyncMock(side_effect=ConnectionError("network error"))
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/auth/callback",
                 {"code": "code-123"},
@@ -560,14 +601,17 @@ class TestGetSyncStatus:
         state = _make_user_state()
         job = _make_sync_job(status="running", progress=75, messages_synced=150)
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=job,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=job,
+            ),
         ):
             result = await handler.handle("/api/v1/gmail/sync/status", {}, mock_http)
             assert _status(result) == 200
@@ -582,14 +626,17 @@ class TestGetSyncStatus:
     @pytest.mark.asyncio
     async def test_sync_status_not_connected(self, handler, mock_http, mock_auth_context):
         """Returns connected=False when no user state."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
             result = await handler.handle("/api/v1/gmail/sync/status", {}, mock_http)
             assert _status(result) == 200
@@ -604,14 +651,17 @@ class TestGetSyncStatus:
     async def test_sync_status_no_active_job(self, handler, mock_http, mock_auth_context):
         """Returns idle status when no sync job running."""
         state = _make_user_state()
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
             result = await handler.handle("/api/v1/gmail/sync/status", {}, mock_http)
             body = _body(result)
@@ -622,14 +672,17 @@ class TestGetSyncStatus:
         """Returns error info for failed sync job."""
         state = _make_user_state()
         job = _make_sync_job(status="failed", progress=0, error="Sync failed")
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=job,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=job,
+            ),
         ):
             result = await handler.handle("/api/v1/gmail/sync/status", {}, mock_http)
             body = _body(result)
@@ -660,15 +713,21 @@ class TestListMessages:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[mock_result])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/gmail/messages", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -708,18 +767,22 @@ class TestListMessages:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
-            result = await handler.handle(
-                "/api/v1/gmail/messages", {"limit": "25"}, mock_http
-            )
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
+            result = await handler.handle("/api/v1/gmail/messages", {"limit": "25"}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["total"] == 0
@@ -732,15 +795,21 @@ class TestListMessages:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(side_effect=ConnectionError("API unreachable"))
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/gmail/messages", {}, mock_http)
             assert _status(result) == 500
 
@@ -751,15 +820,21 @@ class TestListMessages:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle(
                 "/api/v1/gmail/messages", {"query": "from:boss@company.com"}, mock_http
             )
@@ -773,15 +848,21 @@ class TestListMessages:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/gmail/messages", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -811,15 +892,21 @@ class TestGetMessage:
         mock_connector = MagicMock()
         mock_connector.get_message = AsyncMock(return_value=mock_msg)
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/gmail/message/msg123", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -844,15 +931,21 @@ class TestGetMessage:
         mock_connector = MagicMock()
         mock_connector.get_message = AsyncMock(side_effect=ValueError("Invalid message ID"))
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/gmail/message/msg123", {}, mock_http)
             assert _status(result) == 500
 
@@ -866,18 +959,22 @@ class TestGetMessage:
         mock_connector = MagicMock()
         mock_connector.get_message = AsyncMock(return_value=mock_msg)
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
-            result = await handler.handle(
-                "/api/v1/gmail/message/abc-def-ghi", {}, mock_http
-            )
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
+            result = await handler.handle("/api/v1/gmail/message/abc-def-ghi", {}, mock_http)
             assert _status(result) == 200
             mock_connector.get_message.assert_called_once_with("abc-def-ghi")
 
@@ -917,14 +1014,15 @@ class TestPostConnect:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.return_value = "https://accounts.google.com/auth"
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
-            result = await handler.handle_post(
-                "/api/v1/gmail/connect", {}, mock_http
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
+            result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert "url" in body
@@ -936,11 +1034,14 @@ class TestPostConnect:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.return_value = "https://auth.url"
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle_post(
                 "/api/v1/gmail/connect",
                 {"redirect_uri": "https://custom.app/cb"},
@@ -957,11 +1058,14 @@ class TestPostConnect:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.return_value = "https://auth.url"
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler.handle_post(
                 "/api/v1/gmail/connect",
                 {"state": "custom-state-value"},
@@ -975,9 +1079,12 @@ class TestPostConnect:
     async def test_connect_import_error(self, handler, mock_http, mock_auth_context):
         """Returns 500 when connector import fails."""
         # Direct method test since import error handling is in _start_connect
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": None,
+            },
+        ):
             result = handler._start_connect({}, "test-user-001")
             assert _status(result) == 500
 
@@ -987,14 +1094,15 @@ class TestPostConnect:
         mock_connector = MagicMock()
         mock_connector.get_oauth_url.side_effect = OSError("network error")
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
-            result = await handler.handle_post(
-                "/api/v1/gmail/connect", {}, mock_http
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
+            result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
             assert _status(result) == 500
 
 
@@ -1018,13 +1126,19 @@ class TestOAuthCallbackPost:
         mock_connector._refresh_token = "rt"
         mock_connector._token_expiry = None
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_user_state",
-            new_callable=AsyncMock,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_user_state",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await handler.handle_post(
                 "/api/v1/gmail/auth/callback",
@@ -1039,9 +1153,7 @@ class TestOAuthCallbackPost:
     @pytest.mark.asyncio
     async def test_callback_post_missing_code(self, handler, mock_http, mock_auth_context):
         """Returns 400 when code is missing."""
-        result = await handler.handle_post(
-            "/api/v1/gmail/auth/callback", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/gmail/auth/callback", {}, mock_http)
         assert _status(result) == 400
         body = _body(result)
         assert "Missing authorization code" in body["error"]
@@ -1058,13 +1170,19 @@ class TestOAuthCallbackPost:
         mock_connector._refresh_token = "rt"
         mock_connector._token_expiry = None
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_user_state",
-            new_callable=AsyncMock,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_user_state",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await handler.handle_post(
                 "/api/v1/gmail/auth/callback",
@@ -1088,13 +1206,19 @@ class TestOAuthCallbackPost:
         mock_connector._refresh_token = "rt"
         mock_connector._token_expiry = None
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_user_state",
-            new_callable=AsyncMock,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_user_state",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await handler.handle_post(
                 "/api/v1/gmail/auth/callback",
@@ -1118,22 +1242,25 @@ class TestPostSync:
     async def test_sync_start_success(self, handler, mock_http, mock_auth_context):
         """Starts sync in background."""
         state = _make_user_state()
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_sync_job",
-            new_callable=AsyncMock,
-        ), patch("threading.Thread") as mock_thread:
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_sync_job",
+                new_callable=AsyncMock,
+            ),
+            patch("threading.Thread") as mock_thread,
+        ):
             mock_thread.return_value = MagicMock()
-            result = await handler.handle_post(
-                "/api/v1/gmail/sync", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/sync", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["status"] == "running"
@@ -1150,9 +1277,7 @@ class TestPostSync:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/sync", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/sync", {}, mock_http)
             assert _status(result) == 401
             body = _body(result)
             assert "Not connected" in body["error"]
@@ -1166,9 +1291,7 @@ class TestPostSync:
             new_callable=AsyncMock,
             return_value=state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/sync", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/sync", {}, mock_http)
             assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -1177,18 +1300,19 @@ class TestPostSync:
         state = _make_user_state()
         running_job = _make_sync_job(status="running", progress=50)
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=running_job,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=running_job,
+            ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/sync", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/sync", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["status"] == "running"
@@ -1199,18 +1323,23 @@ class TestPostSync:
     async def test_sync_with_full_sync_flag(self, handler, mock_http, mock_auth_context):
         """Starts full sync when full_sync=True."""
         state = _make_user_state()
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_sync_job",
-            new_callable=AsyncMock,
-        ), patch("threading.Thread") as mock_thread:
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_sync_job",
+                new_callable=AsyncMock,
+            ),
+            patch("threading.Thread") as mock_thread,
+        ):
             mock_thread.return_value = MagicMock()
             result = await handler.handle_post(
                 "/api/v1/gmail/sync",
@@ -1228,22 +1357,25 @@ class TestPostSync:
         state = _make_user_state()
         completed_job = _make_sync_job(status="completed", progress=100, messages_synced=500)
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=completed_job,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_sync_job",
-            new_callable=AsyncMock,
-        ), patch("threading.Thread") as mock_thread:
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=completed_job,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_sync_job",
+                new_callable=AsyncMock,
+            ),
+            patch("threading.Thread") as mock_thread,
+        ):
             mock_thread.return_value = MagicMock()
-            result = await handler.handle_post(
-                "/api/v1/gmail/sync", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/sync", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["message"] == "Sync started"
@@ -1252,18 +1384,23 @@ class TestPostSync:
     async def test_sync_with_custom_labels(self, handler, mock_http, mock_auth_context):
         """Passes custom labels to sync."""
         state = _make_user_state()
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.get_sync_job",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_sync_job",
-            new_callable=AsyncMock,
-        ), patch("threading.Thread") as mock_thread:
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_sync_job",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_sync_job",
+                new_callable=AsyncMock,
+            ),
+            patch("threading.Thread") as mock_thread,
+        ):
             mock_thread.return_value = MagicMock()
             result = await handler.handle_post(
                 "/api/v1/gmail/sync",
@@ -1299,15 +1436,21 @@ class TestPostSearch:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[mock_result])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/gmail/search",
                 {"query": "invoice", "limit": 10},
@@ -1329,9 +1472,7 @@ class TestPostSearch:
             new_callable=AsyncMock,
             return_value=state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/search", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/search", {}, mock_http)
             assert _status(result) == 400
             body = _body(result)
             assert "Query is required" in body["error"]
@@ -1345,9 +1486,7 @@ class TestPostSearch:
             new_callable=AsyncMock,
             return_value=state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/search", {"query": ""}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/search", {"query": ""}, mock_http)
             assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1372,15 +1511,21 @@ class TestPostSearch:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(side_effect=TimeoutError("API timeout"))
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/gmail/search",
                 {"query": "test"},
@@ -1395,15 +1540,21 @@ class TestPostSearch:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/gmail/search",
                 {"query": "test"},
@@ -1440,18 +1591,19 @@ class TestPostDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_success(self, handler, mock_http, mock_auth_context):
         """Disconnects Gmail account successfully."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.delete_user_state",
-            new_callable=AsyncMock,
-            return_value=True,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.delete_sync_job",
-            new_callable=AsyncMock,
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.delete_user_state",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.delete_sync_job",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/disconnect", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/disconnect", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["success"] is True
@@ -1460,18 +1612,19 @@ class TestPostDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_not_previously_connected(self, handler, mock_http, mock_auth_context):
         """Returns success even when not previously connected."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.delete_user_state",
-            new_callable=AsyncMock,
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.features.gmail_ingest.delete_sync_job",
-            new_callable=AsyncMock,
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.delete_user_state",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.delete_sync_job",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/disconnect", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/disconnect", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["success"] is True
@@ -1480,18 +1633,19 @@ class TestPostDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_cleans_up_sync_job(self, handler, mock_http, mock_auth_context):
         """Deletes both user state and sync job on disconnect."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.delete_user_state",
-            new_callable=AsyncMock,
-            return_value=True,
-        ) as mock_del_state, patch(
-            "aragora.server.handlers.features.gmail_ingest.delete_sync_job",
-            new_callable=AsyncMock,
-            return_value=True,
-        ) as mock_del_job:
-            result = await handler.handle_post(
-                "/api/v1/gmail/disconnect", {}, mock_http
-            )
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.delete_user_state",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_del_state,
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.delete_sync_job",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_del_job,
+        ):
+            result = await handler.handle_post("/api/v1/gmail/disconnect", {}, mock_http)
             assert _status(result) == 200
             mock_del_state.assert_called_once_with("test-user-001")
             mock_del_job.assert_called_once_with("test-user-001")
@@ -1508,9 +1662,7 @@ class TestHandlePost404:
     @pytest.mark.asyncio
     async def test_unknown_post_path_returns_404(self, handler, mock_http, mock_auth_context):
         """Returns 404 for unknown POST paths."""
-        result = await handler.handle_post(
-            "/api/v1/gmail/unknown", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/gmail/unknown", {}, mock_http)
         assert _status(result) == 404
 
 
@@ -1525,9 +1677,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_handle_get(self, handler, mock_http, mock_auth_context):
         """Returns 429 when rate limit exceeded on GET."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest._gmail_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.features.gmail_ingest._gmail_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = await handler.handle("/api/v1/gmail/status", {}, mock_http)
             assert _status(result) == 429
@@ -1537,13 +1687,9 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_handle_post(self, handler, mock_http, mock_auth_context):
         """Returns 429 when rate limit exceeded on POST."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest._gmail_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.features.gmail_ingest._gmail_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = await handler.handle_post(
-                "/api/v1/gmail/connect", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
             assert _status(result) == 429
 
 
@@ -1564,9 +1710,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_unauthenticated_user_post(self, handler, mock_http, mock_unauthenticated):
         """Returns 401 for unauthenticated POST requests."""
-        result = await handler.handle_post(
-            "/api/v1/gmail/connect", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
         assert _status(result) == 401
 
     def test_get_authenticated_user_success(self, handler, mock_auth_context):
@@ -1610,6 +1754,7 @@ class TestRBACPermissions:
             GMAIL_READ_PERMISSION,
             GMAIL_WRITE_PERMISSION,
         )
+
         assert GMAIL_READ_PERMISSION == "gmail:read"
         assert GMAIL_WRITE_PERMISSION == "gmail:write"
 
@@ -1637,15 +1782,18 @@ class TestRBACPermissions:
         from aragora.server.handlers.secure import SecureHandler, ForbiddenError
 
         mock_auth = MagicMock()
-        with patch.object(
-            SecureHandler,
-            "get_auth_context",
-            new_callable=AsyncMock,
-            return_value=mock_auth,
-        ), patch.object(
-            SecureHandler,
-            "check_permission",
-            side_effect=ForbiddenError("Insufficient permissions"),
+        with (
+            patch.object(
+                SecureHandler,
+                "get_auth_context",
+                new_callable=AsyncMock,
+                return_value=mock_auth,
+            ),
+            patch.object(
+                SecureHandler,
+                "check_permission",
+                side_effect=ForbiddenError("Insufficient permissions"),
+            ),
         ):
             result = await handler.handle("/api/v1/gmail/status", {}, mock_http)
             assert _status(result) == 403
@@ -1664,9 +1812,7 @@ class TestRBACPermissions:
             new_callable=AsyncMock,
             side_effect=UnauthorizedError("No token"),
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/connect", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
             assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -1676,19 +1822,20 @@ class TestRBACPermissions:
         from aragora.server.handlers.secure import SecureHandler, ForbiddenError
 
         mock_auth = MagicMock()
-        with patch.object(
-            SecureHandler,
-            "get_auth_context",
-            new_callable=AsyncMock,
-            return_value=mock_auth,
-        ), patch.object(
-            SecureHandler,
-            "check_permission",
-            side_effect=ForbiddenError("Permission denied"),
+        with (
+            patch.object(
+                SecureHandler,
+                "get_auth_context",
+                new_callable=AsyncMock,
+                return_value=mock_auth,
+            ),
+            patch.object(
+                SecureHandler,
+                "check_permission",
+                side_effect=ForbiddenError("Permission denied"),
+            ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/connect", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
             assert _status(result) == 403
 
 
@@ -1732,9 +1879,12 @@ class TestCompleteOAuth:
     @pytest.mark.asyncio
     async def test_complete_oauth_import_error(self, handler):
         """Returns 500 on ImportError."""
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": None,
+            },
+        ):
             result = await handler._complete_oauth("code", "redirect", "user1", "org1")
             assert _status(result) == 500
 
@@ -1744,11 +1894,14 @@ class TestCompleteOAuth:
         mock_connector = MagicMock()
         mock_connector.authenticate = AsyncMock(side_effect=TimeoutError("timed out"))
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler._complete_oauth("code", "redirect", "user1", "org1")
             assert _status(result) == 500
 
@@ -1759,11 +1912,14 @@ class TestCompleteOAuth:
         mock_connector.authenticate = AsyncMock(return_value=True)
         mock_connector.get_user_info = AsyncMock(side_effect=KeyError("emailAddress"))
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler._complete_oauth("code", "redirect", "user1", "org1")
             assert _status(result) == 500
 
@@ -1779,14 +1935,20 @@ class TestCompleteOAuth:
         mock_connector._refresh_token = "rt"
         mock_connector._token_expiry = None
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }), patch(
-            "aragora.server.handlers.features.gmail_ingest.save_user_state",
-            new_callable=AsyncMock,
-        ) as mock_save:
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.save_user_state",
+                new_callable=AsyncMock,
+            ) as mock_save,
+        ):
             result = await handler._complete_oauth("code", "redirect", "user1", "my-org")
             assert _status(result) == 200
             saved_state = mock_save.call_args[0][0]
@@ -1799,11 +1961,14 @@ class TestCompleteOAuth:
         mock_connector = MagicMock()
         mock_connector.authenticate = AsyncMock(return_value=False)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler._complete_oauth("code", "redirect", "user1", "org1")
             assert _status(result) == 401
 
@@ -1949,12 +2114,13 @@ class TestPostPermissionRouting:
     @pytest.mark.asyncio
     async def test_connect_path_uses_write_permission(self, handler, mock_http, mock_auth_context):
         """Verifies connect uses gmail:write permission."""
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": None,
-        }):
-            result = await handler.handle_post(
-                "/api/v1/gmail/connect", {}, mock_http
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": None,
+            },
+        ):
+            result = await handler.handle_post("/api/v1/gmail/connect", {}, mock_http)
             # Will fail with 500 because import fails, but shouldn't be 403
             assert _status(result) == 500
 
@@ -1970,11 +2136,14 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_status_google_client_id_env(self, handler, mock_http, mock_auth_context):
         """Checks GOOGLE_CLIENT_ID env var for configuration."""
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch.dict("os.environ", {"GOOGLE_CLIENT_ID": "gid"}, clear=True):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.dict("os.environ", {"GOOGLE_CLIENT_ID": "gid"}, clear=True),
+        ):
             result = await handler.handle("/api/v1/gmail/status", {}, mock_http)
             body = _body(result)
             assert body["configured"] is True
@@ -1986,18 +2155,22 @@ class TestEdgeCases:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
-            result = await handler.handle(
-                "/api/v1/gmail/messages", {"offset": "10"}, mock_http
-            )
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
+            result = await handler.handle("/api/v1/gmail/messages", {"offset": "10"}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["offset"] == 10
@@ -2020,15 +2193,21 @@ class TestEdgeCases:
         mock_connector = MagicMock()
         mock_connector.search = AsyncMock(return_value=results)
 
-        with patch(
-            "aragora.server.handlers.features.gmail_ingest.get_user_state",
-            new_callable=AsyncMock,
-            return_value=state,
-        ), patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.features.gmail_ingest.get_user_state",
+                new_callable=AsyncMock,
+                return_value=state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=MagicMock(return_value=mock_connector)
+                    )
+                },
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/gmail/search",
                 {"query": "test"},
@@ -2045,11 +2224,14 @@ class TestEdgeCases:
         mock_connector = MagicMock()
         mock_connector.authenticate = AsyncMock(side_effect=ValueError("bad value"))
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler._complete_oauth("code", "redirect", "u1", "o1")
             assert _status(result) == 500
 
@@ -2059,11 +2241,14 @@ class TestEdgeCases:
         mock_connector = MagicMock()
         mock_connector.authenticate = AsyncMock(side_effect=OSError("disk error"))
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector)
+                )
+            },
+        ):
             result = await handler._complete_oauth("code", "redirect", "u1", "o1")
             assert _status(result) == 500
 

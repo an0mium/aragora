@@ -26,17 +26,24 @@ from aragora.nomic.task_decomposer import DecomposerConfig, TaskDecomposer
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_git_success(stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
     """Create a successful subprocess.CompletedProcess."""
     return subprocess.CompletedProcess(
-        args=["git"], returncode=0, stdout=stdout, stderr=stderr,
+        args=["git"],
+        returncode=0,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
 def _make_git_failure(stderr: str = "") -> subprocess.CompletedProcess:
     """Create a failed subprocess.CompletedProcess."""
     return subprocess.CompletedProcess(
-        args=["git"], returncode=1, stdout="", stderr=stderr,
+        args=["git"],
+        returncode=1,
+        stdout="",
+        stderr=stderr,
     )
 
 
@@ -63,6 +70,7 @@ def _build_coordinator(tmp_path: Path) -> BranchCoordinator:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_create_worktrees_for_tracks(tmp_path: Path) -> None:

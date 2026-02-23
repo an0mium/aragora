@@ -97,7 +97,9 @@ class GauntletReceiptsMixin:
                     return json_response(body, status=status)
             except (OSError, RuntimeError, ValueError) as e:
                 logger.warning("Storage lookup failed for %s: %s", gauntlet_id, e)
-                body, status = gauntlet_error_response("storage_error", {"reason": "Storage lookup failed"})
+                body, status = gauntlet_error_response(
+                    "storage_error", {"reason": "Storage lookup failed"}
+                )
                 return json_response(body, status=status)
 
         # Generate receipt
@@ -513,7 +515,10 @@ class GauntletReceiptsMixin:
                         claims_count = getattr(ingest_result, "claims_ingested", 0)
                         findings_count = getattr(ingest_result, "findings_ingested", 0)
                         logger.info(
-                            "Receipt %s ingested to KM: %s claims, %s findings", receipt.receipt_id, claims_count, findings_count
+                            "Receipt %s ingested to KM: %s claims, %s findings",
+                            receipt.receipt_id,
+                            claims_count,
+                            findings_count,
                         )
                     else:
                         errors = getattr(ingest_result, "errors", [])

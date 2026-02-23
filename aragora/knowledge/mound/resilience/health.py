@@ -135,7 +135,9 @@ class ConnectionHealthMonitor:
         self._status.last_error = error
         if self._status.consecutive_failures >= self._failure_threshold:
             self._status.healthy = False
-            logger.error("Connection unhealthy after %s failures", self._status.consecutive_failures)
+            logger.error(
+                "Connection unhealthy after %s failures", self._status.consecutive_failures
+            )
 
     def is_healthy(self) -> bool:
         """Check if connections are healthy."""

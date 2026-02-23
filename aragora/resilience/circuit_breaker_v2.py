@@ -251,7 +251,9 @@ class BaseCircuitBreaker:
         """
         # Check if exception should be excluded
         if exception and isinstance(exception, self.config.excluded_exceptions):
-            logger.debug("[%s] Excluded exception, not counting as failure: %s", self.name, exception)
+            logger.debug(
+                "[%s] Excluded exception, not counting as failure: %s", self.name, exception
+            )
             return
 
         with self._lock:
@@ -271,7 +273,9 @@ class BaseCircuitBreaker:
             if self._consecutive_failures >= self.config.failure_threshold:
                 should_open = True
                 logger.warning(
-                    "[%s] Opening circuit after %s consecutive failures", self.name, self._consecutive_failures
+                    "[%s] Opening circuit after %s consecutive failures",
+                    self.name,
+                    self._consecutive_failures,
                 )
 
             # Rate-based (if configured)

@@ -82,9 +82,7 @@ def _build_multipart_body(
 
     for key, value in (form_fields or {}).items():
         parts.append(f"--{boundary}\r\n".encode())
-        parts.append(
-            f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode()
-        )
+        parts.append(f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode())
         parts.append(value.encode())
         parts.append(b"\r\n")
 
@@ -140,10 +138,12 @@ class MockHTTPHandler:
 
     path: str = "/"
     command: str = "POST"
-    headers: dict[str, str] = field(default_factory=lambda: {
-        "Content-Length": "0",
-        "Content-Type": "application/octet-stream",
-    })
+    headers: dict[str, str] = field(
+        default_factory=lambda: {
+            "Content-Length": "0",
+            "Content-Type": "application/octet-stream",
+        }
+    )
     client_address: tuple = ("127.0.0.1", 12345)
     _rfile_data: bytes = b""
 
@@ -182,16 +182,26 @@ class MockBatchProcessor:
         self._cancelled: set[str] = set()
         self._stats = {"queued": 0, "processing": 0, "completed": 0, "failed": 0}
 
-    async def submit(self, content, filename, workspace_id, priority,
-                     chunking_strategy=None, chunk_size=512, chunk_overlap=50,
-                     tags=None) -> str:
+    async def submit(
+        self,
+        content,
+        filename,
+        workspace_id,
+        priority,
+        chunking_strategy=None,
+        chunk_size=512,
+        chunk_overlap=50,
+        tags=None,
+    ) -> str:
         job_id = f"job-{len(self._submitted):03d}"
-        self._submitted.append({
-            "content": content,
-            "filename": filename,
-            "workspace_id": workspace_id,
-            "priority": priority,
-        })
+        self._submitted.append(
+            {
+                "content": content,
+                "filename": filename,
+                "workspace_id": workspace_id,
+                "priority": priority,
+            }
+        )
         return job_id
 
     async def get_status(self, job_id: str) -> dict | None:
@@ -367,9 +377,7 @@ class TestGetProcessingStats:
             mock_proc = MagicMock()
             mock_proc.get_stats.return_value = {"queued": 5}
             MockBP.return_value = mock_proc
-            result = await handler.handle(
-                "/api/v1/documents/processing/stats", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/documents/processing/stats", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["processor"] == {"queued": 5}
@@ -506,9 +514,7 @@ class TestGetKnowledgeJobStatus:
     @pytest.mark.asyncio
     async def test_v1_path_returns_none_due_to_segment_count(self, handler, mock_http):
         """With /api/v1/ prefix the path has 6 segments; handler expects 5."""
-        result = await handler.handle(
-            "/api/v1/knowledge/jobs/kj-001", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/knowledge/jobs/kj-001", {}, mock_http)
         # Falls through all branches -> returns None
         assert result is None
 
@@ -843,9 +849,7 @@ class TestGetDocumentChunks:
     @pytest.mark.asyncio
     async def test_v1_path_returns_none_for_chunks(self, handler, mock_http):
         """V1 path has 6 segments, handler expects 5 for chunks route."""
-        result = await handler.handle(
-            "/api/v1/documents/doc-001/chunks", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/documents/doc-001/chunks", {}, mock_http)
         assert result is None
 
     def test_chunks_default_params_via_internal(self, handler):
@@ -891,9 +895,7 @@ class TestGetDocumentContext:
     @pytest.mark.asyncio
     async def test_v1_path_returns_none_for_context(self, handler, mock_http):
         """V1 path has 6 segments, handler expects 5 for context route."""
-        result = await handler.handle(
-            "/api/v1/documents/doc-001/context", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/documents/doc-001/context", {}, mock_http)
         assert result is None
 
     def test_context_not_found_no_store(self, handler):
@@ -994,9 +996,7 @@ class TestUploadBatch:
 
     @pytest.mark.asyncio
     async def test_upload_success(self, handler_with_processor):
-        http = _make_multipart_handler(
-            files=[("test.txt", b"hello world")]
-        )
+        http = _make_multipart_handler(files=[("test.txt", b"hello world")])
         with patch(
             "aragora.documents.ingestion.batch_processor.JobPriority",
         ) as MockJP:
@@ -1024,9 +1024,7 @@ class TestUploadBatch:
             headers={"Content-Type": "application/json", "Content-Length": "0"},
             client_address=("127.0.0.1", 12345),
         )
-        result = await handler_with_processor.handle_post(
-            "/api/v1/documents/batch", {}, http
-        )
+        result = await handler_with_processor.handle_post("/api/v1/documents/batch", {}, http)
         assert _status(result) == 400
         body = _body(result)
         assert "multipart/form-data" in body.get("error", "")
@@ -1040,9 +1038,7 @@ class TestUploadBatch:
             },
             client_address=("127.0.0.1", 12345),
         )
-        result = await handler_with_processor.handle_post(
-            "/api/v1/documents/batch", {}, http
-        )
+        result = await handler_with_processor.handle_post("/api/v1/documents/batch", {}, http)
         assert _status(result) == 400
         body = _body(result)
         assert "boundary" in body.get("error", "").lower()
@@ -1063,9 +1059,7 @@ class TestUploadBatch:
             "aragora.documents.ingestion.batch_processor.JobPriority",
         ) as MockJP:
             MockJP.NORMAL = "normal"
-            result = await handler_with_processor.handle_post(
-                "/api/v1/documents/batch", {}, http
-            )
+            result = await handler_with_processor.handle_post("/api/v1/documents/batch", {}, http)
         assert _status(result) == 400
         body = _body(result)
         assert "no files" in body.get("error", "").lower()
@@ -1082,9 +1076,7 @@ class TestUploadBatch:
             client_address=("127.0.0.1", 12345),
             _rfile_data=b"x",  # Actual data doesn't matter since size check is first
         )
-        result = await handler_with_processor.handle_post(
-            "/api/v1/documents/batch", {}, http
-        )
+        result = await handler_with_processor.handle_post("/api/v1/documents/batch", {}, http)
         assert _status(result) == 413
 
     @pytest.mark.asyncio
@@ -1096,9 +1088,7 @@ class TestUploadBatch:
             "aragora.documents.ingestion.batch_processor.JobPriority",
         ) as MockJP:
             MockJP.NORMAL = "normal"
-            result = await handler_with_processor.handle_post(
-                "/api/v1/documents/batch", {}, http
-            )
+            result = await handler_with_processor.handle_post("/api/v1/documents/batch", {}, http)
         assert _status(result) == 400
         body = _body(result)
         assert str(MAX_BATCH_SIZE) in body.get("error", "")
@@ -1111,17 +1101,13 @@ class TestUploadBatch:
             _batch_upload_limiter.is_allowed("192.168.1.100")
 
         http = _make_multipart_handler(client_ip="192.168.1.100")
-        result = await handler_with_processor.handle_post(
-            "/api/v1/documents/batch", {}, http
-        )
+        result = await handler_with_processor.handle_post("/api/v1/documents/batch", {}, http)
         assert _status(result) == 429
 
     @pytest.mark.asyncio
     async def test_upload_wrong_path_returns_none(self, handler_with_processor):
         http = _make_multipart_handler()
-        result = await handler_with_processor.handle_post(
-            "/api/v1/documents/upload", {}, http
-        )
+        result = await handler_with_processor.handle_post("/api/v1/documents/upload", {}, http)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1432,11 +1418,7 @@ class TestParseMultipart:
 
     def test_parse_no_header_separator(self, handler):
         """Part without \\r\\n\\r\\n separator should be skipped."""
-        body = (
-            b"--testboundary\r\n"
-            b"no separator here\r\n"
-            b"--testboundary--\r\n"
-        )
+        body = b"--testboundary\r\nno separator here\r\n--testboundary--\r\n"
         files, form_data = handler._parse_multipart(body, "testboundary")
         assert len(files) == 0
 
@@ -1668,9 +1650,7 @@ class TestEdgeCases:
     async def test_handle_post_non_batch_path(self, handler_with_processor):
         """handle_post on non-batch path should return None."""
         http = _make_multipart_handler()
-        result = await handler_with_processor.handle_post(
-            "/api/v1/other", {}, http
-        )
+        result = await handler_with_processor.handle_post("/api/v1/other", {}, http)
         assert result is None
 
     def test_max_batch_size_constant(self):
@@ -1748,7 +1728,9 @@ class TestEdgeCases:
         assert processor._submitted[0]["workspace_id"] == "my-workspace"
 
     @pytest.mark.asyncio
-    async def test_upload_unknown_priority_defaults_to_normal(self, handler_with_processor, processor):
+    async def test_upload_unknown_priority_defaults_to_normal(
+        self, handler_with_processor, processor
+    ):
         """Unknown priority string should default to NORMAL."""
         http = _make_multipart_handler(
             files=[("test.txt", b"hello")],
@@ -1774,7 +1756,5 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_handle_delete_non_matching_path(self, handler_with_processor, mock_http):
         """Delete on path that doesn't start with batch prefix returns None."""
-        result = await handler_with_processor.handle_delete(
-            "/api/v1/something/else", {}, mock_http
-        )
+        result = await handler_with_processor.handle_delete("/api/v1/something/else", {}, mock_http)
         assert result is None

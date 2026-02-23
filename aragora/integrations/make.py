@@ -316,7 +316,9 @@ class MakeIntegration(BaseIntegration):
         )
 
         connection.webhooks[webhook_id] = webhook
-        logger.info("Registered webhook %s (%s) for connection %s", webhook_id, module_type, conn_id)
+        logger.info(
+            "Registered webhook %s (%s) for connection %s", webhook_id, module_type, conn_id
+        )
         return webhook
 
     def unregister_webhook(self, conn_id: str, webhook_id: str) -> bool:
@@ -426,7 +428,9 @@ class MakeIntegration(BaseIntegration):
                     logger.warning("Make webhook %s failed: %s", webhook.id, response.status)
                     return False
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error("Make webhook %s connection error: %s: %s", webhook.id, type(e).__name__, e)
+            logger.error(
+                "Make webhook %s connection error: %s: %s", webhook.id, type(e).__name__, e
+            )
             return False
         except (ValueError, TypeError) as e:
             logger.error("Make webhook %s payload error: %s: %s", webhook.id, type(e).__name__, e)

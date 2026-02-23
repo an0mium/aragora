@@ -541,7 +541,11 @@ class EvidenceCollector:
             )
 
         logger.info(
-            "Parsed document: %s -> %s evidence snippets (%s chunks, %s tables)", doc.filename, len(snippets), len(doc.chunks), len(doc.tables)
+            "Parsed document: %s -> %s evidence snippets (%s chunks, %s tables)",
+            doc.filename,
+            len(snippets),
+            len(doc.chunks),
+            len(doc.tables),
         )
 
         return snippets
@@ -915,7 +919,9 @@ class EvidenceCollector:
                                 all_snippets.append(readme_snippet)
                                 total_searched += 1
                                 logger.info(
-                                    "Fetched GitHub README: %s (%s chars)", full_url, len(readme_snippet.snippet)
+                                    "Fetched GitHub README: %s (%s chars)",
+                                    full_url,
+                                    len(readme_snippet.snippet),
                                 )
                                 continue  # Skip regular URL fetch for repos
 
@@ -959,7 +965,9 @@ class EvidenceCollector:
                                 )
                                 all_snippets.append(snippet)
                                 total_searched += 1
-                                logger.debug("Fetched: %s (%s chars)", full_url, len(evidence.content))
+                                logger.debug(
+                                    "Fetched: %s (%s chars)", full_url, len(evidence.content)
+                                )
                     except (ConnectionError, TimeoutError, OSError) as e:
                         logger.warning("Failed to fetch %s (network): %s", url, e)
                     except (ValueError, TypeError, AttributeError) as e:
@@ -1151,7 +1159,11 @@ class EvidenceCollector:
                                 continue
 
                             logger.info(
-                                "Fetched README from %s/%s (%s/%s)", owner, repo, branch, readme_file
+                                "Fetched README from %s/%s (%s/%s)",
+                                owner,
+                                repo,
+                                branch,
+                                readme_file,
                             )
                             return EvidenceSnippet(
                                 id=f"gh_{owner}_{repo}_readme",
@@ -1422,7 +1434,10 @@ class EvidenceCollector:
         final_snippets = ranked_snippets[: self.max_total_snippets]
 
         logger.info(
-            "evidence_for_claims claims=%s snippets=%s searched=%s", len(claims), len(final_snippets), total_searched
+            "evidence_for_claims claims=%s snippets=%s searched=%s",
+            len(claims),
+            len(final_snippets),
+            total_searched,
         )
 
         return EvidencePack(

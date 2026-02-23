@@ -248,93 +248,69 @@ class TestInstall:
 
     @pytest.mark.asyncio
     async def test_returns_302_redirect(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         assert _status(result) == 302
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_discord_oauth_url(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "discord.com/api/oauth2/authorize" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_client_id(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "client_id=test-discord-client-id" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_state(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "state=" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_redirect_uri(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "redirect_uri=" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_scopes(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "scope=" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_permissions(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "permissions=" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_response_type_code(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         location = result.headers.get("Location", "")
         assert "response_type=code" in location
 
     @pytest.mark.asyncio
     async def test_cache_control_no_store(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         assert result.headers.get("Cache-Control") == "no-store"
 
     @pytest.mark.asyncio
     async def test_content_type_html(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         assert "text/html" in result.content_type
 
     @pytest.mark.asyncio
     async def test_state_stored_in_memory(self, handler, handler_module):
-        await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         assert len(handler_module._oauth_states) == 1
 
     @pytest.mark.asyncio
     async def test_state_contains_created_at(self, handler, handler_module):
-        await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         state_key = list(handler_module._oauth_states.keys())[0]
         state_data = handler_module._oauth_states[state_key]
         assert "created_at" in state_data
@@ -354,9 +330,7 @@ class TestInstall:
 
     @pytest.mark.asyncio
     async def test_state_tenant_id_none_when_not_provided(self, handler, handler_module):
-        await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         state_key = list(handler_module._oauth_states.keys())[0]
         state_data = handler_module._oauth_states[state_key]
         assert state_data["tenant_id"] is None
@@ -364,25 +338,19 @@ class TestInstall:
     @pytest.mark.asyncio
     async def test_no_client_id_returns_503(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "DISCORD_CLIENT_ID", None)
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_no_client_id_error_message(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "DISCORD_CLIENT_ID", None)
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         body = _body(result)
         assert "not configured" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_method_not_allowed_post(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="POST"
-        )
+        result = await handler.handle("/api/integrations/discord/install", {}, None, method="POST")
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -397,18 +365,14 @@ class TestInstall:
             "created_at": time.time(),
             "tenant_id": None,
         }
-        await handler.handle(
-            "/api/integrations/discord/install", {}, None, method="GET"
-        )
+        await handler.handle("/api/integrations/discord/install", {}, None, method="GET")
         assert "old-state" not in handler_module._oauth_states
         assert "fresh-state" in handler_module._oauth_states
         # Plus the new state just created
         assert len(handler_module._oauth_states) == 2
 
     @pytest.mark.asyncio
-    async def test_fallback_redirect_uri_localhost(
-        self, handler, handler_module, monkeypatch
-    ):
+    async def test_fallback_redirect_uri_localhost(self, handler, handler_module, monkeypatch):
         """When DISCORD_REDIRECT_URI is unset, localhost fallback should be used."""
         monkeypatch.setattr(handler_module, "DISCORD_REDIRECT_URI", None)
         result = await handler.handle(
@@ -508,9 +472,7 @@ class TestCallback:
 
     @pytest.mark.asyncio
     async def test_missing_both_code_and_state_returns_400(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/callback", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/callback", {}, None, method="GET")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -523,7 +485,9 @@ class TestCallback:
         )
         assert _status(result) == 400
         body = _body(result)
-        assert "state" in body.get("error", "").lower() or "expired" in body.get("error", "").lower()
+        assert (
+            "state" in body.get("error", "").lower() or "expired" in body.get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_state_consumed_on_use(self, handler, handler_module):
@@ -564,15 +528,17 @@ class TestCallback:
         me_response.json.return_value = {"id": "bot-user-123"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "auth-code", "state": "valid-state"},
@@ -605,15 +571,17 @@ class TestCallback:
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state"},
@@ -623,9 +591,7 @@ class TestCallback:
         assert "text/html" in result.content_type
 
     @pytest.mark.asyncio
-    async def test_callback_no_credentials_returns_503(
-        self, handler, handler_module, monkeypatch
-    ):
+    async def test_callback_no_credentials_returns_503(self, handler, handler_module, monkeypatch):
         handler_module._oauth_states["valid-state"] = {
             "created_at": time.time(),
             "tenant_id": None,
@@ -640,9 +606,7 @@ class TestCallback:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_callback_no_secret_returns_503(
-        self, handler, handler_module, monkeypatch
-    ):
+    async def test_callback_no_secret_returns_503(self, handler, handler_module, monkeypatch):
         handler_module._oauth_states["valid-state"] = {
             "created_at": time.time(),
             "tenant_id": None,
@@ -672,9 +636,7 @@ class TestCallback:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_callback_token_exchange_connection_error(
-        self, handler, handler_module
-    ):
+    async def test_callback_token_exchange_connection_error(self, handler, handler_module):
         handler_module._oauth_states["valid-state"] = {
             "created_at": time.time(),
             "tenant_id": None,
@@ -734,18 +696,18 @@ class TestCallback:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_callback_no_access_token_returns_500(
-        self, handler, handler_module
-    ):
+    async def test_callback_no_access_token_returns_500(self, handler, handler_module):
         handler_module._oauth_states["valid-state"] = {
             "created_at": time.time(),
             "tenant_id": None,
         }
         # Response without access_token
-        mock_client, _ = _make_httpx_mock({
-            "refresh_token": "rt",
-            "expires_in": 604800,
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "refresh_token": "rt",
+                "expires_in": 604800,
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
@@ -768,12 +730,14 @@ class TestCallback:
             "tenant_id": None,
         }
         # No guild in response and no guild_id in query params
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
@@ -797,27 +761,31 @@ class TestCallback:
             "created_at": time.time(),
             "tenant_id": None,
         }
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            # No guild in response
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                # No guild in response
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state", "guild_id": "G-FROM-QP"},
@@ -832,20 +800,24 @@ class TestCallback:
             "created_at": time.time(),
             "tenant_id": None,
         }
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch.dict("sys.modules", {"aragora.storage.discord_guild_store": None}):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch.dict("sys.modules", {"aragora.storage.discord_guild_store": None}),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state"},
@@ -855,36 +827,38 @@ class TestCallback:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_callback_guild_save_fails(
-        self, handler, handler_module, mock_guild_store
-    ):
+    async def test_callback_guild_save_fails(self, handler, handler_module, mock_guild_store):
         handler_module._oauth_states["valid-state"] = {
             "created_at": time.time(),
             "tenant_id": None,
         }
         mock_guild_store.save.return_value = False
 
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Save Fail Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Save Fail Guild"},
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state"},
@@ -902,25 +876,29 @@ class TestCallback:
             "created_at": time.time(),
             "tenant_id": None,
         }
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+            }
+        )
         # /users/@me raises an error
         mock_client.get = AsyncMock(side_effect=ConnectionError("api down"))
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state"},
@@ -931,9 +909,7 @@ class TestCallback:
 
     @pytest.mark.asyncio
     async def test_callback_method_not_allowed_post(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/callback", {}, None, method="POST"
-        )
+        result = await handler.handle("/api/integrations/discord/callback", {}, None, method="POST")
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -945,28 +921,32 @@ class TestCallback:
             "created_at": time.time(),
             "tenant_id": "t-from-state",
         }
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
         mock_guild_cls = MagicMock()
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 mock_guild_cls,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                mock_guild_cls,
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state"},
@@ -1007,27 +987,31 @@ class TestCallback:
         }
         monkeypatch.setattr(handler_module, "DISCORD_REDIRECT_URI", None)
 
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state", "host": "localhost:8080"},
@@ -1047,27 +1031,31 @@ class TestCallback:
         }
         monkeypatch.setattr(handler_module, "DISCORD_REDIRECT_URI", None)
 
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state", "host": "127.0.0.1:8080"},
@@ -1087,27 +1075,31 @@ class TestCallback:
         }
         monkeypatch.setattr(handler_module, "DISCORD_REDIRECT_URI", None)
 
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "refresh_token": "rt",
-            "expires_in": 604800,
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "refresh_token": "rt",
+                "expires_in": 604800,
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state", "host": "[::1]:8080"},
@@ -1117,35 +1109,37 @@ class TestCallback:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_callback_default_expires_in(
-        self, handler, handler_module, mock_guild_store
-    ):
+    async def test_callback_default_expires_in(self, handler, handler_module, mock_guild_store):
         """When expires_in is not in the response, default of 604800 is used."""
         handler_module._oauth_states["valid-state"] = {
             "created_at": time.time(),
             "tenant_id": None,
         }
-        mock_client, _ = _make_httpx_mock({
-            "access_token": "token",
-            "scope": "bot",
-            "guild": {"id": "G123", "name": "Guild"},
-            # No expires_in
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "access_token": "token",
+                "scope": "bot",
+                "guild": {"id": "G123", "name": "Guild"},
+                # No expires_in
+            }
+        )
         me_response = MagicMock()
         me_response.status_code = 200
         me_response.json.return_value = {"id": "bot-id"}
         mock_client.get = AsyncMock(return_value=me_response)
 
         mock_guild_cls = MagicMock()
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.discord_guild_store.get_discord_guild_store",
-                 return_value=mock_guild_store,
-             ), \
-             patch(
-                 "aragora.storage.discord_guild_store.DiscordGuild",
-                 mock_guild_cls,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.discord_guild_store.get_discord_guild_store",
+                return_value=mock_guild_store,
+            ),
+            patch(
+                "aragora.storage.discord_guild_store.DiscordGuild",
+                mock_guild_cls,
+            ),
+        ):
             result = await handler.handle(
                 "/api/integrations/discord/callback",
                 {"code": "code", "state": "valid-state"},
@@ -1212,9 +1206,7 @@ class TestUninstall:
 
     @pytest.mark.asyncio
     async def test_method_not_allowed_get(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/uninstall", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/uninstall", {}, None, method="GET")
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -1253,9 +1245,7 @@ class TestNotFound:
 
     @pytest.mark.asyncio
     async def test_unknown_path_returns_404(self, handler):
-        result = await handler.handle(
-            "/api/integrations/discord/unknown", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/discord/unknown", {}, None, method="GET")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1265,9 +1255,7 @@ class TestNotFound:
 
     @pytest.mark.asyncio
     async def test_wrong_integration_returns_404(self, handler):
-        result = await handler.handle(
-            "/api/integrations/slack/install", {}, None, method="GET"
-        )
+        result = await handler.handle("/api/integrations/slack/install", {}, None, method="GET")
         assert _status(result) == 404
 
 
@@ -1319,9 +1307,7 @@ class TestPermissions:
         """When check_permission raises ForbiddenError, install returns 403."""
         from aragora.server.handlers.secure import ForbiddenError
 
-        with patch.object(
-            handler, "check_permission", side_effect=ForbiddenError("denied")
-        ):
+        with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
             result = await handler.handle(
                 "/api/integrations/discord/install", {}, None, method="GET"
             )
@@ -1330,9 +1316,7 @@ class TestPermissions:
     @pytest.mark.asyncio
     async def test_install_permission_error(self, handler):
         """When check_permission raises PermissionError, install returns 403."""
-        with patch.object(
-            handler, "check_permission", side_effect=PermissionError("denied")
-        ):
+        with patch.object(handler, "check_permission", side_effect=PermissionError("denied")):
             result = await handler.handle(
                 "/api/integrations/discord/install", {}, None, method="GET"
             )

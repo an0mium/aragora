@@ -46,7 +46,12 @@ def sample_cartographer_data():
     """Sample ArgumentCartographer output."""
     return {
         "nodes": [
-            {"id": "n1", "type": "proposal", "summary": "Build rate limiter", "content": "Token bucket"},
+            {
+                "id": "n1",
+                "type": "proposal",
+                "summary": "Build rate limiter",
+                "content": "Token bucket",
+            },
             {"id": "n2", "type": "evidence", "summary": "Reduces 429s", "content": "Evidence"},
             {"id": "n3", "type": "critique", "summary": "Distributed?", "content": "Question"},
         ],
@@ -159,7 +164,12 @@ class TestFullPipelineFlow:
         events, callback = event_collector
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -210,7 +220,8 @@ class TestProvenanceChain:
         result = pipeline.from_ideas(sample_ideas, auto_advance=True)
 
         goal_to_action = [
-            link for link in result.provenance
+            link
+            for link in result.provenance
             if link.source_stage == PipelineStage.GOALS
             and link.target_stage == PipelineStage.ACTIONS
         ]
@@ -220,7 +231,8 @@ class TestProvenanceChain:
         result = pipeline.from_ideas(sample_ideas, auto_advance=True)
 
         action_to_orch = [
-            link for link in result.provenance
+            link
+            for link in result.provenance
             if link.source_stage == PipelineStage.ACTIONS
             and link.target_stage == PipelineStage.ORCHESTRATION
         ]
@@ -307,8 +319,14 @@ class TestReceiptGeneration:
     @pytest.mark.asyncio
     async def test_receipt_generated_on_completion(self, pipeline):
         """Receipts should be generated when enable_receipts=True."""
+
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
         cfg = PipelineConfig(enable_receipts=True, dry_run=False)
@@ -321,16 +339,27 @@ class TestReceiptGeneration:
     @pytest.mark.asyncio
     async def test_receipt_has_pipeline_id(self, pipeline):
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
         cfg = PipelineConfig(enable_receipts=True, dry_run=False)
 
-        result = await pipeline.run("Receipt pipeline id", config=cfg, pipeline_id="pipe-receipt-test")
+        result = await pipeline.run(
+            "Receipt pipeline id", config=cfg, pipeline_id="pipe-receipt-test"
+        )
 
         assert result.receipt is not None
         # Either DecisionReceipt format or fallback format
-        pid = result.receipt.get("pipeline_id") or result.receipt.get("receipt_id") or result.receipt.get("gauntlet_id")
+        pid = (
+            result.receipt.get("pipeline_id")
+            or result.receipt.get("receipt_id")
+            or result.receipt.get("gauntlet_id")
+        )
         assert pid is not None
 
     @pytest.mark.asyncio

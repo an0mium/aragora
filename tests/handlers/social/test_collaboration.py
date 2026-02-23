@@ -210,9 +210,7 @@ class TestCheckPermission:
             decision.allowed = True
             mock_checker.return_value.check_permission.return_value = decision
 
-            _check_permission(
-                "user-1", "collaboration:admin", roles={"admin", "owner"}
-            )
+            _check_permission("user-1", "collaboration:admin", roles={"admin", "owner"})
             call_args = mock_checker.return_value.check_permission.call_args
             context = call_args[0][0]
             assert "admin" in context.roles
@@ -290,12 +288,8 @@ class TestCreateSession:
     @pytest.mark.asyncio
     async def test_create_session_manager_error(self, collab_handlers):
         """Create session returns error when manager raises."""
-        collab_handlers.manager.create_session = MagicMock(
-            side_effect=RuntimeError("DB error")
-        )
-        result = await collab_handlers.create_session(
-            debate_id="debate-1", user_id="user-1"
-        )
+        collab_handlers.manager.create_session = MagicMock(side_effect=RuntimeError("DB error"))
+        result = await collab_handlers.create_session(debate_id="debate-1", user_id="user-1")
         assert "error" in result
         assert result["code"] == "INTERNAL_ERROR"
 
@@ -311,9 +305,7 @@ class TestCreateSession:
             decision.reason = "No permission"
             mock_checker.return_value.check_permission.return_value = decision
 
-            result = await collab_handlers.create_session(
-                debate_id="debate-1", user_id="user-1"
-            )
+            result = await collab_handlers.create_session(debate_id="debate-1", user_id="user-1")
             assert result.get("status") == 403
 
 
@@ -323,9 +315,7 @@ class TestGetSession:
     @pytest.mark.asyncio
     async def test_get_session_success(self, collab_handlers, session_manager):
         """Get an existing session by ID."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.get_session(session.session_id)
         assert "session" in result
         assert result["session"]["debate_id"] == "debate-1"
@@ -347,12 +337,8 @@ class TestGetSession:
     @pytest.mark.asyncio
     async def test_get_session_with_user_id(self, collab_handlers, session_manager):
         """Get session with user_id triggers RBAC check."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
-        result = await collab_handlers.get_session(
-            session.session_id, user_id="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
+        result = await collab_handlers.get_session(session.session_id, user_id="user-1")
         assert "session" in result
 
 
@@ -384,9 +370,7 @@ class TestListSessions:
     @pytest.mark.asyncio
     async def test_list_sessions_excludes_closed(self, collab_handlers, session_manager):
         """Closed sessions excluded by default."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.close_session(session.session_id, "user-1")
         result = await collab_handlers.list_sessions()
         assert result["count"] == 0
@@ -394,9 +378,7 @@ class TestListSessions:
     @pytest.mark.asyncio
     async def test_list_sessions_include_closed(self, collab_handlers, session_manager):
         """Include closed sessions when requested."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.close_session(session.session_id, "user-1")
         result = await collab_handlers.list_sessions(include_closed=True)
         assert result["count"] == 1
@@ -408,9 +390,7 @@ class TestJoinSession:
     @pytest.mark.asyncio
     async def test_join_session_success(self, collab_handlers, session_manager):
         """Successfully join a session."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.join_session(
             session_id=session.session_id,
             user_id="user-2",
@@ -435,9 +415,7 @@ class TestJoinSession:
     @pytest.mark.asyncio
     async def test_join_session_invalid_role(self, collab_handlers, session_manager):
         """Fail when role is invalid."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.join_session(
             session_id=session.session_id, user_id="user-2", role="invalid_role"
         )
@@ -447,20 +425,14 @@ class TestJoinSession:
     @pytest.mark.asyncio
     async def test_join_session_not_found(self, collab_handlers):
         """Fail when session doesn't exist."""
-        result = await collab_handlers.join_session(
-            session_id="nonexistent", user_id="user-2"
-        )
+        result = await collab_handlers.join_session(session_id="nonexistent", user_id="user-2")
         assert result["success"] is False
 
     @pytest.mark.asyncio
     async def test_join_session_already_joined(self, collab_handlers, session_manager):
         """Rejoin returns success with existing participant."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
-        result = await collab_handlers.join_session(
-            session_id=session.session_id, user_id="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
+        result = await collab_handlers.join_session(session_id=session.session_id, user_id="user-1")
         assert result["success"] is True
         assert "Already in session" in result["message"]
 
@@ -471,9 +443,7 @@ class TestLeaveSession:
     @pytest.mark.asyncio
     async def test_leave_session_success(self, collab_handlers, session_manager):
         """Successfully leave a session."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.join_session(session.session_id, "user-2")
         result = await collab_handlers.leave_session(session.session_id, "user-2")
         assert result["success"] is True
@@ -504,21 +474,15 @@ class TestUpdatePresence:
     @pytest.mark.asyncio
     async def test_update_presence_online(self, collab_handlers, session_manager):
         """Update presence to online."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
-        result = await collab_handlers.update_presence(
-            session.session_id, "user-1", is_online=True
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
+        result = await collab_handlers.update_presence(session.session_id, "user-1", is_online=True)
         assert result["success"] is True
         assert "Presence updated" in result["message"]
 
     @pytest.mark.asyncio
     async def test_update_presence_offline(self, collab_handlers, session_manager):
         """Update presence to offline."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.update_presence(
             session.session_id, "user-1", is_online=False
         )
@@ -549,9 +513,7 @@ class TestSetTyping:
     @pytest.mark.asyncio
     async def test_set_typing_start(self, collab_handlers, session_manager):
         """Set typing indicator to true."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.set_typing(
             session.session_id, "user-1", is_typing=True, context="vote"
         )
@@ -560,12 +522,8 @@ class TestSetTyping:
     @pytest.mark.asyncio
     async def test_set_typing_stop(self, collab_handlers, session_manager):
         """Set typing indicator to false."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
-        result = await collab_handlers.set_typing(
-            session.session_id, "user-1", is_typing=False
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
+        result = await collab_handlers.set_typing(session.session_id, "user-1", is_typing=False)
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -593,9 +551,7 @@ class TestChangeRole:
     @pytest.mark.asyncio
     async def test_change_role_success(self, collab_handlers, session_manager):
         """Successfully change a participant's role."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.join_session(session.session_id, "user-2", role=ParticipantRole.VOTER)
         result = await collab_handlers.change_role(
             session_id=session.session_id,
@@ -626,9 +582,7 @@ class TestChangeRole:
     @pytest.mark.asyncio
     async def test_change_role_invalid_role(self, collab_handlers, session_manager):
         """Fail with invalid role string."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.change_role(
             session.session_id, "user-2", "emperor", "user-1"
         )
@@ -638,9 +592,7 @@ class TestChangeRole:
     @pytest.mark.asyncio
     async def test_change_role_not_moderator(self, collab_handlers, session_manager):
         """Fail when changer is not a moderator."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.join_session(session.session_id, "user-2", role=ParticipantRole.VOTER)
         session_manager.join_session(session.session_id, "user-3", role=ParticipantRole.VOTER)
         result = await collab_handlers.change_role(
@@ -661,9 +613,7 @@ class TestApproveJoin:
         # Trigger approval request
         session_manager.join_session(session.session_id, "user-2")
         # Mock the manager to test the handler delegates properly
-        collab_handlers.manager.approve_join = MagicMock(
-            return_value=(True, "Approved")
-        )
+        collab_handlers.manager.approve_join = MagicMock(return_value=(True, "Approved"))
         result = await collab_handlers.approve_join(
             session_id=session.session_id,
             user_id="user-2",
@@ -737,9 +687,7 @@ class TestApproveJoin:
     @pytest.mark.asyncio
     async def test_approve_join_session_not_found(self, collab_handlers):
         """Fail when session doesn't exist in manager."""
-        collab_handlers.manager.approve_join = MagicMock(
-            return_value=(False, "Session not found")
-        )
+        collab_handlers.manager.approve_join = MagicMock(return_value=(False, "Session not found"))
         result = await collab_handlers.approve_join(
             session_id="nonexistent",
             user_id="user-2",
@@ -754,9 +702,7 @@ class TestCloseSession:
     @pytest.mark.asyncio
     async def test_close_session_success(self, collab_handlers, session_manager):
         """Successfully close a session."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         result = await collab_handlers.close_session(session.session_id, "user-1")
         assert result["success"] is True
         assert "Session closed" in result["message"]
@@ -806,9 +752,7 @@ class TestGetParticipants:
     @pytest.mark.asyncio
     async def test_get_participants_success(self, collab_handlers, session_manager):
         """Get participants for a session."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.join_session(session.session_id, "user-2")
         result = await collab_handlers.get_participants(session.session_id)
         assert result["count"] == 2
@@ -828,26 +772,16 @@ class TestGetParticipants:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_get_participants_with_user_id(
-        self, collab_handlers, session_manager
-    ):
+    async def test_get_participants_with_user_id(self, collab_handlers, session_manager):
         """Get participants with user_id triggers RBAC check."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
-        result = await collab_handlers.get_participants(
-            session.session_id, user_id="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
+        result = await collab_handlers.get_participants(session.session_id, user_id="user-1")
         assert "participants" in result
 
     @pytest.mark.asyncio
-    async def test_get_participants_online_count(
-        self, collab_handlers, session_manager
-    ):
+    async def test_get_participants_online_count(self, collab_handlers, session_manager):
         """Online count reflects presence status."""
-        session = session_manager.create_session(
-            debate_id="debate-1", created_by="user-1"
-        )
+        session = session_manager.create_session(debate_id="debate-1", created_by="user-1")
         session_manager.join_session(session.session_id, "user-2")
         session_manager.update_presence(session.session_id, "user-2", is_online=False)
         result = await collab_handlers.get_participants(session.session_id)
@@ -957,9 +891,7 @@ class TestHandlerRateLimit:
 
     def test_rate_limit_exceeded(self, handler, mock_http_handler):
         """Return 429 when rate limit is exceeded."""
-        with patch(
-            "aragora.server.handlers.social.collaboration._collab_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.social.collaboration._collab_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = handler.handle(
                 "/api/v1/social/collaboration/sessions",
@@ -1000,12 +932,15 @@ class TestHandlerCreateSession:
 
     def test_create_session_success(self, handler, mock_http_handler):
         """Successfully create a session."""
-        _set_body(mock_http_handler, {
-            "name": "New Session",
-            "channel_id": "ch-1",
-            "platform": "slack",
-            "created_by": "user-1",
-        })
+        _set_body(
+            mock_http_handler,
+            {
+                "name": "New Session",
+                "channel_id": "ch-1",
+                "platform": "slack",
+                "created_by": "user-1",
+            },
+        )
         mock_http_handler.command = "POST"
         result = handler.handle(
             "/api/v1/social/collaboration/sessions", {}, mock_http_handler, "POST"
@@ -1045,15 +980,18 @@ class TestHandlerCreateSession:
 
     def test_create_session_with_all_fields(self, handler, mock_http_handler):
         """Create session with all optional fields."""
-        _set_body(mock_http_handler, {
-            "name": "Full Session",
-            "channel_id": "ch-2",
-            "platform": "teams",
-            "org_id": "org-1",
-            "description": "Detailed session",
-            "created_by": "admin-1",
-            "participants": ["user-1", "user-2"],
-        })
+        _set_body(
+            mock_http_handler,
+            {
+                "name": "Full Session",
+                "channel_id": "ch-2",
+                "platform": "teams",
+                "org_id": "org-1",
+                "description": "Detailed session",
+                "created_by": "admin-1",
+                "participants": ["user-1", "user-2"],
+            },
+        )
         mock_http_handler.command = "POST"
         result = handler.handle(
             "/api/v1/social/collaboration/sessions", {}, mock_http_handler, "POST"

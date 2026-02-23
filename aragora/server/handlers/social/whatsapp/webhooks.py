@@ -108,7 +108,7 @@ def verify_webhook(query_params: dict[str, Any]) -> HandlerResult:
         else query_params.get("hub.challenge", "")
     )
 
-    logger.info("WhatsApp webhook verification: mode=%s, token=%s...", mode, (token or '')[:10])
+    logger.info("WhatsApp webhook verification: mode=%s, token=%s...", mode, (token or "")[:10])
 
     if mode == "subscribe":
         if _config.WHATSAPP_VERIFY_TOKEN:
@@ -181,7 +181,7 @@ class WebhookProcessor:
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
 
-            logger.debug("WhatsApp webhook received: %s", data.get('object'))
+            logger.debug("WhatsApp webhook received: %s", data.get("object"))
 
             if data.get("object") != "whatsapp_business_account":
                 return json_response({"status": "ok"})

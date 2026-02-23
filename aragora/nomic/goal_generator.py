@@ -72,12 +72,14 @@ class GoalGenerator:
 
         candidates = getattr(report, "improvement_candidates", [])
         if not candidates:
-            logger.info("goal_generator_no_candidates health_score=%.2f",
-                        getattr(report, "health_score", 0.0))
+            logger.info(
+                "goal_generator_no_candidates health_score=%.2f",
+                getattr(report, "health_score", 0.0),
+            )
             return []
 
         goals: list[Any] = []
-        for i, candidate in enumerate(candidates[:self._max_goals]):
+        for i, candidate in enumerate(candidates[: self._max_goals]):
             track_name = _CATEGORY_TRACK_MAP.get(candidate.category, "core")
             try:
                 track = Track(track_name)
@@ -91,7 +93,7 @@ class GoalGenerator:
                 track=track,
                 description=candidate.description,
                 rationale=f"Auto-generated from {candidate.source} assessment "
-                          f"(priority={candidate.priority:.2f})",
+                f"(priority={candidate.priority:.2f})",
                 estimated_impact=impact,
                 priority=i + 1,
                 file_hints=candidate.files[:10],
@@ -122,7 +124,7 @@ class GoalGenerator:
             return []
 
         ideas: list[str] = []
-        for candidate in candidates[:self._max_goals]:
+        for candidate in candidates[: self._max_goals]:
             files_hint = ""
             if candidate.files:
                 files_hint = f" (files: {', '.join(candidate.files[:3])})"

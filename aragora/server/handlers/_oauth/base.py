@@ -202,7 +202,10 @@ class OAuthHandler(
             # The wrapper uses the new OAuthRateLimiter with exponential backoff
             if not impl._oauth_limiter.is_allowed(client_ip, endpoint_type):
                 logger.warning(
-                    "OAuth rate limit exceeded: ip=%s, endpoint=%s, provider=%s", client_ip, endpoint_type, provider
+                    "OAuth rate limit exceeded: ip=%s, endpoint=%s, provider=%s",
+                    client_ip,
+                    endpoint_type,
+                    provider,
                 )
                 _asa(span, {"oauth.rate_limited": True})
                 return error_response(
@@ -315,7 +318,10 @@ class OAuthHandler(
         decision = check_permission(rbac_context, permission_key, resource_id)
         if not decision.allowed:
             logger.warning(
-                "Permission denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission_key, decision.reason
+                "Permission denied: user=%s permission=%s reason=%s",
+                auth_ctx.user_id,
+                permission_key,
+                decision.reason,
             )
             return error_response("Permission denied", 403)
 
@@ -462,7 +468,13 @@ class OAuthHandler(
                 # Try to refresh the pool before retrying
                 try:
                     await self._try_refresh_user_store_pool(user_store)
-                except (ImportError, ConnectionError, OSError, RuntimeError, AttributeError) as refresh_err:
+                except (
+                    ImportError,
+                    ConnectionError,
+                    OSError,
+                    RuntimeError,
+                    AttributeError,
+                ) as refresh_err:
                     logger.warning("Pool refresh failed: %s", refresh_err)
 
                 await asyncio.sleep(delay)
@@ -591,8 +603,7 @@ class OAuthHandler(
                 verified = get_by_id(user.id) if callable(get_by_id) else None
             if not verified:
                 logger.error(
-                    "OAuth user created but NOT found on re-read: "
-                    "id=%s, email=%s, store=%s",
+                    "OAuth user created but NOT found on re-read: id=%s, email=%s, store=%s",
                     user.id,
                     user_info.email,
                     type(user_store).__name__,
@@ -600,7 +611,11 @@ class OAuthHandler(
 
             # Log auto-provisioning with default role for audit trail
             logger.info(
-                "OAuth user auto-provisioned: email=%s provider=%s user_id=%s role=%s action=rbac_auto_provision", user_info.email, user_info.provider, user.id, getattr(user, 'role', 'member')
+                "OAuth user auto-provisioned: email=%s provider=%s user_id=%s role=%s action=rbac_auto_provision",
+                user_info.email,
+                user_info.provider,
+                user.id,
+                getattr(user, "role", "member"),
             )
             return user
 

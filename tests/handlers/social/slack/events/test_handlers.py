@@ -625,17 +625,13 @@ class TestParseDmCommand:
 
     def test_status_delegates(self, mixin_instance):
         """'status' delegates to _get_status_response."""
-        with patch.object(
-            mixin_instance, "_get_status_response", return_value="mock-status"
-        ):
+        with patch.object(mixin_instance, "_get_status_response", return_value="mock-status"):
             result = mixin_instance._parse_dm_command("status")
         assert result == "mock-status"
 
     def test_agents_delegates(self, mixin_instance):
         """'agents' delegates to _get_agents_response."""
-        with patch.object(
-            mixin_instance, "_get_agents_response", return_value="mock-agents"
-        ):
+        with patch.object(mixin_instance, "_get_agents_response", return_value="mock-agents"):
             result = mixin_instance._parse_dm_command("agents")
         assert result == "mock-agents"
 
@@ -672,18 +668,14 @@ class TestParseDmCommand:
 
     def test_case_insensitive_status(self, mixin_instance):
         """'status' is case-insensitive."""
-        with patch.object(
-            mixin_instance, "_get_status_response", return_value="mock-status"
-        ):
+        with patch.object(mixin_instance, "_get_status_response", return_value="mock-status"):
             for cmd in ["STATUS", "Status", "sTaTuS"]:
                 result = mixin_instance._parse_dm_command(cmd)
                 assert result == "mock-status"
 
     def test_case_insensitive_agents(self, mixin_instance):
         """'agents' is case-insensitive."""
-        with patch.object(
-            mixin_instance, "_get_agents_response", return_value="mock-agents"
-        ):
+        with patch.object(mixin_instance, "_get_agents_response", return_value="mock-agents"):
             for cmd in ["AGENTS", "Agents", "aGeNtS"]:
                 result = mixin_instance._parse_dm_command(cmd)
                 assert result == "mock-agents"
@@ -891,10 +883,7 @@ class TestGetAgentsResponse:
 
     def test_more_than_5_agents_truncated(self, mixin_instance):
         """Only top 5 agents are shown."""
-        agents = [
-            SimpleNamespace(agent_id=f"agent-{i}", rating=1500 + i * 100)
-            for i in range(8)
-        ]
+        agents = [SimpleNamespace(agent_id=f"agent-{i}", rating=1500 + i * 100) for i in range(8)]
         mock_elo_cls = MagicMock()
         mock_elo_cls.return_value.get_all_ratings.return_value = agents
 
@@ -1028,9 +1017,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1059,9 +1051,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1079,9 +1074,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1099,9 +1097,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1119,9 +1120,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1139,9 +1143,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1162,13 +1169,14 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
-            await mixin_instance._post_message_async(
-                "C1", "Hello!", thread_ts="999.888"
-            )
+            await mixin_instance._post_message_async("C1", "Hello!", thread_ts="999.888")
 
         call_kwargs = mock_client.post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
@@ -1191,13 +1199,14 @@ class TestPostMessageAsync:
 
         blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "Hello"}}]
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
-            await mixin_instance._post_message_async(
-                "C1", "Hello!", blocks=blocks
-            )
+            await mixin_instance._post_message_async("C1", "Hello!", blocks=blocks)
 
         call_kwargs = mock_client.post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
@@ -1218,9 +1227,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1243,9 +1255,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1268,9 +1283,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-my-token"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-my-token"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1292,9 +1310,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1312,9 +1333,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             result = await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1335,9 +1359,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             await mixin_instance._post_message_async("C123", "Test message")
 
@@ -1361,9 +1388,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             await mixin_instance._post_message_async("C1", "Hello!")
 
@@ -1386,9 +1416,12 @@ class TestPostMessageAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_ctx
 
-        with patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
+        with (
+            patch(f"{_IMPL}.SLACK_BOT_TOKEN", "xoxb-test"),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
         ):
             await mixin_instance._post_message_async("C1", "Hello!")
 

@@ -144,18 +144,14 @@ class TestAutoRecommendTemplates:
                 "approach": "Compliance assessment",
             }
 
-            controller._quick_classify(
-                "Is our data processing GDPR compliant?", "test-debate-5"
-            )
+            controller._quick_classify("Is our data processing GDPR compliant?", "test-debate-5")
 
         event = emitter.emit.call_args[0][0]
         templates = event.data.get("suggested_templates", [])
         assert len(templates) > 0
         # Should include compliance-related templates
         template_names = [t["name"] for t in templates]
-        assert any(
-            "gdpr" in name or "compliance" in name for name in template_names
-        )
+        assert any("gdpr" in name or "compliance" in name for name in template_names)
 
     def test_quick_classify_graceful_on_template_import_error(self):
         """Classification works even if template registry import fails."""

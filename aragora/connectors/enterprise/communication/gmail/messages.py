@@ -232,11 +232,17 @@ class GmailMessagesMixin(GmailBaseMethods):
 
                     if is_retryable:
                         logger.warning(
-                            "[Gmail] Retryable error fetching message %s: %s: %s", msg_id, error_type, error_msg
+                            "[Gmail] Retryable error fetching message %s: %s: %s",
+                            msg_id,
+                            error_type,
+                            error_msg,
                         )
                     else:
                         logger.error(
-                            "[Gmail] Failed to fetch message %s: %s: %s", msg_id, error_type, error_msg
+                            "[Gmail] Failed to fetch message %s: %s: %s",
+                            msg_id,
+                            error_type,
+                            error_msg,
                         )
 
                     failure = MessageFetchFailure(
@@ -264,7 +270,11 @@ class GmailMessagesMixin(GmailBaseMethods):
         if failures:
             retryable_count = sum(1 for f in failures if f.is_retryable)
             logger.warning(
-                "[Gmail] Batch fetch completed with %s failures out of %s requests (%s retryable, %s permanent)", len(failures), len(message_ids), retryable_count, len(failures) - retryable_count
+                "[Gmail] Batch fetch completed with %s failures out of %s requests (%s retryable, %s permanent)",
+                len(failures),
+                len(message_ids),
+                retryable_count,
+                len(failures) - retryable_count,
             )
 
         return BatchFetchResult(
@@ -727,7 +737,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
                 self.record_success()
                 result = response.json()
-                logger.info("[Gmail] Sent message: %s", result.get('id'))
+                logger.info("[Gmail] Sent message: %s", result.get("id"))
 
                 return {
                     "message_id": result.get("id"),
@@ -837,7 +847,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                 self.record_success()
                 result = response.json()
                 logger.info(
-                    "[Gmail] Sent reply: %s in thread %s", result.get('id'), result.get('threadId')
+                    "[Gmail] Sent reply: %s in thread %s", result.get("id"), result.get("threadId")
                 )
 
                 return {

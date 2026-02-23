@@ -260,8 +260,14 @@ class TestRoutes:
     def test_component_ids(self):
         ids = [c["id"] for c in StatusPageHandler.COMPONENTS]
         expected = [
-            "api", "database", "redis", "debates",
-            "knowledge", "codebase_context", "websocket", "auth",
+            "api",
+            "database",
+            "redis",
+            "debates",
+            "knowledge",
+            "codebase_context",
+            "websocket",
+            "auth",
         ]
         assert ids == expected
 
@@ -338,70 +344,86 @@ class TestOverallStatus:
             assert handler._get_overall_status() == ServiceStatus.OPERATIONAL
 
     def test_one_major_outage_yields_major(self, handler):
-        comps = self._make_components([
-            ServiceStatus.OPERATIONAL,
-            ServiceStatus.MAJOR_OUTAGE,
-            ServiceStatus.OPERATIONAL,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.OPERATIONAL,
+                ServiceStatus.MAJOR_OUTAGE,
+                ServiceStatus.OPERATIONAL,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.MAJOR_OUTAGE
 
     def test_two_partial_outages_yield_major(self, handler):
-        comps = self._make_components([
-            ServiceStatus.PARTIAL_OUTAGE,
-            ServiceStatus.PARTIAL_OUTAGE,
-            ServiceStatus.OPERATIONAL,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.PARTIAL_OUTAGE,
+                ServiceStatus.PARTIAL_OUTAGE,
+                ServiceStatus.OPERATIONAL,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.MAJOR_OUTAGE
 
     def test_one_partial_outage_yields_partial(self, handler):
-        comps = self._make_components([
-            ServiceStatus.OPERATIONAL,
-            ServiceStatus.PARTIAL_OUTAGE,
-            ServiceStatus.OPERATIONAL,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.OPERATIONAL,
+                ServiceStatus.PARTIAL_OUTAGE,
+                ServiceStatus.OPERATIONAL,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.PARTIAL_OUTAGE
 
     def test_one_degraded_yields_degraded(self, handler):
-        comps = self._make_components([
-            ServiceStatus.OPERATIONAL,
-            ServiceStatus.DEGRADED,
-            ServiceStatus.OPERATIONAL,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.OPERATIONAL,
+                ServiceStatus.DEGRADED,
+                ServiceStatus.OPERATIONAL,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.DEGRADED
 
     def test_one_maintenance_yields_maintenance(self, handler):
-        comps = self._make_components([
-            ServiceStatus.OPERATIONAL,
-            ServiceStatus.MAINTENANCE,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.OPERATIONAL,
+                ServiceStatus.MAINTENANCE,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.MAINTENANCE
 
     def test_major_outage_takes_precedence_over_degraded(self, handler):
-        comps = self._make_components([
-            ServiceStatus.DEGRADED,
-            ServiceStatus.MAJOR_OUTAGE,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.DEGRADED,
+                ServiceStatus.MAJOR_OUTAGE,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.MAJOR_OUTAGE
 
     def test_partial_takes_precedence_over_degraded(self, handler):
-        comps = self._make_components([
-            ServiceStatus.DEGRADED,
-            ServiceStatus.PARTIAL_OUTAGE,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.DEGRADED,
+                ServiceStatus.PARTIAL_OUTAGE,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.PARTIAL_OUTAGE
 
     def test_degraded_takes_precedence_over_maintenance(self, handler):
-        comps = self._make_components([
-            ServiceStatus.DEGRADED,
-            ServiceStatus.MAINTENANCE,
-        ])
+        comps = self._make_components(
+            [
+                ServiceStatus.DEGRADED,
+                ServiceStatus.MAINTENANCE,
+            ]
+        )
         with patch.object(handler, "_check_all_components", return_value=comps):
             assert handler._get_overall_status() == ServiceStatus.DEGRADED
 
@@ -455,9 +477,7 @@ class TestCheckAllComponents:
 
     def test_returns_list_with_last_check(self, handler):
         with patch.object(handler, "_check_component") as mock_check:
-            mock_check.return_value = ComponentHealth(
-                name="test", status=ServiceStatus.OPERATIONAL
-            )
+            mock_check.return_value = ComponentHealth(name="test", status=ServiceStatus.OPERATIONAL)
             results = handler._check_all_components()
 
         assert len(results) == len(handler.COMPONENTS)
@@ -466,9 +486,7 @@ class TestCheckAllComponents:
 
     def test_calls_check_for_each_component(self, handler):
         with patch.object(handler, "_check_component") as mock_check:
-            mock_check.return_value = ComponentHealth(
-                name="test", status=ServiceStatus.OPERATIONAL
-            )
+            mock_check.return_value = ComponentHealth(name="test", status=ServiceStatus.OPERATIONAL)
             handler._check_all_components()
 
         expected_ids = [c["id"] for c in handler.COMPONENTS]
@@ -497,14 +515,16 @@ class TestDatabaseHealth:
         conn.close()
 
         monkeypatch.delenv("ARAGORA_DB_BACKEND", raising=False)
-        with patch(
-            "aragora.server.handlers.public.status_page.os.environ.get",
-            return_value="sqlite",
-        ), patch(
-            "aragora.server.handlers.public.status_page.run_async"
-        ), patch(
-            "aragora.persistence.db_config.get_db_path",
-            return_value=db_file,
+        with (
+            patch(
+                "aragora.server.handlers.public.status_page.os.environ.get",
+                return_value="sqlite",
+            ),
+            patch("aragora.server.handlers.public.status_page.run_async"),
+            patch(
+                "aragora.persistence.db_config.get_db_path",
+                return_value=db_file,
+            ),
         ):
             result = handler._check_database_health()
         assert result.status == ServiceStatus.OPERATIONAL
@@ -512,12 +532,15 @@ class TestDatabaseHealth:
 
     def test_sqlite_db_not_exists(self, handler, tmp_path):
         db_file = tmp_path / "nonexistent.db"
-        with patch(
-            "aragora.server.handlers.public.status_page.os.environ.get",
-            return_value="sqlite",
-        ), patch(
-            "aragora.persistence.db_config.get_db_path",
-            return_value=db_file,
+        with (
+            patch(
+                "aragora.server.handlers.public.status_page.os.environ.get",
+                return_value="sqlite",
+            ),
+            patch(
+                "aragora.persistence.db_config.get_db_path",
+                return_value=db_file,
+            ),
         ):
             result = handler._check_database_health()
         assert result.status == ServiceStatus.OPERATIONAL
@@ -525,24 +548,32 @@ class TestDatabaseHealth:
 
     def test_postgres_with_pool(self, handler):
         mock_pool = MagicMock()
-        with patch(
-            "aragora.server.handlers.public.status_page.os.environ.get",
-            return_value="postgres",
-        ), patch(
-            "aragora.server.handlers.public.status_page.run_async",
-            return_value=mock_pool,
-        ), patch.dict("sys.modules", {"aragora.storage.postgres": MagicMock()}):
+        with (
+            patch(
+                "aragora.server.handlers.public.status_page.os.environ.get",
+                return_value="postgres",
+            ),
+            patch(
+                "aragora.server.handlers.public.status_page.run_async",
+                return_value=mock_pool,
+            ),
+            patch.dict("sys.modules", {"aragora.storage.postgres": MagicMock()}),
+        ):
             result = handler._check_database_health()
         assert result.status == ServiceStatus.OPERATIONAL
 
     def test_postgres_no_pool(self, handler):
-        with patch(
-            "aragora.server.handlers.public.status_page.os.environ.get",
-            return_value="postgres",
-        ), patch(
-            "aragora.server.handlers.public.status_page.run_async",
-            return_value=None,
-        ), patch.dict("sys.modules", {"aragora.storage.postgres": MagicMock()}):
+        with (
+            patch(
+                "aragora.server.handlers.public.status_page.os.environ.get",
+                return_value="postgres",
+            ),
+            patch(
+                "aragora.server.handlers.public.status_page.run_async",
+                return_value=None,
+            ),
+            patch.dict("sys.modules", {"aragora.storage.postgres": MagicMock()}),
+        ):
             result = handler._check_database_health()
         assert result.status == ServiceStatus.PARTIAL_OUTAGE
 
@@ -553,6 +584,7 @@ class TestDatabaseHealth:
         ):
             # Force ImportError by patching the import inside the method
             import builtins
+
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
@@ -566,12 +598,15 @@ class TestDatabaseHealth:
         assert "not installed" in result.message
 
     def test_database_exception_fallback(self, handler):
-        with patch(
-            "aragora.server.handlers.public.status_page.os.environ.get",
-            return_value="sqlite",
-        ), patch(
-            "aragora.persistence.db_config.get_db_path",
-            side_effect=ImportError("no module"),
+        with (
+            patch(
+                "aragora.server.handlers.public.status_page.os.environ.get",
+                return_value="sqlite",
+            ),
+            patch(
+                "aragora.persistence.db_config.get_db_path",
+                side_effect=ImportError("no module"),
+            ),
         ):
             result = handler._check_database_health()
         assert result.status == ServiceStatus.PARTIAL_OUTAGE
@@ -585,15 +620,18 @@ class TestRedisHealth:
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
-        with patch(
-            "aragora.server.handlers.public.status_page.is_redis_available",
-            return_value=True,
-            create=True,
-        ) as _, patch(
-            "aragora.server.handlers.public.status_page.get_redis_client",
-            return_value=mock_client,
-            create=True,
-        ) as _:
+        with (
+            patch(
+                "aragora.server.handlers.public.status_page.is_redis_available",
+                return_value=True,
+                create=True,
+            ) as _,
+            patch(
+                "aragora.server.handlers.public.status_page.get_redis_client",
+                return_value=mock_client,
+                create=True,
+            ) as _,
+        ):
             # The method imports from aragora.server.redis_config inside, so patch that module
             mock_redis_config = MagicMock()
             mock_redis_config.is_redis_available.return_value = True
@@ -623,9 +661,11 @@ class TestRedisHealth:
     def test_redis_import_error(self, handler):
         # Remove the module so import fails
         import sys
+
         saved = sys.modules.pop("aragora.server.redis_config", None)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
@@ -751,13 +791,14 @@ class TestCodebaseContextHealth:
 
     def test_import_error_fallback(self, handler):
         import builtins
+
         original_import = builtins.__import__
 
         import sys
-        saved = sys.modules.pop(
-            "aragora.server.handlers.admin.health.knowledge_mound_utils", None
-        )
+
+        saved = sys.modules.pop("aragora.server.handlers.admin.health.knowledge_mound_utils", None)
         try:
+
             def mock_import(name, *args, **kwargs):
                 if "knowledge_mound_utils" in name:
                     raise ImportError("no module")
@@ -769,9 +810,7 @@ class TestCodebaseContextHealth:
             assert result.message == "health check unavailable"
         finally:
             if saved is not None:
-                sys.modules[
-                    "aragora.server.handlers.admin.health.knowledge_mound_utils"
-                ] = saved
+                sys.modules["aragora.server.handlers.admin.health.knowledge_mound_utils"] = saved
 
     def test_runtime_error_fallback(self, handler):
         mock_check = MagicMock(side_effect=RuntimeError("check failed"))
@@ -836,8 +875,10 @@ class TestJsonStatusSummary:
         comps = [
             ComponentHealth(name="API", status=ServiceStatus.OPERATIONAL, response_time_ms=1.0),
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._json_status_summary()
 
         body = _body(result)
@@ -851,12 +892,16 @@ class TestJsonStatusSummary:
     def test_component_fields(self, handler):
         comps = [
             ComponentHealth(
-                name="API", status=ServiceStatus.OPERATIONAL,
-                response_time_ms=2.5, message=None,
+                name="API",
+                status=ServiceStatus.OPERATIONAL,
+                response_time_ms=2.5,
+                message=None,
             ),
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._json_status_summary()
 
         body = _body(result)
@@ -868,21 +913,27 @@ class TestJsonStatusSummary:
         assert comp["message"] is None
 
     def test_status_code_200(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._json_status_summary()
         assert _status(result) == 200
 
     def test_degraded_message(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.DEGRADED):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.DEGRADED),
+        ):
             result = handler._json_status_summary()
         body = _body(result)
         assert body["message"] == "Degraded Performance"
 
     def test_major_outage_message(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.MAJOR_OUTAGE):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.MAJOR_OUTAGE),
+        ):
             result = handler._json_status_summary()
         body = _body(result)
         assert body["message"] == "Major System Outage"
@@ -1022,9 +1073,11 @@ class TestIncidentsEndpoint:
     def test_store_import_error(self, handler):
         import builtins
         import sys
+
         original_import = builtins.__import__
         saved = sys.modules.pop("aragora.observability.incident_store", None)
         try:
+
             def mock_import(name, *args, **kwargs):
                 if "incident_store" in name:
                     raise ImportError("no module")
@@ -1059,21 +1112,27 @@ class TestHtmlStatusPage:
     """Tests for _html_status_page() response."""
 
     def test_returns_html_content_type(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         assert "text/html" in result.content_type
 
     def test_html_contains_title(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
         assert "<title>Aragora Status</title>" in html
 
     def test_html_contains_status_message(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
         assert "All Systems Operational" in html
@@ -1085,8 +1144,10 @@ class TestHtmlStatusPage:
             ComponentHealth(name=c["name"], status=ServiceStatus.OPERATIONAL)
             for c in handler.COMPONENTS
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
         # Verify COMPONENTS names appear in HTML
@@ -1099,8 +1160,10 @@ class TestHtmlStatusPage:
         comps = [
             ComponentHealth(name="API", status=ServiceStatus.OPERATIONAL),
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
         assert "#22c55e" in html  # operational green
@@ -1109,28 +1172,36 @@ class TestHtmlStatusPage:
         comps = [
             ComponentHealth(name="Cache", status=ServiceStatus.DEGRADED),
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.DEGRADED):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.DEGRADED),
+        ):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
         assert "#eab308" in html  # degraded yellow
 
     def test_html_contains_api_link(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
         assert "/api/status" in html
 
     def test_html_status_200(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         assert _status(result) == 200
 
     def test_html_body_is_bytes(self, handler):
-        with patch.object(handler, "_check_all_components", return_value=[]), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=[]),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler._html_status_page()
         assert isinstance(result.body, bytes)
 
@@ -1221,8 +1292,10 @@ class TestEndToEnd:
             ComponentHealth(name=c["name"], status=ServiceStatus.OPERATIONAL)
             for c in handler.COMPONENTS
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler.handle("/api/status", {}, mock_http_handler)
 
         body = _body(result)
@@ -1241,8 +1314,10 @@ class TestEndToEnd:
             ComponentHealth(name=c["name"], status=ServiceStatus.OPERATIONAL)
             for c in handler.COMPONENTS
         ]
-        with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
+        with (
+            patch.object(handler, "_check_all_components", return_value=comps),
+            patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL),
+        ):
             result = handler.handle("/status", {}, mock_http_handler)
         assert result.status_code == 200
         html = result.body.decode("utf-8")

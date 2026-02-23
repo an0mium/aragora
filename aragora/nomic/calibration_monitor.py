@@ -48,9 +48,7 @@ class CalibrationDriftDetector:
     window_size: int = 10
     stagnation_threshold: float = 0.01
     regression_threshold: float = 0.05
-    _cycles: list[tuple[str, dict[str, float]]] = field(
-        default_factory=list, repr=False
-    )
+    _cycles: list[tuple[str, dict[str, float]]] = field(default_factory=list, repr=False)
 
     def record_cycle(self, cycle_id: str, scores: dict[str, float]) -> None:
         """Record calibration scores for a cycle.
@@ -122,9 +120,7 @@ class CalibrationDriftDetector:
                 histories.setdefault(agent, []).append(score)
         return histories
 
-    def _check_stagnation(
-        self, agent_name: str, history: list[float]
-    ) -> DriftWarning | None:
+    def _check_stagnation(self, agent_name: str, history: list[float]) -> DriftWarning | None:
         """Detect score stagnation: low variance over the window."""
         if len(history) < 3:
             return None
@@ -147,9 +143,7 @@ class CalibrationDriftDetector:
             )
         return None
 
-    def _check_regression(
-        self, agent_name: str, history: list[float]
-    ) -> DriftWarning | None:
+    def _check_regression(self, agent_name: str, history: list[float]) -> DriftWarning | None:
         """Detect monotonically decreasing scores over 3+ cycles."""
         if len(history) < 3:
             return None
@@ -179,9 +173,7 @@ class CalibrationDriftDetector:
             )
         return None
 
-    def _check_inflation(
-        self, agent_name: str, history: list[float]
-    ) -> DriftWarning | None:
+    def _check_inflation(self, agent_name: str, history: list[float]) -> DriftWarning | None:
         """Detect confidence inflation: consistently high scores (> 0.95)."""
         if len(history) < 3:
             return None

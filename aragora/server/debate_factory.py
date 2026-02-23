@@ -155,7 +155,9 @@ class DebateConfig:
                 )
                 if filtered:
                     logger.info(
-                        "Auto-trimmed %s agents without credentials: %s", len(filtered), ', '.join(f[0] for f in filtered)
+                        "Auto-trimmed %s agents without credentials: %s",
+                        len(filtered),
+                        ", ".join(f[0] for f in filtered),
                     )
             except ValueError as e:
                 # Re-raise with more context

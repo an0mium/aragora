@@ -453,9 +453,7 @@ class TestSearchReceipts:
 
     @pytest.mark.asyncio
     async def test_search_empty_query_returns_400(self, handler):
-        result = await handler.handle(
-            "GET", "/api/v2/receipts/search", query_params={"q": ""}
-        )
+        result = await handler.handle("GET", "/api/v2/receipts/search", query_params={"q": ""})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -465,9 +463,7 @@ class TestSearchReceipts:
 
     @pytest.mark.asyncio
     async def test_search_short_query_returns_400(self, handler):
-        result = await handler.handle(
-            "GET", "/api/v2/receipts/search", query_params={"q": "ab"}
-        )
+        result = await handler.handle("GET", "/api/v2/receipts/search", query_params={"q": "ab"})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -625,10 +621,9 @@ class TestExportReceipt:
     async def test_export_sarif(self, handler):
         mock_export = MagicMock(return_value='{"runs": []}')
         mock_format = MagicMock(SARIF="sarif")
-        with patch(
-            "aragora.gauntlet.api.export.export_receipt", mock_export
-        ), patch(
-            "aragora.gauntlet.api.export.ReceiptExportFormat", mock_format
+        with (
+            patch("aragora.gauntlet.api.export.export_receipt", mock_export),
+            patch("aragora.gauntlet.api.export.ReceiptExportFormat", mock_format),
         ):
             result = await handler.handle(
                 "GET", "/api/v2/receipts/rcpt-001/export", query_params={"format": "sarif"}
@@ -645,9 +640,7 @@ class TestExportReceipt:
 
     @pytest.mark.asyncio
     async def test_export_default_format_is_json(self, handler):
-        result = await handler.handle(
-            "GET", "/api/v2/receipts/rcpt-001/export"
-        )
+        result = await handler.handle("GET", "/api/v2/receipts/rcpt-001/export")
         assert _status(result) == 200
         assert result.content_type == "application/json"
 
@@ -1203,7 +1196,9 @@ class TestShareReceipt:
     """Tests for creating shareable links."""
 
     @pytest.mark.asyncio
-    async def test_share_receipt_success(self, handler, mock_store, mock_share_store, sample_receipt):
+    async def test_share_receipt_success(
+        self, handler, mock_store, mock_share_store, sample_receipt
+    ):
         mock_store.get.return_value = sample_receipt
 
         with patch(
@@ -1235,7 +1230,9 @@ class TestShareReceipt:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_share_receipt_with_max_accesses(self, handler, mock_store, mock_share_store, sample_receipt):
+    async def test_share_receipt_with_max_accesses(
+        self, handler, mock_store, mock_share_store, sample_receipt
+    ):
         mock_store.get.return_value = sample_receipt
 
         with patch(
@@ -1252,7 +1249,9 @@ class TestShareReceipt:
         assert body["max_accesses"] == 5
 
     @pytest.mark.asyncio
-    async def test_share_receipt_with_webhook(self, handler, mock_store, mock_share_store, sample_receipt):
+    async def test_share_receipt_with_webhook(
+        self, handler, mock_store, mock_share_store, sample_receipt
+    ):
         mock_store.get.return_value = sample_receipt
         mock_notifier = MagicMock()
 
@@ -1525,10 +1524,9 @@ class TestSendToChannel:
         mock_dr_class = MagicMock()
         mock_dr_class.from_dict.return_value = MockDecisionReceipt()
 
-        with patch(
-            "aragora.channels.formatter.format_receipt_for_channel", mock_formatter
-        ), patch(
-            "aragora.export.decision_receipt.DecisionReceipt", mock_dr_class
+        with (
+            patch("aragora.channels.formatter.format_receipt_for_channel", mock_formatter),
+            patch("aragora.export.decision_receipt.DecisionReceipt", mock_dr_class),
         ):
             result = await handler.handle(
                 "POST",
@@ -1544,11 +1542,12 @@ class TestSendToChannel:
         mock_dr_class = MagicMock()
         mock_dr_class.from_dict.return_value = MockDecisionReceipt()
 
-        with patch(
-            "aragora.channels.formatter.format_receipt_for_channel",
-            side_effect=ImportError("No channel module"),
-        ), patch(
-            "aragora.export.decision_receipt.DecisionReceipt", mock_dr_class
+        with (
+            patch(
+                "aragora.channels.formatter.format_receipt_for_channel",
+                side_effect=ImportError("No channel module"),
+            ),
+            patch("aragora.export.decision_receipt.DecisionReceipt", mock_dr_class),
         ):
             result = await handler.handle(
                 "POST",
@@ -1580,10 +1579,9 @@ class TestGetFormatted:
         mock_dr_class = MagicMock()
         mock_dr_class.from_dict.return_value = MockDecisionReceipt()
 
-        with patch(
-            "aragora.channels.formatter.format_receipt_for_channel", mock_formatter
-        ), patch(
-            "aragora.export.decision_receipt.DecisionReceipt", mock_dr_class
+        with (
+            patch("aragora.channels.formatter.format_receipt_for_channel", mock_formatter),
+            patch("aragora.export.decision_receipt.DecisionReceipt", mock_dr_class),
         ):
             result = await handler.handle("GET", "/api/v2/receipts/rcpt-001/formatted/slack")
         body = _body(result)
@@ -1598,10 +1596,9 @@ class TestGetFormatted:
         mock_dr_class = MagicMock()
         mock_dr_class.from_dict.return_value = MockDecisionReceipt()
 
-        with patch(
-            "aragora.channels.formatter.format_receipt_for_channel", mock_formatter
-        ), patch(
-            "aragora.export.decision_receipt.DecisionReceipt", mock_dr_class
+        with (
+            patch("aragora.channels.formatter.format_receipt_for_channel", mock_formatter),
+            patch("aragora.export.decision_receipt.DecisionReceipt", mock_dr_class),
         ):
             # Path without channel_type defaults to slack
             result = await handler.handle("GET", "/api/v2/receipts/rcpt-001/formatted")
@@ -1616,11 +1613,12 @@ class TestGetFormatted:
         mock_dr_class = MagicMock()
         mock_dr_class.from_dict.return_value = MockDecisionReceipt()
 
-        with patch(
-            "aragora.channels.formatter.format_receipt_for_channel",
-            side_effect=ImportError("No formatter"),
-        ), patch(
-            "aragora.export.decision_receipt.DecisionReceipt", mock_dr_class
+        with (
+            patch(
+                "aragora.channels.formatter.format_receipt_for_channel",
+                side_effect=ImportError("No formatter"),
+            ),
+            patch("aragora.export.decision_receipt.DecisionReceipt", mock_dr_class),
         ):
             result = await handler.handle("GET", "/api/v2/receipts/rcpt-001/formatted/teams")
         assert _status(result) == 500
@@ -1632,11 +1630,12 @@ class TestGetFormatted:
         mock_dr_class = MagicMock()
         mock_dr_class.from_dict.return_value = MockDecisionReceipt()
 
-        with patch(
-            "aragora.channels.formatter.format_receipt_for_channel",
-            side_effect=ValueError("Bad channel type"),
-        ), patch(
-            "aragora.export.decision_receipt.DecisionReceipt", mock_dr_class
+        with (
+            patch(
+                "aragora.channels.formatter.format_receipt_for_channel",
+                side_effect=ValueError("Bad channel type"),
+            ),
+            patch("aragora.export.decision_receipt.DecisionReceipt", mock_dr_class),
         ):
             result = await handler.handle("GET", "/api/v2/receipts/rcpt-001/formatted/invalid")
         assert _status(result) == 400

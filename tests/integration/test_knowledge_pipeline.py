@@ -140,9 +140,7 @@ class TestKnowledgePipelineIntegration:
         from aragora.knowledge.integration import process_document_async, _pipelines
 
         # Disable Knowledge Mound to avoid external embedding API calls (Gemini)
-        with patch(
-            "aragora.knowledge.integration._should_use_knowledge_mound", return_value=False
-        ):
+        with patch("aragora.knowledge.integration._should_use_knowledge_mound", return_value=False):
             # Use async version directly since we're in an async test context
             result = await process_document_async(
                 content=sample_document_content,
@@ -578,9 +576,7 @@ class TestFullPipelineIntegration:
         )
 
         # Step 1: Process document (disable Knowledge Mound to avoid external API calls)
-        with patch(
-            "aragora.knowledge.integration._should_use_knowledge_mound", return_value=False
-        ):
+        with patch("aragora.knowledge.integration._should_use_knowledge_mound", return_value=False):
             result = await process_document_async(
                 content=sample_document_content,
                 filename="contract.txt",

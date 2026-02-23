@@ -233,7 +233,10 @@ class TestHandleSendEmail:
         data = {"to": ["alice@example.com"]}
         result = await handle_send_email(data=data)
         assert _status(result) == 400
-        assert "subject" in _body(result).get("error", "").lower() or "body" in _body(result).get("error", "").lower()
+        assert (
+            "subject" in _body(result).get("error", "").lower()
+            or "body" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_send_email_with_optional_fields(self, mock_service):
@@ -272,7 +275,10 @@ class TestHandleSendEmail:
         data = {"to": ["a@b.com"], "subject": "Hi", "body": "Test"}
         await handle_send_email(data=data)
         call_kwargs = mock_service.send.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
 
 # ===========================================================================
@@ -468,7 +474,10 @@ class TestHandleSnoozeMessage:
         data = {"provider": "gmail"}
         result = await handle_snooze_message(data=data, message_id="msg-1")
         assert _status(result) == 400
-        assert "snooze_until" in _body(result).get("error", "").lower() or "required" in _body(result).get("error", "").lower()
+        assert (
+            "snooze_until" in _body(result).get("error", "").lower()
+            or "required" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_snooze_missing_message_id(self):
@@ -481,7 +490,10 @@ class TestHandleSnoozeMessage:
         data = {"snooze_until": "not-a-date"}
         result = await handle_snooze_message(data=data, message_id="msg-1")
         assert _status(result) == 400
-        assert "iso" in _body(result).get("error", "").lower() or "format" in _body(result).get("error", "").lower()
+        assert (
+            "iso" in _body(result).get("error", "").lower()
+            or "format" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_snooze_past_time_rejected(self):
@@ -1032,7 +1044,10 @@ class TestHandleGetActionLogs:
     async def test_get_logs_invalid_since_format(self):
         result = await handle_get_action_logs(data={"since": "not-a-date"})
         assert _status(result) == 400
-        assert "iso" in _body(result).get("error", "").lower() or "format" in _body(result).get("error", "").lower()
+        assert (
+            "iso" in _body(result).get("error", "").lower()
+            or "format" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_get_logs_limit_capped_at_1000(self, mock_service):
@@ -1081,7 +1096,10 @@ class TestHandleExportActionLogs:
         end = datetime.now(timezone.utc).isoformat()
         result = await handle_export_action_logs(data={"end_date": end})
         assert _status(result) == 400
-        assert "start_date" in _body(result).get("error", "").lower() or "required" in _body(result).get("error", "").lower()
+        assert (
+            "start_date" in _body(result).get("error", "").lower()
+            or "required" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_export_missing_end_date(self):
@@ -1099,7 +1117,10 @@ class TestHandleExportActionLogs:
         data = {"start_date": "not-a-date", "end_date": "also-bad"}
         result = await handle_export_action_logs(data=data)
         assert _status(result) == 400
-        assert "format" in _body(result).get("error", "").lower() or "iso" in _body(result).get("error", "").lower()
+        assert (
+            "format" in _body(result).get("error", "").lower()
+            or "iso" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_export_end_before_start(self):
@@ -1160,19 +1181,28 @@ class TestDefaultProvider:
     async def test_archive_defaults_to_gmail(self, mock_service):
         await handle_archive_message(data={}, message_id="msg-1")
         call_kwargs = mock_service.archive.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
     @pytest.mark.asyncio
     async def test_trash_defaults_to_gmail(self, mock_service):
         await handle_trash_message(data={}, message_id="msg-1")
         call_kwargs = mock_service.trash.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
     @pytest.mark.asyncio
     async def test_mark_read_defaults_to_gmail(self, mock_service):
         await handle_mark_read(data={}, message_id="msg-1")
         call_kwargs = mock_service.mark_read.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
 
 # ===========================================================================
@@ -1188,20 +1218,29 @@ class TestUserIdPropagation:
         data = {"to": ["a@b.com"], "subject": "Hi", "body": "X"}
         await handle_send_email(data=data, user_id="user-42")
         call_kwargs = mock_service.send.call_args
-        assert call_kwargs.kwargs.get("user_id") == "user-42" or call_kwargs[1].get("user_id") == "user-42"
+        assert (
+            call_kwargs.kwargs.get("user_id") == "user-42"
+            or call_kwargs[1].get("user_id") == "user-42"
+        )
 
     @pytest.mark.asyncio
     async def test_archive_propagates_user_id(self, mock_service):
         await handle_archive_message(data={}, message_id="msg-1", user_id="user-42")
         call_kwargs = mock_service.archive.call_args
-        assert call_kwargs.kwargs.get("user_id") == "user-42" or call_kwargs[1].get("user_id") == "user-42"
+        assert (
+            call_kwargs.kwargs.get("user_id") == "user-42"
+            or call_kwargs[1].get("user_id") == "user-42"
+        )
 
     @pytest.mark.asyncio
     async def test_batch_archive_propagates_user_id(self, mock_service):
         data = {"message_ids": ["m1"]}
         await handle_batch_archive(data=data, user_id="user-42")
         call_kwargs = mock_service.batch_archive.call_args
-        assert call_kwargs.kwargs.get("user_id") == "user-42" or call_kwargs[1].get("user_id") == "user-42"
+        assert (
+            call_kwargs.kwargs.get("user_id") == "user-42"
+            or call_kwargs[1].get("user_id") == "user-42"
+        )
 
 
 # ===========================================================================
@@ -1218,7 +1257,10 @@ class TestOutlookProvider:
         result = await handle_send_email(data=data)
         assert _status(result) == 200
         call_kwargs = mock_service.send.call_args
-        assert call_kwargs.kwargs.get("provider") == "outlook" or call_kwargs[1].get("provider") == "outlook"
+        assert (
+            call_kwargs.kwargs.get("provider") == "outlook"
+            or call_kwargs[1].get("provider") == "outlook"
+        )
 
     @pytest.mark.asyncio
     async def test_reply_with_outlook(self, mock_service):

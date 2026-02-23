@@ -405,7 +405,11 @@ class DefaultBotEventHandler(BotEventHandler):
 
         # Log other reactions
         logger.debug(
-            "Reaction added: emoji=%s channel=%s message=%s user=%s", emoji, channel_id, message_id, user_id
+            "Reaction added: emoji=%s channel=%s message=%s user=%s",
+            emoji,
+            channel_id,
+            message_id,
+            user_id,
         )
 
     async def on_command(self, ctx: CommandContext) -> None:
@@ -518,7 +522,11 @@ class DefaultBotEventHandler(BotEventHandler):
         action = action_map.get(emoji.lower().strip(":"))
         if action:
             logger.info(
-                "Debate reaction: debate=%s action=%s user=%s message=%s", debate_id, action, user_id, message_id
+                "Debate reaction: debate=%s action=%s user=%s message=%s",
+                debate_id,
+                action,
+                user_id,
+                message_id,
             )
             # Subclasses should override to send to debate API
 

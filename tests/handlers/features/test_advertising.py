@@ -491,9 +491,17 @@ class TestListAllCampaigns:
             query={"limit": "1"},
         )
         # Even if connector returns many, limit should cap it
-        with patch.object(handler, "_fetch_platform_campaigns", new=AsyncMock(return_value=[
-            {"name": "A"}, {"name": "B"}, {"name": "C"},
-        ])):
+        with patch.object(
+            handler,
+            "_fetch_platform_campaigns",
+            new=AsyncMock(
+                return_value=[
+                    {"name": "A"},
+                    {"name": "B"},
+                    {"name": "C"},
+                ]
+            ),
+        ):
             result = await handler.handle_request(req)
         body = _body(result)
         assert body["total"] == 1
@@ -520,9 +528,15 @@ class TestListPlatformCampaigns:
     @pytest.mark.asyncio
     @pytest.mark.usefixtures("_seed_google_creds")
     async def test_platform_campaigns_success(self, handler):
-        with patch.object(handler, "_fetch_platform_campaigns", new=AsyncMock(return_value=[
-            {"id": "c1", "name": "Campaign 1", "platform": "google_ads"},
-        ])):
+        with patch.object(
+            handler,
+            "_fetch_platform_campaigns",
+            new=AsyncMock(
+                return_value=[
+                    {"id": "c1", "name": "Campaign 1", "platform": "google_ads"},
+                ]
+            ),
+        ):
             req = MockRequest(
                 method="GET",
                 path="/api/v1/advertising/google_ads/campaigns",
@@ -1069,14 +1083,16 @@ class TestCrossPlatformPerformance:
         with patch.object(
             handler,
             "_fetch_platform_performance",
-            new=AsyncMock(return_value={
-                "platform": "google_ads",
-                "impressions": 0,
-                "clicks": 0,
-                "cost": 0,
-                "conversions": 0,
-                "conversion_value": 0,
-            }),
+            new=AsyncMock(
+                return_value={
+                    "platform": "google_ads",
+                    "impressions": 0,
+                    "clicks": 0,
+                    "cost": 0,
+                    "conversions": 0,
+                    "conversion_value": 0,
+                }
+            ),
         ):
             req = MockRequest(
                 method="GET",

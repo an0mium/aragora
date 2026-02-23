@@ -55,6 +55,7 @@ _pipeline_tasks: dict[str, asyncio.Task[Any]] = {}
 def _get_store() -> Any:
     """Lazy-load the persistent pipeline store."""
     from aragora.storage.pipeline_store import get_pipeline_store
+
     return get_pipeline_store()
 
 
@@ -65,11 +66,13 @@ def _get_ai_agent() -> Any | None:
     """
     try:
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
         return AnthropicAPIAgent(model="claude-sonnet-4-5-20250929")
     except (ImportError, OSError, ValueError):
         pass
     try:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
         return OpenAIAPIAgent(model="gpt-4o-mini")
     except (ImportError, OSError, ValueError):
         pass
@@ -82,6 +85,7 @@ def _persist_universal_graph(result: Any) -> None:
         return
     try:
         from aragora.pipeline.graph_store import get_graph_store
+
         store = get_graph_store()
         store.create(result.universal_graph)
         logger.info(
@@ -97,6 +101,7 @@ def _persist_pipeline_to_km(result: Any) -> None:
     """Persist pipeline result to KnowledgeMound for future precedent queries."""
     try:
         from aragora.pipeline.km_bridge import PipelineKMBridge
+
         bridge = PipelineKMBridge()
         bridge.store_pipeline_result(result)
     except (ImportError, AttributeError, RuntimeError, ValueError) as e:
@@ -316,18 +321,21 @@ class CanvasPipelineHandler:
             use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
             pipeline = IdeaToExecutionPipeline(
-                agent=agent, use_universal=use_universal,
+                agent=agent,
+                use_universal=use_universal,
             )
 
             # Generate a real pipeline ID up front so the emitter routes
             # events to the correct ID from the start.
             import uuid as _uuid
+
             pipeline_id = f"pipe-{_uuid.uuid4().hex[:8]}"
 
             # Wire stream emitter for real-time progress
             event_cb = None
             try:
                 from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
                 event_cb = get_pipeline_emitter().as_event_callback(pipeline_id)
             except ImportError:
                 pass
@@ -348,24 +356,25 @@ class CanvasPipelineHandler:
             _persist_universal_graph(result)
             _persist_pipeline_to_km(result)
 
-            return json_response({
-                "pipeline_id": result.pipeline_id,
-                "stage_status": result.stage_status,
-                "stages_completed": sum(
-                    1 for s in result.stage_status.values() if s == "complete"
-                ),
-                "total_nodes": (
-                    len(result.ideas_canvas.nodes if result.ideas_canvas else {})
-                    + len(result.actions_canvas.nodes if result.actions_canvas else {})
-                    + len(
-                        result.orchestration_canvas.nodes
-                        if result.orchestration_canvas
-                        else {}
-                    )
-                ),
-                "has_universal_graph": result.universal_graph is not None,
-                "result": result_dict,
-            }, 201)
+            return json_response(
+                {
+                    "pipeline_id": result.pipeline_id,
+                    "stage_status": result.stage_status,
+                    "stages_completed": sum(
+                        1 for s in result.stage_status.values() if s == "complete"
+                    ),
+                    "total_nodes": (
+                        len(result.ideas_canvas.nodes if result.ideas_canvas else {})
+                        + len(result.actions_canvas.nodes if result.actions_canvas else {})
+                        + len(
+                            result.orchestration_canvas.nodes if result.orchestration_canvas else {}
+                        )
+                    ),
+                    "has_universal_graph": result.universal_graph is not None,
+                    "result": result_dict,
+                },
+                201,
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline from-debate failed: %s", e)
             return error_response("Pipeline execution failed", 500)
@@ -392,24 +401,29 @@ class CanvasPipelineHandler:
             use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
             pipeline = IdeaToExecutionPipeline(
-                agent=agent, use_universal=use_universal,
+                agent=agent,
+                use_universal=use_universal,
             )
 
             # Generate a real pipeline ID up front so the emitter routes
             # events to the correct ID from the start.
             import uuid as _uuid
+
             pipeline_id = f"pipe-{_uuid.uuid4().hex[:8]}"
 
             # Wire stream emitter for real-time progress
             event_cb = None
             try:
                 from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
                 event_cb = get_pipeline_emitter().as_event_callback(pipeline_id)
             except ImportError:
                 pass
 
             result = pipeline.from_ideas(
-                ideas, auto_advance=auto_advance, event_callback=event_cb,
+                ideas,
+                auto_advance=auto_advance,
+                event_callback=event_cb,
                 pipeline_id=pipeline_id,
             )
 
@@ -419,13 +433,16 @@ class CanvasPipelineHandler:
             _persist_universal_graph(result)
             _persist_pipeline_to_km(result)
 
-            return json_response({
-                "pipeline_id": result.pipeline_id,
-                "stage_status": result.stage_status,
-                "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
-                "has_universal_graph": result.universal_graph is not None,
-                "result": result_dict,
-            }, 201)
+            return json_response(
+                {
+                    "pipeline_id": result.pipeline_id,
+                    "stage_status": result.stage_status,
+                    "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+                    "has_universal_graph": result.universal_graph is not None,
+                    "result": result_dict,
+                },
+                201,
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline from-ideas failed: %s", e)
             return error_response("Pipeline execution failed", 500)
@@ -467,12 +484,15 @@ class CanvasPipelineHandler:
         event_cb = None
         try:
             from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
             event_cb = get_pipeline_emitter().as_event_callback("pipe-from-braindump")
         except ImportError:
             pass
 
         result = pipeline.from_ideas(
-            ideas, auto_advance=auto_advance, event_callback=event_cb,
+            ideas,
+            auto_advance=auto_advance,
+            event_callback=event_cb,
         )
 
         result_dict = result.to_dict()
@@ -480,14 +500,17 @@ class CanvasPipelineHandler:
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
 
-        return json_response({
-            "pipeline_id": result.pipeline_id,
-            "ideas_parsed": len(ideas),
-            "ideas": ideas,
-            "stage_status": result.stage_status,
-            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
-            "result": result_dict,
-        }, 201)
+        return json_response(
+            {
+                "pipeline_id": result.pipeline_id,
+                "ideas_parsed": len(ideas),
+                "ideas": ideas,
+                "stage_status": result.stage_status,
+                "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+                "result": result_dict,
+            },
+            201,
+        )
 
     @handle_errors("demo pipeline creation")
     async def handle_demo(self, request_data: dict[str, Any]) -> HandlerResult:
@@ -516,13 +539,16 @@ class CanvasPipelineHandler:
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
 
-        return json_response({
-            "pipeline_id": result.pipeline_id,
-            "stage_status": result.stage_status,
-            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
-            "demo": True,
-            "result": result_dict,
-        }, 201)
+        return json_response(
+            {
+                "pipeline_id": result.pipeline_id,
+                "stage_status": result.stage_status,
+                "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+                "demo": True,
+                "result": result_dict,
+            },
+            201,
+        )
 
     async def handle_advance(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/advance
@@ -583,28 +609,26 @@ class CanvasPipelineHandler:
             _get_store().save(pipeline_id, result_dict)
             _pipeline_objects[pipeline_id] = result_obj
 
-            return json_response({
-                "pipeline_id": pipeline_id,
-                "advanced_to": target_stage,
-                "stage_status": result_obj.stage_status,
-                "result": result_dict,
-            })
+            return json_response(
+                {
+                    "pipeline_id": pipeline_id,
+                    "advanced_to": target_stage,
+                    "stage_status": result_obj.stage_status,
+                    "result": result_dict,
+                }
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline advance failed: %s", e)
             return error_response("Pipeline advance failed", 500)
 
-    async def handle_get_pipeline(
-        self, pipeline_id: str
-    ) -> HandlerResult:
+    async def handle_get_pipeline(self, pipeline_id: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}"""
         result = _get_store().get(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
         return json_response(result)
 
-    async def handle_get_stage(
-        self, pipeline_id: str, stage: str
-    ) -> HandlerResult:
+    async def handle_get_stage(self, pipeline_id: str, stage: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/stage/{stage}"""
         result = _get_store().get(pipeline_id)
         if not result:
@@ -622,9 +646,7 @@ class CanvasPipelineHandler:
 
         return json_response({"stage": stage, "data": result[stage_key]})
 
-    async def handle_convert_debate(
-        self, request_data: dict[str, Any]
-    ) -> HandlerResult:
+    async def handle_convert_debate(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/convert/debate
 
         Convert a debate graph to a React Flow-compatible ideas canvas.
@@ -642,9 +664,7 @@ class CanvasPipelineHandler:
             logger.warning("Convert debate failed: %s", e)
             return error_response("Conversion failed", 500)
 
-    async def handle_convert_workflow(
-        self, request_data: dict[str, Any]
-    ) -> HandlerResult:
+    async def handle_convert_workflow(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/convert/workflow
 
         Convert a WorkflowDefinition to a React Flow-compatible actions canvas.
@@ -670,7 +690,8 @@ class CanvasPipelineHandler:
     # =========================================================================
 
     async def handle_list_templates(
-        self, query_params: dict[str, Any] | None = None,
+        self,
+        query_params: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/templates
 
@@ -684,17 +705,20 @@ class CanvasPipelineHandler:
 
             category = (query_params or {}).get("category")
             templates = list_templates(category=category)
-            return json_response({
-                "templates": [t.to_dict() for t in templates],
-                "count": len(templates),
-            })
+            return json_response(
+                {
+                    "templates": [t.to_dict() for t in templates],
+                    "count": len(templates),
+                }
+            )
         except (ImportError, Exception) as e:
             logger.warning("List templates failed: %s", e)
             return error_response("Failed to list templates", 500)
 
     @handle_errors("create pipeline from template")
     async def handle_from_template(
-        self, request_data: dict[str, Any],
+        self,
+        request_data: dict[str, Any],
     ) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/from-template
 
@@ -733,13 +757,16 @@ class CanvasPipelineHandler:
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
 
-        return json_response({
-            "pipeline_id": result.pipeline_id,
-            "template": template.to_dict(),
-            "stage_status": result.stage_status,
-            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
-            "result": result_dict,
-        }, 201)
+        return json_response(
+            {
+                "pipeline_id": result.pipeline_id,
+                "template": template.to_dict(),
+                "stage_status": result.stage_status,
+                "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+                "result": result_dict,
+            },
+            201,
+        )
 
     # =========================================================================
     # Async pipeline endpoints (run/status/graph/receipt)
@@ -770,9 +797,15 @@ class CanvasPipelineHandler:
                 return error_response("Missing required field: input_text", 400)
 
             config = PipelineConfig(
-                stages_to_run=request_data.get("stages", [
-                    "ideation", "goals", "workflow", "orchestration",
-                ]),
+                stages_to_run=request_data.get(
+                    "stages",
+                    [
+                        "ideation",
+                        "goals",
+                        "workflow",
+                        "orchestration",
+                    ],
+                ),
                 debate_rounds=request_data.get("debate_rounds", 3),
                 workflow_mode=request_data.get("workflow_mode", "quick"),
                 dry_run=request_data.get("dry_run", False),
@@ -782,6 +815,7 @@ class CanvasPipelineHandler:
             # Set up stream emitter as event callback
             try:
                 from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
                 emitter = get_pipeline_emitter()
             except ImportError:
                 emitter = None
@@ -789,7 +823,8 @@ class CanvasPipelineHandler:
             use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
             pipeline = IdeaToExecutionPipeline(
-                agent=agent, use_universal=use_universal,
+                agent=agent,
+                use_universal=use_universal,
             )
 
             async def _run_pipeline() -> None:
@@ -804,28 +839,41 @@ class CanvasPipelineHandler:
 
             # Generate pipeline_id before launching task
             import uuid
+
             pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
             # Store placeholder so status queries work immediately
             store = _get_store()
-            store.save(pipeline_id, {
-                "stage_status": {"ideas": "pending", "goals": "pending", "actions": "pending", "orchestration": "pending"},
-            })
+            store.save(
+                pipeline_id,
+                {
+                    "stage_status": {
+                        "ideas": "pending",
+                        "goals": "pending",
+                        "actions": "pending",
+                        "orchestration": "pending",
+                    },
+                },
+            )
 
             task = asyncio.create_task(_run_pipeline())
             task.add_done_callback(
                 lambda t: logger.error(
-                    "Canvas pipeline task failed: %s", t.exception(),
+                    "Canvas pipeline task failed: %s",
+                    t.exception(),
                 )
                 if not t.cancelled() and t.exception()
                 else None
             )
             _pipeline_tasks[pipeline_id] = task
 
-            return json_response({
-                "pipeline_id": pipeline_id,
-                "status": "running",
-                "stages": config.stages_to_run,
-            }, 202)
+            return json_response(
+                {
+                    "pipeline_id": pipeline_id,
+                    "status": "running",
+                    "stages": config.stages_to_run,
+                },
+                202,
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline run failed: %s", e)
             return error_response("Pipeline execution failed", 500)
@@ -857,7 +905,9 @@ class CanvasPipelineHandler:
         return json_response(status_info)
 
     async def handle_graph(
-        self, pipeline_id: str, request_data: dict[str, Any] | None = None,
+        self,
+        pipeline_id: str,
+        request_data: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/graph
 
@@ -883,18 +933,22 @@ class CanvasPipelineHandler:
                 rf_nodes = []
                 rf_edges = []
                 for i, goal in enumerate(goals_data.get("goals", [])):
-                    rf_nodes.append({
-                        "id": goal.get("id", f"goal-{i}"),
-                        "type": "goalNode",
-                        "position": {"x": 100, "y": i * 120},
-                        "data": goal,
-                    })
+                    rf_nodes.append(
+                        {
+                            "id": goal.get("id", f"goal-{i}"),
+                            "type": "goalNode",
+                            "position": {"x": 100, "y": i * 120},
+                            "data": goal,
+                        }
+                    )
                     for dep in goal.get("dependencies", []):
-                        rf_edges.append({
-                            "id": f"dep-{dep}-{goal['id']}",
-                            "source": dep,
-                            "target": goal["id"],
-                        })
+                        rf_edges.append(
+                            {
+                                "id": f"dep-{dep}-{goal['id']}",
+                                "source": dep,
+                                "target": goal["id"],
+                            }
+                        )
                 graphs["goals"] = {"nodes": rf_nodes, "edges": rf_edges}
         if not stage or stage == "actions":
             if result.get("actions"):
@@ -910,18 +964,22 @@ class CanvasPipelineHandler:
                 rf_nodes = []
                 rf_edges = []
                 for i, step in enumerate(wf.get("steps", [])):
-                    rf_nodes.append({
-                        "id": step.get("id", f"step-{i}"),
-                        "type": "workflowStep",
-                        "position": {"x": 200, "y": i * 100},
-                        "data": step,
-                    })
+                    rf_nodes.append(
+                        {
+                            "id": step.get("id", f"step-{i}"),
+                            "type": "workflowStep",
+                            "position": {"x": 200, "y": i * 100},
+                            "data": step,
+                        }
+                    )
                 for trans in wf.get("transitions", []):
-                    rf_edges.append({
-                        "id": trans.get("id", ""),
-                        "source": trans.get("from_step", ""),
-                        "target": trans.get("to_step", ""),
-                    })
+                    rf_edges.append(
+                        {
+                            "id": trans.get("id", ""),
+                            "source": trans.get("from_step", ""),
+                            "target": trans.get("to_step", ""),
+                        }
+                    )
                 graphs["workflow"] = {"nodes": rf_nodes, "edges": rf_edges}
 
         return json_response({"pipeline_id": pipeline_id, "graphs": graphs})
@@ -940,9 +998,7 @@ class CanvasPipelineHandler:
 
         return error_response(f"No receipt available for pipeline {pipeline_id}", 404)
 
-    async def handle_extract_goals(
-        self, request_data: dict[str, Any]
-    ) -> HandlerResult:
+    async def handle_extract_goals(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/extract-goals
 
         Extract goals from an ideas canvas using GoalExtractor.
@@ -991,13 +1047,12 @@ class CanvasPipelineHandler:
             # Filter by confidence threshold
             if config.confidence_threshold > 0:
                 goal_graph.goals = [
-                    g for g in goal_graph.goals
-                    if g.confidence >= config.confidence_threshold
+                    g for g in goal_graph.goals if g.confidence >= config.confidence_threshold
                 ]
 
             # Limit to max_goals
             if config.max_goals and len(goal_graph.goals) > config.max_goals:
-                goal_graph.goals = goal_graph.goals[:config.max_goals]
+                goal_graph.goals = goal_graph.goals[: config.max_goals]
 
             result = goal_graph.to_dict()
             result["source_canvas_id"] = canvas_id
@@ -1013,7 +1068,9 @@ class CanvasPipelineHandler:
     # =========================================================================
 
     async def handle_save_pipeline(
-        self, pipeline_id: str, request_data: dict[str, Any],
+        self,
+        pipeline_id: str,
+        request_data: dict[str, Any],
     ) -> HandlerResult:
         """PUT /api/v1/canvas/pipeline/{id}
 
@@ -1055,18 +1112,22 @@ class CanvasPipelineHandler:
 
         store.save(pipeline_id, existing)
 
-        return json_response({
-            "pipeline_id": pipeline_id,
-            "saved": True,
-            "stage_status": existing.get("stage_status", {}),
-        })
+        return json_response(
+            {
+                "pipeline_id": pipeline_id,
+                "saved": True,
+                "stage_status": existing.get("stage_status", {}),
+            }
+        )
 
     # =========================================================================
     # POST: Approve/reject stage transition
     # =========================================================================
 
     async def handle_approve_transition(
-        self, pipeline_id: str, request_data: dict[str, Any],
+        self,
+        pipeline_id: str,
+        request_data: dict[str, Any],
     ) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/{id}/approve-transition
 
@@ -1106,13 +1167,15 @@ class CanvasPipelineHandler:
 
         if not updated:
             # Create a new transition record if none exists
-            transitions.append({
-                "from_stage": from_stage,
-                "to_stage": to_stage,
-                "status": "approved" if approved else "rejected",
-                "human_comment": comment,
-                "reviewed_at": time.time(),
-            })
+            transitions.append(
+                {
+                    "from_stage": from_stage,
+                    "to_stage": to_stage,
+                    "status": "approved" if approved else "rejected",
+                    "human_comment": comment,
+                    "reviewed_at": time.time(),
+                }
+            )
             existing["transitions"] = transitions
 
         # If approved, advance the pipeline to the next stage
@@ -1125,16 +1188,20 @@ class CanvasPipelineHandler:
 
         store.save(pipeline_id, existing)
 
-        return json_response({
-            "pipeline_id": pipeline_id,
-            "from_stage": from_stage,
-            "to_stage": to_stage,
-            "status": "approved" if approved else "rejected",
-            "comment": comment,
-        })
+        return json_response(
+            {
+                "pipeline_id": pipeline_id,
+                "from_stage": from_stage,
+                "to_stage": to_stage,
+                "status": "approved" if approved else "rejected",
+                "comment": comment,
+            }
+        )
 
     async def handle_execute(
-        self, pipeline_id: str, request_data: dict[str, Any],
+        self,
+        pipeline_id: str,
+        request_data: dict[str, Any],
     ) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/{id}/execute
 
@@ -1153,7 +1220,8 @@ class CanvasPipelineHandler:
 
         stage_status = existing.get("stage_status", {})
         incomplete = [
-            s for s in ("ideas", "goals", "actions", "orchestration")
+            s
+            for s in ("ideas", "goals", "actions", "orchestration")
             if stage_status.get(s) != "complete"
         ]
 
@@ -1163,25 +1231,29 @@ class CanvasPipelineHandler:
         orch_data = existing.get("orchestration", {})
         orch_nodes = orch_data.get("nodes", []) if isinstance(orch_data, dict) else []
         agent_tasks = [
-            n for n in orch_nodes
+            n
+            for n in orch_nodes
             if isinstance(n, dict) and n.get("data", {}).get("orch_type") == "agent_task"
         ]
 
         execution_id = f"exec-{_uuid.uuid4().hex[:8]}"
 
         if dry_run:
-            return json_response({
-                "pipeline_id": pipeline_id,
-                "execution_id": execution_id,
-                "status": "dry_run",
-                "stages_complete": [
-                    s for s in ("ideas", "goals", "actions", "orchestration")
-                    if stage_status.get(s) == "complete"
-                ],
-                "stages_incomplete": incomplete,
-                "agent_tasks": len(agent_tasks),
-                "total_orchestration_nodes": len(orch_nodes),
-            })
+            return json_response(
+                {
+                    "pipeline_id": pipeline_id,
+                    "execution_id": execution_id,
+                    "status": "dry_run",
+                    "stages_complete": [
+                        s
+                        for s in ("ideas", "goals", "actions", "orchestration")
+                        if stage_status.get(s) == "complete"
+                    ],
+                    "stages_incomplete": incomplete,
+                    "agent_tasks": len(agent_tasks),
+                    "total_orchestration_nodes": len(orch_nodes),
+                }
+            )
 
         if incomplete:
             return error_response(
@@ -1193,6 +1265,7 @@ class CanvasPipelineHandler:
         emitter = None
         try:
             from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
             emitter = get_pipeline_emitter()
         except ImportError:
             pass
@@ -1201,10 +1274,14 @@ class CanvasPipelineHandler:
         async def _execute() -> None:
             try:
                 if emitter:
-                    await emitter.emit_stage_started(pipeline_id, "execution", {
-                        "execution_id": execution_id,
-                        "agent_tasks": len(agent_tasks),
-                    })
+                    await emitter.emit_stage_started(
+                        pipeline_id,
+                        "execution",
+                        {
+                            "execution_id": execution_id,
+                            "agent_tasks": len(agent_tasks),
+                        },
+                    )
 
                 # Execute each agent task in sequence
                 _agent_names = ["Analyst", "Implementer", "Reviewer", "Architect"]
@@ -1216,18 +1293,21 @@ class CanvasPipelineHandler:
 
                     if emitter:
                         await emitter.emit_step_progress(
-                            pipeline_id, f"[{agent_name}] {task_label}",
+                            pipeline_id,
+                            f"[{agent_name}] {task_label}",
                             i / max(len(agent_tasks), 1),
                         )
 
                     # Brief delay to allow WebSocket clients to see progress
                     await asyncio.sleep(0.3)
 
-                    task_results.append({
-                        "task": task_label,
-                        "agent": agent_name,
-                        "status": "completed",
-                    })
+                    task_results.append(
+                        {
+                            "task": task_label,
+                            "agent": agent_name,
+                            "status": "completed",
+                        }
+                    )
 
                 # Update pipeline status in store
                 existing["execution"] = {
@@ -1248,24 +1328,30 @@ class CanvasPipelineHandler:
         task = asyncio.create_task(_execute())
         task.add_done_callback(
             lambda t: logger.error(
-                "Pipeline execute task failed: %s", t.exception(),
+                "Pipeline execute task failed: %s",
+                t.exception(),
             )
             if not t.cancelled() and t.exception()
             else None
         )
         _pipeline_tasks[execution_id] = task
 
-        return json_response({
-            "pipeline_id": pipeline_id,
-            "execution_id": execution_id,
-            "status": "executing",
-            "agent_tasks": len(agent_tasks),
-            "total_orchestration_nodes": len(orch_nodes),
-        }, 202)
+        return json_response(
+            {
+                "pipeline_id": pipeline_id,
+                "execution_id": execution_id,
+                "status": "executing",
+                "agent_tasks": len(agent_tasks),
+                "total_orchestration_nodes": len(orch_nodes),
+            },
+            202,
+        )
 
     @handle_errors("debate to pipeline conversion")
     async def handle_debate_to_pipeline(
-        self, debate_id: str, request_data: dict[str, Any],
+        self,
+        debate_id: str,
+        request_data: dict[str, Any],
     ) -> HandlerResult:
         """POST /api/v1/debates/{id}/to-pipeline
 
@@ -1278,6 +1364,7 @@ class CanvasPipelineHandler:
         cartographer_data = None
         try:
             from aragora.server.handlers.utils.stores import get_debate_store
+
             debate = get_debate_store().get(debate_id)
             if debate:
                 cartographer_data = debate.get("argument_graph", {})
@@ -1288,6 +1375,7 @@ class CanvasPipelineHandler:
             # Fallback: try loading from argument cartographer
             try:
                 from aragora.visualization.argument_cartographer import ArgumentCartographer
+
                 carto = ArgumentCartographer()
                 cartographer_data = carto.get_graph(debate_id)
             except (ImportError, RuntimeError, TypeError, AttributeError):
@@ -1310,9 +1398,12 @@ class CanvasPipelineHandler:
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
 
-        return json_response({
-            "pipeline_id": result.pipeline_id,
-            "source_debate_id": debate_id,
-            "stage_status": result.stage_status,
-            "result": result_dict,
-        }, 201)
+        return json_response(
+            {
+                "pipeline_id": result.pipeline_id,
+                "source_debate_id": debate_id,
+                "stage_status": result.stage_status,
+                "result": result_dict,
+            },
+            201,
+        )

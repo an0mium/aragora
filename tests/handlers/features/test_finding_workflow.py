@@ -232,72 +232,90 @@ class TestHandleRequestRouting:
     @pytest.mark.asyncio
     async def test_routes_to_workflow_states(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/workflow/states")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_workflow_states",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_workflow_states",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_routes_to_presets(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/presets")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_presets",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_presets",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_routes_to_audit_types(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/types")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_audit_types",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_audit_types",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_routes_to_bulk_action(self, handler):
         req = MockHTTPHandler(method="POST", path="/api/v1/audit/findings/bulk-action")
-        with _auth_patch(), patch.object(
-            handler,
-            "_bulk_action",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_bulk_action",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_routes_to_my_assignments(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/findings/my-assignments")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_my_assignments",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_my_assignments",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_routes_to_overdue(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/findings/overdue")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_overdue",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_overdue",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
@@ -308,12 +326,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-42/status",
             body={"status": "triaging"},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_update_status",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_update_status",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
         assert mock_fn.call_args[0][1] == "f-42"
@@ -325,12 +346,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-99/assign",
             body={"user_id": "u-1"},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_assign",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_assign",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
         assert mock_fn.call_args[0][1] == "f-99"
@@ -338,12 +362,15 @@ class TestHandleRequestRouting:
     @pytest.mark.asyncio
     async def test_routes_to_unassign(self, handler):
         req = MockHTTPHandler(method="POST", path="/api/v1/audit/findings/f-7/unassign")
-        with _auth_patch(), patch.object(
-            handler,
-            "_unassign",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_unassign",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
         assert mock_fn.call_args[0][1] == "f-7"
@@ -355,12 +382,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-1/comments",
             body={"comment": "test"},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_add_comment",
-            new_callable=AsyncMock,
-            return_value={"status": 201, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_add_comment",
+                new_callable=AsyncMock,
+                return_value={"status": 201, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
         assert mock_fn.call_args[0][1] == "f-1"
@@ -368,24 +398,30 @@ class TestHandleRequestRouting:
     @pytest.mark.asyncio
     async def test_routes_to_get_comments(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/findings/f-1/comments")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_comments",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_comments",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_routes_to_history(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/findings/f-1/history")
-        with _auth_patch(), patch.object(
-            handler,
-            "_get_history",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_history",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
@@ -396,12 +432,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-1/priority",
             body={"priority": 2},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_set_priority",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_set_priority",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
@@ -412,12 +451,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-1/due-date",
             body={"due_date": "2026-12-31T00:00:00Z"},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_set_due_date",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_set_due_date",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
@@ -428,12 +470,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-1/link",
             body={"linked_finding_id": "f-2"},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_link_finding",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_link_finding",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
@@ -444,12 +489,15 @@ class TestHandleRequestRouting:
             path="/api/v1/audit/findings/f-1/duplicate",
             body={"parent_finding_id": "f-0"},
         )
-        with _auth_patch(), patch.object(
-            handler,
-            "_mark_duplicate",
-            new_callable=AsyncMock,
-            return_value={"status": 200, "body": "{}"},
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_mark_duplicate",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         mock_fn.assert_awaited_once()
 
@@ -478,9 +526,15 @@ class TestPathParameterExtraction:
     @pytest.mark.asyncio
     async def test_extracts_simple_finding_id(self, handler):
         req = MockHTTPHandler(method="PATCH", path="/api/v1/audit/findings/abc-123/status")
-        with _auth_patch(), patch.object(
-            handler, "_update_status", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_update_status",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         assert mock_fn.call_args[0][1] == "abc-123"
 
@@ -488,9 +542,15 @@ class TestPathParameterExtraction:
     async def test_extracts_uuid_finding_id(self, handler):
         fid = "550e8400-e29b-41d4-a716-446655440000"
         req = MockHTTPHandler(method="GET", path=f"/api/v1/audit/findings/{fid}/history")
-        with _auth_patch(), patch.object(
-            handler, "_get_history", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_history",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         assert mock_fn.call_args[0][1] == fid
 
@@ -501,9 +561,15 @@ class TestPathParameterExtraction:
             path="/api/v1/audit/findings/bulk-action",
             body={"finding_ids": ["f-1"], "action": "assign", "params": {"user_id": "u-1"}},
         )
-        with _auth_patch(), patch.object(
-            handler, "_bulk_action", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_bulk_action",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         # _bulk_action is called with just (request,), no finding_id
         assert len(mock_fn.call_args[0]) == 1
@@ -511,9 +577,15 @@ class TestPathParameterExtraction:
     @pytest.mark.asyncio
     async def test_my_assignments_does_not_extract_finding_id(self, handler):
         req = MockHTTPHandler(method="GET", path="/api/v1/audit/findings/my-assignments")
-        with _auth_patch(), patch.object(
-            handler, "_get_my_assignments", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}
-        ) as mock_fn:
+        with (
+            _auth_patch(),
+            patch.object(
+                handler,
+                "_get_my_assignments",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_fn,
+        ):
             await handler.handle_request(req)
         assert len(mock_fn.call_args[0]) == 1
 
@@ -558,9 +630,11 @@ class TestUpdateStatus:
     async def test_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"<<<not json>>>"
+
         # Override json() to raise
         async def bad_json():
             raise ValueError("bad json")
+
         req.json = bad_json
         with _auth_patch(), patch(f"{MODULE}._finding_workflow_circuit_breaker") as cb:
             cb.can_proceed.return_value = True
@@ -609,7 +683,11 @@ class TestAssign:
     async def test_assign_success(self, handler):
         store = _make_store(existing=None)
         req = MockHTTPHandler(body={"user_id": "user-2", "comment": "review please"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._assign(req, "f-1")
         assert _status(result) == 200
         body = _body(result)
@@ -628,8 +706,10 @@ class TestAssign:
     async def test_assign_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"not json"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
         with _auth_patch():
             result = await handler._assign(req, "f-1")
@@ -639,7 +719,11 @@ class TestAssign:
     async def test_assign_updates_store(self, handler):
         store = _make_store(existing=None)
         req = MockHTTPHandler(body={"user_id": "user-5"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             await handler._assign(req, "f-1")
         saved = store.save.call_args[0][0]
         assert saved["assigned_to"] == "user-5"
@@ -651,7 +735,11 @@ class TestAssign:
         existing = _default_workflow()
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"user_id": "user-3", "comment": "urgent"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             await handler._assign(req, "f-1")
         saved = store.save.call_args[0][0]
         assert len(saved["history"]) == 1
@@ -672,7 +760,11 @@ class TestUnassign:
         existing = _default_workflow(assigned_to="user-2")
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"comment": "freeing"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._unassign(req, "f-1")
         assert _status(result) == 200
         assert _body(result)["success"] is True
@@ -682,7 +774,11 @@ class TestUnassign:
         existing = _default_workflow(assigned_to="user-2", assigned_by="admin-001")
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             await handler._unassign(req, "f-1")
         saved = store.save.call_args[0][0]
         assert saved["assigned_to"] is None
@@ -695,10 +791,16 @@ class TestUnassign:
         store = _make_store(existing=existing)
         req = MockHTTPHandler()
         req._raw = b"<<<invalid>>>"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._unassign(req, "f-1")
         assert _status(result) == 200
 
@@ -716,7 +818,11 @@ class TestComments:
         existing = _default_workflow()
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"comment": "Needs investigation"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._add_comment(req, "f-1")
         assert _status(result) == 201
         body = _body(result)
@@ -742,8 +848,10 @@ class TestComments:
     async def test_add_comment_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"not valid json"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
         with _auth_patch():
             result = await handler._add_comment(req, "f-1")
@@ -754,7 +862,11 @@ class TestComments:
         existing = _default_workflow()
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"comment": "a note"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             await handler._add_comment(req, "f-1")
         saved = store.save.call_args[0][0]
         assert len(saved["history"]) == 1
@@ -849,7 +961,11 @@ class TestSetPriority:
         existing = _default_workflow()
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"priority": 1, "comment": "urgent"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._set_priority(req, "f-1")
         assert _status(result) == 200
         assert _body(result)["priority"] == 1
@@ -859,7 +975,11 @@ class TestSetPriority:
         existing = _default_workflow()
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"priority": 1})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._set_priority(req, "f-1")
         assert _status(result) == 200
 
@@ -868,7 +988,11 @@ class TestSetPriority:
         existing = _default_workflow()
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"priority": 5})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             result = await handler._set_priority(req, "f-1")
         assert _status(result) == 200
 
@@ -914,7 +1038,11 @@ class TestSetPriority:
         existing = _default_workflow(priority=3)
         store = _make_store(existing=existing)
         req = MockHTTPHandler(body={"priority": 1, "comment": "escalation"})
-        with _auth_patch(), patch(f"{MODULE}.get_finding_workflow_store", return_value=store), _import_error_patch():
+        with (
+            _auth_patch(),
+            patch(f"{MODULE}.get_finding_workflow_store", return_value=store),
+            _import_error_patch(),
+        ):
             await handler._set_priority(req, "f-1")
         saved = store.save.call_args[0][0]
         assert saved["priority"] == 1
@@ -967,8 +1095,10 @@ class TestSetDueDate:
     async def test_set_due_date_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"not json"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
         with _auth_patch():
             result = await handler._set_due_date(req, "f-1")
@@ -1038,8 +1168,10 @@ class TestLinkFinding:
     async def test_link_finding_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"bad"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
         with _auth_patch():
             result = await handler._link_finding(req, "f-1")
@@ -1090,8 +1222,10 @@ class TestMarkDuplicate:
     async def test_mark_duplicate_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"not json"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
         with _auth_patch():
             result = await handler._mark_duplicate(req, "f-1")
@@ -1262,8 +1396,10 @@ class TestBulkAction:
     async def test_bulk_invalid_json_returns_400(self, handler):
         req = MockHTTPHandler()
         req._raw = b"not json"
+
         async def bad_json():
             raise ValueError("bad")
+
         req.json = bad_json
         with (
             _auth_patch(),

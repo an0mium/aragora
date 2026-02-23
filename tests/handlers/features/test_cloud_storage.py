@@ -129,6 +129,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -137,6 +138,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -1188,7 +1190,10 @@ class TestHandlePost:
     async def test_auth_callback_redirect_uri_too_long(self, handler):
         mock_http = MockHTTPHandler(
             command="POST",
-            body={"code": "valid", "redirect_uri": "https://x.com/" + "a" * MAX_REDIRECT_URI_LENGTH},
+            body={
+                "code": "valid",
+                "redirect_uri": "https://x.com/" + "a" * MAX_REDIRECT_URI_LENGTH,
+            },
         )
         result = await handler.handle_post(
             "/api/cloud/google_drive/auth/callback",
@@ -1408,15 +1413,20 @@ class TestHandlerAuth:
 
         async def mock_auth(self, request, require_auth=False):
             return AuthorizationContext(
-                user_id="u1", user_email="u@test.com",
-                org_id="o1", roles=set(), permissions=set(),
+                user_id="u1",
+                user_email="u@test.com",
+                org_id="o1",
+                roles=set(),
+                permissions=set(),
             )
 
         def mock_check_perm(self, auth_ctx, perm, resource_id=None):
             raise ForbiddenError("no permission", permission=perm)
 
-        with patch.object(type(handler), "get_auth_context", mock_auth), \
-             patch.object(type(handler), "check_permission", mock_check_perm):
+        with (
+            patch.object(type(handler), "get_auth_context", mock_auth),
+            patch.object(type(handler), "check_permission", mock_check_perm),
+        ):
             mock_http = MockHTTPHandler()
             result = await handler.handle("/api/v1/cloud/status", {}, mock_http)
             assert _status(result) == 403
@@ -1435,7 +1445,9 @@ class TestHandlerAuth:
                 body={"code": "test"},
             )
             result = await handler.handle_post(
-                "/api/cloud/google_drive/auth/callback", {}, mock_http,
+                "/api/cloud/google_drive/auth/callback",
+                {},
+                mock_http,
             )
             assert _status(result) == 401
 
@@ -1447,21 +1459,28 @@ class TestHandlerAuth:
 
         async def mock_auth(self, request, require_auth=False):
             return AuthorizationContext(
-                user_id="u1", user_email="u@test.com",
-                org_id="o1", roles=set(), permissions=set(),
+                user_id="u1",
+                user_email="u@test.com",
+                org_id="o1",
+                roles=set(),
+                permissions=set(),
             )
 
         def mock_check_perm(self, auth_ctx, perm, resource_id=None):
             raise ForbiddenError("no permission", permission=perm)
 
-        with patch.object(type(handler), "get_auth_context", mock_auth), \
-             patch.object(type(handler), "check_permission", mock_check_perm):
+        with (
+            patch.object(type(handler), "get_auth_context", mock_auth),
+            patch.object(type(handler), "check_permission", mock_check_perm),
+        ):
             mock_http = MockHTTPHandler(
                 command="POST",
                 body={"code": "test"},
             )
             result = await handler.handle_post(
-                "/api/cloud/google_drive/auth/callback", {}, mock_http,
+                "/api/cloud/google_drive/auth/callback",
+                {},
+                mock_http,
             )
             assert _status(result) == 403
 
@@ -1632,7 +1651,9 @@ class TestEdgeCases:
         assert _status(result) == 200
         # Should use default redirect_uri
         mock_auth_url.assert_called_once_with(
-            "dropbox", "http://localhost:3000/auth/callback", "",
+            "dropbox",
+            "http://localhost:3000/auth/callback",
+            "",
         )
 
     @pytest.mark.asyncio
@@ -1650,7 +1671,9 @@ class TestEdgeCases:
         )
         assert _status(result) == 200
         mock_cb.assert_called_once_with(
-            "google_drive", "test_code", "http://localhost:3000/auth/callback",
+            "google_drive",
+            "test_code",
+            "http://localhost:3000/auth/callback",
         )
 
     @pytest.mark.asyncio
@@ -1753,9 +1776,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.features.cloud_storage.list_files")
     async def test_list_files_returns_multiple(self, mock_list_files, handler):
-        mock_list_files.return_value = [
-            {"id": f"f{i}", "name": f"file{i}.txt"} for i in range(5)
-        ]
+        mock_list_files.return_value = [{"id": f"f{i}", "name": f"file{i}.txt"} for i in range(5)]
         mock_http = MockHTTPHandler()
         result = await handler.handle(
             "/api/cloud/google_drive/files",

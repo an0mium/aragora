@@ -40,7 +40,6 @@ import aragora.debate.orchestrator  # noqa: F401
 from aragora.config import MAX_ROUNDS
 
 
-
 async def _get_tools(server):
     """Helper to get tools using the correct MCP API."""
     handler = server.server.request_handlers[ListToolsRequest]

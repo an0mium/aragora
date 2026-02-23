@@ -103,7 +103,10 @@ async def _execute_workflow_async(
             )
             store.save_execution(execution)
             logger.info(
-                "Workflow execution %s completed: success=%s, duration=%sms", execution_id, result.success, result.total_duration_ms
+                "Workflow execution %s completed: success=%s, duration=%sms",
+                execution_id,
+                result.success,
+                result.total_duration_ms,
             )
 
     except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
@@ -385,16 +388,22 @@ class WorkflowTemplatesHandler(BaseHandler):
             engine = WorkflowEngine()
             # Convert template dict to WorkflowDefinition
             workflow_def = WorkflowDefinition.from_dict(template)
-            self._emit_template_event("TEMPLATE_EXECUTION_STARTED", {
-                "template_id": template_id,
-                "workflow_id": workflow_def.id,
-            })
+            self._emit_template_event(
+                "TEMPLATE_EXECUTION_STARTED",
+                {
+                    "template_id": template_id,
+                    "workflow_id": workflow_def.id,
+                },
+            )
             result = asyncio.run(engine.execute(workflow_def, inputs))
 
-            self._emit_template_event("TEMPLATE_EXECUTION_COMPLETE", {
-                "template_id": template_id,
-                "success": result.success if hasattr(result, "success") else True,
-            })
+            self._emit_template_event(
+                "TEMPLATE_EXECUTION_COMPLETE",
+                {
+                    "template_id": template_id,
+                    "success": result.success if hasattr(result, "success") else True,
+                },
+            )
             return json_response(
                 {
                     "status": "completed",
@@ -404,10 +413,13 @@ class WorkflowTemplatesHandler(BaseHandler):
             )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.error("Template execution failed: %s", e)
-            self._emit_template_event("TEMPLATE_EXECUTION_FAILED", {
-                "template_id": template_id,
-                "error": type(e).__name__,
-            })
+            self._emit_template_event(
+                "TEMPLATE_EXECUTION_FAILED",
+                {
+                    "template_id": template_id,
+                    "error": type(e).__name__,
+                },
+            )
             return json_response(
                 {
                     "status": "failed",
@@ -449,9 +461,12 @@ class WorkflowTemplatesHandler(BaseHandler):
             def read_body(self):
                 return self._data
 
-        self._emit_template_event("TEMPLATE_INSTANTIATED", {
-            "template_id": template_id,
-        })
+        self._emit_template_event(
+            "TEMPLATE_INSTANTIATED",
+            {
+                "template_id": template_id,
+            },
+        )
 
         # Return response indicating async execution would start
         return json_response(

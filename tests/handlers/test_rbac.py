@@ -146,9 +146,7 @@ class TestListPermissions:
     @pytest.mark.asyncio
     async def test_list_all_permissions(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions", {}, handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert "permissions" in body
@@ -159,9 +157,7 @@ class TestListPermissions:
     @pytest.mark.asyncio
     async def test_permissions_have_required_fields(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions", {}, handler)
         body = _parse_body(result)
         perm = body["permissions"][0]
         for field in ("id", "name", "key", "resource", "action", "description"):
@@ -223,9 +219,7 @@ class TestListPermissions:
     async def test_no_colon_duplicates(self, rbac_handler):
         """Permissions should be deduplicated (colon aliases skipped)."""
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions", {}, handler)
         body = _parse_body(result)
         keys = [p["key"] for p in body["permissions"]]
         assert len(keys) == len(set(keys)), "Duplicate permission keys found"
@@ -237,9 +231,7 @@ class TestGetPermission:
     @pytest.mark.asyncio
     async def test_get_existing_permission(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions/debates.create", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions/debates.create", {}, handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert "permission" in body
@@ -249,9 +241,7 @@ class TestGetPermission:
     async def test_get_permission_colon_fallback(self, rbac_handler):
         """Should try dot notation when colon format is provided."""
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions/debates:create", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions/debates:create", {}, handler)
         # Should find the permission via colon->dot fallback
         body = _parse_body(result)
         if result.status_code == 200:
@@ -260,12 +250,12 @@ class TestGetPermission:
     @pytest.mark.asyncio
     async def test_get_nonexistent_permission(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions/nonexistent.perm", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions/nonexistent.perm", {}, handler)
         assert result.status_code == 404
         body = _parse_body(result)
-        assert "not found" in body.get("error", "").lower() or "not found" in json.dumps(body).lower()
+        assert (
+            "not found" in body.get("error", "").lower() or "not found" in json.dumps(body).lower()
+        )
 
 
 # ============================================================================
@@ -279,9 +269,7 @@ class TestListRoles:
     @pytest.mark.asyncio
     async def test_list_system_roles(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert "roles" in body
@@ -304,9 +292,7 @@ class TestListRoles:
             "priority": 45,
         }
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         body = _parse_body(result)
         role_names = [r["name"] for r in body["roles"]]
         assert "custom_role" in role_names
@@ -321,9 +307,7 @@ class TestListRoles:
         )
         body = _parse_body(result)
         # System roles should have resolved_permissions when flag set
-        system_role = next(
-            (r for r in body["roles"] if r.get("is_system")), None
-        )
+        system_role = next((r for r in body["roles"] if r.get("is_system")), None)
         if system_role:
             assert "resolved_permissions" in system_role
 
@@ -336,18 +320,14 @@ class TestListRoles:
             handler,
         )
         body = _parse_body(result)
-        system_role = next(
-            (r for r in body["roles"] if r.get("is_system")), None
-        )
+        system_role = next((r for r in body["roles"] if r.get("is_system")), None)
         if system_role:
             assert "resolved_permissions" not in system_role
 
     @pytest.mark.asyncio
     async def test_list_roles_has_hierarchy(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         body = _parse_body(result)
         for role in body["roles"]:
             if role.get("is_system"):
@@ -360,9 +340,7 @@ class TestGetRole:
     @pytest.mark.asyncio
     async def test_get_system_role(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/admin", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/admin", {}, handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert "role" in body
@@ -383,9 +361,7 @@ class TestGetRole:
             "priority": 10,
         }
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/my_custom", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/my_custom", {}, handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert body["role"]["name"] == "my_custom"
@@ -394,18 +370,14 @@ class TestGetRole:
     @pytest.mark.asyncio
     async def test_get_nonexistent_role(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/nonexistent_role_xyz", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/nonexistent_role_xyz", {}, handler)
         assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_role_empty_name(self, rbac_handler):
         """Empty role name in path should return 400."""
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/", {}, handler)
         assert result.status_code == 400
 
 
@@ -422,9 +394,7 @@ class TestCreateRole:
             "org_id": "org-1",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert resp["role"]["name"] == "test_engineer"
@@ -437,27 +407,21 @@ class TestCreateRole:
     async def test_create_role_missing_name(self, rbac_handler):
         body = {"description": "No name"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_role_empty_name(self, rbac_handler):
         body = {"name": ""}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_role_non_string_name(self, rbac_handler):
         body = {"name": 123}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
@@ -465,9 +429,7 @@ class TestCreateRole:
         """Cannot create a role with the same name as a system role."""
         body = {"name": "admin"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 409
 
     @pytest.mark.asyncio
@@ -478,9 +440,7 @@ class TestCreateRole:
             "org_id": "org-2",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert "viewer" in resp["role"].get("parent_roles", [])
@@ -490,9 +450,7 @@ class TestCreateRole:
         """If no org_id provided, defaults to 'default'."""
         body = {"name": "no_org_role"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert resp["role"]["org_id"] == "default"
@@ -502,9 +460,7 @@ class TestCreateRole:
         """display_name defaults to titleized name."""
         body = {"name": "my_role"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert resp["role"]["display_name"] == "My Role"
@@ -517,9 +473,7 @@ class TestCreateRole:
             "permissions": ["totally.fake.permission.that.does.not.exist"],
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
         assert result.status_code == 400
 
 
@@ -544,21 +498,19 @@ class TestUpdateRole:
     async def test_update_description(self, rbac_handler, custom_role, clean_checker):
         body = {"description": "Updated description"}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/updatable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/updatable", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert resp["role"]["description"] == "Updated description"
-        assert clean_checker._custom_roles["org-1:updatable"]["description"] == "Updated description"
+        assert (
+            clean_checker._custom_roles["org-1:updatable"]["description"] == "Updated description"
+        )
 
     @pytest.mark.asyncio
     async def test_update_display_name(self, rbac_handler, custom_role, clean_checker):
         body = {"display_name": "New Display Name"}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/updatable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/updatable", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert resp["role"]["display_name"] == "New Display Name"
@@ -567,9 +519,7 @@ class TestUpdateRole:
     async def test_update_permissions(self, rbac_handler, custom_role):
         body = {"permissions": ["debates.read", "debates.create"]}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/updatable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/updatable", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert "debates.read" in resp["role"]["permissions"]
@@ -579,9 +529,7 @@ class TestUpdateRole:
     async def test_update_with_invalid_permission(self, rbac_handler, custom_role):
         body = {"permissions": ["nonexistent.perm"]}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/updatable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/updatable", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
@@ -589,18 +537,14 @@ class TestUpdateRole:
         """Wildcard permissions (ending in .*) are allowed."""
         body = {"permissions": ["debates.*"]}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/updatable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/updatable", {}, handler)
         assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_update_with_base_role(self, rbac_handler, custom_role, clean_checker):
         body = {"base_role": "viewer"}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/updatable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/updatable", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert "viewer" in resp["role"]["parent_roles"]
@@ -609,18 +553,14 @@ class TestUpdateRole:
     async def test_update_system_role_forbidden(self, rbac_handler):
         body = {"description": "Try to modify admin"}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/admin", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/admin", {}, handler)
         assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_update_nonexistent_role(self, rbac_handler):
         body = {"description": "Updated"}
         handler = _make_handler(body=body, method="PUT")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/nonexistent_xyz", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/nonexistent_xyz", {}, handler)
         assert result.status_code == 404
 
 
@@ -644,9 +584,7 @@ class TestDeleteRole:
     @pytest.mark.asyncio
     async def test_delete_custom_role(self, rbac_handler, deletable_role, clean_checker):
         handler = _make_handler(method="DELETE")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/deletable", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/deletable", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert resp["deleted"] is True
@@ -656,17 +594,13 @@ class TestDeleteRole:
     @pytest.mark.asyncio
     async def test_delete_system_role_forbidden(self, rbac_handler):
         handler = _make_handler(method="DELETE")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/admin", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/admin", {}, handler)
         assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_role(self, rbac_handler):
         handler = _make_handler(method="DELETE")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/nonexistent_role_xyz", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/nonexistent_role_xyz", {}, handler)
         assert result.status_code == 404
 
 
@@ -681,9 +615,7 @@ class TestListAssignments:
     @pytest.mark.asyncio
     async def test_list_empty_assignments(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert body["assignments"] == []
@@ -702,9 +634,7 @@ class TestListAssignments:
         clean_checker.add_role_assignment(assignment)
 
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         body = _parse_body(result)
         assert body["total"] == 1
         assert body["assignments"][0]["id"] == "assign-1"
@@ -715,7 +645,9 @@ class TestListAssignments:
         for i, uid in enumerate(["user-a", "user-b"]):
             clean_checker.add_role_assignment(
                 RoleAssignment(
-                    id=f"a-{i}", user_id=uid, role_id="admin",
+                    id=f"a-{i}",
+                    user_id=uid,
+                    role_id="admin",
                     assigned_at=datetime.now(timezone.utc),
                 )
             )
@@ -733,13 +665,17 @@ class TestListAssignments:
     async def test_filter_by_role_id(self, rbac_handler, clean_checker):
         clean_checker.add_role_assignment(
             RoleAssignment(
-                id="r1", user_id="u1", role_id="admin",
+                id="r1",
+                user_id="u1",
+                role_id="admin",
                 assigned_at=datetime.now(timezone.utc),
             )
         )
         clean_checker.add_role_assignment(
             RoleAssignment(
-                id="r2", user_id="u2", role_id="viewer",
+                id="r2",
+                user_id="u2",
+                role_id="viewer",
                 assigned_at=datetime.now(timezone.utc),
             )
         )
@@ -757,13 +693,19 @@ class TestListAssignments:
     async def test_filter_by_org_id(self, rbac_handler, clean_checker):
         clean_checker.add_role_assignment(
             RoleAssignment(
-                id="o1", user_id="u1", role_id="admin", org_id="org-x",
+                id="o1",
+                user_id="u1",
+                role_id="admin",
+                org_id="org-x",
                 assigned_at=datetime.now(timezone.utc),
             )
         )
         clean_checker.add_role_assignment(
             RoleAssignment(
-                id="o2", user_id="u2", role_id="admin", org_id="org-y",
+                id="o2",
+                user_id="u2",
+                role_id="admin",
+                org_id="org-y",
                 assigned_at=datetime.now(timezone.utc),
             )
         )
@@ -795,13 +737,20 @@ class TestListAssignments:
             )
         )
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         body = _parse_body(result)
         a = body["assignments"][0]
-        for field in ("id", "user_id", "role_id", "org_id", "assigned_by",
-                       "assigned_at", "expires_at", "is_active", "is_valid"):
+        for field in (
+            "id",
+            "user_id",
+            "role_id",
+            "org_id",
+            "assigned_by",
+            "assigned_at",
+            "expires_at",
+            "is_active",
+            "is_valid",
+        ):
             assert field in a, f"Missing field: {field}"
 
 
@@ -812,9 +761,7 @@ class TestCreateAssignment:
     async def test_create_assignment_success(self, rbac_handler, clean_checker):
         body = {"user_id": "user-new", "role_id": "admin"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert resp["assignment"]["user_id"] == "user-new"
@@ -830,9 +777,7 @@ class TestCreateAssignment:
             "expires_at": expires,
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert resp["assignment"]["expires_at"] is not None
@@ -845,63 +790,49 @@ class TestCreateAssignment:
             "expires_at": "not-a-date",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_assignment_missing_user_id(self, rbac_handler):
         body = {"role_id": "admin"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_assignment_missing_role_id(self, rbac_handler):
         body = {"user_id": "user-1"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_assignment_empty_user_id(self, rbac_handler):
         body = {"user_id": "", "role_id": "admin"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_assignment_non_string_user_id(self, rbac_handler):
         body = {"user_id": 123, "role_id": "admin"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_assignment_non_string_role_id(self, rbac_handler):
         body = {"user_id": "user-1", "role_id": 42}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_assignment_nonexistent_role(self, rbac_handler):
         body = {"user_id": "user-1", "role_id": "nonexistent_role_qwerty"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 404
 
     @pytest.mark.asyncio
@@ -913,9 +844,7 @@ class TestCreateAssignment:
         }
         body = {"user_id": "user-cr", "role_id": "custom_role"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 201
 
     @pytest.mark.asyncio
@@ -927,9 +856,7 @@ class TestCreateAssignment:
             "assigned_by": "admin-user",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         assert resp["assignment"]["org_id"] == "org-test"
@@ -944,9 +871,7 @@ class TestCreateAssignment:
             "expires_at": "2030-01-01T00:00:00",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments", {}, handler)
         assert result.status_code == 201
         resp = _parse_body(result)
         # The ISO string should contain timezone info
@@ -968,9 +893,7 @@ class TestDeleteAssignment:
         clean_checker.add_role_assignment(assignment)
 
         handler = _make_handler(method="DELETE")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments/del-1", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments/del-1", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert resp["deleted"] is True
@@ -979,9 +902,7 @@ class TestDeleteAssignment:
     @pytest.mark.asyncio
     async def test_delete_nonexistent_assignment(self, rbac_handler):
         handler = _make_handler(method="DELETE")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/assignments/nonexistent-id", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/assignments/nonexistent-id", {}, handler)
         assert result.status_code == 404
 
 
@@ -1001,9 +922,7 @@ class TestCheckPermission:
             "roles": ["admin"],
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 200
         resp = _parse_body(result)
         assert "allowed" in resp
@@ -1020,9 +939,7 @@ class TestCheckPermission:
             "roles": ["admin"],
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         resp = _parse_body(result)
         assert resp["allowed"] is True
 
@@ -1035,9 +952,7 @@ class TestCheckPermission:
             "roles": [],
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         resp = _parse_body(result)
         assert resp["allowed"] is False
 
@@ -1059,9 +974,7 @@ class TestCheckPermission:
             "org_id": "org-1",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         resp = _parse_body(result)
         assert resp["allowed"] is True
 
@@ -1074,9 +987,7 @@ class TestCheckPermission:
             "resource_id": "debate-123",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         resp = _parse_body(result)
         assert resp["resource_id"] == "debate-123"
 
@@ -1084,45 +995,35 @@ class TestCheckPermission:
     async def test_check_missing_user_id(self, rbac_handler):
         body = {"permission": "debates.read"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_check_missing_permission(self, rbac_handler):
         body = {"user_id": "user-1"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_check_empty_user_id(self, rbac_handler):
         body = {"user_id": "", "permission": "debates.read"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_check_non_string_user_id(self, rbac_handler):
         body = {"user_id": 42, "permission": "debates.read"}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_check_non_string_permission(self, rbac_handler):
         body = {"user_id": "user-1", "permission": 123}
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
@@ -1134,9 +1035,7 @@ class TestCheckPermission:
             "org_id": "org-1",
         }
         handler = _make_handler(body=body, method="POST")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/check", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/check", {}, handler)
         assert result.status_code == 200
 
 
@@ -1151,40 +1050,28 @@ class TestRoutingEdgeCases:
     @pytest.mark.asyncio
     async def test_unknown_path_returns_404(self, rbac_handler):
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/unknown_endpoint", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/unknown_endpoint", {}, handler)
         assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_handle_with_no_handler(self, rbac_handler):
         """When handler is None, should default to GET and empty body."""
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/permissions", {}, None
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/permissions", {}, None)
         assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_exception_returns_500(self, rbac_handler):
         """Exceptions in handler methods should return 500."""
         handler = _make_handler(method="GET")
-        with patch.object(
-            rbac_handler, "_list_permissions", side_effect=KeyError("boom")
-        ):
-            result = await rbac_handler.handle(
-                "/api/v1/rbac/permissions", {}, handler
-            )
+        with patch.object(rbac_handler, "_list_permissions", side_effect=KeyError("boom")):
+            result = await rbac_handler.handle("/api/v1/rbac/permissions", {}, handler)
             assert result.status_code == 500
 
     @pytest.mark.asyncio
     async def test_handle_value_error_returns_500(self, rbac_handler):
         handler = _make_handler(method="GET")
-        with patch.object(
-            rbac_handler, "_list_roles", side_effect=ValueError("bad")
-        ):
-            result = await rbac_handler.handle(
-                "/api/v1/rbac/roles", {}, handler
-            )
+        with patch.object(rbac_handler, "_list_roles", side_effect=ValueError("bad")):
+            result = await rbac_handler.handle("/api/v1/rbac/roles", {}, handler)
             assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -1200,9 +1087,7 @@ class TestRoutingEdgeCases:
             "priority": 0,
         }
         handler = _make_handler(method="GET")
-        result = await rbac_handler.handle(
-            "/api/v1/rbac/roles/role-with-dashes", {}, handler
-        )
+        result = await rbac_handler.handle("/api/v1/rbac/roles/role-with-dashes", {}, handler)
         assert result.status_code == 200
 
     @pytest.mark.asyncio

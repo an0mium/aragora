@@ -396,7 +396,7 @@ class TestableCategorizationAgent(TestableEmailAgent):
         import re
 
         signals = []
-        scores = {cat: 0.0 for cat in self.CATEGORIES}
+        scores = dict.fromkeys(self.CATEGORIES, 0.0)
 
         subject = email_content.get("subject", "")
         body = email_content.get("body", "")

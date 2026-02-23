@@ -444,7 +444,9 @@ class TestFixerOrchestrator:
                         logger.warning("testfixer.pattern_suggest_error error=%s", exc)
                         suggestion = None
                     if suggestion:
-                        analysis.suggested_approach = f"{analysis.suggested_approach}\n\n{suggestion}"
+                        analysis.suggested_approach = (
+                            f"{analysis.suggested_approach}\n\n{suggestion}"
+                        )
                         analysis.analysis_notes.append("pattern_suggestion")
 
                 logger.info(
@@ -943,14 +945,16 @@ class TestFixerOrchestrator:
 
                     try:
                         loop = asyncio.get_running_loop()
-                        loop.create_task(self._emit_event(
-                            StreamEventType.TESTFIXER_PATTERN_LEARNED,
-                            {
-                                "pattern_id": learned.id,
-                                "category": attempt.analysis.category.value,
-                                "success": attempt.success,
-                            },
-                        ))
+                        loop.create_task(
+                            self._emit_event(
+                                StreamEventType.TESTFIXER_PATTERN_LEARNED,
+                                {
+                                    "pattern_id": learned.id,
+                                    "category": attempt.analysis.category.value,
+                                    "success": attempt.success,
+                                },
+                            )
+                        )
                     except RuntimeError:
                         pass
         except (RuntimeError, ValueError, OSError) as exc:

@@ -82,7 +82,14 @@ class OutcomeMixin:
                     except RuntimeError:
                         # No event loop running - can't dispatch async
                         pass
-            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as hook_err:
+            except (
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+            ) as hook_err:
                 logger.warning("Post-outcome hook failed: %s", hook_err)
 
     def update_outcome(
@@ -215,7 +222,9 @@ class OutcomeMixin:
             except (ValueError, TypeError, ArithmeticError, RuntimeError) as e:
                 # Rollback on non-database exceptions, then re-raise unchanged
                 logger.warning(
-                    "Non-database exception during surprise update, rolling back: %s: %s", type(e).__name__, e
+                    "Non-database exception during surprise update, rolling back: %s: %s",
+                    type(e).__name__,
+                    e,
                 )
                 cursor.execute("ROLLBACK")
                 raise

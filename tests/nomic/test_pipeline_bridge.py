@@ -1,4 +1,5 @@
 """Tests for the NomicPipelineBridge."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -34,7 +35,9 @@ def _make_mock_cycle_result(goal="Improve tests", assignments=None):
     result.improvement_score = 0.8
     result.assignments = assignments or [
         _make_mock_assignment("Fix flaky test", "Make test_leader_election reliable"),
-        _make_mock_assignment("Add coverage", "Add tests for pipeline bridge", file_scope=["tests/nomic/"]),
+        _make_mock_assignment(
+            "Add coverage", "Add tests for pipeline bridge", file_scope=["tests/nomic/"]
+        ),
     ]
     return result
 
@@ -76,8 +79,16 @@ class TestDesignPhaseToGoals:
             "goal": "Improve error handling",
             "rationale": "Current handlers leak stack traces",
             "subtasks": [
-                {"title": "Sanitize str(e)", "description": "Replace with static messages", "estimated_complexity": "low"},
-                {"title": "Add @handle_errors", "description": "Decorator for all handlers", "estimated_complexity": "medium"},
+                {
+                    "title": "Sanitize str(e)",
+                    "description": "Replace with static messages",
+                    "estimated_complexity": "low",
+                },
+                {
+                    "title": "Add @handle_errors",
+                    "description": "Decorator for all handlers",
+                    "estimated_complexity": "medium",
+                },
             ],
         }
         goals = bridge.design_phase_to_goals(design)

@@ -121,7 +121,7 @@ def get_redis_client() -> redis.Redis | None:
         )
         # Test connection
         _redis_client.ping()
-        logger.info("Redis rate limiting enabled: %s", redis_url.split('@')[-1])
+        logger.info("Redis rate limiting enabled: %s", redis_url.split("@")[-1])
         return _redis_client
 
     except REDIS_CONNECTION_ERRORS as e:

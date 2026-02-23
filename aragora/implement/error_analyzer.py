@@ -135,8 +135,7 @@ class ErrorAnalyzer:
             parts.append(f"**Files involved:** {files_str}")
 
         parts.append(
-            "\nPlease address this error in your implementation. "
-            "Do not repeat the same mistake."
+            "\nPlease address this error in your implementation. Do not repeat the same mistake."
         )
 
         return "\n".join(parts)

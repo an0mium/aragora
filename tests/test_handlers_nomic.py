@@ -22,6 +22,7 @@ def run_async(coro):
     """Helper to run async handler methods synchronously in tests."""
     return asyncio.run(coro)
 
+
 from aragora.server.handlers.nomic import NomicHandler
 from aragora.server.handlers.base import clear_cache
 

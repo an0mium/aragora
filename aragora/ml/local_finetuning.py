@@ -270,7 +270,8 @@ class LocalFineTuner:
             return True
         except ImportError as e:
             logger.error(
-                "Missing dependency: %s. Install with: pip install peft transformers accelerate bitsandbytes", e
+                "Missing dependency: %s. Install with: pip install peft transformers accelerate bitsandbytes",
+                e,
             )
             return False
 

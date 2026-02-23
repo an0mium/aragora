@@ -133,15 +133,19 @@ def mock_user():
 @pytest.fixture()
 def handler(store, mock_user):
     """OpenClawGatewayHandler with _get_store and get_current_user patched."""
-    with patch(
-        "aragora.server.handlers.openclaw.orchestrator._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.credentials._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.policies._get_store",
-        return_value=store,
+    with (
+        patch(
+            "aragora.server.handlers.openclaw.orchestrator._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.credentials._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.policies._get_store",
+            return_value=store,
+        ),
     ):
         h = OpenClawGatewayHandler(server_context={})
         h.get_current_user = lambda handler: mock_user
@@ -349,9 +353,7 @@ class TestListCredentials:
             user_id="test-user-001",
             tenant_id="test-org-001",
         )
-        result = handler.handle(
-            "/api/v1/openclaw/credentials", {"type": "api_key"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/credentials", {"type": "api_key"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         for cred in body["credentials"]:
@@ -543,9 +545,7 @@ class TestStoreCredential:
             "type": "api_key",
             "secret": "secret-12345678",
         }
-        handler.handle_post(
-            "/api/v1/openclaw/credentials", {}, mock_http(body=body, method="POST")
-        )
+        handler.handle_post("/api/v1/openclaw/credentials", {}, mock_http(body=body, method="POST"))
         entries, total = store.get_audit_log(action="credential.create")
         assert total >= 1
         entry = entries[0]
@@ -664,11 +664,14 @@ class TestRotateCredential:
     ):
         """Non-owner, non-admin user gets 403."""
         mock_user.role = "viewer"
-        with patch(
-            "aragora.server.handlers.openclaw.credentials._get_credential_rotation_limiter",
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.openclaw.credentials._has_permission",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.openclaw.credentials._get_credential_rotation_limiter",
+            ) as mock_limiter,
+            patch(
+                "aragora.server.handlers.openclaw.credentials._has_permission",
+                return_value=False,
+            ),
         ):
             mock_limiter.return_value.is_allowed.return_value = True
             body = {"secret": "new-secret-value-12345678"}
@@ -684,11 +687,14 @@ class TestRotateCredential:
     ):
         """Admin user can rotate credentials owned by others."""
         mock_user.role = "admin"
-        with patch(
-            "aragora.server.handlers.openclaw.credentials._get_credential_rotation_limiter",
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.openclaw.credentials._has_permission",
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.openclaw.credentials._get_credential_rotation_limiter",
+            ) as mock_limiter,
+            patch(
+                "aragora.server.handlers.openclaw.credentials._has_permission",
+                return_value=True,
+            ),
         ):
             mock_limiter.return_value.is_allowed.return_value = True
             body = {"secret": "new-secret-value-12345678"}
@@ -834,11 +840,14 @@ class TestRotateCredential:
 
     def test_rotate_credential_store_error_returns_500(self, handler, mock_http, sample_credential):
         """Store exception during rotation returns 500."""
-        with patch(
-            "aragora.server.handlers.openclaw.credentials._get_credential_rotation_limiter",
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.openclaw.credentials._get_store",
-        ) as mock_store:
+        with (
+            patch(
+                "aragora.server.handlers.openclaw.credentials._get_credential_rotation_limiter",
+            ) as mock_limiter,
+            patch(
+                "aragora.server.handlers.openclaw.credentials._get_store",
+            ) as mock_store,
+        ):
             mock_limiter.return_value.is_allowed.return_value = True
             mock_store.return_value.get_credential.return_value = sample_credential
             mock_store.return_value.rotate_credential.side_effect = RuntimeError("DB error")
@@ -1026,9 +1035,7 @@ class TestEdgeCases:
         cred = next(c for c in creds if c["id"] == sample_credential.id)
         assert cred["last_rotated_at"] is not None
 
-    def test_delete_then_list_excludes_deleted(
-        self, handler, mock_http, store, sample_credential
-    ):
+    def test_delete_then_list_excludes_deleted(self, handler, mock_http, store, sample_credential):
         """After deletion, credential no longer appears in list."""
         handler.handle_delete(
             f"/api/v1/openclaw/credentials/{sample_credential.id}",
@@ -1082,7 +1089,15 @@ class TestEdgeCases:
         creds = _body(result)["credentials"]
         cred = next(c for c in creds if c["id"] == sample_credential.id)
         expected_fields = {
-            "id", "name", "credential_type", "user_id", "tenant_id",
-            "created_at", "updated_at", "last_rotated_at", "expires_at", "metadata",
+            "id",
+            "name",
+            "credential_type",
+            "user_id",
+            "tenant_id",
+            "created_at",
+            "updated_at",
+            "last_rotated_at",
+            "expires_at",
+            "metadata",
         }
         assert expected_fields.issubset(set(cred.keys()))

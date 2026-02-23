@@ -170,7 +170,11 @@ class HTTPResilienceMixin:
                     await asyncio.sleep(total_delay)
                 else:
                     logger.error(
-                        "%s %s failed after %s attempts: %s", self.platform_name, operation, max_retries, e
+                        "%s %s failed after %s attempts: %s",
+                        self.platform_name,
+                        operation,
+                        max_retries,
+                        e,
                     )
 
         if last_exception:
@@ -282,7 +286,11 @@ class HTTPResilienceMixin:
                             continue
                         else:
                             logger.error(
-                                "%s %s failed after %s attempts with status %s", self.platform_name, operation, max_retries, response.status_code
+                                "%s %s failed after %s attempts with status %s",
+                                self.platform_name,
+                                operation,
+                                max_retries,
+                                response.status_code,
                             )
                             return False, None, last_error
 
@@ -316,7 +324,10 @@ class HTTPResilienceMixin:
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        "%s %s timed out after %s attempts", self.platform_name, operation, max_retries
+                        "%s %s timed out after %s attempts",
+                        self.platform_name,
+                        operation,
+                        max_retries,
                     )
 
             except httpx.ConnectError as e:
@@ -332,7 +343,10 @@ class HTTPResilienceMixin:
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        "%s %s connection failed after %s attempts", self.platform_name, operation, max_retries
+                        "%s %s connection failed after %s attempts",
+                        self.platform_name,
+                        operation,
+                        max_retries,
                     )
 
             except (ValueError, TypeError, RuntimeError, OSError) as e:
@@ -344,7 +358,9 @@ class HTTPResilienceMixin:
             except Exception as e:  # noqa: BLE001 - safety net after specific httpx/OS catches; httpx internals may raise unexpected types
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
-                logger.error("%s %s unhandled %s: %s", self.platform_name, operation, type(e).__name__, e)
+                logger.error(
+                    "%s %s unhandled %s: %s", self.platform_name, operation, type(e).__name__, e
+                )
                 # Don't retry on unknown exceptions
                 break
 

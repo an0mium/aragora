@@ -241,7 +241,11 @@ class TestLoop1_ReceiptToKMToNextDebate:
         mock_mound.query.assert_awaited_once()
         call_kwargs = mock_mound.query.call_args
         # The query should include decision_receipt tag filter
-        filters_arg = call_kwargs.kwargs.get("filters") or call_kwargs.args[1] if len(call_kwargs.args) > 1 else call_kwargs.kwargs.get("filters")
+        filters_arg = (
+            call_kwargs.kwargs.get("filters") or call_kwargs.args[1]
+            if len(call_kwargs.args) > 1
+            else call_kwargs.kwargs.get("filters")
+        )
         if filters_arg is None:
             # Try positional
             args = call_kwargs[1] if len(call_kwargs) > 1 else {}
@@ -450,12 +454,10 @@ class TestLoop2_ImprovementQueueToMetaPlanner:
         context = PlanningContext()
 
         # Patch Arena to avoid needing real agents
-        with patch(
-            "aragora.debate.orchestrator.Arena"
-        ) as MockArena, patch(
-            "aragora.core.Environment"
-        ), patch(
-            "aragora.debate.protocol.DebateProtocol"
+        with (
+            patch("aragora.debate.orchestrator.Arena") as MockArena,
+            patch("aragora.core.Environment"),
+            patch("aragora.debate.protocol.DebateProtocol"),
         ):
             mock_arena_instance = MockArena.return_value
             mock_result = MagicMock()
@@ -474,7 +476,9 @@ class TestLoop2_ImprovementQueueToMetaPlanner:
 
         # Verify the improvement suggestion was injected into context
         assert len(context.recent_improvements) == 1
-        assert context.recent_improvements[0]["task"] == "Improve test coverage for analytics module"
+        assert (
+            context.recent_improvements[0]["task"] == "Improve test coverage for analytics module"
+        )
         assert context.recent_improvements[0]["category"] == "test_coverage"
         assert context.recent_improvements[0]["confidence"] == 0.85
 
@@ -538,12 +542,10 @@ class TestLoop2_ImprovementQueueToMetaPlanner:
 
         context = PlanningContext()
 
-        with patch(
-            "aragora.debate.orchestrator.Arena"
-        ) as MockArena, patch(
-            "aragora.core.Environment"
-        ), patch(
-            "aragora.debate.protocol.DebateProtocol"
+        with (
+            patch("aragora.debate.orchestrator.Arena") as MockArena,
+            patch("aragora.core.Environment"),
+            patch("aragora.debate.protocol.DebateProtocol"),
         ):
             mock_arena_instance = MockArena.return_value
             mock_result = MagicMock()
@@ -617,6 +619,7 @@ class TestLoop3_ConvergenceHistoryToRoundOptimization:
         """Reset the convergence history store singleton and cache before each test."""
         from aragora.debate.convergence.history import set_convergence_history_store
         from aragora.debate.phases.context_init import _convergence_history_cache
+
         set_convergence_history_store(None)
         _convergence_history_cache.clear()
 
@@ -624,6 +627,7 @@ class TestLoop3_ConvergenceHistoryToRoundOptimization:
         """Reset the convergence history store singleton and cache after each test."""
         from aragora.debate.convergence.history import set_convergence_history_store
         from aragora.debate.phases.context_init import _convergence_history_cache
+
         set_convergence_history_store(None)
         _convergence_history_cache.clear()
 
@@ -883,11 +887,13 @@ class TestAllThreeLoopsTogether:
     def setup_method(self):
         """Reset shared state before each test."""
         from aragora.debate.convergence.history import set_convergence_history_store
+
         set_convergence_history_store(None)
 
     def teardown_method(self):
         """Reset shared state after each test."""
         from aragora.debate.convergence.history import set_convergence_history_store
+
         set_convergence_history_store(None)
 
     @pytest.mark.asyncio

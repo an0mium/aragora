@@ -37,6 +37,7 @@ from aragora.server.handlers.docs import DocsHandler, CACHE_TTL_OPENAPI
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result) -> dict[str, Any]:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
@@ -55,6 +56,7 @@ def _html(result) -> str:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def handler() -> DocsHandler:
@@ -80,6 +82,7 @@ def mock_http_handler() -> MagicMock:
 # ===========================================================================
 # Initialization
 # ===========================================================================
+
 
 class TestDocsHandlerInit:
     """Test DocsHandler initialization."""
@@ -112,40 +115,47 @@ class TestDocsHandlerInit:
 # Route matching (can_handle)
 # ===========================================================================
 
+
 class TestCanHandle:
     """Test can_handle() route matching."""
 
-    @pytest.mark.parametrize("path", [
-        "/api/v1/openapi",
-        "/api/v1/openapi.json",
-        "/api/v1/openapi.yaml",
-        "/api/v1/postman.json",
-        "/api/v1/docs",
-        "/api/v1/docs/",
-        "/api/v1/redoc",
-        "/api/v1/redoc/",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/v1/openapi",
+            "/api/v1/openapi.json",
+            "/api/v1/openapi.yaml",
+            "/api/v1/postman.json",
+            "/api/v1/docs",
+            "/api/v1/docs/",
+            "/api/v1/redoc",
+            "/api/v1/redoc/",
+        ],
+    )
     def test_known_routes_are_handled(self, handler, path):
         """All declared routes should be recognized."""
         assert handler.can_handle(path) is True
 
-    @pytest.mark.parametrize("path", [
-        "/api/v1/unknown",
-        "/api/v1/openapi.xml",
-        "/api/v1/doc",
-        "/api/v1/docs/extra",
-        "/api/v1/redoc/extra",
-        "/api/openapi",
-        "/api/openapi.json",
-        "/api/docs",
-        "/openapi",
-        "",
-        "/",
-        "/api/v2/openapi",
-        "/api/v1/swagger",
-        "/api/v1/postman",
-        "/api/v1/postman.yaml",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/v1/unknown",
+            "/api/v1/openapi.xml",
+            "/api/v1/doc",
+            "/api/v1/docs/extra",
+            "/api/v1/redoc/extra",
+            "/api/openapi",
+            "/api/openapi.json",
+            "/api/docs",
+            "/openapi",
+            "",
+            "/",
+            "/api/v2/openapi",
+            "/api/v1/swagger",
+            "/api/v1/postman",
+            "/api/v1/postman.yaml",
+        ],
+    )
     def test_unrecognized_paths_rejected(self, handler, path):
         """Paths not in ROUTES should not be handled."""
         assert handler.can_handle(path) is False
@@ -154,6 +164,7 @@ class TestCanHandle:
 # ===========================================================================
 # Routing dispatch (handle)
 # ===========================================================================
+
 
 class TestHandleRouting:
     """Test handle() dispatches to the correct internal method."""
@@ -194,11 +205,11 @@ class TestHandleRouting:
 # OpenAPI Spec endpoint (_get_openapi_spec)
 # ===========================================================================
 
+
 class TestOpenAPISpec:
     """Test _get_openapi_spec() JSON and YAML variants."""
 
-    @patch("aragora.server.handlers.docs.handle_openapi_request",
-           create=True)
+    @patch("aragora.server.handlers.docs.handle_openapi_request", create=True)
     def test_openapi_json_happy_path(self, mock_req, handler, mock_http_handler):
         """Successful JSON OpenAPI spec returns 200 with correct content type."""
         mock_content = '{"openapi": "3.0.0"}'
@@ -206,9 +217,7 @@ class TestOpenAPISpec:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.server.openapi": MagicMock(
-                handle_openapi_request=mock_req
-            )},
+            {"aragora.server.openapi": MagicMock(handle_openapi_request=mock_req)},
         ):
             result = handler.handle("/api/v1/openapi.json", {}, mock_http_handler)
 
@@ -217,8 +226,7 @@ class TestOpenAPISpec:
         parsed = json.loads(result.body.decode("utf-8"))
         assert parsed["openapi"] == "3.0.0"
 
-    @patch("aragora.server.handlers.docs.handle_openapi_request",
-           create=True)
+    @patch("aragora.server.handlers.docs.handle_openapi_request", create=True)
     def test_openapi_yaml_happy_path(self, mock_req, handler, mock_http_handler):
         """Successful YAML OpenAPI spec returns 200 with YAML content type."""
         yaml_content = "openapi: '3.0.0'\ninfo:\n  title: Aragora"
@@ -226,9 +234,7 @@ class TestOpenAPISpec:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.server.openapi": MagicMock(
-                handle_openapi_request=mock_req
-            )},
+            {"aragora.server.openapi": MagicMock(handle_openapi_request=mock_req)},
         ):
             result = handler.handle("/api/v1/openapi.yaml", {}, mock_http_handler)
 
@@ -350,6 +356,7 @@ class TestOpenAPISpec:
 # Swagger UI endpoint (_get_swagger_ui)
 # ===========================================================================
 
+
 class TestSwaggerUI:
     """Test Swagger UI HTML page generation."""
 
@@ -459,6 +466,7 @@ class TestSwaggerUI:
 # ReDoc endpoint (_get_redoc)
 # ===========================================================================
 
+
 class TestReDoc:
     """Test ReDoc HTML page generation."""
 
@@ -551,6 +559,7 @@ class TestReDoc:
 # ===========================================================================
 # Postman Collection endpoint (_get_postman_collection)
 # ===========================================================================
+
 
 class TestPostmanCollection:
     """Test Postman collection export."""
@@ -693,6 +702,7 @@ class TestPostmanCollection:
 # ROUTES constant
 # ===========================================================================
 
+
 class TestRoutes:
     """Test the ROUTES class attribute."""
 
@@ -715,6 +725,7 @@ class TestRoutes:
 # Cache TTL constant
 # ===========================================================================
 
+
 class TestCacheTTL:
     """Test the CACHE_TTL_OPENAPI constant."""
 
@@ -730,6 +741,7 @@ class TestCacheTTL:
 # ===========================================================================
 # Query parameters (ignored by docs handler)
 # ===========================================================================
+
 
 class TestQueryParams:
     """Test that query parameters don't affect docs endpoints."""
@@ -748,6 +760,7 @@ class TestQueryParams:
 # ===========================================================================
 # Error response structure
 # ===========================================================================
+
 
 class TestErrorStructure:
     """Test that error responses have consistent structure."""
@@ -791,6 +804,7 @@ class TestErrorStructure:
 # Handler with different contexts
 # ===========================================================================
 
+
 class TestHandlerContext:
     """Test handler behavior with different context values."""
 
@@ -815,6 +829,7 @@ class TestHandlerContext:
 # ===========================================================================
 # Helpers (used by tests above)
 # ===========================================================================
+
 
 def _selective_import_error(blocked_module: str):
     """Create an import side_effect that only blocks a specific module."""

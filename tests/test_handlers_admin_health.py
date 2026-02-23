@@ -108,6 +108,7 @@ def clear_caches():
     clear_cache()
     # Also clear health probe cache so readiness checks aren't stale
     from aragora.server.handlers.admin.health import _HEALTH_CACHE, _HEALTH_CACHE_TIMESTAMPS
+
     _HEALTH_CACHE.clear()
     _HEALTH_CACHE_TIMESTAMPS.clear()
     yield
@@ -126,12 +127,15 @@ def mock_server_readiness():
     mock_route_index = MagicMock()
     mock_route_index._exact_routes = {"/healthz": True}  # Non-empty dict
 
-    with patch(
-        "aragora.server.unified_server.is_server_ready",
-        return_value=True,
-    ), patch(
-        "aragora.server.handler_registry.core.get_route_index",
-        return_value=mock_route_index,
+    with (
+        patch(
+            "aragora.server.unified_server.is_server_ready",
+            return_value=True,
+        ),
+        patch(
+            "aragora.server.handler_registry.core.get_route_index",
+            return_value=mock_route_index,
+        ),
     ):
         yield
 

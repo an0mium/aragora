@@ -517,7 +517,10 @@ class VoiceHandler:
                 context["device_capabilities"] = device.capabilities
 
             logger.info(
-                "Queuing debate from voice: %s... (caller: %s, device: %s)", question[:100], caller, context.get('device_id', 'none')
+                "Queuing debate from voice: %s... (caller: %s, device: %s)",
+                question[:100],
+                caller,
+                context.get("device_id", "none"),
             )
 
             # Start debate asynchronously with device context
@@ -574,7 +577,8 @@ def setup_voice_routes(
     app.router.add_post("/api/voice/gather/confirm", handler.handle_gather_confirm)
 
     logger.info(
-        "Voice webhook routes registered (device_runtime=%s)", 'enabled' if handler.device_registry else 'disabled'
+        "Voice webhook routes registered (device_runtime=%s)",
+        "enabled" if handler.device_registry else "disabled",
     )
     return handler
 

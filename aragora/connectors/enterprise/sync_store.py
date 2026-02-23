@@ -579,7 +579,8 @@ class SyncStore:
                 if recovered > 0:
                     await self._connection.commit()
                     logger.info(
-                        "SyncStore: Recovered %s interrupted sync jobs from previous server instance", recovered
+                        "SyncStore: Recovered %s interrupted sync jobs from previous server instance",
+                        recovered,
                     )
 
             elif self._database_url.startswith("postgresql"):
@@ -638,7 +639,8 @@ class SyncStore:
 
                 if recovered > 0:
                     logger.info(
-                        "SyncStore: Recovered %s interrupted sync jobs from previous server instance", recovered
+                        "SyncStore: Recovered %s interrupted sync jobs from previous server instance",
+                        recovered,
                     )
 
         except (OSError, ValueError, TypeError, RuntimeError, KeyError) as e:

@@ -697,9 +697,7 @@ class TestValidateDeploymentNameInternal:
         assert str(MAX_DEPLOYMENT_NAME_LENGTH) in err
 
     def test_exact_max_length(self):
-        valid, val, err = _validate_deployment_name_internal(
-            "n" * MAX_DEPLOYMENT_NAME_LENGTH, "fb"
-        )
+        valid, val, err = _validate_deployment_name_internal("n" * MAX_DEPLOYMENT_NAME_LENGTH, "fb")
         assert valid is True
         assert err == ""
 

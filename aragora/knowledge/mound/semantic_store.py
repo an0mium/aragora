@@ -174,7 +174,9 @@ class SemanticStore(SQLiteStore):
         self._embedding_model = type(self._provider).__name__
 
         logger.info(
-            "SemanticStore initialized with %s (dim=%s)", self._embedding_model, self._provider.dimension
+            "SemanticStore initialized with %s (dim=%s)",
+            self._embedding_model,
+            self._provider.dimension,
         )
 
     def _auto_detect_provider(self) -> EmbeddingProvider:

@@ -497,7 +497,9 @@ class TournamentHandler(BaseHandler):
         if advanced:
             tournament = manager.get_tournament(tournament_id)
             logger.info(
-                "Advanced tournament %s to round %s", tournament_id, tournament.rounds_completed + 1 if tournament else 'unknown'
+                "Advanced tournament %s to round %s",
+                tournament_id,
+                tournament.rounds_completed + 1 if tournament else "unknown",
             )
             return json_response(
                 {

@@ -141,18 +141,16 @@ class TestImprovementScore:
     @pytest.mark.parametrize(
         "before_rate,after_rate,before_lint,after_lint",
         [
-            (0.0, 1.0, 100, 0),    # Maximum improvement
-            (1.0, 0.0, 0, 100),    # Maximum regression
-            (0.5, 0.5, 10, 10),    # No change
-            (0.0, 0.0, 0, 0),      # Zero baseline, zero after
-            (1.0, 1.0, 0, 0),      # Perfect baseline, perfect after
-            (0.3, 0.7, 50, 20),    # Moderate improvement
-            (0.9, 0.1, 5, 50),     # Severe regression
+            (0.0, 1.0, 100, 0),  # Maximum improvement
+            (1.0, 0.0, 0, 100),  # Maximum regression
+            (0.5, 0.5, 10, 10),  # No change
+            (0.0, 0.0, 0, 0),  # Zero baseline, zero after
+            (1.0, 1.0, 0, 0),  # Perfect baseline, perfect after
+            (0.3, 0.7, 50, 20),  # Moderate improvement
+            (0.9, 0.1, 5, 50),  # Severe regression
         ],
     )
-    def test_improvement_score_range(
-        self, before_rate, after_rate, before_lint, after_lint
-    ):
+    def test_improvement_score_range(self, before_rate, after_rate, before_lint, after_lint):
         """Score is always in [0.0, 1.0] regardless of input values."""
         before = BaselineSnapshot(
             tests_passed=int(before_rate * 100),
@@ -308,13 +306,11 @@ class TestVerifyPhaseBaselineIntegration:
         )
 
         # Mock all verification checks to pass
-        with patch.object(
-            phase, "_check_syntax", new_callable=AsyncMock
-        ) as mock_syntax, patch.object(
-            phase, "_check_imports", new_callable=AsyncMock
-        ) as mock_imports, patch.object(
-            phase, "_run_tests", new_callable=AsyncMock
-        ) as mock_tests:
+        with (
+            patch.object(phase, "_check_syntax", new_callable=AsyncMock) as mock_syntax,
+            patch.object(phase, "_check_imports", new_callable=AsyncMock) as mock_imports,
+            patch.object(phase, "_run_tests", new_callable=AsyncMock) as mock_tests,
+        ):
             mock_syntax.return_value = {"check": "syntax", "passed": True}
             mock_imports.return_value = {"check": "import", "passed": True}
             mock_tests.return_value = {
@@ -332,13 +328,9 @@ class TestVerifyPhaseBaselineIntegration:
                 test_pass_rate=0.95,
                 timestamp=2000.0,
             )
-            with patch(
-                "aragora.nomic.phases.baseline.BaselineCollector"
-            ) as mock_collector_cls:
+            with patch("aragora.nomic.phases.baseline.BaselineCollector") as mock_collector_cls:
                 mock_collector_instance = MagicMock()
-                mock_collector_instance.collect = AsyncMock(
-                    return_value=post_snapshot
-                )
+                mock_collector_instance.collect = AsyncMock(return_value=post_snapshot)
                 mock_collector_cls.return_value = mock_collector_instance
 
                 result = await phase.execute()

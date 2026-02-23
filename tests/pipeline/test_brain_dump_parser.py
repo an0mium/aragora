@@ -152,9 +152,7 @@ class TestFragmentMerging:
         assert "yes" in ideas[0]
 
     def test_short_first_fragment_merged_with_next(self, parser: BrainDumpParser) -> None:
-        ideas = parser._merge_fragments(
-            ["ok", "Build a real-time dashboard for analytics"]
-        )
+        ideas = parser._merge_fragments(["ok", "Build a real-time dashboard for analytics"])
         assert len(ideas) == 1
         assert "ok" in ideas[0]
 
@@ -175,9 +173,7 @@ class TestFragmentMerging:
 
 class TestDeduplication:
     def test_exact_duplicate_removed(self, parser: BrainDumpParser) -> None:
-        ideas = parser._deduplicate(
-            ["Build a dashboard", "Build a dashboard"]
-        )
+        ideas = parser._deduplicate(["Build a dashboard", "Build a dashboard"])
         assert len(ideas) == 1
 
     def test_near_duplicate_removed(self, parser: BrainDumpParser) -> None:

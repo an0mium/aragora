@@ -28,6 +28,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result: object) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -50,29 +51,34 @@ def _status(result: object) -> int:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_caches():
     """Reset caches and rate limiters before each test."""
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass
 
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
 
     try:
         from aragora.server.handlers.agents import agents as agents_mod
+
         agents_mod._agent_limiter = agents_mod.RateLimiter(requests_per_minute=60)
     except (ImportError, AttributeError):
         pass
 
     try:
         from aragora.server.handlers.utils import rate_limit as rl_mod
+
         with rl_mod._limiters_lock:
             rl_mod._limiters.clear()
     except (ImportError, AttributeError):
@@ -82,12 +88,14 @@ def _reset_caches():
 
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass
 
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -97,6 +105,7 @@ def _reset_caches():
 def handler():
     """Create an AgentsHandler with empty server context."""
     from aragora.server.handlers.agents.agents import AgentsHandler
+
     return AgentsHandler(server_context={})
 
 
@@ -153,6 +162,7 @@ def _make_consistency_score(**overrides) -> MagicMock:
 # ===========================================================================
 # _get_agent_flips: GET /api/agent/{name}/flips
 # ===========================================================================
+
 
 class TestGetAgentFlips:
     """Tests for the _get_agent_flips endpoint."""
@@ -258,10 +268,7 @@ class TestGetAgentFlips:
 
     def test_multiple_flips_returned(self, handler):
         """Multiple flips are returned in the response."""
-        flips = [
-            _make_flip_event(id=f"flip-{i}", agent_name="claude")
-            for i in range(5)
-        ]
+        flips = [_make_flip_event(id=f"flip-{i}", agent_name="claude") for i in range(5)]
         mock_detector = MagicMock()
         mock_detector.detect_flips_for_agent.return_value = flips
         mock_detector.get_agent_consistency.return_value = _make_consistency_score()
@@ -394,6 +401,7 @@ class TestGetAgentFlips:
 # _get_agent_flips via handle(): routed through /api/agent/{name}/flips
 # ===========================================================================
 
+
 class TestAgentFlipsViaHandle:
     """Tests for flips accessed through the handle() routing method."""
 
@@ -401,9 +409,7 @@ class TestAgentFlipsViaHandle:
     async def test_route_via_handle(self, handler, mock_http_handler):
         """GET /api/agent/claude/flips routes to _get_agent_flips."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/flips", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/flips", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -413,9 +419,7 @@ class TestAgentFlipsViaHandle:
     async def test_route_versioned_path(self, handler, mock_http_handler):
         """GET /api/v1/agent/claude/flips also works."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/v1/agent/claude/flips", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/flips", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -462,9 +466,7 @@ class TestAgentFlipsViaHandle:
                     "aragora.server.handlers.agents.agent_flips.get_db_path",
                     return_value="/tmp/nomic/positions.db",
                 ):
-                    await handler.handle(
-                        "/api/agent/claude/flips", {}, mock_http_handler
-                    )
+                    await handler.handle("/api/agent/claude/flips", {}, mock_http_handler)
                     mock_detector.detect_flips_for_agent.assert_called_once_with(
                         "claude", lookback_positions=20
                     )
@@ -473,6 +475,7 @@ class TestAgentFlipsViaHandle:
 # ===========================================================================
 # _get_recent_flips: GET /api/flips/recent
 # ===========================================================================
+
 
 class TestGetRecentFlips:
     """Tests for the _get_recent_flips endpoint."""
@@ -633,6 +636,7 @@ class TestGetRecentFlips:
 # _get_recent_flips via handle(): routed through /api/flips/recent
 # ===========================================================================
 
+
 class TestRecentFlipsViaHandle:
     """Tests for recent flips accessed through handle() routing."""
 
@@ -640,9 +644,7 @@ class TestRecentFlipsViaHandle:
     async def test_route_via_handle(self, handler, mock_http_handler):
         """GET /api/flips/recent routes to _get_recent_flips."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/flips/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/flips/recent", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["flips"] == []
@@ -652,9 +654,7 @@ class TestRecentFlipsViaHandle:
     async def test_route_versioned_path(self, handler, mock_http_handler):
         """GET /api/v1/flips/recent also works."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/v1/flips/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/flips/recent", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -695,15 +695,14 @@ class TestRecentFlipsViaHandle:
                     "aragora.server.handlers.agents.agent_flips.get_db_path",
                     return_value="/tmp/nomic/positions.db",
                 ):
-                    await handler.handle(
-                        "/api/flips/recent", {}, mock_http_handler
-                    )
+                    await handler.handle("/api/flips/recent", {}, mock_http_handler)
                     mock_detector.get_recent_flips.assert_called_once_with(limit=20)
 
 
 # ===========================================================================
 # _get_flip_summary: GET /api/flips/summary
 # ===========================================================================
+
 
 class TestGetFlipSummary:
     """Tests for the _get_flip_summary endpoint."""
@@ -819,6 +818,7 @@ class TestGetFlipSummary:
 # _get_flip_summary via handle(): routed through /api/flips/summary
 # ===========================================================================
 
+
 class TestFlipSummaryViaHandle:
     """Tests for flip summary accessed through handle() routing."""
 
@@ -826,9 +826,7 @@ class TestFlipSummaryViaHandle:
     async def test_route_via_handle(self, handler, mock_http_handler):
         """GET /api/flips/summary routes to _get_flip_summary."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/flips/summary", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/flips/summary", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["total_flips"] == 0
@@ -837,15 +835,14 @@ class TestFlipSummaryViaHandle:
     async def test_route_versioned_path(self, handler, mock_http_handler):
         """GET /api/v1/flips/summary also works."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/v1/flips/summary", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/flips/summary", {}, mock_http_handler)
             assert _status(result) == 200
 
 
 # ===========================================================================
 # can_handle tests for flip-related paths
 # ===========================================================================
+
 
 class TestCanHandle:
     """Tests for can_handle on flip-related paths."""
@@ -875,6 +872,7 @@ class TestCanHandle:
 # ===========================================================================
 # Caching behavior
 # ===========================================================================
+
 
 class TestCaching:
     """Tests that caching decorators work correctly for flip endpoints."""
@@ -981,6 +979,7 @@ class TestCaching:
 # Edge cases
 # ===========================================================================
 
+
 class TestEdgeCases:
     """Miscellaneous edge case tests."""
 
@@ -1072,9 +1071,7 @@ class TestEdgeCases:
                     return_value="/tmp/test_nomic/positions.db",
                 ) as mock_get_db_path:
                     handler._get_agent_flips("claude", 20)
-                    mock_get_db_path.assert_called_once_with(
-                        DatabaseType.POSITIONS, nomic_path
-                    )
+                    mock_get_db_path.assert_called_once_with(DatabaseType.POSITIONS, nomic_path)
 
     def test_flip_detector_receives_db_path_string(self, handler):
         """FlipDetector is instantiated with string from get_db_path."""
@@ -1092,6 +1089,4 @@ class TestEdgeCases:
                     return_value=Path("/tmp/nomic/positions.db"),
                 ):
                     handler._get_agent_flips("claude", 20)
-                    mock_cls.assert_called_once_with(
-                        str(Path("/tmp/nomic/positions.db"))
-                    )
+                    mock_cls.assert_called_once_with(str(Path("/tmp/nomic/positions.db")))

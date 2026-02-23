@@ -224,7 +224,11 @@ class DeviceConnector(ABC):
                     await asyncio.sleep(total_delay)
                 else:
                     logger.error(
-                        "%s %s failed after %s attempts: %s", self.platform_name, operation, max_retries, e
+                        "%s %s failed after %s attempts: %s",
+                        self.platform_name,
+                        operation,
+                        max_retries,
+                        e,
                     )
 
         if last_exception:
@@ -315,7 +319,11 @@ class DeviceConnector(ABC):
                             continue
                         else:
                             logger.error(
-                                "%s %s failed after %s attempts with status %s", self.platform_name, operation, max_retries, response.status_code
+                                "%s %s failed after %s attempts with status %s",
+                                self.platform_name,
+                                operation,
+                                max_retries,
+                                response.status_code,
                             )
                             return False, None, last_error
 
@@ -347,7 +355,11 @@ class DeviceConnector(ABC):
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        "%s %s failed after %s attempts: %s", self.platform_name, operation, max_retries, e
+                        "%s %s failed after %s attempts: %s",
+                        self.platform_name,
+                        operation,
+                        max_retries,
+                        e,
                     )
 
         return False, None, last_error

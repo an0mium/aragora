@@ -291,25 +291,19 @@ class TestListGraphs:
         h = _make_handler()
         http = _make_http_handler()
         h.handle("/api/v1/pipeline/graphs", {"owner_id": "user-1"}, http)
-        patched_store.list.assert_called_once_with(
-            owner_id="user-1", workspace_id=None, limit=50
-        )
+        patched_store.list.assert_called_once_with(owner_id="user-1", workspace_id=None, limit=50)
 
     def test_list_with_workspace_filter(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
         h.handle("/api/v1/pipeline/graphs", {"workspace_id": "ws-1"}, http)
-        patched_store.list.assert_called_once_with(
-            owner_id=None, workspace_id="ws-1", limit=50
-        )
+        patched_store.list.assert_called_once_with(owner_id=None, workspace_id="ws-1", limit=50)
 
     def test_list_with_custom_limit(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
         h.handle("/api/v1/pipeline/graphs", {"limit": "10"}, http)
-        patched_store.list.assert_called_once_with(
-            owner_id=None, workspace_id=None, limit=10
-        )
+        patched_store.list.assert_called_once_with(owner_id=None, workspace_id=None, limit=10)
 
     def test_list_with_all_filters(self, patched_store):
         h = _make_handler()
@@ -319,9 +313,7 @@ class TestListGraphs:
             {"owner_id": "u1", "workspace_id": "ws-2", "limit": "5"},
             http,
         )
-        patched_store.list.assert_called_once_with(
-            owner_id="u1", workspace_id="ws-2", limit=5
-        )
+        patched_store.list.assert_called_once_with(owner_id="u1", workspace_id="ws-2", limit=5)
 
 
 # ===========================================================================
@@ -431,9 +423,7 @@ class TestCreateGraph:
     def test_create_metadata_defaults_to_empty(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs", {"name": "Test"}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs", {"name": "Test"}, http)
         body = _body(result)
         assert body["metadata"] == {}
 
@@ -627,9 +617,7 @@ class TestAddNode:
             "node_subtype": "concept",
             "label": "My Idea",
         }
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes", body, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/nodes", body, http)
         assert _status(result) == 201
         assert _body(result)["id"] == "node-1"
 
@@ -662,9 +650,7 @@ class TestAddNode:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/nodes", {}, http)
         assert _status(result) == 201
         node = patched_store.add_node.call_args[0][1]
         assert node.stage == PipelineStage.IDEAS
@@ -730,9 +716,7 @@ class TestAddNode:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/nodes", {}, http)
         body = _body(result)
         assert body["id"].startswith("node-")
 
@@ -748,9 +732,7 @@ class TestRemoveNode:
     def test_remove_node_success(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes/node-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/nodes/node-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["deleted"] is True
@@ -759,25 +741,19 @@ class TestRemoveNode:
     def test_remove_node_calls_store(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes/node-1", {}, http
-        )
+        h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/nodes/node-1", {}, http)
         patched_store.remove_node.assert_called_once_with("graph-abc123", "node-1")
 
     def test_remove_node_invalid_graph_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/../hack/nodes/node-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/../hack/nodes/node-1", {}, http)
         assert _status(result) == 400
 
     def test_remove_node_invalid_node_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes/../../etc", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/nodes/../../etc", {}, http)
         assert _status(result) == 400
 
 
@@ -879,9 +855,7 @@ class TestAddEdge:
             "target_id": "node-2",
             "edge_type": "relates_to",
         }
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-abc123/edges", body, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/edges", body, http)
         assert _status(result) == 201
 
     def test_add_edge_graph_not_found(self, patched_store):
@@ -954,7 +928,12 @@ class TestAddEdge:
         http = _make_http_handler()
         h.handle_post(
             "/api/v1/pipeline/graphs/graph-abc123/edges",
-            {"source_id": "node-1", "target_id": "node-2", "weight": "3.5", "edge_type": "relates_to"},
+            {
+                "source_id": "node-1",
+                "target_id": "node-2",
+                "weight": "3.5",
+                "edge_type": "relates_to",
+            },
             http,
         )
         edge = graph.add_edge.call_args[0][0]
@@ -1002,9 +981,7 @@ class TestRemoveEdge:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/edges/edge-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/edges/edge-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["deleted"] is True
@@ -1016,18 +993,14 @@ class TestRemoveEdge:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/edges/edge-nope", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/edges/edge-nope", {}, http)
         assert _status(result) == 404
 
     def test_remove_edge_graph_not_found(self, patched_store):
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/edges/edge-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/edges/edge-1", {}, http)
         assert _status(result) == 404
 
     def test_remove_edge_persists(self, patched_store):
@@ -1036,25 +1009,19 @@ class TestRemoveEdge:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/edges/edge-1", {}, http
-        )
+        h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/edges/edge-1", {}, http)
         patched_store.update.assert_called_once_with(graph)
 
     def test_remove_edge_invalid_edge_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/edges/../hack", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/edges/../hack", {}, http)
         assert _status(result) == 400
 
     def test_remove_edge_invalid_graph_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/../bad/edges/edge-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/../bad/edges/edge-1", {}, http)
         assert _status(result) == 400
 
 
@@ -1074,9 +1041,7 @@ class TestPromoteNodes:
         body = {"node_ids": ["n1"], "target_stage": "goals"}
         created_node = _mock_node("promoted-1")
         with patch(_IDEAS_TO_GOALS, return_value=[created_node]):
-            result = h.handle_post(
-                "/api/v1/pipeline/graphs/graph-abc123/promote", body, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/promote", body, http)
         assert _status(result) == 200
         body_out = _body(result)
         assert body_out["count"] == 1
@@ -1090,9 +1055,7 @@ class TestPromoteNodes:
         body = {"node_ids": ["n1"], "target_stage": "actions"}
         created_node = _mock_node("action-1")
         with patch(_GOALS_TO_ACTIONS, return_value=[created_node]):
-            result = h.handle_post(
-                "/api/v1/pipeline/graphs/graph-abc123/promote", body, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/promote", body, http)
         assert _status(result) == 200
         assert _body(result)["count"] == 1
 
@@ -1104,9 +1067,7 @@ class TestPromoteNodes:
         body = {"node_ids": ["n1"], "target_stage": "orchestration"}
         created_node = _mock_node("orch-1")
         with patch(_ACTIONS_TO_ORCH, return_value=[created_node]):
-            result = h.handle_post(
-                "/api/v1/pipeline/graphs/graph-abc123/promote", body, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/promote", body, http)
         assert _status(result) == 200
         assert _body(result)["target_stage"] == "orchestration"
 
@@ -1217,9 +1178,7 @@ class TestProvenanceChain:
         patched_store.get_provenance_chain.return_value = [n1, n2]
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/provenance/node-1", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/provenance/node-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["depth"] == 2
@@ -1229,9 +1188,7 @@ class TestProvenanceChain:
         patched_store.get_provenance_chain.return_value = []
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/provenance/node-1", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/provenance/node-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["depth"] == 0
@@ -1239,17 +1196,13 @@ class TestProvenanceChain:
     def test_provenance_invalid_node_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/provenance/../../etc", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/provenance/../../etc", {}, http)
         assert _status(result) == 400
 
     def test_provenance_invalid_graph_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/../bad/provenance/node-1", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/../bad/provenance/node-1", {}, http)
         assert _status(result) == 400
 
     def test_provenance_calls_store(self, patched_store):
@@ -1273,9 +1226,7 @@ class TestReactFlow:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/react-flow", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/react-flow", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert "nodes" in body
@@ -1310,9 +1261,7 @@ class TestReactFlow:
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-nope/react-flow", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-nope/react-flow", {}, http)
         assert _status(result) == 404
 
     def test_react_flow_no_stage_param_passes_none(self, patched_store):
@@ -1339,9 +1288,7 @@ class TestIntegrity:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/integrity", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/integrity", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["graph_id"] == "graph-abc123"
@@ -1353,9 +1300,7 @@ class TestIntegrity:
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-nope/integrity", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-nope/integrity", {}, http)
         assert _status(result) == 404
 
     def test_integrity_empty_graph(self, patched_store):
@@ -1365,9 +1310,7 @@ class TestIntegrity:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/integrity", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/integrity", {}, http)
         body = _body(result)
         assert body["node_count"] == 0
         assert body["edge_count"] == 0
@@ -1452,9 +1395,7 @@ class TestPermissionChecks:
                 body=json.dumps({"error": "Authentication required"}).encode(),
             ),
         ):
-            result = h.handle_put(
-                "/api/v1/pipeline/graphs/graph-abc123", {}, http
-            )
+            result = h.handle_put("/api/v1/pipeline/graphs/graph-abc123", {}, http)
         assert _status(result) == 401
 
     @pytest.mark.no_auto_auth
@@ -1469,9 +1410,7 @@ class TestPermissionChecks:
                 body=json.dumps({"error": "Authentication required"}).encode(),
             ),
         ):
-            result = h.handle_delete(
-                "/api/v1/pipeline/graphs/graph-abc123", {}, http
-            )
+            result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123", {}, http)
         assert _status(result) == 401
 
     def test_permission_check_passes(self, patched_store):
@@ -1498,9 +1437,7 @@ class TestRoutingEdgeCases:
     def test_handle_unrecognized_sub_returns_none(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/unknown", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/unknown", {}, http)
         assert result is None
 
     def test_handle_too_short_path_returns_none(self, patched_store):
@@ -1518,25 +1455,19 @@ class TestRoutingEdgeCases:
     def test_handle_delete_nodes_no_node_id_returns_none(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/nodes", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/nodes", {}, http)
         assert result is None
 
     def test_handle_delete_edges_no_edge_id_returns_none(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/edges", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/edges", {}, http)
         assert result is None
 
     def test_handle_provenance_missing_node_id_returns_none(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-abc123/provenance", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-abc123/provenance", {}, http)
         assert result is None
 
     def test_handle_post_short_path_returns_none(self, patched_store):
@@ -1548,17 +1479,13 @@ class TestRoutingEdgeCases:
     def test_handle_post_invalid_graph_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/../../bad/nodes", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/../../bad/nodes", {}, http)
         assert _status(result) == 400
 
     def test_handle_delete_unrecognized_sub_returns_none(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-abc123/unknown/extra", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-abc123/unknown/extra", {}, http)
         assert result is None
 
 

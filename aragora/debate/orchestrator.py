@@ -1071,17 +1071,11 @@ class Arena(ArenaDelegatesMixin):
             try:
                 from aragora.moderation import check_debate_content, ContentModerationError
 
-                result = await check_debate_content(
-                    self.env.task, context=self.env.context
-                )
+                result = await check_debate_content(self.env.task, context=self.env.context)
                 if result.should_block:
-                    raise ContentModerationError(
-                        f"Debate content blocked: {result.verdict.value}"
-                    )
+                    raise ContentModerationError(f"Debate content blocked: {result.verdict.value}")
             except ImportError:
-                logger.warning(
-                    "Content moderation enabled but aragora.moderation not available"
-                )
+                logger.warning("Content moderation enabled but aragora.moderation not available")
             except ContentModerationError:
                 raise
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError):

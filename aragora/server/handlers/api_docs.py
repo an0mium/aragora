@@ -101,14 +101,14 @@ class ApiDocsHandler(BaseHandler):
 
             if method_filter:
                 method_upper = method_filter.upper()
-                routes = [
-                    r for r in routes if method_upper in r.get("methods", [])
-                ]
+                routes = [r for r in routes if method_upper in r.get("methods", [])]
 
-            return json_response({
-                "total": len(routes),
-                "routes": routes,
-            })
+            return json_response(
+                {
+                    "total": len(routes),
+                    "routes": routes,
+                }
+            )
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.warning("Route introspection failed: %s", e)
             return error_response("Route introspection failed", 500)
@@ -141,12 +141,14 @@ class ApiDocsHandler(BaseHandler):
             # Sort tags by count descending
             sorted_tags = sorted(tag_counts.items(), key=lambda x: -x[1])
 
-            return json_response({
-                "total_endpoints": total,
-                "total_paths": len(paths),
-                "by_method": method_counts,
-                "by_tag": [{"tag": t, "count": c} for t, c in sorted_tags],
-            })
+            return json_response(
+                {
+                    "total_endpoints": total,
+                    "total_paths": len(paths),
+                    "by_method": method_counts,
+                    "by_tag": [{"tag": t, "count": c} for t, c in sorted_tags],
+                }
+            )
         except (ImportError, RuntimeError) as e:
             logger.warning("API stats generation failed: %s", e)
             return error_response("Stats generation failed", 500)
@@ -182,13 +184,15 @@ class ApiDocsHandler(BaseHandler):
                 doc = handler_cls.__doc__ or ""
                 description = doc.strip().split("\n")[0] if doc.strip() else ""
 
-                routes.append({
-                    "path": route_path,
-                    "methods": methods,
-                    "handler": handler_name,
-                    "tag": tag,
-                    "description": description,
-                })
+                routes.append(
+                    {
+                        "path": route_path,
+                        "methods": methods,
+                        "handler": handler_name,
+                        "tag": tag,
+                        "description": description,
+                    }
+                )
 
         # Sort by path
         routes.sort(key=lambda r: r["path"])
@@ -197,8 +201,13 @@ class ApiDocsHandler(BaseHandler):
     def _infer_methods(self, handler_cls: type) -> list[str]:
         """Infer supported HTTP methods from handler class."""
         methods = []
-        for method_name in ("handle_get", "handle_post", "handle_put",
-                            "handle_delete", "handle_patch"):
+        for method_name in (
+            "handle_get",
+            "handle_post",
+            "handle_put",
+            "handle_delete",
+            "handle_patch",
+        ):
             if hasattr(handler_cls, method_name):
                 methods.append(method_name.replace("handle_", "").upper())
 
@@ -214,7 +223,7 @@ class ApiDocsHandler(BaseHandler):
         normalized = path
         for prefix in ("/api/v1/", "/api/v2/", "/api/"):
             if normalized.startswith(prefix):
-                normalized = normalized[len(prefix):]
+                normalized = normalized[len(prefix) :]
                 break
 
         for prefix, tag in rules:

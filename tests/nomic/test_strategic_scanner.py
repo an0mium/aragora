@@ -282,9 +282,7 @@ class TestFindStaleTodos:
         scanner = StrategicScanner(repo_path=tmp_path)
         # Mock git returning old timestamps
         old_ts = time.time() - (90 * 86400)  # 90 days ago
-        with patch.object(
-            scanner, "_git_file_mod_times", return_value={"aragora/old.py": old_ts}
-        ):
+        with patch.object(scanner, "_git_file_mod_times", return_value={"aragora/old.py": old_ts}):
             findings = scanner._find_stale_todos()
 
         assert len(findings) == 1
@@ -312,9 +310,7 @@ class TestFindStaleTodos:
 
         scanner = StrategicScanner(repo_path=tmp_path)
         old_ts = time.time() - (90 * 86400)
-        with patch.object(
-            scanner, "_git_file_mod_times", return_value={"aragora/fix.py": old_ts}
-        ):
+        with patch.object(scanner, "_git_file_mod_times", return_value={"aragora/fix.py": old_ts}):
             findings = scanner._find_stale_todos()
 
         assert findings[0].severity == SEVERITY_HIGH
@@ -326,9 +322,7 @@ class TestFindStaleTodos:
 
         scanner = StrategicScanner(repo_path=tmp_path)
         old_ts = time.time() - (90 * 86400)
-        with patch.object(
-            scanner, "_git_file_mod_times", return_value={"aragora/hack.py": old_ts}
-        ):
+        with patch.object(scanner, "_git_file_mod_times", return_value={"aragora/hack.py": old_ts}):
             findings = scanner._find_stale_todos()
 
         assert findings[0].severity == SEVERITY_MEDIUM
@@ -441,9 +435,7 @@ class TestRankFindings:
         )
 
         scanner = StrategicScanner()
-        ranked = scanner._rank_findings(
-            [other_finding, test_finding], "untested debate"
-        )
+        ranked = scanner._rank_findings([other_finding, test_finding], "untested debate")
 
         # test_finding mentions "untested" and "debate" -> should rank higher
         assert ranked[0].file_path == test_finding.file_path

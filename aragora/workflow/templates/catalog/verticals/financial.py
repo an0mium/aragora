@@ -115,9 +115,7 @@ FINANCIAL_REGULATORY_DECISION_TEMPLATE: dict[str, Any] = {
             "id": "sod_gate",
             "type": "decision",
             "name": "Segregation of Duties Gate",
-            "description": (
-                "Block workflow if segregation of duties requirements are not met."
-            ),
+            "description": ("Block workflow if segregation of duties requirements are not met."),
             "config": {
                 "condition": "sod_check_passed",
                 "true_target": "regulatory_compliance_screening",
@@ -129,8 +127,7 @@ FINANCIAL_REGULATORY_DECISION_TEMPLATE: dict[str, Any] = {
             "type": "human_checkpoint",
             "name": "SoD Remediation",
             "description": (
-                "Route to compliance for manual SoD remediation when "
-                "automated checks fail."
+                "Route to compliance for manual SoD remediation when automated checks fail."
             ),
             "config": {
                 "approval_type": "remediation",
@@ -187,8 +184,7 @@ FINANCIAL_REGULATORY_DECISION_TEMPLATE: dict[str, Any] = {
             "type": "human_checkpoint",
             "name": "Regulatory Remediation",
             "description": (
-                "Compliance officer remediates regulatory concerns before "
-                "the decision can proceed."
+                "Compliance officer remediates regulatory concerns before the decision can proceed."
             ),
             "config": {
                 "approval_type": "remediation",

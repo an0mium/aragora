@@ -254,7 +254,9 @@ class TestSSOHandlerCallback:
         with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
             with patch("aragora.server.handlers.sso.auth_config") as mock_auth:
                 mock_auth.generate_token.return_value = "session-token-xyz"
-                with patch("aragora.storage.user_store.singleton.get_user_store", return_value=None):
+                with patch(
+                    "aragora.storage.user_store.singleton.get_user_store", return_value=None
+                ):
                     result = await handler.handle_callback(mock_handler, params)
 
         assert result["status"] == 200
@@ -286,7 +288,9 @@ class TestSSOHandlerCallback:
         with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
             with patch("aragora.server.handlers.sso.auth_config") as mock_auth:
                 mock_auth.generate_token.return_value = "token-123"
-                with patch("aragora.storage.user_store.singleton.get_user_store", return_value=None):
+                with patch(
+                    "aragora.storage.user_store.singleton.get_user_store", return_value=None
+                ):
                     result = await handler.handle_callback(mock_handler, params)
 
         assert result["status"] == 302

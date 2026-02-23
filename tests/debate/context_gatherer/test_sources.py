@@ -17,6 +17,7 @@ from aragora.debate.context_gatherer.sources import SourceGatheringMixin
 # Concrete test class
 # ---------------------------------------------------------------------------
 
+
 class ConcreteGatherer(SourceGatheringMixin):
     """Minimal concrete subclass that satisfies the mixin's type contract."""
 
@@ -59,6 +60,7 @@ class ConcreteGatherer(SourceGatheringMixin):
 
     def _get_task_hash(self, task: str) -> str:
         import hashlib
+
         return hashlib.md5(task.encode()).hexdigest()  # noqa: S324
 
     def _enforce_cache_limit(self, cache: dict, max_size: int) -> None:
@@ -78,6 +80,7 @@ class ConcreteGatherer(SourceGatheringMixin):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_gatherer(**overrides) -> ConcreteGatherer:
     g = ConcreteGatherer()
@@ -107,6 +110,7 @@ def _make_km_item(content, source_name="fact", confidence=0.8):
 # 1. Timeout Wrappers
 # ===========================================================================
 
+
 class TestTimeoutWrappers:
     """Each wrapper delegates to a real method and returns None on TimeoutError."""
 
@@ -115,7 +119,8 @@ class TestTimeoutWrappers:
     async def test_claude_web_search_returns_none_on_timeout(self):
         g = make_gatherer()
         with patch.object(
-            g, "_gather_claude_web_search",
+            g,
+            "_gather_claude_web_search",
             new=AsyncMock(side_effect=asyncio.TimeoutError),
         ):
             # Wrap the real inner call so the wrapper is exercised
@@ -236,6 +241,7 @@ class TestTimeoutWrappers:
 # 2. _gather_claude_web_search
 # ===========================================================================
 
+
 class TestGatherClaudeWebSearch:
     """Tests for the Claude web search source method."""
 
@@ -325,8 +331,8 @@ class TestGatherClaudeWebSearch:
 # 3. gather_threat_intel_context
 # ===========================================================================
 
-class TestGatherThreatIntelContext:
 
+class TestGatherThreatIntelContext:
     async def test_disabled_feature_returns_none(self):
         g = make_gatherer(_enable_threat_intel=False, _threat_intel_enrichment=MagicMock())
         result = await g.gather_threat_intel_context("CVE-2024-1234")
@@ -402,8 +408,8 @@ class TestGatherThreatIntelContext:
 # 4. gather_evidence_context
 # ===========================================================================
 
-class TestGatherEvidenceContext:
 
+class TestGatherEvidenceContext:
     async def test_returns_none_when_no_connectors_available(self):
         """If no connectors can be imported, returns None."""
         g = make_gatherer()
@@ -626,8 +632,8 @@ class TestGatherEvidenceContext:
 # 5. gather_document_store_context
 # ===========================================================================
 
-class TestGatherDocumentStoreContext:
 
+class TestGatherDocumentStoreContext:
     async def test_disabled_returns_none(self):
         g = make_gatherer(_enable_document_context=False, _document_store=MagicMock())
         result = await g.gather_document_store_context("topic")
@@ -735,8 +741,8 @@ class TestGatherDocumentStoreContext:
 # 6. gather_evidence_store_context
 # ===========================================================================
 
-class TestGatherEvidenceStoreContext:
 
+class TestGatherEvidenceStoreContext:
     async def test_disabled_returns_none(self):
         g = make_gatherer(_enable_evidence_store_context=False, _evidence_store=MagicMock())
         result = await g.gather_evidence_store_context("topic")
@@ -808,8 +814,7 @@ class TestGatherEvidenceStoreContext:
     async def test_respects_max_evidence_context_items(self):
         ev_store = MagicMock()
         ev_store.search_evidence.return_value = [
-            {"snippet": f"snippet {i}", "source": "s", "reliability_score": 0.5}
-            for i in range(20)
+            {"snippet": f"snippet {i}", "source": "s", "reliability_score": 0.5} for i in range(20)
         ]
         g = make_gatherer(
             _enable_evidence_store_context=True,
@@ -828,8 +833,8 @@ class TestGatherEvidenceStoreContext:
 # 7. gather_trending_context
 # ===========================================================================
 
-class TestGatherTrendingContext:
 
+class TestGatherTrendingContext:
     async def test_disabled_returns_none(self):
         g = make_gatherer(_enable_trending_context=False)
         result = await g.gather_trending_context()
@@ -942,8 +947,8 @@ class TestGatherTrendingContext:
 # 8. gather_knowledge_mound_context
 # ===========================================================================
 
-class TestGatherKnowledgeMoundContext:
 
+class TestGatherKnowledgeMoundContext:
     async def test_disabled_grounding_returns_none(self):
         g = make_gatherer(_enable_knowledge_grounding=False, _knowledge_mound=MagicMock())
         result = await g.gather_knowledge_mound_context("task")
@@ -1108,8 +1113,8 @@ class TestGatherKnowledgeMoundContext:
 # 9. gather_belief_crux_context
 # ===========================================================================
 
-class TestGatherBeliefCruxContext:
 
+class TestGatherBeliefCruxContext:
     async def test_disabled_returns_none(self):
         g = make_gatherer(_enable_belief_guidance=False, _belief_analyzer=MagicMock())
         result = await g.gather_belief_crux_context("task")
@@ -1239,8 +1244,8 @@ class TestGatherBeliefCruxContext:
 # 10. gather_culture_patterns_context
 # ===========================================================================
 
-class TestGatherCulturePatternsContext:
 
+class TestGatherCulturePatternsContext:
     async def test_no_knowledge_mound_returns_none(self):
         g = make_gatherer(_knowledge_mound=None)
         result = await g.gather_culture_patterns_context("task")
@@ -1254,9 +1259,7 @@ class TestGatherCulturePatternsContext:
         result = await g.gather_culture_patterns_context("task")
 
         assert result == "## Culture\nBe concise."
-        km.get_culture_context.assert_awaited_once_with(
-            org_id="ws-1", task="task", max_documents=5
-        )
+        km.get_culture_context.assert_awaited_once_with(org_id="ws-1", task="task", max_documents=5)
 
     async def test_uses_get_culture_context_returns_none_on_empty(self):
         km = MagicMock()
@@ -1393,13 +1396,11 @@ class TestGatherCulturePatternsContext:
 # 11. refresh_evidence_for_round
 # ===========================================================================
 
-class TestRefreshEvidenceForRound:
 
+class TestRefreshEvidenceForRound:
     async def test_no_collector_returns_zero_and_none(self):
         g = make_gatherer()
-        count, pack = await g.refresh_evidence_for_round(
-            "combined text", None, "task"
-        )
+        count, pack = await g.refresh_evidence_for_round("combined text", None, "task")
         assert count == 0
         assert pack is None
 
@@ -1519,7 +1520,9 @@ class TestRefreshEvidenceForRound:
         collector.collect_for_claims = AsyncMock(return_value=ev_pack)
 
         g = make_gatherer()
-        await g.refresh_evidence_for_round("text", collector, "task", evidence_store_callback=callback)
+        await g.refresh_evidence_for_round(
+            "text", collector, "task", evidence_store_callback=callback
+        )
 
         callback.assert_called_once_with(ev_pack.snippets, "task")
 

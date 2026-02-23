@@ -260,6 +260,7 @@ class TestRedirectUrlValidation:
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
         # Reset SecretManager to clear any cached secrets from prior tests
         from aragora.config.secrets import reset_secret_manager
+
         reset_secret_manager()
         yield
         reset_secret_manager()

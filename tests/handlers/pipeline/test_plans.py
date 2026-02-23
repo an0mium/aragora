@@ -118,6 +118,7 @@ def _make_plan_dict(
 
 class MockPlanStatus(Enum):
     """Mock plan status enum."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -278,7 +279,7 @@ class TestListPlans:
 
     def test_list_with_limit(self):
         store = {
-            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{10+i:02d}T00:00:00Z")
+            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{10 + i:02d}T00:00:00Z")
             for i in range(5)
         }
         h = _make_handler(ctx={"plan_store": store})
@@ -291,7 +292,7 @@ class TestListPlans:
 
     def test_list_with_offset(self):
         store = {
-            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{10+i:02d}T00:00:00Z")
+            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{10 + i:02d}T00:00:00Z")
             for i in range(5)
         }
         h = _make_handler(ctx={"plan_store": store})
@@ -304,7 +305,7 @@ class TestListPlans:
 
     def test_list_with_limit_and_offset(self):
         store = {
-            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{10+i:02d}T00:00:00Z")
+            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{10 + i:02d}T00:00:00Z")
             for i in range(10)
         }
         h = _make_handler(ctx={"plan_store": store})
@@ -405,7 +406,7 @@ class TestListPlans:
 
     def test_list_default_limit_is_20(self):
         store = {
-            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-01-{i+1:02d}T00:00:00Z")
+            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-01-{i + 1:02d}T00:00:00Z")
             for i in range(25)
         }
         h = _make_handler(ctx={"plan_store": store})
@@ -579,9 +580,7 @@ class TestGetMemo:
 
     def test_memo_simple_from_dict_plan(self):
         store = {
-            "p1": _make_plan_dict(
-                "p1", task="Analyze data", status="pending", debate_id="d-1"
-            )
+            "p1": _make_plan_dict("p1", task="Analyze data", status="pending", debate_id="d-1")
         }
         h = _make_handler(ctx={"plan_store": store})
         http = _make_http_handler()
@@ -625,13 +624,16 @@ class TestGetMemo:
 
         mock_artifact = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.pipeline.plans.PRGenerator",
-            create=True,
-        ) as mock_pr_cls, patch(
-            "aragora.server.handlers.pipeline.plans.DebateArtifact",
-            create=True,
-        ) as mock_art_cls:
+        with (
+            patch(
+                "aragora.server.handlers.pipeline.plans.PRGenerator",
+                create=True,
+            ) as mock_pr_cls,
+            patch(
+                "aragora.server.handlers.pipeline.plans.DebateArtifact",
+                create=True,
+            ) as mock_art_cls,
+        ):
             # These get imported inside the method dynamically
             # We need to patch them where they're looked up
             pass
@@ -785,9 +787,7 @@ class TestApprovePlan:
     def test_approve_with_conditions(self):
         store = {"p1": _make_plan_dict("p1")}
         h = _make_handler(ctx={"plan_store": store})
-        http = _make_http_handler(
-            body={"conditions": ["pass CI", "code review", "security scan"]}
-        )
+        http = _make_http_handler(body={"conditions": ["pass CI", "code review", "security scan"]})
         result = h.handle_put("/api/v1/plans/p1/approve", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -818,9 +818,7 @@ class TestApprovePlan:
         plan = MockPlan(plan_id="obj-1")
         store = {"obj-1": plan}
         h = _make_handler(ctx={"plan_store": store})
-        http = _make_http_handler(
-            body={"reason": "Conditional", "conditions": ["A", "B"]}
-        )
+        http = _make_http_handler(body={"reason": "Conditional", "conditions": ["A", "B"]})
         result = h.handle_put("/api/v1/plans/obj-1/approve", {}, http)
         assert _status(result) == 200
         assert plan._approval_record["conditions"] == ["A", "B"]
@@ -972,8 +970,11 @@ class TestPlanSummary:
     def test_summary_from_dict(self):
         h = _make_handler()
         plan = _make_plan_dict(
-            "ps-1", task="Summary task", status="approved",
-            debate_id="d-s", created_at="2026-01-01T00:00:00Z",
+            "ps-1",
+            task="Summary task",
+            status="approved",
+            debate_id="d-s",
+            created_at="2026-01-01T00:00:00Z",
             requires_human_approval=True,
         )
         summary = h._plan_summary(plan)
@@ -1156,7 +1157,7 @@ class TestEdgeCases:
 
     def test_list_with_non_default_params(self):
         store = {
-            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{i+1:02d}T00:00:00Z")
+            f"p{i}": _make_plan_dict(f"p{i}", created_at=f"2026-02-{i + 1:02d}T00:00:00Z")
             for i in range(3)
         }
         h = _make_handler(ctx={"plan_store": store})

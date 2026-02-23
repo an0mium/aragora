@@ -662,7 +662,7 @@ class TestBenchmarks:
         Expected baseline: < 5ms per call.
         """
         from aragora.cli.review import extract_review_findings
-        from aragora.core import DebateResult, Vote, Critique, Message
+        from aragora.core import DebateResult, Critique, Message
 
         # Build a realistic DebateResult with critiques and votes
         critiques = [

@@ -213,9 +213,7 @@ class TestCCPADisclosure:
     @pytest.mark.asyncio
     async def test_missing_user_id_returns_400(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/disclosure", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/disclosure", {}, mock_h)
         assert _status(result) == 400
         assert "user_id" in _body(result).get("error", "")
 
@@ -438,9 +436,7 @@ class TestCCPADisclosure:
     @pytest.mark.asyncio
     async def test_logs_ccpa_request(self, handler, _patch_stores):
         mock_h = _MockHTTPHandler("GET")
-        await handler.handle(
-            "/api/v2/compliance/ccpa/disclosure", {"user_id": "user-42"}, mock_h
-        )
+        await handler.handle("/api/v2/compliance/ccpa/disclosure", {"user_id": "user-42"}, mock_h)
         _patch_stores["audit_store"].log_event.assert_called()
         call_kwargs = _patch_stores["audit_store"].log_event.call_args[1]
         assert call_kwargs["action"] == "ccpa_disclosure_request"
@@ -461,9 +457,7 @@ class TestCCPADelete:
             "POST",
             body={"verification_method": "email", "verification_code": "abc123"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
         assert "user_id" in _body(result).get("error", "")
 
@@ -473,9 +467,7 @@ class TestCCPADelete:
             "POST",
             body={"user_id": "user-42", "verification_code": "abc123"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
         assert "verification_method" in _body(result).get("error", "")
 
@@ -485,9 +477,7 @@ class TestCCPADelete:
             "POST",
             body={"user_id": "user-42", "verification_method": "email"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
         assert "verification" in _body(result).get("error", "").lower()
 
@@ -497,17 +487,13 @@ class TestCCPADelete:
             "POST",
             body={"user_id": "user-42"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_body_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -522,9 +508,7 @@ class TestCCPADelete:
                     "verification_code": "wrong-code",
                 },
             )
-            result = await handler.handle(
-                "/api/v2/compliance/ccpa/delete", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
             assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -541,9 +525,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert body["status"] == "scheduled"
@@ -563,9 +545,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert body["request_id"].startswith("ccpa-del-user-42-")
 
@@ -583,9 +563,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert "45 days" in body["message"]
 
@@ -603,9 +581,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert "response_deadline" in body
         datetime.fromisoformat(body["response_deadline"])
@@ -623,9 +599,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 409
         assert "legal hold" in _body(result).get("error", "").lower()
 
@@ -643,9 +617,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert body["retained_categories"] == []
 
@@ -664,9 +636,7 @@ class TestCCPADelete:
                 "retain_for_exceptions": ["security_incidents", "legal_obligations"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert body["retained_categories"] == ["security_incidents", "legal_obligations"]
 
@@ -699,9 +669,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -716,9 +684,7 @@ class TestCCPADelete:
                 "verification_code": "valid123",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 500
 
 
@@ -733,18 +699,14 @@ class TestCCPAOptOut:
     @pytest.mark.asyncio
     async def test_missing_user_id_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         assert _status(result) == 400
         assert "user_id" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_successful_opt_out_returns_confirmed(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert body["status"] == "confirmed"
@@ -752,58 +714,42 @@ class TestCCPAOptOut:
     @pytest.mark.asyncio
     async def test_response_contains_request_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["request_id"].startswith("ccpa-opt-user-42-")
 
     @pytest.mark.asyncio
     async def test_response_contains_user_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["user_id"] == "user-42"
 
     @pytest.mark.asyncio
     async def test_default_opt_out_type_both(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["opt_out_type"] == "both"
 
     @pytest.mark.asyncio
     async def test_opt_out_type_sale(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-42", "opt_out_type": "sale"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42", "opt_out_type": "sale"})
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["opt_out_type"] == "sale"
 
     @pytest.mark.asyncio
     async def test_opt_out_type_sharing(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-42", "opt_out_type": "sharing"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42", "opt_out_type": "sharing"})
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["opt_out_type"] == "sharing"
 
     @pytest.mark.asyncio
     async def test_default_sensitive_pi_limit_false(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["sensitive_pi_limit"] is False
 
@@ -813,9 +759,7 @@ class TestCCPAOptOut:
             "POST",
             body={"user_id": "user-42", "sensitive_pi_limit": True},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["sensitive_pi_limit"] is True
 
@@ -826,18 +770,14 @@ class TestCCPAOptOut:
             "POST",
             body={"user_id": "user-42", "sensitive_pi_limit": True},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert "sensitive personal information" in body["message"]
 
     @pytest.mark.asyncio
     async def test_message_without_sensitive_pi(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert "will not sell or share" in body["message"]
         assert "sensitive personal information" not in body["message"]
@@ -845,9 +785,7 @@ class TestCCPAOptOut:
     @pytest.mark.asyncio
     async def test_response_contains_effective_at(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert "effective_at" in body
         datetime.fromisoformat(body["effective_at"])
@@ -871,9 +809,7 @@ class TestCCPAOptOut:
         _patch_stores["audit_store"].log_event.side_effect = ValueError("Store error")
 
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         # _store_ccpa_preference and _log_ccpa_request catch errors internally
         assert _status(result) == 200
         body = _body(result)
@@ -894,39 +830,27 @@ class TestCCPACorrect:
             "POST",
             body={"corrections": [{"field": "name", "corrected_value": "Jane"}]},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 400
         assert "user_id" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_missing_corrections_returns_400(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-42"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42"})
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 400
         assert "corrections" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_empty_corrections_list_returns_400(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-42", "corrections": []}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-42", "corrections": []})
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_body_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -940,9 +864,7 @@ class TestCCPACorrect:
                 ],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -954,9 +876,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["request_id"].startswith("ccpa-corr-user-42-")
 
@@ -969,9 +889,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["status"] == "pending_review"
 
@@ -987,9 +905,7 @@ class TestCCPACorrect:
                 ],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["corrections_requested"] == 2
 
@@ -1005,9 +921,7 @@ class TestCCPACorrect:
                 ],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["corrections"][0]["current_value"] == "[REDACTED]"
 
@@ -1020,9 +934,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["corrections"][0]["status"] == "pending"
 
@@ -1035,9 +947,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "email", "corrected_value": "new@example.com"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["corrections"][0]["field"] == "email"
 
@@ -1050,9 +960,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert "response_deadline" in body
 
@@ -1066,9 +974,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         requested = datetime.fromisoformat(body["requested_at"])
         deadline = datetime.fromisoformat(body["response_deadline"])
@@ -1084,9 +990,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert "45 days" in body["message"]
         assert "CCPA/CPRA" in body["message"]
@@ -1118,9 +1022,7 @@ class TestCCPACorrect:
                 ],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert len(body["corrections"]) == 3
         assert body["corrections_requested"] == 3
@@ -1137,9 +1039,7 @@ class TestCCPAStatus:
     @pytest.mark.asyncio
     async def test_missing_user_id_returns_400(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/status", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/status", {}, mock_h)
         assert _status(result) == 400
         assert "user_id" in _body(result).get("error", "")
 
@@ -1306,49 +1206,37 @@ class TestCCPARouteDispatch:
     @pytest.mark.asyncio
     async def test_disclosure_wrong_method_returns_404(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/disclosure", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/disclosure", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_delete_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_opt_out_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_correct_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_status_post_returns_404(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/status", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/status", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_unknown_ccpa_subpath_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/nonexistent", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/nonexistent", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1373,17 +1261,13 @@ class TestCCPARouteDispatch:
                 "verification_code": "code",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_opt_out_post_dispatches(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "u1"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1395,17 +1279,13 @@ class TestCCPARouteDispatch:
                 "corrections": [{"field": "name", "corrected_value": "Jane"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_status_get_dispatches(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/status", {"user_id": "u1"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/status", {"user_id": "u1"}, mock_h)
         assert _status(result) == 200
 
 

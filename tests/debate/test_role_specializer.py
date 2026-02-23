@@ -48,9 +48,7 @@ class TestDataclasses:
         assert req.max_agents == 1
 
     def test_role_assignment_defaults(self):
-        a = RoleAssignment(
-            agent_id="gpt", role=RoleType.PROPOSER, confidence=0.9, reasoning="test"
-        )
+        a = RoleAssignment(agent_id="gpt", role=RoleType.PROPOSER, confidence=0.9, reasoning="test")
         assert a.is_fallback is False
 
     def test_team_composition_defaults(self):
@@ -287,10 +285,12 @@ class TestScoringInternals:
             RoleAssignment(agent_id="a", role=RoleType.CRITIC, confidence=0.9, reasoning=""),
         ]
         score = specializer._calculate_diversity(assignments)
-        unique_score = specializer._calculate_diversity([
-            RoleAssignment(agent_id="a", role=RoleType.PROPOSER, confidence=0.9, reasoning=""),
-            RoleAssignment(agent_id="b", role=RoleType.CRITIC, confidence=0.9, reasoning=""),
-        ])
+        unique_score = specializer._calculate_diversity(
+            [
+                RoleAssignment(agent_id="a", role=RoleType.PROPOSER, confidence=0.9, reasoning=""),
+                RoleAssignment(agent_id="b", role=RoleType.CRITIC, confidence=0.9, reasoning=""),
+            ]
+        )
         assert score < unique_score
 
     def test_coverage_empty_requirements(self, specializer):
@@ -299,9 +299,7 @@ class TestScoringInternals:
     def test_coverage_full(self, specializer):
         reqs = [RoleRequirement(role_type=RoleType.PROPOSER, importance=0.9)]
         assignments = [
-            RoleAssignment(
-                agent_id="a", role=RoleType.PROPOSER, confidence=0.9, reasoning=""
-            ),
+            RoleAssignment(agent_id="a", role=RoleType.PROPOSER, confidence=0.9, reasoning=""),
         ]
         assert specializer._calculate_coverage(assignments, reqs) == 1.0
 
@@ -311,9 +309,7 @@ class TestScoringInternals:
             RoleRequirement(role_type=RoleType.CRITIC, importance=0.8),
         ]
         assignments = [
-            RoleAssignment(
-                agent_id="a", role=RoleType.PROPOSER, confidence=0.9, reasoning=""
-            ),
+            RoleAssignment(agent_id="a", role=RoleType.PROPOSER, confidence=0.9, reasoning=""),
         ]
         assert specializer._calculate_coverage(assignments, reqs) == 0.5
 

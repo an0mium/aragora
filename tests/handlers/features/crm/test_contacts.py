@@ -261,25 +261,19 @@ class TestListAllContacts:
 
     @pytest.mark.asyncio
     async def test_valid_email_filter(self, handler):
-        result = await handler._list_all_contacts(
-            _req(query={"email": "user@example.com"})
-        )
+        result = await handler._list_all_contacts(_req(query={"email": "user@example.com"}))
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_invalid_email_filter(self, handler):
-        result = await handler._list_all_contacts(
-            _req(query={"email": "not-an-email"})
-        )
+        result = await handler._list_all_contacts(_req(query={"email": "not-an-email"}))
         assert _status(result) == 400
         assert "email" in _body(result)["error"].lower() or "Invalid" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_email_too_long(self, handler):
         long_email = "a" * (MAX_EMAIL_LENGTH + 1) + "@example.com"
-        result = await handler._list_all_contacts(
-            _req(query={"email": long_email})
-        )
+        result = await handler._list_all_contacts(_req(query={"email": long_email}))
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -597,13 +591,15 @@ class TestCreateContact:
     async def test_all_optional_fields(self, handler):
         _connect_hubspot()
         result = await handler._create_contact(
-            _req(body={
-                "email": "full@example.com",
-                "first_name": "Full",
-                "last_name": "Contact",
-                "job_title": "CEO",
-                "phone": "+1-555-0199",
-            }),
+            _req(
+                body={
+                    "email": "full@example.com",
+                    "first_name": "Full",
+                    "last_name": "Contact",
+                    "job_title": "CEO",
+                    "phone": "+1-555-0199",
+                }
+            ),
             "hubspot",
         )
         assert _status(result) == 200
@@ -840,13 +836,15 @@ class TestUpdateContact:
     async def test_update_all_fields(self, handler):
         _connect_hubspot()
         result = await handler._update_contact(
-            _req(body={
-                "email": "updated@example.com",
-                "first_name": "Updated",
-                "last_name": "Name",
-                "job_title": "CTO",
-                "phone": "+1-555-0000",
-            }),
+            _req(
+                body={
+                    "email": "updated@example.com",
+                    "first_name": "Updated",
+                    "last_name": "Name",
+                    "job_title": "CTO",
+                    "phone": "+1-555-0000",
+                }
+            ),
             "hubspot",
             "c123",
         )
@@ -959,18 +957,14 @@ class TestHandleRequestRouting:
     @pytest.mark.asyncio
     async def test_list_platform_contacts_route(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts"))
         assert _status(result) == 200
         assert "contacts" in _body(result)
 
     @pytest.mark.asyncio
     async def test_get_contact_route(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts/c123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts/c123"))
         assert _status(result) == 404
         assert "not found" in _body(result)["error"].lower()
 
@@ -1078,7 +1072,7 @@ class TestEdgeCases:
         ]
         for coro in ops:
             result = await coro
-            assert _status(result) == 503, f"Expected 503 for stub operation"
+            assert _status(result) == 503, "Expected 503 for stub operation"
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_blocks_all_operations(self, handler):
@@ -1135,9 +1129,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_response_shape_update_contact(self, handler):
         _connect_hubspot()
-        result = await handler._update_contact(
-            _req(body={}), "hubspot", "c1"
-        )
+        result = await handler._update_contact(_req(body={}), "hubspot", "c1")
         body = _body(result)
         assert "success" in body
         assert body["success"] is True

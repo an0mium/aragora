@@ -230,7 +230,10 @@ class RequestLifecycleManager:
                         future.cancel()
                         self.handler._response_status = 504
                         logger.warning(
-                            "[request] Request timeout after %ss: %s %s", timeout_seconds, method, path
+                            "[request] Request timeout after %ss: %s %s",
+                            timeout_seconds,
+                            method,
+                            path,
                         )
                         self._send_timeout_response(timeout_seconds, path)
                 else:

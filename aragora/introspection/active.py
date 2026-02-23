@@ -193,9 +193,7 @@ class AgentPerformanceSummary:
             "critique_effectiveness": self.critique_effectiveness,
             "total_votes_received": self.total_votes_received,
             "average_influence": self.average_influence,
-            "agreement_patterns": {
-                k: list(v) for k, v in self.agreement_patterns.items()
-            },
+            "agreement_patterns": {k: list(v) for k, v in self.agreement_patterns.items()},
             "goals": self.goals.to_dict() if self.goals else None,
             "round_history": [r.to_dict() for r in self.round_history],
         }
@@ -228,9 +226,7 @@ class ActiveIntrospectionTracker:
         self._goals[agent_name] = goals
         # Ensure summary exists
         if agent_name not in self._summaries:
-            self._summaries[agent_name] = AgentPerformanceSummary(
-                agent_name=agent_name
-            )
+            self._summaries[agent_name] = AgentPerformanceSummary(agent_name=agent_name)
         self._summaries[agent_name].goals = goals
 
     def update_round(
@@ -265,9 +261,7 @@ class ActiveIntrospectionTracker:
             raise TypeError("metrics must be provided")
 
         if agent_name not in self._summaries:
-            self._summaries[agent_name] = AgentPerformanceSummary(
-                agent_name=agent_name
-            )
+            self._summaries[agent_name] = AgentPerformanceSummary(agent_name=agent_name)
             if agent_name in self._goals:
                 self._summaries[agent_name].goals = self._goals[agent_name]
 
@@ -468,8 +462,7 @@ class MetaReasoningEngine:
         rate = summary.proposal_acceptance_rate
         if rate >= 0.8:
             lines.append(
-                "Your proposals have a strong acceptance rate — "
-                "maintain your current approach."
+                "Your proposals have a strong acceptance rate — maintain your current approach."
             )
         elif rate >= 0.5:
             lines.append(
@@ -502,13 +495,11 @@ class MetaReasoningEngine:
         effectiveness = summary.critique_effectiveness
         if effectiveness >= 0.7:
             lines.append(
-                "Your critiques frequently lead to changes — "
-                "your analytical perspective is valued."
+                "Your critiques frequently lead to changes — your analytical perspective is valued."
             )
         elif effectiveness >= 0.4:
             lines.append(
-                "Some of your critiques drive changes — "
-                "focus on actionable, specific feedback."
+                "Some of your critiques drive changes — focus on actionable, specific feedback."
             )
         else:
             lines.append(
@@ -596,9 +587,6 @@ class MetaReasoningEngine:
         # Remind about focus expertise
         if goals.focus_expertise:
             expertise_str = ", ".join(goals.focus_expertise[:3])
-            lines.append(
-                f"Your expertise in {expertise_str} is most relevant "
-                f"to this discussion."
-            )
+            lines.append(f"Your expertise in {expertise_str} is most relevant to this discussion.")
 
         return lines

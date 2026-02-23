@@ -304,7 +304,10 @@ class TestCreateDebate:
         assert _status(result) == 400
         assert "spam" in _body(result).get("error", "").lower()
 
-    @patch("aragora.server.handlers.debates.create.importlib.import_module", side_effect=ImportError("no module"))
+    @patch(
+        "aragora.server.handlers.debates.create.importlib.import_module",
+        side_effect=ImportError("no module"),
+    )
     def test_create_debate_orchestrator_not_available(self, mock_import):
         """Missing debate orchestrator returns 500."""
         body = {"question": "Test question"}
@@ -371,9 +374,7 @@ class TestCreateDebate:
         body = {"question": "Should we refactor?", "rounds": 3}
         h = _make_handler(json_body=body)
         handler = _mock_http_handler()
-        handler._check_tier_rate_limit = MagicMock(
-            side_effect=ValueError("tier check broken")
-        )
+        handler._check_tier_rate_limit = MagicMock(side_effect=ValueError("tier check broken"))
 
         with patch.object(h, "_create_debate_direct") as mock_direct:
             mock_direct.return_value = MagicMock(
@@ -433,9 +434,7 @@ class TestCreateDebateDirect:
         mock_controller.start_debate.return_value = mock_response
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = h._create_debate_direct(handler, body)
 
@@ -452,9 +451,7 @@ class TestCreateDebateDirect:
         h = _make_handler(json_body=body)
         handler = _mock_http_handler()
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.side_effect = ValueError("question required")
             result = h._create_debate_direct(handler, body)
 
@@ -473,9 +470,7 @@ class TestCreateDebateDirect:
         mock_controller.start_debate.side_effect = RuntimeError("orchestrator crash")
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = h._create_debate_direct(handler, body)
 
@@ -493,9 +488,7 @@ class TestCreateDebateDirect:
         mock_controller.start_debate.side_effect = TypeError("bad arg")
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = h._create_debate_direct(handler, body)
 
@@ -513,9 +506,7 @@ class TestCreateDebateDirect:
         mock_controller.start_debate.side_effect = AttributeError("missing attr")
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = h._create_debate_direct(handler, body)
 
@@ -538,15 +529,11 @@ class TestCreateDebateDirect:
         mock_controller.start_debate.return_value = mock_response
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             h._create_debate_direct(handler, body)
 
-        mock_emit.assert_called_once_with(
-            "debate", "created", {"debate_id": "debate-789"}
-        )
+        mock_emit.assert_called_once_with("debate", "created", {"debate_id": "debate-789"})
 
     @patch("aragora.server.handlers.debates.create.emit_handler_event")
     def test_direct_response_status_code_passthrough(self, mock_emit):
@@ -565,9 +552,7 @@ class TestCreateDebateDirect:
         mock_controller.start_debate.return_value = mock_response
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = h._create_debate_direct(handler, body)
 
@@ -606,9 +591,7 @@ class TestCancelDebate:
         mock_update_status.assert_called_once_with(
             "debate-123", "cancelled", error="Cancelled by user"
         )
-        mock_manager.update_debate_status.assert_called_once_with(
-            "debate-123", status="cancelled"
-        )
+        mock_manager.update_debate_status.assert_called_once_with("debate-123", status="cancelled")
 
     @patch("aragora.server.state.get_state_manager")
     @patch("aragora.server.debate_utils.update_debate_status")
@@ -1256,9 +1239,7 @@ class TestHandlePostRouting:
         dh = DebatesHandler(ctx={"storage": storage})
 
         handler = _mock_http_handler()
-        mock_response = _MockDebateResponse(
-            success=True, debate_id="routed-1", status="starting"
-        )
+        mock_response = _MockDebateResponse(success=True, debate_id="routed-1", status="starting")
         mock_controller = MagicMock()
         mock_controller.start_debate.return_value = mock_response
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
@@ -1267,9 +1248,7 @@ class TestHandlePostRouting:
         dh.read_json_body = lambda h, max_size=None: {"question": "Test routing"}
         dh._check_spam_content = lambda body: None
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = dh.handle_post("/api/v1/debates", {}, handler)
 
@@ -1333,16 +1312,12 @@ class TestHandlePostRouting:
         dh.read_json_body = lambda h, max_size=None: {"question": "Legacy endpoint"}
         dh._check_spam_content = lambda body: None
 
-        mock_response = _MockDebateResponse(
-            success=True, debate_id="legacy-1", status="starting"
-        )
+        mock_response = _MockDebateResponse(success=True, debate_id="legacy-1", status="starting")
         mock_controller = MagicMock()
         mock_controller.start_debate.return_value = mock_response
         handler._get_debate_controller = MagicMock(return_value=mock_controller)
 
-        with patch(
-            "aragora.server.debate_controller.DebateRequest"
-        ) as MockReq:
+        with patch("aragora.server.debate_controller.DebateRequest") as MockReq:
             MockReq.from_dict.return_value = MagicMock()
             result = dh.handle_post("/api/v1/debate", {}, handler)
 

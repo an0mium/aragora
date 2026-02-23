@@ -105,9 +105,16 @@ class TestBatchJob:
         job = _make_job()
         d = job.to_dict()
         expected_keys = {
-            "batch_id", "debate_ids", "status", "created_at",
-            "started_at", "completed_at", "results", "processed_count",
-            "options", "error",
+            "batch_id",
+            "debate_ids",
+            "status",
+            "created_at",
+            "started_at",
+            "completed_at",
+            "results",
+            "processed_count",
+            "options",
+            "error",
         }
         assert set(d.keys()) == expected_keys
 
@@ -581,9 +588,7 @@ class TestSQLiteBatchJobStore:
             "SELECT name FROM sqlite_master WHERE type='table' AND name='explainability_batch_jobs'"
         )
         assert cursor.fetchone() is not None
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='index'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
         indexes = [row[0] for row in cursor.fetchall()]
         assert "idx_explainability_batch_jobs_status" in indexes
         assert "idx_explainability_batch_jobs_expires" in indexes
@@ -615,18 +620,17 @@ class TestPostgresBatchJobStore:
     """Tests for PostgreSQL-backed store initialization."""
 
     def test_raises_when_psycopg2_unavailable(self):
-        with patch(
-            "aragora.server.handlers.explainability_store.POSTGRESQL_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.explainability_store.POSTGRESQL_AVAILABLE", False):
             with pytest.raises(ImportError, match="psycopg2"):
                 PostgresBatchJobStore("postgresql://localhost/test")
 
     def test_creates_with_postgresql_backend(self):
-        with patch(
-            "aragora.server.handlers.explainability_store.POSTGRESQL_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.explainability_store.PostgreSQLBackend"
-        ) as mock_backend_cls:
+        with (
+            patch("aragora.server.handlers.explainability_store.POSTGRESQL_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.explainability_store.PostgreSQLBackend"
+            ) as mock_backend_cls,
+        ):
             mock_backend = MagicMock()
             mock_backend_cls.return_value = mock_backend
             store = PostgresBatchJobStore("postgresql://localhost/test", ttl_seconds=1800)
@@ -648,17 +652,17 @@ class TestRowToJob:
 
     def test_tuple_row(self, store):
         row = (
-            "b1",          # batch_id
-            "completed",   # status
-            1000.0,        # created_at
-            1001.0,        # started_at
-            1010.0,        # completed_at
-            5,             # processed_count
-            '["d1","d2"]', # debate_ids_json
+            "b1",  # batch_id
+            "completed",  # status
+            1000.0,  # created_at
+            1001.0,  # started_at
+            1010.0,  # completed_at
+            5,  # processed_count
+            '["d1","d2"]',  # debate_ids_json
             '[{"ok":true}]',  # results_json
             '{"detail":true}',  # options_json
-            None,          # error
-            2000.0,        # expires_at
+            None,  # error
+            2000.0,  # expires_at
         )
         job = store._row_to_job(row)
         assert job.batch_id == "b1"
@@ -671,7 +675,12 @@ class TestRowToJob:
     def test_tuple_row_null_json_fields(self, store):
         """Handles None/null JSON fields gracefully."""
         row = (
-            "b2", "pending", 1000.0, None, None, 0,
+            "b2",
+            "pending",
+            1000.0,
+            None,
+            None,
+            0,
             None,  # debate_ids_json = None -> []
             None,  # results_json = None -> []
             None,  # options_json = None -> {}
@@ -686,16 +695,34 @@ class TestRowToJob:
 
     def test_tuple_row_zero_processed_count(self, store):
         row = (
-            "b3", "pending", 1000.0, None, None, 0,
-            "[]", "[]", "{}", None, 2000.0,
+            "b3",
+            "pending",
+            1000.0,
+            None,
+            None,
+            0,
+            "[]",
+            "[]",
+            "{}",
+            None,
+            2000.0,
         )
         job = store._row_to_job(row)
         assert job.processed_count == 0
 
     def test_tuple_row_none_processed_count(self, store):
         row = (
-            "b4", "pending", 1000.0, None, None, None,
-            "[]", "[]", "{}", None, 2000.0,
+            "b4",
+            "pending",
+            1000.0,
+            None,
+            None,
+            None,
+            "[]",
+            "[]",
+            "{}",
+            None,
+            2000.0,
         )
         job = store._row_to_job(row)
         assert job.processed_count == 0
@@ -742,6 +769,7 @@ class TestGetBatchJobStore:
         # Fallback: patch the inner function references used within closures
         try:
             import aragora.storage.production_guards as pg
+
             monkeypatch.setattr(pg, "require_distributed_store", lambda *a, **kw: None)
         except (ImportError, AttributeError):
             pass
@@ -761,20 +789,25 @@ class TestGetBatchJobStore:
     def test_explicit_redis_backend_available(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_EXPLAINABILITY_STORE_BACKEND", "redis")
         mock_redis = MagicMock()
-        with patch(
-            "aragora.server.handlers.explainability_store.get_redis_client",
-            return_value=mock_redis,
-            create=True,
-        ), patch(
-            "aragora.server.handlers.explainability_store.is_redis_available",
-            return_value=True,
-            create=True,
-        ), patch(
-            "aragora.server.redis_config.get_redis_client",
-            return_value=mock_redis,
-        ), patch(
-            "aragora.server.redis_config.is_redis_available",
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.explainability_store.get_redis_client",
+                return_value=mock_redis,
+                create=True,
+            ),
+            patch(
+                "aragora.server.handlers.explainability_store.is_redis_available",
+                return_value=True,
+                create=True,
+            ),
+            patch(
+                "aragora.server.redis_config.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "aragora.server.redis_config.is_redis_available",
+                return_value=True,
+            ),
         ):
             store = get_batch_job_store()
             assert isinstance(store, RedisBatchJobStore)
@@ -783,12 +816,15 @@ class TestGetBatchJobStore:
         """When Redis is explicitly requested but unavailable, falls back to SQLite."""
         monkeypatch.setenv("ARAGORA_EXPLAINABILITY_STORE_BACKEND", "redis")
         monkeypatch.setenv("ARAGORA_EXPLAINABILITY_DB", str(tmp_path / "fallback.db"))
-        with patch(
-            "aragora.server.redis_config.is_redis_available",
-            return_value=False,
-        ), patch(
-            "aragora.server.redis_config.get_redis_client",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.redis_config.is_redis_available",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.redis_config.get_redis_client",
+                return_value=None,
+            ),
         ):
             store = get_batch_job_store()
             assert isinstance(store, (SQLiteBatchJobStore, DatabaseBatchJobStore))
@@ -847,15 +883,20 @@ class TestGetBatchJobStore:
         """With no explicit backend, tries Redis then falls back to SQLite."""
         monkeypatch.delenv("ARAGORA_EXPLAINABILITY_STORE_BACKEND", raising=False)
         monkeypatch.setenv("ARAGORA_EXPLAINABILITY_DB", str(tmp_path / "auto.db"))
-        with patch(
-            "aragora.server.redis_config.is_redis_available",
-            return_value=False,
-        ), patch(
-            "aragora.server.redis_config.get_redis_client",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.redis_config.is_redis_available",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.redis_config.get_redis_client",
+                return_value=None,
+            ),
         ):
             store = get_batch_job_store()
-            assert isinstance(store, (SQLiteBatchJobStore, DatabaseBatchJobStore, MemoryBatchJobStore))
+            assert isinstance(
+                store, (SQLiteBatchJobStore, DatabaseBatchJobStore, MemoryBatchJobStore)
+            )
 
     def test_default_auto_redis_import_error(self, monkeypatch, tmp_path):
         """Redis import fails gracefully in default mode."""
@@ -881,6 +922,7 @@ class TestResetBatchJobStore:
         monkeypatch.setenv("ARAGORA_EXPLAINABILITY_STORE_BACKEND", "memory")
         try:
             import aragora.storage.production_guards as pg
+
             monkeypatch.setattr(pg, "require_distributed_store", lambda *a, **kw: None)
         except (ImportError, AttributeError):
             pass
@@ -891,12 +933,14 @@ class TestResetBatchJobStore:
 
     def test_reset_clears_warned_flag(self):
         import aragora.server.handlers.explainability_store as mod
+
         mod._warned_memory = True
         reset_batch_job_store()
         assert mod._warned_memory is False
 
     def test_reset_sets_store_to_none(self):
         import aragora.server.handlers.explainability_store as mod
+
         mod._batch_store = MemoryBatchJobStore()
         reset_batch_job_store()
         assert mod._batch_store is None
@@ -949,6 +993,7 @@ class TestModuleExports:
 
     def test_all_exports(self):
         import aragora.server.handlers.explainability_store as mod
+
         expected = {
             "BatchJob",
             "BatchJobStore",
@@ -964,6 +1009,7 @@ class TestModuleExports:
 
     def test_all_exports_are_importable(self):
         import aragora.server.handlers.explainability_store as mod
+
         for name in mod.__all__:
             assert hasattr(mod, name), f"Missing export: {name}"
 

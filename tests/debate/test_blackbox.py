@@ -437,9 +437,7 @@ class TestGlobalFunctions:
             "aragora.debate.blackbox.BlackboxRecorder",
             wraps=BlackboxRecorder,
         ) as mock_cls:
-            mock_cls.side_effect = lambda sid, **kw: BlackboxRecorder(
-                sid, base_path=tmp_path
-            )
+            mock_cls.side_effect = lambda sid, **kw: BlackboxRecorder(sid, base_path=tmp_path)
             rec = get_blackbox("new-sess")
             assert rec is not None
             assert "new-sess" in _active_recorders

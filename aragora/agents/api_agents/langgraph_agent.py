@@ -295,7 +295,8 @@ class LangGraphAgent(ExternalFrameworkAgent):
             Generated response text.
         """
         logger.info(
-            "[%s] LangGraph request", self.name,
+            "[%s] LangGraph request",
+            self.name,
             extra={
                 "prompt_length": len(prompt),
                 "graph_id": self.langgraph_config.graph_id,
@@ -431,7 +432,8 @@ class LangGraphAgent(ExternalFrameworkAgent):
             Full response dictionary including output and metadata.
         """
         logger.info(
-            "[%s] LangGraph invoke", self.name,
+            "[%s] LangGraph invoke",
+            self.name,
             extra={
                 "graph_id": self.langgraph_config.graph_id,
                 "thread_id": thread_id,
@@ -491,7 +493,8 @@ class LangGraphAgent(ExternalFrameworkAgent):
             Streaming events from graph execution.
         """
         logger.info(
-            "[%s] LangGraph stream", self.name,
+            "[%s] LangGraph stream",
+            self.name,
             extra={
                 "graph_id": self.langgraph_config.graph_id,
                 "stream_mode": self.langgraph_config.stream_mode,
@@ -542,7 +545,9 @@ class LangGraphAgent(ExternalFrameworkAgent):
                                 # Filter by allowed nodes
                                 node = event.get("node")
                                 if node and not self._validate_node_allowed(node):
-                                    logger.debug("[%s] Skipping disallowed node: %s", self.name, node)
+                                    logger.debug(
+                                        "[%s] Skipping disallowed node: %s", self.name, node
+                                    )
                                     continue
 
                                 yield event
@@ -583,7 +588,8 @@ class LangGraphAgent(ExternalFrameworkAgent):
         url = f"{self.base_url}/threads/{tid}/state"
 
         logger.info(
-            "[%s] LangGraph get_state", self.name,
+            "[%s] LangGraph get_state",
+            self.name,
             extra={"thread_id": tid},
         )
 
@@ -653,7 +659,8 @@ class LangGraphAgent(ExternalFrameworkAgent):
             payload["as_node"] = as_node
 
         logger.info(
-            "[%s] LangGraph update_state", self.name,
+            "[%s] LangGraph update_state",
+            self.name,
             extra={"thread_id": tid, "as_node": as_node},
         )
 

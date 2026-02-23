@@ -834,9 +834,7 @@ class TestFirstDebate:
             user_id="test-user-001",
         )
         with _analytics_lock:
-            assert any(
-                e["event_type"] == "first_debate_started" for e in _analytics_events
-            )
+            assert any(e["event_type"] == "first_debate_started" for e in _analytics_events)
 
     @pytest.mark.asyncio
     async def test_first_debate_unknown_template_uses_default(self, handler):
@@ -979,9 +977,7 @@ class TestQuickStart:
             user_id="test-user-001",
         )
         with _analytics_lock:
-            assert any(
-                e["event_type"] == "quick_start_applied" for e in _analytics_events
-            )
+            assert any(e["event_type"] == "quick_start_applied" for e in _analytics_events)
 
     @pytest.mark.asyncio
     async def test_all_profiles_accepted(self, handler):

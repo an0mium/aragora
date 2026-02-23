@@ -22,14 +22,17 @@ class TestSelfDevelopRepoFlag:
         """Parser accepts --repo argument."""
         sys_argv = [
             "self_develop.py",
-            "--goal", "Improve test coverage",
-            "--repo", "/tmp/customer-repo",
+            "--goal",
+            "Improve test coverage",
+            "--repo",
+            "/tmp/customer-repo",
             "--dry-run",
         ]
         with patch("sys.argv", sys_argv):
             # Import and test parser
             import importlib
             import scripts.self_develop as sd
+
             importlib.reload(sd)
 
             parser = sd.main.__code__  # Just verify module loads
@@ -60,6 +63,7 @@ class TestSelfDevelopRepoFlag:
             return_value=mock_orchestrator,
         ) as mock_cls:
             import asyncio
+
             result = asyncio.run(
                 run_orchestration(
                     goal="Fix bugs",
@@ -89,8 +93,11 @@ class TestSelfDevelopRepoFlag:
 
         mock_bridge = MagicMock()
         mock_bridge.build_decision_plan.return_value = MagicMock(
-            id="test", status=MagicMock(value="planned"),
-            risk_register=None, verification_plan=None, implement_plan=None,
+            id="test",
+            status=MagicMock(value="planned"),
+            risk_register=None,
+            verification_plan=None,
+            implement_plan=None,
         )
         mock_bridge.execute_via_pipeline = AsyncMock(
             return_value=MagicMock(success=True, tasks_completed=0, tasks_total=0)
@@ -103,11 +110,14 @@ class TestSelfDevelopRepoFlag:
                 "aragora.nomic.pipeline_bridge.NomicPipelineBridge",
                 mock_bridge_cls,
             ),
-            patch.dict("sys.modules", {
-                "aragora.nomic.pipeline_bridge": MagicMock(
-                    NomicPipelineBridge=mock_bridge_cls,
-                ),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.pipeline_bridge": MagicMock(
+                        NomicPipelineBridge=mock_bridge_cls,
+                    ),
+                },
+            ),
             patch(
                 "scripts.self_develop.run_heuristic_decomposition",
                 return_value=MagicMock(
@@ -116,17 +126,20 @@ class TestSelfDevelopRepoFlag:
                     complexity_score=5,
                     should_decompose=True,
                     rationale="test",
-                    subtasks=[MagicMock(
-                        estimated_complexity="medium",
-                        title="sub1",
-                        description="desc",
-                        file_scope=[],
-                        dependencies=[],
-                    )],
+                    subtasks=[
+                        MagicMock(
+                            estimated_complexity="medium",
+                            title="sub1",
+                            description="desc",
+                            file_scope=[],
+                            dependencies=[],
+                        )
+                    ],
                 ),
             ),
         ):
             import asyncio
+
             asyncio.run(
                 run_pipeline_execution(
                     goal="Fix bugs",
@@ -145,10 +158,14 @@ class TestSelfDevelopRepoFlag:
         mock_orchestrator = MagicMock()
         mock_orchestrator.execute_goal = AsyncMock(
             return_value=MagicMock(
-                success=True, summary="done",
-                completed_subtasks=0, total_subtasks=0,
-                failed_subtasks=0, skipped_subtasks=0,
-                duration_seconds=0.1, error=None,
+                success=True,
+                summary="done",
+                completed_subtasks=0,
+                total_subtasks=0,
+                failed_subtasks=0,
+                skipped_subtasks=0,
+                duration_seconds=0.1,
+                error=None,
             )
         )
 
@@ -157,6 +174,7 @@ class TestSelfDevelopRepoFlag:
             return_value=mock_orchestrator,
         ) as mock_cls:
             import asyncio
+
             asyncio.run(
                 run_orchestration(
                     goal="Test",
@@ -238,17 +256,23 @@ class TestNomicStagedRepoFlag:
             with (
                 patch.object(staged, "load_phase", return_value=design_data),
                 patch.object(staged, "save_phase") as mock_save,
-                patch.dict("sys.modules", {
-                    "aragora.implement.executor": mock_impl_module,
-                    "aragora.implement.types": mock_types_module,
-                }),
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.implement.executor": mock_impl_module,
+                        "aragora.implement.types": mock_types_module,
+                    },
+                ),
             ):
                 import asyncio
+
                 asyncio.run(staged.phase_implement())
 
             # Verify HybridExecutor was created with the external repo path
             assert mock_executor_cls.called
-            call_kwargs = mock_executor_cls.call_args.kwargs if mock_executor_cls.call_args.kwargs else {}
+            call_kwargs = (
+                mock_executor_cls.call_args.kwargs if mock_executor_cls.call_args.kwargs else {}
+            )
             assert call_kwargs.get("repo_path") == str(target)
 
         finally:

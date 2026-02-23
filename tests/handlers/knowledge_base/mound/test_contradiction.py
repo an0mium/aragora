@@ -253,9 +253,7 @@ class TestDetectContradictions:
 
     def test_detect_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.detect_contradictions(workspace_id="ws-1")
-        )
+        result = _run(handler_no_mound.detect_contradictions(workspace_id="ws-1"))
         assert _status(result) == 503
         body = _body(result)
         assert "not available" in body["error"].lower()
@@ -312,9 +310,7 @@ class TestDetectContradictions:
 
     def test_detect_empty_report(self, handler, mock_mound):
         """Detection with no contradictions found returns empty report."""
-        mock_mound.detect_contradictions = AsyncMock(
-            return_value=_make_report(contradictions=[])
-        )
+        mock_mound.detect_contradictions = AsyncMock(return_value=_make_report(contradictions=[]))
         result = _run(handler.detect_contradictions(workspace_id="ws-1"))
         assert _status(result) == 200
         body = _body(result)
@@ -365,9 +361,7 @@ class TestListContradictions:
 
     def test_list_with_workspace_filter(self, handler, mock_mound):
         """workspace_id filter is forwarded to mound and included in response."""
-        result = _run(
-            handler.list_contradictions(workspace_id="ws-prod")
-        )
+        result = _run(handler.list_contradictions(workspace_id="ws-prod"))
         assert _status(result) == 200
         body = _body(result)
         assert body["workspace_id"] == "ws-prod"
@@ -378,9 +372,7 @@ class TestListContradictions:
 
     def test_list_with_severity_filter(self, handler, mock_mound):
         """min_severity filter is forwarded to mound and included in response."""
-        result = _run(
-            handler.list_contradictions(min_severity="high")
-        )
+        result = _run(handler.list_contradictions(min_severity="high"))
         assert _status(result) == 200
         body = _body(result)
         assert body["min_severity"] == "high"
@@ -425,33 +417,25 @@ class TestListContradictions:
 
     def test_list_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.get_unresolved_contradictions = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_unresolved_contradictions = AsyncMock(side_effect=KeyError("missing"))
         result = _run(handler.list_contradictions())
         assert _status(result) == 500
 
     def test_list_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.get_unresolved_contradictions = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_unresolved_contradictions = AsyncMock(side_effect=ValueError("bad"))
         result = _run(handler.list_contradictions())
         assert _status(result) == 500
 
     def test_list_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.get_unresolved_contradictions = AsyncMock(
-            side_effect=OSError("db fail")
-        )
+        mock_mound.get_unresolved_contradictions = AsyncMock(side_effect=OSError("db fail"))
         result = _run(handler.list_contradictions())
         assert _status(result) == 500
 
     def test_list_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.get_unresolved_contradictions = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.get_unresolved_contradictions = AsyncMock(side_effect=TypeError("wrong type"))
         result = _run(handler.list_contradictions())
         assert _status(result) == 500
 
@@ -606,9 +590,7 @@ class TestResolveContradiction:
         """Every valid ResolutionStrategy value is accepted."""
         for strategy in ResolutionStrategy:
             mock_mound.resolve_contradiction = AsyncMock(
-                return_value=_make_contradiction(
-                    id="ctr-001", resolved=True, resolution=strategy
-                )
+                return_value=_make_contradiction(id="ctr-001", resolved=True, resolution=strategy)
             )
             result = _run(
                 handler.resolve_contradiction(
@@ -664,7 +646,9 @@ class TestResolveContradiction:
         )
         assert _status(result) == 400
         body = _body(result)
-        assert "invalid strategy" in body["error"].lower() or "must be one of" in body["error"].lower()
+        assert (
+            "invalid strategy" in body["error"].lower() or "must be one of" in body["error"].lower()
+        )
 
     def test_resolve_invalid_strategy_lists_valid_options(self, handler):
         """Invalid strategy error message contains the valid strategy values."""
@@ -979,13 +963,8 @@ class TestContradictionEdgeCases:
 
     def test_detect_many_contradictions(self, handler, mock_mound):
         """Report with many contradictions is handled correctly."""
-        many = [
-            _make_contradiction(id=f"ctr-{i:03d}")
-            for i in range(50)
-        ]
-        mock_mound.detect_contradictions = AsyncMock(
-            return_value=_make_report(contradictions=many)
-        )
+        many = [_make_contradiction(id=f"ctr-{i:03d}") for i in range(50)]
+        mock_mound.detect_contradictions = AsyncMock(return_value=_make_report(contradictions=many))
         result = _run(handler.detect_contradictions(workspace_id="ws-1"))
         body = _body(result)
         assert body["contradictions_found"] == 50
@@ -993,10 +972,7 @@ class TestContradictionEdgeCases:
 
     def test_list_many_contradictions(self, handler, mock_mound):
         """Listing many contradictions is handled correctly."""
-        many = [
-            _make_contradiction(id=f"ctr-{i:03d}")
-            for i in range(30)
-        ]
+        many = [_make_contradiction(id=f"ctr-{i:03d}") for i in range(30)]
         mock_mound.get_unresolved_contradictions = AsyncMock(return_value=many)
         result = _run(handler.list_contradictions())
         body = _body(result)
@@ -1091,10 +1067,12 @@ class TestContradictionRouting:
         """_handle_detect_contradictions parses body and calls detect."""
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
 
-        body_bytes = json.dumps({
-            "workspace_id": "ws-routing",
-            "item_ids": ["id-1"],
-        }).encode()
+        body_bytes = json.dumps(
+            {
+                "workspace_id": "ws-routing",
+                "item_ids": ["id-1"],
+            }
+        ).encode()
         mock_http = MagicMock()
         mock_http.command = "POST"
         mock_http.request.body = body_bytes
@@ -1126,18 +1104,18 @@ class TestContradictionRouting:
         """_handle_resolve_contradiction parses body and calls resolve."""
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
 
-        body_bytes = json.dumps({
-            "strategy": "prefer_newer",
-            "resolved_by": "admin",
-            "notes": "test note",
-        }).encode()
+        body_bytes = json.dumps(
+            {
+                "strategy": "prefer_newer",
+                "resolved_by": "admin",
+                "notes": "test note",
+            }
+        ).encode()
         mock_http = MagicMock()
         mock_http.command = "POST"
         mock_http.request.body = body_bytes
 
-        result = RoutingMixin._handle_resolve_contradiction(
-            handler, "ctr-001", mock_http
-        )
+        result = RoutingMixin._handle_resolve_contradiction(handler, "ctr-001", mock_http)
         assert result is not None
         mock_mound.resolve_contradiction.assert_called_once()
 
@@ -1145,16 +1123,16 @@ class TestContradictionRouting:
         """_handle_resolve_contradiction returns 400 when strategy is missing."""
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
 
-        body_bytes = json.dumps({
-            "resolved_by": "admin",
-        }).encode()
+        body_bytes = json.dumps(
+            {
+                "resolved_by": "admin",
+            }
+        ).encode()
         mock_http = MagicMock()
         mock_http.command = "POST"
         mock_http.request.body = body_bytes
 
-        result = RoutingMixin._handle_resolve_contradiction(
-            handler, "ctr-001", mock_http
-        )
+        result = RoutingMixin._handle_resolve_contradiction(handler, "ctr-001", mock_http)
         assert _status(result) == 400
         body = _body(result)
         assert "strategy" in body["error"].lower()

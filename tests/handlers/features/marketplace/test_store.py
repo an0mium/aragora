@@ -262,13 +262,16 @@ class TestParseTemplateFile:
         return fp
 
     def test_parses_minimal_template(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-min",
-            "name": "Minimal",
-            "description": "A minimal template",
-            "version": "1.0.0",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-min",
+                "name": "Minimal",
+                "description": "A minimal template",
+                "version": "1.0.0",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.id == "tpl-min"
@@ -298,108 +301,138 @@ class TestParseTemplateFile:
         assert result is None
 
     def test_parses_known_category(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-sw",
-            "category": "software",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-sw",
+                "category": "software",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.category == TemplateCategory.SOFTWARE
 
     def test_unknown_category_defaults_to_general(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-unk",
-            "category": "blockchain_stuff",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-unk",
+                "category": "blockchain_stuff",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.category == TemplateCategory.GENERAL
 
     def test_category_case_insensitive(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-uc",
-            "category": "LEGAL",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-uc",
+                "category": "LEGAL",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.category == TemplateCategory.LEGAL
 
     def test_detects_debate_steps(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-debate",
-            "steps": [
-                {"step_type": "transform"},
-                {"step_type": "debate"},
-                {"step_type": "output"},
-            ],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-debate",
+                "steps": [
+                    {"step_type": "transform"},
+                    {"step_type": "debate"},
+                    {"step_type": "output"},
+                ],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.has_debate is True
         assert result.steps_count == 3
 
     def test_detects_human_checkpoint_steps(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-human",
-            "steps": [
-                {"step_type": "human_checkpoint"},
-                {"step_type": "output"},
-            ],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-human",
+                "steps": [
+                    {"step_type": "human_checkpoint"},
+                    {"step_type": "output"},
+                ],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.has_human_checkpoint is True
 
     def test_estimated_duration_with_human_checkpoint(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-dur-hc",
-            "steps": [{"step_type": "human_checkpoint"}],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-dur-hc",
+                "steps": [{"step_type": "human_checkpoint"}],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.estimated_duration == "hours to days"
 
     def test_estimated_duration_with_debate_only(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-dur-debate",
-            "steps": [{"step_type": "debate"}],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-dur-debate",
+                "steps": [{"step_type": "debate"}],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.estimated_duration == "minutes to hours"
 
     def test_estimated_duration_many_steps(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-dur-many",
-            "steps": [{"step_type": "x"} for _ in range(6)],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-dur-many",
+                "steps": [{"step_type": "x"} for _ in range(6)],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.estimated_duration == "1-5 minutes"
 
     def test_estimated_duration_few_steps(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-dur-few",
-            "steps": [{"step_type": "x"}, {"step_type": "y"}],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-dur-few",
+                "steps": [{"step_type": "x"}, {"step_type": "y"}],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.estimated_duration == "< 1 minute"
 
     def test_estimated_duration_no_steps(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-dur-none",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-dur-none",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.estimated_duration == "< 1 minute"
@@ -423,33 +456,42 @@ class TestParseTemplateFile:
         assert result.file_path == str(fp)
 
     def test_tags_parsed(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-tags",
-            "tags": ["alpha", "beta", "gamma"],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-tags",
+                "tags": ["alpha", "beta", "gamma"],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.tags == ["alpha", "beta", "gamma"]
 
     def test_inputs_and_outputs_parsed(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-io",
-            "inputs": {"query": "string"},
-            "outputs": {"result": "json"},
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-io",
+                "inputs": {"query": "string"},
+                "outputs": {"result": "json"},
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.inputs == {"query": "string"}
         assert result.outputs == {"result": "json"}
 
     def test_icon_parsed(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-icon",
-            "icon": "rocket",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-icon",
+                "icon": "rocket",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.icon == "rocket"
@@ -472,14 +514,17 @@ class TestParseTemplateFile:
 
     def test_human_checkpoint_takes_priority_in_duration(self, tmp_path):
         """When both debate and human_checkpoint are present, 'hours to days' wins."""
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-both",
-            "steps": [
-                {"step_type": "debate"},
-                {"step_type": "human_checkpoint"},
-            ],
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-both",
+                "steps": [
+                    {"step_type": "debate"},
+                    {"step_type": "human_checkpoint"},
+                ],
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.has_debate is True
@@ -487,11 +532,14 @@ class TestParseTemplateFile:
         assert result.estimated_duration == "hours to days"
 
     def test_version_parsed(self, tmp_path):
-        fp = self._write_yaml(tmp_path, {
-            "is_template": True,
-            "id": "tpl-ver",
-            "version": "3.2.1",
-        })
+        fp = self._write_yaml(
+            tmp_path,
+            {
+                "is_template": True,
+                "id": "tpl-ver",
+                "version": "3.2.1",
+            },
+        )
         result = _parse_template_file(fp)
         assert result is not None
         assert result.version == "3.2.1"
@@ -515,12 +563,15 @@ class TestLoadTemplates:
         mock_dir = MagicMock(spec=Path)
         mock_dir.exists.return_value = False
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=mock_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=mock_dir,
+            ),
         ):
             result = _load_templates()
         assert result == {}
@@ -546,23 +597,34 @@ class TestLoadTemplates:
     def test_loads_yaml_files_from_directory(self, tmp_path, mock_cb):
         tpl_dir = tmp_path / "templates"
         tpl_dir.mkdir()
-        (tpl_dir / "t1.yaml").write_text(yaml.dump({
-            "is_template": True,
-            "id": "loaded-1",
-            "name": "Loaded One",
-        }))
-        (tpl_dir / "t2.yaml").write_text(yaml.dump({
-            "is_template": True,
-            "id": "loaded-2",
-            "name": "Loaded Two",
-        }))
+        (tpl_dir / "t1.yaml").write_text(
+            yaml.dump(
+                {
+                    "is_template": True,
+                    "id": "loaded-1",
+                    "name": "Loaded One",
+                }
+            )
+        )
+        (tpl_dir / "t2.yaml").write_text(
+            yaml.dump(
+                {
+                    "is_template": True,
+                    "id": "loaded-2",
+                    "name": "Loaded Two",
+                }
+            )
+        )
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=tpl_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=tpl_dir,
+            ),
         ):
             result = _load_templates()
 
@@ -574,17 +636,24 @@ class TestLoadTemplates:
     def test_skips_non_template_files(self, tmp_path, mock_cb):
         tpl_dir = tmp_path / "templates"
         tpl_dir.mkdir()
-        (tpl_dir / "config.yaml").write_text(yaml.dump({
-            "is_template": False,
-            "setting": "value",
-        }))
+        (tpl_dir / "config.yaml").write_text(
+            yaml.dump(
+                {
+                    "is_template": False,
+                    "setting": "value",
+                }
+            )
+        )
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=tpl_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=tpl_dir,
+            ),
         ):
             result = _load_templates()
 
@@ -594,18 +663,25 @@ class TestLoadTemplates:
         tpl_dir = tmp_path / "templates"
         tpl_dir.mkdir()
         (tpl_dir / "bad.yaml").write_text(":\n  [bad yaml {{{")
-        (tpl_dir / "good.yaml").write_text(yaml.dump({
-            "is_template": True,
-            "id": "good-1",
-            "name": "Good One",
-        }))
+        (tpl_dir / "good.yaml").write_text(
+            yaml.dump(
+                {
+                    "is_template": True,
+                    "id": "good-1",
+                    "name": "Good One",
+                }
+            )
+        )
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=tpl_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=tpl_dir,
+            ),
         ):
             result = _load_templates()
 
@@ -617,12 +693,15 @@ class TestLoadTemplates:
         mock_dir.exists.return_value = True
         mock_dir.rglob.side_effect = RuntimeError("disk error")
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=mock_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=mock_dir,
+            ),
         ):
             result = _load_templates()
 
@@ -633,18 +712,25 @@ class TestLoadTemplates:
         tpl_dir = tmp_path / "templates"
         sub = tpl_dir / "accounting"
         sub.mkdir(parents=True)
-        (sub / "invoice.yaml").write_text(yaml.dump({
-            "is_template": True,
-            "id": "accounting-invoice",
-            "category": "accounting",
-        }))
+        (sub / "invoice.yaml").write_text(
+            yaml.dump(
+                {
+                    "is_template": True,
+                    "id": "accounting-invoice",
+                    "category": "accounting",
+                }
+            )
+        )
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=tpl_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=tpl_dir,
+            ),
         ):
             result = _load_templates()
 
@@ -656,12 +742,15 @@ class TestLoadTemplates:
         mock_dir.exists.return_value = True
         mock_dir.rglob.side_effect = OSError("permission denied")
 
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=mock_dir,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=mock_dir,
+            ),
         ):
             result = _load_templates()
 
@@ -677,12 +766,15 @@ class TestGetFullTemplate:
     """Tests for _get_full_template()."""
 
     def test_returns_none_for_unknown_template(self, mock_cb):
-        with patch(
-            "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace._get_templates_dir",
-            return_value=MagicMock(exists=MagicMock(return_value=False)),
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace._get_marketplace_circuit_breaker",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace._get_templates_dir",
+                return_value=MagicMock(exists=MagicMock(return_value=False)),
+            ),
         ):
             result = _get_full_template("nonexistent-id")
         assert result is None
@@ -780,12 +872,18 @@ class TestGetTenantDeployments:
 
     def test_multiple_tenants_isolated(self):
         _get_tenant_deployments("t1")["d1"] = TemplateDeployment(
-            id="d1", template_id="tpl-1", tenant_id="t1",
-            name="T1 Dep", status=DeploymentStatus.ACTIVE,
+            id="d1",
+            template_id="tpl-1",
+            tenant_id="t1",
+            name="T1 Dep",
+            status=DeploymentStatus.ACTIVE,
         )
         _get_tenant_deployments("t2")["d2"] = TemplateDeployment(
-            id="d2", template_id="tpl-2", tenant_id="t2",
-            name="T2 Dep", status=DeploymentStatus.ACTIVE,
+            id="d2",
+            template_id="tpl-2",
+            tenant_id="t2",
+            name="T2 Dep",
+            status=DeploymentStatus.ACTIVE,
         )
         assert "d1" not in _get_tenant_deployments("t2")
         assert "d2" not in _get_tenant_deployments("t1")

@@ -338,7 +338,7 @@ def register_event_handler(event_type: GitHubEventType):
 @register_event_handler(GitHubEventType.PING)
 async def handle_ping(event: GitHubWebhookEvent) -> dict[str, Any]:
     """Handle GitHub ping event (webhook test)."""
-    logger.info("GitHub App ping received: zen='%s'", event.payload.get('zen'))
+    logger.info("GitHub App ping received: zen='%s'", event.payload.get("zen"))
     return {
         "status": "ok",
         "message": "pong",
@@ -361,7 +361,11 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
     repo = event.repository
 
     logger.info(
-        "PR event: %s#%s action=%s by %s", repo.get('full_name'), pr.get('number'), action, event.sender.get('login')
+        "PR event: %s#%s action=%s by %s",
+        repo.get("full_name"),
+        pr.get("number"),
+        action,
+        event.sender.get("login"),
     )
 
     result = {
@@ -380,9 +384,9 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
         result["debate_type"] = "code_review"
         if debate_id:
             result["debate_id"] = debate_id
-            logger.info("Queued code review debate %s for PR #%s", debate_id, pr.get('number'))
+            logger.info("Queued code review debate %s for PR #%s", debate_id, pr.get("number"))
         else:
-            logger.warning("Failed to queue code review debate for PR #%s", pr.get('number'))
+            logger.warning("Failed to queue code review debate for PR #%s", pr.get("number"))
 
     return result
 
@@ -400,7 +404,7 @@ async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
     action = event.action
     repo = event.repository
 
-    logger.info("Issue event: %s#%s action=%s", repo.get('full_name'), issue.get('number'), action)
+    logger.info("Issue event: %s#%s action=%s", repo.get("full_name"), issue.get("number"), action)
 
     result = {
         "event": "issues",
@@ -417,9 +421,9 @@ async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
         result["triage_queued"] = debate_id is not None
         if debate_id:
             result["debate_id"] = debate_id
-            logger.info("Queued triage debate %s for issue #%s", debate_id, issue.get('number'))
+            logger.info("Queued triage debate %s for issue #%s", debate_id, issue.get("number"))
         else:
-            logger.warning("Failed to queue triage debate for issue #%s", issue.get('number'))
+            logger.warning("Failed to queue triage debate for issue #%s", issue.get("number"))
 
     return result
 
@@ -435,7 +439,7 @@ async def handle_push(event: GitHubWebhookEvent) -> dict[str, Any]:
     ref = event.payload.get("ref", "")
     commits = event.payload.get("commits", [])
 
-    logger.info("Push event: %s ref=%s commits=%s", repo.get('full_name'), ref, len(commits))
+    logger.info("Push event: %s ref=%s commits=%s", repo.get("full_name"), ref, len(commits))
 
     return {
         "event": "push",
@@ -457,7 +461,9 @@ async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
     installation = event.payload.get("installation", {})
 
     logger.info(
-        "Installation event: action=%s account=%s", action, installation.get('account', {}).get('login')
+        "Installation event: action=%s account=%s",
+        action,
+        installation.get("account", {}).get("login"),
     )
 
     return {
@@ -521,7 +527,10 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
     event = GitHubWebhookEvent.from_request(event_type, delivery_id, payload)
 
     logger.info(
-        "GitHub webhook received: event=%s delivery=%s action=%s", event_type, delivery_id, event.action
+        "GitHub webhook received: event=%s delivery=%s action=%s",
+        event_type,
+        delivery_id,
+        event.action,
     )
 
     # Dispatch to event handler

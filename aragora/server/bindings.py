@@ -247,7 +247,11 @@ class BindingRouter:
         self._bindings[provider][account].sort(key=lambda b: b.priority, reverse=True)
 
         logger.debug(
-            "Added binding: %s for %s/%s -> %s", binding.name or binding.peer_pattern, provider, account, binding.agent_binding
+            "Added binding: %s for %s/%s -> %s",
+            binding.name or binding.peer_pattern,
+            provider,
+            account,
+            binding.agent_binding,
         )
 
     def remove_binding(

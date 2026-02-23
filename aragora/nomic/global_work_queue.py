@@ -474,7 +474,9 @@ class GlobalWorkQueue:
                 current.updated_at = datetime.now(timezone.utc)
                 await self._save_queue()
 
-                logger.debug("Popped work %s with priority %s", current.id, current.computed_priority)
+                logger.debug(
+                    "Popped work %s with priority %s", current.id, current.computed_priority
+                )
                 return current
 
             return None

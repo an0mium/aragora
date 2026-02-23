@@ -176,7 +176,9 @@ class CurriculumAwareFeedbackLoop:
         subtask_id = assignment.subtask.id
 
         logger.info(
-            "Creating curriculum for task '%s' after %s failures", task[:50], self._iteration_counts[subtask_id]
+            "Creating curriculum for task '%s' after %s failures",
+            task[:50],
+            self._iteration_counts[subtask_id],
         )
 
         # Estimate current capability based on failure history
@@ -205,7 +207,9 @@ class CurriculumAwareFeedbackLoop:
 
             first_stone = curriculum.stepping_stones[0]
             logger.info(
-                "Created curriculum with %s stepping stones. First stone: %s", len(curriculum.stepping_stones), first_stone.task[:50]
+                "Created curriculum with %s stepping stones. First stone: %s",
+                len(curriculum.stepping_stones),
+                first_stone.task[:50],
             )
 
             return {

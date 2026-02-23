@@ -73,8 +73,10 @@ def handler():
 @pytest.fixture
 def handler_with_ctx():
     """Factory for creating handler with custom context."""
+
     def _make(ctx: dict[str, Any] | None = None) -> IntegrationHealthHandler:
         return IntegrationHealthHandler(ctx=ctx)
+
     return _make
 
 
@@ -88,11 +90,17 @@ def mock_http():
 def clean_env(monkeypatch):
     """Ensure integration-related env vars are unset by default."""
     env_vars = [
-        "SLACK_WEBHOOK_URL", "SLACK_BOT_TOKEN",
-        "SMTP_HOST", "SMTP_SERVER", "SENDGRID_API_KEY",
-        "DISCORD_WEBHOOK_URL", "DISCORD_BOT_TOKEN",
-        "TEAMS_WEBHOOK_URL", "MS_TEAMS_WEBHOOK",
-        "ZAPIER_WEBHOOK_URL", "ZAPIER_API_KEY",
+        "SLACK_WEBHOOK_URL",
+        "SLACK_BOT_TOKEN",
+        "SMTP_HOST",
+        "SMTP_SERVER",
+        "SENDGRID_API_KEY",
+        "DISCORD_WEBHOOK_URL",
+        "DISCORD_BOT_TOKEN",
+        "TEAMS_WEBHOOK_URL",
+        "MS_TEAMS_WEBHOOK",
+        "ZAPIER_WEBHOOK_URL",
+        "ZAPIER_API_KEY",
     ]
     for var in env_vars:
         monkeypatch.delenv(var, raising=False)

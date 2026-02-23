@@ -235,10 +235,12 @@ class TestOutcomeIngest:
         mound.store_sync = MagicMock()
         adapter = OutcomeAdapter(mound=mound)
 
-        adapter.ingest(_make_outcome(
-            kpis_before={"quality": "high", "score": 80},
-            kpis_after={"quality": "medium", "score": 85},
-        ))
+        adapter.ingest(
+            _make_outcome(
+                kpis_before={"quality": "high", "score": 80},
+                kpis_after={"quality": "medium", "score": 85},
+            )
+        )
 
         item = mound.store_sync.call_args[0][0]
         deltas = item.metadata["kpi_deltas"]
@@ -448,6 +450,7 @@ class TestOutcomeEventHandling:
 
     def test_event_callback_error_does_not_break_ingest(self):
         """A failing event callback should not prevent ingestion."""
+
         def bad_callback(event_type, data):
             raise RuntimeError("callback crashed")
 
@@ -457,6 +460,7 @@ class TestOutcomeEventHandling:
 
     def test_event_callback_type_error_is_caught(self):
         """TypeError in callback should be handled gracefully."""
+
         def bad_callback(event_type, data):
             raise TypeError("wrong type")
 
@@ -517,10 +521,12 @@ class TestOutcomeEdgeCases:
         mound.store_sync = MagicMock()
         adapter = OutcomeAdapter(mound=mound)
 
-        adapter.ingest(_make_outcome(
-            kpis_before={"old_metric": 100},
-            kpis_after={},
-        ))
+        adapter.ingest(
+            _make_outcome(
+                kpis_before={"old_metric": 100},
+                kpis_after={},
+            )
+        )
 
         item = mound.store_sync.call_args[0][0]
         assert "old_metric" not in item.metadata["kpi_deltas"]
@@ -531,10 +537,12 @@ class TestOutcomeEdgeCases:
         mound.store_sync = MagicMock()
         adapter = OutcomeAdapter(mound=mound)
 
-        adapter.ingest(_make_outcome(
-            kpis_before={},
-            kpis_after={"new_metric": 50},
-        ))
+        adapter.ingest(
+            _make_outcome(
+                kpis_before={},
+                kpis_after={"new_metric": 50},
+            )
+        )
 
         item = mound.store_sync.call_args[0][0]
         assert "new_metric" not in item.metadata["kpi_deltas"]

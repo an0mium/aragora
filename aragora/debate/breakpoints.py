@@ -148,7 +148,15 @@ class HumanNotifier:
                 try:
                     await self._handlers[channel](breakpoint)
                     success = True
-                except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError, TimeoutError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    OSError,
+                    ConnectionError,
+                    TimeoutError,
+                ) as e:
                     logger.warning(
                         "Notification handler '%s' failed: %s: %s", channel, type(e).__name__, e
                     )

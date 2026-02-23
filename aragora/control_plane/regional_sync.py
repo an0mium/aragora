@@ -259,7 +259,11 @@ class RegionalEventBus:
             return False
         except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError inherits directly from Exception, not builtin ConnectionError
             error_name = type(e).__name__
-            if "ConnectionError" in error_name or "TimeoutError" in error_name or "RedisError" in error_name:
+            if (
+                "ConnectionError" in error_name
+                or "TimeoutError" in error_name
+                or "RedisError" in error_name
+            ):
                 logger.error("Failed to connect RegionalEventBus: %s", e)
                 return False
             raise
@@ -627,7 +631,9 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug("Syncing agent removal %s from region %s", event.entity_id, event.source_region)
+        logger.debug(
+            "Syncing agent removal %s from region %s", event.entity_id, event.source_region
+        )
 
     async def _handle_task_submitted(self, event: RegionalEvent) -> None:
         """Handle task submission from another region."""
@@ -643,7 +649,9 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug("Syncing task completion %s from region %s", event.entity_id, event.source_region)
+        logger.debug(
+            "Syncing task completion %s from region %s", event.entity_id, event.source_region
+        )
 
     def _is_newer(self, entity_id: str, timestamp: float) -> bool:
         """Check if an event timestamp is newer than our version."""

@@ -224,7 +224,7 @@ class TestRateLimiting:
             mock = _make_handler(client_ip="10.0.0.1")
             result = handler.handle(f"/audio/debate-{i}.mp3", {}, mock)
             assert result is not None
-            assert _status(result) != 429, f"Request {i+1} should not be rate limited"
+            assert _status(result) != 429, f"Request {i + 1} should not be rate limited"
 
     def test_exceeds_rate_limit(self, handler, audio_store):
         """11th request from same IP should be rate limited."""
@@ -449,11 +449,16 @@ class TestDebateAccessControl:
         mock_storage.get_debate.return_value = {"is_public": False}
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(
-                handler, "require_auth_or_error", return_value=(None, HandlerResult(
-                    status_code=401,
-                    content_type="application/json",
-                    body=b'{"error":"Unauthorized"}',
-                ))
+                handler,
+                "require_auth_or_error",
+                return_value=(
+                    None,
+                    HandlerResult(
+                        status_code=401,
+                        content_type="application/json",
+                        body=b'{"error":"Unauthorized"}',
+                    ),
+                ),
             ):
                 result = handler._check_debate_access("test-id", mock_http)
                 assert result is not None
@@ -478,9 +483,7 @@ class TestDebateAccessControl:
         mock_checker.check_permission.return_value = mock_decision
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     return_value=mock_checker,
@@ -507,9 +510,7 @@ class TestDebateAccessControl:
         mock_checker.check_permission.return_value = mock_decision
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     return_value=mock_checker,
@@ -539,9 +540,7 @@ class TestDebateAccessControl:
         mock_checker.check_permission.return_value = mock_decision
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     return_value=mock_checker,
@@ -565,9 +564,7 @@ class TestDebateAccessControl:
         mock_checker.check_permission.return_value = mock_decision
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     return_value=mock_checker,
@@ -589,9 +586,7 @@ class TestDebateAccessControl:
         mock_user.roles = {"member"}
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     side_effect=ImportError("rbac not available"),
@@ -619,9 +614,7 @@ class TestDebateAccessControl:
         mock_checker.check_permission.return_value = mock_decision
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     return_value=mock_checker,
@@ -673,9 +666,7 @@ class TestPodcastFeed:
                         "aragora.server.handlers.features.audio.PodcastEpisode"
                     ) as MockEpisode:
                         with patch.object(handler, "get_storage", return_value=MagicMock()):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             assert "rss+xml" in result.content_type
                             mock_generator.generate_feed.assert_called_once_with([])
@@ -713,12 +704,8 @@ class TestPodcastFeed:
                         "aragora.server.handlers.features.audio.PodcastEpisode"
                     ) as MockEpisode:
                         MockEpisode.side_effect = lambda **kwargs: MagicMock(**kwargs)
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             # Two episodes created
                             assert mock_generator.generate_feed.call_count == 1
@@ -754,12 +741,8 @@ class TestPodcastFeed:
                         "aragora.server.handlers.features.audio.PodcastEpisode"
                     ) as MockEpisode:
                         MockEpisode.side_effect = lambda **kwargs: MagicMock(**kwargs)
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             episodes_arg = mock_generator.generate_feed.call_args[0][0]
                             assert len(episodes_arg) == 1
@@ -785,15 +768,9 @@ class TestPodcastFeed:
                     "aragora.server.handlers.features.audio.PodcastFeedGenerator",
                     return_value=mock_generator,
                 ):
-                    with patch(
-                        "aragora.server.handlers.features.audio.PodcastEpisode"
-                    ):
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                    with patch("aragora.server.handlers.features.audio.PodcastEpisode"):
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             episodes_arg = mock_generator.generate_feed.call_args[0][0]
                             assert len(episodes_arg) == 0
@@ -820,15 +797,9 @@ class TestPodcastFeed:
                     "aragora.server.handlers.features.audio.PodcastFeedGenerator",
                     return_value=mock_generator,
                 ):
-                    with patch(
-                        "aragora.server.handlers.features.audio.PodcastEpisode"
-                    ):
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                    with patch("aragora.server.handlers.features.audio.PodcastEpisode"):
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             episodes_arg = mock_generator.generate_feed.call_args[0][0]
                             assert len(episodes_arg) == 0
@@ -836,8 +807,7 @@ class TestPodcastFeed:
     def test_feed_max_episodes_limit(self, handler, audio_store, mock_http):
         """Feed is capped at MAX_PODCAST_EPISODES."""
         entries = [
-            {"debate_id": f"d{i}", "duration_seconds": 60}
-            for i in range(MAX_PODCAST_EPISODES + 50)
+            {"debate_id": f"d{i}", "duration_seconds": 60} for i in range(MAX_PODCAST_EPISODES + 50)
         ]
         audio_store.list_all.return_value = entries
 
@@ -863,12 +833,8 @@ class TestPodcastFeed:
                         "aragora.server.handlers.features.audio.PodcastEpisode"
                     ) as MockEpisode:
                         MockEpisode.side_effect = lambda **kwargs: MagicMock(**kwargs)
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             episodes_arg = mock_generator.generate_feed.call_args[0][0]
                             assert len(episodes_arg) == MAX_PODCAST_EPISODES
@@ -909,12 +875,8 @@ class TestPodcastFeed:
                         "aragora.server.handlers.features.audio.PodcastEpisode",
                         side_effect=capture_episode,
                     ):
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             assert len(captured_episodes) == 1
                             assert captured_episodes[0]["audio_url"].startswith("https://")
@@ -953,12 +915,8 @@ class TestPodcastFeed:
                         "aragora.server.handlers.features.audio.PodcastEpisode",
                         side_effect=capture_episode,
                     ):
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             assert len(captured_episodes) == 1
                             assert captured_episodes[0]["audio_url"].startswith("http://")
@@ -978,13 +936,9 @@ class TestPodcastFeed:
                     "aragora.server.handlers.features.audio.PodcastFeedGenerator",
                     return_value=mock_generator,
                 ):
-                    with patch(
-                        "aragora.server.handlers.features.audio.PodcastEpisode"
-                    ):
+                    with patch("aragora.server.handlers.features.audio.PodcastEpisode"):
                         with patch.object(handler, "get_storage", return_value=MagicMock()):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             assert "max-age=300" in result.headers["Cache-Control"]
 
@@ -1011,13 +965,9 @@ class TestPodcastFeed:
         audio_store.list_all.return_value = []
 
         with patch("aragora.server.handlers.features.audio.PODCAST_AVAILABLE", True):
-            with patch(
-                "aragora.server.handlers.features.audio.PodcastConfig", None
-            ):
+            with patch("aragora.server.handlers.features.audio.PodcastConfig", None):
                 with patch.object(handler, "get_storage", return_value=MagicMock()):
-                    result = handler.handle(
-                        "/api/v1/podcast/feed.xml", {}, mock_http
-                    )
+                    result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                     assert _status(result) == 500
 
 
@@ -1096,26 +1046,20 @@ class TestPodcastEpisodes:
 
     def test_episodes_limit_param(self, handler, audio_store, mock_http):
         """Respects limit query parameter."""
-        audio_store.list_all.return_value = [
-            {"debate_id": f"d{i}"} for i in range(20)
-        ]
+        audio_store.list_all.return_value = [{"debate_id": f"d{i}"} for i in range(20)]
 
         mock_storage = MagicMock()
         mock_storage.get_debate.return_value = {"task": "Test"}
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler.handle(
-                "/api/v1/podcast/episodes", {"limit": "5"}, mock_http
-            )
+            result = handler.handle("/api/v1/podcast/episodes", {"limit": "5"}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["count"] == 5
 
     def test_episodes_default_limit(self, handler, audio_store, mock_http):
         """Default limit is 50."""
-        audio_store.list_all.return_value = [
-            {"debate_id": f"d{i}"} for i in range(100)
-        ]
+        audio_store.list_all.return_value = [{"debate_id": f"d{i}"} for i in range(100)]
 
         mock_storage = MagicMock()
         mock_storage.get_debate.return_value = {"task": "Test"}
@@ -1365,9 +1309,7 @@ class TestEdgeCases:
         """Non-integer limit falls back to default."""
         audio_store.list_all.return_value = []
         with patch.object(handler, "get_storage", return_value=MagicMock()):
-            result = handler.handle(
-                "/api/v1/podcast/episodes", {"limit": "invalid"}, mock_http
-            )
+            result = handler.handle("/api/v1/podcast/episodes", {"limit": "invalid"}, mock_http)
             assert _status(result) == 200
 
     def test_podcast_episodes_with_zero_limit(self, handler, audio_store, mock_http):
@@ -1376,9 +1318,7 @@ class TestEdgeCases:
         mock_storage = MagicMock()
         mock_storage.get_debate.return_value = {"task": "Test"}
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler.handle(
-                "/api/v1/podcast/episodes", {"limit": "0"}, mock_http
-            )
+            result = handler.handle("/api/v1/podcast/episodes", {"limit": "0"}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert body["count"] == 0
@@ -1389,9 +1329,7 @@ class TestEdgeCases:
         mock_storage = MagicMock()
         mock_storage.get_debate.return_value = {"task": "Test"}
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler.handle(
-                "/api/v1/podcast/episodes", {"limit": "-1"}, mock_http
-            )
+            result = handler.handle("/api/v1/podcast/episodes", {"limit": "-1"}, mock_http)
             assert _status(result) == 200
 
     def test_audio_serve_empty_content(self, handler, audio_store, mock_http):
@@ -1502,12 +1440,8 @@ class TestEdgeCases:
                         "aragora.server.handlers.features.audio.PodcastEpisode",
                         side_effect=capture_episode,
                     ):
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             # Episode numbers should be descending: 3, 2, 1
                             assert captured_episodes[0]["episode_number"] == 3
@@ -1518,8 +1452,12 @@ class TestEdgeCases:
         """Feed uses defaults for missing debate fields."""
         mock_http = _make_handler()
         audio_store.list_all.return_value = [
-            {"debate_id": "d1", "duration_seconds": 60, "file_size_bytes": 1000,
-             "generated_at": "2024-06-01"},
+            {
+                "debate_id": "d1",
+                "duration_seconds": 60,
+                "file_size_bytes": 1000,
+                "generated_at": "2024-06-01",
+            },
         ]
 
         mock_storage = MagicMock()
@@ -1551,12 +1489,8 @@ class TestEdgeCases:
                         "aragora.server.handlers.features.audio.PodcastEpisode",
                         side_effect=capture_episode,
                     ):
-                        with patch.object(
-                            handler, "get_storage", return_value=mock_storage
-                        ):
-                            result = handler.handle(
-                                "/api/v1/podcast/feed.xml", {}, mock_http
-                            )
+                        with patch.object(handler, "get_storage", return_value=mock_storage):
+                            result = handler.handle("/api/v1/podcast/feed.xml", {}, mock_http)
                             assert _status(result) == 200
                             assert captured_episodes[0]["title"] == "Untitled Debate"
 
@@ -1579,9 +1513,7 @@ class TestEdgeCases:
         mock_checker.check_permission.return_value = mock_decision
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            with patch.object(
-                handler, "require_auth_or_error", return_value=(mock_user, None)
-            ):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
                     "aragora.rbac.checker.get_permission_checker",
                     return_value=mock_checker,

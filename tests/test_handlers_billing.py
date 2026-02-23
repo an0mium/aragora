@@ -714,7 +714,9 @@ class TestStripeExceptionHandling:
 
         mock_stripe.return_value.list_invoices.side_effect = StripeConfigError("Not configured")
 
-        with patch("aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"):
+        with patch(
+            "aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"
+        ):
             result = billing_handler._get_invoices(mock_handler)
 
         assert result.status_code == 503
@@ -741,7 +743,9 @@ class TestStripeExceptionHandling:
             "API error", code="api_error"
         )
 
-        with patch("aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"):
+        with patch(
+            "aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"
+        ):
             result = billing_handler._get_invoices(mock_handler)
 
         assert result.status_code == 502
@@ -766,7 +770,9 @@ class TestStripeExceptionHandling:
 
         mock_stripe.return_value.list_invoices.side_effect = StripeError("Unknown error")
 
-        with patch("aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"):
+        with patch(
+            "aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"
+        ):
             result = billing_handler._get_invoices(mock_handler)
 
         assert result.status_code == 500

@@ -444,9 +444,7 @@ class TestInternalMethods:
     @pytest.mark.asyncio
     async def test_plan_without_meta_planner(self):
         """_plan returns a single PrioritizedGoal when use_meta_planner=False."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(use_meta_planner=False)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(use_meta_planner=False))
         goals = await pipeline._plan("My objective")
         assert len(goals) == 1
         assert goals[0].description == "My objective"
@@ -455,15 +453,14 @@ class TestInternalMethods:
     @pytest.mark.asyncio
     async def test_plan_falls_back_on_import_error(self):
         """_plan falls back when MetaPlanner raises ImportError."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(use_meta_planner=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(use_meta_planner=True))
         with patch(
             "aragora.nomic.self_improve.SelfImprovePipeline._plan",
             wraps=pipeline._plan,
         ):
             # Patch the import within _plan to fail
             import builtins
+
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
@@ -488,9 +485,7 @@ class TestInternalMethods:
         """_decompose breaks goals into subtasks using TaskDecomposer."""
         from aragora.nomic.meta_planner import PrioritizedGoal, Track
 
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_indexing=False)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_indexing=False))
         goals = [
             PrioritizedGoal(
                 id="g1",
@@ -610,9 +605,7 @@ class TestInternalMethods:
         """_compare_metrics detects when metrics degrade."""
         from aragora.nomic.outcome_tracker import DebateMetrics
 
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(degradation_threshold=0.01)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(degradation_threshold=0.01))
         baseline = DebateMetrics(
             consensus_rate=0.9,
             avg_rounds=2.0,
@@ -653,9 +646,7 @@ class TestInternalMethods:
     def test_persist_outcome_handles_import_error(self):
         """_persist_outcome does not raise on import failure."""
         pipeline = SelfImprovePipeline()
-        result = SelfImproveResult(
-            cycle_id="c1", objective="test", duration_seconds=1.0
-        )
+        result = SelfImproveResult(cycle_id="c1", objective="test", duration_seconds=1.0)
         with patch.dict(
             "sys.modules",
             {"aragora.nomic.cycle_store": None},
@@ -677,9 +668,7 @@ class TestWriteInstructionToWorktree:
         mock_instruction.to_dict.return_value = {"subtask_id": "t1", "objective": "test"}
         mock_instruction.subtask_id = "t1"
 
-        result = SelfImprovePipeline._write_instruction_to_worktree(
-            mock_instruction, str(tmp_path)
-        )
+        result = SelfImprovePipeline._write_instruction_to_worktree(mock_instruction, str(tmp_path))
 
         assert result is True
         md_file = tmp_path / ".aragora" / "instruction.md"
@@ -711,59 +700,43 @@ class TestDispatchToClaudeCode:
         """Should return None when require_approval is True and gate rejects."""
         from aragora.nomic.approval import ApprovalDecision
 
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(require_approval=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(require_approval=True))
         mock_instruction = MagicMock()
         mock_instruction.subtask_id = "t1"
 
         mock_gate = MagicMock()
         mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.REJECT)
         with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate):
-            result = await pipeline._dispatch_to_claude_code(
-                mock_instruction, "/tmp/fake"
-            )
+            result = await pipeline._dispatch_to_claude_code(mock_instruction, "/tmp/fake")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_skips_when_cli_not_found(self):
         """Should return None when claude CLI is not in PATH."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(require_approval=False)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(require_approval=False))
         mock_instruction = MagicMock()
         mock_instruction.subtask_id = "t1"
 
         with patch("shutil.which", return_value=None):
-            result = await pipeline._dispatch_to_claude_code(
-                mock_instruction, "/tmp/fake"
-            )
+            result = await pipeline._dispatch_to_claude_code(mock_instruction, "/tmp/fake")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_dispatches_when_cli_available(self):
         """Should dispatch via ClaudeCodeHarness when CLI is available."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(require_approval=False, run_tests=False)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(require_approval=False, run_tests=False))
         mock_instruction = MagicMock()
         mock_instruction.subtask_id = "t1"
         mock_instruction.to_agent_prompt.return_value = "# Task: test"
 
         with patch("shutil.which", return_value="/usr/local/bin/claude"):
-            with patch(
-                "aragora.harnesses.claude_code.ClaudeCodeHarness"
-            ) as MockHarness:
+            with patch("aragora.harnesses.claude_code.ClaudeCodeHarness") as MockHarness:
                 mock_h = MagicMock()
-                mock_h.execute_implementation = AsyncMock(
-                    return_value=("output", "")
-                )
+                mock_h.execute_implementation = AsyncMock(return_value=("output", ""))
                 MockHarness.return_value = mock_h
 
                 with patch("subprocess.run") as mock_run:
-                    mock_run.return_value = MagicMock(
-                        returncode=0, stdout="file1.py\nfile2.py\n"
-                    )
+                    mock_run.return_value = MagicMock(returncode=0, stdout="file1.py\nfile2.py\n")
                     result = await pipeline._dispatch_to_claude_code(
                         mock_instruction, "/tmp/fake-wt"
                     )
@@ -789,9 +762,7 @@ class TestEndToEnd:
                 enable_codebase_indexing=False,
             )
         )
-        plan = await pipeline.dry_run(
-            "Refactor the database layer and add integration testing"
-        )
+        plan = await pipeline.dry_run("Refactor the database layer and add integration testing")
 
         assert plan["objective"].startswith("Refactor")
         assert len(plan["goals"]) >= 1
@@ -966,9 +937,7 @@ class TestAutonomousMode:
         """Dispatch is skipped when require_approval=True and autonomous=False."""
         from aragora.nomic.approval import ApprovalDecision
 
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(require_approval=True, autonomous=False)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(require_approval=True, autonomous=False))
         mock_instr = MagicMock()
         mock_instr.subtask_id = "t1"
 
@@ -982,9 +951,7 @@ class TestAutonomousMode:
     async def test_dispatch_proceeds_when_autonomous(self):
         """Dispatch proceeds when autonomous=True even with require_approval=True."""
         pipeline = SelfImprovePipeline(
-            SelfImproveConfig(
-                require_approval=True, autonomous=True, run_tests=False
-            )
+            SelfImproveConfig(require_approval=True, autonomous=True, run_tests=False)
         )
         mock_instr = MagicMock()
         mock_instr.subtask_id = "t1"
@@ -992,9 +959,7 @@ class TestAutonomousMode:
 
         with patch("shutil.which", return_value=None):
             # Claude CLI not found → returns None but gets past the approval guard
-            result = await pipeline._dispatch_to_claude_code(
-                mock_instr, "/tmp/fake"
-            )
+            result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/fake")
         # Returns None because CLI not found, not because approval blocked
         assert result is None
 
@@ -1039,9 +1004,7 @@ class TestFeedbackLoop:
     def test_persist_outcome_skips_when_no_comparison(self):
         """_persist_outcome does not call record_cycle_outcome when comparison is None."""
         pipeline = SelfImprovePipeline()
-        result = SelfImproveResult(
-            cycle_id="c2", objective="test", duration_seconds=1.0
-        )
+        result = SelfImproveResult(cycle_id="c2", objective="test", duration_seconds=1.0)
 
         with (
             patch("aragora.nomic.cycle_store.get_cycle_store") as mock_get_store,
@@ -1060,12 +1023,8 @@ class TestFeedbackLoop:
         from aragora.nomic.outcome_tracker import DebateMetrics
 
         pipeline = SelfImprovePipeline()
-        baseline = DebateMetrics(
-            consensus_rate=0.8, avg_rounds=3.0, avg_tokens=2000
-        )
-        after = DebateMetrics(
-            consensus_rate=0.9, avg_rounds=2.5, avg_tokens=1800
-        )
+        baseline = DebateMetrics(consensus_rate=0.8, avg_rounds=3.0, avg_tokens=2000)
+        after = DebateMetrics(consensus_rate=0.9, avg_rounds=2.5, avg_tokens=1800)
         result = pipeline._compare_metrics(baseline, after)
         assert result is not None
         assert "_outcome_comparison" in result
@@ -1090,9 +1049,7 @@ class TestFileScopeEnrichment:
         mock_module = MagicMock()
         mock_module.path = "aragora/auth/oidc.py"
 
-        with patch(
-            "aragora.nomic.codebase_indexer.CodebaseIndexer"
-        ) as MockIndexer:
+        with patch("aragora.nomic.codebase_indexer.CodebaseIndexer") as MockIndexer:
             mock_indexer = MagicMock()
             mock_indexer.index = AsyncMock()
             mock_indexer.query = AsyncMock(return_value=[mock_module])
@@ -1111,9 +1068,7 @@ class TestFileScopeEnrichment:
         subtask.title = "test"
         subtask.description = "test"
 
-        with patch(
-            "aragora.nomic.codebase_indexer.CodebaseIndexer"
-        ) as MockIndexer:
+        with patch("aragora.nomic.codebase_indexer.CodebaseIndexer") as MockIndexer:
             mock_indexer = MagicMock()
             mock_indexer.index = AsyncMock()
             mock_indexer.query = AsyncMock(return_value=[])
@@ -1203,16 +1158,12 @@ class TestScanMode:
 
         with (
             patch("subprocess.run") as mock_run,
-            patch(
-                "aragora.nomic.codebase_indexer.CodebaseIndexer"
-            ) as MockIndexer,
+            patch("aragora.nomic.codebase_indexer.CodebaseIndexer") as MockIndexer,
             patch(
                 "aragora.nomic.strategic_scanner.StrategicScanner",
                 return_value=mock_scanner,
             ),
-            patch(
-                "aragora.nomic.strategic_memory.StrategicMemoryStore"
-            ),
+            patch("aragora.nomic.strategic_memory.StrategicMemoryStore"),
         ):
             # Mock git log output
             mock_run.return_value = MagicMock(
@@ -1239,13 +1190,9 @@ class TestScanMode:
 
         planner = MetaPlanner(MetaPlannerConfig(scan_mode=True))
 
-        with patch.object(
-            planner, "_scan_prioritize", new_callable=AsyncMock
-        ) as mock_scan:
+        with patch.object(planner, "_scan_prioritize", new_callable=AsyncMock) as mock_scan:
             mock_scan.return_value = []
-            await planner.prioritize_work(
-                objective="test", available_tracks=[Track.QA]
-            )
+            await planner.prioritize_work(objective="test", available_tracks=[Track.QA])
 
         mock_scan.assert_called_once()
 
@@ -1291,29 +1238,36 @@ class TestGatedMerge:
         coordinator = BranchCoordinator(config=config)
 
         goal = PrioritizedGoal(
-            id="g1", track=Track.QA,
-            description="Test goal", rationale="test",
-            estimated_impact="high", priority=1,
+            id="g1",
+            track=Track.QA,
+            description="Test goal",
+            rationale="test",
+            estimated_impact="high",
+            priority=1,
         )
-        assignment = TrackAssignment(
-            goal=goal, branch_name="test-branch", status="completed"
-        )
+        assignment = TrackAssignment(goal=goal, branch_name="test-branch", status="completed")
 
         with (
             patch.object(
-                coordinator, "create_track_branches",
-                new_callable=AsyncMock, return_value=[assignment],
+                coordinator,
+                "create_track_branches",
+                new_callable=AsyncMock,
+                return_value=[assignment],
             ),
             patch.object(
-                coordinator, "detect_conflicts",
-                new_callable=AsyncMock, return_value=[],
+                coordinator,
+                "detect_conflicts",
+                new_callable=AsyncMock,
+                return_value=[],
             ),
             patch.object(
-                coordinator, "safe_merge_with_gate",
+                coordinator,
+                "safe_merge_with_gate",
                 new_callable=AsyncMock,
             ) as mock_gated,
             patch.object(
-                coordinator, "safe_merge",
+                coordinator,
+                "safe_merge",
                 new_callable=AsyncMock,
             ) as mock_plain,
         ):
@@ -1352,29 +1306,36 @@ class TestGatedMerge:
         coordinator = BranchCoordinator(config=config)
 
         goal = PrioritizedGoal(
-            id="g1", track=Track.QA,
-            description="Test goal", rationale="test",
-            estimated_impact="high", priority=1,
+            id="g1",
+            track=Track.QA,
+            description="Test goal",
+            rationale="test",
+            estimated_impact="high",
+            priority=1,
         )
-        assignment = TrackAssignment(
-            goal=goal, branch_name="test-branch", status="completed"
-        )
+        assignment = TrackAssignment(goal=goal, branch_name="test-branch", status="completed")
 
         with (
             patch.object(
-                coordinator, "create_track_branches",
-                new_callable=AsyncMock, return_value=[assignment],
+                coordinator,
+                "create_track_branches",
+                new_callable=AsyncMock,
+                return_value=[assignment],
             ),
             patch.object(
-                coordinator, "detect_conflicts",
-                new_callable=AsyncMock, return_value=[],
+                coordinator,
+                "detect_conflicts",
+                new_callable=AsyncMock,
+                return_value=[],
             ),
             patch.object(
-                coordinator, "safe_merge_with_gate",
+                coordinator,
+                "safe_merge_with_gate",
                 new_callable=AsyncMock,
             ) as mock_gated,
             patch.object(
-                coordinator, "safe_merge",
+                coordinator,
+                "safe_merge",
                 new_callable=AsyncMock,
             ) as mock_plain,
         ):
@@ -1561,7 +1522,9 @@ class TestFileContentInjection:
         subtask.file_scope = [str(tmp_path / f"file_{i}.py") for i in range(5)]
 
         contents = SelfImprovePipeline._read_file_contents(
-            subtask, max_chars_per_file=500, max_total_chars=1000,
+            subtask,
+            max_chars_per_file=500,
+            max_total_chars=1000,
         )
         # Should have read at most 2 full files (2 * 500 = 1000)
         assert len(contents) <= 2
@@ -1716,7 +1679,12 @@ class TestDebugLoopDiffContext:
 
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("out", "")),
-            patch.object(loop, "_run_tests", new_callable=AsyncMock, return_value={"passed": 1, "failed": 0, "output": "1 passed"}),
+            patch.object(
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
+                return_value={"passed": 1, "failed": 0, "output": "1 passed"},
+            ),
             patch.object(DebugLoop, "_get_diff", return_value="diff --git a/test.py"),
         ):
             attempt = await loop._run_attempt("test", "/tmp", None, 1)
@@ -1893,8 +1861,18 @@ class TestGoalEvaluation:
         """GoalEvaluation.achieved is True when score >= 0.5."""
         from aragora.nomic.goal_evaluator import GoalEvaluation
 
-        assert GoalEvaluation(goal="x", achievement_score=0.5, scope_coverage=0, test_delta=0, diff_relevance=0).achieved is True
-        assert GoalEvaluation(goal="x", achievement_score=0.49, scope_coverage=0, test_delta=0, diff_relevance=0).achieved is False
+        assert (
+            GoalEvaluation(
+                goal="x", achievement_score=0.5, scope_coverage=0, test_delta=0, diff_relevance=0
+            ).achieved
+            is True
+        )
+        assert (
+            GoalEvaluation(
+                goal="x", achievement_score=0.49, scope_coverage=0, test_delta=0, diff_relevance=0
+            ).achieved
+            is False
+        )
 
     def test_details_populated(self):
         """GoalEvaluation.details includes counts."""
@@ -1918,7 +1896,8 @@ class TestGoalEvaluation:
         subtask.file_scope = ["auth.py"]
 
         result = SelfImproveResult(
-            cycle_id="c1", objective="Test",
+            cycle_id="c1",
+            objective="Test",
             files_changed=["auth.py"],
         )
 
@@ -1954,6 +1933,7 @@ class TestValidatePipeline:
     def test_validate_pipeline_returns_zero_on_success(self):
         """_validate_pipeline returns 0 when all components pass."""
         import sys
+
         sys.path.insert(0, "scripts")
         try:
             from self_develop import _validate_pipeline
@@ -1969,6 +1949,7 @@ class TestValidatePipeline:
     def test_validate_pipeline_reports_failures(self, capsys):
         """_validate_pipeline prints pass/fail report."""
         import sys
+
         sys.path.insert(0, "scripts")
         try:
             from self_develop import _validate_pipeline
@@ -1987,6 +1968,7 @@ class TestValidatePipeline:
     def test_validate_pipeline_probes_goal_evaluator(self, capsys):
         """_validate_pipeline probes GoalEvaluator."""
         import sys
+
         sys.path.insert(0, "scripts")
         try:
             from self_develop import _validate_pipeline
@@ -2218,7 +2200,11 @@ class TestMetaPlannerFeedbackLoop:
 
         mock_planner.record_outcome.assert_called_once()
         call_kwargs = mock_planner.record_outcome.call_args
-        goal_outcomes = call_kwargs[1]["goal_outcomes"] if "goal_outcomes" in (call_kwargs[1] or {}) else call_kwargs[0][0]
+        goal_outcomes = (
+            call_kwargs[1]["goal_outcomes"]
+            if "goal_outcomes" in (call_kwargs[1] or {})
+            else call_kwargs[0][0]
+        )
         assert len(goal_outcomes) == 1
         assert goal_outcomes[0]["track"] == "core"
         assert goal_outcomes[0]["success"] is True
@@ -2273,7 +2259,11 @@ class TestMetaPlannerFeedbackLoop:
 
         mock_planner.record_outcome.assert_called_once()
         call_kwargs = mock_planner.record_outcome.call_args
-        goal_outcomes = call_kwargs[1]["goal_outcomes"] if "goal_outcomes" in (call_kwargs[1] or {}) else call_kwargs[0][0]
+        goal_outcomes = (
+            call_kwargs[1]["goal_outcomes"]
+            if "goal_outcomes" in (call_kwargs[1] or {})
+            else call_kwargs[0][0]
+        )
         assert goal_outcomes[0]["success"] is False
 
     def test_meta_planner_record_outcome_skipped_when_no_subtasks(self):
@@ -2434,8 +2424,10 @@ class TestAutoMode:
 
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(
-                require_approval=True, autonomous=False,
-                auto_mode=True, run_tests=False,
+                require_approval=True,
+                autonomous=False,
+                auto_mode=True,
+                run_tests=False,
             )
         )
         mock_instr = MagicMock()
@@ -2446,8 +2438,10 @@ class TestAutoMode:
         mock_gate = MagicMock()
         mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.APPROVE)
         # CLI not found → returns None past the risk gate (not blocked by approval)
-        with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate),
+            patch("shutil.which", return_value=None),
+        ):
             result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
         # Returns None because CLI not found, but it got PAST the approval gate
         assert result is None
@@ -2508,6 +2502,7 @@ class TestProgressCallback:
     @pytest.mark.asyncio
     async def test_callback_exception_swallowed(self):
         """Exceptions in the progress callback are swallowed."""
+
         def exploding_callback(event: str, data: dict) -> None:
             raise ValueError("boom")
 

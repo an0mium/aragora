@@ -130,7 +130,10 @@ class DeliberationsHandler(BaseHandler):
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
             logger.warning(
-                "RBAC denied: user=%s permission=%s reason=%s", rbac_ctx.user_id, permission_key, decision.reason
+                "RBAC denied: user=%s permission=%s reason=%s",
+                rbac_ctx.user_id,
+                permission_key,
+                decision.reason,
             )
             return (error_dict("Permission denied", code="FORBIDDEN"), 403)
 

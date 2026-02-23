@@ -54,6 +54,7 @@ def _status(result) -> int:
 
 class MockSecuritySeverity(Enum):
     """Mock SecuritySeverity enum matching real one."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -62,6 +63,7 @@ class MockSecuritySeverity(Enum):
 
 class MockSecurityEventType(Enum):
     """Mock SecurityEventType enum."""
+
     SAST_CRITICAL = "sast_critical"
     VULNERABILITY_DETECTED = "vulnerability_detected"
 
@@ -69,6 +71,7 @@ class MockSecurityEventType(Enum):
 @dataclass
 class MockSecurityFinding:
     """Mock SecurityFinding dataclass."""
+
     id: str
     finding_type: str
     severity: MockSecuritySeverity
@@ -86,6 +89,7 @@ class MockSecurityFinding:
 @dataclass
 class MockSecurityEvent:
     """Mock SecurityEvent dataclass."""
+
     event_type: MockSecurityEventType
     severity: MockSecuritySeverity
     source: str
@@ -94,13 +98,14 @@ class MockSecurityEvent:
     id: str = "mock-event-id"
 
     def __post_init__(self):
-        if not hasattr(self, 'id') or self.id == "mock-event-id":
+        if not hasattr(self, "id") or self.id == "mock-event-id":
             self.id = f"evt-{uuid.uuid4().hex[:8]}"
 
 
 @dataclass
 class MockVote:
     """Mock vote object."""
+
     agent_name: str
     vote: str
 
@@ -108,6 +113,7 @@ class MockVote:
 @dataclass
 class MockDebateResult:
     """Mock debate result."""
+
     debate_id: str = "debate-123"
     consensus_reached: bool = True
     confidence: float = 0.85
@@ -241,10 +247,13 @@ def _build_security_mocks():
 
 def _patch_security_imports(mock_sd_mod, mock_ev_mod):
     """Create patch context for security module imports."""
-    return patch.dict("sys.modules", {
-        "aragora.debate.security_debate": mock_sd_mod,
-        "aragora.events.security_events": mock_ev_mod,
-    })
+    return patch.dict(
+        "sys.modules",
+        {
+            "aragora.debate.security_debate": mock_sd_mod,
+            "aragora.events.security_events": mock_ev_mod,
+        },
+    )
 
 
 # ============================================================================
@@ -297,6 +306,7 @@ class TestHandlerInitialization:
 
     def test_extends_secure_handler(self, handler):
         from aragora.server.handlers.secure import SecureHandler
+
         assert isinstance(handler, SecureHandler)
 
     def test_has_routes(self, handler):
@@ -414,9 +424,7 @@ class TestPostBodyValidation:
         http.rfile.read.return_value = b"not json"
         http.headers = {"Content-Length": "8"}
         handler._current_handler = http
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate", {}, http
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -424,9 +432,7 @@ class TestPostBodyValidation:
         """Empty findings array returns 400."""
         http = _make_http_handler(body={"findings": []})
         handler._current_handler = http
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate", {}, http
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
         assert "no findings" in _body(result)["error"].lower()
@@ -435,9 +441,7 @@ class TestPostBodyValidation:
         """Missing 'findings' key returns 400."""
         http = _make_http_handler(body={"repository": "myrepo"})
         handler._current_handler = http
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate", {}, http
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -445,9 +449,7 @@ class TestPostBodyValidation:
         """findings as non-array returns 400."""
         http = _make_http_handler(body={"findings": "not-a-list"})
         handler._current_handler = http
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate", {}, http
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
         assert "array" in _body(result)["error"].lower()
@@ -456,9 +458,7 @@ class TestPostBodyValidation:
         """findings as a dictionary returns 400."""
         http = _make_http_handler(body={"findings": {"title": "not an array"}})
         handler._current_handler = http
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate", {}, http
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -466,9 +466,7 @@ class TestPostBodyValidation:
         """POST on non-matching path returns None."""
         http = _make_http_handler(body=_minimal_findings_body())
         handler._current_handler = http
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate/some-id", {}, http
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate/some-id", {}, http)
         assert result is None
 
 
@@ -486,17 +484,17 @@ class TestConfidenceThreshold:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return mock_run, mock_ra
 
     def test_default_confidence(self, handler):
         """Default confidence threshold is 0.7."""
-        _, mock_ra = self._run_debate_with_body(
-            handler, _minimal_findings_body()
-        )
+        _, mock_ra = self._run_debate_with_body(handler, _minimal_findings_body())
         # The coroutine is passed to run_async; we verify the result is built
         assert mock_ra.called
 
@@ -545,8 +543,10 @@ class TestTimeoutClamping:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return result
@@ -597,9 +597,12 @@ class TestImportFailure:
         http = _make_http_handler(body=_minimal_findings_body())
         handler._current_handler = http
 
-        with patch.dict("sys.modules", {
-            "aragora.debate.security_debate": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.debate.security_debate": None,
+            },
+        ):
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert result is not None
             assert _status(result) == 500
@@ -610,9 +613,12 @@ class TestImportFailure:
         http = _make_http_handler(body=_minimal_findings_body())
         handler._current_handler = http
 
-        with patch.dict("sys.modules", {
-            "aragora.events.security_events": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.events.security_events": None,
+            },
+        ):
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert result is not None
             assert _status(result) == 500
@@ -638,8 +644,10 @@ class TestSuccessfulDebate:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = debate_result
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return result
@@ -742,8 +750,10 @@ class TestVotesInResponse:
         http = _make_http_handler(body=_minimal_findings_body())
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = debate_result
             return handler.handle_post("/api/v1/audit/security/debate", {}, http)
 
@@ -792,61 +802,63 @@ class TestFindingSeverity:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return result
 
     def test_critical_severity_accepted(self, handler):
-        result = self._run_with_findings(handler, [
-            {"severity": "critical", "title": "RCE", "description": "Remote code exec"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "critical", "title": "RCE", "description": "Remote code exec"}]
+        )
         assert _status(result) == 200
 
     def test_high_severity_accepted(self, handler):
-        result = self._run_with_findings(handler, [
-            {"severity": "high", "title": "SQLi", "description": "SQL Injection"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "high", "title": "SQLi", "description": "SQL Injection"}]
+        )
         assert _status(result) == 200
 
     def test_medium_severity_accepted(self, handler):
-        result = self._run_with_findings(handler, [
-            {"severity": "medium", "title": "XSS", "description": "Cross-site scripting"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "medium", "title": "XSS", "description": "Cross-site scripting"}]
+        )
         assert _status(result) == 200
 
     def test_low_severity_accepted(self, handler):
-        result = self._run_with_findings(handler, [
-            {"severity": "low", "title": "Info", "description": "Info disclosure"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "low", "title": "Info", "description": "Info disclosure"}]
+        )
         assert _status(result) == 200
 
     def test_invalid_severity_defaults_to_medium(self, handler):
         """Invalid severity string falls back to MEDIUM."""
-        result = self._run_with_findings(handler, [
-            {"severity": "unknown_sev", "title": "Test", "description": "Test"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "unknown_sev", "title": "Test", "description": "Test"}]
+        )
         assert _status(result) == 200
 
     def test_missing_severity_defaults_to_medium(self, handler):
         """Missing severity defaults to medium."""
-        result = self._run_with_findings(handler, [
-            {"title": "No severity", "description": "No sev field"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"title": "No severity", "description": "No sev field"}]
+        )
         assert _status(result) == 200
 
     def test_uppercase_severity_normalized(self, handler):
         """Uppercase severity is lowercased."""
-        result = self._run_with_findings(handler, [
-            {"severity": "HIGH", "title": "Test", "description": "Test"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "HIGH", "title": "Test", "description": "Test"}]
+        )
         assert _status(result) == 200
 
     def test_mixed_case_severity_normalized(self, handler):
-        result = self._run_with_findings(handler, [
-            {"severity": "Critical", "title": "Test", "description": "Test"}
-        ])
+        result = self._run_with_findings(
+            handler, [{"severity": "Critical", "title": "Test", "description": "Test"}]
+        )
         assert _status(result) == 200
 
 
@@ -864,19 +876,24 @@ class TestFindingFieldDefaults:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return result
 
     def test_minimal_finding_accepted(self, handler):
         """A finding with only severity/title/description works."""
-        result = self._run_with_finding(handler, {
-            "severity": "medium",
-            "title": "Test",
-            "description": "Test desc",
-        })
+        result = self._run_with_finding(
+            handler,
+            {
+                "severity": "medium",
+                "title": "Test",
+                "description": "Test desc",
+            },
+        )
         assert _status(result) == 200
 
     def test_empty_finding_accepted(self, handler):
@@ -885,20 +902,23 @@ class TestFindingFieldDefaults:
         assert _status(result) == 200
 
     def test_finding_with_all_fields(self, handler):
-        result = self._run_with_finding(handler, {
-            "id": "custom-id",
-            "finding_type": "dependency",
-            "severity": "critical",
-            "title": "Critical vuln",
-            "description": "Critical vulnerability",
-            "file_path": "src/main.py",
-            "line_number": 100,
-            "cve_id": "CVE-2024-1234",
-            "package_name": "requests",
-            "package_version": "2.25.0",
-            "recommendation": "Upgrade to 2.32.0",
-            "metadata": {"source": "snyk"},
-        })
+        result = self._run_with_finding(
+            handler,
+            {
+                "id": "custom-id",
+                "finding_type": "dependency",
+                "severity": "critical",
+                "title": "Critical vuln",
+                "description": "Critical vulnerability",
+                "file_path": "src/main.py",
+                "line_number": 100,
+                "cve_id": "CVE-2024-1234",
+                "package_name": "requests",
+                "package_version": "2.25.0",
+                "recommendation": "Upgrade to 2.32.0",
+                "metadata": {"source": "snyk"},
+            },
+        )
         assert _status(result) == 200
 
     def test_default_title_includes_index(self, handler):
@@ -909,8 +929,10 @@ class TestFindingFieldDefaults:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert _status(result) == 200
@@ -938,40 +960,48 @@ class TestEventTypeDetermination:
             original_event_init(self_event, *args, **kwargs)
             captured_events.append(self_event)
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra, \
-             patch.object(MockSecurityEvent, "__init__", capturing_init):
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+            patch.object(MockSecurityEvent, "__init__", capturing_init),
+        ):
             mock_ra.return_value = MockDebateResult()
             handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return captured_events
 
     def test_critical_finding_sets_sast_critical_event(self, handler):
-        events = self._run_and_capture_event(handler, [
-            {"severity": "critical", "title": "RCE", "description": "Remote code exec"}
-        ])
+        events = self._run_and_capture_event(
+            handler, [{"severity": "critical", "title": "RCE", "description": "Remote code exec"}]
+        )
         assert len(events) >= 1
         assert events[0].event_type == MockSecurityEventType.SAST_CRITICAL
 
     def test_non_critical_finding_sets_vulnerability_detected(self, handler):
-        events = self._run_and_capture_event(handler, [
-            {"severity": "high", "title": "SQLi", "description": "SQL Injection"}
-        ])
+        events = self._run_and_capture_event(
+            handler, [{"severity": "high", "title": "SQLi", "description": "SQL Injection"}]
+        )
         assert len(events) >= 1
         assert events[0].event_type == MockSecurityEventType.VULNERABILITY_DETECTED
 
     def test_mixed_severities_with_critical(self, handler):
-        events = self._run_and_capture_event(handler, [
-            {"severity": "low", "title": "Info", "description": "Test"},
-            {"severity": "critical", "title": "RCE", "description": "Test"},
-        ])
+        events = self._run_and_capture_event(
+            handler,
+            [
+                {"severity": "low", "title": "Info", "description": "Test"},
+                {"severity": "critical", "title": "RCE", "description": "Test"},
+            ],
+        )
         assert len(events) >= 1
         assert events[0].event_type == MockSecurityEventType.SAST_CRITICAL
 
     def test_all_low_severity(self, handler):
-        events = self._run_and_capture_event(handler, [
-            {"severity": "low", "title": "A", "description": "Test"},
-            {"severity": "low", "title": "B", "description": "Test"},
-        ])
+        events = self._run_and_capture_event(
+            handler,
+            [
+                {"severity": "low", "title": "A", "description": "Test"},
+                {"severity": "low", "title": "B", "description": "Test"},
+            ],
+        )
         assert len(events) >= 1
         assert events[0].event_type == MockSecurityEventType.VULNERABILITY_DETECTED
 
@@ -989,8 +1019,10 @@ class TestRepositoryField:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return result
@@ -1021,8 +1053,10 @@ class TestDebateRuntimeErrors:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.side_effect = error
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             return result
@@ -1095,12 +1129,12 @@ class TestPostEdgeCases:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
-            result = handler.handle_post(
-                "/api/v1/audit/security/debate/", {}, http
-            )
+            result = handler.handle_post("/api/v1/audit/security/debate/", {}, http)
             # path.rstrip("/") == self._PREFIX should match
             assert result is not None
             assert _status(result) == 200
@@ -1116,8 +1150,10 @@ class TestPostEdgeCases:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert _status(result) == 200
@@ -1126,30 +1162,34 @@ class TestPostEdgeCases:
 
     def test_finding_with_custom_id_preserved(self, handler):
         """Custom finding IDs are preserved (not overwritten)."""
-        body = {"findings": [
-            {"id": "my-custom-id", "severity": "high", "title": "Test", "description": "Test"}
-        ]}
+        body = {
+            "findings": [
+                {"id": "my-custom-id", "severity": "high", "title": "Test", "description": "Test"}
+            ]
+        }
         mock_run, mock_sd_mod, mock_ev_mod = _build_security_mocks()
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert _status(result) == 200
 
     def test_finding_without_id_gets_uuid(self, handler):
         """Finding without ID gets a generated UUID."""
-        body = {"findings": [
-            {"severity": "high", "title": "Test", "description": "Test"}
-        ]}
+        body = {"findings": [{"severity": "high", "title": "Test", "description": "Test"}]}
         mock_run, mock_sd_mod, mock_ev_mod = _build_security_mocks()
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert _status(result) == 200
@@ -1161,8 +1201,10 @@ class TestPostEdgeCases:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert _status(result) == 200
@@ -1174,8 +1216,10 @@ class TestPostEdgeCases:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert _status(result) == 200
@@ -1252,8 +1296,10 @@ class TestResponseStructure:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             assert result.content_type == "application/json"
@@ -1286,13 +1332,21 @@ class TestResponseStructure:
         http = _make_http_handler(body=body)
         handler._current_handler = http
 
-        with _patch_security_imports(mock_sd_mod, mock_ev_mod), \
-             patch("aragora.server.handlers.security_debate.run_async") as mock_ra:
+        with (
+            _patch_security_imports(mock_sd_mod, mock_ev_mod),
+            patch("aragora.server.handlers.security_debate.run_async") as mock_ra,
+        ):
             mock_ra.return_value = MockDebateResult()
             result = handler.handle_post("/api/v1/audit/security/debate", {}, http)
             data = _body(result)
             expected_keys = {
-                "debate_id", "status", "consensus_reached", "confidence",
-                "final_answer", "rounds_used", "duration_ms", "findings_analyzed",
+                "debate_id",
+                "status",
+                "consensus_reached",
+                "confidence",
+                "final_answer",
+                "rounds_used",
+                "duration_ms",
+                "findings_analyzed",
             }
             assert expected_keys.issubset(set(data.keys()))

@@ -617,7 +617,10 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                     OSError,
                 ) as e:
                     logger.error(
-                        "[%s] Failed to sync messages for %s: %s", self.name, channel.display_name, e
+                        "[%s] Failed to sync messages for %s: %s",
+                        self.name,
+                        channel.display_name,
+                        e,
                     )
 
                 # Sync files if configured
@@ -655,7 +658,10 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                         OSError,
                     ) as e:
                         logger.error(
-                            "[%s] Failed to sync files for %s: %s", self.name, channel.display_name, e
+                            "[%s] Failed to sync files for %s: %s",
+                            self.name,
+                            channel.display_name,
+                            e,
                         )
 
         # Update cursor for next sync

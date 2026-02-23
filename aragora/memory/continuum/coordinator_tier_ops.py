@@ -294,7 +294,9 @@ class CoordinatorTierOpsMixin:
             except (ValueError, TypeError, ArithmeticError, RuntimeError) as e:
                 # Rollback on non-database exceptions, then re-raise unchanged
                 logger.warning(
-                    "Non-database exception during surprise update, rolling back: %s: %s", type(e).__name__, e
+                    "Non-database exception during surprise update, rolling back: %s: %s",
+                    type(e).__name__,
+                    e,
                 )
                 cursor.execute("ROLLBACK")
                 raise
@@ -348,7 +350,9 @@ class CoordinatorTierOpsMixin:
             tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "faster")
             if tm_new is None:
                 logger.debug(
-                    "[memory] No faster tier available for %s (already at %s)", id, current_tier.value
+                    "[memory] No faster tier available for %s (already at %s)",
+                    id,
+                    current_tier.value,
                 )
                 return None
 
@@ -426,7 +430,9 @@ class CoordinatorTierOpsMixin:
             tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "slower")
             if tm_new is None:
                 logger.debug(
-                    "[memory] No slower tier available for %s (already at %s)", id, current_tier.value
+                    "[memory] No slower tier available for %s (already at %s)",
+                    id,
+                    current_tier.value,
                 )
                 return None
 

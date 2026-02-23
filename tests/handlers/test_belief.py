@@ -288,7 +288,9 @@ class TestRateLimiting:
     """Test rate limiting on belief endpoints."""
 
     def test_rate_limit_allows_under_limit(self, handler, http_handler):
-        with patch.object(handler, "_get_debate_cruxes", return_value=MagicMock(status_code=200, body=b'{}')) as mock_method:
+        with patch.object(
+            handler, "_get_debate_cruxes", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as mock_method:
             with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
                 result = handler.handle("/api/belief-network/debate-123/cruxes", {}, http_handler)
                 # If it reaches the method, rate limit passed
@@ -325,6 +327,7 @@ class TestAuthentication:
         # Override require_auth_or_error to simulate auth failure
         def fail_auth(handler):
             from aragora.server.handlers.base import error_response
+
             return None, error_response("Authentication required", 401)
 
         with patch.object(h, "require_auth_or_error", fail_auth):
@@ -413,6 +416,7 @@ class TestRBACPermissions:
         call_count = [0]
 
         with patch("aragora.server.handlers.belief.get_permission_checker") as mock_checker:
+
             def check_perm(ctx, permission):
                 call_count[0] += 1
                 decision = MagicMock()
@@ -426,9 +430,7 @@ class TestRBACPermissions:
             mock_checker.return_value.check_permission.side_effect = check_perm
 
             with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-                result = handler.handle(
-                    "/api/belief-network/debate-123/export", {}, http_handler
-                )
+                result = handler.handle("/api/belief-network/debate-123/export", {}, http_handler)
                 assert _status(result) == 403
 
 
@@ -471,9 +473,7 @@ class TestGetDebateCruxes:
 
     def test_belief_network_unavailable(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/belief-network/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/debate-123/cruxes", {}, http_handler)
             assert _status(result) == 503
             assert "not available" in _body(result)["error"]
 
@@ -488,9 +488,7 @@ class TestGetDebateCruxes:
     def test_trace_not_found(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=False):
-                result = handler.handle(
-                    "/api/belief-network/debate-123/cruxes", {}, http_handler
-                )
+                result = handler.handle("/api/belief-network/debate-123/cruxes", {}, http_handler)
                 assert _status(result) == 404
                 assert "not found" in _body(result)["error"]
 
@@ -504,10 +502,17 @@ class TestGetDebateCruxes:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = mock_cruxes
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/cruxes", {}, http_handler
                             )
@@ -524,10 +529,17 @@ class TestGetDebateCruxes:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/cruxes",
                                 {"top_k": ["5"]},
@@ -544,10 +556,17 @@ class TestGetDebateCruxes:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/cruxes",
                                 {"top_k": ["999"]},
@@ -559,18 +578,14 @@ class TestGetDebateCruxes:
 
     def test_cruxes_invalid_debate_id(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler.handle(
-                "/api/belief-network/../../etc/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/../../etc/cruxes", {}, http_handler)
             assert _status(result) == 400
             assert "Invalid" in _body(result)["error"]
 
     def test_versioned_cruxes_path(self, handler, http_handler):
         """Versioned path /api/v1/belief-network/:id/cruxes should work."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/v1/belief-network/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/v1/belief-network/debate-123/cruxes", {}, http_handler)
             assert _status(result) == 503  # Hits the "not available" check
 
 
@@ -618,7 +633,10 @@ class TestGetLoadBearingClaims:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/load-bearing-claims",
@@ -639,7 +657,10 @@ class TestGetLoadBearingClaims:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/load-bearing-claims",
@@ -657,7 +678,10 @@ class TestGetLoadBearingClaims:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/load-bearing-claims",
@@ -670,9 +694,7 @@ class TestGetLoadBearingClaims:
 
     def test_invalid_debate_id(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler.handle(
-                "/api/belief-network/../load-bearing-claims", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/../load-bearing-claims", {}, http_handler)
             assert _status(result) == 400
 
 
@@ -686,9 +708,7 @@ class TestGetBeliefNetworkGraph:
 
     def test_belief_network_unavailable(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/belief-network/debate-123/graph", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/debate-123/graph", {}, http_handler)
             assert _status(result) == 503
 
     def test_no_nomic_dir(self, handler_no_nomic, http_handler):
@@ -701,9 +721,7 @@ class TestGetBeliefNetworkGraph:
     def test_trace_not_found(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=False):
-                result = handler.handle(
-                    "/api/belief-network/debate-123/graph", {}, http_handler
-                )
+                result = handler.handle("/api/belief-network/debate-123/graph", {}, http_handler)
                 assert _status(result) == 404
 
     def test_successful_graph_with_cruxes(self, handler, http_handler):
@@ -735,10 +753,17 @@ class TestGetBeliefNetworkGraph:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = [mock_crux]
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/graph",
                                 {},
@@ -762,7 +787,10 @@ class TestGetBeliefNetworkGraph:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/graph",
@@ -789,7 +817,10 @@ class TestGetBeliefNetworkGraph:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/graph",
@@ -818,14 +849,22 @@ class TestGetBeliefNetworkGraph:
         mock_node_data["node"].get_belief_distribution = None
         del mock_node_data["node"].get_belief_distribution
 
-        orphan_edge = {"source": "c1", "target": "c_nonexistent", "weight": 0.5, "type": "influences"}
+        orphan_edge = {
+            "source": "c1",
+            "target": "c_nonexistent",
+            "weight": 0.5,
+            "type": "influences",
+        }
         mock_network = _make_mock_network()
         mock_network.get_all_claims.return_value = [mock_node_data]
         mock_network.get_all_edges.return_value = [orphan_edge]
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/graph",
@@ -845,7 +884,10 @@ class TestGetBeliefNetworkGraph:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         result = handler.handle(
                             "/api/belief-network/debate-123/graph",
@@ -868,9 +910,7 @@ class TestExportBeliefNetwork:
 
     def test_belief_network_unavailable(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/belief-network/debate-123/export", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/debate-123/export", {}, http_handler)
             assert _status(result) == 503
 
     def test_no_nomic_dir(self, handler_no_nomic, http_handler):
@@ -888,10 +928,17 @@ class TestExportBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
                                 {"format": ["json"]},
@@ -920,10 +967,17 @@ class TestExportBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
                                 {"format": ["csv"]},
@@ -955,10 +1009,17 @@ class TestExportBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
                                 {"format": ["graphml"]},
@@ -981,10 +1042,17 @@ class TestExportBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             # No format param -> defaults to json
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
@@ -1004,10 +1072,17 @@ class TestExportBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
                                 {"format": ["yaml"]},
@@ -1020,9 +1095,7 @@ class TestExportBeliefNetwork:
 
     def test_export_invalid_debate_id(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler.handle(
-                "/api/belief-network/../../export", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/../../export", {}, http_handler)
             assert _status(result) == 400
 
     def test_export_graphml_edge_indexing(self, handler, http_handler):
@@ -1044,10 +1117,17 @@ class TestExportBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
                                 {"format": ["graphml"]},
@@ -1138,9 +1218,7 @@ class TestGetClaimSupport:
     def test_short_path_format(self, handler, http_handler):
         """Path with fewer than 7 parts should return invalid path format."""
         with patch("aragora.server.handlers.belief.PROVENANCE_AVAILABLE", True):
-            result = handler.handle(
-                "/api/claims/c1/support", {}, http_handler
-            )
+            result = handler.handle("/api/claims/c1/support", {}, http_handler)
             # This path either doesn't match or returns 400
             if result is not None:
                 status = _status(result)
@@ -1164,17 +1242,13 @@ class TestGetDebateGraphStats:
     """Test graph stats endpoint."""
 
     def test_no_nomic_dir(self, handler_no_nomic, http_handler):
-        result = handler_no_nomic.handle(
-            "/api/debate/debate-123/graph-stats", {}, http_handler
-        )
+        result = handler_no_nomic.handle("/api/debate/debate-123/graph-stats", {}, http_handler)
         assert _status(result) == 503
         assert "not configured" in _body(result)["error"]
 
     def test_debate_not_found(self, handler, http_handler):
         with patch.object(Path, "exists", return_value=False):
-            result = handler.handle(
-                "/api/debate/debate-123/graph-stats", {}, http_handler
-            )
+            result = handler.handle("/api/debate/debate-123/graph-stats", {}, http_handler)
             assert _status(result) == 404
             assert "not found" in _body(result)["error"]
 
@@ -1198,9 +1272,7 @@ class TestGetDebateGraphStats:
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                 with patch("aragora.visualization.mapper.ArgumentCartographer") as MockCarto:
                     MockCarto.return_value.get_statistics.return_value = mock_stats
-                    result = handler.handle(
-                        "/api/debate/debate-123/graph-stats", {}, http_handler
-                    )
+                    result = handler.handle("/api/debate/debate-123/graph-stats", {}, http_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1211,8 +1283,22 @@ class TestGetDebateGraphStats:
         mock_stats = {"total_arguments": 2}
 
         events = [
-            json.dumps({"type": "agent_message", "agent": "claude", "data": {"content": "msg1", "role": "proposer"}, "round": 1}),
-            json.dumps({"type": "critique", "agent": "gpt4", "data": {"target": "claude", "severity": 0.5, "content": "weak"}, "round": 1}),
+            json.dumps(
+                {
+                    "type": "agent_message",
+                    "agent": "claude",
+                    "data": {"content": "msg1", "role": "proposer"},
+                    "round": 1,
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "critique",
+                    "agent": "gpt4",
+                    "data": {"target": "claude", "severity": 0.5, "content": "weak"},
+                    "round": 1,
+                }
+            ),
         ]
 
         def selective_exists(self):
@@ -1223,29 +1309,29 @@ class TestGetDebateGraphStats:
         mock_file_content = "\n".join(events) + "\n"
 
         with patch.object(Path, "exists", selective_exists):
-            with patch.object(Path, "open", return_value=MagicMock(
-                __enter__=MagicMock(return_value=iter(mock_file_content.splitlines(True))),
-                __exit__=MagicMock(return_value=False),
-            )):
+            with patch.object(
+                Path,
+                "open",
+                return_value=MagicMock(
+                    __enter__=MagicMock(return_value=iter(mock_file_content.splitlines(True))),
+                    __exit__=MagicMock(return_value=False),
+                ),
+            ):
                 with patch("aragora.visualization.mapper.ArgumentCartographer") as MockCarto:
                     MockCarto.return_value.get_statistics.return_value = mock_stats
-                    result = handler.handle(
-                        "/api/debate/debate-123/graph-stats", {}, http_handler
-                    )
+                    result = handler.handle("/api/debate/debate-123/graph-stats", {}, http_handler)
 
         assert _status(result) == 200
 
     def test_graph_stats_invalid_debate_id(self, handler, http_handler):
-        result = handler.handle(
-            "/api/debate/../graph-stats", {}, http_handler
-        )
+        result = handler.handle("/api/debate/../graph-stats", {}, http_handler)
         assert _status(result) == 400
 
     def test_graph_stats_malformed_replay_line(self, handler, http_handler):
         """Malformed JSON lines in replay should be skipped."""
         mock_stats = {"total_arguments": 0}
 
-        events_with_bad_line = "not-json\n{\"type\": \"unknown\"}\n"
+        events_with_bad_line = 'not-json\n{"type": "unknown"}\n'
 
         def selective_exists(self):
             if "replays" in str(self) and "events.jsonl" in str(self):
@@ -1253,15 +1339,17 @@ class TestGetDebateGraphStats:
             return False
 
         with patch.object(Path, "exists", selective_exists):
-            with patch.object(Path, "open", return_value=MagicMock(
-                __enter__=MagicMock(return_value=iter(events_with_bad_line.splitlines(True))),
-                __exit__=MagicMock(return_value=False),
-            )):
+            with patch.object(
+                Path,
+                "open",
+                return_value=MagicMock(
+                    __enter__=MagicMock(return_value=iter(events_with_bad_line.splitlines(True))),
+                    __exit__=MagicMock(return_value=False),
+                ),
+            ):
                 with patch("aragora.visualization.mapper.ArgumentCartographer") as MockCarto:
                     MockCarto.return_value.get_statistics.return_value = mock_stats
-                    result = handler.handle(
-                        "/api/debate/debate-123/graph-stats", {}, http_handler
-                    )
+                    result = handler.handle("/api/debate/debate-123/graph-stats", {}, http_handler)
 
         assert _status(result) == 200
 
@@ -1276,24 +1364,18 @@ class TestGetCruxAnalysis:
 
     def test_belief_network_unavailable(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/debates/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/debates/debate-123/cruxes", {}, http_handler)
             assert _status(result) == 503
 
     def test_no_nomic_dir(self, handler_no_nomic, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler_no_nomic.handle(
-                "/api/debates/debate-123/cruxes", {}, http_handler
-            )
+            result = handler_no_nomic.handle("/api/debates/debate-123/cruxes", {}, http_handler)
             assert _status(result) == 503
 
     def test_trace_not_found(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=False):
-                result = handler.handle(
-                    "/api/debates/debate-123/cruxes", {}, http_handler
-                )
+                result = handler.handle("/api/debates/debate-123/cruxes", {}, http_handler)
                 assert _status(result) == 404
 
     def test_successful_crux_analysis(self, handler, http_handler):
@@ -1307,7 +1389,10 @@ class TestGetCruxAnalysis:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         with patch("aragora.reasoning.crux_detector.CruxDetector") as MockDetector:
                             MockDetector.return_value.detect_cruxes.return_value = mock_analysis
@@ -1330,7 +1415,10 @@ class TestGetCruxAnalysis:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         with patch("aragora.reasoning.crux_detector.CruxDetector") as MockDetector:
                             MockDetector.return_value.detect_cruxes.return_value = mock_analysis
@@ -1346,16 +1434,12 @@ class TestGetCruxAnalysis:
     def test_crux_analysis_versioned_path(self, handler, http_handler):
         """Versioned /api/v1/debates/:id/cruxes should work."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/v1/debates/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/v1/debates/debate-123/cruxes", {}, http_handler)
             assert _status(result) == 503
 
     def test_crux_analysis_invalid_debate_id(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler.handle(
-                "/api/debates/../cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/debates/../cruxes", {}, http_handler)
             assert _status(result) == 400
 
 
@@ -1451,9 +1535,7 @@ class TestCreateBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BeliefNetwork", return_value=mock_network):
             with patch.object(handler, "_get_km_adapter", return_value=None):
-                handler._create_belief_network(
-                    "debate-123", topic="test", seed_from_km=True
-                )
+                handler._create_belief_network("debate-123", topic="test", seed_from_km=True)
                 mock_network.seed_from_km.assert_not_called()
 
     def test_create_network_zero_seeded(self, handler):
@@ -1464,9 +1546,7 @@ class TestCreateBeliefNetwork:
 
         with patch("aragora.server.handlers.belief.BeliefNetwork", return_value=mock_network):
             with patch.object(handler, "_get_km_adapter", return_value=mock_adapter):
-                handler._create_belief_network(
-                    "debate-123", topic="test", seed_from_km=True
-                )
+                handler._create_belief_network("debate-123", topic="test", seed_from_km=True)
                 mock_network.seed_from_km.assert_called_once()
 
 
@@ -1524,18 +1604,14 @@ class TestHandleRouting:
         """Verify route dispatch works for various patterns."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
             # Test cruxes route
-            result = handler.handle(
-                "/api/belief-network/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/debate-123/cruxes", {}, http_handler)
             assert result is not None
             assert _status(result) == 503
 
     def test_handle_versioned_debates_cruxes(self, handler, http_handler):
         """Versioned /api/v1/debates/:id/cruxes routes to crux analysis."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/v1/debates/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/v1/debates/debate-123/cruxes", {}, http_handler)
             assert result is not None
             assert _status(result) == 503
 
@@ -1565,9 +1641,7 @@ class TestEmergentTraits:
         with patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", True):
             with patch("aragora.server.handlers.belief.PersonaLaboratory") as MockLab:
                 MockLab.return_value.detect_emergent_traits.return_value = [mock_trait]
-                result = handler._get_emergent_traits(
-                    Path("/tmp/test"), MagicMock(), 0.5, 10
-                )
+                result = handler._get_emergent_traits(Path("/tmp/test"), MagicMock(), 0.5, 10)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1589,12 +1663,8 @@ class TestEmergentTraits:
 
         with patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", True):
             with patch("aragora.server.handlers.belief.PersonaLaboratory") as MockLab:
-                MockLab.return_value.detect_emergent_traits.return_value = [
-                    low_trait, high_trait
-                ]
-                result = handler._get_emergent_traits(
-                    Path("/tmp/test"), MagicMock(), 0.5, 10
-                )
+                MockLab.return_value.detect_emergent_traits.return_value = [low_trait, high_trait]
+                result = handler._get_emergent_traits(Path("/tmp/test"), MagicMock(), 0.5, 10)
 
         body = _body(result)
         assert body["count"] == 1
@@ -1615,9 +1685,7 @@ class TestEmergentTraits:
         with patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", True):
             with patch("aragora.server.handlers.belief.PersonaLaboratory") as MockLab:
                 MockLab.return_value.detect_emergent_traits.return_value = traits
-                result = handler._get_emergent_traits(
-                    Path("/tmp/test"), MagicMock(), 0.0, 3
-                )
+                result = handler._get_emergent_traits(Path("/tmp/test"), MagicMock(), 0.0, 3)
 
         body = _body(result)
         assert body["count"] == 3
@@ -1633,9 +1701,7 @@ class TestEdgeCases:
 
     def test_empty_query_params(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle(
-                "/api/belief-network/debate-123/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/debate-123/cruxes", {}, http_handler)
             assert _status(result) == 503
 
     def test_handle_with_none_handler(self, handler):
@@ -1648,7 +1714,9 @@ class TestEdgeCases:
         """Same debate_id can be accessed through different endpoints."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
             r1 = handler.handle("/api/belief-network/debate-123/cruxes", {}, http_handler)
-            r2 = handler.handle("/api/belief-network/debate-123/load-bearing-claims", {}, http_handler)
+            r2 = handler.handle(
+                "/api/belief-network/debate-123/load-bearing-claims", {}, http_handler
+            )
             r3 = handler.handle("/api/belief-network/debate-123/graph", {}, http_handler)
             assert _status(r1) == 503
             assert _status(r2) == 503
@@ -1657,9 +1725,7 @@ class TestEdgeCases:
     def test_debate_id_with_special_characters_rejected(self, handler, http_handler):
         """Debate IDs with special characters should be rejected."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler.handle(
-                "/api/belief-network/debate<script>/cruxes", {}, http_handler
-            )
+            result = handler.handle("/api/belief-network/debate<script>/cruxes", {}, http_handler)
             assert _status(result) == 400
 
     def test_include_cruxes_case_insensitive(self, handler, http_handler):
@@ -1669,10 +1735,17 @@ class TestEdgeCases:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/graph",
                                 {"include_cruxes": ["TRUE"]},
@@ -1698,10 +1771,17 @@ class TestEdgeCases:
 
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=True):
-                with patch("aragora.server.handlers.belief.BeliefHandler._create_belief_network", return_value=mock_network):
-                    with patch("aragora.server.handlers.belief.BeliefPropagationAnalyzer") as MockAnalyzer:
+                with patch(
+                    "aragora.server.handlers.belief.BeliefHandler._create_belief_network",
+                    return_value=mock_network,
+                ):
+                    with patch(
+                        "aragora.server.handlers.belief.BeliefPropagationAnalyzer"
+                    ) as MockAnalyzer:
                         MockAnalyzer.return_value.identify_debate_cruxes.return_value = []
-                        with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
+                        with patch(
+                            "aragora.debate.traces.DebateTrace.load", return_value=mock_trace
+                        ):
                             result = handler.handle(
                                 "/api/belief-network/debate-123/export",
                                 {"format": ["graphml"]},

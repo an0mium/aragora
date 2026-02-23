@@ -131,7 +131,10 @@ class ContextCompressor:
             if compressed_msgs is not ctx.context_messages:
                 ctx.context_messages = list(compressed_msgs)
                 logger.info(
-                    "[rlm] Compressed context: %s → %s messages", original_count, len(ctx.context_messages)               )
+                    "[rlm] Compressed context: %s → %s messages",
+                    original_count,
+                    len(ctx.context_messages),
+                )
 
                 # Notify spectator about compression
                 if self._notify_spectator:

@@ -119,7 +119,9 @@ class TestFixPattern:
         matches = fixer.find_antipattern("bare_except")
         result = fixer.fix_pattern(
             matches,
-            lambda m: m.content.replace("except Exception: pass", "except Exception:\n        logger.warning('caught')"),
+            lambda m: m.content.replace(
+                "except Exception: pass", "except Exception:\n        logger.warning('caught')"
+            ),
         )
         assert result.matches_fixed >= 1
 

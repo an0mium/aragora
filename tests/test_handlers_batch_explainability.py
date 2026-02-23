@@ -34,6 +34,7 @@ def run_async(coro):
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 return pool.submit(asyncio.run, coro).result()
         return loop.run_until_complete(coro)
@@ -60,6 +61,7 @@ def parse_handler_result(result: HandlerResult) -> tuple[dict, int]:
 def _reset_batch_store():
     """Reset batch store singleton between tests to prevent cross-test pollution."""
     from aragora.server.handlers.explainability_store import reset_batch_job_store
+
     reset_batch_job_store()
     yield
     reset_batch_job_store()
@@ -417,9 +419,7 @@ class TestGetBatchResults:
         )
         _save_batch_job(job)
 
-        result = handler._handle_batch_results(
-            "batch-partial-123", {"include_partial": "true"}
-        )
+        result = handler._handle_batch_results("batch-partial-123", {"include_partial": "true"})
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -441,9 +441,7 @@ class TestGetBatchResults:
         )
         _save_batch_job(job)
 
-        result = handler._handle_batch_results(
-            "batch-paginated", {"limit": "3", "offset": "2"}
-        )
+        result = handler._handle_batch_results("batch-paginated", {"limit": "3", "offset": "2"})
         response_body, status = parse_handler_result(result)
 
         assert status == 200

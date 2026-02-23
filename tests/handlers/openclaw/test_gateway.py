@@ -121,15 +121,19 @@ def mock_user():
 @pytest.fixture()
 def handler(store, mock_user):
     """OpenClawGatewayHandler with _get_store and get_current_user patched."""
-    with patch(
-        "aragora.server.handlers.openclaw.orchestrator._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.credentials._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.policies._get_store",
-        return_value=store,
+    with (
+        patch(
+            "aragora.server.handlers.openclaw.orchestrator._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.credentials._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.policies._get_store",
+            return_value=store,
+        ),
     ):
         h = OpenClawGatewayHandler(server_context={})
         h.get_current_user = lambda handler: mock_user
@@ -313,9 +317,7 @@ class TestGetListSessions:
 
     def test_list_sessions_with_status_filter(self, handler, mock_http, store, active_session):
         store.update_session_status(active_session.id, SessionStatus.CLOSED)
-        result = handler.handle(
-            "/api/v1/openclaw/sessions", {"status": "closed"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/sessions", {"status": "closed"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] >= 1
@@ -411,9 +413,7 @@ class TestGetListCredentials:
         assert body["total"] >= 1
 
     def test_list_credentials_type_filter(self, handler, mock_http, credential):
-        result = handler.handle(
-            "/api/v1/openclaw/credentials", {"type": "api_key"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/credentials", {"type": "api_key"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] >= 1
@@ -494,15 +494,9 @@ class TestGetAudit:
         assert body["total"] >= 1
 
     def test_audit_with_action_filter(self, handler, mock_http, store):
-        store.add_audit_entry(
-            action="session.create", actor_id="u1", resource_type="session"
-        )
-        store.add_audit_entry(
-            action="credential.delete", actor_id="u1", resource_type="credential"
-        )
-        result = handler.handle(
-            "/api/v1/openclaw/audit", {"action": "session.create"}, mock_http()
-        )
+        store.add_audit_entry(action="session.create", actor_id="u1", resource_type="session")
+        store.add_audit_entry(action="credential.delete", actor_id="u1", resource_type="credential")
+        result = handler.handle("/api/v1/openclaw/audit", {"action": "session.create"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -612,9 +606,7 @@ class TestPostEndSession:
 
     def test_end_session(self, handler, mock_http, active_session):
         path = f"/api/v1/openclaw/sessions/{active_session.id}/end"
-        result = handler.handle_post(
-            path, {}, mock_http(body={}, method="POST")
-        )
+        result = handler.handle_post(path, {}, mock_http(body={}, method="POST"))
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -736,9 +728,7 @@ class TestPostCancelAction:
         result = handler.handle_post(path, {}, mock_http(body={}, method="POST"))
         assert _status(result) == 400
 
-    def test_cancel_action_access_denied(
-        self, handler, mock_http, store, other_user_session
-    ):
+    def test_cancel_action_access_denied(self, handler, mock_http, store, other_user_session):
         action = store.create_action(
             session_id=other_user_session.id,
             action_type="code.execute",
@@ -851,9 +841,7 @@ class TestPostRotateCredential:
         )
         assert _status(result) == 404
 
-    def test_rotate_credential_access_denied(
-        self, handler, mock_http, other_user_credential
-    ):
+    def test_rotate_credential_access_denied(self, handler, mock_http, other_user_credential):
         handler.get_current_user = lambda h: _MockUser(role="viewer")
         path = f"/api/v1/openclaw/credentials/{other_user_credential.id}/rotate"
         body = {"secret": "new-secret-value-123456"}
@@ -980,9 +968,7 @@ class TestDeleteCloseSession:
         assert body["closed"] is True
 
     def test_close_session_not_found(self, handler, mock_http):
-        result = handler.handle_delete(
-            "/api/v1/openclaw/sessions/nonexistent", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/sessions/nonexistent", {}, mock_http())
         assert _status(result) == 404
 
     def test_close_session_access_denied(self, handler, mock_http, other_user_session):
@@ -1008,14 +994,10 @@ class TestDeleteCredential:
         assert body["deleted"] is True
 
     def test_delete_credential_not_found(self, handler, mock_http):
-        result = handler.handle_delete(
-            "/api/v1/openclaw/credentials/nonexistent", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/credentials/nonexistent", {}, mock_http())
         assert _status(result) == 404
 
-    def test_delete_credential_access_denied(
-        self, handler, mock_http, other_user_credential
-    ):
+    def test_delete_credential_access_denied(self, handler, mock_http, other_user_credential):
         handler.get_current_user = lambda h: _MockUser(role="viewer")
         path = f"/api/v1/openclaw/credentials/{other_user_credential.id}"
         result = handler.handle_delete(path, {}, mock_http())
@@ -1048,9 +1030,7 @@ class TestDeleteUnknownPath:
     """Tests for DELETE on unrecognized paths."""
 
     def test_unknown_delete_returns_none(self, handler, mock_http):
-        result = handler.handle_delete(
-            "/api/v1/openclaw/unknown", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/unknown", {}, mock_http())
         assert result is None
 
 
@@ -1292,9 +1272,7 @@ class TestAuditSideEffects:
     """Verify that mutating operations create audit log entries."""
 
     def test_create_session_creates_audit(self, handler, mock_http, store):
-        handler.handle_post(
-            "/api/v1/openclaw/sessions", {}, mock_http(body={}, method="POST")
-        )
+        handler.handle_post("/api/v1/openclaw/sessions", {}, mock_http(body={}, method="POST"))
         entries, _ = store.get_audit_log(action="session.create")
         assert len(entries) >= 1
 
@@ -1316,9 +1294,7 @@ class TestAuditSideEffects:
             "action_type": "code.execute",
             "input": {},
         }
-        handler.handle_post(
-            "/api/v1/openclaw/actions", {}, mock_http(body=body, method="POST")
-        )
+        handler.handle_post("/api/v1/openclaw/actions", {}, mock_http(body=body, method="POST"))
         entries, _ = store.get_audit_log(action="action.execute")
         assert len(entries) >= 1
 
@@ -1334,9 +1310,7 @@ class TestAuditSideEffects:
             "type": "api_key",
             "secret": "sk-test-1234567890abcdef",
         }
-        handler.handle_post(
-            "/api/v1/openclaw/credentials", {}, mock_http(body=body, method="POST")
-        )
+        handler.handle_post("/api/v1/openclaw/credentials", {}, mock_http(body=body, method="POST"))
         entries, _ = store.get_audit_log(action="credential.create")
         assert len(entries) >= 1
 
@@ -1355,9 +1329,7 @@ class TestAuditSideEffects:
         assert len(entries) >= 1
 
     def test_remove_policy_rule_creates_audit(self, handler, mock_http, store):
-        handler.handle_delete(
-            "/api/v1/openclaw/policy/rules/some_rule", {}, mock_http()
-        )
+        handler.handle_delete("/api/v1/openclaw/policy/rules/some_rule", {}, mock_http())
         entries, _ = store.get_audit_log(action="policy.rule.remove")
         assert len(entries) >= 1
 

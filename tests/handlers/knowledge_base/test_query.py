@@ -633,7 +633,7 @@ class TestHandleQueryEdgeCases:
 
     def test_unicode_question(self, handler, mock_query_engine):
         """Unicode characters in question are handled correctly."""
-        body = {"question": "Pourquoi le ciel est-il bleu? \u2603 \U0001F600"}
+        body = {"question": "Pourquoi le ciel est-il bleu? \u2603 \U0001f600"}
         http = MockHTTPHandler(body=body)
 
         with patch(

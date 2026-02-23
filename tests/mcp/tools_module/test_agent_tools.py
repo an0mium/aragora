@@ -12,7 +12,6 @@ from aragora.mcp.tools_module.agent import (
 )
 
 
-
 class TestListAgentsTool:
     """Tests for list_agents_tool."""
 

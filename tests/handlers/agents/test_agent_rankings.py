@@ -30,6 +30,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result: object) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -52,29 +53,34 @@ def _status(result: object) -> int:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_caches():
     """Reset caches and rate limiters before each test."""
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass
 
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
 
     try:
         from aragora.server.handlers.agents import agents as agents_mod
+
         agents_mod._agent_limiter = agents_mod.RateLimiter(requests_per_minute=60)
     except (ImportError, AttributeError):
         pass
 
     try:
         from aragora.server.handlers.utils import rate_limit as rl_mod
+
         with rl_mod._limiters_lock:
             rl_mod._limiters.clear()
     except (ImportError, AttributeError):
@@ -84,12 +90,14 @@ def _reset_caches():
 
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass
 
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -99,6 +107,7 @@ def _reset_caches():
 def handler():
     """Create an AgentsHandler with empty server context."""
     from aragora.server.handlers.agents.agents import AgentsHandler
+
     return AgentsHandler(server_context={})
 
 
@@ -128,21 +137,22 @@ def _make_mock_elo(**overrides):
 # Leaderboard endpoint: /api/leaderboard and /api/rankings
 # ===========================================================================
 
+
 class TestGetLeaderboard:
     """Tests for the _get_leaderboard endpoint."""
 
     @pytest.mark.asyncio
     async def test_leaderboard_happy_path_no_domain(self, handler, mock_http_handler):
         """Leaderboard returns rankings when domain is not specified (uses cache)."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1650, "wins": 10, "losses": 3},
-            {"name": "gpt4", "elo": 1600, "wins": 8, "losses": 5},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1650, "wins": 10, "losses": 3},
+                {"name": "gpt4", "elo": 1600, "wins": 8, "losses": 5},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert "rankings" in body
@@ -153,9 +163,11 @@ class TestGetLeaderboard:
     @pytest.mark.asyncio
     async def test_leaderboard_with_domain(self, handler, mock_http_handler):
         """Leaderboard uses get_leaderboard with domain filter when domain is specified."""
-        mock_elo = _make_mock_elo(leaderboard=[
-            {"name": "claude", "elo": 1700},
-        ])
+        mock_elo = _make_mock_elo(
+            leaderboard=[
+                {"name": "claude", "elo": 1700},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
                 result = await handler.handle(
@@ -164,9 +176,7 @@ class TestGetLeaderboard:
                 assert _status(result) == 200
                 body = _body(result)
                 assert len(body["rankings"]) == 1
-                mock_elo.get_leaderboard.assert_called_once_with(
-                    limit=20, domain="technical"
-                )
+                mock_elo.get_leaderboard.assert_called_once_with(limit=20, domain="technical")
 
     @pytest.mark.asyncio
     async def test_leaderboard_with_custom_limit(self, handler, mock_http_handler):
@@ -196,24 +206,25 @@ class TestGetLeaderboard:
     async def test_leaderboard_no_elo(self, handler, mock_http_handler):
         """Returns 503 when ELO system is not available."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/leaderboard", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
             assert _status(result) == 503
             body = _body(result)
-            assert "elo" in body.get("error", "").lower() or "not available" in body.get("error", "").lower()
+            assert (
+                "elo" in body.get("error", "").lower()
+                or "not available" in body.get("error", "").lower()
+            )
 
     @pytest.mark.asyncio
     async def test_leaderboard_via_rankings_alias(self, handler, mock_http_handler):
         """The /api/rankings path is an alias for /api/leaderboard."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/rankings", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/rankings", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert len(body["rankings"]) == 1
@@ -224,9 +235,7 @@ class TestGetLeaderboard:
         mock_elo = _make_mock_elo(cached_leaderboard=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/v1/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/v1/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -235,9 +244,7 @@ class TestGetLeaderboard:
         mock_elo = _make_mock_elo(cached_leaderboard=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["rankings"] == []
@@ -249,9 +256,7 @@ class TestGetLeaderboard:
         mock_elo = MagicMock()
         mock_elo.get_cached_leaderboard.side_effect = RuntimeError("DB error")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/leaderboard", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -265,14 +270,14 @@ class TestGetLeaderboard:
     @pytest.mark.asyncio
     async def test_leaderboard_rankings_and_agents_same(self, handler, mock_http_handler):
         """Both 'rankings' and 'agents' keys contain the same data."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["rankings"] == body["agents"]
@@ -282,16 +287,19 @@ class TestGetLeaderboard:
 # Leaderboard consistency enrichment
 # ===========================================================================
 
+
 class TestLeaderboardConsistency:
     """Tests for consistency score enrichment in the leaderboard."""
 
     @pytest.mark.asyncio
     async def test_consistency_enrichment_with_flip_detector(self, handler, mock_http_handler):
         """Leaderboard adds consistency scores when FlipDetector is available."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-            {"name": "gpt4", "elo": 1550},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+                {"name": "gpt4", "elo": 1550},
+            ]
+        )
 
         mock_score_claude = MagicMock()
         mock_score_claude.total_flips = 2
@@ -317,9 +325,7 @@ class TestLeaderboardConsistency:
                         "aragora.server.handlers.agents.agent_rankings.get_db_path",
                         return_value="/tmp/nomic/positions.db",
                     ):
-                        result = await handler.handle(
-                            "/api/leaderboard", {}, mock_http_handler
-                        )
+                        result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                         assert _status(result) == 200
                         body = _body(result)
                         rankings = body["rankings"]
@@ -337,9 +343,11 @@ class TestLeaderboardConsistency:
     @pytest.mark.asyncio
     async def test_consistency_medium_class(self, handler, mock_http_handler):
         """Agents with consistency between 0.6 and 0.8 get 'medium' class."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "gemini", "elo": 1500},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "gemini", "elo": 1500},
+            ]
+        )
 
         mock_score = MagicMock()
         mock_score.total_flips = 3
@@ -360,9 +368,7 @@ class TestLeaderboardConsistency:
                         "aragora.server.handlers.agents.agent_rankings.get_db_path",
                         return_value="/tmp/nomic/positions.db",
                     ):
-                        result = await handler.handle(
-                            "/api/leaderboard", {}, mock_http_handler
-                        )
+                        result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                         body = _body(result)
                         gemini_entry = body["rankings"][0]
                         assert gemini_entry["consistency"] == 0.7
@@ -371,9 +377,11 @@ class TestLeaderboardConsistency:
     @pytest.mark.asyncio
     async def test_consistency_zero_positions_fallback(self, handler, mock_http_handler):
         """When total_positions is 0, uses max(total_positions, 1) to avoid division by zero."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+            ]
+        )
 
         mock_score = MagicMock()
         mock_score.total_flips = 0
@@ -394,9 +402,7 @@ class TestLeaderboardConsistency:
                         "aragora.server.handlers.agents.agent_rankings.get_db_path",
                         return_value="/tmp/nomic/positions.db",
                     ):
-                        result = await handler.handle(
-                            "/api/leaderboard", {}, mock_http_handler
-                        )
+                        result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                         body = _body(result)
                         claude_entry = body["rankings"][0]
                         assert claude_entry["consistency"] == 1.0
@@ -405,14 +411,14 @@ class TestLeaderboardConsistency:
     @pytest.mark.asyncio
     async def test_consistency_no_nomic_dir(self, handler, mock_http_handler):
         """When nomic_dir is None, no consistency scores are added."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 # No consistency keys should be present (no nomic_dir means no FlipDetector)
@@ -421,9 +427,11 @@ class TestLeaderboardConsistency:
     @pytest.mark.asyncio
     async def test_consistency_flipdetector_import_error(self, handler, mock_http_handler):
         """When FlipDetector cannot be imported, degraded flags are set."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
                 with patch.dict("sys.modules", {"aragora.insights.flip_detector": None}):
@@ -431,9 +439,7 @@ class TestLeaderboardConsistency:
                         "aragora.server.handlers.agents.agent_rankings.get_db_path",
                         return_value="/tmp/nomic/positions.db",
                     ):
-                        result = await handler.handle(
-                            "/api/leaderboard", {}, mock_http_handler
-                        )
+                        result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                         assert _status(result) == 200
                         body = _body(result)
                         claude_entry = body["rankings"][0]
@@ -444,9 +450,11 @@ class TestLeaderboardConsistency:
     @pytest.mark.asyncio
     async def test_consistency_batch_lookup_error(self, handler, mock_http_handler):
         """When batch consistency lookup fails, fallback with degraded flag is used."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"name": "claude", "elo": 1600},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"name": "claude", "elo": 1600},
+            ]
+        )
 
         mock_detector = MagicMock()
         mock_detector.get_agents_consistency_batch.side_effect = ValueError("DB corrupt")
@@ -461,9 +469,7 @@ class TestLeaderboardConsistency:
                         "aragora.server.handlers.agents.agent_rankings.get_db_path",
                         return_value="/tmp/nomic/positions.db",
                     ):
-                        result = await handler.handle(
-                            "/api/leaderboard", {}, mock_http_handler
-                        )
+                        result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                         assert _status(result) == 200
                         body = _body(result)
                         claude_entry = body["rankings"][0]
@@ -474,9 +480,11 @@ class TestLeaderboardConsistency:
     @pytest.mark.asyncio
     async def test_consistency_agents_with_no_names(self, handler, mock_http_handler):
         """Rankings with None agent names don't break consistency lookup."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"elo": 1500},  # no name key
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"elo": 1500},  # no name key
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
                 with patch(
@@ -487,9 +495,7 @@ class TestLeaderboardConsistency:
                         "aragora.server.handlers.agents.agent_rankings.get_db_path",
                         return_value="/tmp/nomic/positions.db",
                     ):
-                        result = await handler.handle(
-                            "/api/leaderboard", {}, mock_http_handler
-                        )
+                        result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                         assert _status(result) == 200
                         body = _body(result)
                         assert len(body["rankings"]) == 1
@@ -498,6 +504,7 @@ class TestLeaderboardConsistency:
 # ===========================================================================
 # Calibration leaderboard: _get_calibration_leaderboard (direct method call)
 # ===========================================================================
+
 
 class TestGetCalibrationLeaderboard:
     """Tests for the _get_calibration_leaderboard method.
@@ -508,10 +515,12 @@ class TestGetCalibrationLeaderboard:
 
     def test_calibration_leaderboard_happy_path(self, handler):
         """Returns rankings from ELO system."""
-        mock_elo = _make_mock_elo(leaderboard=[
-            {"name": "claude", "elo": 1650, "calibration_score": 0.92},
-            {"name": "gpt4", "elo": 1600, "calibration_score": 0.88},
-        ])
+        mock_elo = _make_mock_elo(
+            leaderboard=[
+                {"name": "claude", "elo": 1650, "calibration_score": 0.92},
+                {"name": "gpt4", "elo": 1600, "calibration_score": 0.88},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = handler._get_calibration_leaderboard(20)
             assert _status(result) == 200
@@ -577,20 +586,21 @@ class TestGetCalibrationLeaderboard:
 # Recent matches: /api/matches/recent
 # ===========================================================================
 
+
 class TestGetRecentMatches:
     """Tests for the _get_recent_matches endpoint."""
 
     @pytest.mark.asyncio
     async def test_recent_matches_happy_path(self, handler, mock_http_handler):
         """Returns recent matches when ELO has get_cached_recent_matches."""
-        mock_elo = _make_mock_elo(cached_recent_matches=[
-            {"winner": "claude", "loser": "gpt4", "timestamp": 1000000},
-            {"winner": "gemini", "loser": "claude", "timestamp": 1000001},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_recent_matches=[
+                {"winner": "claude", "loser": "gpt4", "timestamp": 1000000},
+                {"winner": "gemini", "loser": "claude", "timestamp": 1000001},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert "matches" in body
@@ -600,9 +610,7 @@ class TestGetRecentMatches:
     async def test_recent_matches_no_elo(self, handler, mock_http_handler):
         """Returns 503 when ELO system is not available."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -610,9 +618,7 @@ class TestGetRecentMatches:
         """Limit parameter is passed through."""
         mock_elo = _make_mock_elo(cached_recent_matches=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {"limit": "5"}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {"limit": "5"}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.get_cached_recent_matches.assert_called_once_with(limit=5)
 
@@ -632,9 +638,7 @@ class TestGetRecentMatches:
         """Default limit is 10 when not specified."""
         mock_elo = _make_mock_elo(cached_recent_matches=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.get_cached_recent_matches.assert_called_once_with(limit=10)
 
@@ -646,9 +650,7 @@ class TestGetRecentMatches:
             {"winner": "claude", "loser": "gpt4"},
         ]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert len(body["matches"]) == 1
@@ -659,9 +661,7 @@ class TestGetRecentMatches:
         """Returns empty list when no matches exist."""
         mock_elo = _make_mock_elo(cached_recent_matches=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["matches"] == []
@@ -672,9 +672,7 @@ class TestGetRecentMatches:
         mock_elo = MagicMock()
         mock_elo.get_cached_recent_matches.side_effect = RuntimeError("DB locked")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -682,9 +680,7 @@ class TestGetRecentMatches:
         """Works with /api/v1/matches/recent."""
         mock_elo = _make_mock_elo(cached_recent_matches=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/matches/recent", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -713,15 +709,14 @@ class TestGetRecentMatches:
         mock_elo = MagicMock()
         mock_elo.get_cached_recent_matches.side_effect = OSError("Disk failure")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 500
 
 
 # ===========================================================================
 # Agent comparison: /api/agent/compare
 # ===========================================================================
+
 
 class TestCompareAgents:
     """Tests for the _compare_agents endpoint."""
@@ -825,6 +820,7 @@ class TestCompareAgents:
     async def test_compare_uses_initial_rating_for_missing(self, handler, mock_http_handler):
         """Agents not in ratings_batch get the initial ELO rating."""
         from aragora.config import ELO_INITIAL_RATING
+
         mock_elo = _make_mock_elo(
             ratings_batch={"claude": 1650},  # gpt4 missing
             agent_stats={},
@@ -938,6 +934,7 @@ class TestCompareAgents:
     async def test_compare_agents_rating_none_uses_default(self, handler, mock_http_handler):
         """When ratings_batch returns None for an agent, uses ELO_INITIAL_RATING."""
         from aragora.config import ELO_INITIAL_RATING
+
         mock_elo = _make_mock_elo(
             ratings_batch={"claude": None, "gpt4": 1600},
             agent_stats={},
@@ -984,6 +981,7 @@ class TestCompareAgents:
 # can_handle tests for ranking-related paths
 # ===========================================================================
 
+
 class TestCanHandle:
     """Tests for can_handle on ranking-related paths."""
 
@@ -1019,6 +1017,7 @@ class TestCanHandle:
 # Error exception type coverage
 # ===========================================================================
 
+
 class TestErrorExceptionCoverage:
     """Tests ensuring various exception types are caught correctly."""
 
@@ -1028,9 +1027,7 @@ class TestErrorExceptionCoverage:
         mock_elo = MagicMock()
         mock_elo.get_cached_leaderboard.side_effect = ValueError("bad value")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/leaderboard", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1039,9 +1036,7 @@ class TestErrorExceptionCoverage:
         mock_elo = MagicMock()
         mock_elo.get_cached_leaderboard.side_effect = KeyError("missing")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/leaderboard", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1050,9 +1045,7 @@ class TestErrorExceptionCoverage:
         mock_elo = MagicMock()
         mock_elo.get_cached_leaderboard.side_effect = TypeError("wrong type")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/leaderboard", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1061,9 +1054,7 @@ class TestErrorExceptionCoverage:
         mock_elo = MagicMock()
         mock_elo.get_cached_leaderboard.side_effect = OSError("disk full")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/leaderboard", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1072,9 +1063,7 @@ class TestErrorExceptionCoverage:
         mock_elo = MagicMock()
         mock_elo.get_cached_recent_matches.side_effect = ValueError("bad")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1095,20 +1084,21 @@ class TestErrorExceptionCoverage:
 # Edge cases
 # ===========================================================================
 
+
 class TestEdgeCases:
     """Miscellaneous edge case tests."""
 
     @pytest.mark.asyncio
     async def test_leaderboard_agent_with_agent_name_key(self, handler, mock_http_handler):
         """Agents with 'agent_name' key (not 'name') are handled correctly."""
-        mock_elo = _make_mock_elo(cached_leaderboard=[
-            {"agent_name": "claude-v2", "elo": 1650},
-        ])
+        mock_elo = _make_mock_elo(
+            cached_leaderboard=[
+                {"agent_name": "claude-v2", "elo": 1650},
+            ]
+        )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert len(body["rankings"]) == 1
@@ -1130,9 +1120,7 @@ class TestEdgeCases:
         mock_elo = _make_mock_elo(cached_leaderboard=[mock_agent])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert len(body["rankings"]) == 1
@@ -1193,9 +1181,7 @@ class TestEdgeCases:
         mock_elo = _make_mock_elo(cached_leaderboard=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/leaderboard", {"limit": "0"}, mock_http_handler
-                )
+                result = await handler.handle("/api/leaderboard", {"limit": "0"}, mock_http_handler)
                 assert _status(result) == 200
                 mock_elo.get_cached_leaderboard.assert_called_once_with(limit=0)
 
@@ -1217,7 +1203,5 @@ class TestEdgeCases:
         mock_elo = MagicMock()
         mock_elo.get_cached_recent_matches.side_effect = KeyError("no key")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/matches/recent", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
             assert _status(result) == 500

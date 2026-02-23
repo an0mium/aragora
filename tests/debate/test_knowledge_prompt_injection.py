@@ -30,6 +30,7 @@ from aragora.debate.prompt_builder import PromptBuilder
 # Test helpers
 # ---------------------------------------------------------------------------
 
+
 class MockAgent:
     """Mock agent for testing."""
 
@@ -105,6 +106,7 @@ def builder(mock_protocol, mock_env):
 # 1. PromptBuilder accepts knowledge_context parameter
 # ---------------------------------------------------------------------------
 
+
 class TestPromptBuilderInit:
     """Test PromptBuilder initialization with knowledge_context."""
 
@@ -138,6 +140,7 @@ class TestPromptBuilderInit:
 # ---------------------------------------------------------------------------
 # 2. set_knowledge_context updates internal state
 # ---------------------------------------------------------------------------
+
 
 class TestSetKnowledgeContext:
     """Test set_knowledge_context method."""
@@ -192,6 +195,7 @@ class TestSetKnowledgeContext:
 # 3. get_knowledge_mound_context returns stored content
 # ---------------------------------------------------------------------------
 
+
 class TestGetKnowledgeMoundContext:
     """Test get_knowledge_mound_context method."""
 
@@ -208,6 +212,7 @@ class TestGetKnowledgeMoundContext:
 # ---------------------------------------------------------------------------
 # 4. build_proposal_prompt includes KM section when set
 # ---------------------------------------------------------------------------
+
 
 class TestProposalPromptKMSection:
     """Test KM section in proposal prompts."""
@@ -251,6 +256,7 @@ class TestProposalPromptKMSection:
 # 5. build_revision_prompt includes KM section
 # ---------------------------------------------------------------------------
 
+
 class TestRevisionPromptKMSection:
     """Test KM section in revision prompts."""
 
@@ -281,6 +287,7 @@ class TestRevisionPromptKMSection:
 # 6. KM section header format
 # ---------------------------------------------------------------------------
 
+
 class TestKMSectionHeader:
     """Test the Organizational Knowledge header formatting."""
 
@@ -308,6 +315,7 @@ class TestKMSectionHeader:
 # 7. Backward compatibility (env.context still works)
 # ---------------------------------------------------------------------------
 
+
 class TestBackwardCompatibility:
     """Ensure env.context injection still works without KM section."""
 
@@ -332,6 +340,7 @@ class TestBackwardCompatibility:
 # 8. Item IDs tracking
 # ---------------------------------------------------------------------------
 
+
 class TestItemIDsTracking:
     """Test KM item ID tracking for outcome validation."""
 
@@ -355,6 +364,7 @@ class TestItemIDsTracking:
 # ---------------------------------------------------------------------------
 # 9. ContextInitializer integration
 # ---------------------------------------------------------------------------
+
 
 class TestContextInitializerIntegration:
     """Test ContextInitializer routes KM context to PromptBuilder."""
@@ -424,6 +434,7 @@ class TestContextInitializerIntegration:
             assert "Fallback knowledge content" in ctx.env.context
         finally:
             import hashlib
+
             qh = hashlib.md5(ctx.env.task.encode(), usedforsecurity=False).hexdigest()
             _knowledge_cache.pop(qh, None)
 
@@ -455,6 +466,7 @@ class TestContextInitializerIntegration:
             assert ctx.env.context == "Knowledge content"
         finally:
             import hashlib
+
             qh = hashlib.md5(ctx.env.task.encode(), usedforsecurity=False).hexdigest()
             _knowledge_cache.pop(qh, None)
 
@@ -483,6 +495,7 @@ class TestContextInitializerIntegration:
             assert ctx.env.context == "Fresh knowledge"
         finally:
             import hashlib
+
             qh = hashlib.md5(ctx.env.task.encode(), usedforsecurity=False).hexdigest()
             _knowledge_cache.pop(qh, None)
 
@@ -512,6 +525,7 @@ class TestContextInitializerIntegration:
             assert "Extra knowledge" in ctx.env.context
         finally:
             import hashlib
+
             qh = hashlib.md5(ctx.env.task.encode(), usedforsecurity=False).hexdigest()
             _knowledge_cache.pop(qh, None)
 

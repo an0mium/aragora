@@ -513,7 +513,10 @@ class TeamsBot:
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    "Permission denied: %s for user %s, reason: %s", permission_key, context.user_id, decision.reason
+                    "Permission denied: %s for user %s, reason: %s",
+                    permission_key,
+                    context.user_id,
+                    decision.reason,
                 )
                 return {
                     "error": "permission_denied",
@@ -542,7 +545,9 @@ class TeamsBot:
 
         if activity_tenant_id != required_tenant:
             logger.warning(
-                "Tenant validation failed: activity from %s, expected %s", activity_tenant_id, required_tenant
+                "Tenant validation failed: activity from %s, expected %s",
+                activity_tenant_id,
+                required_tenant,
             )
             return {
                 "error": "tenant_denied",

@@ -386,11 +386,13 @@ class TestListPendingActions:
 
     @pytest.mark.asyncio
     async def test_list_pending_items(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "priority": 2},
-            {"id": "a2", "status": "completed", "priority": 1},
-            {"id": "a3", "status": "in_progress", "priority": 3},
-        ])
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "priority": 2},
+                {"id": "a2", "status": "completed", "priority": 1},
+                {"id": "a3", "status": "in_progress", "priority": 3},
+            ]
+        )
         result = await handle_list_pending_actions(data={}, user_id="user-1")
         body = _data(result)
         assert body["total"] == 2
@@ -401,10 +403,12 @@ class TestListPendingActions:
 
     @pytest.mark.asyncio
     async def test_list_filter_by_assignee(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "assignee_email": "alice@co.com"},
-            {"id": "a2", "status": "pending", "assignee_email": "bob@co.com"},
-        ])
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "assignee_email": "alice@co.com"},
+                {"id": "a2", "status": "pending", "assignee_email": "bob@co.com"},
+            ]
+        )
         result = await handle_list_pending_actions(
             data={"assignee": "alice@co.com"}, user_id="user-1"
         )
@@ -414,9 +418,11 @@ class TestListPendingActions:
 
     @pytest.mark.asyncio
     async def test_list_assignee_filter_case_insensitive(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "assignee_email": "Alice@Co.com"},
-        ])
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "assignee_email": "Alice@Co.com"},
+            ]
+        )
         result = await handle_list_pending_actions(
             data={"assignee": "alice@co.com"}, user_id="user-1"
         )
@@ -425,39 +431,39 @@ class TestListPendingActions:
 
     @pytest.mark.asyncio
     async def test_list_filter_by_priority(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "priority": 1},
-            {"id": "a2", "status": "pending", "priority": 2},
-            {"id": "a3", "status": "pending", "priority": 3},
-        ])
-        result = await handle_list_pending_actions(
-            data={"priority": "critical"}, user_id="user-1"
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "priority": 1},
+                {"id": "a2", "status": "pending", "priority": 2},
+                {"id": "a3", "status": "pending", "priority": 3},
+            ]
         )
+        result = await handle_list_pending_actions(data={"priority": "critical"}, user_id="user-1")
         body = _data(result)
         assert body["total"] == 1
         assert body["action_items"][0]["id"] == "a1"
 
     @pytest.mark.asyncio
     async def test_list_filter_by_priority_high(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "priority": 2},
-            {"id": "a2", "status": "pending", "priority": 3},
-        ])
-        result = await handle_list_pending_actions(
-            data={"priority": "high"}, user_id="user-1"
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "priority": 2},
+                {"id": "a2", "status": "pending", "priority": 3},
+            ]
         )
+        result = await handle_list_pending_actions(data={"priority": "high"}, user_id="user-1")
         body = _data(result)
         assert body["total"] == 1
         assert body["action_items"][0]["id"] == "a1"
 
     @pytest.mark.asyncio
     async def test_list_filter_by_invalid_priority(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "priority": 2},
-        ])
-        result = await handle_list_pending_actions(
-            data={"priority": "unknown"}, user_id="user-1"
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "priority": 2},
+            ]
         )
+        result = await handle_list_pending_actions(data={"priority": "unknown"}, user_id="user-1")
         body = _data(result)
         # Unknown priority maps to None so the filter branch is skipped;
         # all items are returned unfiltered.
@@ -466,14 +472,22 @@ class TestListPendingActions:
     @pytest.mark.asyncio
     async def test_list_filter_by_due_within_hours(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending", "deadline": (now + timedelta(hours=2)).isoformat()},
-            {"id": "a2", "status": "pending", "deadline": (now + timedelta(hours=48)).isoformat()},
-            {"id": "a3", "status": "pending"},  # No deadline
-        ])
-        result = await handle_list_pending_actions(
-            data={"due_within_hours": 24}, user_id="user-1"
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now + timedelta(hours=2)).isoformat(),
+                },
+                {
+                    "id": "a2",
+                    "status": "pending",
+                    "deadline": (now + timedelta(hours=48)).isoformat(),
+                },
+                {"id": "a3", "status": "pending"},  # No deadline
+            ]
         )
+        result = await handle_list_pending_actions(data={"due_within_hours": 24}, user_id="user-1")
         body = _data(result)
         assert body["total"] == 1
         assert body["action_items"][0]["id"] == "a1"
@@ -482,9 +496,7 @@ class TestListPendingActions:
     async def test_list_pagination_limit(self):
         items = [{"id": f"a{i}", "status": "pending", "priority": 3} for i in range(10)]
         _seed_items(items)
-        result = await handle_list_pending_actions(
-            data={"limit": 3}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions(data={"limit": 3}, user_id="user-1")
         body = _data(result)
         assert len(body["action_items"]) == 3
         assert body["total"] == 10
@@ -494,9 +506,7 @@ class TestListPendingActions:
     async def test_list_pagination_offset(self):
         items = [{"id": f"a{i}", "status": "pending", "priority": 3} for i in range(5)]
         _seed_items(items)
-        result = await handle_list_pending_actions(
-            data={"limit": 2, "offset": 3}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions(data={"limit": 2, "offset": 3}, user_id="user-1")
         body = _data(result)
         assert len(body["action_items"]) == 2
         assert body["offset"] == 3
@@ -504,38 +514,42 @@ class TestListPendingActions:
     @pytest.mark.asyncio
     async def test_list_limit_clamped_min(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        result = await handle_list_pending_actions(
-            data={"limit": 0}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions(data={"limit": 0}, user_id="user-1")
         body = _data(result)
         assert body["limit"] >= 1
 
     @pytest.mark.asyncio
     async def test_list_limit_clamped_max(self):
-        result = await handle_list_pending_actions(
-            data={"limit": 999}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions(data={"limit": 999}, user_id="user-1")
         body = _data(result)
         assert body["limit"] <= 200
 
     @pytest.mark.asyncio
     async def test_list_offset_clamped_min(self):
-        result = await handle_list_pending_actions(
-            data={"offset": -5}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions(data={"offset": -5}, user_id="user-1")
         body = _data(result)
         assert body["offset"] >= 0
 
     @pytest.mark.asyncio
     async def test_list_sort_by_deadline_then_priority(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "no-deadline", "status": "pending", "priority": 1},
-            {"id": "later", "status": "pending", "priority": 2,
-             "deadline": (now + timedelta(hours=10)).isoformat()},
-            {"id": "sooner", "status": "pending", "priority": 3,
-             "deadline": (now + timedelta(hours=2)).isoformat()},
-        ])
+        _seed_items(
+            [
+                {"id": "no-deadline", "status": "pending", "priority": 1},
+                {
+                    "id": "later",
+                    "status": "pending",
+                    "priority": 2,
+                    "deadline": (now + timedelta(hours=10)).isoformat(),
+                },
+                {
+                    "id": "sooner",
+                    "status": "pending",
+                    "priority": 3,
+                    "deadline": (now + timedelta(hours=2)).isoformat(),
+                },
+            ]
+        )
         result = await handle_list_pending_actions(data={}, user_id="user-1")
         body = _data(result)
         ids = [item["id"] for item in body["action_items"]]
@@ -544,12 +558,12 @@ class TestListPendingActions:
 
     @pytest.mark.asyncio
     async def test_list_invalid_deadline_string(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "deadline": "not-a-date"},
-        ])
-        result = await handle_list_pending_actions(
-            data={"due_within_hours": 24}, user_id="user-1"
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "deadline": "not-a-date"},
+            ]
         )
+        result = await handle_list_pending_actions(data={"due_within_hours": 24}, user_id="user-1")
         body = _data(result)
         # Item with invalid deadline is excluded from due_within filter
         assert body["total"] == 0
@@ -573,9 +587,7 @@ class TestCompleteAction:
     @pytest.mark.asyncio
     async def test_complete_success(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        result = await handle_complete_action(
-            data={}, action_id="a1", user_id="user-1"
-        )
+        result = await handle_complete_action(data={}, action_id="a1", user_id="user-1")
         assert _status(result) == 200
         body = _data(result)
         assert body["action_id"] == "a1"
@@ -593,39 +605,29 @@ class TestCompleteAction:
     @pytest.mark.asyncio
     async def test_complete_default_completed_by_is_user_id(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        await handle_complete_action(
-            data={}, action_id="a1", user_id="user-1"
-        )
+        await handle_complete_action(data={}, action_id="a1", user_id="user-1")
         assert action_items_mod._action_items["a1"]["completed_by"] == "user-1"
 
     @pytest.mark.asyncio
     async def test_complete_with_notes(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        await handle_complete_action(
-            data={"notes": "All done!"}, action_id="a1", user_id="user-1"
-        )
+        await handle_complete_action(data={"notes": "All done!"}, action_id="a1", user_id="user-1")
         assert action_items_mod._action_items["a1"]["completion_notes"] == "All done!"
 
     @pytest.mark.asyncio
     async def test_complete_without_notes_no_completion_notes_key(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        await handle_complete_action(
-            data={}, action_id="a1", user_id="user-1"
-        )
+        await handle_complete_action(data={}, action_id="a1", user_id="user-1")
         assert "completion_notes" not in action_items_mod._action_items["a1"]
 
     @pytest.mark.asyncio
     async def test_complete_not_found(self):
-        result = await handle_complete_action(
-            data={}, action_id="nonexistent", user_id="user-1"
-        )
+        result = await handle_complete_action(data={}, action_id="nonexistent", user_id="user-1")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_complete_missing_action_id(self):
-        result = await handle_complete_action(
-            data={}, action_id="", user_id="user-1"
-        )
+        result = await handle_complete_action(data={}, action_id="", user_id="user-1")
         assert _status(result) == 400
         assert "action_id" in _body(result).get("error", "").lower()
 
@@ -639,10 +641,12 @@ class TestCompleteAction:
 
     @pytest.mark.asyncio
     async def test_complete_action_id_param_takes_precedence(self):
-        _seed_items([
-            {"id": "a1", "status": "pending"},
-            {"id": "a2", "status": "pending"},
-        ])
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending"},
+                {"id": "a2", "status": "pending"},
+            ]
+        )
         result = await handle_complete_action(
             data={"action_id": "a2"}, action_id="a1", user_id="user-1"
         )
@@ -726,9 +730,7 @@ class TestUpdateActionStatus:
     @pytest.mark.asyncio
     async def test_update_status_missing(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        result = await handle_update_action_status(
-            data={}, action_id="a1", user_id="user-1"
-        )
+        result = await handle_update_action_status(data={}, action_id="a1", user_id="user-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -802,15 +804,21 @@ class TestGetDueSoon:
     @pytest.mark.asyncio
     async def test_due_soon_items(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending",
-             "deadline": (now + timedelta(hours=5)).isoformat()},
-            {"id": "a2", "status": "pending",
-             "deadline": (now + timedelta(hours=48)).isoformat()},
-        ])
-        result = await handle_get_due_soon(
-            data={"hours": 24}, user_id="user-1"
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now + timedelta(hours=5)).isoformat(),
+                },
+                {
+                    "id": "a2",
+                    "status": "pending",
+                    "deadline": (now + timedelta(hours=48)).isoformat(),
+                },
+            ]
         )
+        result = await handle_get_due_soon(data={"hours": 24}, user_id="user-1")
         body = _data(result)
         assert body["due_soon_count"] == 1
         assert body["due_soon"][0]["id"] == "a1"
@@ -818,10 +826,15 @@ class TestGetDueSoon:
     @pytest.mark.asyncio
     async def test_due_soon_overdue_items(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending",
-             "deadline": (now - timedelta(hours=2)).isoformat()},
-        ])
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now - timedelta(hours=2)).isoformat(),
+                },
+            ]
+        )
         result = await handle_get_due_soon(data={}, user_id="user-1")
         body = _data(result)
         assert body["overdue_count"] == 1
@@ -831,75 +844,87 @@ class TestGetDueSoon:
     @pytest.mark.asyncio
     async def test_due_soon_exclude_overdue(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending",
-             "deadline": (now - timedelta(hours=2)).isoformat()},
-        ])
-        result = await handle_get_due_soon(
-            data={"include_overdue": False}, user_id="user-1"
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now - timedelta(hours=2)).isoformat(),
+                },
+            ]
         )
+        result = await handle_get_due_soon(data={"include_overdue": False}, user_id="user-1")
         body = _data(result)
         assert body["overdue_count"] == 0
 
     @pytest.mark.asyncio
     async def test_due_soon_include_overdue_string_true(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending",
-             "deadline": (now - timedelta(hours=1)).isoformat()},
-        ])
-        result = await handle_get_due_soon(
-            data={"include_overdue": "true"}, user_id="user-1"
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now - timedelta(hours=1)).isoformat(),
+                },
+            ]
         )
+        result = await handle_get_due_soon(data={"include_overdue": "true"}, user_id="user-1")
         body = _data(result)
         assert body["overdue_count"] == 1
 
     @pytest.mark.asyncio
     async def test_due_soon_include_overdue_string_false(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending",
-             "deadline": (now - timedelta(hours=1)).isoformat()},
-        ])
-        result = await handle_get_due_soon(
-            data={"include_overdue": "false"}, user_id="user-1"
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now - timedelta(hours=1)).isoformat(),
+                },
+            ]
         )
+        result = await handle_get_due_soon(data={"include_overdue": "false"}, user_id="user-1")
         body = _data(result)
         assert body["overdue_count"] == 0
 
     @pytest.mark.asyncio
     async def test_due_soon_skips_completed_items(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "completed",
-             "deadline": (now + timedelta(hours=2)).isoformat()},
-        ])
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "completed",
+                    "deadline": (now + timedelta(hours=2)).isoformat(),
+                },
+            ]
+        )
         result = await handle_get_due_soon(data={}, user_id="user-1")
         body = _data(result)
         assert body["total_urgent"] == 0
 
     @pytest.mark.asyncio
     async def test_due_soon_skips_items_without_deadline(self):
-        _seed_items([
-            {"id": "a1", "status": "pending"},
-        ])
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending"},
+            ]
+        )
         result = await handle_get_due_soon(data={}, user_id="user-1")
         body = _data(result)
         assert body["total_urgent"] == 0
 
     @pytest.mark.asyncio
     async def test_due_soon_hours_clamped_min(self):
-        result = await handle_get_due_soon(
-            data={"hours": 0}, user_id="user-1"
-        )
+        result = await handle_get_due_soon(data={"hours": 0}, user_id="user-1")
         body = _data(result)
         assert body["hours_window"] >= 1
 
     @pytest.mark.asyncio
     async def test_due_soon_hours_clamped_max(self):
-        result = await handle_get_due_soon(
-            data={"hours": 99999}, user_id="user-1"
-        )
+        result = await handle_get_due_soon(data={"hours": 99999}, user_id="user-1")
         body = _data(result)
         assert body["hours_window"] <= 8760
 
@@ -911,9 +936,11 @@ class TestGetDueSoon:
 
     @pytest.mark.asyncio
     async def test_due_soon_invalid_deadline_string_skipped(self):
-        _seed_items([
-            {"id": "a1", "status": "pending", "deadline": "not-a-date"},
-        ])
+        _seed_items(
+            [
+                {"id": "a1", "status": "pending", "deadline": "not-a-date"},
+            ]
+        )
         result = await handle_get_due_soon(data={}, user_id="user-1")
         body = _data(result)
         assert body["total_urgent"] == 0
@@ -921,10 +948,15 @@ class TestGetDueSoon:
     @pytest.mark.asyncio
     async def test_due_soon_hours_remaining_calculated(self):
         now = datetime.now(timezone.utc)
-        _seed_items([
-            {"id": "a1", "status": "pending",
-             "deadline": (now + timedelta(hours=5)).isoformat()},
-        ])
+        _seed_items(
+            [
+                {
+                    "id": "a1",
+                    "status": "pending",
+                    "deadline": (now + timedelta(hours=5)).isoformat(),
+                },
+            ]
+        )
         result = await handle_get_due_soon(data={}, user_id="user-1")
         body = _data(result)
         assert body["due_soon"][0]["hours_remaining"] >= 4
@@ -958,9 +990,7 @@ class TestBatchExtract:
 
     @pytest.mark.asyncio
     async def test_batch_empty_emails_list(self):
-        result = await handle_batch_extract(
-            data={"emails": []}, user_id="user-1"
-        )
+        result = await handle_batch_extract(data={"emails": []}, user_id="user-1")
         assert _status(result) == 400
         assert "emails" in _body(result).get("error", "").lower()
 
@@ -972,9 +1002,7 @@ class TestBatchExtract:
     @pytest.mark.asyncio
     async def test_batch_exceeds_limit(self):
         emails = [{"email_id": f"e{i}", "subject": "S", "body": "B"} for i in range(51)]
-        result = await handle_batch_extract(
-            data={"emails": emails}, user_id="user-1"
-        )
+        result = await handle_batch_extract(data={"emails": emails}, user_id="user-1")
         assert _status(result) == 400
         assert "50" in _body(result).get("error", "")
 
@@ -982,9 +1010,7 @@ class TestBatchExtract:
     async def test_batch_exactly_50_allowed(self, mock_extractor):
         emails = [{"email_id": f"e{i}", "subject": "S", "body": "B"} for i in range(50)]
         with patch.object(action_items_mod, "get_action_extractor", return_value=mock_extractor):
-            result = await handle_batch_extract(
-                data={"emails": emails}, user_id="user-1"
-            )
+            result = await handle_batch_extract(data={"emails": emails}, user_id="user-1")
         assert _status(result) == 200
         body = _data(result)
         assert body["total_emails"] == 50
@@ -1064,9 +1090,7 @@ class TestBatchExtract:
             side_effect=RuntimeError("init failed"),
         ):
             result = await handle_batch_extract(
-                data={
-                    "emails": [{"email_id": "e1", "subject": "S", "body": "B"}]
-                },
+                data={"emails": [{"email_id": "e1", "subject": "S", "body": "B"}]},
                 user_id="user-1",
             )
         assert _status(result) == 500
@@ -1171,9 +1195,7 @@ class TestAutoSnoozeMeeting:
     @pytest.mark.asyncio
     async def test_snooze_not_a_meeting(self):
         detector = AsyncMock()
-        detector.detect_meeting = AsyncMock(
-            return_value=MockMeetingResult(is_meeting=False)
-        )
+        detector.detect_meeting = AsyncMock(return_value=MockMeetingResult(is_meeting=False))
         with patch.object(action_items_mod, "get_meeting_detector", return_value=detector):
             result = await handle_auto_snooze_meeting(
                 data={"subject": "FYI", "body": "Newsletter content"},
@@ -1253,9 +1275,7 @@ class TestAutoSnoozeMeeting:
 
     @pytest.mark.asyncio
     async def test_snooze_missing_subject_and_body(self):
-        result = await handle_auto_snooze_meeting(
-            data={"email_id": "e1"}, user_id="user-1"
-        )
+        result = await handle_auto_snooze_meeting(data={"email_id": "e1"}, user_id="user-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1314,9 +1334,7 @@ class TestCheckInboxPermission:
 
     def test_permission_denied(self):
         mock_checker = MagicMock()
-        mock_checker.check_permission.return_value = MagicMock(
-            allowed=False, reason="No access"
-        )
+        mock_checker.check_permission.return_value = MagicMock(allowed=False, reason="No access")
         with patch(
             "aragora.server.handlers.inbox.action_items.get_permission_checker",
             return_value=mock_checker,
@@ -1422,9 +1440,7 @@ class TestRBACDeniedPaths:
     @pytest.mark.asyncio
     async def test_complete_denied(self):
         _seed_items([{"id": "a1", "status": "pending"}])
-        result = await handle_complete_action(
-            data={}, action_id="a1", user_id="user-1"
-        )
+        result = await handle_complete_action(data={}, action_id="a1", user_id="user-1")
         assert _status(result) == 403
 
     @pytest.mark.asyncio
@@ -1480,7 +1496,10 @@ class TestSingletonGetters:
             mock_cls,
             create=True,
         ):
-            with patch.dict("sys.modules", {"aragora.services.action_item_extractor": MagicMock(ActionItemExtractor=mock_cls)}):
+            with patch.dict(
+                "sys.modules",
+                {"aragora.services.action_item_extractor": MagicMock(ActionItemExtractor=mock_cls)},
+            ):
                 extractor = action_items_mod.get_action_extractor()
                 assert extractor is not None
 

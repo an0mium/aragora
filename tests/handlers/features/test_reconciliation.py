@@ -693,7 +693,8 @@ class TestListReconciliations:
         result = await handler.handle(req, req.path, req.method)
         assert _status(result) == 200
         mock_service_patched.list_reconciliations.assert_called_once_with(
-            account_id="acct_001", limit=20,
+            account_id="acct_001",
+            limit=20,
         )
 
     @pytest.mark.asyncio
@@ -706,7 +707,8 @@ class TestListReconciliations:
         result = await handler.handle(req, req.path, req.method)
         assert _status(result) == 200
         mock_service_patched.list_reconciliations.assert_called_once_with(
-            account_id=None, limit=5,
+            account_id=None,
+            limit=5,
         )
 
     @pytest.mark.asyncio
@@ -719,7 +721,8 @@ class TestListReconciliations:
         result = await handler.handle(req, req.path, req.method)
         assert _status(result) == 200
         mock_service_patched.list_reconciliations.assert_called_once_with(
-            account_id=None, limit=100,
+            account_id=None,
+            limit=100,
         )
 
     @pytest.mark.asyncio
@@ -732,7 +735,8 @@ class TestListReconciliations:
         result = await handler.handle(req, req.path, req.method)
         assert _status(result) == 200
         mock_service_patched.list_reconciliations.assert_called_once_with(
-            account_id=None, limit=1,
+            account_id=None,
+            limit=1,
         )
 
     @pytest.mark.asyncio
@@ -745,7 +749,8 @@ class TestListReconciliations:
         result = await handler.handle(req, req.path, req.method)
         assert _status(result) == 200
         mock_service_patched.list_reconciliations.assert_called_once_with(
-            account_id=None, limit=20,
+            account_id=None,
+            limit=20,
         )
 
     @pytest.mark.asyncio
@@ -950,9 +955,7 @@ class TestResolve:
     async def test_resolve_success(self, handler, mock_service_patched):
         # Return a result where discrepancy is resolved
         resolved_result = MockReconciliationResult(
-            discrepancies=[
-                MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)
-            ],
+            discrepancies=[MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)],
         )
         mock_service_patched.get_reconciliation.return_value = resolved_result
         mock_service_patched.resolve_discrepancy = AsyncMock(return_value=True)
@@ -1059,9 +1062,7 @@ class TestResolve:
         for action in ["create_entry", "ignore", "match_manual", "resolve"]:
             mock_service_patched.resolve_discrepancy = AsyncMock(return_value=True)
             resolved_result = MockReconciliationResult(
-                discrepancies=[
-                    MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)
-                ],
+                discrepancies=[MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)],
             )
             mock_service_patched.get_reconciliation.return_value = resolved_result
 
@@ -1161,9 +1162,7 @@ class TestResolve:
         """If action is not provided, defaults to 'resolve'."""
         mock_service_patched.resolve_discrepancy = AsyncMock(return_value=True)
         resolved_result = MockReconciliationResult(
-            discrepancies=[
-                MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)
-            ],
+            discrepancies=[MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)],
         )
         mock_service_patched.get_reconciliation.return_value = resolved_result
 
@@ -1191,9 +1190,7 @@ class TestApprove:
     async def test_approve_success(self, handler, mock_service_patched):
         # No pending discrepancies
         mock_service_patched.get_reconciliation.return_value = MockReconciliationResult(
-            discrepancies=[
-                MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)
-            ],
+            discrepancies=[MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)],
         )
 
         req = MockRequest(
@@ -1293,9 +1290,7 @@ class TestApprove:
     @pytest.mark.asyncio
     async def test_approve_default_empty_notes(self, handler, mock_service_patched):
         mock_service_patched.get_reconciliation.return_value = MockReconciliationResult(
-            discrepancies=[
-                MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)
-            ],
+            discrepancies=[MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)],
         )
 
         req = MockRequest(
@@ -1309,9 +1304,7 @@ class TestApprove:
     @pytest.mark.asyncio
     async def test_approve_sets_user_id(self, handler, mock_service_patched):
         mock_service_patched.get_reconciliation.return_value = MockReconciliationResult(
-            discrepancies=[
-                MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)
-            ],
+            discrepancies=[MockDiscrepancy(resolution_status=ResolutionStatus.RESOLVED)],
         )
 
         req = MockRequest(
@@ -1454,7 +1447,9 @@ class TestDiscrepancies:
         assert data["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_discrepancies_severity_filter_excludes_non_matching(self, handler, mock_service_patched):
+    async def test_discrepancies_severity_filter_excludes_non_matching(
+        self, handler, mock_service_patched
+    ):
         recon = MockReconciliationResult(
             discrepancies=[
                 MockDiscrepancy(severity=Severity.LOW),
@@ -1525,7 +1520,9 @@ class TestBulkResolve:
         assert "reconciliation_id" in _error(result)
 
     @pytest.mark.asyncio
-    async def test_bulk_resolve_invalid_reconciliation_id_too_long(self, handler, mock_service_patched):
+    async def test_bulk_resolve_invalid_reconciliation_id_too_long(
+        self, handler, mock_service_patched
+    ):
         req = MockRequest(
             path="/api/v1/reconciliation/discrepancies/bulk-resolve",
             method="POST",
@@ -1538,7 +1535,9 @@ class TestBulkResolve:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_bulk_resolve_invalid_reconciliation_id_not_string(self, handler, mock_service_patched):
+    async def test_bulk_resolve_invalid_reconciliation_id_not_string(
+        self, handler, mock_service_patched
+    ):
         req = MockRequest(
             path="/api/v1/reconciliation/discrepancies/bulk-resolve",
             method="POST",
@@ -1572,8 +1571,7 @@ class TestBulkResolve:
             _body={
                 "reconciliation_id": "rec_001",
                 "resolutions": [
-                    {"discrepancy_id": f"disc_{i}", "action": "resolve"}
-                    for i in range(101)
+                    {"discrepancy_id": f"disc_{i}", "action": "resolve"} for i in range(101)
                 ],
             },
         )
@@ -1601,9 +1599,7 @@ class TestBulkResolve:
     @pytest.mark.asyncio
     async def test_bulk_resolve_partial_failures(self, handler, mock_service_patched):
         # First resolution succeeds, second fails
-        mock_service_patched.resolve_discrepancy = AsyncMock(
-            side_effect=[True, False]
-        )
+        mock_service_patched.resolve_discrepancy = AsyncMock(side_effect=[True, False])
 
         req = MockRequest(
             path="/api/v1/reconciliation/discrepancies/bulk-resolve",
@@ -1700,9 +1696,7 @@ class TestBulkResolve:
 
     @pytest.mark.asyncio
     async def test_bulk_resolve_service_error(self, handler, mock_service_patched):
-        mock_service_patched.resolve_discrepancy = AsyncMock(
-            side_effect=ValueError("DB error")
-        )
+        mock_service_patched.resolve_discrepancy = AsyncMock(side_effect=ValueError("DB error"))
 
         req = MockRequest(
             path="/api/v1/reconciliation/discrepancies/bulk-resolve",

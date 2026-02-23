@@ -353,10 +353,12 @@ class TestOrchestrationRequest:
     # -- from_dict: knowledge_sources (string list) --------------------------
 
     def test_from_dict_knowledge_sources_strings(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_sources": ["slack:C123", "my-doc"],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_sources": ["slack:C123", "my-doc"],
+            }
+        )
         assert len(req.knowledge_sources) == 2
         assert req.knowledge_sources[0].source_type == "slack"
         assert req.knowledge_sources[0].source_id == "C123"
@@ -366,12 +368,14 @@ class TestOrchestrationRequest:
     # -- from_dict: knowledge_sources (dict list) ----------------------------
 
     def test_from_dict_knowledge_sources_dicts(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_sources": [
-                {"type": "confluence", "id": "page-1", "lookback_minutes": 30, "max_items": 5},
-            ],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_sources": [
+                    {"type": "confluence", "id": "page-1", "lookback_minutes": 30, "max_items": 5},
+                ],
+            }
+        )
         assert len(req.knowledge_sources) == 1
         src = req.knowledge_sources[0]
         assert src.source_type == "confluence"
@@ -380,10 +384,12 @@ class TestOrchestrationRequest:
         assert src.max_items == 5
 
     def test_from_dict_knowledge_sources_dict_defaults(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_sources": [{"type": "github"}],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_sources": [{"type": "github"}],
+            }
+        )
         src = req.knowledge_sources[0]
         assert src.source_type == "github"
         assert src.source_id == ""
@@ -392,10 +398,12 @@ class TestOrchestrationRequest:
 
     def test_from_dict_knowledge_sources_dict_minimal(self):
         """Dict with no keys uses defaults."""
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_sources": [{}],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_sources": [{}],
+            }
+        )
         src = req.knowledge_sources[0]
         assert src.source_type == "document"
         assert src.source_id == ""
@@ -403,72 +411,86 @@ class TestOrchestrationRequest:
     # -- from_dict: knowledge_context nested format --------------------------
 
     def test_from_dict_knowledge_context_sources(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_context": {
-                "sources": ["github:org/repo"],
-            },
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_context": {
+                    "sources": ["github:org/repo"],
+                },
+            }
+        )
         assert len(req.knowledge_sources) == 1
         assert req.knowledge_sources[0].source_type == "github"
         assert req.knowledge_sources[0].source_id == "org/repo"
 
     def test_from_dict_knowledge_context_workspaces(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_context": {
-                "workspaces": ["ws-1", "ws-2"],
-            },
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_context": {
+                    "workspaces": ["ws-1", "ws-2"],
+                },
+            }
+        )
         assert req.workspaces == ["ws-1", "ws-2"]
 
     def test_from_dict_knowledge_context_combined_with_knowledge_sources(self):
         """Both knowledge_sources and knowledge_context.sources are merged."""
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_sources": ["slack:C111"],
-            "knowledge_context": {
-                "sources": ["github:org/repo"],
-            },
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_sources": ["slack:C111"],
+                "knowledge_context": {
+                    "sources": ["github:org/repo"],
+                },
+            }
+        )
         assert len(req.knowledge_sources) == 2
         types = {s.source_type for s in req.knowledge_sources}
         assert "slack" in types
         assert "github" in types
 
     def test_from_dict_knowledge_context_empty(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_context": {},
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_context": {},
+            }
+        )
         assert req.knowledge_sources == []
         assert req.workspaces == []
 
     # -- from_dict: workspaces -----------------------------------------------
 
     def test_from_dict_workspaces_direct(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "workspaces": ["ws-a"],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "workspaces": ["ws-a"],
+            }
+        )
         assert req.workspaces == ["ws-a"]
 
     def test_from_dict_workspaces_direct_overrides_nested(self):
         """Top-level workspaces takes precedence over knowledge_context.workspaces."""
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "workspaces": ["ws-a"],
-            "knowledge_context": {"workspaces": ["ws-b"]},
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "workspaces": ["ws-a"],
+                "knowledge_context": {"workspaces": ["ws-b"]},
+            }
+        )
         assert req.workspaces == ["ws-a"]
 
     # -- from_dict: output_channels (string list) ----------------------------
 
     def test_from_dict_output_channels_strings(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_channels": ["slack:C456", "https://hooks.example.com/abc"],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_channels": ["slack:C456", "https://hooks.example.com/abc"],
+            }
+        )
         assert len(req.output_channels) == 2
         assert req.output_channels[0].channel_type == "slack"
         assert req.output_channels[1].channel_type == "webhook"
@@ -476,12 +498,14 @@ class TestOrchestrationRequest:
     # -- from_dict: output_channels (dict list) ------------------------------
 
     def test_from_dict_output_channels_dicts(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_channels": [
-                {"type": "teams", "id": "T123", "thread_id": "th-1"},
-            ],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_channels": [
+                    {"type": "teams", "id": "T123", "thread_id": "th-1"},
+                ],
+            }
+        )
         assert len(req.output_channels) == 1
         ch = req.output_channels[0]
         assert ch.channel_type == "teams"
@@ -489,10 +513,12 @@ class TestOrchestrationRequest:
         assert ch.thread_id == "th-1"
 
     def test_from_dict_output_channels_dict_defaults(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_channels": [{}],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_channels": [{}],
+            }
+        )
         ch = req.output_channels[0]
         assert ch.channel_type == "webhook"
         assert ch.channel_id == ""
@@ -502,17 +528,21 @@ class TestOrchestrationRequest:
 
     def test_from_dict_team_strategy_valid(self):
         for strategy in TeamStrategy:
-            req = OrchestrationRequest.from_dict({
-                "question": "q",
-                "team_strategy": strategy.value,
-            })
+            req = OrchestrationRequest.from_dict(
+                {
+                    "question": "q",
+                    "team_strategy": strategy.value,
+                }
+            )
             assert req.team_strategy is strategy
 
     def test_from_dict_team_strategy_invalid_falls_back(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "team_strategy": "nonexistent_strategy",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "team_strategy": "nonexistent_strategy",
+            }
+        )
         assert req.team_strategy is TeamStrategy.BEST_FOR_DOMAIN
 
     def test_from_dict_team_strategy_absent_defaults(self):
@@ -523,17 +553,21 @@ class TestOrchestrationRequest:
 
     def test_from_dict_output_format_valid(self):
         for fmt in OutputFormat:
-            req = OrchestrationRequest.from_dict({
-                "question": "q",
-                "output_format": fmt.value,
-            })
+            req = OrchestrationRequest.from_dict(
+                {
+                    "question": "q",
+                    "output_format": fmt.value,
+                }
+            )
             assert req.output_format is fmt
 
     def test_from_dict_output_format_invalid_falls_back(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_format": "pdf",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_format": "pdf",
+            }
+        )
         assert req.output_format is OutputFormat.STANDARD
 
     def test_from_dict_output_format_absent_defaults(self):
@@ -543,31 +577,39 @@ class TestOrchestrationRequest:
     # -- from_dict: scalar fields --------------------------------------------
 
     def test_from_dict_agents(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "agents": ["claude", "gpt-4"],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "agents": ["claude", "gpt-4"],
+            }
+        )
         assert req.agents == ["claude", "gpt-4"]
 
     def test_from_dict_require_consensus(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "require_consensus": False,
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "require_consensus": False,
+            }
+        )
         assert req.require_consensus is False
 
     def test_from_dict_priority(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "priority": "high",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "priority": "high",
+            }
+        )
         assert req.priority == "high"
 
     def test_from_dict_max_rounds(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "max_rounds": 5,
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "max_rounds": 5,
+            }
+        )
         assert req.max_rounds == 5
 
     def test_from_dict_max_rounds_default(self):
@@ -575,17 +617,21 @@ class TestOrchestrationRequest:
         assert req.max_rounds == MAX_ROUNDS
 
     def test_from_dict_timeout_seconds(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "timeout_seconds": 60.0,
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "timeout_seconds": 60.0,
+            }
+        )
         assert req.timeout_seconds == 60.0
 
     def test_from_dict_template(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "template": "code_review",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "template": "code_review",
+            }
+        )
         assert req.template == "code_review"
 
     def test_from_dict_template_none(self):
@@ -593,24 +639,30 @@ class TestOrchestrationRequest:
         assert req.template is None
 
     def test_from_dict_notify(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "notify": False,
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "notify": False,
+            }
+        )
         assert req.notify is False
 
     def test_from_dict_dry_run(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "dry_run": True,
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "dry_run": True,
+            }
+        )
         assert req.dry_run is True
 
     def test_from_dict_metadata(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "metadata": {"source": "api", "user": "u1"},
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "metadata": {"source": "api", "user": "u1"},
+            }
+        )
         assert req.metadata == {"source": "api", "user": "u1"}
 
     # -- from_dict: full payload ---------------------------------------------
@@ -658,13 +710,15 @@ class TestOrchestrationRequest:
     # -- from_dict: mixed knowledge source types -----------------------------
 
     def test_from_dict_mixed_string_and_dict_sources(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_sources": [
-                "slack:C111",
-                {"type": "confluence", "id": "pg-1"},
-            ],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_sources": [
+                    "slack:C111",
+                    {"type": "confluence", "id": "pg-1"},
+                ],
+            }
+        )
         assert len(req.knowledge_sources) == 2
         assert req.knowledge_sources[0].source_type == "slack"
         assert req.knowledge_sources[1].source_type == "confluence"
@@ -672,13 +726,15 @@ class TestOrchestrationRequest:
     # -- from_dict: mixed output channel types -------------------------------
 
     def test_from_dict_mixed_string_and_dict_channels(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_channels": [
-                "slack:C789:ts1",
-                {"type": "discord", "id": "D123"},
-            ],
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_channels": [
+                    "slack:C789:ts1",
+                    {"type": "discord", "id": "D123"},
+                ],
+            }
+        )
         assert len(req.output_channels) == 2
         assert req.output_channels[0].channel_type == "slack"
         assert req.output_channels[0].thread_id == "ts1"
@@ -687,11 +743,13 @@ class TestOrchestrationRequest:
     # -- from_dict: ignoring unknown fields ----------------------------------
 
     def test_from_dict_ignores_unknown_fields(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "unknown_field": "ignored",
-            "another": 42,
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "unknown_field": "ignored",
+                "another": 42,
+            }
+        )
         assert req.question == "q"
 
 
@@ -906,10 +964,12 @@ class TestEdgeCases:
 
     def test_from_dict_knowledge_context_without_sources_key(self):
         """knowledge_context dict without 'sources' key should not add sources."""
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "knowledge_context": {"workspaces": ["w1"]},
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "knowledge_context": {"workspaces": ["w1"]},
+            }
+        )
         assert req.knowledge_sources == []
 
     def test_output_channel_from_string_webhook_non_http_id(self):
@@ -919,17 +979,21 @@ class TestEdgeCases:
         assert ch.channel_id == "my-hook-id"
 
     def test_team_strategy_is_enum_member(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "team_strategy": "fast",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "team_strategy": "fast",
+            }
+        )
         assert isinstance(req.team_strategy, TeamStrategy)
 
     def test_output_format_is_enum_member(self):
-        req = OrchestrationRequest.from_dict({
-            "question": "q",
-            "output_format": "summary",
-        })
+        req = OrchestrationRequest.from_dict(
+            {
+                "question": "q",
+                "output_format": "summary",
+            }
+        )
         assert isinstance(req.output_format, OutputFormat)
 
     def test_request_metadata_default_is_independent(self):

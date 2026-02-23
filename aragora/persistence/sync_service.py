@@ -122,7 +122,10 @@ class SupabaseSyncService:
 
         if self.enabled:
             logger.info(
-                "SupabaseSyncService enabled: batch_size=%s, interval=%ss, max_retries=%s", self.batch_size, self.interval_seconds, self.max_retries
+                "SupabaseSyncService enabled: batch_size=%s, interval=%ss, max_retries=%s",
+                self.batch_size,
+                self.interval_seconds,
+                self.max_retries,
             )
         else:
             logger.debug("SupabaseSyncService disabled (SUPABASE_SYNC_ENABLED != true)")
@@ -200,7 +203,7 @@ class SupabaseSyncService:
 
         item = SyncItem(item_type=SyncItemType.DEBATE, data=debate_data)
         self._queue.put(item)
-        logger.debug("Queued debate for sync: %s", debate_data.get('id', 'unknown'))
+        logger.debug("Queued debate for sync: %s", debate_data.get("id", "unknown"))
         return True
 
     def queue_cycle(self, cycle_data: dict[str, Any]) -> bool:
@@ -368,13 +371,19 @@ class SupabaseSyncService:
             if item.retries < self.max_retries:
                 self._queue.put(item)
                 logger.debug(
-                    "Re-queued %s for retry (%s/%s)", item.item_type.value, item.retries, self.max_retries
+                    "Re-queued %s for retry (%s/%s)",
+                    item.item_type.value,
+                    item.retries,
+                    self.max_retries,
                 )
             else:
                 self._failed_count += 1
                 self._last_error = item.last_error
                 logger.error(
-                    "Dropped %s after %s retries: %s", item.item_type.value, self.max_retries, item.last_error
+                    "Dropped %s after %s retries: %s",
+                    item.item_type.value,
+                    self.max_retries,
+                    item.last_error,
                 )
 
         if synced > 0:

@@ -281,6 +281,7 @@ class TestHandlerInit:
 
     def test_extends_base_handler(self, handler):
         from aragora.server.handlers.base import BaseHandler
+
         assert isinstance(handler, BaseHandler)
 
     def test_registry_initially_none(self):
@@ -333,7 +334,14 @@ class TestListSkills:
         result = await handler.handle_get("/api/v1/skills", mock_request)
         body = _body(result)
         skill = body["skills"][0]
-        for field_name in ("name", "version", "description", "capabilities", "input_schema", "tags"):
+        for field_name in (
+            "name",
+            "version",
+            "description",
+            "capabilities",
+            "input_schema",
+            "tags",
+        ):
             assert field_name in skill
 
     @pytest.mark.asyncio
@@ -564,10 +572,12 @@ class TestInvokeSkillByBody:
 
     @pytest.mark.asyncio
     async def test_invoke_success(self, handler, mock_request):
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {"query": "test"},
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {"query": "test"},
+            }
+        )
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 200
         body = _body(result)
@@ -577,13 +587,13 @@ class TestInvokeSkillByBody:
 
     @pytest.mark.asyncio
     async def test_invoke_execution_time(self, handler, mock_request, mock_registry):
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {},
-        })
-        mock_registry.invoke.return_value = MockSkillResult(
-            data={}, duration_seconds=0.456
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {},
+            }
         )
+        mock_registry.invoke.return_value = MockSkillResult(data={}, duration_seconds=0.456)
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         body = _body(result)
         assert body["execution_time_ms"] == 456
@@ -619,21 +629,25 @@ class TestInvokeSkillByBody:
 
     @pytest.mark.asyncio
     async def test_invoke_custom_user_id(self, handler, mock_request):
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {},
-            "user_id": "custom-user-42",
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {},
+                "user_id": "custom-user-42",
+            }
+        )
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_invoke_custom_permissions(self, handler, mock_request):
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {},
-            "permissions": ["skills:invoke", "skills:read"],
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {},
+                "permissions": ["skills:invoke", "skills:read"],
+            }
+        )
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 200
 
@@ -652,10 +666,12 @@ class TestInvokeSkillByBody:
         """When request has no json attribute, falls back to body dict."""
         # Remove the json attribute to trigger the else branch
         del mock_request.json
-        mock_request.get = MagicMock(return_value={
-            "skill": "search",
-            "input": {"query": "test"},
-        })
+        mock_request.get = MagicMock(
+            return_value={
+                "skill": "search",
+                "input": {"query": "test"},
+            }
+        )
         # Simulate dict-like request
         mock_request_dict = {"body": {"skill": "search", "input": {"query": "test"}}}
         # We need to patch the request to not have .json and act like a dict
@@ -694,10 +710,12 @@ class TestInvokeSkillByPath:
         self, handler, mock_request, mock_registry
     ):
         """URL path skill name takes precedence over body skill name."""
-        mock_request.json = AsyncMock(return_value={
-            "skill": "analyze",
-            "input": {"data": [1, 2, 3]},
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "analyze",
+                "input": {"data": [1, 2, 3]},
+            }
+        )
         result = await handler.handle_post("/api/v1/skills/search/invoke", mock_request)
         assert _status(result) == 200
         # Verify invoke was called with "search" (from URL), not "analyze" (from body)
@@ -786,7 +804,9 @@ class TestInvokeStatusVariants:
         assert _status(result) == 403
 
     @pytest.mark.asyncio
-    async def test_invoke_permission_denied_default_message(self, handler, mock_request, mock_registry):
+    async def test_invoke_permission_denied_default_message(
+        self, handler, mock_request, mock_registry
+    ):
         mock_request.json = AsyncMock(return_value={"skill": "search", "input": {}})
         mock_registry.invoke.return_value = MockSkillResult(
             status=MockSkillStatus.PERMISSION_DENIED,
@@ -850,11 +870,13 @@ class TestInvokeTimeout:
 
     @pytest.mark.asyncio
     async def test_invoke_timeout(self, handler, mock_request, mock_registry):
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {},
-            "timeout": 5.0,
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {},
+                "timeout": 5.0,
+            }
+        )
         mock_registry.invoke.side_effect = asyncio.TimeoutError()
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 408
@@ -864,11 +886,13 @@ class TestInvokeTimeout:
     @pytest.mark.asyncio
     async def test_invoke_timeout_capped_at_60(self, handler, mock_request, mock_registry):
         """Timeout is capped at 60 seconds even if body specifies more."""
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {},
-            "timeout": 300.0,
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {},
+                "timeout": 300.0,
+            }
+        )
         # We can verify indirectly by checking the call still succeeds
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 200
@@ -876,10 +900,12 @@ class TestInvokeTimeout:
     @pytest.mark.asyncio
     async def test_invoke_default_timeout_30(self, handler, mock_request):
         """Default timeout is 30 seconds."""
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {},
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {},
+            }
+        )
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 200
 
@@ -1076,6 +1102,7 @@ class TestRateLimiting:
 
     def test_rate_limiter_configured_at_30_rpm(self):
         from aragora.server.handlers.skills import _skills_limiter
+
         assert _skills_limiter.rpm == 30
 
 
@@ -1103,17 +1130,13 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_sql_injection_in_skill_name(self, handler, mock_request):
         """SQL injection in skill name is safely handled."""
-        result = await handler.handle_get(
-            "/api/v1/skills/'; DROP TABLE skills; --", mock_request
-        )
+        result = await handler.handle_get("/api/v1/skills/'; DROP TABLE skills; --", mock_request)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_xss_in_skill_name(self, handler, mock_request):
         """XSS payload in skill name is safely handled."""
-        result = await handler.handle_get(
-            "/api/v1/skills/<script>alert(1)</script>", mock_request
-        )
+        result = await handler.handle_get("/api/v1/skills/<script>alert(1)</script>", mock_request)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1126,10 +1149,12 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_invoke_with_malicious_input_data(self, handler, mock_request):
         """Invoke with nested deeply malicious input still processes normally."""
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {"query": "'; DROP TABLE users; --", "nested": {"deep": True}},
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {"query": "'; DROP TABLE users; --", "nested": {"deep": True}},
+            }
+        )
         result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert _status(result) == 200
 
@@ -1165,11 +1190,13 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_invoke_with_metadata(self, handler, mock_request):
         """Invoke passes metadata to SkillContext config."""
-        mock_request.json = AsyncMock(return_value={
-            "skill": "search",
-            "input": {"query": "test"},
-            "metadata": {"trace_id": "abc-123", "source": "api"},
-        })
+        mock_request.json = AsyncMock(
+            return_value={
+                "skill": "search",
+                "input": {"query": "test"},
+                "metadata": {"trace_id": "abc-123", "source": "api"},
+            }
+        )
         with patch("aragora.server.handlers.skills.SkillContext") as mock_ctx_cls:
             mock_ctx_cls.return_value = MagicMock()
             result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
@@ -1304,6 +1331,7 @@ class TestModuleConstants:
 
     def test_skills_handler_exported(self):
         from aragora.server.handlers.skills import __all__
+
         assert "SkillsHandler" in __all__
 
     def test_handler_has_routes(self, handler):

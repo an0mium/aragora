@@ -57,6 +57,7 @@ def _status(result: HandlerResult) -> int:
 
 class MockMultipartData(dict):
     """Dict subclass that mimics aiohttp multipart post() result."""
+
     pass
 
 
@@ -318,12 +319,15 @@ class TestSendGridInbound:
         request = _make_sendgrid_inbound_request()
         mock_process = AsyncMock(side_effect=RuntimeError("processing failed"))
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -354,12 +358,15 @@ class TestSendGridInbound:
             html="<p>HTML body</p>",
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -389,12 +396,15 @@ class TestSendGridInbound:
         )
         request = _make_sendgrid_inbound_request(headers_raw=headers_raw)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -409,12 +419,15 @@ class TestSendGridInbound:
         request = _make_sendgrid_inbound_request(envelope="{bad json}")
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -430,12 +443,15 @@ class TestSendGridInbound:
         )
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -448,12 +464,15 @@ class TestSendGridInbound:
         request = _make_sendgrid_inbound_request()
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             await handler.handle_sendgrid(request)
 
@@ -510,10 +529,13 @@ class TestSendGridEvent:
         events = [{"event": "bounce", "email": "bounced@example.com"}]
         request = _make_sendgrid_event_request(events)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_sendgrid(request)
 
         assert _status(result) == 200
@@ -525,10 +547,13 @@ class TestSendGridEvent:
         events = [{"event": "spamreport", "email": "spam@example.com"}]
         request = _make_sendgrid_event_request(events)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_sendgrid(request)
 
         mock_event.assert_called_once_with("spamreport", "spam@example.com", events[0])
@@ -539,10 +564,13 @@ class TestSendGridEvent:
         events = [{"event": "unsubscribe", "email": "unsub@example.com"}]
         request = _make_sendgrid_event_request(events)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_sendgrid(request)
 
         mock_event.assert_called_once_with("unsubscribe", "unsub@example.com", events[0])
@@ -553,10 +581,13 @@ class TestSendGridEvent:
         events = [{"event": "dropped", "email": "dropped@example.com"}]
         request = _make_sendgrid_event_request(events)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_sendgrid(request)
 
         mock_event.assert_called_once_with("dropped", "dropped@example.com", events[0])
@@ -567,10 +598,13 @@ class TestSendGridEvent:
         events = [{"event": "delivered", "email": "ok@example.com"}]
         request = _make_sendgrid_event_request(events)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_sendgrid(request)
 
         mock_event.assert_not_called()
@@ -663,12 +697,15 @@ class TestSendGridContentTypeDispatch:
         request = _make_sendgrid_inbound_request()
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -721,15 +758,19 @@ class TestMailgunWebhook:
         request = _make_mailgun_request()
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_mailgun(request)
 
@@ -780,15 +821,19 @@ class TestMailgunWebhook:
             references="<mg-121@example.com> <mg-122@example.com>",
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_mailgun(request)
 
@@ -809,15 +854,19 @@ class TestMailgunWebhook:
         assert handler._processed_count == 0
         request = _make_mailgun_request()
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            AsyncMock(return_value=True),
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             await handler.handle_mailgun(request)
 
@@ -828,15 +877,19 @@ class TestMailgunWebhook:
         """Exception in mailgun handler returns 500 and increments error count."""
         request = _make_mailgun_request()
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            AsyncMock(side_effect=ValueError("mailgun error")),
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                AsyncMock(side_effect=ValueError("mailgun error")),
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_mailgun(request)
 
@@ -874,15 +927,19 @@ class TestMailgunWebhook:
             post_data=post_data,
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_mailgun(request)
 
@@ -915,10 +972,12 @@ class TestSESWebhook:
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session.get = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_resp),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_resp),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await handler.handle_ses(request)
@@ -966,10 +1025,12 @@ class TestSESWebhook:
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session.get = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_resp),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_resp),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await handler.handle_ses(request)
@@ -989,10 +1050,12 @@ class TestSESWebhook:
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session.get = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(side_effect=OSError("connection refused")),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(side_effect=OSError("connection refused")),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             result = await handler.handle_ses(request)
@@ -1017,10 +1080,13 @@ class TestSESWebhook:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_ses(request)
 
         assert _status(result) == 200
@@ -1047,10 +1113,13 @@ class TestSESWebhook:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_ses(request)
 
         assert _status(result) == 200
@@ -1079,10 +1148,13 @@ class TestSESWebhook:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch.object(handler, "_handle_email_event", new_callable=AsyncMock) as mock_event,
+        ):
             result = await handler.handle_ses(request)
 
         assert _status(result) == 200
@@ -1110,15 +1182,19 @@ class TestSESWebhook:
         request = _make_ses_request(message)
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_ses(request)
 
@@ -1155,15 +1231,19 @@ class TestSESWebhook:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_ses(request)
 
@@ -1236,6 +1316,7 @@ class TestSESWebhook:
     @pytest.mark.asyncio
     async def test_ses_exception_returns_500(self, handler):
         """Generic exception returns 500 and increments error count."""
+
         # Cause a RuntimeError by making read() raise
         async def bad_read():
             raise RuntimeError("connection lost")
@@ -1293,15 +1374,19 @@ class TestSESWebhook:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_ses(request)
 
@@ -1334,15 +1419,19 @@ class TestSESWebhook:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_ses(request)
 
@@ -1574,12 +1663,15 @@ class TestEdgeCases:
         request = _make_sendgrid_inbound_request(sender="")
         mock_process = AsyncMock(return_value=True)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=mock_process,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=mock_process,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -1596,12 +1688,15 @@ class TestEdgeCases:
 
         request = _make_sendgrid_inbound_request(headers_raw="")
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -1619,15 +1714,19 @@ class TestEdgeCases:
 
         request = _make_mailgun_request(message_id="")
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_mailgun(request)
 
@@ -1646,12 +1745,15 @@ class TestEdgeCases:
         envelope = json.dumps({"to": ["envelope@aragora.com"], "from": "test@ex.com"})
         request = _make_sendgrid_inbound_request(to="", envelope=envelope)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_sendgrid(request)
 
@@ -1669,12 +1771,15 @@ class TestEdgeCases:
 
         request = _make_sendgrid_inbound_request(headers_raw="From: test@example.com")
 
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             await handler.handle_sendgrid(request)
 
@@ -1687,12 +1792,15 @@ class TestEdgeCases:
 
         for i in range(3):
             request = _make_sendgrid_inbound_request()
-            with patch(
-                "aragora.integrations.email_reply_loop.process_inbound_email",
-                new=mock_process,
-            ), patch(
-                "aragora.integrations.email_reply_loop.InboundEmail",
-                MockInboundEmail,
+            with (
+                patch(
+                    "aragora.integrations.email_reply_loop.process_inbound_email",
+                    new=mock_process,
+                ),
+                patch(
+                    "aragora.integrations.email_reply_loop.InboundEmail",
+                    MockInboundEmail,
+                ),
             ):
                 await handler.handle_sendgrid(request)
 
@@ -1703,23 +1811,29 @@ class TestEdgeCases:
         """Stats correctly accumulate mixed successes and failures."""
         # Success
         request = _make_sendgrid_inbound_request()
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            AsyncMock(return_value=True),
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             await handler.handle_sendgrid(request)
 
         # Failure (RuntimeError in process)
         request2 = _make_sendgrid_inbound_request()
-        with patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            AsyncMock(side_effect=RuntimeError("fail")),
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                AsyncMock(side_effect=RuntimeError("fail")),
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             await handler.handle_sendgrid(request2)
 
@@ -1746,15 +1860,19 @@ class TestEdgeCases:
         }
         request = _make_ses_request(message)
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.process_inbound_email",
-            new=capture,
-        ), patch(
-            "aragora.integrations.email_reply_loop.InboundEmail",
-            MockInboundEmail,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new=capture,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.InboundEmail",
+                MockInboundEmail,
+            ),
         ):
             result = await handler.handle_ses(request)
 

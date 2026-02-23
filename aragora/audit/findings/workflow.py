@@ -429,7 +429,12 @@ class FindingWorkflow:
                 logger.warning("Transition hook error: %s", e)
 
         logger.info(
-            "Finding %s transitioned: %s → %s by %s", self.data.finding_id, from_state.value, to_state.value, user_id       )
+            "Finding %s transitioned: %s → %s by %s",
+            self.data.finding_id,
+            from_state.value,
+            to_state.value,
+            user_id,
+        )
 
         return event
 

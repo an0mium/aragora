@@ -172,8 +172,12 @@ class TestGetVerificationIntensity:
 
     def test_low_scrutiny(self):
         f = FragilityScore(
-            round_number=1, total_rounds=10, base_fragility=0.1,
-            dependency_depth=0, error_risk=0.0, scrutiny_level="LOW",
+            round_number=1,
+            total_rounds=10,
+            base_fragility=0.1,
+            dependency_depth=0,
+            error_risk=0.0,
+            scrutiny_level="LOW",
             combined_fragility=0.1,
         )
         config = self.analyzer.get_verification_intensity(f)
@@ -184,8 +188,12 @@ class TestGetVerificationIntensity:
 
     def test_critical_scrutiny(self):
         f = FragilityScore(
-            round_number=10, total_rounds=10, base_fragility=0.9,
-            dependency_depth=9, error_risk=0.4, scrutiny_level="CRITICAL",
+            round_number=10,
+            total_rounds=10,
+            base_fragility=0.9,
+            dependency_depth=9,
+            error_risk=0.4,
+            scrutiny_level="CRITICAL",
             combined_fragility=0.9,
         )
         config = self.analyzer.get_verification_intensity(f)
@@ -196,8 +204,12 @@ class TestGetVerificationIntensity:
 
     def test_returns_copy(self):
         f = FragilityScore(
-            round_number=1, total_rounds=10, base_fragility=0.1,
-            dependency_depth=0, error_risk=0.0, scrutiny_level="LOW",
+            round_number=1,
+            total_rounds=10,
+            base_fragility=0.1,
+            dependency_depth=0,
+            error_risk=0.0,
+            scrutiny_level="LOW",
             combined_fragility=0.1,
         )
         config1 = self.analyzer.get_verification_intensity(f)
@@ -207,8 +219,12 @@ class TestGetVerificationIntensity:
 
     def test_unknown_scrutiny_falls_back_to_medium(self):
         f = FragilityScore(
-            round_number=1, total_rounds=10, base_fragility=0.1,
-            dependency_depth=0, error_risk=0.0, scrutiny_level="UNKNOWN",
+            round_number=1,
+            total_rounds=10,
+            base_fragility=0.1,
+            dependency_depth=0,
+            error_risk=0.0,
+            scrutiny_level="UNKNOWN",
             combined_fragility=0.1,
         )
         config = self.analyzer.get_verification_intensity(f)

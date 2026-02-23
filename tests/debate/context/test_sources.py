@@ -22,6 +22,7 @@ from aragora.debate.context.sources import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def run(coro):
     """Run a coroutine synchronously."""
     return asyncio.run(coro)
@@ -106,9 +107,14 @@ class TestGatherClaudeWebSearch:
         """Returns result when it contains 'Key Sources' and is long enough."""
         long_result = "Key Sources\n" + "x" * 300
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {"aragora.server.research_phase": MagicMock(
-            research_for_debate=AsyncMock(return_value=long_result)
-        )}):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.server.research_phase": MagicMock(
+                    research_for_debate=AsyncMock(return_value=long_result)
+                )
+            },
+        ):
             result = run(fetcher.gather_claude_web_search("test task"))
         assert result == long_result
 
@@ -116,27 +122,42 @@ class TestGatherClaudeWebSearch:
         """Returns None when result lacks 'Key Sources' and is short."""
         short_result = "some summary text"
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {"aragora.server.research_phase": MagicMock(
-            research_for_debate=AsyncMock(return_value=short_result)
-        )}):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.server.research_phase": MagicMock(
+                    research_for_debate=AsyncMock(return_value=short_result)
+                )
+            },
+        ):
             result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
 
     def test_empty_result_returns_none(self):
         """Returns None when research_for_debate returns empty string."""
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {"aragora.server.research_phase": MagicMock(
-            research_for_debate=AsyncMock(return_value="")
-        )}):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.server.research_phase": MagicMock(
+                    research_for_debate=AsyncMock(return_value="")
+                )
+            },
+        ):
             result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
 
     def test_none_result_returns_none(self):
         """Returns None when research_for_debate returns None."""
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {"aragora.server.research_phase": MagicMock(
-            research_for_debate=AsyncMock(return_value=None)
-        )}):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.server.research_phase": MagicMock(
+                    research_for_debate=AsyncMock(return_value=None)
+                )
+            },
+        ):
             result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
 
@@ -153,8 +174,10 @@ class TestGatherClaudeWebSearch:
         mock_module = MagicMock()
         mock_module.research_for_debate = AsyncMock(side_effect=asyncio.TimeoutError())
         with patch.dict(sys.modules, {"aragora.server.research_phase": mock_module}):
-            with patch("aragora.debate.context.sources.asyncio.wait_for",
-                       new=AsyncMock(side_effect=asyncio.TimeoutError())):
+            with patch(
+                "aragora.debate.context.sources.asyncio.wait_for",
+                new=AsyncMock(side_effect=asyncio.TimeoutError()),
+            ):
                 result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
 
@@ -164,16 +187,20 @@ class TestGatherClaudeWebSearch:
         mock_module = MagicMock()
         mock_module.research_for_debate = AsyncMock(side_effect=ConnectionError("network down"))
         with patch.dict(sys.modules, {"aragora.server.research_phase": mock_module}):
-            with patch("aragora.debate.context.sources.asyncio.wait_for",
-                       new=AsyncMock(side_effect=ConnectionError("network down"))):
+            with patch(
+                "aragora.debate.context.sources.asyncio.wait_for",
+                new=AsyncMock(side_effect=ConnectionError("network down")),
+            ):
                 result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
 
     def test_value_error_returns_none(self):
         """Returns None on ValueError."""
         fetcher = make_fetcher()
-        with patch("aragora.debate.context.sources.asyncio.wait_for",
-                   new=AsyncMock(side_effect=ValueError("bad value"))):
+        with patch(
+            "aragora.debate.context.sources.asyncio.wait_for",
+            new=AsyncMock(side_effect=ValueError("bad value")),
+        ):
             with patch.dict(sys.modules, {"aragora.server.research_phase": MagicMock()}):
                 result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
@@ -181,8 +208,10 @@ class TestGatherClaudeWebSearch:
     def test_attribute_error_returns_none(self):
         """Returns None on AttributeError."""
         fetcher = make_fetcher()
-        with patch("aragora.debate.context.sources.asyncio.wait_for",
-                   new=AsyncMock(side_effect=AttributeError("no attr"))):
+        with patch(
+            "aragora.debate.context.sources.asyncio.wait_for",
+            new=AsyncMock(side_effect=AttributeError("no attr")),
+        ):
             with patch.dict(sys.modules, {"aragora.server.research_phase": MagicMock()}):
                 result = run(fetcher.gather_claude_web_search("test task"))
         assert result is None
@@ -205,12 +234,15 @@ class TestGatherEvidenceContext:
     def test_no_connectors_returns_none(self):
         """Returns (None, None) when no connectors can be loaded."""
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": None,
-            "aragora.connectors.web": None,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": None,
+                "aragora.connectors.web": None,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             ctx, pack = run(fetcher.gather_evidence_context("test task"))
         assert ctx is None
         assert pack is None
@@ -240,12 +272,15 @@ class TestGatherEvidenceContext:
         mock_web_module.WebConnector = MagicMock(return_value=mock_web_connector)
 
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": mock_evidence_module,
-            "aragora.connectors.web": mock_web_module,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": mock_evidence_module,
+                "aragora.connectors.web": mock_web_module,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             ctx, pack = run(fetcher.gather_evidence_context("test task"))
 
         assert ctx is not None
@@ -268,12 +303,15 @@ class TestGatherEvidenceContext:
 
         callback = MagicMock()
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": mock_evidence_module,
-            "aragora.connectors.web": mock_web_module,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": mock_evidence_module,
+                "aragora.connectors.web": mock_web_module,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             run(fetcher.gather_evidence_context("task", evidence_store_callback=callback))
 
         callback.assert_called_once()
@@ -294,12 +332,15 @@ class TestGatherEvidenceContext:
 
         prompt_builder = MagicMock()
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": mock_evidence_module,
-            "aragora.connectors.web": mock_web_module,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": mock_evidence_module,
+                "aragora.connectors.web": mock_web_module,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             run(fetcher.gather_evidence_context("task", prompt_builder=prompt_builder))
 
         prompt_builder.set_evidence_pack.assert_called_once_with(evidence_pack)
@@ -319,12 +360,15 @@ class TestGatherEvidenceContext:
         mock_web_module.WebConnector = MagicMock()
 
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": mock_evidence_module,
-            "aragora.connectors.web": mock_web_module,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": mock_evidence_module,
+                "aragora.connectors.web": mock_web_module,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             ctx, pack = run(fetcher.gather_evidence_context("task"))
 
         assert ctx is None
@@ -344,12 +388,15 @@ class TestGatherEvidenceContext:
         mock_web_module.WebConnector = MagicMock()
 
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": mock_evidence_module,
-            "aragora.connectors.web": mock_web_module,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": mock_evidence_module,
+                "aragora.connectors.web": mock_web_module,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             ctx, pack = run(fetcher.gather_evidence_context("task"))
 
         assert ctx is None
@@ -366,12 +413,15 @@ class TestGatherEvidenceContext:
         mock_web_module.DDGS_AVAILABLE = False
 
         fetcher = make_fetcher()
-        with patch.dict(sys.modules, {
-            "aragora.evidence.collector": mock_evidence_module,
-            "aragora.connectors.web": mock_web_module,
-            "aragora.connectors.github": None,
-            "aragora.connectors.local_docs": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.evidence.collector": mock_evidence_module,
+                "aragora.connectors.web": mock_web_module,
+                "aragora.connectors.github": None,
+                "aragora.connectors.local_docs": None,
+            },
+        ):
             ctx, pack = run(fetcher.gather_evidence_context("task"))
 
         # No connectors → (None, None)
@@ -738,9 +788,7 @@ class TestGatherBeliefCruxContext:
     def test_analysis_error_returns_none(self):
         """Returns None when analyzer reports an analysis_error."""
         mock_ba = MagicMock()
-        mock_ba.analyze_messages.return_value = self._make_result(
-            analysis_error="Parse error"
-        )
+        mock_ba.analyze_messages.return_value = self._make_result(analysis_error="Parse error")
         fetcher = make_fetcher(belief_analyzer=mock_ba)
         result = run(fetcher.gather_belief_crux_context("task", messages=["msg1"]))
         assert result is None
@@ -823,8 +871,13 @@ class TestGatherBeliefCruxContext:
 class TestGatherCulturePatternsContext:
     """Tests for gather_culture_patterns_context."""
 
-    def _make_pattern(self, pattern_type="consensus", description="Build consensus early",
-                      confidence=0.75, observations=10):
+    def _make_pattern(
+        self,
+        pattern_type="consensus",
+        description="Build consensus early",
+        confidence=0.75,
+        observations=10,
+    ):
         p = MagicMock()
         p.pattern_type = pattern_type
         p.description = description
@@ -872,9 +925,12 @@ class TestGatherCulturePatternsContext:
         mock_culture_module.CultureAccumulator = mock_accumulator_class
 
         fetcher = make_fetcher(knowledge_mound=mock_mound)
-        with patch.dict(sys.modules, {
-            "aragora.knowledge.mound.culture.accumulator": mock_culture_module,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.knowledge.mound.culture.accumulator": mock_culture_module,
+            },
+        ):
             result = run(fetcher.gather_culture_patterns_context("task"))
 
         assert result is not None
@@ -893,9 +949,12 @@ class TestGatherCulturePatternsContext:
         mock_culture_module.CultureAccumulator = mock_accumulator_class
 
         fetcher = make_fetcher(knowledge_mound=mock_mound)
-        with patch.dict(sys.modules, {
-            "aragora.knowledge.mound.culture.accumulator": mock_culture_module,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.knowledge.mound.culture.accumulator": mock_culture_module,
+            },
+        ):
             result = run(fetcher.gather_culture_patterns_context("task"))
 
         assert result is None
@@ -904,9 +963,12 @@ class TestGatherCulturePatternsContext:
         """Returns None when CultureAccumulator import fails."""
         mock_mound = MagicMock(spec=[])
         fetcher = make_fetcher(knowledge_mound=mock_mound)
-        with patch.dict(sys.modules, {
-            "aragora.knowledge.mound.culture.accumulator": None,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.knowledge.mound.culture.accumulator": None,
+            },
+        ):
             result = run(fetcher.gather_culture_patterns_context("task"))
         assert result is None
 

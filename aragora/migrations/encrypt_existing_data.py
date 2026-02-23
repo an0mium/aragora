@@ -431,7 +431,7 @@ class EncryptionMigration:
         Returns:
             Migration statistics
         """
-        logger.info("Starting encryption migration %s", '(dry run)' if self.dry_run else '')
+        logger.info("Starting encryption migration %s", "(dry run)" if self.dry_run else "")
 
         if not self.check_prerequisites():
             logger.error("Prerequisites not met, aborting migration")
@@ -452,13 +452,13 @@ class EncryptionMigration:
         )
 
         logger.info("Migration complete: %s records processed", total)
-        logger.info("  Integrations: %s", self.stats['integrations_migrated'])
-        logger.info("  Webhooks: %s", self.stats['webhooks_migrated'])
-        logger.info("  Tokens: %s", self.stats['tokens_migrated'])
-        logger.info("  Sync configs: %s", self.stats['sync_configs_migrated'])
+        logger.info("  Integrations: %s", self.stats["integrations_migrated"])
+        logger.info("  Webhooks: %s", self.stats["webhooks_migrated"])
+        logger.info("  Tokens: %s", self.stats["tokens_migrated"])
+        logger.info("  Sync configs: %s", self.stats["sync_configs_migrated"])
 
         if self.stats["errors"]:
-            logger.warning("Errors: %s", len(self.stats['errors']))
+            logger.warning("Errors: %s", len(self.stats["errors"]))
             for error in self.stats["errors"]:
                 logger.warning("  - %s", error)
 

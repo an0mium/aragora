@@ -394,7 +394,15 @@ class DevOpsHandler(BaseHandler):
                 assignments=assignments,
             )
             incident = await connector.create_incident(request_obj)
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+        ) as e:
             logger.error("Failed to create incident: %s", e)
             return error_response("Internal server error", 500)
 

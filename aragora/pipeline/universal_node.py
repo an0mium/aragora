@@ -254,7 +254,8 @@ class UniversalGraph:
         node = self.nodes.pop(node_id, None)
         if node:
             edges_to_remove = [
-                eid for eid, e in self.edges.items()
+                eid
+                for eid, e in self.edges.items()
                 if e.source_id == node_id or e.target_id == node_id
             ]
             for eid in edges_to_remove:
@@ -283,9 +284,7 @@ class UniversalGraph:
         self._walk_provenance(node_id, visited, chain)
         return chain
 
-    def _walk_provenance(
-        self, node_id: str, visited: set[str], chain: list[UniversalNode]
-    ) -> None:
+    def _walk_provenance(self, node_id: str, visited: set[str], chain: list[UniversalNode]) -> None:
         if node_id in visited or node_id not in self.nodes:
             return
         visited.add(node_id)
@@ -302,9 +301,7 @@ class UniversalGraph:
 
     # -- Export helpers -----------------------------------------------------
 
-    def to_react_flow(
-        self, stage_filter: PipelineStage | None = None
-    ) -> dict[str, Any]:
+    def to_react_flow(self, stage_filter: PipelineStage | None = None) -> dict[str, Any]:
         """Export as React Flow JSON, optionally filtered to one stage."""
         nodes = self.nodes.values()
         if stage_filter is not None:
@@ -314,8 +311,7 @@ class UniversalGraph:
 
         node_ids = {n.id for n in nodes}
         edges = [
-            e for e in self.edges.values()
-            if e.source_id in node_ids and e.target_id in node_ids
+            e for e in self.edges.values() if e.source_id in node_ids and e.target_id in node_ids
         ]
 
         return {
@@ -355,29 +351,31 @@ class UniversalGraph:
             edge = UniversalEdge.from_dict(ed)
             graph.edges[edge.id] = edge
         for td in data.get("transitions", []):
-            graph.transitions.append(StageTransition(
-                id=td["id"],
-                from_stage=PipelineStage(td["from_stage"]),
-                to_stage=PipelineStage(td["to_stage"]),
-                provenance=[
-                    ProvenanceLink(
-                        source_node_id=p["source_node_id"],
-                        source_stage=PipelineStage(p["source_stage"]),
-                        target_node_id=p["target_node_id"],
-                        target_stage=PipelineStage(p["target_stage"]),
-                        content_hash=p["content_hash"],
-                        timestamp=p.get("timestamp", 0),
-                        method=p.get("method", ""),
-                    )
-                    for p in td.get("provenance", [])
-                ],
-                status=td.get("status", "pending"),
-                confidence=td.get("confidence", 0),
-                ai_rationale=td.get("ai_rationale", ""),
-                human_notes=td.get("human_notes", ""),
-                created_at=td.get("created_at", 0),
-                reviewed_at=td.get("reviewed_at"),
-            ))
+            graph.transitions.append(
+                StageTransition(
+                    id=td["id"],
+                    from_stage=PipelineStage(td["from_stage"]),
+                    to_stage=PipelineStage(td["to_stage"]),
+                    provenance=[
+                        ProvenanceLink(
+                            source_node_id=p["source_node_id"],
+                            source_stage=PipelineStage(p["source_stage"]),
+                            target_node_id=p["target_node_id"],
+                            target_stage=PipelineStage(p["target_stage"]),
+                            content_hash=p["content_hash"],
+                            timestamp=p.get("timestamp", 0),
+                            method=p.get("method", ""),
+                        )
+                        for p in td.get("provenance", [])
+                    ],
+                    status=td.get("status", "pending"),
+                    confidence=td.get("confidence", 0),
+                    ai_rationale=td.get("ai_rationale", ""),
+                    human_notes=td.get("human_notes", ""),
+                    created_at=td.get("created_at", 0),
+                    reviewed_at=td.get("reviewed_at"),
+                )
+            )
         return graph
 
 

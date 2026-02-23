@@ -68,7 +68,10 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> di
         decision = check_permission(auth_context, permission_key)
         if not decision.allowed:
             logger.warning(
-                "RBAC denied: permission=%s user=%s reason=%s", permission_key, getattr(auth_context, 'user_id', 'unknown'), decision.reason
+                "RBAC denied: permission=%s user=%s reason=%s",
+                permission_key,
+                getattr(auth_context, "user_id", "unknown"),
+                decision.reason,
             )
             return {
                 "success": False,

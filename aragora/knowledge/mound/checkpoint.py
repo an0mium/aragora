@@ -299,7 +299,12 @@ class KMCheckpointStore:
 
         duration_ms = int((time.time() - start_time) * 1000)
         logger.info(
-            "Created KM checkpoint %s: %s nodes, %s relationships, %s bytes, %sms", checkpoint_id, len(content.nodes), len(content.relationships), len(content_bytes), duration_ms
+            "Created KM checkpoint %s: %s nodes, %s relationships, %s bytes, %sms",
+            checkpoint_id,
+            len(content.nodes),
+            len(content.relationships),
+            len(content_bytes),
+            duration_ms,
         )
 
         # Prune old checkpoints
@@ -437,7 +442,12 @@ class KMCheckpointStore:
         duration_ms = int((time.time() - start_time) * 1000)
 
         logger.info(
-            "Restored KM checkpoint %s: %s nodes, %s relationships, %s errors, %sms", checkpoint_id, nodes_restored, relationships_restored, len(errors), duration_ms
+            "Restored KM checkpoint %s: %s nodes, %s relationships, %s errors, %sms",
+            checkpoint_id,
+            nodes_restored,
+            relationships_restored,
+            len(errors),
+            duration_ms,
         )
 
         return RestoreResult(

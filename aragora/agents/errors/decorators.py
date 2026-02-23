@@ -379,7 +379,10 @@ def handle_agent_errors(
                 ) as e:
                     action = _handle_unexpected_error(e, ctx)
                     logger.error(
-                        "[%s] Unexpected error (attempt %s): %s", agent_name, attempt, action.error,
+                        "[%s] Unexpected error (attempt %s): %s",
+                        agent_name,
+                        attempt,
+                        action.error,
                         exc_info=True,
                     )
                     if circuit_breaker is not None:

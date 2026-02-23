@@ -254,11 +254,15 @@ def resolve_database_config(
 
         if explicit_backend in ("redis", "memory"):
             logger.warning(
-                "[%s] Backend '%s' is not a persistent database backend. Falling back to auto-detect.", store_name, explicit_backend
+                "[%s] Backend '%s' is not a persistent database backend. Falling back to auto-detect.",
+                store_name,
+                explicit_backend,
             )
         elif explicit_backend not in ("postgres", "postgresql", "supabase", "sqlite"):
             logger.warning(
-                "[%s] Unknown backend override '%s'. Falling back to auto-detect.", store_name, explicit_backend
+                "[%s] Unknown backend override '%s'. Falling back to auto-detect.",
+                store_name,
+                explicit_backend,
             )
 
     # Auto-detect with preference order
@@ -486,7 +490,8 @@ def create_persistent_store(
     # PostgreSQL pools (asyncpg pools are event-loop bound)
     if in_async_context and not allow_sqlite:
         logger.warning(
-            "[%s] Forcing SQLite fallback in async context. asyncpg pools cannot be created from within a running event loop. Initialize stores BEFORE starting the async server, or set ARAGORA_ALLOW_SQLITE_FALLBACK=true to suppress this warning.", store_name
+            "[%s] Forcing SQLite fallback in async context. asyncpg pools cannot be created from within a running event loop. Initialize stores BEFORE starting the async server, or set ARAGORA_ALLOW_SQLITE_FALLBACK=true to suppress this warning.",
+            store_name,
         )
         allow_sqlite = True
 
@@ -525,7 +530,8 @@ def create_persistent_store(
         if in_async_context:
             # No shared pool and can't safely create one from async context
             logger.warning(
-                "[%s] Cannot initialize PostgreSQL from async context. asyncpg pools are event-loop bound. Initialize stores BEFORE starting the event loop, or use async store factory. Falling back to SQLite.", store_name
+                "[%s] Cannot initialize PostgreSQL from async context. asyncpg pools are event-loop bound. Initialize stores BEFORE starting the event loop, or use async store factory. Falling back to SQLite.",
+                store_name,
             )
         else:
             try:
@@ -582,7 +588,8 @@ def create_persistent_store(
 
     if is_production_environment():
         logger.warning(
-            "[%s] Using SQLite in production (not recommended). Configure Supabase or PostgreSQL for distributed deployments.", store_name
+            "[%s] Using SQLite in production (not recommended). Configure Supabase or PostgreSQL for distributed deployments.",
+            store_name,
         )
 
     logger.info("[%s] Using SQLite: %s", store_name, db_path)

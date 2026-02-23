@@ -126,7 +126,9 @@ class TestConfidenceThreshold:
             auto_push_calibration=False,
         )
         coordinator = PostDebateCoordinator(config=config)
-        msg = _make_message("Build a rate limiter", agent="claude", round_num=1, msg_type="proposal")
+        msg = _make_message(
+            "Build a rate limiter", agent="claude", round_num=1, msg_type="proposal"
+        )
         debate_result = _make_debate_result(
             messages=[msg],
             consensus=MagicMock(text="Agreed to build rate limiter"),
@@ -136,9 +138,7 @@ class TestConfidenceThreshold:
         mock_pipeline_result.pipeline_id = "pipe-test-123"
         mock_pipeline_result.stage_status = {"ideas": "complete", "goals": "complete"}
 
-        with patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline"
-        ) as MockPipeline:
+        with patch("aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline") as MockPipeline:
             mock_instance = MagicMock()
             mock_instance.from_debate.return_value = mock_pipeline_result
             MockPipeline.return_value = mock_instance
@@ -181,9 +181,7 @@ class TestAutoTriggerCreatesPipeline:
         mock_pipeline_result.pipeline_id = "pipe-xyz"
         mock_pipeline_result.stage_status = {}
 
-        with patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline"
-        ) as MockPipeline:
+        with patch("aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline") as MockPipeline:
             mock_instance = MagicMock()
             mock_instance.from_debate.return_value = mock_pipeline_result
             MockPipeline.return_value = mock_instance
@@ -235,9 +233,7 @@ class TestAutoTriggerCreatesPipeline:
             "orchestration": "pending",
         }
 
-        with patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline"
-        ) as MockPipeline:
+        with patch("aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline") as MockPipeline:
             mock_instance = MagicMock()
             mock_instance.from_debate.return_value = mock_pipeline_result
             MockPipeline.return_value = mock_instance
@@ -261,7 +257,9 @@ class TestBuildCartographerData:
     def test_from_messages(self):
         debate_result = _make_debate_result(
             messages=[
-                _make_message("We should build X", agent="claude", round_num=1, msg_type="proposal"),
+                _make_message(
+                    "We should build X", agent="claude", round_num=1, msg_type="proposal"
+                ),
                 _make_message("Evidence supports X", agent="gpt", round_num=1, msg_type="evidence"),
             ],
             consensus=MagicMock(text="Agreed on X"),
@@ -410,9 +408,7 @@ class TestGracefulErrorHandling:
         msg = _make_message("test")
         debate_result = _make_debate_result(messages=[msg])
 
-        with patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline"
-        ) as MockPipeline:
+        with patch("aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline") as MockPipeline:
             MockPipeline.side_effect = RuntimeError("pipeline broke")
 
             result = coordinator.run(

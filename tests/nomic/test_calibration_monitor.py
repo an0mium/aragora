@@ -24,9 +24,7 @@ class TestCalibrationDriftDetector:
 
     def test_stagnation_detected(self) -> None:
         """Scores with very low variance trigger stagnation warning."""
-        detector = CalibrationDriftDetector(
-            window_size=10, stagnation_threshold=0.01
-        )
+        detector = CalibrationDriftDetector(window_size=10, stagnation_threshold=0.01)
         # Agent with nearly identical scores
         for i in range(5):
             detector.record_cycle(f"c{i}", {"claude": 0.5 + (i % 2) * 0.001})
@@ -39,9 +37,7 @@ class TestCalibrationDriftDetector:
 
     def test_regression_detected(self) -> None:
         """Monotonically decreasing scores trigger regression warning."""
-        detector = CalibrationDriftDetector(
-            window_size=10, regression_threshold=0.05
-        )
+        detector = CalibrationDriftDetector(window_size=10, regression_threshold=0.05)
         detector.record_cycle("c1", {"claude": 0.8})
         detector.record_cycle("c2", {"claude": 0.75})
         detector.record_cycle("c3", {"claude": 0.7})
@@ -98,9 +94,7 @@ class TestCalibrationDriftDetector:
 
     def test_multiple_agents_independent(self) -> None:
         """Each agent's drift is detected independently."""
-        detector = CalibrationDriftDetector(
-            window_size=10, stagnation_threshold=0.01
-        )
+        detector = CalibrationDriftDetector(window_size=10, stagnation_threshold=0.01)
         for i in range(5):
             detector.record_cycle(
                 f"c{i}",
@@ -174,10 +168,13 @@ class TestCalibrationDriftDetector:
             )
         ]
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.core": None,
-            "aragora.knowledge.mound.adapters.receipt_adapter": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.core": None,
+                "aragora.knowledge.mound.adapters.receipt_adapter": None,
+            },
+        ):
             # Should not raise
             detector._persist_to_km(warnings)
 

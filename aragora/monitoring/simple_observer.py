@@ -139,12 +139,12 @@ class SimpleObserver:
         record["has_null_bytes"] = "\x00" in output if output else False
 
         if record["has_null_bytes"]:
-            self._logger.warning("Null bytes detected in output for agent %s", record['agent'])
+            self._logger.warning("Null bytes detected in output for agent %s", record["agent"])
 
         if error:
             record["status"] = "failed"
             record["error"] = str(error)
-            self._logger.error("Agent %s failed: %s", record['agent'], error)
+            self._logger.error("Agent %s failed: %s", record["agent"], error)
         else:
             record["status"] = "success"
             self._logger.info(f"Agent {record['agent']} completed in {record['duration']:.2f}s")

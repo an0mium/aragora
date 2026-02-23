@@ -77,9 +77,7 @@ class InMemoryStorage:
             )"""
         )
         if rows:
-            cur.executemany(
-                "INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows
-            )
+            cur.executemany("INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows)
         self._conn.commit()
 
     @contextmanager
@@ -182,11 +180,51 @@ SAMPLE_ROWS = [
 
 AGENT_PERF = {
     "top_performers": [
-        {"name": "claude-opus", "elo": 1250, "debates_count": 20, "win_rate": 0.7, "wins": 14, "losses": 6, "draws": 0},
-        {"name": "claude-sonnet", "elo": 1180, "debates_count": 15, "win_rate": 0.6, "wins": 9, "losses": 6, "draws": 0},
-        {"name": "gpt-4", "elo": 1200, "debates_count": 18, "win_rate": 0.65, "wins": 12, "losses": 6, "draws": 0},
-        {"name": "gpt-3.5", "elo": 1050, "debates_count": 10, "win_rate": 0.4, "wins": 4, "losses": 6, "draws": 0},
-        {"name": "mistral-large", "elo": 1100, "debates_count": 12, "win_rate": 0.5, "wins": 6, "losses": 6, "draws": 0},
+        {
+            "name": "claude-opus",
+            "elo": 1250,
+            "debates_count": 20,
+            "win_rate": 0.7,
+            "wins": 14,
+            "losses": 6,
+            "draws": 0,
+        },
+        {
+            "name": "claude-sonnet",
+            "elo": 1180,
+            "debates_count": 15,
+            "win_rate": 0.6,
+            "wins": 9,
+            "losses": 6,
+            "draws": 0,
+        },
+        {
+            "name": "gpt-4",
+            "elo": 1200,
+            "debates_count": 18,
+            "win_rate": 0.65,
+            "wins": 12,
+            "losses": 6,
+            "draws": 0,
+        },
+        {
+            "name": "gpt-3.5",
+            "elo": 1050,
+            "debates_count": 10,
+            "win_rate": 0.4,
+            "wins": 4,
+            "losses": 6,
+            "draws": 0,
+        },
+        {
+            "name": "mistral-large",
+            "elo": 1100,
+            "debates_count": 12,
+            "win_rate": 0.5,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+        },
     ],
     "total_agents": 5,
     "avg_elo": 1156,
@@ -482,10 +520,25 @@ class TestGetDashboardStats:
         result = handler._get_dashboard_stats()
         body = _body(result)
         assert set(body.keys()) == {"debates", "agents", "performance", "usage"}
-        assert set(body["debates"].keys()) == {"total", "today", "this_week", "this_month", "by_status"}
+        assert set(body["debates"].keys()) == {
+            "total",
+            "today",
+            "this_week",
+            "this_month",
+            "by_status",
+        }
         assert set(body["agents"].keys()) == {"total", "active", "by_provider"}
-        assert set(body["performance"].keys()) == {"avg_response_time_ms", "success_rate", "consensus_rate", "error_rate"}
-        assert set(body["usage"].keys()) == {"api_calls_today", "tokens_used_today", "storage_used_bytes"}
+        assert set(body["performance"].keys()) == {
+            "avg_response_time_ms",
+            "success_rate",
+            "consensus_rate",
+            "error_rate",
+        }
+        assert set(body["usage"].keys()) == {
+            "api_calls_today",
+            "tokens_used_today",
+            "storage_used_bytes",
+        }
 
 
 # ===========================================================================
@@ -950,9 +1003,14 @@ class TestGetInboxSummary:
         result = handler._get_inbox_summary()
         body = _body(result)
         expected_keys = {
-            "total_messages", "unread_messages", "urgent_count",
-            "today_count", "by_label", "by_importance",
-            "response_rate", "avg_response_time_hours",
+            "total_messages",
+            "unread_messages",
+            "urgent_count",
+            "today_count",
+            "by_label",
+            "by_importance",
+            "response_rate",
+            "avg_response_time_hours",
         }
         assert set(body.keys()) == expected_keys
 
@@ -1026,7 +1084,14 @@ class TestIntegration:
     def test_large_dataset(self, mock_http):
         """Endpoints handle many rows without error."""
         rows = [
-            (f"d{i}", f"dom{i % 5}", "completed", i % 2, i / 100, f"2026-01-{1 + i % 28:02d}T00:00:00")
+            (
+                f"d{i}",
+                f"dom{i % 5}",
+                "completed",
+                i % 2,
+                i / 100,
+                f"2026-01-{1 + i % 28:02d}T00:00:00",
+            )
             for i in range(200)
         ]
         storage = InMemoryStorage(rows)
@@ -1430,10 +1495,7 @@ class TestTopSendersEdgeCases:
 
     def test_senders_all_same_domain(self):
         """All debates in same domain produces one sender entry."""
-        rows = [
-            (f"d{i}", "legal", "completed", 1, 0.5, "2026-01-01T00:00:00")
-            for i in range(5)
-        ]
+        rows = [(f"d{i}", "legal", "completed", 1, 0.5, "2026-01-01T00:00:00") for i in range(5)]
         storage = InMemoryStorage(rows)
         h = TestableHandler(storage=storage)
         result = h._get_top_senders(10, 0)
@@ -1444,10 +1506,7 @@ class TestTopSendersEdgeCases:
 
     def test_senders_all_null_domain(self):
         """All NULL domain debates produce one 'general' entry."""
-        rows = [
-            (f"d{i}", None, "completed", 1, 0.5, "2026-01-01T00:00:00")
-            for i in range(3)
-        ]
+        rows = [(f"d{i}", None, "completed", 1, 0.5, "2026-01-01T00:00:00") for i in range(3)]
         storage = InMemoryStorage(rows)
         h = TestableHandler(storage=storage)
         result = h._get_top_senders(10, 0)
@@ -1463,8 +1522,7 @@ class TestLabelsEdgeCases:
     def test_labels_all_same_domain(self):
         """All debates with same domain produce one label."""
         rows = [
-            (f"d{i}", "marketing", "completed", 1, 0.5, "2026-01-01T00:00:00")
-            for i in range(10)
+            (f"d{i}", "marketing", "completed", 1, 0.5, "2026-01-01T00:00:00") for i in range(10)
         ]
         storage = InMemoryStorage(rows)
         h = TestableHandler(storage=storage)
@@ -1476,10 +1534,7 @@ class TestLabelsEdgeCases:
 
     def test_labels_all_null_domain(self):
         """All NULL domain debates produce one 'general' label."""
-        rows = [
-            (f"d{i}", None, "completed", 1, 0.5, "2026-01-01T00:00:00")
-            for i in range(4)
-        ]
+        rows = [(f"d{i}", None, "completed", 1, 0.5, "2026-01-01T00:00:00") for i in range(4)]
         storage = InMemoryStorage(rows)
         h = TestableHandler(storage=storage)
         result = h._get_labels()
@@ -1505,9 +1560,11 @@ class TestActivityEdgeCases:
     def test_activity_consensus_reached_false_entry(self):
         """Activity entry with consensus_reached=False is properly typed."""
         rows = [("d1", "tech", 0, 0.3, "2026-02-23T10:00:00")]
-        storage = InMemoryStorage([
-            ("d1", "tech", "completed", 0, 0.3, "2026-02-23T10:00:00"),
-        ])
+        storage = InMemoryStorage(
+            [
+                ("d1", "tech", "completed", 0, 0.3, "2026-02-23T10:00:00"),
+            ]
+        )
         h = TestableHandler(storage=storage)
         result = h._get_activity(20, 0)
         entry = _body(result)["activity"][0]
@@ -1515,9 +1572,11 @@ class TestActivityEdgeCases:
 
     def test_activity_null_domain(self):
         """Activity entry with NULL domain returns None."""
-        storage = InMemoryStorage([
-            ("d1", None, "completed", 1, 0.9, "2026-02-23T10:00:00"),
-        ])
+        storage = InMemoryStorage(
+            [
+                ("d1", None, "completed", 1, 0.9, "2026-02-23T10:00:00"),
+            ]
+        )
         h = TestableHandler(storage=storage)
         result = h._get_activity(20, 0)
         entry = _body(result)["activity"][0]

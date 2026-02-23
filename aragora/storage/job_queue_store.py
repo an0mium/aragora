@@ -489,7 +489,9 @@ class SQLiteJobStore(JobStoreBackend):
                 (error, now, job_id),
             )
             conn.commit()
-            logger.info("Job %s scheduled for retry (%s/%s)", job_id, job.attempts, job.max_attempts)
+            logger.info(
+                "Job %s scheduled for retry (%s/%s)", job_id, job.attempts, job.max_attempts
+            )
         else:
             # Final failure
             conn = self._get_conn()
@@ -842,7 +844,9 @@ class PostgresJobQueueStore(JobStoreBackend):
                     error,
                     job_id,
                 )
-                logger.info("Job %s scheduled for retry (%s/%s)", job_id, job.attempts, job.max_attempts)
+                logger.info(
+                    "Job %s scheduled for retry (%s/%s)", job_id, job.attempts, job.max_attempts
+                )
             else:
                 # Final failure
                 await conn.execute(

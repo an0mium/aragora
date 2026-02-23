@@ -370,7 +370,10 @@ class ResponseCache:
 
             self._invalidations += len(keys_to_remove)
             logger.info(
-                "Invalidated %s cache entries for agent %s version %s", len(keys_to_remove), agent_name, old_version
+                "Invalidated %s cache entries for agent %s version %s",
+                len(keys_to_remove),
+                agent_name,
+                old_version,
             )
             return len(keys_to_remove)
 

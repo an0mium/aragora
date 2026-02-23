@@ -806,12 +806,20 @@ class FallbackOAuthStateStore(OAuthStateStore):
         store = self._get_active_store()
         store_type = type(store).__name__
         logger.info(
-            "OAuth state generate: backend=%s, use_jwt=%s, jwt_store_exists=%s, use_redis=%s, redis_failed=%s", store_type, self._use_jwt, self._jwt_store is not None, self._use_redis, self._redis_failed
+            "OAuth state generate: backend=%s, use_jwt=%s, jwt_store_exists=%s, use_redis=%s, redis_failed=%s",
+            store_type,
+            self._use_jwt,
+            self._jwt_store is not None,
+            self._use_redis,
+            self._redis_failed,
         )
         try:
             state = store.generate(user_id, redirect_url, ttl_seconds, metadata)
             logger.info(
-                "OAuth state generated: len=%s, has_dot=%s, prefix=%s...", len(state), '.' in state, state[:30]
+                "OAuth state generated: len=%s, has_dot=%s, prefix=%s...",
+                len(state),
+                "." in state,
+                state[:30],
             )
             return state
         except _REDIS_ERRORS as e:
@@ -981,12 +989,16 @@ def validate_oauth_state(state: str) -> dict[str, Any] | None:
     """
     store = get_oauth_state_store()
     logger.debug(
-        "Validating OAuth state (backend: %s, state_len: %s, has_dot: %s)", store.backend_name, len(state), '.' in state
+        "Validating OAuth state (backend: %s, state_len: %s, has_dot: %s)",
+        store.backend_name,
+        len(state),
+        "." in state,
     )
     result = store.validate_and_consume(state)
     if result is None:
         logger.debug(
-            "OAuth state validation failed (state_prefix: %s...)", state[:20] if len(state) > 20 else state
+            "OAuth state validation failed (state_prefix: %s...)",
+            state[:20] if len(state) > 20 else state,
         )
         return None
     logger.debug("OAuth state validation succeeded")

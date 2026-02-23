@@ -225,7 +225,11 @@ class WhatsAppHandler(BaseHandler):
                 if enforce_rbac:
                     user_display = profile_name or from_number
                     logger.warning(
-                        "WhatsApp permission denied: %s for user %s (%s), reason: %s", permission_key, user_display, context.user_id, decision.reason
+                        "WhatsApp permission denied: %s for user %s (%s), reason: %s",
+                        permission_key,
+                        user_display,
+                        context.user_id,
+                        decision.reason,
                     )
                     return "Permission denied"
         except (TypeError, ValueError, KeyError, AttributeError) as e:

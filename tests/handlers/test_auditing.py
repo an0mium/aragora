@@ -845,6 +845,8 @@ class TestUnauthorized:
 
         with patch("aragora.server.auth.auth_config") as mock_auth:
             mock_auth.enabled = True
-            result = auditing_handler.handle("/api/v1/debates/test-debate-1/red-team", {}, mock_handler)
+            result = auditing_handler.handle(
+                "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
+            )
 
         assert result.status_code == 403

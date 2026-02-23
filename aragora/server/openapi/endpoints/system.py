@@ -801,10 +801,19 @@ call it before any credentials are set up.
                         "example": {
                             "ready_to_debate": True,
                             "providers": {
-                                "anthropic": {"available": True, "model": "claude-opus-4-5-20251101"},
+                                "anthropic": {
+                                    "available": True,
+                                    "model": "claude-opus-4-5-20251101",
+                                },
                                 "openai": {"available": True, "model": "gpt-5.2"},
-                                "openrouter": {"available": False, "reason": "OPENROUTER_API_KEY not set"},
-                                "mistral": {"available": False, "reason": "MISTRAL_API_KEY not set"},
+                                "openrouter": {
+                                    "available": False,
+                                    "reason": "OPENROUTER_API_KEY not set",
+                                },
+                                "mistral": {
+                                    "available": False,
+                                    "reason": "MISTRAL_API_KEY not set",
+                                },
                                 "gemini": {"available": False, "reason": "GEMINI_API_KEY not set"},
                                 "xai": {"available": False, "reason": "XAI_API_KEY not set"},
                             },

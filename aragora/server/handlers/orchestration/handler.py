@@ -224,7 +224,9 @@ class OrchestrationHandler(SecureHandler):
         try:
             validate_channel_id(channel.channel_id, channel.channel_type.lower())
         except ValueError as e:
-            logger.warning("[SECURITY] Invalid channel_id from user %s: %s", auth_context.user_id, e)
+            logger.warning(
+                "[SECURITY] Invalid channel_id from user %s: %s", auth_context.user_id, e
+            )
             return error_response("Invalid channel identifier", 400)
 
         # Check channel type permission
@@ -469,7 +471,10 @@ class OrchestrationHandler(SecureHandler):
                 validation_error = self._validate_knowledge_source(source, auth_context)
                 if validation_error:
                     logger.warning(
-                        "[SECURITY] Knowledge source validation failed for user %s: %s:%s", auth_context.user_id, source.source_type, source.source_id
+                        "[SECURITY] Knowledge source validation failed for user %s: %s:%s",
+                        auth_context.user_id,
+                        source.source_type,
+                        source.source_id,
                     )
                     return validation_error
 
@@ -480,7 +485,10 @@ class OrchestrationHandler(SecureHandler):
                 validation_error = self._validate_output_channel(channel, auth_context)
                 if validation_error:
                     logger.warning(
-                        "[SECURITY] Output channel validation failed for user %s: %s:%s", auth_context.user_id, channel.channel_type, channel.channel_id
+                        "[SECURITY] Output channel validation failed for user %s: %s:%s",
+                        auth_context.user_id,
+                        channel.channel_type,
+                        channel.channel_id,
                     )
                     return validation_error
 
@@ -533,7 +541,8 @@ class OrchestrationHandler(SecureHandler):
                 task = asyncio.create_task(self._execute_and_store(request))
                 task.add_done_callback(
                     lambda t: logger.error("Async deliberation failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
                 response_data = {
                     "request_id": request.request_id,
@@ -547,7 +556,14 @@ class OrchestrationHandler(SecureHandler):
                     status=202,
                 )
 
-        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:  # broad catch: last-resort handler
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Orchestration error: %s", e)
             return error_response("Orchestration failed", 500)
 
@@ -560,7 +576,14 @@ class OrchestrationHandler(SecureHandler):
         try:
             result = await self._execute_deliberation(request)
             _orchestration_results[request.request_id] = result
-        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:  # broad catch: last-resort handler
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Async vetted decisionmaking failed: %s", e)
             _orchestration_results[request.request_id] = OrchestrationResult(
                 request_id=request.request_id,
@@ -598,9 +621,19 @@ class OrchestrationHandler(SecureHandler):
                             f"[{source.source_type}:{source.source_id}]\n{context}"
                         )
                         knowledge_context_used.append(f"{source.source_type}:{source.source_id}")
-                except (ConnectionError, TimeoutError, OSError, ValueError, ImportError, AttributeError) as e:
+                except (
+                    ConnectionError,
+                    TimeoutError,
+                    OSError,
+                    ValueError,
+                    ImportError,
+                    AttributeError,
+                ) as e:
                     logger.warning(
-                        "Failed to fetch context from %s:%s: %s", source.source_type, source.source_id, e
+                        "Failed to fetch context from %s:%s: %s",
+                        source.source_type,
+                        source.source_id,
+                        e,
                     )
 
             # Combine context with question
@@ -705,15 +738,33 @@ class OrchestrationHandler(SecureHandler):
                     try:
                         await self._route_to_channel(channel, result, request)
                         channels_notified.append(f"{channel.channel_type}:{channel.channel_id}")
-                    except (ConnectionError, TimeoutError, OSError, ValueError, ImportError, AttributeError) as e:
+                    except (
+                        ConnectionError,
+                        TimeoutError,
+                        OSError,
+                        ValueError,
+                        ImportError,
+                        AttributeError,
+                    ) as e:
                         logger.warning(
-                            "Failed to route to %s:%s: %s", channel.channel_type, channel.channel_id, e
+                            "Failed to route to %s:%s: %s",
+                            channel.channel_type,
+                            channel.channel_id,
+                            e,
                         )
 
             result.channels_notified = channels_notified
             return result
 
-        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:  # broad catch: last-resort handler
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Deliberation execution failed: %s", e)
             return OrchestrationResult(
                 request_id=request.request_id,
@@ -776,7 +827,14 @@ class OrchestrationHandler(SecureHandler):
                 return ctx.to_context_string(max_messages=source.max_items)
 
             return None
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to fetch %s context: %s", platform, e)
         return None
 
@@ -810,7 +868,14 @@ class OrchestrationHandler(SecureHandler):
             if evidence:
                 return str(getattr(evidence, "content", ""))
             return None
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to fetch Confluence context: %s", e)
         return None
 
@@ -844,7 +909,9 @@ class OrchestrationHandler(SecureHandler):
                 # Owner and repo should be alphanumeric with hyphens/underscores
                 owner_pattern = re.compile(r"^[a-zA-Z0-9_\-]+$")
                 if not owner_pattern.match(owner) or not owner_pattern.match(repo):
-                    logger.warning("[SECURITY] Invalid GitHub owner/repo format: %s/%s", owner, repo)
+                    logger.warning(
+                        "[SECURITY] Invalid GitHub owner/repo format: %s/%s", owner, repo
+                    )
                     return None
 
                 # Item type must be either 'pr' or 'issue'
@@ -874,7 +941,14 @@ class OrchestrationHandler(SecureHandler):
         except SourceIdValidationError as e:
             logger.warning("[SECURITY] GitHub source_id validation failed: %s", e)
             return None
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to fetch GitHub context: %s", e)
         return None
 
@@ -894,7 +968,14 @@ class OrchestrationHandler(SecureHandler):
                         for item in results.items
                         if getattr(item, "content", None)
                     )
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to fetch document context: %s", e)
         return None
 
@@ -925,7 +1006,14 @@ class OrchestrationHandler(SecureHandler):
             if evidence:
                 return str(getattr(evidence, "content", ""))
             return None
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to fetch Jira context: %s", e)
         return None
 
@@ -1027,7 +1115,14 @@ class OrchestrationHandler(SecureHandler):
                     message,
                     thread_ts=channel.thread_id,
                 )
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to send to Slack: %s", e)
 
     async def _send_to_teams(self, channel: OutputChannel, message: str) -> None:
@@ -1038,7 +1133,14 @@ class OrchestrationHandler(SecureHandler):
             connector = get_connector("teams")
             if connector:
                 await connector.send_message(channel.channel_id, message)
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to send to Teams: %s", e)
 
     async def _send_to_discord(self, channel: OutputChannel, message: str) -> None:
@@ -1049,7 +1151,14 @@ class OrchestrationHandler(SecureHandler):
             connector = get_connector("discord")
             if connector:
                 await connector.send_message(channel.channel_id, message)
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to send to Discord: %s", e)
 
     async def _send_to_telegram(self, channel: OutputChannel, message: str) -> None:
@@ -1060,7 +1169,14 @@ class OrchestrationHandler(SecureHandler):
             connector = get_connector("telegram")
             if connector:
                 await connector.send_message(channel.channel_id, message)
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to send to Telegram: %s", e)
 
     async def _send_to_email(
@@ -1077,7 +1193,14 @@ class OrchestrationHandler(SecureHandler):
                     subject=f"Deliberation Result: {request.question[:50]}...",
                     body=message,
                 )
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to send email: %s", e)
 
     async def _send_to_webhook(self, channel: OutputChannel, result: OrchestrationResult) -> None:
@@ -1093,7 +1216,14 @@ class OrchestrationHandler(SecureHandler):
                 ) as response:
                     if response.status >= 400:
                         logger.warning("Webhook returned %s", response.status)
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.warning("Failed to send to webhook: %s", e)
 
 

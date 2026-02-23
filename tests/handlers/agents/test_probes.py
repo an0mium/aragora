@@ -321,9 +321,7 @@ class TestListProbeReports:
             "vulnerability_rate": 0.167,
             "created_at": "2026-02-23T10:00:00",
         }
-        (agent_dir / "2026-02-23_probe-report-aaa.json").write_text(
-            json.dumps(report_data)
-        )
+        (agent_dir / "2026-02-23_probe-report-aaa.json").write_text(json.dumps(report_data))
 
         handler.ctx["nomic_dir"] = nomic_dir
         result = handler.handle("/api/v1/probes/reports", {}, mock_http_handler)
@@ -345,9 +343,7 @@ class TestListProbeReports:
                 "vulnerability_rate": 0.0,
                 "created_at": f"2026-02-23T{10 if agent_name == 'claude' else 11}:00:00",
             }
-            (agent_dir / f"2026-02-23_report-{agent_name}.json").write_text(
-                json.dumps(report_data)
-            )
+            (agent_dir / f"2026-02-23_report-{agent_name}.json").write_text(json.dumps(report_data))
 
         handler.ctx["nomic_dir"] = nomic_dir
         result = handler.handle("/api/v1/probes/reports", {}, mock_http_handler)
@@ -364,9 +360,7 @@ class TestListProbeReports:
             )
 
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports", {"agent": ["claude"]}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports", {"agent": ["claude"]}, mock_http_handler)
         body = _body(result)
         assert body["total"] == 1
         assert body["reports"][0]["target_agent"] == "claude"
@@ -377,13 +371,11 @@ class TestListProbeReports:
         agent_dir.mkdir(parents=True)
         for i in range(5):
             (agent_dir / f"report_{i}.json").write_text(
-                json.dumps({"report_id": f"r-{i}", "created_at": f"2026-02-{20+i:02d}"})
+                json.dumps({"report_id": f"r-{i}", "created_at": f"2026-02-{20 + i:02d}"})
             )
 
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports", {"limit": ["2"]}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports", {"limit": ["2"]}, mock_http_handler)
         body = _body(result)
         assert body["total"] == 5
         assert len(body["reports"]) == 2
@@ -395,7 +387,7 @@ class TestListProbeReports:
         agent_dir.mkdir(parents=True)
         for i in range(5):
             (agent_dir / f"report_{i}.json").write_text(
-                json.dumps({"report_id": f"r-{i}", "created_at": f"2026-02-{20+i:02d}"})
+                json.dumps({"report_id": f"r-{i}", "created_at": f"2026-02-{20 + i:02d}"})
             )
 
         handler.ctx["nomic_dir"] = nomic_dir
@@ -410,18 +402,14 @@ class TestListProbeReports:
     def test_limit_capped_at_200(self, handler, mock_http_handler, nomic_dir):
         """Limit is capped at maximum of 200."""
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports", {"limit": ["999"]}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports", {"limit": ["999"]}, mock_http_handler)
         body = _body(result)
         assert body["limit"] == 200
 
     def test_invalid_limit_uses_default(self, handler, mock_http_handler, nomic_dir):
         """Invalid limit falls back to default (50)."""
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports", {"limit": ["abc"]}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports", {"limit": ["abc"]}, mock_http_handler)
         body = _body(result)
         assert body["limit"] == 50
 
@@ -455,9 +443,7 @@ class TestListProbeReports:
         body = _body(result)
         assert body["total"] == 1
 
-    def test_reports_sorted_by_created_at_descending(
-        self, handler, mock_http_handler, nomic_dir
-    ):
+    def test_reports_sorted_by_created_at_descending(self, handler, mock_http_handler, nomic_dir):
         """Reports are sorted newest first."""
         agent_dir = nomic_dir / "probes" / "claude"
         agent_dir.mkdir(parents=True)
@@ -485,25 +471,19 @@ class TestGetProbeReport:
 
     def test_report_not_found_no_nomic_dir(self, handler, mock_http_handler):
         """Returns 404 when no nomic dir."""
-        result = handler.handle(
-            "/api/v1/probes/reports/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports/nonexistent", {}, mock_http_handler)
         assert _status(result) == 404
 
     def test_report_not_found_no_probes_dir(self, handler, mock_http_handler, tmp_path):
         """Returns 404 when probes dir does not exist."""
         handler.ctx["nomic_dir"] = tmp_path
-        result = handler.handle(
-            "/api/v1/probes/reports/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports/nonexistent", {}, mock_http_handler)
         assert _status(result) == 404
 
     def test_report_not_found_empty_probes(self, handler, mock_http_handler, nomic_dir):
         """Returns 404 when report ID does not match any file."""
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports/nonexistent", {}, mock_http_handler)
         assert _status(result) == 404
 
     def test_get_report_by_id(self, handler, mock_http_handler, nomic_dir):
@@ -516,14 +496,10 @@ class TestGetProbeReport:
             "vulnerabilities_found": 3,
             "created_at": "2026-02-23",
         }
-        (agent_dir / "2026-02-23_probe-report-xyz.json").write_text(
-            json.dumps(report_data)
-        )
+        (agent_dir / "2026-02-23_probe-report-xyz.json").write_text(json.dumps(report_data))
 
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports/probe-report-xyz", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports/probe-report-xyz", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["report_id"] == "probe-report-xyz"
@@ -532,9 +508,7 @@ class TestGetProbeReport:
     def test_invalid_report_id_too_long(self, handler, mock_http_handler):
         """Returns 400 for report IDs longer than 64 chars."""
         long_id = "a" * 65
-        result = handler.handle(
-            f"/api/v1/probes/reports/{long_id}", {}, mock_http_handler
-        )
+        result = handler.handle(f"/api/v1/probes/reports/{long_id}", {}, mock_http_handler)
         assert _status(result) == 400
 
     def test_empty_report_id(self, handler, mock_http_handler):
@@ -543,9 +517,7 @@ class TestGetProbeReport:
         # The path extraction strips /api/v1/probes/reports/ -> ""
         assert _status(result) == 400
 
-    def test_get_report_partial_id_match_in_filename(
-        self, handler, mock_http_handler, nomic_dir
-    ):
+    def test_get_report_partial_id_match_in_filename(self, handler, mock_http_handler, nomic_dir):
         """Finds report when ID partially matches filename."""
         agent_dir = nomic_dir / "probes" / "claude"
         agent_dir.mkdir(parents=True)
@@ -553,9 +525,7 @@ class TestGetProbeReport:
             "report_id": "probe-report-full-id",
             "probes_run": 5,
         }
-        (agent_dir / "2026-02-23_probe-report-full-id.json").write_text(
-            json.dumps(report_data)
-        )
+        (agent_dir / "2026-02-23_probe-report-full-id.json").write_text(json.dumps(report_data))
 
         handler.ctx["nomic_dir"] = nomic_dir
         # Search using a partial id that appears in filename
@@ -565,18 +535,14 @@ class TestGetProbeReport:
         body = _body(result)
         assert _status(result) == 200
 
-    def test_skips_invalid_json_when_searching(
-        self, handler, mock_http_handler, nomic_dir
-    ):
+    def test_skips_invalid_json_when_searching(self, handler, mock_http_handler, nomic_dir):
         """Gracefully skips corrupted JSON files during search."""
         agent_dir = nomic_dir / "probes" / "claude"
         agent_dir.mkdir(parents=True)
         (agent_dir / "2026-02-23_target-id.json").write_text("{{bad json")
 
         handler.ctx["nomic_dir"] = nomic_dir
-        result = handler.handle(
-            "/api/v1/probes/reports/target-id", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/probes/reports/target-id", {}, mock_http_handler)
         assert _status(result) == 404
 
 
@@ -605,15 +571,14 @@ class TestRunCapabilityProbe:
     def test_prober_unavailable(self, handler, mock_http_handler):
         """Returns 503 when prober module is not available."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 503
             assert "not available" in body.get("error", "")
@@ -621,17 +586,15 @@ class TestRunCapabilityProbe:
     def test_agent_system_unavailable(self, handler, mock_http_handler):
         """Returns 503 when agent system is not available."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", False
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", False),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 503
             assert "not available" in body.get("error", "")
@@ -639,59 +602,51 @@ class TestRunCapabilityProbe:
     def test_create_agent_is_none(self, handler, mock_http_handler):
         """Returns 503 when create_agent function is None."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", None
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", None),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 503
 
     def test_invalid_json_body(self, handler, mock_http_handler):
         """Returns 400 for invalid JSON body."""
         mock_http_handler.rfile.read.return_value = b"not json at all"
         mock_http_handler.headers = {"Content-Length": "15"}
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 400
 
     def test_missing_agent_name(self, handler, mock_http_handler):
         """Returns 400 when agent_name is missing."""
         _set_body(mock_http_handler, {"probe_types": ["contradiction"]})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 400
             assert "agent_name" in body.get("error", "")
@@ -699,22 +654,20 @@ class TestRunCapabilityProbe:
     def test_empty_agent_name(self, handler, mock_http_handler):
         """Returns 400 when agent_name is empty string."""
         _set_body(mock_http_handler, {"agent_name": "  "})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 400
 
     def test_schema_validation_failure(self, handler, mock_http_handler):
@@ -723,46 +676,43 @@ class TestRunCapabilityProbe:
         mock_validation = MagicMock()
         mock_validation.is_valid = False
         mock_validation.error = "agent_name too long"
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=mock_validation,
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=mock_validation,
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 400
 
     def test_invalid_agent_name_format(self, handler, mock_http_handler):
         """Returns 400 when agent_name fails validation."""
         _set_body(mock_http_handler, {"agent_name": "../../etc/passwd"})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(False, "Invalid agent name"),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(False, "Invalid agent name"),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 400
 
     def test_all_probe_types_invalid(self, handler, mock_http_handler):
@@ -773,28 +723,28 @@ class TestRunCapabilityProbe:
         )
         mock_probe_type = MagicMock()
         mock_probe_type.side_effect = ValueError("invalid")
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type,
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type,
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 400
             assert "No valid probe types" in body.get("error", "")
@@ -808,35 +758,33 @@ class TestRunCapabilityProbe:
         mock_create = MagicMock(side_effect=ValueError("Unknown model type"))
         mock_probe_type_cls = MagicMock(return_value=MagicMock(value="contradiction"))
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 400
             assert "hint" in body
 
-    def test_successful_probe_run(
-        self, handler, mock_http_handler, mock_probe_report, nomic_dir
-    ):
+    def test_successful_probe_run(self, handler, mock_http_handler, mock_probe_report, nomic_dir):
         """Successful capability probe returns full report."""
         _set_body(
             mock_http_handler,
@@ -856,35 +804,36 @@ class TestRunCapabilityProbe:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             assert body["target_agent"] == "claude"
@@ -911,35 +860,36 @@ class TestRunCapabilityProbe:
         handler.ctx["nomic_dir"] = nomic_dir
         handler.ctx["elo_system"] = mock_elo
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
-        ) as mock_invalidate:
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ) as mock_invalidate,
+        ):
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.record_redteam_result.assert_called_once()
             call_kwargs = mock_elo.record_redteam_result.call_args
@@ -963,35 +913,36 @@ class TestRunCapabilityProbe:
         handler.ctx["nomic_dir"] = nomic_dir
         handler.ctx["elo_system"] = mock_elo
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             # Still 200 despite ELO failure
             assert _status(result) == 200
 
@@ -1012,35 +963,36 @@ class TestRunCapabilityProbe:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
             # Verify probes_per_type was capped to 10 in the call
             run_async_call = mock_prober_cls.return_value.probe_agent
@@ -1057,42 +1009,45 @@ class TestRunCapabilityProbe:
         mock_prober_cls = MagicMock(return_value=MagicMock())
         # Track which probe types get created
         created_types = []
+
         def mock_probe_type_init(val):
             created_types.append(val)
             return MagicMock(value=val)
+
         mock_probe_type_cls = MagicMock(side_effect=mock_probe_type_init)
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
             # Default types are: contradiction, hallucination, sycophancy, persistence
             assert "contradiction" in created_types
@@ -1112,35 +1067,36 @@ class TestRunCapabilityProbe:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
             # Verify the report was saved
             agent_probes_dir = nomic_dir / "probes" / "claude"
@@ -1148,9 +1104,7 @@ class TestRunCapabilityProbe:
             saved_files = list(agent_probes_dir.glob("*.json"))
             assert len(saved_files) == 1
 
-    def test_probe_save_failure_is_nonfatal(
-        self, handler, mock_http_handler, mock_probe_report
-    ):
+    def test_probe_save_failure_is_nonfatal(self, handler, mock_http_handler, mock_probe_report):
         """Probe save failure does not crash the response."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
 
@@ -1161,36 +1115,37 @@ class TestRunCapabilityProbe:
         # Use a read-only nomic dir to trigger save failure
         handler.ctx["nomic_dir"] = Path("/nonexistent/readonly/path")
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
             # Should still return 200 even if save fails
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
 
     def test_probe_without_elo_system(
@@ -1206,40 +1161,39 @@ class TestRunCapabilityProbe:
         handler.ctx["nomic_dir"] = nomic_dir
         # No elo_system in ctx
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
 
-    def test_zero_probes_run_pass_rate(
-        self, handler, mock_http_handler, nomic_dir
-    ):
+    def test_zero_probes_run_pass_rate(self, handler, mock_http_handler, nomic_dir):
         """Pass rate is 1.0 when zero probes were run."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
 
@@ -1264,35 +1218,36 @@ class TestRunCapabilityProbe:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=zero_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=zero_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             assert body["summary"]["pass_rate"] == 1.0
@@ -1309,23 +1264,20 @@ class TestRunCapabilityProbeLegacy:
     def test_legacy_route_dispatches(self, handler, mock_http_handler):
         """Legacy route dispatches to probe capability handler."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/run", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/run", {}, mock_http_handler)
             # Should return 503 (prober unavailable) same as capability endpoint
             assert _status(result) == 503
 
     def test_unknown_post_path_returns_none(self, handler, mock_http_handler):
         """Unknown POST paths return None."""
-        result = handler.handle_post(
-            "/api/v1/probes/unknown", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/v1/probes/unknown", {}, mock_http_handler)
         assert result is None
 
 
@@ -1466,9 +1418,7 @@ class TestRecordEloResult:
     def test_records_redteam_result(self, handler, mock_probe_report):
         """Records red team result with correct parameters."""
         elo = MagicMock()
-        with patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache"
-        ):
+        with patch("aragora.server.handlers.agents.probes.invalidate_leaderboard_cache"):
             handler._record_elo_result(elo, "claude", mock_probe_report, "rid-123")
         elo.record_redteam_result.assert_called_once()
         kwargs = elo.record_redteam_result.call_args.kwargs
@@ -1580,29 +1530,27 @@ class TestHandlePostRouting:
 
     def test_capability_route_dispatches(self, handler, mock_http_handler):
         """POST to /api/v1/probes/capability calls _run_capability_probe."""
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             # Prober not available -> 503
             assert _status(result) == 503
 
     def test_run_route_dispatches(self, handler, mock_http_handler):
         """POST to /api/v1/probes/run calls legacy handler."""
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", False),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/run", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/run", {}, mock_http_handler)
             assert _status(result) == 503
 
     def test_unknown_post_route(self, handler, mock_http_handler):
@@ -1631,35 +1579,36 @@ class TestResponseStructure:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
 
@@ -1703,35 +1652,36 @@ class TestResponseStructure:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             body = _body(result)
 
             # The mock_probe_report has contradiction results
@@ -1756,9 +1706,7 @@ class TestResponseStructure:
 class TestModelTypeParameter:
     """Tests for model_type parameter handling."""
 
-    def test_default_model_type(
-        self, handler, mock_http_handler, mock_probe_report, nomic_dir
-    ):
+    def test_default_model_type(self, handler, mock_http_handler, mock_probe_report, nomic_dir):
         """Default model_type is anthropic-api."""
         _set_body(mock_http_handler, {"agent_name": "claude"})
 
@@ -1768,43 +1716,40 @@ class TestModelTypeParameter:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
-            mock_create.assert_called_once_with(
-                "anthropic-api", name="claude", role="proposer"
-            )
+            mock_create.assert_called_once_with("anthropic-api", name="claude", role="proposer")
 
-    def test_custom_model_type(
-        self, handler, mock_http_handler, mock_probe_report, nomic_dir
-    ):
+    def test_custom_model_type(self, handler, mock_http_handler, mock_probe_report, nomic_dir):
         """Custom model_type is passed to create_agent."""
         _set_body(
             mock_http_handler,
@@ -1817,36 +1762,35 @@ class TestModelTypeParameter:
 
         handler.ctx["nomic_dir"] = nomic_dir
 
-        with patch(
-            "aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.agents.probes.create_agent", mock_create
-        ), patch(
-            "aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=MagicMock(is_authenticated=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_against_schema",
-            return_value=MagicMock(is_valid=True),
-        ), patch(
-            "aragora.server.handlers.agents.probes.validate_agent_name",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.agents.probes.ProbeType",
-            mock_probe_type_cls,
-        ), patch(
-            "aragora.server.handlers.agents.probes.run_async",
-            return_value=mock_probe_report,
-        ), patch(
-            "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+        with (
+            patch("aragora.server.handlers.agents.probes.PROBER_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.AGENT_AVAILABLE", True),
+            patch("aragora.server.handlers.agents.probes.create_agent", mock_create),
+            patch("aragora.server.handlers.agents.probes.CapabilityProber", mock_prober_cls),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MagicMock(is_authenticated=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_against_schema",
+                return_value=MagicMock(is_valid=True),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.validate_agent_name",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.ProbeType",
+                mock_probe_type_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.run_async",
+                return_value=mock_probe_report,
+            ),
+            patch(
+                "aragora.server.handlers.agents.probes.invalidate_leaderboard_cache",
+            ),
         ):
-            result = handler.handle_post(
-                "/api/v1/probes/capability", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
-            mock_create.assert_called_once_with(
-                "openai-api", name="gpt4", role="proposer"
-            )
+            mock_create.assert_called_once_with("openai-api", name="gpt4", role="proposer")

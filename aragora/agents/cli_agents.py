@@ -171,7 +171,8 @@ class CLIAgent(CritiqueMixin, Agent):
             api_key = os.environ.get("OPENROUTER_API_KEY")
             if not api_key:
                 logger.warning(
-                    "[%s] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback", self.name
+                    "[%s] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback",
+                    self.name,
                 )
                 return None
 
@@ -216,7 +217,9 @@ class CLIAgent(CritiqueMixin, Agent):
         """
         should_fallback, category = ErrorClassifier.classify_error(error)
         if should_fallback:
-            logger.debug("[%s] Detected fallback error (%s): %s", self.name, category, str(error)[:100])
+            logger.debug(
+                "[%s] Detected fallback error (%s): %s", self.name, category, str(error)[:100]
+            )
         return should_fallback
 
     def _sanitize_cli_arg(self, arg: str) -> str:
@@ -426,7 +429,10 @@ class CLIAgent(CritiqueMixin, Agent):
                 fallback = self._get_fallback_agent()
                 if fallback:
                     logger.warning(
-                        "[%s] CLI failed (%s: %s), falling back to OpenRouter", self.name, type(e).__name__, str(e)[:100]
+                        "[%s] CLI failed (%s: %s), falling back to OpenRouter",
+                        self.name,
+                        type(e).__name__,
+                        str(e)[:100],
                     )
                     self._fallback_used = True
                     try:
@@ -602,7 +608,9 @@ class GeminiCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
+            logger.debug(
+                "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
+            )
             return await self._generate_with_fallback(
                 ["gemini", "--yolo", "-o", "text", "-"],
                 prompt,
@@ -719,7 +727,9 @@ class KiloCodeAgent(CLIAgent):
         # Use a file attachment for very large prompts to avoid E2BIG errors
         if self._is_prompt_too_large_for_argv(full_prompt):
             logger.debug(
-                "[%s] Using file attachment for large prompt (%s chars)", self.name, len(full_prompt)
+                "[%s] Using file attachment for large prompt (%s chars)",
+                self.name,
+                len(full_prompt),
             )
             tmp_path = None
             try:
@@ -788,7 +798,9 @@ class GrokCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
+            logger.debug(
+                "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
+            )
             return await self._generate_with_fallback(
                 ["grok", "-p", "-"],
                 prompt,
@@ -824,7 +836,9 @@ class QwenCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
+            logger.debug(
+                "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
+            )
             return await self._generate_with_fallback(
                 ["qwen", "-p", "-"],
                 prompt,
@@ -859,7 +873,9 @@ class DeepseekCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
+            logger.debug(
+                "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
+            )
             return await self._generate_with_fallback(
                 ["deepseek", "-p", "-"],
                 prompt,
@@ -910,7 +926,9 @@ class OpenAIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
+            logger.debug(
+                "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
+            )
             return await self._generate_with_fallback(
                 [
                     "openai",

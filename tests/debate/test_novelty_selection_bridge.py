@@ -60,9 +60,7 @@ class TestAgentNoveltyStats:
         assert s.low_novelty_rate == 0.0
 
     def test_low_novelty_rate(self):
-        s = AgentNoveltyStats(
-            agent_name="claude", total_rounds=10, low_novelty_rounds=3
-        )
+        s = AgentNoveltyStats(agent_name="claude", total_rounds=10, low_novelty_rounds=3)
         assert s.low_novelty_rate == pytest.approx(0.3)
 
 
@@ -168,9 +166,7 @@ class TestComputeAdjustment:
         assert adj > 0  # positive = bonus
 
     def test_penalty_capped_at_max(self):
-        bridge = NoveltySelectionBridge(
-            config=NoveltySelectionBridgeConfig(max_penalty=0.3)
-        )
+        bridge = NoveltySelectionBridge(config=NoveltySelectionBridgeConfig(max_penalty=0.3))
         stats = AgentNoveltyStats(
             agent_name="claude",
             total_rounds=10,

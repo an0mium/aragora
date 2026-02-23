@@ -88,7 +88,11 @@ def audit_cross_tenant_attempt(
 
     # Log to security audit logger
     _security_audit_logger.warning(
-        "SECURITY: Cross-tenant access attempt detected | user=%s | user_tenant=%s | requested_tenant=%s | endpoint=%s", user_id, user_tenant_id, requested_tenant_id, endpoint
+        "SECURITY: Cross-tenant access attempt detected | user=%s | user_tenant=%s | requested_tenant=%s | endpoint=%s",
+        user_id,
+        user_tenant_id,
+        requested_tenant_id,
+        endpoint,
     )
 
     # Also log the full structured entry for SIEM integration

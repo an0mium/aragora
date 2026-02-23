@@ -129,7 +129,9 @@ class TestSendTextMessage:
         with patch(_HTTP_POOL, return_value=pool):
             await send_text_message("+1234567890", "Test")
 
-        headers = session.post.call_args.kwargs.get("headers") or session.post.call_args[1].get("headers")
+        headers = session.post.call_args.kwargs.get("headers") or session.post.call_args[1].get(
+            "headers"
+        )
         assert headers["Authorization"] == "Bearer test-token"
         assert headers["Content-Type"] == "application/json"
 
@@ -142,7 +144,9 @@ class TestSendTextMessage:
         with patch(_HTTP_POOL, return_value=pool):
             await send_text_message("+1234567890", "Test")
 
-        timeout = session.post.call_args.kwargs.get("timeout") or session.post.call_args[1].get("timeout")
+        timeout = session.post.call_args.kwargs.get("timeout") or session.post.call_args[1].get(
+            "timeout"
+        )
         assert timeout == 30
 
     @pytest.mark.asyncio
@@ -409,9 +413,7 @@ class TestSendInteractiveButtons:
         from aragora.server.handlers.social.whatsapp.messaging import send_interactive_buttons
 
         pool, session = mock_pool_success
-        buttons = [
-            {"id": f"btn_{i}", "title": f"Option {i}"} for i in range(5)
-        ]
+        buttons = [{"id": f"btn_{i}", "title": f"Option {i}"} for i in range(5)]
         with patch(_HTTP_POOL, return_value=pool):
             await send_interactive_buttons("+1234567890", "Choose", buttons)
 
@@ -531,7 +533,9 @@ class TestSendInteractiveButtons:
             patch(_HTTP_POOL, return_value=pool),
             patch(f"{_MSG}.send_text_message", new_callable=AsyncMock) as mock_send_text,
         ):
-            await send_interactive_buttons("+1234567890", "Fallback body", [{"id": "1", "title": "OK"}])
+            await send_interactive_buttons(
+                "+1234567890", "Fallback body", [{"id": "1", "title": "OK"}]
+            )
 
         mock_send_text.assert_called_once_with("+1234567890", "Fallback body")
 
@@ -546,7 +550,9 @@ class TestSendInteractiveButtons:
             patch(_HTTP_POOL, return_value=pool),
             patch(f"{_MSG}.send_text_message", new_callable=AsyncMock) as mock_send_text,
         ):
-            await send_interactive_buttons("+1234567890", "Fallback body", [{"id": "1", "title": "OK"}])
+            await send_interactive_buttons(
+                "+1234567890", "Fallback body", [{"id": "1", "title": "OK"}]
+            )
 
         mock_send_text.assert_called_once_with("+1234567890", "Fallback body")
 
@@ -561,7 +567,9 @@ class TestSendInteractiveButtons:
             patch(_HTTP_POOL, return_value=pool),
             patch(f"{_MSG}.send_text_message", new_callable=AsyncMock) as mock_send_text,
         ):
-            await send_interactive_buttons("+1234567890", "Fallback body", [{"id": "1", "title": "OK"}])
+            await send_interactive_buttons(
+                "+1234567890", "Fallback body", [{"id": "1", "title": "OK"}]
+            )
 
         mock_send_text.assert_called_once()
 
@@ -693,7 +701,9 @@ class TestSendInteractiveButtons:
         with patch(_HTTP_POOL, return_value=pool):
             await send_interactive_buttons("+1234567890", "Body", [{"id": "1", "title": "OK"}])
 
-        headers = session.post.call_args.kwargs.get("headers") or session.post.call_args[1].get("headers")
+        headers = session.post.call_args.kwargs.get("headers") or session.post.call_args[1].get(
+            "headers"
+        )
         assert headers["Authorization"] == "Bearer test-token"
 
     @pytest.mark.asyncio
@@ -705,7 +715,9 @@ class TestSendInteractiveButtons:
         with patch(_HTTP_POOL, return_value=pool):
             await send_interactive_buttons("+1234567890", "Body", [{"id": "1", "title": "OK"}])
 
-        timeout = session.post.call_args.kwargs.get("timeout") or session.post.call_args[1].get("timeout")
+        timeout = session.post.call_args.kwargs.get("timeout") or session.post.call_args[1].get(
+            "timeout"
+        )
         assert timeout == 30
 
 
@@ -731,12 +743,18 @@ class TestSendVoiceSummary:
         mock_helper.synthesize_debate_result = AsyncMock(return_value=mock_result)
 
         with (
-            patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper),
+            patch(
+                "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+            ),
             patch(f"{_MSG}.send_voice_message", new_callable=AsyncMock) as mock_send_voice,
         ):
             await send_voice_summary(
-                "+1234567890", "AI Safety", "Yes, with guardrails",
-                consensus_reached=True, confidence=0.85, rounds_used=3,
+                "+1234567890",
+                "AI Safety",
+                "Yes, with guardrails",
+                consensus_reached=True,
+                confidence=0.85,
+                rounds_used=3,
             )
 
         mock_helper.synthesize_debate_result.assert_called_once_with(
@@ -757,12 +775,18 @@ class TestSendVoiceSummary:
         mock_helper.is_available = False
 
         with (
-            patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper),
+            patch(
+                "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+            ),
             patch(f"{_MSG}.send_voice_message", new_callable=AsyncMock) as mock_send_voice,
         ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
         mock_send_voice.assert_not_called()
@@ -777,12 +801,18 @@ class TestSendVoiceSummary:
         mock_helper.synthesize_debate_result = AsyncMock(return_value=None)
 
         with (
-            patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper),
+            patch(
+                "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+            ),
             patch(f"{_MSG}.send_voice_message", new_callable=AsyncMock) as mock_send_voice,
         ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
         mock_send_voice.assert_not_called()
@@ -792,10 +822,17 @@ class TestSendVoiceSummary:
         """Handles ImportError when TTS helper module is not available."""
         from aragora.server.handlers.social.whatsapp.messaging import send_voice_summary
 
-        with patch("aragora.server.handlers.social.tts_helper.get_tts_helper", side_effect=ImportError("no tts")):
+        with patch(
+            "aragora.server.handlers.social.tts_helper.get_tts_helper",
+            side_effect=ImportError("no tts"),
+        ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
         # Should not raise
 
@@ -808,10 +845,16 @@ class TestSendVoiceSummary:
         mock_helper.is_available = True
         mock_helper.synthesize_debate_result = AsyncMock(side_effect=OSError("disk full"))
 
-        with patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper):
+        with patch(
+            "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+        ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
     @pytest.mark.asyncio
@@ -821,12 +864,20 @@ class TestSendVoiceSummary:
 
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(side_effect=ConnectionError("network down"))
+        mock_helper.synthesize_debate_result = AsyncMock(
+            side_effect=ConnectionError("network down")
+        )
 
-        with patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper):
+        with patch(
+            "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+        ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
     @pytest.mark.asyncio
@@ -838,10 +889,16 @@ class TestSendVoiceSummary:
         mock_helper.is_available = True
         mock_helper.synthesize_debate_result = AsyncMock(side_effect=TimeoutError("slow tts"))
 
-        with patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper):
+        with patch(
+            "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+        ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
     @pytest.mark.asyncio
@@ -853,10 +910,16 @@ class TestSendVoiceSummary:
         mock_helper.is_available = True
         mock_helper.synthesize_debate_result = AsyncMock(side_effect=ValueError("bad data"))
 
-        with patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper):
+        with patch(
+            "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+        ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
     @pytest.mark.asyncio
@@ -868,10 +931,16 @@ class TestSendVoiceSummary:
         mock_helper.is_available = True
         mock_helper.synthesize_debate_result = AsyncMock(side_effect=RuntimeError("tts broken"))
 
-        with patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper):
+        with patch(
+            "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+        ):
             await send_voice_summary(
-                "+1234567890", "Topic", "Answer",
-                consensus_reached=True, confidence=0.8, rounds_used=2,
+                "+1234567890",
+                "Topic",
+                "Answer",
+                consensus_reached=True,
+                confidence=0.8,
+                rounds_used=2,
             )
 
     @pytest.mark.asyncio
@@ -888,12 +957,18 @@ class TestSendVoiceSummary:
         mock_helper.synthesize_debate_result = AsyncMock(return_value=mock_result)
 
         with (
-            patch("aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper),
+            patch(
+                "aragora.server.handlers.social.tts_helper.get_tts_helper", return_value=mock_helper
+            ),
             patch(f"{_MSG}.send_voice_message", new_callable=AsyncMock),
         ):
             await send_voice_summary(
-                "+1234567890", "Topic", None,
-                consensus_reached=False, confidence=0.3, rounds_used=5,
+                "+1234567890",
+                "Topic",
+                None,
+                consensus_reached=False,
+                confidence=0.3,
+                rounds_used=5,
             )
 
         call_kwargs = mock_helper.synthesize_debate_result.call_args.kwargs
@@ -1196,7 +1271,9 @@ class TestSendVoiceMessage:
         """Logs a warning when the send message step fails."""
         from aragora.server.handlers.social.whatsapp.messaging import send_voice_message
 
-        pool, session = self._make_upload_and_send_pool(send_status=500, send_json={"error": "fail"})
+        pool, session = self._make_upload_and_send_pool(
+            send_status=500, send_json={"error": "fail"}
+        )
         with (
             patch(_HTTP_POOL, return_value=pool),
             patch(f"{_MSG}.logger") as mock_logger,

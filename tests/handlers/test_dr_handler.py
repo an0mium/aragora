@@ -188,9 +188,7 @@ class TestRouting:
 
     @pytest.mark.asyncio
     async def test_unknown_path_returns_404(self, handler):
-        result = await handler.handle(
-            method="GET", path="/api/v2/dr/nonexistent", body={}
-        )
+        result = await handler.handle(method="GET", path="/api/v2/dr/nonexistent", body={})
         assert result.status_code == 404
         body = parse_body(result)
         assert "error" in body
@@ -225,9 +223,7 @@ class TestRouting:
         backup = _make_backup()
         mock_manager.list_backups.return_value = [backup]
         mock_manager.get_latest_backup.return_value = backup
-        result = await handler.handle(
-            method="GET", path="/api/v2/dr/status", body={}
-        )
+        result = await handler.handle(method="GET", path="/api/v2/dr/status", body={})
         assert result.status_code == 200
 
 
@@ -451,14 +447,12 @@ class TestRunDrill:
     async def test_restore_test_success(self, handler, mock_manager):
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(verified=True)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            verified=True
         )
         mock_manager.restore_backup.return_value = True
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 200
         body = parse_body(result)
         assert body["success"] is True
@@ -472,13 +466,11 @@ class TestRunDrill:
     async def test_restore_test_verification_fails(self, handler, mock_manager):
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(verified=False)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            verified=False
         )
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 200
         body = parse_body(result)
         assert body["success"] is False
@@ -488,14 +480,12 @@ class TestRunDrill:
     async def test_restore_test_dry_run_fails(self, handler, mock_manager):
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(verified=True)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            verified=True
         )
         mock_manager.restore_backup.return_value = False
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 200
         body = parse_body(result)
         assert body["success"] is False
@@ -504,8 +494,8 @@ class TestRunDrill:
     async def test_drill_with_specific_backup_id(self, handler, mock_manager):
         backup = _make_backup(backup_id="specific-001")
         mock_manager.list_backups.return_value = [backup]
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(backup_id="specific-001", verified=True)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            backup_id="specific-001", verified=True
         )
         mock_manager.restore_backup.return_value = True
 
@@ -534,9 +524,7 @@ class TestRunDrill:
     async def test_drill_no_latest_backup(self, handler, mock_manager):
         mock_manager.get_latest_backup.return_value = None
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 400
 
     @pytest.mark.asyncio
@@ -558,7 +546,9 @@ class TestRunDrill:
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
         comp = _make_comprehensive_result(
-            verified=True, schema_valid=True, integrity_valid=True,
+            verified=True,
+            schema_valid=True,
+            integrity_valid=True,
         )
         mock_manager.verify_restore_comprehensive.return_value = comp
         mock_manager.restore_backup.return_value = True
@@ -580,7 +570,9 @@ class TestRunDrill:
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
         comp = _make_comprehensive_result(
-            verified=True, schema_valid=False, integrity_valid=True,
+            verified=True,
+            schema_valid=False,
+            integrity_valid=True,
         )
         # Schema validation on the result object
         comp.schema_validation.valid = False
@@ -603,7 +595,9 @@ class TestRunDrill:
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
         comp = _make_comprehensive_result(
-            verified=True, schema_valid=True, integrity_valid=False,
+            verified=True,
+            schema_valid=True,
+            integrity_valid=False,
         )
         comp.integrity_check.valid = False
         mock_manager.verify_restore_comprehensive.return_value = comp
@@ -660,9 +654,7 @@ class TestRunDrill:
         mock_manager.get_latest_backup.return_value = backup
         mock_manager.verify_restore_comprehensive.side_effect = OSError("disk failure")
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 200
         body = parse_body(result)
         assert body["success"] is False
@@ -674,9 +666,7 @@ class TestRunDrill:
         mock_manager.get_latest_backup.return_value = backup
         mock_manager.verify_restore_comprehensive.side_effect = RuntimeError("broken")
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         body = parse_body(result)
         assert body["success"] is False
 
@@ -686,9 +676,7 @@ class TestRunDrill:
         mock_manager.get_latest_backup.return_value = backup
         mock_manager.verify_restore_comprehensive.side_effect = ValueError("bad value")
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         body = parse_body(result)
         assert body["success"] is False
 
@@ -696,8 +684,8 @@ class TestRunDrill:
     async def test_drill_custom_target_path(self, handler, mock_manager):
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(verified=True)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            verified=True
         )
         mock_manager.restore_backup.return_value = True
 
@@ -715,14 +703,12 @@ class TestRunDrill:
     async def test_drill_default_target_path(self, handler, mock_manager):
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(verified=True)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            verified=True
         )
         mock_manager.restore_backup.return_value = True
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 200
         mock_manager.restore_backup.assert_called_once_with(
             "bk-001", "/tmp/dr_drill_test.db", dry_run=True
@@ -732,14 +718,12 @@ class TestRunDrill:
     async def test_drill_steps_populated(self, handler, mock_manager):
         backup = _make_backup()
         mock_manager.get_latest_backup.return_value = backup
-        mock_manager.verify_restore_comprehensive.return_value = (
-            _make_comprehensive_result(verified=True)
+        mock_manager.verify_restore_comprehensive.return_value = _make_comprehensive_result(
+            verified=True
         )
         mock_manager.restore_backup.return_value = True
 
-        result = await handler.handle(
-            method="POST", path="/api/v2/dr/drill", body={}
-        )
+        result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         body = parse_body(result)
         assert len(body["steps"]) >= 1
         for step in body["steps"]:
@@ -950,13 +934,13 @@ class TestValidateConfiguration:
         mock_manager.backup_dir = Path("/tmp/test_backups")
         mock_manager.list_backups.return_value = [_make_backup()]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
-            result = await handler.handle(
-                method="POST", path="/api/v2/dr/validate", body={}
-            )
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
+            result = await handler.handle(method="POST", path="/api/v2/dr/validate", body={})
 
         assert result.status_code == 200
         body = parse_body(result)
@@ -991,10 +975,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_key = "key"
         mock_manager.list_backups.return_value = [_make_backup()]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1008,10 +994,12 @@ class TestValidateConfiguration:
     async def test_validate_skip_encryption_check(self, handler, mock_manager):
         mock_manager.list_backups.return_value = [_make_backup()]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1026,10 +1014,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = [_make_backup()]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1046,10 +1036,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_key = None
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1066,10 +1058,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_key = "my-secret-key"
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1100,9 +1094,11 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text", side_effect=PermissionError("no write")):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text", side_effect=PermissionError("no write")),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1119,10 +1115,12 @@ class TestValidateConfiguration:
         mock_manager.retention_policy = RetentionPolicy()
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1140,10 +1138,12 @@ class TestValidateConfiguration:
         mock_manager.retention_policy = policy
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1159,10 +1159,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1178,10 +1180,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1197,10 +1201,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1216,10 +1222,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1235,10 +1243,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = [_make_backup()]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1254,10 +1264,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",
@@ -1274,10 +1286,12 @@ class TestValidateConfiguration:
         mock_manager.encryption_enabled = False
         mock_manager.list_backups.return_value = []
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "is_dir", return_value=True), \
-             patch.object(Path, "write_text"), \
-             patch.object(Path, "unlink"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+        ):
             result = await handler.handle(
                 method="POST",
                 path="/api/v2/dr/validate",

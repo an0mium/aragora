@@ -157,8 +157,12 @@ class TestOIDCAuthorizationFlow:
         )
 
         with (
-            patch.object(provider, "_exchange_code", new_callable=AsyncMock, return_value=mock_tokens),
-            patch.object(provider, "_get_user_info", new_callable=AsyncMock, return_value=mock_user),
+            patch.object(
+                provider, "_exchange_code", new_callable=AsyncMock, return_value=mock_tokens
+            ),
+            patch.object(
+                provider, "_get_user_info", new_callable=AsyncMock, return_value=mock_user
+            ),
         ):
             # Register a state so validate_state() passes
             state = "test-state"

@@ -125,31 +125,23 @@ class TestCalculatePhaseTimeout:
         """Exact formula: (num_agents / max_concurrent) * agent_timeout + 60."""
         # Use max_concurrent=5, num_agents=20, agent_timeout=100
         # (20 / 5) * 100 + 60 = 460
-        result = calculate_phase_timeout(
-            num_agents=20, agent_timeout=100.0, max_concurrent=5
-        )
+        result = calculate_phase_timeout(num_agents=20, agent_timeout=100.0, max_concurrent=5)
         assert result == 460.0
 
     def test_respects_minimum_timeout(self):
         """Result never drops below REVISION_PHASE_BASE_TIMEOUT (120)."""
-        result = calculate_phase_timeout(
-            num_agents=1, agent_timeout=1.0, max_concurrent=10
-        )
+        result = calculate_phase_timeout(num_agents=1, agent_timeout=1.0, max_concurrent=10)
         assert result == REVISION_PHASE_BASE_TIMEOUT
 
     def test_max_concurrent_zero_treated_as_one(self):
         """max_concurrent <= 0 is clamped to 1 to prevent division by zero."""
-        result = calculate_phase_timeout(
-            num_agents=5, agent_timeout=100.0, max_concurrent=0
-        )
+        result = calculate_phase_timeout(num_agents=5, agent_timeout=100.0, max_concurrent=0)
         # (5 / 1) * 100 + 60 = 560
         assert result == 560.0
 
     def test_single_agent_with_high_timeout(self):
         """A single agent with a very long timeout exceeds the base."""
-        result = calculate_phase_timeout(
-            num_agents=1, agent_timeout=500.0, max_concurrent=1
-        )
+        result = calculate_phase_timeout(num_agents=1, agent_timeout=500.0, max_concurrent=1)
         # (1 / 1) * 500 + 60 = 560
         assert result == 560.0
 
@@ -262,9 +254,7 @@ class TestRecordAdaptiveRound:
             "sys.modules",
             {
                 "aragora.observability": MagicMock(),
-                "aragora.observability.metrics": MagicMock(
-                    record_adaptive_round_change=mock_fn
-                ),
+                "aragora.observability.metrics": MagicMock(record_adaptive_round_change=mock_fn),
             },
         ):
             record_adaptive_round("extend")

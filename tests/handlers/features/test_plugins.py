@@ -161,12 +161,14 @@ def _reset_rate_limiters():
     """Reset rate limiters to avoid cross-test pollution."""
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
     yield
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -178,7 +180,9 @@ def _bypass_require_auth(monkeypatch):
     from aragora.server import auth as _auth_mod
 
     monkeypatch.setattr(_auth_mod.auth_config, "api_token", _TEST_TOKEN)
-    monkeypatch.setattr(_auth_mod.auth_config, "validate_token", lambda token, **kw: token == _TEST_TOKEN)
+    monkeypatch.setattr(
+        _auth_mod.auth_config, "validate_token", lambda token, **kw: token == _TEST_TOKEN
+    )
 
 
 @pytest.fixture
@@ -294,15 +298,21 @@ class TestListPlugins:
 
     def test_list_plugins_registry_none(self, handler):
         """Returns 503 when get_registry is None."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", None):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", None),
+        ):
             result = handler.handle("/api/v1/plugins", {}, _make_handler())
         assert _status(result) == 503
 
     def test_list_plugins_success(self, handler, mock_registry):
         """Returns plugin list on success."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/v1/plugins", {}, _make_handler())
         body = _body(result)
         assert _status(result) == 200
@@ -311,8 +321,10 @@ class TestListPlugins:
 
     def test_list_plugins_empty_registry(self, handler):
         registry = MockRegistry(plugins=[])
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins", {}, _make_handler())
         body = _body(result)
         assert body["count"] == 0
@@ -320,8 +332,12 @@ class TestListPlugins:
 
     def test_list_plugins_legacy_path(self, handler, mock_registry):
         """Legacy path works and adds Sunset header."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/plugins", {}, _make_handler())
         assert _status(result) == 200
         assert result.headers.get("Sunset") is not None
@@ -329,8 +345,12 @@ class TestListPlugins:
 
     def test_list_plugins_versioned_no_sunset(self, handler, mock_registry):
         """Versioned path does NOT add Sunset header."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/v1/plugins", {}, _make_handler())
         assert result.headers.get("Sunset") is None
 
@@ -344,8 +364,12 @@ class TestGetPlugin:
     """Tests for getting a specific plugin's details."""
 
     def test_get_plugin_success_with_runner(self, handler, mock_registry):
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/v1/plugins/test-plugin", {}, _make_handler())
         body = _body(result)
         assert _status(result) == 200
@@ -356,8 +380,10 @@ class TestGetPlugin:
     def test_get_plugin_success_no_runner(self, handler):
         plugin = MockPlugin(name="simple-plugin")
         registry = MockRegistry(plugins=[plugin], runners={})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/simple-plugin", {}, _make_handler())
         body = _body(result)
         assert _status(result) == 200
@@ -366,8 +392,10 @@ class TestGetPlugin:
 
     def test_get_plugin_not_found(self, handler):
         registry = MockRegistry(plugins=[])
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/nonexistent", {}, _make_handler())
         assert _status(result) == 404
 
@@ -378,14 +406,22 @@ class TestGetPlugin:
 
     def test_get_plugin_invalid_name(self, handler):
         """Plugin name with invalid characters returns 400."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+        ):
             result = handler.handle("/api/v1/plugins/../../etc", {}, _make_handler())
         assert _status(result) == 400
 
     def test_get_plugin_legacy_path(self, handler, mock_registry):
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/plugins/test-plugin", {}, _make_handler())
         assert _status(result) == 200
         assert result.headers.get("Sunset") is not None
@@ -394,8 +430,10 @@ class TestGetPlugin:
         plugin = MockPlugin(name="complex-plugin")
         runner = MockRunner(valid=False, missing=["numpy", "pandas"])
         registry = MockRegistry(plugins=[plugin], runners={"complex-plugin": runner})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/complex-plugin", {}, _make_handler())
         body = _body(result)
         assert body["requirements_satisfied"] is False
@@ -427,8 +465,10 @@ class TestGetMarketplace:
             MockPlugin(name="gamma", featured=True, category="analytics"),
         ]
         registry = MockRegistry(plugins=plugins)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/marketplace", {}, _make_handler())
         body = _body(result)
         assert body["total"] == 3
@@ -440,15 +480,21 @@ class TestGetMarketplace:
         """Featured list should be capped at 5."""
         plugins = [MockPlugin(name=f"p{i}", featured=True, category="cat") for i in range(8)]
         registry = MockRegistry(plugins=plugins)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/marketplace", {}, _make_handler())
         body = _body(result)
         assert len(body["featured"]) == 5
 
     def test_marketplace_legacy_path(self, handler, mock_registry):
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/plugins/marketplace", {}, _make_handler())
         assert _status(result) == 200
         assert result.headers.get("Sunset") is not None
@@ -475,8 +521,12 @@ class TestListInstalled:
         _installed_plugins["test-user-001"] = {
             "test-plugin": {"installed_at": "2026-01-01T00:00:00", "config": {"key": "val"}}
         }
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/v1/plugins/installed", {}, _make_handler())
         body = _body(result)
         assert body["count"] == 1
@@ -490,8 +540,10 @@ class TestListInstalled:
             "gone-plugin": {"installed_at": "2026-01-01T00:00:00", "config": {}}
         }
         registry = MockRegistry(plugins=[])  # Empty -- manifest not found
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/installed", {}, _make_handler())
         body = _body(result)
         assert body["count"] == 0
@@ -583,8 +635,12 @@ class TestInstallPlugin:
 
     def test_install_success(self, handler, mock_registry):
         body_handler = _make_handler(body={"config": {"setting": "on"}})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle_post("/api/v1/plugins/test-plugin/install", {}, body_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -595,16 +651,22 @@ class TestInstallPlugin:
         _installed_plugins["test-user-001"] = {
             "test-plugin": {"installed_at": "2026-01-01T00:00:00", "config": {}}
         }
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle_post("/api/v1/plugins/test-plugin/install", {}, _make_handler())
         body = _body(result)
         assert body["already_installed"] is True
 
     def test_install_plugin_not_found(self, handler):
         registry = MockRegistry(plugins=[])
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle_post("/api/v1/plugins/nonexistent/install", {}, _make_handler())
         assert _status(result) == 404
 
@@ -612,8 +674,10 @@ class TestInstallPlugin:
         plugin = MockPlugin(name="needs-deps")
         runner = MockRunner(valid=False, missing=["numpy"])
         registry = MockRegistry(plugins=[plugin], runners={"needs-deps": runner})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle_post("/api/v1/plugins/needs-deps/install", {}, _make_handler())
         assert _status(result) == 400
         assert "numpy" in _body(result).get("error", "")
@@ -625,8 +689,12 @@ class TestInstallPlugin:
 
     def test_install_no_config_in_body(self, handler, mock_registry):
         """Installing without config uses empty dict as default."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle_post("/api/v1/plugins/test-plugin/install", {}, _make_handler())
         body = _body(result)
         assert body["success"] is True
@@ -634,8 +702,12 @@ class TestInstallPlugin:
         assert install_info["config"] == {}
 
     def test_install_legacy_path(self, handler, mock_registry):
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle_post("/api/plugins/test-plugin/install", {}, _make_handler())
         assert _status(result) == 200
         assert result.headers.get("Sunset") is not None
@@ -683,10 +755,18 @@ class TestRunPlugin:
     def test_run_success(self, handler, mock_registry):
         body_data = {"input": {}, "config": {}, "working_dir": "."}
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate, \
-             patch("aragora.server.handlers.features.plugins.run_async", return_value=MockRunResult()):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+            patch(
+                "aragora.server.handlers.features.plugins.run_async", return_value=MockRunResult()
+            ),
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/test-plugin/run", {}, body_handler)
         body = _body(result)
@@ -695,7 +775,9 @@ class TestRunPlugin:
 
     def test_run_plugins_unavailable(self, handler):
         with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False):
-            result = handler.handle_post("/api/v1/plugins/test-plugin/run", {}, _make_handler(body={}))
+            result = handler.handle_post(
+                "/api/v1/plugins/test-plugin/run", {}, _make_handler(body={})
+            )
         assert _status(result) == 503
 
     def test_run_invalid_body(self, handler):
@@ -708,16 +790,26 @@ class TestRunPlugin:
         }
         bad_handler.client_address = ("127.0.0.1", 12345)
         del bad_handler.path
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+        ):
             result = handler.handle_post("/api/v1/plugins/test-plugin/run", {}, bad_handler)
         assert _status(result) == 400
 
     def test_run_schema_validation_failure(self, handler, mock_registry):
         body_handler = _make_handler(body={"input": {}})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=False, error="Schema invalid")
             result = handler.handle_post("/api/v1/plugins/test-plugin/run", {}, body_handler)
         assert _status(result) == 400
@@ -725,9 +817,13 @@ class TestRunPlugin:
     def test_run_plugin_not_found(self, handler):
         registry = MockRegistry(plugins=[])
         body_handler = _make_handler(body={"input": {}})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/nonexistent/run", {}, body_handler)
         assert _status(result) == 404
@@ -735,9 +831,15 @@ class TestRunPlugin:
     def test_run_working_dir_traversal(self, handler, mock_registry):
         """Working dir outside cwd should be rejected."""
         body_handler = _make_handler(body={"input": {}, "working_dir": "/etc"})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/test-plugin/run", {}, body_handler)
         assert _status(result) == 400
@@ -745,10 +847,18 @@ class TestRunPlugin:
 
     def test_run_legacy_path(self, handler, mock_registry):
         body_handler = _make_handler(body={"input": {}})
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate, \
-             patch("aragora.server.handlers.features.plugins.run_async", return_value=MockRunResult()):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+            patch(
+                "aragora.server.handlers.features.plugins.run_async", return_value=MockRunResult()
+            ),
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/plugins/test-plugin/run", {}, body_handler)
         assert _status(result) == 200
@@ -770,15 +880,23 @@ class TestSubmitPlugin:
             "description": "A plugin",
             "entry_point": "my_plugin.main:run",  # module.path:function format
         }
-        body = {"manifest": manifest, "source_url": "https://github.com/example/repo", "notes": "Please review"}
+        body = {
+            "manifest": manifest,
+            "source_url": "https://github.com/example/repo",
+            "notes": "Please review",
+        }
         body.update(overrides)
         return body
 
     def test_submit_success(self, handler):
         body_data = self._make_submit_body()
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         body = _body(result)
@@ -789,7 +907,9 @@ class TestSubmitPlugin:
 
     def test_submit_missing_manifest(self, handler):
         body_handler = _make_handler(body={"source_url": "https://example.com"})
-        with patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with patch(
+            "aragora.server.handlers.features.plugins.validate_against_schema"
+        ) as mock_validate:
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 400
@@ -820,9 +940,15 @@ class TestSubmitPlugin:
         """Rejects submission when plugin name already exists in marketplace."""
         body_data = self._make_submit_body(name="test-plugin")
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 409
@@ -839,8 +965,12 @@ class TestSubmitPlugin:
         }
         body_data = self._make_submit_body(name="new-plugin")
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 409
@@ -857,8 +987,12 @@ class TestSubmitPlugin:
         }
         body_data = self._make_submit_body(name="new-plugin")
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 200
@@ -874,8 +1008,12 @@ class TestSubmitPlugin:
         }
         body_data = self._make_submit_body(name="new-plugin")
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 200
@@ -890,10 +1028,16 @@ class TestSubmitPlugin:
         mock_temp.validate.return_value = (True, [])
         mock_manifest_cls.from_dict.return_value = mock_temp
 
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate, \
-             patch("aragora.plugins.manifest.PluginManifest", mock_manifest_cls):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+            patch("aragora.plugins.manifest.PluginManifest", mock_manifest_cls),
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 200
@@ -908,10 +1052,16 @@ class TestSubmitPlugin:
         mock_temp.validate.return_value = (False, ["missing entry_point"])
         mock_manifest_cls.from_dict.return_value = mock_temp
 
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate, \
-             patch("aragora.plugins.manifest.PluginManifest", mock_manifest_cls):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+            patch("aragora.plugins.manifest.PluginManifest", mock_manifest_cls),
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 400
@@ -925,10 +1075,16 @@ class TestSubmitPlugin:
         mock_manifest_cls = MagicMock()
         mock_manifest_cls.from_dict.side_effect = ValueError("bad format")
 
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate, \
-             patch("aragora.plugins.manifest.PluginManifest", mock_manifest_cls):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+            patch("aragora.plugins.manifest.PluginManifest", mock_manifest_cls),
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 400
@@ -937,8 +1093,12 @@ class TestSubmitPlugin:
     def test_submit_legacy_path(self, handler):
         body_data = self._make_submit_body()
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/plugins/submit", {}, body_handler)
         assert _status(result) == 200
@@ -948,8 +1108,12 @@ class TestSubmitPlugin:
         """Verify submission is stored in _plugin_submissions."""
         body_data = self._make_submit_body()
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False), \
-             patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.features.plugins.validate_against_schema"
+            ) as mock_validate,
+        ):
             mock_validate.return_value = MagicMock(is_valid=True)
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         body = _body(result)
@@ -978,23 +1142,35 @@ class TestSunsetHeaders:
         assert handler._is_legacy_path("/api/v1/plugins/my-plugin") is False
 
     def test_sunset_header_added_for_legacy(self, handler, mock_registry):
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/plugins", {}, _make_handler())
         assert result.headers["Sunset"] == handler._SUNSET_DATE
         assert result.headers["Deprecation"] == "true"
 
     def test_no_sunset_header_for_versioned(self, handler, mock_registry):
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/v1/plugins", {}, _make_handler())
         assert result.headers.get("Sunset") is None
 
     def test_original_path_used_for_detection(self, handler, mock_registry):
         """When handler has path attr with /api/v1/, it's not treated as legacy."""
         h = _make_handler(path="/api/v1/plugins")
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/plugins", {}, h)
         # handler.path says /api/v1/, so it should NOT be legacy
         assert result.headers.get("Sunset") is None
@@ -1002,8 +1178,12 @@ class TestSunsetHeaders:
     def test_original_path_with_query_string(self, handler, mock_registry):
         """Query strings are stripped from original path for detection."""
         h = _make_handler(path="/api/plugins?foo=bar")
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=mock_registry
+            ),
+        ):
             result = handler.handle("/api/plugins", {}, h)
         assert result.headers.get("Sunset") is not None
 
@@ -1060,16 +1240,24 @@ class TestRouteDispatch:
 
     def test_handle_does_not_match_run_suffix(self, handler):
         """GET to /run path should not match GET handler."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+        ):
             result = handler.handle("/api/v1/plugins/test/run", {}, _make_handler())
         # /run and /install are excluded from GET plugin details
         assert result is None
 
     def test_handle_does_not_match_install_suffix(self, handler):
         """GET to /install path should not match GET handler."""
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.features.plugins.get_registry", return_value=MockRegistry()
+            ),
+        ):
             result = handler.handle("/api/v1/plugins/test/install", {}, _make_handler())
         assert result is None
 
@@ -1118,8 +1306,10 @@ class TestMultiplePlugins:
             MockPlugin(name="gamma"),
         ]
         registry = MockRegistry(plugins=plugins)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins", {}, _make_handler())
         body = _body(result)
         assert body["count"] == 3
@@ -1136,8 +1326,10 @@ class TestMultiplePlugins:
             MockPlugin(name="c", category="security"),
         ]
         registry = MockRegistry(plugins=plugins)
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             result = handler.handle("/api/v1/plugins/marketplace", {}, _make_handler())
         body = _body(result)
         assert len(body["categories"]["analytics"]) == 2
@@ -1150,8 +1342,10 @@ class TestMultiplePlugins:
             plugins=plugins,
             runners={"alpha": MockRunner(), "beta": MockRunner()},
         )
-        with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
-             patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry):
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry", return_value=registry),
+        ):
             handler.handle_post("/api/v1/plugins/alpha/install", {}, _make_handler())
             handler.handle_post("/api/v1/plugins/beta/install", {}, _make_handler())
         user_plugins = _installed_plugins.get("test-user-001", {})

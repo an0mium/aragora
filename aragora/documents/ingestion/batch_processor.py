@@ -472,11 +472,15 @@ class BatchProcessor:
                             job.on_error(job, e)
                         except (TypeError, ValueError, AttributeError) as callback_err:
                             logger.debug(
-                                "Job %s error callback raised expected error: %s", job_id, callback_err
+                                "Job %s error callback raised expected error: %s",
+                                job_id,
+                                callback_err,
                             )
                         except (RuntimeError, OSError) as callback_err:
                             logger.warning(
-                                "Job %s error callback raised unexpected error: %s", job_id, callback_err
+                                "Job %s error callback raised unexpected error: %s",
+                                job_id,
+                                callback_err,
                             )
                 finally:
                     self._active_workers -= 1
@@ -585,7 +589,11 @@ class BatchProcessor:
                 logger.warning("Error in completion callback: %s", e)
 
         logger.info(
-            "Job %s completed: %s -> %s chunks, %s tokens", job.id, job.filename, len(chunks), document.total_tokens
+            "Job %s completed: %s -> %s chunks, %s tokens",
+            job.id,
+            job.filename,
+            len(chunks),
+            document.total_tokens,
         )
 
     def _update_progress(self, job: DocumentJob, progress: float, message: str) -> None:

@@ -62,6 +62,7 @@ def _status(result) -> int:
 def handler_module():
     """Import the handler module lazily (after conftest patches)."""
     import aragora.server.handlers.bots.email_webhook as mod
+
     return mod
 
 
@@ -155,16 +156,18 @@ def _make_ses_handler(
         notification = {
             "Type": "Notification",
             "TopicArn": "arn:aws:sns:us-east-1:123456789:ses-inbound",
-            "Message": json.dumps({
-                "notificationType": "Received",
-                "mail": {
-                    "messageId": "ses-msg-001",
-                    "source": "sender@example.com",
-                    "destination": ["reply@aragora.ai"],
-                    "commonHeaders": {"subject": "SES Test"},
-                },
-                "content": "plain text body",
-            }),
+            "Message": json.dumps(
+                {
+                    "notificationType": "Received",
+                    "mail": {
+                        "messageId": "ses-msg-001",
+                        "source": "sender@example.com",
+                        "destination": ["reply@aragora.ai"],
+                        "commonHeaders": {"subject": "SES Test"},
+                    },
+                    "content": "plain text body",
+                }
+            ),
         }
     body_bytes = json.dumps(notification).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -180,6 +183,7 @@ def _make_ses_handler(
 # ---------------------------------------------------------------------------
 # Mock email data
 # ---------------------------------------------------------------------------
+
 
 def _mock_email_data(
     message_id: str = "msg-001",
@@ -300,6 +304,7 @@ class TestStatusEndpoint:
         with patch.dict("os.environ", {}, clear=False):
             # Remove the key if present
             import os
+
             orig = os.environ.pop("SENDGRID_INBOUND_SECRET", None)
             try:
                 result = await handler.handle("/api/v1/bots/email/status", {}, http_handler)
@@ -406,16 +411,26 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={"from": "test@example.com"}), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_sendgrid_webhook=mock_parse,
-                 verify_sendgrid_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={"from": "test@example.com"},
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_sendgrid_webhook=mock_parse,
+                        verify_sendgrid_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -429,13 +444,20 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=mock_verify,
-                 parse_sendgrid_webhook=MagicMock(),
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.audit.unified.audit_security"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=mock_verify,
+                        parse_sendgrid_webhook=MagicMock(),
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_security"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 401
@@ -445,12 +467,19 @@ class TestSendGridWebhook:
         """Invalid Content-Length header returns 400."""
         http_handler = _make_sendgrid_handler(content_length="not-a-number")
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=MagicMock(return_value=True),
-                 parse_sendgrid_webhook=MagicMock(),
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=MagicMock(return_value=True),
+                        parse_sendgrid_webhook=MagicMock(),
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 400
@@ -460,12 +489,19 @@ class TestSendGridWebhook:
         """Body exceeding 10MB returns 413."""
         http_handler = _make_sendgrid_handler(content_length=str(11 * 1024 * 1024))
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=MagicMock(return_value=True),
-                 parse_sendgrid_webhook=MagicMock(),
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=MagicMock(return_value=True),
+                        parse_sendgrid_webhook=MagicMock(),
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 413
@@ -475,8 +511,10 @@ class TestSendGridWebhook:
         """When email_reply_loop module unavailable, returns 503."""
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 503
@@ -489,13 +527,23 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=mock_verify,
-                 parse_sendgrid_webhook=mock_parse,
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=mock_verify,
+                        parse_sendgrid_webhook=mock_parse,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={},
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -509,13 +557,23 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=mock_verify,
-                 parse_sendgrid_webhook=mock_parse,
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=mock_verify,
+                        parse_sendgrid_webhook=mock_parse,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={},
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -529,13 +587,23 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=mock_verify,
-                 parse_sendgrid_webhook=mock_parse,
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=mock_verify,
+                        parse_sendgrid_webhook=mock_parse,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={},
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -549,13 +617,23 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=mock_verify,
-                 parse_sendgrid_webhook=mock_parse,
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=mock_verify,
+                        parse_sendgrid_webhook=mock_parse,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={},
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -569,13 +647,23 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_sendgrid_signature=mock_verify,
-                 parse_sendgrid_webhook=mock_parse,
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_sendgrid_signature=mock_verify,
+                        parse_sendgrid_webhook=mock_parse,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={},
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -596,16 +684,26 @@ class TestSendGridWebhook:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={"from": "test@example.com"}), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_sendgrid_webhook=mock_parse,
-                 verify_sendgrid_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", return_value=mock_loop), \
-             patch("asyncio.create_task", return_value=mock_task) as mock_create:
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={"from": "test@example.com"},
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_sendgrid_webhook=mock_parse,
+                        verify_sendgrid_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", return_value=mock_loop),
+            patch("asyncio.create_task", return_value=mock_task) as mock_create,
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert _status(result) == 200
@@ -635,19 +733,28 @@ class TestMailgunWebhook:
             "body-plain": "Hello there",
             "body-html": "<p>Hello there</p>",
             "Message-Id": "mg-msg-001",
-            "message-headers": json.dumps([["In-Reply-To", "<orig@example.com>"], ["References", "<ref1> <ref2>"]]),
+            "message-headers": json.dumps(
+                [["In-Reply-To", "<orig@example.com>"], ["References", "<ref1> <ref2>"]]
+            ),
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -672,15 +779,22 @@ class TestMailgunWebhook:
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -705,21 +819,33 @@ class TestMailgunWebhook:
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
         # Verify InboundEmail was called with nested event-data fields
         call_kwargs = mock_inbound.call_args
-        assert call_kwargs[1]["from_email"] == "nested@example.com" or call_kwargs[0][1] == "nested@example.com" if call_kwargs[0] else True
+        assert (
+            call_kwargs[1]["from_email"] == "nested@example.com"
+            or call_kwargs[0][1] == "nested@example.com"
+            if call_kwargs[0]
+            else True
+        )
 
     def test_mailgun_signature_failure(self, handler, handler_module):
         """Invalid Mailgun signature returns 401."""
@@ -727,13 +853,20 @@ class TestMailgunWebhook:
 
         http_handler = _make_mailgun_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-                 InboundEmail=MagicMock(),
-             )}), \
-             patch("aragora.audit.unified.audit_security"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                        InboundEmail=MagicMock(),
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_security"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 401
@@ -748,12 +881,19 @@ class TestMailgunWebhook:
             headers={"Content-Type": "application/json", "Content-Length": str(len(body_bytes))},
         )
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=MagicMock(return_value=True),
-                 handle_email_reply=AsyncMock(),
-                 InboundEmail=MagicMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=MagicMock(return_value=True),
+                        handle_email_reply=AsyncMock(),
+                        InboundEmail=MagicMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 400
@@ -763,12 +903,19 @@ class TestMailgunWebhook:
         """Invalid Content-Length returns 400."""
         http_handler = _make_mailgun_handler(content_length="not-a-number")
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=MagicMock(return_value=True),
-                 handle_email_reply=AsyncMock(),
-                 InboundEmail=MagicMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=MagicMock(return_value=True),
+                        handle_email_reply=AsyncMock(),
+                        InboundEmail=MagicMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 400
@@ -777,12 +924,19 @@ class TestMailgunWebhook:
         """Body exceeding 10MB returns 413."""
         http_handler = _make_mailgun_handler(content_length=str(11 * 1024 * 1024))
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=MagicMock(return_value=True),
-                 handle_email_reply=AsyncMock(),
-                 InboundEmail=MagicMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=MagicMock(return_value=True),
+                        handle_email_reply=AsyncMock(),
+                        InboundEmail=MagicMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 413
@@ -791,8 +945,10 @@ class TestMailgunWebhook:
         """When email_reply_loop module unavailable, returns 503."""
         http_handler = _make_mailgun_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 503
@@ -811,12 +967,19 @@ class TestMailgunWebhook:
 
         mock_inbound = MagicMock(side_effect=ValueError("bad data"))
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-                 InboundEmail=mock_inbound,
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -839,15 +1002,22 @@ class TestMailgunWebhook:
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -869,19 +1039,29 @@ class TestMailgunWebhook:
             "subject": "Header test",
             "body-plain": "Hello",
             "Message-Id": "mg-hdr-001",
-            "message-headers": [["In-Reply-To", "<orig@example.com>"], ["References", "<ref1> <ref2>"]],
+            "message-headers": [
+                ["In-Reply-To", "<orig@example.com>"],
+                ["References", "<ref1> <ref2>"],
+            ],
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -906,15 +1086,22 @@ class TestMailgunWebhook:
             },
         )
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -939,15 +1126,22 @@ class TestMailgunWebhook:
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", return_value=MagicMock()), \
-             patch("asyncio.create_task", return_value=mock_task) as mock_create:
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", return_value=MagicMock()),
+            patch("asyncio.create_task", return_value=mock_task) as mock_create,
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -969,15 +1163,22 @@ class TestMailgunWebhook:
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert _status(result) == 200
@@ -1000,15 +1201,22 @@ class TestMailgunWebhook:
         }
         http_handler = _make_mailgun_handler(payload)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         # Should not crash, just skip header parsing
@@ -1039,15 +1247,22 @@ class TestSESWebhook:
         }
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 200
@@ -1065,12 +1280,19 @@ class TestSESWebhook:
         }
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=MagicMock(return_value=None),
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=MagicMock(return_value=None),
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 200
@@ -1089,12 +1311,19 @@ class TestSESWebhook:
         }
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 200
@@ -1107,13 +1336,20 @@ class TestSESWebhook:
 
         http_handler = _make_ses_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=MagicMock(),
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-             )}), \
-             patch("aragora.audit.unified.audit_security"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=MagicMock(),
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_security"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 401
@@ -1128,12 +1364,19 @@ class TestSESWebhook:
             headers={"Content-Type": "application/json", "Content-Length": str(len(body_bytes))},
         )
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=MagicMock(),
-                 verify_ses_signature=MagicMock(return_value=True),
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=MagicMock(),
+                        verify_ses_signature=MagicMock(return_value=True),
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 400
@@ -1143,12 +1386,19 @@ class TestSESWebhook:
         """Invalid Content-Length returns 400."""
         http_handler = _make_ses_handler(content_length="bad")
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=MagicMock(),
-                 verify_ses_signature=MagicMock(return_value=True),
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=MagicMock(),
+                        verify_ses_signature=MagicMock(return_value=True),
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 400
@@ -1157,12 +1407,19 @@ class TestSESWebhook:
         """Body exceeding 10MB returns 413."""
         http_handler = _make_ses_handler(content_length=str(11 * 1024 * 1024))
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=MagicMock(),
-                 verify_ses_signature=MagicMock(return_value=True),
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=MagicMock(),
+                        verify_ses_signature=MagicMock(return_value=True),
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 413
@@ -1171,8 +1428,10 @@ class TestSESWebhook:
         """When email_reply_loop module unavailable, returns 503."""
         http_handler = _make_ses_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 503
@@ -1185,12 +1444,19 @@ class TestSESWebhook:
         notification = {"Type": "Notification", "Message": "{}"}
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 200
@@ -1205,12 +1471,19 @@ class TestSESWebhook:
         notification = {"Type": "Notification", "Message": "{}"}
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=AsyncMock(),
-             )}):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=AsyncMock(),
+                    )
+                },
+            ),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 200
@@ -1230,15 +1503,22 @@ class TestSESWebhook:
         notification = {"Type": "Notification", "Message": "{}"}
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", return_value=MagicMock()), \
-             patch("asyncio.create_task", return_value=mock_task) as mock_create:
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", return_value=MagicMock()),
+            patch("asyncio.create_task", return_value=mock_task) as mock_create,
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert _status(result) == 200
@@ -1257,15 +1537,22 @@ class TestSESWebhook:
         }
         http_handler = _make_ses_handler(notification)
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         # Falls through to parse_ses_notification
@@ -1311,13 +1598,13 @@ class TestParseFormData:
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         content_type = f"multipart/form-data; boundary={boundary}"
         body = (
-            f"------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
-            f'Content-Disposition: form-data; name="from"\r\n\r\n'
-            f"test@example.com\r\n"
-            f"------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
-            f'Content-Disposition: form-data; name="subject"\r\n\r\n'
-            f"Hello World\r\n"
-            f"------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n"
+            "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
+            'Content-Disposition: form-data; name="from"\r\n\r\n'
+            "test@example.com\r\n"
+            "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
+            'Content-Disposition: form-data; name="subject"\r\n\r\n'
+            "Hello World\r\n"
+            "------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n"
         ).encode("utf-8")
         result = handler._parse_form_data(body, content_type)
         assert result.get("from") == "test@example.com"
@@ -1366,6 +1653,7 @@ class TestPlatformConfigStatus:
 
     def test_sendgrid_not_configured_by_default(self, handler):
         import os
+
         orig = os.environ.pop("SENDGRID_INBOUND_SECRET", None)
         try:
             status = handler._get_platform_config_status()
@@ -1444,16 +1732,26 @@ class TestHandlePostRouting:
 
         http_handler = _make_sendgrid_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch("aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data", return_value={}), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_sendgrid_webhook=mock_parse,
-                 verify_sendgrid_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch(
+                "aragora.server.handlers.bots.email_webhook.EmailWebhookHandler._parse_form_data",
+                return_value={},
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_sendgrid_webhook=mock_parse,
+                        verify_sendgrid_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, http_handler)
 
         assert result is not None
@@ -1466,15 +1764,22 @@ class TestHandlePostRouting:
 
         http_handler = _make_mailgun_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 verify_mailgun_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-                 InboundEmail=mock_inbound,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        verify_mailgun_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                        InboundEmail=mock_inbound,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/mailgun", {}, http_handler)
 
         assert result is not None
@@ -1488,15 +1793,22 @@ class TestHandlePostRouting:
 
         http_handler = _make_ses_handler()
 
-        with patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True), \
-             patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": MagicMock(
-                 parse_ses_notification=mock_parse,
-                 verify_ses_signature=mock_verify,
-                 handle_email_reply=mock_handle,
-             )}), \
-             patch("aragora.audit.unified.audit_data"), \
-             patch("asyncio.get_running_loop", side_effect=RuntimeError), \
-             patch("asyncio.run"):
+        with (
+            patch.object(handler_module, "EMAIL_INBOUND_ENABLED", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.email_reply_loop": MagicMock(
+                        parse_ses_notification=mock_parse,
+                        verify_ses_signature=mock_verify,
+                        handle_email_reply=mock_handle,
+                    )
+                },
+            ),
+            patch("aragora.audit.unified.audit_data"),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError),
+            patch("asyncio.run"),
+        ):
             result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, http_handler)
 
         assert result is not None

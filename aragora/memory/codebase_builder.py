@@ -23,12 +23,23 @@ logger = logging.getLogger(__name__)
 _CODE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".jsx", ".yml", ".yaml", ".toml", ".json"}
 
 # Directories to skip
-_SKIP_DIRS = {"__pycache__", ".git", "node_modules", ".tox", ".mypy_cache", ".pytest_cache", "dist", "build", ".eggs"}
+_SKIP_DIRS = {
+    "__pycache__",
+    ".git",
+    "node_modules",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    "dist",
+    "build",
+    ".eggs",
+}
 
 
 @dataclass
 class IngestionStats:
     """Statistics from a codebase ingestion operation."""
+
     items_ingested: int = 0
     items_skipped: int = 0
     errors: int = 0
@@ -37,6 +48,7 @@ class IngestionStats:
 @dataclass
 class ImportRelation:
     """Represents an import relationship between modules."""
+
     source_module: str
     imported_module: str
     import_type: str  # "import" or "from_import"
@@ -172,18 +184,22 @@ class CodebaseKnowledgeBuilder:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    relations.append(ImportRelation(
-                        source_module=module_name,
-                        imported_module=alias.name,
-                        import_type="import",
-                    ))
+                    relations.append(
+                        ImportRelation(
+                            source_module=module_name,
+                            imported_module=alias.name,
+                            import_type="import",
+                        )
+                    )
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
-                    relations.append(ImportRelation(
-                        source_module=module_name,
-                        imported_module=node.module,
-                        import_type="from_import",
-                    ))
+                    relations.append(
+                        ImportRelation(
+                            source_module=module_name,
+                            imported_module=node.module,
+                            import_type="from_import",
+                        )
+                    )
         return relations
 
     async def ingest_test_results(self, results: dict[str, Any]) -> IngestionStats:
@@ -204,10 +220,7 @@ class CodebaseKnowledgeBuilder:
         errors = results.get("errors", 0)
         total = passed + failed + errors
 
-        summary = (
-            f"Test results: {passed}/{total} passed, "
-            f"{failed} failed, {errors} errors"
-        )
+        summary = f"Test results: {passed}/{total} passed, {failed} failed, {errors} errors"
 
         result = await self._fabric.remember(
             content=summary,

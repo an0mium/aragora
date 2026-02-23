@@ -172,8 +172,14 @@ def _make_user_store(
     store = MagicMock()
     user_list = users or []
     org_list = orgs or []
-    store.list_all_users.return_value = (user_list, total_users if total_users is not None else len(user_list))
-    store.list_all_organizations.return_value = (org_list, total_orgs if total_orgs is not None else len(org_list))
+    store.list_all_users.return_value = (
+        user_list,
+        total_users if total_users is not None else len(user_list),
+    )
+    store.list_all_organizations.return_value = (
+        org_list,
+        total_orgs if total_orgs is not None else len(org_list),
+    )
     store.get_user_by_id.return_value = user_list[0] if user_list else None
     store.update_user.return_value = True
     store.record_audit_event.return_value = None
@@ -324,9 +330,7 @@ class TestListOrganizations:
         store = _make_user_store(orgs=[], total_orgs=0)
         h = TestableHandler(user_store=store)
         h._list_organizations(http(), {})
-        store.list_all_organizations.assert_called_once_with(
-            limit=50, offset=0, tier_filter=None
-        )
+        store.list_all_organizations.assert_called_once_with(limit=50, offset=0, tier_filter=None)
 
     def test_pagination_values_in_response(self, http):
         store = _make_user_store(orgs=[], total_orgs=150)
@@ -465,13 +469,16 @@ class TestListUsers:
     def test_combined_filters(self, http):
         store = _make_user_store(users=[], total_users=0)
         h = TestableHandler(user_store=store)
-        h._list_users(http(), {
-            "org_id": "org-99",
-            "role": "viewer",
-            "active_only": "true",
-            "limit": "10",
-            "offset": "20",
-        })
+        h._list_users(
+            http(),
+            {
+                "org_id": "org-99",
+                "role": "viewer",
+                "active_only": "true",
+                "limit": "10",
+                "offset": "20",
+            },
+        )
         store.list_all_users.assert_called_once_with(
             limit=10, offset=20, org_id_filter="org-99", role_filter="viewer", active_only=True
         )
@@ -562,12 +569,15 @@ class TestImpersonateUser:
         # The function does: from aragora.server.handlers.admin import handler as admin_handler
         # Then calls admin_handler.create_access_token(...)
         # Patch directly on the handler module that gets imported
-        with patch(
-            "aragora.server.handlers.admin.users._get_session_manager_from_handler",
-            return_value=session_mgr,
-        ), patch(
-            "aragora.server.handlers.admin.handler.create_access_token",
-            return_value="impersonation-jwt-token",
+        with (
+            patch(
+                "aragora.server.handlers.admin.users._get_session_manager_from_handler",
+                return_value=session_mgr,
+            ),
+            patch(
+                "aragora.server.handlers.admin.handler.create_access_token",
+                return_value="impersonation-jwt-token",
+            ),
         ):
             result = h._impersonate_user(mock_http, "target-001")
 
@@ -594,12 +604,15 @@ class TestImpersonateUser:
         }
 
         h = TestableHandler(user_store=store)
-        with patch(
-            "aragora.server.handlers.admin.users._get_session_manager_from_handler",
-            return_value=session_mgr,
-        ), patch(
-            "aragora.server.handlers.admin.handler.create_access_token",
-            return_value="token",
+        with (
+            patch(
+                "aragora.server.handlers.admin.users._get_session_manager_from_handler",
+                return_value=session_mgr,
+            ),
+            patch(
+                "aragora.server.handlers.admin.handler.create_access_token",
+                return_value="token",
+            ),
         ):
             h._impersonate_user(mock_http, "target-001")
 
@@ -662,12 +675,15 @@ class TestImpersonateUser:
         }
 
         h = TestableHandler(user_store=store)
-        with patch(
-            "aragora.server.handlers.admin.users._get_session_manager_from_handler",
-            return_value=session_mgr,
-        ), patch(
-            "aragora.server.handlers.admin.handler.create_access_token",
-            return_value="token",
+        with (
+            patch(
+                "aragora.server.handlers.admin.users._get_session_manager_from_handler",
+                return_value=session_mgr,
+            ),
+            patch(
+                "aragora.server.handlers.admin.handler.create_access_token",
+                return_value="token",
+            ),
         ):
             result = h._impersonate_user(mock_http, "target-001")
 
@@ -743,8 +759,9 @@ class TestDeactivateUser:
         target = MockUser("user-002", "user@test.com", "User", "member")
         store = _make_user_store(users=[target])
         h = TestableHandler(user_store=store)
-        with patch("aragora.server.handlers.admin.users.audit_admin"), patch(
-            "aragora.server.handlers.admin.users.emit_handler_event"
+        with (
+            patch("aragora.server.handlers.admin.users.audit_admin"),
+            patch("aragora.server.handlers.admin.users.emit_handler_event"),
         ):
             result = h._deactivate_user(http(), "user-002")
 
@@ -758,8 +775,9 @@ class TestDeactivateUser:
         target = MockUser("user-002", "user@test.com")
         store = _make_user_store(users=[target])
         h = TestableHandler(user_store=store)
-        with patch("aragora.server.handlers.admin.users.audit_admin"), patch(
-            "aragora.server.handlers.admin.users.emit_handler_event"
+        with (
+            patch("aragora.server.handlers.admin.users.audit_admin"),
+            patch("aragora.server.handlers.admin.users.emit_handler_event"),
         ):
             h._deactivate_user(http(), "user-002")
 
@@ -769,8 +787,9 @@ class TestDeactivateUser:
         target = MockUser("user-002", "user@test.com", role="member")
         store = _make_user_store(users=[target])
         h = TestableHandler(user_store=store)
-        with patch("aragora.server.handlers.admin.users.audit_admin") as mock_audit, patch(
-            "aragora.server.handlers.admin.users.emit_handler_event"
+        with (
+            patch("aragora.server.handlers.admin.users.audit_admin") as mock_audit,
+            patch("aragora.server.handlers.admin.users.emit_handler_event"),
         ):
             h._deactivate_user(http(), "user-002")
 
@@ -786,9 +805,10 @@ class TestDeactivateUser:
         target = MockUser("user-002", "user@test.com")
         store = _make_user_store(users=[target])
         h = TestableHandler(user_store=store)
-        with patch("aragora.server.handlers.admin.users.audit_admin"), patch(
-            "aragora.server.handlers.admin.users.emit_handler_event"
-        ) as mock_emit:
+        with (
+            patch("aragora.server.handlers.admin.users.audit_admin"),
+            patch("aragora.server.handlers.admin.users.emit_handler_event") as mock_emit,
+        ):
             h._deactivate_user(http(), "user-002")
 
         mock_emit.assert_called_once()
@@ -809,8 +829,9 @@ class TestDeactivateUser:
                 return None
 
         h = TrackingHandler(user_store=store)
-        with patch("aragora.server.handlers.admin.users.audit_admin"), patch(
-            "aragora.server.handlers.admin.users.emit_handler_event"
+        with (
+            patch("aragora.server.handlers.admin.users.audit_admin"),
+            patch("aragora.server.handlers.admin.users.emit_handler_event"),
         ):
             h._deactivate_user(http(), "user-002")
 
@@ -1179,61 +1200,77 @@ class TestUnlockUser:
 class TestInputValidation:
     """Cross-endpoint input validation tests."""
 
-    @pytest.mark.parametrize("user_id", [
-        "valid-id",
-        "user_001",
-        "abc123",
-        "A" * 64,
-    ])
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "valid-id",
+            "user_001",
+            "abc123",
+            "A" * 64,
+        ],
+    )
     def test_valid_user_ids_accepted(self, http, user_id):
         store = _make_user_store(users=[MockUser(user_id)])
         h = TestableHandler(user_store=store)
-        with patch("aragora.server.handlers.admin.users.audit_admin"), patch(
-            "aragora.server.handlers.admin.users.emit_handler_event"
+        with (
+            patch("aragora.server.handlers.admin.users.audit_admin"),
+            patch("aragora.server.handlers.admin.users.emit_handler_event"),
         ):
             result = h._deactivate_user(http(), user_id)
         # Should not get 400 (might get 400 for self-deactivation, but not for invalid ID)
         # user_id != "admin-001" so it won't be self-deactivation
         assert _status(result) != 400 or "yourself" in _body(result).get("error", "")
 
-    @pytest.mark.parametrize("user_id", [
-        "",
-        "../traversal",
-        "a" * 65,
-        "user id with spaces",
-        "user;injection",
-        "user<script>",
-    ])
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            "../traversal",
+            "a" * 65,
+            "user id with spaces",
+            "user;injection",
+            "user<script>",
+        ],
+    )
     def test_invalid_user_ids_rejected_deactivate(self, http, user_id):
         h = TestableHandler()
         result = h._deactivate_user(http(), user_id)
         assert _status(result) == 400
 
-    @pytest.mark.parametrize("user_id", [
-        "",
-        "../traversal",
-        "a" * 65,
-    ])
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            "../traversal",
+            "a" * 65,
+        ],
+    )
     def test_invalid_user_ids_rejected_activate(self, http, user_id):
         h = TestableHandler()
         result = h._activate_user(http(), user_id)
         assert _status(result) == 400
 
-    @pytest.mark.parametrize("user_id", [
-        "",
-        "../traversal",
-        "a" * 65,
-    ])
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            "../traversal",
+            "a" * 65,
+        ],
+    )
     def test_invalid_user_ids_rejected_unlock(self, http, user_id):
         h = TestableHandler()
         result = h._unlock_user(http(), user_id)
         assert _status(result) == 400
 
-    @pytest.mark.parametrize("user_id", [
-        "",
-        "../traversal",
-        "a" * 65,
-    ])
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            "../traversal",
+            "a" * 65,
+        ],
+    )
     def test_invalid_user_ids_rejected_impersonate(self, http, user_id):
         h = TestableHandler()
         result = h._impersonate_user(http(), user_id)

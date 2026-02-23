@@ -112,8 +112,7 @@ class MemoryFabric:
         # Query each backend
         raw_results: list[FabricResult] = []
         tasks = [
-            self._query_backend(name, backend, query, limit)
-            for name, backend in targets.items()
+            self._query_backend(name, backend, query, limit) for name, backend in targets.items()
         ]
         backend_results = await asyncio.gather(*tasks, return_exceptions=True)
 

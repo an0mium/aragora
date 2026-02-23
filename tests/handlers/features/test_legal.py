@@ -112,12 +112,8 @@ def _make_connector(
     connector.account_id = account_id
     connector.authenticate_jwt = AsyncMock()
     connector.list_envelopes = AsyncMock(return_value=[])
-    connector.create_envelope = AsyncMock(
-        return_value=MockEnvelope("env-new", "sent")
-    )
-    connector.get_envelope = AsyncMock(
-        return_value=MockEnvelope("env-123", "completed")
-    )
+    connector.create_envelope = AsyncMock(return_value=MockEnvelope("env-new", "sent"))
+    connector.get_envelope = AsyncMock(return_value=MockEnvelope("env-123", "completed"))
     connector.void_envelope = AsyncMock(return_value=True)
     connector.resend_envelope = AsyncMock(return_value=True)
     connector.download_document = AsyncMock(return_value=b"%PDF-content")
@@ -522,9 +518,7 @@ class TestCreateEnvelope:
     def _valid_body(self):
         return {
             "email_subject": "Please sign",
-            "recipients": [
-                {"email": "test@example.com", "name": "Test User", "type": "signer"}
-            ],
+            "recipients": [{"email": "test@example.com", "name": "Test User", "type": "signer"}],
             "documents": [
                 {"name": "contract.pdf", "content_base64": base64.b64encode(b"PDF").decode()}
             ],
@@ -574,7 +568,11 @@ class TestCreateEnvelope:
 
     @pytest.mark.asyncio
     async def test_create_empty_subject(self, handler, patch_get_connector):
-        body = {"email_subject": "", "recipients": [{"email": "a@b.com", "name": "A"}], "documents": [{}]}
+        body = {
+            "email_subject": "",
+            "recipients": [{"email": "a@b.com", "name": "A"}],
+            "documents": [{}],
+        }
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
             req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
             result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
@@ -797,7 +795,8 @@ class TestVoidEnvelopeDirect:
             return_value=connector,
         ):
             with patch.object(
-                handler, "_get_json_body",
+                handler,
+                "_get_json_body",
                 new_callable=AsyncMock,
                 return_value={"reason": "No longer needed"},
             ):
@@ -817,7 +816,8 @@ class TestVoidEnvelopeDirect:
             return_value=connector,
         ):
             with patch.object(
-                handler, "_get_json_body",
+                handler,
+                "_get_json_body",
                 new_callable=AsyncMock,
                 return_value={},
             ):
@@ -836,7 +836,8 @@ class TestVoidEnvelopeDirect:
             return_value=connector,
         ):
             with patch.object(
-                handler, "_get_json_body",
+                handler,
+                "_get_json_body",
                 new_callable=AsyncMock,
                 return_value={"reason": "test"},
             ):
@@ -865,7 +866,8 @@ class TestVoidEnvelopeDirect:
             return_value=connector,
         ):
             with patch.object(
-                handler, "_get_json_body",
+                handler,
+                "_get_json_body",
                 new_callable=AsyncMock,
                 return_value={"reason": "test"},
             ):
@@ -978,9 +980,7 @@ class TestDownloadDocumentDirect:
             return_value=connector,
         ):
             req = MockRequest()
-            result = await handler._handle_download_document(
-                req, "test-tenant", "env-1", "doc-1"
-            )
+            result = await handler._handle_download_document(req, "test-tenant", "env-1", "doc-1")
             assert _status(result) == 200
             data = _data(result)
             assert data["envelope_id"] == "env-1"
@@ -997,9 +997,7 @@ class TestDownloadDocumentDirect:
             return_value=None,
         ):
             req = MockRequest()
-            result = await handler._handle_download_document(
-                req, "test-tenant", "env-1", "doc-1"
-            )
+            result = await handler._handle_download_document(req, "test-tenant", "env-1", "doc-1")
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1012,9 +1010,7 @@ class TestDownloadDocumentDirect:
             return_value=connector,
         ):
             req = MockRequest()
-            result = await handler._handle_download_document(
-                req, "test-tenant", "env-1", "doc-1"
-            )
+            result = await handler._handle_download_document(req, "test-tenant", "env-1", "doc-1")
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1027,9 +1023,7 @@ class TestDownloadDocumentDirect:
             return_value=connector,
         ):
             req = MockRequest()
-            result = await handler._handle_download_document(
-                req, "test-tenant", "env-1", "doc-1"
-            )
+            result = await handler._handle_download_document(req, "test-tenant", "env-1", "doc-1")
             assert _status(result) == 401
 
 
@@ -1113,13 +1107,11 @@ class TestDocuSignWebhook:
             "statusChangedDateTime": "2026-02-23T10:00:00Z",
         }
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
-            with patch.object(handler, "_emit_connector_event", new_callable=AsyncMock) as mock_emit:
-                req = MockRequest(
-                    path="/api/v1/legal/webhooks/docusign", method="POST"
-                )
-                result = await handler.handle(
-                    req, "/api/v1/legal/webhooks/docusign", "POST"
-                )
+            with patch.object(
+                handler, "_emit_connector_event", new_callable=AsyncMock
+            ) as mock_emit:
+                req = MockRequest(path="/api/v1/legal/webhooks/docusign", method="POST")
+                result = await handler.handle(req, "/api/v1/legal/webhooks/docusign", "POST")
                 assert _status(result) == 200
                 data = _data(result)
                 assert data["received"] is True
@@ -1131,12 +1123,8 @@ class TestDocuSignWebhook:
     async def test_webhook_empty_body(self, handler):
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value={}):
             with patch.object(handler, "_emit_connector_event", new_callable=AsyncMock):
-                req = MockRequest(
-                    path="/api/v1/legal/webhooks/docusign", method="POST"
-                )
-                result = await handler.handle(
-                    req, "/api/v1/legal/webhooks/docusign", "POST"
-                )
+                req = MockRequest(path="/api/v1/legal/webhooks/docusign", method="POST")
+                result = await handler.handle(req, "/api/v1/legal/webhooks/docusign", "POST")
                 assert _status(result) == 200
                 data = _data(result)
                 assert data["received"] is True
@@ -1146,16 +1134,13 @@ class TestDocuSignWebhook:
     async def test_webhook_malformed_returns_200(self, handler):
         """Malformed webhook payloads return 200 to prevent retries."""
         with patch.object(
-            handler, "_get_json_body",
+            handler,
+            "_get_json_body",
             new_callable=AsyncMock,
             side_effect=TypeError("bad data"),
         ):
-            req = MockRequest(
-                path="/api/v1/legal/webhooks/docusign", method="POST"
-            )
-            result = await handler.handle(
-                req, "/api/v1/legal/webhooks/docusign", "POST"
-            )
+            req = MockRequest(path="/api/v1/legal/webhooks/docusign", method="POST")
+            result = await handler.handle(req, "/api/v1/legal/webhooks/docusign", "POST")
             assert _status(result) == 200
             data = _data(result)
             assert data["received"] is True
@@ -1170,12 +1155,8 @@ class TestDocuSignWebhook:
         }
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
             with patch.object(handler, "_emit_connector_event", new_callable=AsyncMock):
-                req = MockRequest(
-                    path="/api/v1/legal/webhooks/docusign", method="POST"
-                )
-                result = await handler.handle(
-                    req, "/api/v1/legal/webhooks/docusign", "POST"
-                )
+                req = MockRequest(path="/api/v1/legal/webhooks/docusign", method="POST")
+                result = await handler.handle(req, "/api/v1/legal/webhooks/docusign", "POST")
                 data = _data(result)
                 assert data["event_time"] == "2026-02-20T08:00:00Z"
 
@@ -1187,10 +1168,10 @@ class TestDocuSignWebhook:
             "statusChangedDateTime": "2026-02-22T12:00:00Z",
         }
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
-            with patch.object(handler, "_emit_connector_event", new_callable=AsyncMock) as mock_emit:
-                req = MockRequest(
-                    path="/api/v1/legal/webhooks/docusign", method="POST"
-                )
+            with patch.object(
+                handler, "_emit_connector_event", new_callable=AsyncMock
+            ) as mock_emit:
+                req = MockRequest(path="/api/v1/legal/webhooks/docusign", method="POST")
                 await handler.handle(req, "/api/v1/legal/webhooks/docusign", "POST")
                 mock_emit.assert_called_once_with(
                     event_type="docusign_envelope_status",
@@ -1670,45 +1651,35 @@ class TestHandleExceptionCatchAll:
 
     @pytest.mark.asyncio
     async def test_value_error_returns_500(self, handler):
-        with patch.object(
-            handler, "_get_tenant_id", side_effect=ValueError("boom")
-        ):
+        with patch.object(handler, "_get_tenant_id", side_effect=ValueError("boom")):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
             assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_key_error_returns_500(self, handler):
-        with patch.object(
-            handler, "_get_tenant_id", side_effect=KeyError("missing")
-        ):
+        with patch.object(handler, "_get_tenant_id", side_effect=KeyError("missing")):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
             assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_type_error_returns_500(self, handler):
-        with patch.object(
-            handler, "_get_tenant_id", side_effect=TypeError("bad type")
-        ):
+        with patch.object(handler, "_get_tenant_id", side_effect=TypeError("bad type")):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
             assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_runtime_error_returns_500(self, handler):
-        with patch.object(
-            handler, "_get_tenant_id", side_effect=RuntimeError("runtime")
-        ):
+        with patch.object(handler, "_get_tenant_id", side_effect=RuntimeError("runtime")):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
             assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_os_error_returns_500(self, handler):
-        with patch.object(
-            handler, "_get_tenant_id", side_effect=OSError("os")
-        ):
+        with patch.object(handler, "_get_tenant_id", side_effect=OSError("os")):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
             assert _status(result) == 500

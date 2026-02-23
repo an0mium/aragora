@@ -26,7 +26,12 @@ import briefing  # noqa: E402
 
 SAMPLE_INBOX = {
     "emails": [
-        {"subject": "Urgent: FDA label update", "from": "compliance@fda.gov", "priority": "high", "category": "regulatory"},
+        {
+            "subject": "Urgent: FDA label update",
+            "from": "compliance@fda.gov",
+            "priority": "high",
+            "category": "regulatory",
+        },
         {"subject": "PO #4421 confirmation", "from": "vendor@supplier.com", "priority": "medium"},
         {"subject": "Weekly newsletter", "from": "news@industry.com", "priority": "low"},
     ]
@@ -34,9 +39,24 @@ SAMPLE_INBOX = {
 
 SAMPLE_ORDERS = {
     "orders": [
-        {"id": 1001, "total_price": "89.99", "fulfillment_status": "unfulfilled", "financial_status": "paid"},
-        {"id": 1002, "total_price": "149.50", "fulfillment_status": "fulfilled", "financial_status": "paid"},
-        {"id": 1003, "total_price": "34.00", "fulfillment_status": "unfulfilled", "financial_status": "refunded"},
+        {
+            "id": 1001,
+            "total_price": "89.99",
+            "fulfillment_status": "unfulfilled",
+            "financial_status": "paid",
+        },
+        {
+            "id": 1002,
+            "total_price": "149.50",
+            "fulfillment_status": "fulfilled",
+            "financial_status": "paid",
+        },
+        {
+            "id": 1003,
+            "total_price": "34.00",
+            "fulfillment_status": "unfulfilled",
+            "financial_status": "refunded",
+        },
     ]
 }
 
@@ -51,6 +71,7 @@ SAMPLE_TICKETS = {
 
 
 # ── build_briefing tests ─────────────────────────────────────────────
+
 
 class TestBuildBriefing:
     """Test that build_briefing produces valid Slack Block Kit messages."""
@@ -142,13 +163,16 @@ class TestBuildBriefing:
 
 # ── main() dry-run test ──────────────────────────────────────────────
 
+
 class TestMainDryRun:
     """Test that main() --dry-run prints valid JSON."""
 
     def test_dry_run_with_all_sources(self, capsys):
-        with patch.object(briefing, "fetch_priority_inbox", return_value=SAMPLE_INBOX), \
-             patch.object(briefing, "fetch_shopify_orders", return_value=SAMPLE_ORDERS), \
-             patch.object(briefing, "fetch_zendesk_tickets", return_value=SAMPLE_TICKETS):
+        with (
+            patch.object(briefing, "fetch_priority_inbox", return_value=SAMPLE_INBOX),
+            patch.object(briefing, "fetch_shopify_orders", return_value=SAMPLE_ORDERS),
+            patch.object(briefing, "fetch_zendesk_tickets", return_value=SAMPLE_TICKETS),
+        ):
             with patch("sys.argv", ["briefing.py", "--dry-run"]):
                 result = briefing.main()
 
@@ -159,9 +183,11 @@ class TestMainDryRun:
         assert len(blocks) > 0
 
     def test_dry_run_no_data(self, capsys):
-        with patch.object(briefing, "fetch_priority_inbox", return_value={}), \
-             patch.object(briefing, "fetch_shopify_orders", return_value={}), \
-             patch.object(briefing, "fetch_zendesk_tickets", return_value={}):
+        with (
+            patch.object(briefing, "fetch_priority_inbox", return_value={}),
+            patch.object(briefing, "fetch_shopify_orders", return_value={}),
+            patch.object(briefing, "fetch_zendesk_tickets", return_value={}),
+        ):
             with patch("sys.argv", ["briefing.py", "--dry-run"]):
                 result = briefing.main()
 
@@ -172,6 +198,7 @@ class TestMainDryRun:
 
 
 # ── setup.sh JSON builder test ───────────────────────────────────────
+
 
 class TestSetupJsonBuilder:
     """Test the inline Python JSON builder from setup.sh."""
@@ -193,17 +220,29 @@ class TestSetupJsonBuilder:
         )
         result = subprocess.run(
             [
-                sys.executable, "-c", script,
-                "ANTHROPIC_API_KEY", "sk-ant-test",
-                "ARAGORA_API_TOKEN", "tok-123",
-                "GMAIL_CLIENT_ID", "client.apps.google.com",
-                "GMAIL_CLIENT_SECRET", "secret123",
-                "OPENAI_API_KEY", "",  # empty = should be skipped
-                "SHOPIFY_SHOP_DOMAIN", "liftmode.myshopify.com",
-                "SHOPIFY_ACCESS_TOKEN", "shpat_test",
-                "ZENDESK_SUBDOMAIN", "",  # empty = should be skipped
+                sys.executable,
+                "-c",
+                script,
+                "ANTHROPIC_API_KEY",
+                "sk-ant-test",
+                "ARAGORA_API_TOKEN",
+                "tok-123",
+                "GMAIL_CLIENT_ID",
+                "client.apps.google.com",
+                "GMAIL_CLIENT_SECRET",
+                "secret123",
+                "OPENAI_API_KEY",
+                "",  # empty = should be skipped
+                "SHOPIFY_SHOP_DOMAIN",
+                "liftmode.myshopify.com",
+                "SHOPIFY_ACCESS_TOKEN",
+                "shpat_test",
+                "ZENDESK_SUBDOMAIN",
+                "",  # empty = should be skipped
             ],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         secret = json.loads(result.stdout)
@@ -241,15 +280,25 @@ class TestSetupJsonBuilder:
         )
         result = subprocess.run(
             [
-                sys.executable, "-c", script,
-                "ANTHROPIC_API_KEY", "sk-ant-test",
-                "ARAGORA_API_TOKEN", "tok-123",
-                "GMAIL_CLIENT_ID", "",
-                "GMAIL_CLIENT_SECRET", "",
-                "OPENAI_API_KEY", "",
-                "SHOPIFY_SHOP_DOMAIN", "",
+                sys.executable,
+                "-c",
+                script,
+                "ANTHROPIC_API_KEY",
+                "sk-ant-test",
+                "ARAGORA_API_TOKEN",
+                "tok-123",
+                "GMAIL_CLIENT_ID",
+                "",
+                "GMAIL_CLIENT_SECRET",
+                "",
+                "OPENAI_API_KEY",
+                "",
+                "SHOPIFY_SHOP_DOMAIN",
+                "",
             ],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         secret = json.loads(result.stdout)

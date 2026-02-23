@@ -792,7 +792,11 @@ class ErrorFormatter:
         # Log full details server-side
         if log_full:
             logger.exception(
-                "[%s] Error in %s: %s: %s", trace_id or 'no-trace', context, type(exception).__name__, exception
+                "[%s] Error in %s: %s: %s",
+                trace_id or "no-trace",
+                context,
+                type(exception).__name__,
+                exception,
             )
 
         # Get classification

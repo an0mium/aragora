@@ -28,12 +28,24 @@ class FailureType(Enum):
 
 # Patterns used to classify error messages
 _ERROR_PATTERNS: list[tuple[FailureType, re.Pattern[str]]] = [
-    (FailureType.ASSERTION_MISMATCH, re.compile(r"AssertionError|assert\s+.*==|assert\s+.*!=|assert\s+.*\bin\b")),
+    (
+        FailureType.ASSERTION_MISMATCH,
+        re.compile(r"AssertionError|assert\s+.*==|assert\s+.*!=|assert\s+.*\bin\b"),
+    ),
     (FailureType.IMPORT_ERROR, re.compile(r"ImportError|ModuleNotFoundError|cannot import name")),
     (FailureType.TYPE_ERROR, re.compile(r"TypeError.*argument|TypeError.*expected|TypeError.*got")),
-    (FailureType.ATTRIBUTE_ERROR, re.compile(r"AttributeError.*has no attribute|AttributeError.*object")),
-    (FailureType.PERMISSION_ERROR, re.compile(r"PermissionError|permission denied|403|RBAC|Forbidden", re.IGNORECASE)),
-    (FailureType.TIMEOUT, re.compile(r"TimeoutError|timed?\s*out|deadline exceeded", re.IGNORECASE)),
+    (
+        FailureType.ATTRIBUTE_ERROR,
+        re.compile(r"AttributeError.*has no attribute|AttributeError.*object"),
+    ),
+    (
+        FailureType.PERMISSION_ERROR,
+        re.compile(r"PermissionError|permission denied|403|RBAC|Forbidden", re.IGNORECASE),
+    ),
+    (
+        FailureType.TIMEOUT,
+        re.compile(r"TimeoutError|timed?\s*out|deadline exceeded", re.IGNORECASE),
+    ),
 ]
 
 # Regex for pytest FAILED lines
@@ -266,7 +278,9 @@ class ForwardFixer:
                 return ForwardFix(
                     fix_type="update_assertion",
                     description=f"Test expected {expected} but got {actual}",
-                    file_path=diagnosis.failed_tests[0].split("::")[0] if diagnosis.failed_tests else "",
+                    file_path=diagnosis.failed_tests[0].split("::")[0]
+                    if diagnosis.failed_tests
+                    else "",
                     old_content=expected,
                     new_content=actual,
                     confidence=max(0.5, diagnosis.confidence - 0.1),

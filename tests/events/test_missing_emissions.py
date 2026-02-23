@@ -31,10 +31,7 @@ class _FakeBeliefDistribution:
     def entropy(self) -> float:
         if self.p_true <= 0 or self.p_true >= 1:
             return 0.0
-        return -(
-            self.p_true * math.log2(self.p_true)
-            + self.p_false * math.log2(self.p_false)
-        )
+        return -(self.p_true * math.log2(self.p_true) + self.p_false * math.log2(self.p_false))
 
     @property
     def confidence(self) -> float:
@@ -211,15 +208,17 @@ class TestCruxDetectedEmission:
         """Long statements should be truncated to 200 chars in the event."""
         from aragora.reasoning.crux_detector import CruxDetector
 
-        network = _FakeNetwork({
-            "n1": _FakeNode(
-                claim_id="c1",
-                claim_statement="X" * 500,
-                author="agent-a",
-                posterior=_FakeBeliefDistribution(p_true=0.6, p_false=0.4),
-                centrality=0.8,
-            ),
-        })
+        network = _FakeNetwork(
+            {
+                "n1": _FakeNode(
+                    claim_id="c1",
+                    claim_statement="X" * 500,
+                    author="agent-a",
+                    posterior=_FakeBeliefDistribution(p_true=0.6, p_false=0.4),
+                    centrality=0.8,
+                ),
+            }
+        )
         detector = CruxDetector(network)
 
         mock_dispatch = MagicMock()

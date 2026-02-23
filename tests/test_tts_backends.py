@@ -428,7 +428,9 @@ class TestXTTSBackend:
         mock_tts_api.__spec__ = MagicMock()
         mock_tts = MagicMock()
         mock_tts.__path__ = ["/fake/TTS"]
-        with patch.dict("sys.modules", {"torch": mock_torch, "TTS": mock_tts, "TTS.api": mock_tts_api}):
+        with patch.dict(
+            "sys.modules", {"torch": mock_torch, "TTS": mock_tts, "TTS.api": mock_tts_api}
+        ):
             assert backend.is_available() is True
 
     def test_is_available_without_torch(self, config):

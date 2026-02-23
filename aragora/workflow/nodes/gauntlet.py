@@ -131,7 +131,11 @@ class GauntletStep(BaseStep):
         additional_context = context.get_input(context_key, "")
 
         logger.info(
-            "GauntletStep '%s' starting: attacks=%s, probes=%s, compliance=%s", self.name, len(attack_categories), len(probe_categories), len(compliance_frameworks)
+            "GauntletStep '%s' starting: attacks=%s, probes=%s, compliance=%s",
+            self.name,
+            len(attack_categories),
+            len(probe_categories),
+            len(compliance_frameworks),
         )
 
         try:
@@ -215,7 +219,9 @@ class GauntletStep(BaseStep):
             # Check if we should fail the workflow
             if require_passing and not passed:
                 logger.warning(
-                    "Gauntlet validation failed: found %s issues, highest severity: %s", self._findings_count, self._highest_severity
+                    "Gauntlet validation failed: found %s issues, highest severity: %s",
+                    self._findings_count,
+                    self._highest_severity,
                 )
 
             return {
@@ -317,7 +323,14 @@ class GauntletStep(BaseStep):
                             "score": check_result.get("score", 0.0),
                         }
                     )
-                except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
+                except (
+                    ImportError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    OSError,
+                    AttributeError,
+                ) as e:
                     logger.error("Compliance check failed for %s: %s", framework, e)
                     results.append(
                         {

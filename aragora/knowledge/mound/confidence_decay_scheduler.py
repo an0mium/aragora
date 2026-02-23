@@ -199,7 +199,9 @@ class ConfidenceDecayScheduler:
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
         logger.info(
-            "ConfidenceDecayScheduler started: interval=%sh, workspaces=%s", self._decay_interval_hours, self._workspaces or 'all'
+            "ConfidenceDecayScheduler started: interval=%sh, workspaces=%s",
+            self._decay_interval_hours,
+            self._workspaces or "all",
         )
 
     async def stop(self) -> None:
@@ -228,7 +230,10 @@ class ConfidenceDecayScheduler:
                 self._total_items_processed += total_processed
 
                 logger.info(
-                    "Decay cycle %s complete: %s items processed, %s decayed", self._total_decay_cycles, total_processed, total_decayed
+                    "Decay cycle %s complete: %s items processed, %s decayed",
+                    self._total_decay_cycles,
+                    total_processed,
+                    total_decayed,
                 )
 
             except (RuntimeError, ConnectionError, TimeoutError) as e:

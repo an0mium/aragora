@@ -362,7 +362,6 @@ class TestModuleExports:
 
     def test_all_functions_exported(self):
         """Test all expected functions are exported."""
-        from aragora.server.handlers.social import chat_events
 
         expected = [
             "emit_message_received",

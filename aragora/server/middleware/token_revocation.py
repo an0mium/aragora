@@ -217,7 +217,10 @@ class RedisRevocationStore:
                     json.dumps(entry.to_dict()),
                 )
                 logger.debug(
-                    "token_revoked_redis hash=%s... ttl=%ss reason=%s", entry.token_hash[:8], ttl_seconds, entry.reason
+                    "token_revoked_redis hash=%s... ttl=%ss reason=%s",
+                    entry.token_hash[:8],
+                    ttl_seconds,
+                    entry.reason,
                 )
         except REDIS_CONNECTION_ERRORS as e:
             logger.warning("Redis revocation store error: %s", e)
@@ -369,7 +372,11 @@ def revoke_token(
     store.add(entry)
 
     logger.info(
-        "token_revoked reason=%s revoked_by=%s ttl=%ss hash=%s...", reason, revoked_by, ttl_seconds, entry.token_hash[:8]
+        "token_revoked reason=%s revoked_by=%s ttl=%ss hash=%s...",
+        reason,
+        revoked_by,
+        ttl_seconds,
+        entry.token_hash[:8],
     )
 
     # Log audit event for security tracking

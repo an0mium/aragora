@@ -192,7 +192,9 @@ class ConnectionRouter:
                 )
                 self._replica_pools.append(pool)
                 logger.info(
-                    "[router] Replica pool '%s' initialized (size: %s)", replica_config.name, pool.get_size()
+                    "[router] Replica pool '%s' initialized (size: %s)",
+                    replica_config.name,
+                    pool.get_size(),
                 )
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(

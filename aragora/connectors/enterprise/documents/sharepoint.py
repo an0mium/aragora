@@ -355,7 +355,9 @@ class SharePointConnector(EnterpriseConnector):
 
                     size = item.get("size", 0)
                     if size > MAX_FILE_SIZE:
-                        logger.debug("[%s] Skipping large file: %s (%s bytes)", self.name, path, size)
+                        logger.debug(
+                            "[%s] Skipping large file: %s (%s bytes)", self.name, path, size
+                        )
                         continue
 
                 yield (

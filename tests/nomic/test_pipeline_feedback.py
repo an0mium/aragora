@@ -196,9 +196,11 @@ class TestMetaPlannerPipelineFeedback:
             },
         ]
 
-        planner = MetaPlanner(config=MetaPlannerConfig(
-            enable_cross_cycle_learning=False,
-        ))
+        planner = MetaPlanner(
+            config=MetaPlannerConfig(
+                enable_cross_cycle_learning=False,
+            )
+        )
         context = PlanningContext()
 
         with patch("aragora.pipeline.plan_store.get_plan_store") as mock_store_fn:
@@ -207,9 +209,7 @@ class TestMetaPlannerPipelineFeedback:
             mock_store_fn.return_value = mock_store
 
             # Temporarily import and monkey-patch for the test
-            result = await planner._enrich_context_with_history(
-                "Improve UX", [Track.SME], context
-            )
+            result = await planner._enrich_context_with_history("Improve UX", [Track.SME], context)
 
         assert any("pipeline" in s for s in result.past_successes_to_build_on)
 
@@ -235,9 +235,11 @@ class TestMetaPlannerPipelineFeedback:
             },
         ]
 
-        planner = MetaPlanner(config=MetaPlannerConfig(
-            enable_cross_cycle_learning=False,
-        ))
+        planner = MetaPlanner(
+            config=MetaPlannerConfig(
+                enable_cross_cycle_learning=False,
+            )
+        )
         context = PlanningContext()
 
         with patch("aragora.pipeline.plan_store.get_plan_store") as mock_store_fn:
@@ -245,9 +247,7 @@ class TestMetaPlannerPipelineFeedback:
             mock_store.get_recent_outcomes.return_value = mock_outcomes
             mock_store_fn.return_value = mock_store
 
-            result = await planner._enrich_context_with_history(
-                "Improve DB", [Track.CORE], context
-            )
+            result = await planner._enrich_context_with_history("Improve DB", [Track.CORE], context)
 
         assert any("pipeline:failed" in f for f in result.past_failures_to_avoid)
         assert any("timed out" in f for f in result.past_failures_to_avoid)
@@ -262,9 +262,11 @@ class TestMetaPlannerPipelineFeedback:
             PlanningContext,
         )
 
-        planner = MetaPlanner(config=MetaPlannerConfig(
-            enable_cross_cycle_learning=False,
-        ))
+        planner = MetaPlanner(
+            config=MetaPlannerConfig(
+                enable_cross_cycle_learning=False,
+            )
+        )
         context = PlanningContext()
 
         # Simulate the plan_store module being unavailable by making
@@ -302,9 +304,11 @@ class TestMetaPlannerPipelineFeedback:
             },
         ]
 
-        planner = MetaPlanner(config=MetaPlannerConfig(
-            enable_cross_cycle_learning=False,
-        ))
+        planner = MetaPlanner(
+            config=MetaPlannerConfig(
+                enable_cross_cycle_learning=False,
+            )
+        )
         context = PlanningContext()
 
         with patch("aragora.pipeline.plan_store.get_plan_store") as mock_store_fn:

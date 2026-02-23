@@ -251,7 +251,10 @@ class UnifiedInboxHandler(BaseHandler):
             if result.get("success"):
                 await self._store.save_account(tenant_id, account_to_record(account))
                 logger.info(
-                    "Connected %s account for tenant %s: %s", provider.value, tenant_id, account.email_address
+                    "Connected %s account for tenant %s: %s",
+                    provider.value,
+                    tenant_id,
+                    account.email_address,
                 )
                 return success_response(
                     {
@@ -297,7 +300,10 @@ class UnifiedInboxHandler(BaseHandler):
         await self._store.delete_account(tenant_id, account_id)
 
         logger.info(
-            "Disconnected %s account for tenant %s: %s", account.provider.value, tenant_id, account.email_address
+            "Disconnected %s account for tenant %s: %s",
+            account.provider.value,
+            tenant_id,
+            account.email_address,
         )
 
         return success_response(

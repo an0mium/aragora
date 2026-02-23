@@ -48,10 +48,14 @@ logger = logging.getLogger(__name__)
 # Circuit Breaker for Transcription Services
 # ===========================================================================
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as TranscriptionCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as TranscriptionCircuitBreaker,
+)
 
 # Global circuit breaker for transcription services
-_transcription_circuit_breaker = TranscriptionCircuitBreaker("transcription", cooldown_seconds=60.0, half_open_max_calls=2)
+_transcription_circuit_breaker = TranscriptionCircuitBreaker(
+    "transcription", cooldown_seconds=60.0, half_open_max_calls=2
+)
 
 
 def get_transcription_circuit_breaker_status() -> dict[str, Any]:
@@ -275,7 +279,8 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
                 task = asyncio.ensure_future(store.enqueue(job))
                 task.add_done_callback(
                     lambda t: logger.error("Transcription job enqueue failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
             except RuntimeError:
                 # No event loop, create one

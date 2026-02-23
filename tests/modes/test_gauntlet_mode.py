@@ -1003,5 +1003,3 @@ class TestGauntletOrchestrator:
         orchestrator = GauntletOrchestrator([])
         score = orchestrator._calculate_coverage_score(None, None, None)
         assert score == 0.0
-
-

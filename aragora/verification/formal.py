@@ -835,7 +835,9 @@ Examples of MATCHING:
                     f"WARNING: The proven theorem may not match the original claim. {explanation}"
                 )
                 logger.warning(
-                    "Lean proof compiled but may not match claim: %s (claim: %s...)", explanation, claim[:50]
+                    "Lean proof compiled but may not match claim: %s (claim: %s...)",
+                    explanation,
+                    claim[:50],
                 )
             elif confidence < 0.8:
                 proof_result.confidence_warning = (
@@ -1120,7 +1122,15 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                 if self._validate_smtlib2(smtlib):
                     return smtlib
 
-            except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
+            except (
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                ValueError,
+                KeyError,
+                TypeError,
+                RuntimeError,
+            ) as e:
                 # LLM translation failed, log and continue to return None
                 logger.debug("LLM translation to SMT-LIB2 failed: %s", e)
 

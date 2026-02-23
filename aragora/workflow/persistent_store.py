@@ -274,11 +274,14 @@ class PersistentWorkflowStore:
             logger.debug("Saved workflow %s", workflow.id)
 
             event_name = "WORKFLOW_UPDATED" if exists else "WORKFLOW_CREATED"
-            self._emit_workflow_event(event_name, {
-                "workflow_id": workflow.id,
-                "name": workflow.name,
-                "version": workflow.version,
-            })
+            self._emit_workflow_event(
+                event_name,
+                {
+                    "workflow_id": workflow.id,
+                    "name": workflow.name,
+                    "version": workflow.version,
+                },
+            )
 
         finally:
             conn.close()
@@ -405,10 +408,13 @@ class PersistentWorkflowStore:
 
             if deleted:
                 logger.info("Deleted workflow %s", workflow_id)
-                self._emit_workflow_event("WORKFLOW_DELETED", {
-                    "workflow_id": workflow_id,
-                    "tenant_id": tenant_id,
-                })
+                self._emit_workflow_event(
+                    "WORKFLOW_DELETED",
+                    {
+                        "workflow_id": workflow_id,
+                        "tenant_id": tenant_id,
+                    },
+                )
 
             return deleted
 
@@ -816,9 +822,17 @@ def get_workflow_store(
 
                 logger.info("Using PostgreSQL workflow store backend (sync init via run_async)")
                 _workflow_store_instance = run_async(create_postgres_workflow_store())
-            except (ImportError, RuntimeError, ConnectionError, OSError, ValueError, TypeError) as e:
+            except (
+                ImportError,
+                RuntimeError,
+                ConnectionError,
+                OSError,
+                ValueError,
+                TypeError,
+            ) as e:
                 logger.warning(
-                    "PostgreSQL workflow store initialization failed, falling back to SQLite: %s", e,
+                    "PostgreSQL workflow store initialization failed, falling back to SQLite: %s",
+                    e,
                 )
                 _workflow_store_instance = PersistentWorkflowStore(db_path)
     else:

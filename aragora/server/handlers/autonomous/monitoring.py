@@ -125,7 +125,9 @@ def validate_metric_value(value: Any) -> tuple[bool, float | None, str]:
 # =============================================================================
 
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as MonitoringCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as MonitoringCircuitBreaker,
+)
 
 
 # Global circuit breaker for monitoring
@@ -340,7 +342,9 @@ class MonitoringHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized recording metric: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden recording metric: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -436,7 +440,9 @@ class MonitoringHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized getting trend: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden getting trend: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -501,7 +507,9 @@ class MonitoringHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized getting trends: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden getting trends: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -594,7 +602,9 @@ class MonitoringHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized getting anomalies: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden getting anomalies: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -672,7 +682,9 @@ class MonitoringHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized getting baseline stats: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden getting baseline stats: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -717,7 +729,9 @@ class MonitoringHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized getting circuit breaker status: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden getting circuit breaker status: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)

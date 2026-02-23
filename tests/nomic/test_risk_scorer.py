@@ -346,18 +346,14 @@ class TestProtectedFileDetection:
             "Update exports",
             file_scope=["aragora/__init__.py"],
         )
-        protected_factor = next(
-            (f for f in result.factors if f.name == "protected_files"), None
-        )
+        protected_factor = next((f for f in result.factors if f.name == "protected_files"), None)
         assert protected_factor is not None
         assert "aragora/__init__.py" in protected_factor.detail
 
     def test_detects_protected_in_goal_text(self):
         scorer = RiskScorer()
         result = scorer.score_goal("Modify the .env file to add new secrets")
-        protected_factor = next(
-            (f for f in result.factors if f.name == "protected_files"), None
-        )
+        protected_factor = next((f for f in result.factors if f.name == "protected_files"), None)
         assert protected_factor is not None
 
     def test_no_protected_for_safe_files(self):
@@ -366,9 +362,7 @@ class TestProtectedFileDetection:
             "Update helper",
             file_scope=["aragora/utils/helpers.py"],
         )
-        protected_factor = next(
-            (f for f in result.factors if f.name == "protected_files"), None
-        )
+        protected_factor = next((f for f in result.factors if f.name == "protected_files"), None)
         assert protected_factor is None
 
     def test_custom_protected_files(self):
@@ -387,9 +381,7 @@ class TestProtectedFileDetection:
             "Edit core types",
             file_scope=["some/path/core_types.py"],
         )
-        protected_factor = next(
-            (f for f in result.factors if f.name == "protected_files"), None
-        )
+        protected_factor = next((f for f in result.factors if f.name == "protected_files"), None)
         assert protected_factor is not None
 
 
@@ -504,9 +496,7 @@ class TestScoringFactors:
             has_tests=True,
         )
         # test_coverage factor should have weight=0 and not be included
-        test_factor = next(
-            (f for f in result.factors if f.name == "test_coverage"), None
-        )
+        test_factor = next((f for f in result.factors if f.name == "test_coverage"), None)
         assert test_factor is None
 
     def test_large_file_count_increases_scale(self):
@@ -845,24 +835,28 @@ class TestDryRunRiskAssessments:
 
         # Mock _plan and _decompose to return predictable results
         async def mock_plan(objective):
-            return [types.SimpleNamespace(
-                description="Test improvement",
-                track=types.SimpleNamespace(value="core"),
-                priority=1,
-                estimated_impact="medium",
-                rationale="test",
-            )]
+            return [
+                types.SimpleNamespace(
+                    description="Test improvement",
+                    track=types.SimpleNamespace(value="core"),
+                    priority=1,
+                    estimated_impact="medium",
+                    rationale="test",
+                )
+            ]
 
         async def mock_decompose(goals):
-            return [types.SimpleNamespace(
-                title="Add tests for utils",
-                description="Write unit tests",
-                original_task="Test improvement",
-                scope="small",
-                file_scope=["tests/test_utils.py"],
-                success_criteria={},
-                estimated_complexity="low",
-            )]
+            return [
+                types.SimpleNamespace(
+                    title="Add tests for utils",
+                    description="Write unit tests",
+                    original_task="Test improvement",
+                    scope="small",
+                    file_scope=["tests/test_utils.py"],
+                    success_criteria={},
+                    estimated_complexity="low",
+                )
+            ]
 
         pipeline._plan = mock_plan
         pipeline._decompose = mock_decompose
@@ -889,24 +883,28 @@ class TestDryRunRiskAssessments:
         pipeline = SelfImprovePipeline(config)
 
         async def mock_plan(objective):
-            return [types.SimpleNamespace(
-                description="Test goal",
-                track=types.SimpleNamespace(value="core"),
-                priority=1,
-                estimated_impact="medium",
-                rationale="test",
-            )]
+            return [
+                types.SimpleNamespace(
+                    description="Test goal",
+                    track=types.SimpleNamespace(value="core"),
+                    priority=1,
+                    estimated_impact="medium",
+                    rationale="test",
+                )
+            ]
 
         async def mock_decompose(goals):
-            return [types.SimpleNamespace(
-                title="Simple task",
-                description="Do something simple",
-                original_task="Test goal",
-                scope="small",
-                file_scope=[],
-                success_criteria={},
-                estimated_complexity="low",
-            )]
+            return [
+                types.SimpleNamespace(
+                    title="Simple task",
+                    description="Do something simple",
+                    original_task="Test goal",
+                    scope="small",
+                    file_scope=[],
+                    success_criteria={},
+                    estimated_complexity="low",
+                )
+            ]
 
         pipeline._plan = mock_plan
         pipeline._decompose = mock_decompose

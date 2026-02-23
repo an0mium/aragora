@@ -171,13 +171,15 @@ class CostHandler:
                 for entry in raw_list:
                     if isinstance(entry, dict):
                         cost = float(entry.get("cost", 0))
-                        items.append({
-                            "name": entry.get("name", entry.get("provider", "unknown")),
-                            "cost": cost,
-                            "percentage": (cost / total_cost * 100) if total_cost > 0 else 0,
-                            "tokens": entry.get("tokens"),
-                            "calls": entry.get("calls"),
-                        })
+                        items.append(
+                            {
+                                "name": entry.get("name", entry.get("provider", "unknown")),
+                                "cost": cost,
+                                "percentage": (cost / total_cost * 100) if total_cost > 0 else 0,
+                                "tokens": entry.get("tokens"),
+                                "calls": entry.get("calls"),
+                            }
+                        )
                 return items
 
             return web.json_response(
@@ -238,9 +240,7 @@ class CostHandler:
                             for d in daily
                         ],
                         "total_cost": total_cost,
-                        "average_daily_cost": (
-                            total_cost / len(daily) if daily else 0
-                        ),
+                        "average_daily_cost": (total_cost / len(daily) if daily else 0),
                     }
                 }
             )
@@ -666,7 +666,11 @@ class CostHandler:
                 )
 
             # Efficiency score: higher is better (0-100)
-            efficiency_score = max(0.0, min(100.0, 100 - (cost_per_1k_tokens / 0.01 * 50))) if cost_per_1k_tokens > 0 else 50.0
+            efficiency_score = (
+                max(0.0, min(100.0, 100 - (cost_per_1k_tokens / 0.01 * 50)))
+                if cost_per_1k_tokens > 0
+                else 50.0
+            )
 
             return web.json_response(
                 {
@@ -1245,26 +1249,16 @@ class CostHandler:
             provider = body.get("provider", "anthropic")
 
             # Use canonical pricing from billing module
-            total_cost = calculate_token_cost(
-                provider, model, tokens_input, tokens_output
-            )
+            total_cost = calculate_token_cost(provider, model, tokens_input, tokens_output)
 
             # Get per-unit prices for breakdown
-            provider_prices = PROVIDER_PRICING.get(
-                provider, PROVIDER_PRICING["openrouter"]
-            )
+            provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
             input_key = model if model in provider_prices else "default"
             output_key = (
-                f"{model}-output"
-                if f"{model}-output" in provider_prices
-                else "default-output"
+                f"{model}-output" if f"{model}-output" in provider_prices else "default-output"
             )
-            input_price = float(
-                provider_prices.get(input_key, Decimal("2.00"))
-            )
-            output_price = float(
-                provider_prices.get(output_key, Decimal("8.00"))
-            )
+            input_price = float(provider_prices.get(input_key, Decimal("2.00")))
+            output_price = float(provider_prices.get(output_key, Decimal("8.00")))
 
             input_cost = (tokens_input / 1_000_000) * input_price
             output_cost = (tokens_output / 1_000_000) * output_price

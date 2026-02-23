@@ -102,7 +102,9 @@ class PipelineResultStore(SQLiteStore):
                     json.dumps(result_dict.get("ideas")) if result_dict.get("ideas") else None,
                     json.dumps(result_dict.get("goals")) if result_dict.get("goals") else None,
                     json.dumps(result_dict.get("actions")) if result_dict.get("actions") else None,
-                    json.dumps(result_dict.get("orchestration")) if result_dict.get("orchestration") else None,
+                    json.dumps(result_dict.get("orchestration"))
+                    if result_dict.get("orchestration")
+                    else None,
                     json.dumps(result_dict.get("transitions", [])),
                     result_dict.get("provenance_count", 0),
                     result_dict.get("integrity_hash", ""),

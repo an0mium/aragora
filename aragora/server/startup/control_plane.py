@@ -43,7 +43,8 @@ async def init_control_plane_coordinator() -> Any | None:
                 else 0
             )
             logger.info(
-                "Control Plane coordinator initialized and connected (policies_loaded=%s)", policy_count
+                "Control Plane coordinator initialized and connected (policies_loaded=%s)",
+                policy_count,
             )
         else:
             logger.info("Control Plane coordinator initialized and connected (no policy manager)")
@@ -207,7 +208,10 @@ async def init_mayor_coordinator() -> bool:
             _mayor_coordinator = coordinator
             is_mayor = "yes" if coordinator.is_mayor else "no"
             logger.info(
-                "Mayor coordinator started (node=%s, is_mayor=%s, region=%s)", coordinator.node_id, is_mayor, region or 'global'
+                "Mayor coordinator started (node=%s, is_mayor=%s, region=%s)",
+                coordinator.node_id,
+                is_mayor,
+                region or "global",
             )
             return True
 
@@ -264,7 +268,8 @@ async def init_persistent_task_queue() -> int:
         task = asyncio.create_task(cleanup_loop())
         task.add_done_callback(
             lambda t: logger.error(
-                "Task queue cleanup loop crashed: %s", t.exception(),
+                "Task queue cleanup loop crashed: %s",
+                t.exception(),
             )
             if not t.cancelled() and t.exception()
             else None

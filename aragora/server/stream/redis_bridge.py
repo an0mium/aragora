@@ -187,7 +187,7 @@ class RedisBroadcastBridge:
         try:
             data = json.loads(message["data"])
         except json.JSONDecodeError:
-            logger.warning("Invalid JSON in Redis message: %s", message['data'])
+            logger.warning("Invalid JSON in Redis message: %s", message["data"])
             return
 
         # Ignore messages from this instance
@@ -198,7 +198,9 @@ class RedisBroadcastBridge:
         payload = data.get("payload", {})
         channel = message["channel"]
 
-        logger.debug("Received cross-instance event: %s from %s", event_type, data.get('instance_id'))
+        logger.debug(
+            "Received cross-instance event: %s from %s", event_type, data.get("instance_id")
+        )
 
         # Relay to local broadcaster
         await self._relay_to_local(channel, event_type, payload)

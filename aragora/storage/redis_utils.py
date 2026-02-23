@@ -94,7 +94,13 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
     except ImportError:
         logger.debug("redis package not installed")
         return None
-    except (ConnectionError, TimeoutError, OSError, redis.exceptions.ConnectionError, redis.exceptions.RedisError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        redis.exceptions.ConnectionError,
+        redis.exceptions.RedisError,
+    ) as e:
         logger.debug("Redis not available: %s", e)
         if redis_url is None:
             _initialized = True

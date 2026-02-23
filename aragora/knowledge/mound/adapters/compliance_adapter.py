@@ -65,9 +65,7 @@ class CheckOutcome:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
-    def from_check_result(
-        cls, result: ComplianceCheckResult, check_id: str = ""
-    ) -> CheckOutcome:
+    def from_check_result(cls, result: ComplianceCheckResult, check_id: str = "") -> CheckOutcome:
         """Create a CheckOutcome from a ComplianceCheckResult."""
         issues_summary = []
         critical_count = 0

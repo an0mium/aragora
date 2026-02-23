@@ -505,7 +505,8 @@ class TranscriptionHandler(BaseHandler):
         task = asyncio.create_task(self._process_transcription(job.id, file_content, filename))
         task.add_done_callback(
             lambda t: logger.error("Transcription processing %s failed: %s", job.id, t.exception())
-            if not t.cancelled() and t.exception() else None
+            if not t.cancelled() and t.exception()
+            else None
         )
 
         logger.info(

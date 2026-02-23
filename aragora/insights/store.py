@@ -861,7 +861,10 @@ class InsightStore(SQLiteStore):
             self._sync_record_insight_usage, insight_id, debate_id, was_successful
         )
         logger.debug(
-            "[insight] Recorded usage: insight=%s debate=%s success=%s", insight_id, debate_id, was_successful
+            "[insight] Recorded usage: insight=%s debate=%s success=%s",
+            insight_id,
+            debate_id,
+            was_successful,
         )
 
     def _sync_get_insight_usage_stats(self, insight_id: str) -> dict:

@@ -169,9 +169,7 @@ class TestModuleExports:
 @pytest.fixture
 def audit_trail_handler():
     """Create an AuditTrailHandler with mocked store."""
-    with patch(
-        "aragora.storage.audit_trail_store.get_audit_trail_store"
-    ) as mock_store_fn:
+    with patch("aragora.storage.audit_trail_store.get_audit_trail_store") as mock_store_fn:
         mock_store = MagicMock()
         mock_store.list_trails.return_value = []
         mock_store.count_trails.return_value = 0
@@ -201,19 +199,13 @@ class TestAuditTrailHandlerCanHandle:
         assert audit_trail_handler.can_handle("/api/v1/audit-trails", "POST") is True
 
     def test_can_handle_audit_trails_subpath(self, audit_trail_handler):
-        assert (
-            audit_trail_handler.can_handle("/api/v1/audit-trails/trail-123", "GET")
-            is True
-        )
+        assert audit_trail_handler.can_handle("/api/v1/audit-trails/trail-123", "GET") is True
 
     def test_can_handle_receipts_get(self, audit_trail_handler):
         assert audit_trail_handler.can_handle("/api/v1/receipts", "GET") is True
 
     def test_can_handle_receipts_subpath(self, audit_trail_handler):
-        assert (
-            audit_trail_handler.can_handle("/api/v1/receipts/receipt-abc", "GET")
-            is True
-        )
+        assert audit_trail_handler.can_handle("/api/v1/receipts/receipt-abc", "GET") is True
 
     def test_cannot_handle_unknown_path(self, audit_trail_handler):
         assert audit_trail_handler.can_handle("/api/v1/unknown", "GET") is False
@@ -298,9 +290,7 @@ class TestAuditTrailHandlerGetTrail:
         trail_data = {"trail_id": "trail-abc", "verdict": "pass"}
         audit_trail_handler._store.get_trail.return_value = trail_data
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/audit-trails/trail-abc", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/audit-trails/trail-abc", {})
         assert _status(result) == 200
         body = _body(result)
         assert body["trail_id"] == "trail-abc"
@@ -310,9 +300,7 @@ class TestAuditTrailHandlerGetTrail:
         audit_trail_handler._store.get_trail.return_value = None
         audit_trail_handler._store.get_trail_by_gauntlet.return_value = None
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/audit-trails/nonexistent", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/audit-trails/nonexistent", {})
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -324,9 +312,7 @@ class TestAuditTrailHandlerGetTrail:
             "verdict": "fail",
         }
         try:
-            result = await audit_trail_handler.handle(
-                "/api/v1/audit-trails/trail-mem", {}
-            )
+            result = await audit_trail_handler.handle("/api/v1/audit-trails/trail-mem", {})
             assert _status(result) == 200
             body = _body(result)
             assert body["trail_id"] == "trail-mem"
@@ -374,9 +360,7 @@ class TestAuditTrailHandlerExport:
         trail_data = {"trail_id": "trail-fmt", "verdict": "pass"}
         audit_trail_handler._store.get_trail.return_value = trail_data
 
-        with patch(
-            "aragora.export.audit_trail.AuditTrail"
-        ) as mock_at:
+        with patch("aragora.export.audit_trail.AuditTrail") as mock_at:
             mock_trail_obj = MagicMock()
             mock_at.from_json.return_value = mock_trail_obj
 
@@ -393,9 +377,7 @@ class TestAuditTrailHandlerVerify:
     async def test_verify_trail_not_found(self, audit_trail_handler):
         audit_trail_handler._store.get_trail_by_gauntlet.return_value = None
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/audit-trails/trail-xyz/verify", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/audit-trails/trail-xyz/verify", {})
         assert _status(result) == 404
 
 
@@ -426,9 +408,7 @@ class TestAuditTrailHandlerReceipts:
         receipt = {"receipt_id": "r-abc", "verdict": "pass"}
         audit_trail_handler._store.get_receipt.return_value = receipt
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/receipts/r-abc", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/receipts/r-abc", {})
         assert _status(result) == 200
         body = _body(result)
         assert body["receipt_id"] == "r-abc"
@@ -438,9 +418,7 @@ class TestAuditTrailHandlerReceipts:
         audit_trail_handler._store.get_receipt.return_value = None
         audit_trail_handler._store.get_receipt_by_gauntlet.return_value = None
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/receipts/nonexistent", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/receipts/nonexistent", {})
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -448,9 +426,7 @@ class TestAuditTrailHandlerReceipts:
         audit_trail_handler._store.get_receipt.return_value = None
         audit_trail_handler._store.get_receipt_by_gauntlet.return_value = None
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/receipts/r-bad/verify", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/receipts/r-bad/verify", {})
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -464,9 +440,7 @@ class TestAuditTrailHandlerReceipts:
         }
         audit_trail_handler._store.get_receipt.return_value = receipt
 
-        result = await audit_trail_handler.handle(
-            "/api/v1/receipts/r-chk/verify", {}
-        )
+        result = await audit_trail_handler.handle("/api/v1/receipts/r-chk/verify", {})
         assert _status(result) == 200
         body = _body(result)
         assert body["receipt_id"] == "r-chk"
@@ -486,9 +460,7 @@ class TestAuditTrailHandlerRouting:
     async def test_handle_method_dispatch(self, audit_trail_handler):
         """Test the method-based handle signature (method, path, handler)."""
         handler_mock = _MockHTTPHandler("GET")
-        result = await audit_trail_handler.handle(
-            "GET", "/api/v1/audit-trails", handler_mock
-        )
+        result = await audit_trail_handler.handle("GET", "/api/v1/audit-trails", handler_mock)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -525,9 +497,7 @@ class TestAuditRequestParserReadJson:
     """Tests for AuditRequestParser._read_json."""
 
     def test_read_json_success(self):
-        data, err = AuditRequestParser._read_json(
-            None, lambda h: {"key": "value"}
-        )
+        data, err = AuditRequestParser._read_json(None, lambda h: {"key": "value"})
         assert data == {"key": "value"}
         assert err is None
 
@@ -542,9 +512,7 @@ class TestAuditRequestParserRequireField:
     """Tests for AuditRequestParser._require_field."""
 
     def test_require_field_present(self):
-        value, err = AuditRequestParser._require_field(
-            {"name": "test-agent"}, "name"
-        )
+        value, err = AuditRequestParser._require_field({"name": "test-agent"}, "name")
         assert value == "test-agent"
         assert err is None
 
@@ -562,9 +530,7 @@ class TestAuditRequestParserRequireField:
         def always_ok(val):
             return True, None
 
-        value, err = AuditRequestParser._require_field(
-            {"x": "good"}, "x", always_ok
-        )
+        value, err = AuditRequestParser._require_field({"x": "good"}, "x", always_ok)
         assert value == "good"
         assert err is None
 
@@ -572,9 +538,7 @@ class TestAuditRequestParserRequireField:
         def always_fail(val):
             return False, "bad value"
 
-        value, err = AuditRequestParser._require_field(
-            {"x": "bad"}, "x", always_fail
-        )
+        value, err = AuditRequestParser._require_field({"x": "bad"}, "x", always_fail)
         assert value is None
         assert _status(err) == 400
 
@@ -598,9 +562,7 @@ class TestAuditRequestParserParseInt:
         assert err is None
 
     def test_parse_int_invalid(self):
-        val, err = AuditRequestParser._parse_int(
-            {"rounds": "not_a_number"}, "rounds", 3, 10
-        )
+        val, err = AuditRequestParser._parse_int({"rounds": "not_a_number"}, "rounds", 3, 10)
         assert err is not None
         assert _status(err) == 400
 
@@ -629,9 +591,7 @@ class TestAuditRequestParserCapabilityProbe:
         assert _status(err) == 400
 
     def test_parse_capability_probe_null_body(self):
-        parsed, err = AuditRequestParser.parse_capability_probe(
-            None, lambda h: None
-        )
+        parsed, err = AuditRequestParser.parse_capability_probe(None, lambda h: None)
         assert err is not None
         assert _status(err) == 400
 
@@ -689,21 +649,15 @@ class TestAuditAgentFactorySingle:
         mock_agent = MagicMock()
         mock_create.return_value = mock_agent
 
-        agent, err = AuditAgentFactory.create_single_agent(
-            "anthropic-api", "test-agent"
-        )
+        agent, err = AuditAgentFactory.create_single_agent("anthropic-api", "test-agent")
         assert agent is mock_agent
         assert err is None
-        mock_create.assert_called_once_with(
-            "anthropic-api", name="test-agent", role="proposer"
-        )
+        mock_create.assert_called_once_with("anthropic-api", name="test-agent", role="proposer")
 
     @patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True)
     @patch("aragora.server.handlers.auditing.create_agent", side_effect=ValueError("bad"))
     def test_create_single_agent_failure(self, mock_create):
-        agent, err = AuditAgentFactory.create_single_agent(
-            "anthropic-api", "bad-agent"
-        )
+        agent, err = AuditAgentFactory.create_single_agent("anthropic-api", "bad-agent")
         assert agent is None
         assert _status(err) == 400
 
@@ -713,9 +667,7 @@ class TestAuditAgentFactoryMultiple:
 
     @patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", False)
     def test_create_multiple_agents_unavailable(self):
-        agents, err = AuditAgentFactory.create_multiple_agents(
-            "test", [], ["a", "b", "c"]
-        )
+        agents, err = AuditAgentFactory.create_multiple_agents("test", [], ["a", "b", "c"])
         assert agents == []
         assert _status(err) == 503
 
@@ -734,9 +686,7 @@ class TestAuditAgentFactoryMultiple:
     @patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True)
     @patch("aragora.server.handlers.auditing.create_agent", side_effect=ValueError("fail"))
     def test_create_multiple_agents_all_fail(self, mock_create):
-        agents, err = AuditAgentFactory.create_multiple_agents(
-            "test", [], ["agent-a", "agent-b"]
-        )
+        agents, err = AuditAgentFactory.create_multiple_agents("test", [], ["agent-a", "agent-b"])
         assert agents == []
         assert _status(err) == 400
         assert "at least 2" in _body(err).get("error", "").lower()
@@ -784,9 +734,7 @@ class TestAuditResultRecorderAuditELO:
     """Tests for AuditResultRecorder.calculate_audit_elo_adjustments."""
 
     def test_no_elo_system(self):
-        result = AuditResultRecorder.calculate_audit_elo_adjustments(
-            MagicMock(findings=[]), None
-        )
+        result = AuditResultRecorder.calculate_audit_elo_adjustments(MagicMock(findings=[]), None)
         assert result == {}
 
     def test_adjustments_computed(self):
@@ -859,8 +807,15 @@ class TestAuditResultRecorderSaveAuditReport:
         )
 
         AuditResultRecorder.save_audit_report(
-            tmp_path, "audit-1", "task", "context", [mock_agent],
-            mock_verdict, mock_config, 500.0, {"a": 2}
+            tmp_path,
+            "audit-1",
+            "task",
+            "context",
+            [mock_agent],
+            mock_verdict,
+            mock_config,
+            500.0,
+            {"a": 2},
         )
         audits_dir = tmp_path / "audits"
         assert audits_dir.exists()
@@ -929,13 +884,9 @@ class TestAuditingHandlerRouting:
             RACE_CONDITION = "race_condition"
             DEPENDENCY_FAILURE = "dependency_failure"
 
-        with patch(
-            "aragora.modes.redteam.AttackType", MockAttackType
-        ):
+        with patch("aragora.modes.redteam.AttackType", MockAttackType):
             h = AuditingHandler(ctx={})
-            result = h.handle(
-                "/api/v1/redteam/attack-types", {}, _MockHTTPHandler()
-            )
+            result = h.handle("/api/v1/redteam/attack-types", {}, _MockHTTPHandler())
             assert _status(result) == 200
             body = _body(result)
             assert "attack_types" in body
@@ -944,30 +895,22 @@ class TestAuditingHandlerRouting:
     @patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", False)
     def test_capability_probe_unavailable(self):
         h = AuditingHandler(ctx={})
-        handler_mock = _MockHTTPHandler(
-            "POST", {"agent_name": "test-agent"}
-        )
-        result = h.handle(
-            "/api/v1/debates/capability-probe", {}, handler_mock
-        )
+        handler_mock = _MockHTTPHandler("POST", {"agent_name": "test-agent"})
+        result = h.handle("/api/v1/debates/capability-probe", {}, handler_mock)
         assert _status(result) == 503
 
     @patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False)
     def test_red_team_unavailable(self):
         h = AuditingHandler(ctx={})
         handler_mock = _MockHTTPHandler("POST", {})
-        result = h.handle(
-            "/api/v1/debates/debate-123/red-team", {}, handler_mock
-        )
+        result = h.handle("/api/v1/debates/debate-123/red-team", {}, handler_mock)
         assert _status(result) == 503
 
     @patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True)
     def test_red_team_no_storage(self):
         h = AuditingHandler(ctx={})
         handler_mock = _MockHTTPHandler("POST", {})
-        result = h.handle(
-            "/api/v1/debates/debate-123/red-team", {}, handler_mock
-        )
+        result = h.handle("/api/v1/debates/debate-123/red-team", {}, handler_mock)
         assert _status(result) == 500
 
     @patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True)
@@ -978,9 +921,7 @@ class TestAuditingHandlerRouting:
 
         h = AuditingHandler(ctx={"storage": mock_storage})
         handler_mock = _MockHTTPHandler("POST", {})
-        result = h.handle(
-            "/api/v1/debates/debate-123/red-team", {}, handler_mock
-        )
+        result = h.handle("/api/v1/debates/debate-123/red-team", {}, handler_mock)
         assert _status(result) == 404
 
 
@@ -1017,9 +958,7 @@ class TestAuditingHandlerRedTeamAnalysis:
                     "max_rounds": 2,
                 },
             )
-            result = h.handle(
-                "/api/v1/debates/d-123/red-team", {}, handler_mock
-            )
+            result = h.handle("/api/v1/debates/d-123/red-team", {}, handler_mock)
             assert _status(result) == 200
             body = _body(result)
             assert body["debate_id"] == "d-123"
@@ -1034,17 +973,13 @@ class TestAuditingHandlerGetAuditConfig:
     def test_strategy_preset(self):
         h = AuditingHandler(ctx={})
         sentinel = object()
-        result = h._get_audit_config(
-            "strategy", {}, MagicMock, sentinel, MagicMock, MagicMock
-        )
+        result = h._get_audit_config("strategy", {}, MagicMock, sentinel, MagicMock, MagicMock)
         assert result is sentinel
 
     def test_contract_preset(self):
         h = AuditingHandler(ctx={})
         sentinel = object()
-        result = h._get_audit_config(
-            "contract", {}, MagicMock, MagicMock, sentinel, MagicMock
-        )
+        result = h._get_audit_config("contract", {}, MagicMock, MagicMock, sentinel, MagicMock)
         assert result is sentinel
 
     def test_code_architecture_preset(self):
@@ -1064,9 +999,7 @@ class TestAuditingHandlerGetAuditConfig:
             "cross_examination_depth": 2,
             "risk_threshold": 0.8,
         }
-        h._get_audit_config(
-            "other", parsed, mock_cls, MagicMock, MagicMock, MagicMock
-        )
+        h._get_audit_config("other", parsed, mock_cls, MagicMock, MagicMock, MagicMock)
         mock_cls.assert_called_once_with(
             rounds=4,
             enable_research=False,

@@ -68,7 +68,9 @@ class TestNotificationMetricsRecording:
 
         # Simulate a network-level failure (ConnectionError is caught by the handler)
         with patch.object(
-            provider, "_send_webhook", new_callable=AsyncMock,
+            provider,
+            "_send_webhook",
+            new_callable=AsyncMock,
             side_effect=ConnectionError("Connection refused"),
         ):
             result = await provider.send(sample_notification, "#test-channel")

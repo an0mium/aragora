@@ -145,9 +145,7 @@ class ForkOperationsMixin:
                 if "counterfactual" in str(module_name or e).lower():
                     return error_response("Counterfactual forking feature not available", 503)
                 else:
-                    return error_response(
-                        "Internal error loading fork feature", 500
-                    )
+                    return error_response("Internal error loading fork feature", 500)
 
             # Create a pivot claim from the context
             import uuid as uuid_mod
@@ -279,9 +277,7 @@ class ForkOperationsMixin:
             if "truth_grounding" in str(module_name or e).lower():
                 return error_response("Position tracking feature not available", 503)
             else:
-                return error_response(
-                    "Internal error loading position tracker", 500
-                )
+                return error_response("Internal error loading position tracker", 500)
 
     @api_endpoint(
         method="GET",
@@ -416,7 +412,15 @@ class ForkOperationsMixin:
                 }
             )
 
-        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
+        except (
+            ImportError,
+            KeyError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as e:
             logger.error(
                 "Failed to get followup suggestions for %s: %s: %s",
                 debate_id,
@@ -548,7 +552,15 @@ class ForkOperationsMixin:
                 }
             )
 
-        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
+        except (
+            ImportError,
+            KeyError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as e:
             logger.error(
                 "Failed to create followup debate for %s: %s: %s",
                 debate_id,

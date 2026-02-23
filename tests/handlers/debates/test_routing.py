@@ -578,12 +578,12 @@ class TestCheckArtifactAccess:
         result = routing_handler._check_artifact_access("debate-1", "/impasse", mock_http_handler)
         assert result is None
 
-    def test_messages_artifact_public_debate(self, routing_handler, mock_storage, mock_http_handler):
+    def test_messages_artifact_public_debate(
+        self, routing_handler, mock_storage, mock_http_handler
+    ):
         """Public debate - /messages artifact returns None (allowed)."""
         mock_storage.is_public.return_value = True
-        result = routing_handler._check_artifact_access(
-            "debate-1", "/messages", mock_http_handler
-        )
+        result = routing_handler._check_artifact_access("debate-1", "/messages", mock_http_handler)
         assert result is None
 
     def test_messages_artifact_private_debate_no_auth(self, routing_handler, mock_storage):
@@ -609,12 +609,12 @@ class TestCheckArtifactAccess:
             result = routing_handler._check_artifact_access("debate-1", "/messages", handler)
         assert result is None
 
-    def test_evidence_artifact_public_debate(self, routing_handler, mock_storage, mock_http_handler):
+    def test_evidence_artifact_public_debate(
+        self, routing_handler, mock_storage, mock_http_handler
+    ):
         """Public debate - /evidence artifact returns None."""
         mock_storage.is_public.return_value = True
-        result = routing_handler._check_artifact_access(
-            "debate-1", "/evidence", mock_http_handler
-        )
+        result = routing_handler._check_artifact_access("debate-1", "/evidence", mock_http_handler)
         assert result is None
 
     def test_evidence_artifact_private_no_auth(self, routing_handler, mock_storage):
@@ -662,9 +662,7 @@ class TestCheckArtifactAccess:
         mock_config.enabled = False
         handler = _make_mock_http_handler(auth_header=None)
         with patch(_AUTH_CONFIG_TARGET, mock_config):
-            result = routing_handler._check_artifact_access(
-                "debate-1", "/messages", handler
-            )
+            result = routing_handler._check_artifact_access("debate-1", "/messages", handler)
         assert result is None
 
 
@@ -686,17 +684,13 @@ class TestExtractDebateId:
 
     def test_v2_versioned_path(self, routing_handler):
         """V2 versioned path is normalized and extracts correctly."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v2/debates/debate-v2/convergence"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v2/debates/debate-v2/convergence")
         assert debate_id == "debate-v2"
         assert err is None
 
     def test_unversioned_path(self, routing_handler):
         """Unversioned /api/debates/{id}/suffix extracts correctly."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/debates/my-debate/messages"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/debates/my-debate/messages")
         assert debate_id == "my-debate"
         assert err is None
 
@@ -734,51 +728,39 @@ class TestExtractDebateId:
 
     def test_debate_id_with_dots_fails(self, routing_handler):
         """Debate ID with dots fails the slug pattern."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates/bad.id.here/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates/bad.id.here/impasse")
         assert debate_id is None
         assert err is not None
 
     def test_valid_alphanumeric_debate_id(self, routing_handler):
         """Alphanumeric debate ID with hyphens and underscores is valid."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates/abc-123_def/summary"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates/abc-123_def/summary")
         assert debate_id == "abc-123_def"
         assert err is None
 
     def test_debate_id_too_long(self, routing_handler):
         """Debate ID exceeding 128 chars fails validation."""
         long_id = "a" * 129
-        debate_id, err = routing_handler._extract_debate_id(
-            f"/api/v1/debates/{long_id}/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id(f"/api/v1/debates/{long_id}/impasse")
         assert debate_id is None
         assert err is not None
 
     def test_debate_id_exactly_128_chars(self, routing_handler):
         """Debate ID of exactly 128 chars is valid."""
         id_128 = "a" * 128
-        debate_id, err = routing_handler._extract_debate_id(
-            f"/api/v1/debates/{id_128}/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id(f"/api/v1/debates/{id_128}/impasse")
         assert debate_id == id_128
         assert err is None
 
     def test_debate_id_with_spaces_fails(self, routing_handler):
         """Debate ID with spaces fails validation."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates/bad id/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates/bad id/impasse")
         assert debate_id is None
         assert err is not None
 
     def test_debate_id_single_char(self, routing_handler):
         """Single character debate ID is valid."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates/x/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates/x/impasse")
         assert debate_id == "x"
         assert err is None
 
@@ -1245,11 +1227,20 @@ class TestMixinClassAttributes:
 
     def test_allowed_export_tables_attribute(self, routing_handler):
         """RoutingMixin has ALLOWED_EXPORT_TABLES attribute."""
-        assert routing_handler.ALLOWED_EXPORT_TABLES == {"summary", "messages", "critiques", "votes"}
+        assert routing_handler.ALLOWED_EXPORT_TABLES == {
+            "summary",
+            "messages",
+            "critiques",
+            "votes",
+        }
 
     def test_artifact_endpoints_attribute(self, routing_handler):
         """RoutingMixin has ARTIFACT_ENDPOINTS attribute."""
-        assert routing_handler.ARTIFACT_ENDPOINTS == {"/messages", "/evidence", "/verification-report"}
+        assert routing_handler.ARTIFACT_ENDPOINTS == {
+            "/messages",
+            "/evidence",
+            "/verification-report",
+        }
 
     def test_suffix_routes_attribute(self, routing_handler):
         """RoutingMixin has SUFFIX_ROUTES attribute."""
@@ -1304,17 +1295,13 @@ class TestSecurityEdgeCases:
 
     def test_null_byte_in_debate_id(self, routing_handler):
         """Null byte in debate ID is rejected."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates/test\x00id/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates/test\x00id/impasse")
         assert debate_id is None
         assert err is not None
 
     def test_unicode_in_debate_id(self, routing_handler):
         """Unicode characters in debate ID are rejected."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates/test\u00e9/impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates/test\u00e9/impasse")
         assert debate_id is None
         assert err is not None
 
@@ -1336,9 +1323,7 @@ class TestSecurityEdgeCases:
 
     def test_empty_debate_id_segment(self, routing_handler):
         """Empty debate ID segment in path."""
-        debate_id, err = routing_handler._extract_debate_id(
-            "/api/v1/debates//impasse"
-        )
+        debate_id, err = routing_handler._extract_debate_id("/api/v1/debates//impasse")
         # Empty string won't match the slug pattern
         assert debate_id is None
         assert err is not None
@@ -1513,9 +1498,7 @@ class TestDispatchIntegration:
             extra_methods={"_get_impasse": mock_fn},
         )
         http = _make_mock_http_handler()
-        result = handler._dispatch_suffix_route(
-            "/api/v1/debates/my-debate-123/impasse", {}, http
-        )
+        result = handler._dispatch_suffix_route("/api/v1/debates/my-debate-123/impasse", {}, http)
         assert result == "ok"
         mock_fn.assert_called_once_with(http, "my-debate-123")
 

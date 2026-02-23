@@ -56,10 +56,13 @@ class TestMaybePublishToMarketplace:
                     mock_skill_cls.return_value = MagicMock(name="nomic-test")
 
                     # Patch the imports inside the method
-                    with patch.dict("sys.modules", {
-                        "aragora.skills.publisher": MagicMock(SkillPublisher=mock_pub_cls),
-                        "aragora.skills.base": MagicMock(Skill=mock_skill_cls),
-                    }):
+                    with patch.dict(
+                        "sys.modules",
+                        {
+                            "aragora.skills.publisher": MagicMock(SkillPublisher=mock_pub_cls),
+                            "aragora.skills.base": MagicMock(Skill=mock_skill_cls),
+                        },
+                    ):
                         result = loop._maybe_publish_to_marketplace("improvement", 0.6)
         # With min_confidence=0.5 and confidence=0.6, it should attempt publishing
         # The actual publish may or may not succeed depending on event loop state
@@ -77,14 +80,17 @@ class TestMaybePublishToMarketplace:
     def test_runtime_error_handled(self, loop: NomicLoop) -> None:
         env = {"ARAGORA_AUTO_PUBLISH_MARKETPLACE": "1"}
         with patch.dict(os.environ, env):
-            with patch.dict("sys.modules", {
-                "aragora.skills.publisher": MagicMock(
-                    SkillPublisher=MagicMock(side_effect=RuntimeError("broken"))
-                ),
-                "aragora.skills.base": MagicMock(
-                    Skill=MagicMock(),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.skills.publisher": MagicMock(
+                        SkillPublisher=MagicMock(side_effect=RuntimeError("broken"))
+                    ),
+                    "aragora.skills.base": MagicMock(
+                        Skill=MagicMock(),
+                    ),
+                },
+            ):
                 result = loop._maybe_publish_to_marketplace("improvement", 0.9)
         assert result is not None
         assert result["published"] is False
@@ -92,14 +98,17 @@ class TestMaybePublishToMarketplace:
     def test_confidence_at_threshold(self, loop: NomicLoop) -> None:
         env = {"ARAGORA_AUTO_PUBLISH_MARKETPLACE": "1"}
         with patch.dict(os.environ, env):
-            with patch.dict("sys.modules", {
-                "aragora.skills.publisher": MagicMock(
-                    SkillPublisher=MagicMock(side_effect=RuntimeError("test"))
-                ),
-                "aragora.skills.base": MagicMock(
-                    Skill=MagicMock(),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.skills.publisher": MagicMock(
+                        SkillPublisher=MagicMock(side_effect=RuntimeError("test"))
+                    ),
+                    "aragora.skills.base": MagicMock(
+                        Skill=MagicMock(),
+                    ),
+                },
+            ):
                 # At exactly 0.85, should NOT be skipped (>= comparison)
                 result = loop._maybe_publish_to_marketplace("improvement", 0.85)
         assert result is not None
@@ -122,14 +131,17 @@ class TestMaybePublishToMarketplace:
     def test_skill_name_sanitized(self, loop: NomicLoop) -> None:
         env = {"ARAGORA_AUTO_PUBLISH_MARKETPLACE": "1"}
         with patch.dict(os.environ, env):
-            with patch.dict("sys.modules", {
-                "aragora.skills.publisher": MagicMock(
-                    SkillPublisher=MagicMock(side_effect=RuntimeError("test"))
-                ),
-                "aragora.skills.base": MagicMock(
-                    Skill=MagicMock(),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.skills.publisher": MagicMock(
+                        SkillPublisher=MagicMock(side_effect=RuntimeError("test"))
+                    ),
+                    "aragora.skills.base": MagicMock(
+                        Skill=MagicMock(),
+                    ),
+                },
+            ):
                 result = loop._maybe_publish_to_marketplace(
                     "Fix the_broken thing\nExtra details", 0.9
                 )
@@ -139,13 +151,16 @@ class TestMaybePublishToMarketplace:
     def test_empty_improvement_handled(self, loop: NomicLoop) -> None:
         env = {"ARAGORA_AUTO_PUBLISH_MARKETPLACE": "1"}
         with patch.dict(os.environ, env):
-            with patch.dict("sys.modules", {
-                "aragora.skills.publisher": MagicMock(
-                    SkillPublisher=MagicMock(side_effect=RuntimeError("test"))
-                ),
-                "aragora.skills.base": MagicMock(
-                    Skill=MagicMock(),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.skills.publisher": MagicMock(
+                        SkillPublisher=MagicMock(side_effect=RuntimeError("test"))
+                    ),
+                    "aragora.skills.base": MagicMock(
+                        Skill=MagicMock(),
+                    ),
+                },
+            ):
                 result = loop._maybe_publish_to_marketplace("", 0.9)
         assert result is not None

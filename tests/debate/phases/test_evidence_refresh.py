@@ -94,7 +94,7 @@ class TestEvidenceRefresherInit:
 def _make_ctx(**overrides):
     ctx = MagicMock()
     ctx.proposals = overrides.get("proposals", {})
-    ctx.evidence_pack = overrides.get("evidence_pack", None)
+    ctx.evidence_pack = overrides.get("evidence_pack")
     return ctx
 
 

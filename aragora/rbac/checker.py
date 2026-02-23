@@ -774,9 +774,7 @@ class PermissionChecker:
                     self._ownership_manager = get_ownership_manager()
                 resource_type_str = permission_key.split(".")[0]
                 resource_type = ResourceType(resource_type_str)
-                if self._ownership_manager.is_owner(
-                    context.user_id, resource_type, resource_id
-                ):
+                if self._ownership_manager.is_owner(context.user_id, resource_type, resource_id):
                     return AuthorizationDecision(
                         allowed=True,
                         reason=f"Implicit owner permission for '{permission_key}' on owned resource",
@@ -836,7 +834,9 @@ class PermissionChecker:
             return False
 
         self._workspace_roles[workspace_id][user_id].discard(role_name)
-        logger.info("Removed role %s from user %s in workspace %s", role_name, user_id, workspace_id)
+        logger.info(
+            "Removed role %s from user %s in workspace %s", role_name, user_id, workspace_id
+        )
         return True
 
     def get_workspace_roles(self, user_id: str, workspace_id: str) -> set[str]:
@@ -1106,7 +1106,9 @@ class PermissionChecker:
                         users_with_permission.append(user_id)
                         break
 
-        logger.debug("Found %s users with permission '%s'", len(users_with_permission), permission_key)
+        logger.debug(
+            "Found %s users with permission '%s'", len(users_with_permission), permission_key
+        )
         return users_with_permission
 
     def get_cache_stats(self) -> dict[str, Any]:

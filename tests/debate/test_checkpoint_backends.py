@@ -69,7 +69,6 @@ def _make_checkpoint(
 
 
 class TestFileCheckpointStore:
-
     @pytest.fixture
     def store(self, tmp_path: Path) -> FileCheckpointStore:
         return FileCheckpointStore(base_dir=str(tmp_path / "checkpoints"))
@@ -209,7 +208,6 @@ class TestFileCheckpointStore:
 
 
 class TestDatabaseCheckpointStore:
-
     @pytest.fixture
     def store(self, tmp_path: Path) -> DatabaseCheckpointStore:
         db_path = str(tmp_path / "checkpoints.db")
@@ -320,10 +318,12 @@ class TestDatabaseCheckpointStore:
         # Non-expired
         await store.save(_make_checkpoint(checkpoint_id="fresh"))
         # Expired (date in the past)
-        await store.save(_make_checkpoint(
-            checkpoint_id="old",
-            expires_at="2020-01-01T00:00:00",
-        ))
+        await store.save(
+            _make_checkpoint(
+                checkpoint_id="old",
+                expires_at="2020-01-01T00:00:00",
+            )
+        )
 
         deleted = await store.cleanup_expired()
         assert deleted == 1

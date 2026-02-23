@@ -294,7 +294,8 @@ class ShutdownPhaseBuilder:
                         stats = ranking_adapter.get_stats()
                         if stats.get("total_expertise_records", 0) > 0:
                             logger.debug(
-                                "RankingAdapter has %s expertise records", stats['total_expertise_records']
+                                "RankingAdapter has %s expertise records",
+                                stats["total_expertise_records"],
                             )
                 except ImportError:
                     pass
@@ -308,7 +309,7 @@ class ShutdownPhaseBuilder:
                         stats = rlm_adapter.get_stats()
                         if stats.get("total_patterns", 0) > 0:
                             logger.debug(
-                                "RlmAdapter has %s compression patterns", stats['total_patterns']
+                                "RlmAdapter has %s compression patterns", stats["total_patterns"]
                             )
                 except ImportError:
                     pass

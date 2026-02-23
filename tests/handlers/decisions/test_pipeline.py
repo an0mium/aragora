@@ -95,14 +95,18 @@ class _MockPlan:
 
     def approve(self, approver_id: str, reason: str = "", conditions: list[str] | None = None):
         self.approval_record = _ApprovalRecord(
-            approved=True, approver_id=approver_id, reason=reason,
+            approved=True,
+            approver_id=approver_id,
+            reason=reason,
             conditions=conditions or [],
         )
         self.status = _PlanStatus.APPROVED
 
     def reject(self, approver_id: str, reason: str = ""):
         self.approval_record = _ApprovalRecord(
-            approved=False, approver_id=approver_id, reason=reason,
+            approved=False,
+            approver_id=approver_id,
+            reason=reason,
         )
         self.status = _PlanStatus.REJECTED
 
@@ -295,15 +299,21 @@ class TestListPlans:
 
     @patch("aragora.pipeline.executor.list_plans")
     @patch("aragora.pipeline.decision_plan.PlanStatus")
-    def test_list_plans_with_status_filter(self, mock_status_cls, mock_list, handler, mock_http_handler):
+    def test_list_plans_with_status_filter(
+        self, mock_status_cls, mock_list, handler, mock_http_handler
+    ):
         mock_status_cls.side_effect = lambda v: _PlanStatus(v)
         mock_list.return_value = []
-        result = handler.handle("/api/v1/decisions/plans", {"status": "approved"}, mock_http_handler)
+        result = handler.handle(
+            "/api/v1/decisions/plans", {"status": "approved"}, mock_http_handler
+        )
         assert _status(result) == 200
 
     def test_list_plans_invalid_status(self, handler, mock_http_handler):
         # PlanStatus("nonsense") raises ValueError -> 400
-        result = handler.handle("/api/v1/decisions/plans", {"status": "nonsense"}, mock_http_handler)
+        result = handler.handle(
+            "/api/v1/decisions/plans", {"status": "nonsense"}, mock_http_handler
+        )
         assert _status(result) == 400
         assert "invalid status" in _body(result).get("error", "").lower()
 
@@ -319,7 +329,9 @@ class TestListPlans:
 
     @patch("aragora.pipeline.executor.list_plans")
     @patch("aragora.pipeline.decision_plan.PlanStatus")
-    def test_list_plans_limit_capped_at_200(self, _mock_status_cls, mock_list, handler, mock_http_handler):
+    def test_list_plans_limit_capped_at_200(
+        self, _mock_status_cls, mock_list, handler, mock_http_handler
+    ):
         mock_list.return_value = []
         result = handler.handle("/api/v1/decisions/plans", {"limit": "999"}, mock_http_handler)
         assert _status(result) == 200
@@ -328,14 +340,18 @@ class TestListPlans:
 
     @patch("aragora.pipeline.executor.list_plans")
     @patch("aragora.pipeline.decision_plan.PlanStatus")
-    def test_list_plans_limit_minimum_1(self, _mock_status_cls, mock_list, handler, mock_http_handler):
+    def test_list_plans_limit_minimum_1(
+        self, _mock_status_cls, mock_list, handler, mock_http_handler
+    ):
         mock_list.return_value = []
         result = handler.handle("/api/v1/decisions/plans", {"limit": "-5"}, mock_http_handler)
         assert _status(result) == 200
 
     @patch("aragora.pipeline.executor.list_plans")
     @patch("aragora.pipeline.decision_plan.PlanStatus")
-    def test_list_plans_invalid_limit_ignored(self, _mock_status_cls, mock_list, handler, mock_http_handler):
+    def test_list_plans_invalid_limit_ignored(
+        self, _mock_status_cls, mock_list, handler, mock_http_handler
+    ):
         mock_list.return_value = []
         result = handler.handle("/api/v1/decisions/plans", {"limit": "abc"}, mock_http_handler)
         assert _status(result) == 200
@@ -438,7 +454,9 @@ class TestGetRouting:
 
     @patch("aragora.pipeline.executor.get_outcome")
     @patch("aragora.pipeline.executor.get_plan")
-    def test_get_unmatched_subpath_returns_none(self, mock_get, mock_outcome, handler, mock_http_handler):
+    def test_get_unmatched_subpath_returns_none(
+        self, mock_get, mock_outcome, handler, mock_http_handler
+    ):
         """Unknown sub-path after plan_id returns None (not handled)."""
         mock_get.return_value = _MockPlan()
         mock_outcome.return_value = None
@@ -553,14 +571,18 @@ class TestCreatePlan:
         "aragora.server.handlers.decisions.pipeline._load_debate_result",
         return_value=MagicMock(),
     )
-    def test_create_plan_with_metadata_and_mode(self, _mock_load, mock_factory, _mock_store, handler):
+    def test_create_plan_with_metadata_and_mode(
+        self, _mock_load, mock_factory, _mock_store, handler
+    ):
         plan = _MockPlan()
         mock_factory.from_debate_result.return_value = plan
-        h = _make_http_handler({
-            "debate_id": "debate-001",
-            "metadata": {"key": "val"},
-            "mode": "architect",
-        })
+        h = _make_http_handler(
+            {
+                "debate_id": "debate-001",
+                "metadata": {"key": "val"},
+                "mode": "architect",
+            }
+        )
         result = handler.handle_post("/api/v1/decisions/plans", {}, h)
         assert _status(result) == 201
         call_kwargs = mock_factory.from_debate_result.call_args
@@ -737,7 +759,8 @@ class TestExecutePlan:
         """Helper to create patched PlanExecutor with AsyncMock execute."""
         mock_executor_inst = MagicMock()
         mock_executor_inst.execute = AsyncMock(
-            return_value=outcome, side_effect=side_effect,
+            return_value=outcome,
+            side_effect=side_effect,
         )
         mock_executor_cls = MagicMock(return_value=mock_executor_inst)
         return mock_executor_cls, mock_executor_inst
@@ -750,8 +773,13 @@ class TestExecutePlan:
         executor_cls, _ = self._patch_executor(outcome=outcome)
 
         h = _make_http_handler({"execution_mode": "workflow"})
-        with patch("aragora.pipeline.executor.PlanExecutor", executor_cls), \
-             patch("aragora.server.handlers.decisions.pipeline.normalize_execution_mode", return_value="workflow"):
+        with (
+            patch("aragora.pipeline.executor.PlanExecutor", executor_cls),
+            patch(
+                "aragora.server.handlers.decisions.pipeline.normalize_execution_mode",
+                return_value="workflow",
+            ),
+        ):
             result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
         assert _status(result) == 200
         body = _body(result)
@@ -855,11 +883,13 @@ class TestExecutePlan:
             executor_cls, _ = self._patch_executor(outcome=outcome)
 
             h = _make_http_handler({"execution_mode": mode})
-            with patch("aragora.pipeline.executor.PlanExecutor", executor_cls), \
-                 patch(
+            with (
+                patch("aragora.pipeline.executor.PlanExecutor", executor_cls),
+                patch(
                     "aragora.server.handlers.decisions.pipeline.normalize_execution_mode",
                     return_value=mode,
-                 ):
+                ),
+            ):
                 result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
             assert _status(result) == 200, f"Mode {mode} should be valid"
 
@@ -878,7 +908,9 @@ class TestPostRouting:
         assert _status(result) == 400
 
     def test_post_unknown_action_returns_none(self, handler, mock_http_handler):
-        result = handler.handle_post("/api/v1/decisions/plans/dp-001/unknown", {}, mock_http_handler)
+        result = handler.handle_post(
+            "/api/v1/decisions/plans/dp-001/unknown", {}, mock_http_handler
+        )
         assert result is None
 
     def test_post_plans_creates(self, handler):
@@ -1056,9 +1088,11 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({
-            "implementation_profile": {"strategy": "parallel", "critic": "gpt-4"},
-        })
+        result = _build_implementation_profile_payload(
+            {
+                "implementation_profile": {"strategy": "parallel", "critic": "gpt-4"},
+            }
+        )
         assert result["strategy"] == "parallel"
         assert result["critic"] == "gpt-4"
 
@@ -1067,10 +1101,12 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({
-            "implementation_profile": {"strategy": "serial"},
-            "strategy": "parallel",
-        })
+        result = _build_implementation_profile_payload(
+            {
+                "implementation_profile": {"strategy": "serial"},
+                "strategy": "parallel",
+            }
+        )
         # profile key takes precedence -- _maybe_set checks "if key not in payload"
         assert result["strategy"] == "serial"
 
@@ -1111,9 +1147,11 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({
-            "thread_id_by_platform": {"slack": "t-1"},
-        })
+        result = _build_implementation_profile_payload(
+            {
+                "thread_id_by_platform": {"slack": "t-1"},
+            }
+        )
         assert result["thread_id_by_platform"] == {"slack": "t-1"}
 
     def test_fabric_fields(self):
@@ -1121,13 +1159,15 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({
-            "fabric_models": ["claude", "gpt-4"],
-            "fabric_pool_id": "pool-1",
-            "fabric_min_agents": 2,
-            "fabric_max_agents": 5,
-            "fabric_timeout_seconds": 300,
-        })
+        result = _build_implementation_profile_payload(
+            {
+                "fabric_models": ["claude", "gpt-4"],
+                "fabric_pool_id": "pool-1",
+                "fabric_min_agents": 2,
+                "fabric_max_agents": 5,
+                "fabric_timeout_seconds": 300,
+            }
+        )
         assert result["fabric_models"] == ["claude", "gpt-4"]
         assert result["fabric_pool_id"] == "pool-1"
         assert result["fabric_min_agents"] == 2
@@ -1171,10 +1211,12 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({
-            "channel_targets": "",
-            "strategy": "serial",
-        })
+        result = _build_implementation_profile_payload(
+            {
+                "channel_targets": "",
+                "strategy": "serial",
+            }
+        )
         assert "channel_targets" not in result
 
     def test_none_thread_id_removed(self):
@@ -1182,10 +1224,12 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({
-            "implementation_profile": {"thread_id": None},
-            "strategy": "serial",
-        })
+        result = _build_implementation_profile_payload(
+            {
+                "implementation_profile": {"thread_id": None},
+                "strategy": "serial",
+            }
+        )
         assert "thread_id" not in result
 
 
@@ -1200,7 +1244,8 @@ class TestLoadDebateResult:
     @pytest.mark.asyncio
     async def test_loads_from_trace(self):
         from aragora.server.handlers.decisions.pipeline import _load_debate_result
-        import tempfile, os
+        import tempfile
+        import os
         from pathlib import Path
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1282,14 +1327,18 @@ class TestCreatePlanImplementationProfile:
         "aragora.server.handlers.decisions.pipeline._load_debate_result",
         return_value=MagicMock(),
     )
-    def test_implementation_profile_passed_to_factory(self, _mock_load, mock_factory, _mock_store, handler):
+    def test_implementation_profile_passed_to_factory(
+        self, _mock_load, mock_factory, _mock_store, handler
+    ):
         plan = _MockPlan()
         mock_factory.from_debate_result.return_value = plan
-        h = _make_http_handler({
-            "debate_id": "debate-001",
-            "execution_engine": "workflow",
-            "implementers": ["claude"],
-        })
+        h = _make_http_handler(
+            {
+                "debate_id": "debate-001",
+                "execution_engine": "workflow",
+                "implementers": ["claude"],
+            }
+        )
         with patch(
             "aragora.server.handlers.decisions.pipeline.normalize_execution_mode",
             return_value="workflow",
@@ -1297,7 +1346,9 @@ class TestCreatePlanImplementationProfile:
             result = handler.handle_post("/api/v1/decisions/plans", {}, h)
         assert _status(result) == 201
         call_kwargs = mock_factory.from_debate_result.call_args
-        profile = call_kwargs.kwargs.get("implementation_profile") or call_kwargs[1].get("implementation_profile")
+        profile = call_kwargs.kwargs.get("implementation_profile") or call_kwargs[1].get(
+            "implementation_profile"
+        )
         assert profile is not None
         assert profile["execution_mode"] == "workflow"
         assert profile["implementers"] == ["claude"]
@@ -1308,11 +1359,15 @@ class TestCreatePlanImplementationProfile:
         "aragora.server.handlers.decisions.pipeline._load_debate_result",
         return_value=MagicMock(),
     )
-    def test_invalid_implementation_profile_thread_id(self, _mock_load, mock_factory, _mock_store, handler):
-        h = _make_http_handler({
-            "debate_id": "debate-001",
-            "thread_id": "   ",
-        })
+    def test_invalid_implementation_profile_thread_id(
+        self, _mock_load, mock_factory, _mock_store, handler
+    ):
+        h = _make_http_handler(
+            {
+                "debate_id": "debate-001",
+                "thread_id": "   ",
+            }
+        )
         result = handler.handle_post("/api/v1/decisions/plans", {}, h)
         assert _status(result) == 400
         assert "non-empty string" in _body(result).get("error", "")
@@ -1332,7 +1387,9 @@ class TestCreatePlanApprovalNotification:
         "aragora.server.handlers.decisions.pipeline._load_debate_result",
         return_value=MagicMock(),
     )
-    def test_no_notification_when_no_human_approval(self, _mock_load, mock_factory, _mock_store, handler):
+    def test_no_notification_when_no_human_approval(
+        self, _mock_load, mock_factory, _mock_store, handler
+    ):
         plan = _MockPlan(requires_human_approval=False)
         mock_factory.from_debate_result.return_value = plan
         h = _make_http_handler({"debate_id": "debate-001"})
@@ -1347,15 +1404,22 @@ class TestCreatePlanApprovalNotification:
         "aragora.server.handlers.decisions.pipeline._load_debate_result",
         return_value=MagicMock(),
     )
-    def test_notification_failure_does_not_break_create(self, _mock_load, mock_factory, _mock_store, handler):
+    def test_notification_failure_does_not_break_create(
+        self, _mock_load, mock_factory, _mock_store, handler
+    ):
         """Even if notification fails, the plan should still be created."""
         plan = _MockPlan(requires_human_approval=True)
         mock_factory.from_debate_result.return_value = plan
-        h = _make_http_handler({
-            "debate_id": "debate-001",
-            "approval_targets": ["slack:general"],
-        })
-        with patch("aragora.approvals.chat.send_chat_approval_request", side_effect=ImportError("no module")):
+        h = _make_http_handler(
+            {
+                "debate_id": "debate-001",
+                "approval_targets": ["slack:general"],
+            }
+        )
+        with patch(
+            "aragora.approvals.chat.send_chat_approval_request",
+            side_effect=ImportError("no module"),
+        ):
             result = handler.handle_post("/api/v1/decisions/plans", {}, h)
         assert _status(result) == 201
 
@@ -1434,7 +1498,9 @@ class TestMiscEdgeCases:
         "aragora.server.handlers.decisions.pipeline._load_debate_result",
         return_value=MagicMock(),
     )
-    def test_create_plan_null_metadata_defaults_to_empty(self, _mock_load, mock_factory, _mock_store, handler):
+    def test_create_plan_null_metadata_defaults_to_empty(
+        self, _mock_load, mock_factory, _mock_store, handler
+    ):
         """When metadata is None/absent, it defaults to empty dict."""
         plan = _MockPlan()
         mock_factory.from_debate_result.return_value = plan

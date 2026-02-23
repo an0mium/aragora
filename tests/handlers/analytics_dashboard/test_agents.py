@@ -374,7 +374,9 @@ class TestAgentMetrics:
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    def test_attribute_error_in_data(self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http):
+    def test_attribute_error_in_data(
+        self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http
+    ):
         mock_run_async.side_effect = AttributeError("no attr")
         mock_get_dash.return_value = MagicMock()
 
@@ -403,7 +405,9 @@ class TestAgentMetrics:
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    def test_multiple_agents_returned(self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http):
+    def test_multiple_agents_returned(
+        self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http
+    ):
         mock_run_async.side_effect = lambda coro: _make_agent_metrics(5)
         mock_get_dash.return_value = MagicMock()
 
@@ -417,7 +421,9 @@ class TestAgentMetrics:
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    def test_agent_metric_to_dict_called(self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http):
+    def test_agent_metric_to_dict_called(
+        self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http
+    ):
         """Each metric should have to_dict() called."""
         metric = MagicMock()
         metric.to_dict.return_value = {"agent_id": "test", "elo": 1500}
@@ -777,7 +783,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude", "gpt-4"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         result = handler._get_agent_consistency(
             {"agents": "claude,gpt-4"},
@@ -800,7 +808,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude", "gpt-4"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         result = handler._get_agent_consistency({}, handler=mock_http)
         assert _status(result) == 200
@@ -818,7 +828,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         result = handler._get_agent_consistency({"agents": ""}, handler=mock_http)
         assert _status(result) == 200
@@ -827,7 +839,9 @@ class TestAgentConsistency:
 
     @patch("aragora.insights.flip_detector.format_consistency_for_ui")
     @patch("aragora.insights.flip_detector.FlipDetector")
-    def test_no_agents_in_summary_returns_empty(self, mock_detector_cls, mock_format, handler, mock_http):
+    def test_no_agents_in_summary_returns_empty(
+        self, mock_detector_cls, mock_format, handler, mock_http
+    ):
         """If summary has no agents, return empty list."""
         mock_detector = MagicMock()
         mock_detector.get_flip_summary.return_value = {"by_agent": {}}
@@ -841,13 +855,17 @@ class TestAgentConsistency:
 
     @patch("aragora.insights.flip_detector.format_consistency_for_ui")
     @patch("aragora.insights.flip_detector.FlipDetector")
-    def test_sorted_by_consistency_descending(self, mock_detector_cls, mock_format, handler, mock_http):
+    def test_sorted_by_consistency_descending(
+        self, mock_detector_cls, mock_format, handler, mock_http
+    ):
         """Results should be sorted by consistency score, highest first."""
         mock_detector = MagicMock()
         scores = _make_consistency_scores(["claude", "gpt-4", "gemini"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         result = handler._get_agent_consistency(
             {"agents": "claude,gpt-4,gemini"},
@@ -866,7 +884,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude", "gpt-4", "gemini"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         handler._get_agent_consistency(
             {"agents": "claude, gpt-4, gemini"},
@@ -884,7 +904,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         result = handler._get_agent_consistency(
             {"agents": "claude"},
@@ -921,7 +943,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude", "gpt-4"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         handler._get_agent_consistency(
             {"agents": " claude , gpt-4 "},
@@ -939,7 +963,9 @@ class TestAgentConsistency:
         scores = _make_consistency_scores(["claude"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
-        mock_format.side_effect = lambda s: _make_formatted_consistency(s.agent_name, f"{s.consistency * 100:.1f}%")
+        mock_format.side_effect = lambda s: _make_formatted_consistency(
+            s.agent_name, f"{s.consistency * 100:.1f}%"
+        )
 
         result = handler._get_agent_consistency(
             {"agents": ",,, ,,"},
@@ -1399,7 +1425,9 @@ class TestRouting:
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    def test_route_agents_with_version_prefix(self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http):
+    def test_route_agents_with_version_prefix(
+        self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http
+    ):
         """Should handle /api/v1/analytics/agents correctly."""
         mock_run_async.side_effect = lambda coro: []
         mock_get_dash.return_value = MagicMock()
@@ -1470,7 +1498,9 @@ class TestEdgeCases:
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange", side_effect=ValueError("bad"))
-    def test_agent_metrics_error_code_invalid_param(self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http):
+    def test_agent_metrics_error_code_invalid_param(
+        self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http
+    ):
         result = handler._get_agent_metrics(
             {"workspace_id": "ws_123"},
             handler=mock_http,
@@ -1483,7 +1513,9 @@ class TestEdgeCases:
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    def test_agent_metrics_error_code_data_error(self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http):
+    def test_agent_metrics_error_code_data_error(
+        self, mock_tr, mock_get_dash, mock_run_async, handler, mock_http
+    ):
         mock_run_async.side_effect = KeyError("missing")
         mock_get_dash.return_value = MagicMock()
 
@@ -1541,7 +1573,9 @@ class TestEdgeCases:
 
     @patch("aragora.insights.flip_detector.format_flip_for_ui")
     @patch("aragora.insights.flip_detector.FlipDetector")
-    def test_recent_flips_negative_limit_clamped(self, mock_detector_cls, mock_format, handler, mock_http):
+    def test_recent_flips_negative_limit_clamped(
+        self, mock_detector_cls, mock_format, handler, mock_http
+    ):
         """Negative limit should be clamped to 1."""
         mock_detector = MagicMock()
         mock_detector.get_recent_flips.return_value = []
@@ -1552,7 +1586,9 @@ class TestEdgeCases:
 
     @patch("aragora.insights.flip_detector.format_consistency_for_ui")
     @patch("aragora.insights.flip_detector.FlipDetector")
-    def test_consistency_detector_instantiated(self, mock_detector_cls, mock_format, handler, mock_http):
+    def test_consistency_detector_instantiated(
+        self, mock_detector_cls, mock_format, handler, mock_http
+    ):
         """FlipDetector should be instantiated for each request."""
         mock_detector = MagicMock()
         mock_detector.get_flip_summary.return_value = {"by_agent": {}}

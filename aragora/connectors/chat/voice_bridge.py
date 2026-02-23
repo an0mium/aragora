@@ -99,7 +99,10 @@ class VoiceBridge:
         lang = language or self.default_language
 
         logger.info(
-            "Transcribing %s bytes from %s (language: %s)", len(content), voice_message.platform, lang
+            "Transcribing %s bytes from %s (language: %s)",
+            len(content),
+            voice_message.platform,
+            lang,
         )
 
         # Call Whisper transcription

@@ -27,6 +27,7 @@ from aragora.server.handlers.pipeline.provenance_explorer import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_handler_ctx() -> dict[str, Any]:
     return {}
 
@@ -149,12 +150,12 @@ class TestRouting:
 class TestReactFlowEndpoint:
     def test_returns_flow_nodes_and_edges(self, handler, sample_graph):
         http_handler = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get.return_value = sample_graph
             resp = handler.handle(
-                "/api/v1/pipeline/graph/graph-abc123/react-flow", {}, http_handler,
+                "/api/v1/pipeline/graph/graph-abc123/react-flow",
+                {},
+                http_handler,
             )
 
         assert resp is not None
@@ -184,12 +185,12 @@ class TestReactFlowEndpoint:
 
     def test_react_flow_graph_not_found(self, handler):
         http_handler = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get.return_value = None
             resp = handler.handle(
-                "/api/v1/pipeline/graph/nonexistent/react-flow", {}, http_handler,
+                "/api/v1/pipeline/graph/nonexistent/react-flow",
+                {},
+                http_handler,
             )
 
         assert resp is not None
@@ -198,12 +199,12 @@ class TestReactFlowEndpoint:
 
     def test_react_flow_edge_structure(self, handler, sample_graph):
         http_handler = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get.return_value = sample_graph
             resp = handler.handle(
-                "/api/v1/pipeline/graph/graph-abc123/react-flow", {}, http_handler,
+                "/api/v1/pipeline/graph/graph-abc123/react-flow",
+                {},
+                http_handler,
             )
 
         data, _, _ = resp
@@ -226,9 +227,7 @@ class TestNodeProvenanceEndpoint:
         # The provenance chain for action node should include idea -> goal -> action
         chain_nodes = list(sample_graph.get_provenance_chain("node-action-1"))
 
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get_provenance_chain.return_value = chain_nodes
             resp = handler.handle(
                 "/api/v1/pipeline/graph/graph-abc123/provenance/node-action-1",
@@ -255,9 +254,7 @@ class TestNodeProvenanceEndpoint:
 
     def test_provenance_node_not_found(self, handler):
         http_handler = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get_provenance_chain.return_value = []
             resp = handler.handle(
                 "/api/v1/pipeline/graph/graph-abc123/provenance/missing-node",
@@ -282,9 +279,7 @@ class TestNodeProvenanceEndpoint:
             content_hash="deadbeef12345678",
         )
         http_handler = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get_provenance_chain.return_value = [lone_node]
             resp = handler.handle(
                 "/api/v1/pipeline/graph/graph-abc123/provenance/node-lone-1",
@@ -302,9 +297,7 @@ class TestNodeProvenanceEndpoint:
         chain_nodes = list(sample_graph.get_provenance_chain("node-action-1"))
 
         http_handler = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.pipeline.provenance_explorer._get_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.pipeline.provenance_explorer._get_store") as mock_store:
             mock_store.return_value.get_provenance_chain.return_value = chain_nodes
             resp = handler.handle(
                 "/api/v1/pipeline/graph/graph-abc123/provenance/node-action-1",
@@ -416,6 +409,8 @@ class TestInputValidation:
         """Unknown sub-paths should return None."""
         http_handler = _make_http_handler()
         resp = handler.handle(
-            "/api/v1/pipeline/graph/abc/unknown-endpoint", {}, http_handler,
+            "/api/v1/pipeline/graph/abc/unknown-endpoint",
+            {},
+            http_handler,
         )
         assert resp is None

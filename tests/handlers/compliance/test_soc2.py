@@ -524,8 +524,18 @@ class TestSOC2ReportJSON:
         result = await handler.handle("/api/v2/compliance/soc2-report", {}, mock_h)
         ids = [c["control_id"] for c in _body(result)["controls"]]
         expected = [
-            "CC1.1", "CC2.1", "CC3.1", "CC5.1", "CC6.1", "CC6.6",
-            "CC7.1", "CC7.2", "CC8.1", "CC9.1", "P1.1", "P4.1",
+            "CC1.1",
+            "CC2.1",
+            "CC3.1",
+            "CC5.1",
+            "CC6.1",
+            "CC6.6",
+            "CC7.1",
+            "CC7.2",
+            "CC8.1",
+            "CC9.1",
+            "P1.1",
+            "P4.1",
         ]
         assert ids == expected
 
@@ -719,8 +729,18 @@ class TestSOC2ReportHTML:
         )
         content = result.body.decode("utf-8")
         expected_ids = [
-            "CC1.1", "CC2.1", "CC3.1", "CC5.1", "CC6.1", "CC6.6",
-            "CC7.1", "CC7.2", "CC8.1", "CC9.1", "P1.1", "P4.1",
+            "CC1.1",
+            "CC2.1",
+            "CC3.1",
+            "CC5.1",
+            "CC6.1",
+            "CC6.6",
+            "CC7.1",
+            "CC7.2",
+            "CC8.1",
+            "CC9.1",
+            "P1.1",
+            "P4.1",
         ]
         for cid in expected_ids:
             assert cid in content
@@ -1155,6 +1175,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_score_100_is_compliant(self, handler, monkeypatch):
         """Score >= 95 -> compliant."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 10
 
@@ -1168,6 +1189,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_score_90_is_mostly_compliant(self, handler, monkeypatch):
         """Score 80-94 -> mostly_compliant."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 9 + [{"status": "non_compliant"}]
 
@@ -1181,6 +1203,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_score_70_is_partial(self, handler, monkeypatch):
         """Score 60-79 -> partial."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 7 + [{"status": "non_compliant"}] * 3
 
@@ -1194,6 +1217,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_score_50_is_non_compliant(self, handler, monkeypatch):
         """Score < 60 -> non_compliant."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 5 + [{"status": "non_compliant"}] * 5
 
@@ -1207,6 +1231,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_score_0_with_no_controls(self, handler, monkeypatch):
         """Score 0 when no controls exist."""
+
         async def mock_controls(self_inner):
             return []
 
@@ -1220,6 +1245,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_boundary_95_is_compliant(self, handler, monkeypatch):
         """Score exactly 95 -> compliant."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 19 + [{"status": "non_compliant"}]
 
@@ -1233,6 +1259,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_boundary_80_is_mostly_compliant(self, handler, monkeypatch):
         """Score exactly 80 -> mostly_compliant."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 8 + [{"status": "non_compliant"}] * 2
 
@@ -1246,6 +1273,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_boundary_60_is_partial(self, handler, monkeypatch):
         """Score exactly 60 -> partial."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 6 + [{"status": "non_compliant"}] * 4
 
@@ -1259,6 +1287,7 @@ class TestComplianceScoreThresholds:
     @pytest.mark.asyncio
     async def test_controls_summary_counts_non_compliant(self, handler, monkeypatch):
         """controls_summary correctly reflects non-compliant controls."""
+
         async def mock_controls(self_inner):
             return [{"status": "compliant"}] * 3 + [{"status": "non_compliant"}] * 2
 
@@ -1330,6 +1359,7 @@ class TestSOC2ReportWithCustomControls:
     @pytest.mark.asyncio
     async def test_report_reflects_non_compliant_controls(self, handler, monkeypatch):
         """Non-compliant controls are reflected in the report summary."""
+
         async def mock_controls(self_inner):
             return [
                 {
@@ -1361,6 +1391,7 @@ class TestSOC2ReportWithCustomControls:
     @pytest.mark.asyncio
     async def test_html_report_shows_warning_for_non_compliant(self, handler, monkeypatch):
         """Non-compliant controls render with warning class in HTML."""
+
         async def mock_controls(self_inner):
             return [
                 {
@@ -1387,6 +1418,7 @@ class TestSOC2ReportWithCustomControls:
     @pytest.mark.asyncio
     async def test_empty_controls_in_report(self, handler, monkeypatch):
         """Report with zero controls has correct summary."""
+
         async def mock_controls(self_inner):
             return []
 

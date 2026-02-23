@@ -100,11 +100,7 @@ class RetentionGate:
         # Higher surprise = more novel = retain/consolidate
         # Lower surprise = more predictable = consider forgetting
         access_bonus = min(0.2, access_count * 0.02)
-        retention_score = (
-            outcome_surprise * 0.5
-            + current_confidence * 0.3
-            + access_bonus
-        )
+        retention_score = outcome_surprise * 0.5 + current_confidence * 0.3 + access_bonus
         retention_score = min(1.0, max(0.0, retention_score))
 
         # Determine action
@@ -149,9 +145,7 @@ class RetentionGate:
         self._decisions.append(decision)
         return decision
 
-    def compute_adaptive_decay_rate(
-        self, surprise: float, current_confidence: float
-    ) -> float:
+    def compute_adaptive_decay_rate(self, surprise: float, current_confidence: float) -> float:
         """Compute adaptive decay rate based on surprise.
 
         High surprise -> slow decay (preserve novel items longer)
@@ -160,9 +154,8 @@ class RetentionGate:
         # Invert surprise: high surprise = low decay rate
         # Linear interpolation between min and max decay rates
         surprise_factor = 1.0 - min(1.0, max(0.0, surprise))
-        decay_rate = (
-            self.config.min_decay_rate
-            + surprise_factor * (self.config.max_decay_rate - self.config.min_decay_rate)
+        decay_rate = self.config.min_decay_rate + surprise_factor * (
+            self.config.max_decay_rate - self.config.min_decay_rate
         )
         return decay_rate
 

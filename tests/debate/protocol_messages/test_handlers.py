@@ -136,10 +136,12 @@ class TestRegisterHandler:
 
     def test_class_handler_multiple_types(self):
         reg = ProtocolHandlerRegistry()
-        handler = FakeHandler([
-            ProtocolMessageType.DEBATE_STARTED,
-            ProtocolMessageType.DEBATE_COMPLETED,
-        ])
+        handler = FakeHandler(
+            [
+                ProtocolMessageType.DEBATE_STARTED,
+                ProtocolMessageType.DEBATE_COMPLETED,
+            ]
+        )
         reg.register_handler(handler)
         asyncio.run(reg.dispatch(_make_msg(ProtocolMessageType.DEBATE_STARTED)))
         asyncio.run(reg.dispatch(_make_msg(ProtocolMessageType.DEBATE_COMPLETED)))
@@ -291,6 +293,7 @@ class TestGetHandlerRegistry:
 class TestHandlesDecorator:
     def test_registers_handler(self):
         with patch("aragora.debate.protocol_messages.handlers._default_registry", None):
+
             @handles(ProtocolMessageType.PROPOSAL_SUBMITTED)
             async def on_proposal(message):
                 pass
@@ -301,6 +304,7 @@ class TestHandlesDecorator:
 
     def test_multiple_types(self):
         with patch("aragora.debate.protocol_messages.handlers._default_registry", None):
+
             @handles(
                 ProtocolMessageType.VOTE_CAST,
                 ProtocolMessageType.VOTE_CHANGED,

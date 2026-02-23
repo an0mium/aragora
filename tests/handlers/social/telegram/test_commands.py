@@ -77,20 +77,14 @@ def _patch_tg():
 @pytest.fixture
 def _patch_telemetry():
     """Patch telemetry functions so they do nothing."""
-    with patch(
-        "aragora.server.handlers.social.telegram.commands.record_command"
-    ) as rc, patch(
-        "aragora.server.handlers.social.telegram.commands.record_debate_started"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.record_debate_failed"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
+    with (
+        patch("aragora.server.handlers.social.telegram.commands.record_command") as rc,
+        patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+        patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+        patch("aragora.server.handlers.social.telegram.commands.record_debate_failed"),
+        patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+        patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"),
+        patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"),
     ):
         yield rc
 
@@ -98,16 +92,12 @@ def _patch_telemetry():
 @pytest.fixture
 def _patch_events():
     """Patch chat event emitters."""
-    with patch(
-        "aragora.server.handlers.social.telegram.commands.emit_command_received"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
-    ), patch(
-        "aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"
+    with (
+        patch("aragora.server.handlers.social.telegram.commands.emit_command_received"),
+        patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+        patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+        patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
+        patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"),
     ):
         yield
 
@@ -126,15 +116,18 @@ def _patch_rbac():
 @pytest.fixture
 def _patch_deny_rbac():
     """Patch RBAC permission check to always deny."""
-    with patch.object(
-        TelegramHandler,
-        "_check_telegram_user_permission",
-        return_value=False,
-    ), patch.object(
-        TelegramHandler,
-        "_deny_telegram_permission",
-        return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
-    ) as deny_mock:
+    with (
+        patch.object(
+            TelegramHandler,
+            "_check_telegram_user_permission",
+            return_value=False,
+        ),
+        patch.object(
+            TelegramHandler,
+            "_deny_telegram_permission",
+            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        ) as deny_mock,
+    ):
         yield deny_mock
 
 
@@ -185,9 +178,7 @@ class TestHandleCommandRouting:
 
     @pytest.mark.usefixtures("_full_patch")
     def test_agents_command(self, handler, _patch_tg):
-        with patch.object(
-            handler, "_command_agents", return_value="No agents registered yet."
-        ):
+        with patch.object(handler, "_command_agents", return_value="No agents registered yet."):
             result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/agents")
         assert _status(result) == 200
 
@@ -201,9 +192,7 @@ class TestHandleCommandRouting:
             result = handler._handle_command(
                 CHAT_ID, USER_ID, USERNAME, "/debate Should AI be regulated?"
             )
-            cd.assert_called_once_with(
-                CHAT_ID, USER_ID, USERNAME, "Should AI be regulated?"
-            )
+            cd.assert_called_once_with(CHAT_ID, USER_ID, USERNAME, "Should AI be regulated?")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -213,9 +202,7 @@ class TestHandleCommandRouting:
             "_command_debate",
             return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
         ) as cd:
-            handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/plan Improve on-call process"
-            )
+            handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/plan Improve on-call process")
             call_kwargs = cd.call_args
             # decision_integrity should have plan flags
             di = call_kwargs.kwargs.get(
@@ -231,9 +218,7 @@ class TestHandleCommandRouting:
             "_command_debate",
             return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
         ) as cd:
-            handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/implement Build a dashboard"
-            )
+            handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/implement Build a dashboard")
             assert cd.called
 
     @pytest.mark.usefixtures("_full_patch")
@@ -251,9 +236,7 @@ class TestHandleCommandRouting:
     @pytest.mark.usefixtures("_full_patch")
     def test_search_command(self, handler, _patch_tg):
         with patch.object(handler, "_command_search", return_value="No results"):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/search machine learning"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/search machine learning")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -265,9 +248,7 @@ class TestHandleCommandRouting:
     @pytest.mark.usefixtures("_full_patch")
     def test_receipt_command(self, handler, _patch_tg):
         with patch.object(handler, "_command_receipt", return_value="Receipt data"):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/receipt abc123"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/receipt abc123")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -282,9 +263,7 @@ class TestHandleCommandRouting:
     def test_command_strips_botname_suffix(self, handler, _patch_tg):
         """Commands like /help@AragoraBot should work as /help."""
         with patch.object(handler, "_command_help", return_value="help text") as ch:
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/help@AragoraBot"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/help@AragoraBot")
             ch.assert_called_once()
         assert _status(result) == 200
 
@@ -296,9 +275,7 @@ class TestHandleCommandRouting:
             "_command_debate",
             return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
         ) as cd:
-            handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/debate  multi word topic here"
-            )
+            handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/debate  multi word topic here")
             # args should be " multi word topic here" (preserving leading space from split)
             cd.assert_called_once()
             call_args = cd.call_args[0]
@@ -338,13 +315,16 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
-        ) as deny:
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ) as deny,
+        ):
             result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/start")
             deny.assert_called_once()
 
@@ -359,16 +339,17 @@ class TestRBACDenials:
                 return True  # Allow execute
             return False  # Deny create
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/debate topic"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/debate topic")
             assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_telemetry", "_patch_events")
@@ -382,16 +363,17 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/gauntlet statement"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/gauntlet statement")
             assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_telemetry", "_patch_events")
@@ -405,16 +387,17 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/plan Some plan topic"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/plan Some plan topic")
             assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_telemetry", "_patch_events")
@@ -428,16 +411,17 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/implement Build a thing"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/implement Build a thing")
             assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_telemetry", "_patch_events")
@@ -450,16 +434,17 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/search query"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/search query")
             assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_telemetry", "_patch_events")
@@ -472,16 +457,17 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/recent"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/recent")
             assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_telemetry", "_patch_events")
@@ -494,16 +480,17 @@ class TestRBACDenials:
                 return True
             return False
 
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
-        ), patch.object(
-            TelegramHandler,
-            "_deny_telegram_permission",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        with (
+            patch.object(
+                TelegramHandler, "_check_telegram_user_permission", side_effect=check_perm
+            ),
+            patch.object(
+                TelegramHandler,
+                "_deny_telegram_permission",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ),
         ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/receipt abc"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/receipt abc")
             assert _status(result) == 200
 
 
@@ -553,9 +540,17 @@ class TestCommandHelp:
     def test_contains_all_commands(self, handler):
         text = handler._command_help()
         for cmd in [
-            "/start", "/debate", "/plan", "/implement",
-            "/gauntlet", "/search", "/recent", "/receipt",
-            "/status", "/agents", "/help",
+            "/start",
+            "/debate",
+            "/plan",
+            "/implement",
+            "/gauntlet",
+            "/search",
+            "/recent",
+            "/receipt",
+            "/status",
+            "/agents",
+            "/help",
         ]:
             assert cmd in text
 
@@ -598,7 +593,9 @@ class TestCommandStatus:
                 "builtins.__import__",
                 side_effect=lambda name, *a, **kw: (_ for _ in ()).throw(ImportError())
                 if "ranking.elo" in name
-                else __builtins__.__import__(name, *a, **kw) if hasattr(__builtins__, '__import__') else None,
+                else __builtins__.__import__(name, *a, **kw)
+                if hasattr(__builtins__, "__import__")
+                else None,
             ):
                 text = handler._command_status()
         # Falls back to simple status
@@ -770,23 +767,21 @@ class TestCommandDebate:
 
     @pytest.mark.usefixtures("_patch_tg")
     def test_no_args_custom_label(self, handler, _patch_tg):
-        result = handler._command_debate(
-            CHAT_ID, USER_ID, USERNAME, "", mode_label="plan"
-        )
+        result = handler._command_debate(CHAT_ID, USER_ID, USERNAME, "", mode_label="plan")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_tg")
     def test_no_args_uses_command_label(self, handler, _patch_tg):
-        result = handler._command_debate(
-            CHAT_ID, USER_ID, USERNAME, "", command_label="implement"
-        )
+        result = handler._command_debate(CHAT_ID, USER_ID, USERNAME, "", command_label="implement")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_tg")
     def test_decision_integrity_passed_through(self, handler, _patch_tg):
         di = {"include_receipt": True, "include_plan": True}
         result = handler._command_debate(
-            CHAT_ID, USER_ID, USERNAME,
+            CHAT_ID,
+            USER_ID,
+            USERNAME,
             "A sufficiently long topic for debate",
             decision_integrity=di,
         )
@@ -821,8 +816,10 @@ class TestCommandGauntlet:
     @pytest.mark.usefixtures("_patch_tg")
     def test_valid_statement_starts_gauntlet(self, handler, _patch_tg):
         result = handler._command_gauntlet(
-            CHAT_ID, USER_ID, USERNAME,
-            "We should migrate to microservices for our main application"
+            CHAT_ID,
+            USER_ID,
+            USERNAME,
+            "We should migrate to microservices for our main application",
         )
         assert _status(result) == 200
         # ack + gauntlet task
@@ -843,8 +840,7 @@ class TestCommandGauntlet:
     @pytest.mark.usefixtures("_patch_tg")
     def test_quotes_stripped(self, handler, _patch_tg):
         result = handler._command_gauntlet(
-            CHAT_ID, USER_ID, USERNAME,
-            "'We should definitely use microservices'"
+            CHAT_ID, USER_ID, USERNAME, "'We should definitely use microservices'"
         )
         assert _status(result) == 200
 
@@ -895,7 +891,12 @@ class TestCommandSearch:
         mock_db = MagicMock(spec=[])
         mock_db.get_recent_debates = MagicMock(
             return_value=[
-                {"topic": "machine learning strategy", "id": "d3", "consensus_reached": True, "conclusion": ""},
+                {
+                    "topic": "machine learning strategy",
+                    "id": "d3",
+                    "consensus_reached": True,
+                    "conclusion": "",
+                },
             ]
         )
         # No search method, but has get_recent_debates
@@ -935,8 +936,7 @@ class TestCommandSearch:
     def test_search_results_truncation(self, handler):
         mock_db = MagicMock()
         results = [
-            {"topic": "A" * 100, "id": f"d{i}", "consensus_reached": True}
-            for i in range(10)
+            {"topic": "A" * 100, "id": f"d{i}", "consensus_reached": True} for i in range(10)
         ]
         mock_db.search.return_value = (results, 10)
         with patch("aragora.storage.get_storage", return_value=mock_db):
@@ -1078,12 +1078,16 @@ class TestCommandReceipt:
             "confidence": 0.7,
         }
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store",
-            side_effect=ImportError("no store"),
-        ), patch("aragora.storage.get_storage", return_value=mock_db), patch(
-            "aragora.gauntlet.receipt.DecisionReceipt.from_dict",
-            side_effect=ImportError("no receipt module"),
+        with (
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                side_effect=ImportError("no store"),
+            ),
+            patch("aragora.storage.get_storage", return_value=mock_db),
+            patch(
+                "aragora.gauntlet.receipt.DecisionReceipt.from_dict",
+                side_effect=ImportError("no receipt module"),
+            ),
         ):
             text = handler._command_receipt("d1")
         assert "d1" in text
@@ -1092,28 +1096,37 @@ class TestCommandReceipt:
         mock_db = MagicMock()
         mock_db.get_debate.return_value = None
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store",
-            side_effect=ImportError("no store"),
-        ), patch("aragora.storage.get_storage", return_value=mock_db):
+        with (
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                side_effect=ImportError("no store"),
+            ),
+            patch("aragora.storage.get_storage", return_value=mock_db),
+        ):
             text = handler._command_receipt("nonexistent")
         assert "No debate found" in text
 
     def test_receipt_no_storage(self, handler):
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store",
-            side_effect=ImportError("no store"),
-        ), patch("aragora.storage.get_storage", return_value=None):
+        with (
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                side_effect=ImportError("no store"),
+            ),
+            patch("aragora.storage.get_storage", return_value=None),
+        ):
             text = handler._command_receipt("d1")
         assert "not available" in text
 
     def test_receipt_error_handling(self, handler):
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store",
-            side_effect=ImportError("no store"),
-        ), patch(
-            "aragora.storage.get_storage",
-            side_effect=ValueError("db error"),
+        with (
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                side_effect=ImportError("no store"),
+            ),
+            patch(
+                "aragora.storage.get_storage",
+                side_effect=ValueError("db error"),
+            ),
         ):
             text = handler._command_receipt("d1")
         assert "error occurred" in text
@@ -1132,12 +1145,16 @@ class TestCommandReceipt:
             "confidence": 0.5,
         }
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store",
-            return_value=mock_store,
-        ), patch("aragora.storage.get_storage", return_value=mock_db), patch(
-            "aragora.gauntlet.receipt.DecisionReceipt.from_dict",
-            side_effect=ImportError("no module"),
+        with (
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch("aragora.storage.get_storage", return_value=mock_db),
+            patch(
+                "aragora.gauntlet.receipt.DecisionReceipt.from_dict",
+                side_effect=ImportError("no module"),
+            ),
         ):
             text = handler._command_receipt("d1")
         assert "d1" in text
@@ -1398,43 +1415,29 @@ class TestRunDebateAsync:
 
         handler._send_message_async = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment") as mock_env, \
-             patch("aragora.agents.get_agents_by_names", return_value=["a1", "a2"]), \
-             patch("aragora.DebateProtocol") as mock_proto, \
-             patch("aragora.Arena") as MockArena, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands._tg"
-             ) as mock_tg_fn, \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin"
-             ), \
-             patch(
-                 "aragora.server.debate_origin.mark_result_sent"
-             ), \
-             patch(
-                 "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
-                 new_callable=AsyncMock,
-             ):
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment") as mock_env,
+            patch("aragora.agents.get_agents_by_names", return_value=["a1", "a2"]),
+            patch("aragora.DebateProtocol") as mock_proto,
+            patch("aragora.Arena") as MockArena,
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands._tg") as mock_tg_fn,
+            patch("aragora.server.debate_origin.register_debate_origin"),
+            patch("aragora.server.debate_origin.mark_result_sent"),
+            patch(
+                "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
+                new_callable=AsyncMock,
+            ),
+        ):
             MockArena.from_env.return_value = mock_arena
             mock_tg_fn.return_value.TTS_VOICE_ENABLED = False
 
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Test topic for debate"
-            )
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Test topic for debate")
 
         handler._send_message_async.assert_called()
 
@@ -1442,26 +1445,20 @@ class TestRunDebateAsync:
     async def test_debate_no_agents(self, handler):
         handler._send_message_async = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment"), \
-             patch("aragora.agents.get_agents_by_names", return_value=[]), \
-             patch("aragora.DebateProtocol"), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_failed"
-             ) as rec_fail, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin"
-             ):
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Test topic for debate"
-            )
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names", return_value=[]),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_debate_failed"
+            ) as rec_fail,
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.debate_origin.register_debate_origin"),
+        ):
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Test topic for debate")
 
         # Should send "No agents available" message
         call_args = handler._send_message_async.call_args_list
@@ -1472,27 +1469,21 @@ class TestRunDebateAsync:
     async def test_debate_runtime_error(self, handler):
         handler._send_message_async = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch(
-                 "aragora.Environment",
-                 side_effect=RuntimeError("env error"),
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_failed"
-             ) as rec_fail, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin"
-             ):
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Test topic"
-            )
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch(
+                "aragora.Environment",
+                side_effect=RuntimeError("env error"),
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_debate_failed"
+            ) as rec_fail,
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.debate_origin.register_debate_origin"),
+        ):
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Test topic")
 
         rec_fail.assert_called_once()
         # Should send error message
@@ -1514,39 +1505,29 @@ class TestRunDebateAsync:
         handler._send_message_async = AsyncMock()
         handler._send_voice_summary = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment"), \
-             patch("aragora.agents.get_agents_by_names", return_value=["a1"]), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.Arena") as MockArena, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands._tg"
-             ) as mock_tg_fn, \
-             patch("aragora.server.debate_origin.register_debate_origin"), \
-             patch("aragora.server.debate_origin.mark_result_sent"), \
-             patch(
-                 "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
-                 new_callable=AsyncMock,
-             ):
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names", return_value=["a1"]),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.Arena") as MockArena,
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands._tg") as mock_tg_fn,
+            patch("aragora.server.debate_origin.register_debate_origin"),
+            patch("aragora.server.debate_origin.mark_result_sent"),
+            patch(
+                "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
+                new_callable=AsyncMock,
+            ),
+        ):
             MockArena.from_env.return_value = mock_arena
             mock_tg_fn.return_value.TTS_VOICE_ENABLED = True
 
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Test topic for TTS"
-            )
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Test topic for TTS")
 
         handler._send_voice_summary.assert_called_once()
 
@@ -1565,41 +1546,31 @@ class TestRunDebateAsync:
 
         handler._send_message_async = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment"), \
-             patch("aragora.agents.get_agents_by_names", return_value=["a1"]), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.Arena") as MockArena, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands._tg"
-             ) as mock_tg_fn, \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 side_effect=ImportError("not available"),
-             ), \
-             patch(
-                 "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
-                 new_callable=AsyncMock,
-             ):
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names", return_value=["a1"]),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.Arena") as MockArena,
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=ImportError("not available"),
+            ),
+            patch(
+                "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
+                new_callable=AsyncMock,
+            ),
+        ):
             MockArena.from_env.return_value = mock_arena
             mock_tg_fn.return_value.TTS_VOICE_ENABLED = False
 
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Test topic no origin"
-            )
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Test topic no origin")
 
         handler._send_message_async.assert_called()
 
@@ -1635,41 +1606,31 @@ class TestRunDebateAsync:
         mock_router = MagicMock()
         mock_router.resolve.return_value = mock_resolution
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment"), \
-             patch("aragora.agents.get_agents_by_names", return_value=["a1", "a2", "a3"]), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.Arena") as MockArena, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands._tg"
-             ) as mock_tg_fn, \
-             patch("aragora.server.debate_origin.register_debate_origin"), \
-             patch("aragora.server.debate_origin.mark_result_sent"), \
-             patch("aragora.server.bindings.get_binding_router", return_value=mock_router), \
-             patch("aragora.server.bindings.BindingType", mock_binding_type), \
-             patch(
-                 "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
-                 new_callable=AsyncMock,
-             ):
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names", return_value=["a1", "a2", "a3"]),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.Arena") as MockArena,
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands._tg") as mock_tg_fn,
+            patch("aragora.server.debate_origin.register_debate_origin"),
+            patch("aragora.server.debate_origin.mark_result_sent"),
+            patch("aragora.server.bindings.get_binding_router", return_value=mock_router),
+            patch("aragora.server.bindings.BindingType", mock_binding_type),
+            patch(
+                "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
+                new_callable=AsyncMock,
+            ),
+        ):
             MockArena.from_env.return_value = mock_arena
             mock_tg_fn.return_value.TTS_VOICE_ENABLED = False
 
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Binding test topic"
-            )
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Binding test topic")
 
         handler._send_message_async.assert_called()
 
@@ -1688,39 +1649,29 @@ class TestRunDebateAsync:
 
         handler._send_message_async = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment"), \
-             patch("aragora.agents.get_agents_by_names", return_value=["a1"]), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.Arena") as MockArena, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands._tg"
-             ) as mock_tg_fn, \
-             patch("aragora.server.debate_origin.register_debate_origin"), \
-             patch("aragora.server.debate_origin.mark_result_sent"), \
-             patch(
-                 "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
-                 new_callable=AsyncMock,
-             ):
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names", return_value=["a1"]),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.Arena") as MockArena,
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands._tg") as mock_tg_fn,
+            patch("aragora.server.debate_origin.register_debate_origin"),
+            patch("aragora.server.debate_origin.mark_result_sent"),
+            patch(
+                "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
+                new_callable=AsyncMock,
+            ),
+        ):
             MockArena.from_env.return_value = mock_arena
             mock_tg_fn.return_value.TTS_VOICE_ENABLED = False
 
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "Long answer test"
-            )
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "Long answer test")
 
         # The message should include "..." for truncated answer
         calls = handler._send_message_async.call_args_list
@@ -1742,39 +1693,29 @@ class TestRunDebateAsync:
 
         handler._send_message_async = AsyncMock()
 
-        with patch("aragora.config.DEFAULT_CONSENSUS", "majority"), \
-             patch("aragora.config.DEFAULT_ROUNDS", 3), \
-             patch("aragora.Environment"), \
-             patch("aragora.agents.get_agents_by_names", return_value=["a1"]), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.Arena") as MockArena, \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.record_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_started"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands.emit_debate_completed"
-             ), \
-             patch(
-                 "aragora.server.handlers.social.telegram.commands._tg"
-             ) as mock_tg_fn, \
-             patch("aragora.server.debate_origin.register_debate_origin"), \
-             patch("aragora.server.debate_origin.mark_result_sent"), \
-             patch(
-                 "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
-                 new_callable=AsyncMock,
-             ):
+        with (
+            patch("aragora.config.DEFAULT_CONSENSUS", "majority"),
+            patch("aragora.config.DEFAULT_ROUNDS", 3),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names", return_value=["a1"]),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.Arena") as MockArena,
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_debate_completed"),
+            patch("aragora.server.handlers.social.telegram.commands._tg") as mock_tg_fn,
+            patch("aragora.server.debate_origin.register_debate_origin"),
+            patch("aragora.server.debate_origin.mark_result_sent"),
+            patch(
+                "aragora.server.decision_integrity_utils.maybe_emit_decision_integrity",
+                new_callable=AsyncMock,
+            ),
+        ):
             MockArena.from_env.return_value = mock_arena
             mock_tg_fn.return_value.TTS_VOICE_ENABLED = False
 
-            await handler._run_debate_async(
-                CHAT_ID, USER_ID, USERNAME, "No answer test"
-            )
+            await handler._run_debate_async(CHAT_ID, USER_ID, USERNAME, "No answer test")
 
         calls = handler._send_message_async.call_args_list
         msg_text = str(calls[-1])
@@ -1812,17 +1753,17 @@ class TestRunGauntletAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
-        ) as rec_comp, patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
+            ) as rec_comp,
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"),
         ):
             await handler._run_gauntlet_async(
                 CHAT_ID, USER_ID, USERNAME, "We should use microservices"
@@ -1857,17 +1798,17 @@ class TestRunGauntletAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
-        ) as rec_comp, patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
+            ) as rec_comp,
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"),
         ):
             await handler._run_gauntlet_async(
                 CHAT_ID, USER_ID, USERNAME, "We should use microservices"
@@ -1898,19 +1839,18 @@ class TestRunGauntletAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
-        ) as rec_fail, patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
+            ) as rec_fail,
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
         ):
-            await handler._run_gauntlet_async(
-                CHAT_ID, USER_ID, USERNAME, "Statement to test"
-            )
+            await handler._run_gauntlet_async(CHAT_ID, USER_ID, USERNAME, "Statement to test")
 
         rec_fail.assert_called_once()
         calls = handler._send_message_async.call_args_list
@@ -1929,15 +1869,16 @@ class TestRunGauntletAsync:
         mock_session_cm.__aexit__ = AsyncMock(return_value=False)
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
-        ) as rec_fail, patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
+            ) as rec_fail,
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
         ):
             await handler._run_gauntlet_async(
                 CHAT_ID, USER_ID, USERNAME, "Connection test statement"
@@ -1959,19 +1900,18 @@ class TestRunGauntletAsync:
         mock_session_cm.__aexit__ = AsyncMock(return_value=False)
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
-        ) as rec_fail, patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch(
+                "aragora.server.handlers.social.telegram.commands.record_gauntlet_failed"
+            ) as rec_fail,
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
         ):
-            await handler._run_gauntlet_async(
-                CHAT_ID, USER_ID, USERNAME, "Timeout test statement"
-            )
+            await handler._run_gauntlet_async(CHAT_ID, USER_ID, USERNAME, "Timeout test statement")
 
         rec_fail.assert_called_once()
 
@@ -1999,21 +1939,17 @@ class TestRunGauntletAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"),
         ):
-            await handler._run_gauntlet_async(
-                CHAT_ID, USER_ID, USERNAME, "Many vulns test"
-            )
+            await handler._run_gauntlet_async(CHAT_ID, USER_ID, USERNAME, "Many vulns test")
 
         calls = handler._send_message_async.call_args_list
         msg_text = str(calls[-1])
@@ -2042,21 +1978,17 @@ class TestRunGauntletAsync:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_session_cm
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"
-        ), patch(
-            "aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_started"),
+            patch("aragora.server.handlers.social.telegram.commands.record_gauntlet_completed"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_started"),
+            patch("aragora.server.handlers.social.telegram.commands.emit_gauntlet_completed"),
         ):
-            await handler._run_gauntlet_async(
-                CHAT_ID, USER_ID, USERNAME, "Clean statement here"
-            )
+            await handler._run_gauntlet_async(CHAT_ID, USER_ID, USERNAME, "Clean statement here")
 
         calls = handler._send_message_async.call_args_list
         msg_text = str(calls[-1])
@@ -2083,19 +2015,13 @@ class TestEdgeCases:
     def test_multiple_at_signs_in_command(self, handler, _patch_tg):
         """Only splits on first @ in the command."""
         with patch.object(handler, "_command_help", return_value="text"):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/help@bot@extra"
-            )
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/help@bot@extra")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
     def test_empty_args_for_receipt(self, handler, _patch_tg):
-        with patch.object(
-            handler, "_command_receipt", return_value="Please provide a debate ID"
-        ):
-            result = handler._handle_command(
-                CHAT_ID, USER_ID, USERNAME, "/receipt"
-            )
+        with patch.object(handler, "_command_receipt", return_value="Please provide a debate ID"):
+            result = handler._handle_command(CHAT_ID, USER_ID, USERNAME, "/receipt")
         assert _status(result) == 200
 
     def test_format_receipt_empty_agents(self, handler):
@@ -2159,7 +2085,12 @@ class TestEdgeCases:
         mock_db = MagicMock(spec=[])
         mock_db.get_recent_debates = MagicMock(
             return_value=[
-                {"topic": "unrelated topic", "id": "d1", "consensus_reached": True, "conclusion": "stuff"},
+                {
+                    "topic": "unrelated topic",
+                    "id": "d1",
+                    "consensus_reached": True,
+                    "conclusion": "stuff",
+                },
             ]
         )
 
@@ -2172,7 +2103,12 @@ class TestEdgeCases:
         mock_db = MagicMock(spec=[])
         mock_db.get_recent_debates = MagicMock(
             return_value=[
-                {"topic": "A topic", "id": "d1", "consensus_reached": True, "conclusion": "machine learning is great"},
+                {
+                    "topic": "A topic",
+                    "id": "d1",
+                    "consensus_reached": True,
+                    "conclusion": "machine learning is great",
+                },
             ]
         )
 

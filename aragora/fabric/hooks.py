@@ -352,7 +352,11 @@ class HookManager:
             hook.status = HookStatus.ASSIGNED
             hook.retry_count += 1
             logger.warning(
-                "Hook %s failed (retry %s/%s): %s", hook_id, hook.retry_count, hook.max_retries, error
+                "Hook %s failed (retry %s/%s): %s",
+                hook_id,
+                hook.retry_count,
+                hook.max_retries,
+                error,
             )
         else:
             hook.status = HookStatus.FAILED

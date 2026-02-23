@@ -176,12 +176,27 @@ def sample_execution_plan():
             {"id": "a2", "name": "Developer", "type": "codex", "capabilities": ["code"]},
         ],
         "tasks": [
-            {"id": "t1", "name": "Research best practices", "type": "agent_task",
-             "assigned_agent": "a1", "depends_on": []},
-            {"id": "t2", "name": "Implement service", "type": "agent_task",
-             "assigned_agent": "a2", "depends_on": ["t1"]},
-            {"id": "t3", "name": "Review code", "type": "verification",
-             "assigned_agent": "a1", "depends_on": ["t2"]},
+            {
+                "id": "t1",
+                "name": "Research best practices",
+                "type": "agent_task",
+                "assigned_agent": "a1",
+                "depends_on": [],
+            },
+            {
+                "id": "t2",
+                "name": "Implement service",
+                "type": "agent_task",
+                "assigned_agent": "a2",
+                "depends_on": ["t1"],
+            },
+            {
+                "id": "t3",
+                "name": "Review code",
+                "type": "verification",
+                "assigned_agent": "a1",
+                "depends_on": ["t2"],
+            },
         ],
     }
 
@@ -283,9 +298,7 @@ class TestDebateToIdeasConverter:
 
     def test_node_types_mapped(self, sample_debate_data):
         canvas = debate_to_ideas_canvas(sample_debate_data)
-        node_types = {
-            n.data["idea_type"] for n in canvas.nodes.values()
-        }
+        node_types = {n.data["idea_type"] for n in canvas.nodes.values()}
         assert "concept" in node_types  # from proposal
         assert "question" in node_types  # from critique
         assert "evidence" in node_types  # from evidence
@@ -328,10 +341,7 @@ class TestGoalsToCanvas:
 
     def test_dependency_edges(self, sample_goals):
         canvas = goals_to_canvas(sample_goals)
-        dep_edges = [
-            e for e in canvas.edges.values()
-            if e.label == "requires"
-        ]
+        dep_edges = [e for e in canvas.edges.values() if e.label == "requires"]
         assert len(dep_edges) == 2  # g3 depends on g1 and g2
 
     def test_provenance_edges(self, sample_goals):
@@ -346,10 +356,7 @@ class TestGoalsToCanvas:
             )
         ]
         canvas = goals_to_canvas(sample_goals, provenance=prov)
-        prov_edges = [
-            e for e in canvas.edges.values()
-            if e.data.get("provenance")
-        ]
+        prov_edges = [e for e in canvas.edges.values() if e.data.get("provenance")]
         assert len(prov_edges) == 1
 
 
@@ -384,18 +391,12 @@ class TestExecutionToOrchestrationCanvas:
 
     def test_agent_nodes(self, sample_execution_plan):
         canvas = execution_to_orchestration_canvas(sample_execution_plan)
-        agent_nodes = [
-            n for n in canvas.nodes.values()
-            if n.data.get("orch_type") == "agent"
-        ]
+        agent_nodes = [n for n in canvas.nodes.values() if n.data.get("orch_type") == "agent"]
         assert len(agent_nodes) == 2
 
     def test_dependency_edges(self, sample_execution_plan):
         canvas = execution_to_orchestration_canvas(sample_execution_plan)
-        dep_edges = [
-            e for e in canvas.edges.values()
-            if e.label == "blocks"
-        ]
+        dep_edges = [e for e in canvas.edges.values() if e.label == "blocks"]
         assert len(dep_edges) == 2  # t2 depends on t1, t3 depends on t2
 
 
@@ -546,13 +547,15 @@ class TestGoalExtractor:
 
     def test_extract_from_raw_ideas(self):
         extractor = GoalExtractor()
-        goal_graph = extractor.extract_from_raw_ideas([
-            "We need better user authentication",
-            "The authentication system should support OAuth2",
-            "Users want single sign-on capabilities",
-            "Performance monitoring is important",
-            "We should add metrics to all endpoints",
-        ])
+        goal_graph = extractor.extract_from_raw_ideas(
+            [
+                "We need better user authentication",
+                "The authentication system should support OAuth2",
+                "Users want single sign-on capabilities",
+                "Performance monitoring is important",
+                "We should add metrics to all endpoints",
+            ]
+        )
         assert len(goal_graph.goals) >= 1
 
     def test_empty_ideas(self):
@@ -651,14 +654,16 @@ class TestIdeaToExecutionPipeline:
 
     def test_from_ideas_list(self):
         pipeline = IdeaToExecutionPipeline()
-        result = pipeline.from_ideas([
-            "Build a REST API for user management",
-            "Add JWT authentication",
-            "Create admin dashboard",
-            "Set up CI/CD pipeline",
-            "Write integration tests",
-            "Deploy to production",
-        ])
+        result = pipeline.from_ideas(
+            [
+                "Build a REST API for user management",
+                "Add JWT authentication",
+                "Create admin dashboard",
+                "Set up CI/CD pipeline",
+                "Write integration tests",
+                "Deploy to production",
+            ]
+        )
 
         assert result.ideas_canvas is not None
         assert result.goal_graph is not None
@@ -679,10 +684,7 @@ class TestIdeaToExecutionPipeline:
         result = pipeline.from_debate(sample_debate_data)
 
         orch_rf = to_react_flow(result.orchestration_canvas)
-        agent_nodes = [
-            n for n in orch_rf["nodes"]
-            if n["data"].get("orch_type") == "agent"
-        ]
+        agent_nodes = [n for n in orch_rf["nodes"] if n["data"].get("orch_type") == "agent"]
         assert len(agent_nodes) >= 1
 
 
@@ -706,9 +708,11 @@ class TestCanvasPipelineHandler:
 
     @pytest.mark.asyncio
     async def test_from_debate_endpoint(self, handler, sample_debate_data):
-        hr = await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-        })
+        hr = await handler.handle_from_debate(
+            {
+                "cartographer_data": sample_debate_data,
+            }
+        )
         result = _parse(hr)
         assert "pipeline_id" in result
         assert result["stages_completed"] == 4
@@ -720,9 +724,13 @@ class TestCanvasPipelineHandler:
 
     @pytest.mark.asyncio
     async def test_from_ideas_endpoint(self, handler):
-        result = _parse(await handler.handle_from_ideas({
-            "ideas": ["idea one", "idea two", "idea three"],
-        }))
+        result = _parse(
+            await handler.handle_from_ideas(
+                {
+                    "ideas": ["idea one", "idea two", "idea three"],
+                }
+            )
+        )
         assert "pipeline_id" in result
         assert result["goals_count"] >= 1
 
@@ -733,17 +741,25 @@ class TestCanvasPipelineHandler:
 
     @pytest.mark.asyncio
     async def test_convert_debate_endpoint(self, handler, sample_debate_data):
-        result = _parse(await handler.handle_convert_debate({
-            "cartographer_data": sample_debate_data,
-        }))
+        result = _parse(
+            await handler.handle_convert_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                }
+            )
+        )
         assert "nodes" in result
         assert "edges" in result
 
     @pytest.mark.asyncio
     async def test_convert_workflow_endpoint(self, handler, sample_workflow):
-        result = _parse(await handler.handle_convert_workflow({
-            "workflow_data": sample_workflow,
-        }))
+        result = _parse(
+            await handler.handle_convert_workflow(
+                {
+                    "workflow_data": sample_workflow,
+                }
+            )
+        )
         assert "nodes" in result
         assert len(result["nodes"]) == 3
 
@@ -770,16 +786,24 @@ class TestCanvasPipelineHandler:
     @pytest.mark.asyncio
     async def test_advance_to_goals(self, handler, sample_debate_data):
         """Create pipeline with auto_advance=False, then advance to goals."""
-        create_result = _parse(await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-            "auto_advance": False,
-        }))
+        create_result = _parse(
+            await handler.handle_from_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                    "auto_advance": False,
+                }
+            )
+        )
         pid = create_result["pipeline_id"]
 
-        result = _parse(await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "goals",
-        }))
+        result = _parse(
+            await handler.handle_advance(
+                {
+                    "pipeline_id": pid,
+                    "target_stage": "goals",
+                }
+            )
+        )
         assert result["pipeline_id"] == pid
         assert result["advanced_to"] == "goals"
         assert result["stage_status"]["goals"] == "complete"
@@ -787,39 +811,55 @@ class TestCanvasPipelineHandler:
     @pytest.mark.asyncio
     async def test_advance_to_actions(self, handler, sample_debate_data):
         """Advance from goals to actions."""
-        create_result = _parse(await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-            "auto_advance": False,
-        }))
+        create_result = _parse(
+            await handler.handle_from_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                    "auto_advance": False,
+                }
+            )
+        )
         pid = create_result["pipeline_id"]
 
         # First advance to goals
-        await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "goals",
-        })
+        await handler.handle_advance(
+            {
+                "pipeline_id": pid,
+                "target_stage": "goals",
+            }
+        )
         # Then advance to actions
-        result = _parse(await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "actions",
-        }))
+        result = _parse(
+            await handler.handle_advance(
+                {
+                    "pipeline_id": pid,
+                    "target_stage": "actions",
+                }
+            )
+        )
         assert result["advanced_to"] == "actions"
         assert result["stage_status"]["actions"] == "complete"
 
     @pytest.mark.asyncio
     async def test_advance_to_orchestration(self, handler, sample_debate_data):
         """Full stage-by-stage advance to orchestration."""
-        create_result = _parse(await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-            "auto_advance": False,
-        }))
+        create_result = _parse(
+            await handler.handle_from_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                    "auto_advance": False,
+                }
+            )
+        )
         pid = create_result["pipeline_id"]
 
         for stage in ["goals", "actions", "orchestration"]:
-            await handler.handle_advance({
-                "pipeline_id": pid,
-                "target_stage": stage,
-            })
+            await handler.handle_advance(
+                {
+                    "pipeline_id": pid,
+                    "target_stage": stage,
+                }
+            )
 
         result = _parse(await handler.handle_get_pipeline(pid))
         assert result["stage_status"]["orchestration"] == "complete"
@@ -832,58 +872,86 @@ class TestCanvasPipelineHandler:
 
     @pytest.mark.asyncio
     async def test_advance_invalid_stage(self, handler, sample_debate_data):
-        create_result = _parse(await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-            "auto_advance": False,
-        }))
+        create_result = _parse(
+            await handler.handle_from_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                    "auto_advance": False,
+                }
+            )
+        )
         pid = create_result["pipeline_id"]
-        result = _parse(await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "nonexistent_stage",
-        }))
+        result = _parse(
+            await handler.handle_advance(
+                {
+                    "pipeline_id": pid,
+                    "target_stage": "nonexistent_stage",
+                }
+            )
+        )
         assert "error" in result
 
     @pytest.mark.asyncio
     async def test_advance_not_found(self, handler):
-        result = _parse(await handler.handle_advance({
-            "pipeline_id": "pipe-doesnotexist",
-            "target_stage": "goals",
-        }))
+        result = _parse(
+            await handler.handle_advance(
+                {
+                    "pipeline_id": "pipe-doesnotexist",
+                    "target_stage": "goals",
+                }
+            )
+        )
         assert "error" in result
         assert "not found" in result["error"]
 
     @pytest.mark.asyncio
     async def test_advance_preserves_provenance(self, handler, sample_debate_data):
         """Advancing should maintain provenance chain integrity."""
-        create_result = _parse(await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-            "auto_advance": False,
-        }))
+        create_result = _parse(
+            await handler.handle_from_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                    "auto_advance": False,
+                }
+            )
+        )
         pid = create_result["pipeline_id"]
 
-        result = _parse(await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "goals",
-        }))
+        result = _parse(
+            await handler.handle_advance(
+                {
+                    "pipeline_id": pid,
+                    "target_stage": "goals",
+                }
+            )
+        )
         pipeline_data = result["result"]
         assert pipeline_data["provenance_count"] > 0
 
     @pytest.mark.asyncio
     async def test_advance_full_sequence(self, handler, sample_debate_data):
         """Advance through all 4 stages sequentially and verify final state."""
-        create_result = _parse(await handler.handle_from_debate({
-            "cartographer_data": sample_debate_data,
-            "auto_advance": False,
-        }))
+        create_result = _parse(
+            await handler.handle_from_debate(
+                {
+                    "cartographer_data": sample_debate_data,
+                    "auto_advance": False,
+                }
+            )
+        )
         pid = create_result["pipeline_id"]
         assert create_result["stage_status"]["ideas"] == "complete"
         assert create_result["stage_status"]["goals"] == "pending"
 
         for stage in ["goals", "actions", "orchestration"]:
-            result = _parse(await handler.handle_advance({
-                "pipeline_id": pid,
-                "target_stage": stage,
-            }))
+            result = _parse(
+                await handler.handle_advance(
+                    {
+                        "pipeline_id": pid,
+                        "target_stage": stage,
+                    }
+                )
+            )
             assert result["advanced_to"] == stage
             assert result["stage_status"][stage] == "complete"
 

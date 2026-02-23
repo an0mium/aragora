@@ -52,8 +52,12 @@ def _status(result) -> int:
     return result.status_code
 
 
-def _make_event_handler(body_dict: dict | None = None, body_str: str | None = None,
-                        team_id: str = "T789", workspace: Any = None):
+def _make_event_handler(
+    body_dict: dict | None = None,
+    body_str: str | None = None,
+    team_id: str = "T789",
+    workspace: Any = None,
+):
     """Build a mock HTTP handler with Slack event body attributes."""
     h = MagicMock()
     if body_str is not None:
@@ -71,27 +75,40 @@ def _url_verification_event(challenge: str = "abc123") -> dict:
     return {"type": "url_verification", "challenge": challenge}
 
 
-def _event_callback(inner_type: str, inner_event: dict | None = None,
-                    team_id: str = "T789") -> dict:
+def _event_callback(
+    inner_type: str, inner_event: dict | None = None, team_id: str = "T789"
+) -> dict:
     ev = inner_event or {}
     ev.setdefault("type", inner_type)
     return {"type": "event_callback", "team_id": team_id, "event": ev}
 
 
-def _app_mention_event(text: str = "<@U0BOT> hello", channel: str = "C456",
-                       user: str = "U123", ts: str = "1234567890.123456") -> dict:
-    return _event_callback("app_mention", {
-        "type": "app_mention",
-        "text": text,
-        "channel": channel,
-        "user": user,
-        "ts": ts,
-    })
+def _app_mention_event(
+    text: str = "<@U0BOT> hello",
+    channel: str = "C456",
+    user: str = "U123",
+    ts: str = "1234567890.123456",
+) -> dict:
+    return _event_callback(
+        "app_mention",
+        {
+            "type": "app_mention",
+            "text": text,
+            "channel": channel,
+            "user": user,
+            "ts": ts,
+        },
+    )
 
 
-def _message_event(text: str = "hello", channel: str = "D456", user: str = "U123",
-                   channel_type: str = "im", bot_id: str | None = None,
-                   subtype: str | None = None) -> dict:
+def _message_event(
+    text: str = "hello",
+    channel: str = "D456",
+    user: str = "U123",
+    channel_type: str = "im",
+    bot_id: str | None = None,
+    subtype: str | None = None,
+) -> dict:
     ev: dict[str, Any] = {
         "type": "message",
         "text": text,
@@ -115,6 +132,7 @@ def _message_event(text: str = "hello", channel: str = "D456", user: str = "U123
 def handler_module():
     """Import the handler module lazily (after conftest patches)."""
     from aragora.server.handlers.social._slack_impl import handler as mod
+
     return mod
 
 
@@ -122,6 +140,7 @@ def handler_module():
 def events_module():
     """Import the events module lazily."""
     from aragora.server.handlers.social._slack_impl import events as mod
+
     return mod
 
 
@@ -129,6 +148,7 @@ def events_module():
 def config_module():
     """Import the config module lazily."""
     from aragora.server.handlers.social._slack_impl import config as mod
+
     return mod
 
 
@@ -153,6 +173,7 @@ def _disable_rate_limit_decorator(monkeypatch):
     """Disable the @rate_limit decorator so it does not interfere with tests."""
     try:
         from aragora.server.handlers.utils import rate_limit as rl_mod
+
         monkeypatch.setattr(rl_mod, "_RATE_LIMIT_DISABLED", True, raising=False)
     except (ImportError, AttributeError):
         pass
@@ -228,9 +249,11 @@ class TestHandleEventsCallback:
 
     def test_unknown_inner_event_returns_ok(self, slack_handler):
         """Unknown inner event type still returns ok."""
-        h = _make_event_handler(_event_callback("reaction_added", {
-            "type": "reaction_added", "user": "U1", "channel": "C1"
-        }))
+        h = _make_event_handler(
+            _event_callback(
+                "reaction_added", {"type": "reaction_added", "user": "U1", "channel": "C1"}
+            )
+        )
         result = slack_handler._handle_events(h)
         assert _status(result) == 200
         assert _body(result)["ok"] is True
@@ -566,7 +589,13 @@ class TestHandleMessageEventFiltering:
 
     def test_bot_message_subtype_ignored(self, slack_handler):
         """Bot messages (subtype=bot_message) are ignored."""
-        ev = {"channel_type": "im", "subtype": "bot_message", "text": "hi", "user": "U1", "channel": "D1"}
+        ev = {
+            "channel_type": "im",
+            "subtype": "bot_message",
+            "text": "hi",
+            "user": "U1",
+            "channel": "D1",
+        }
         result = slack_handler._handle_message_event(ev)
         assert _body(result)["ok"] is True
 
@@ -768,7 +797,12 @@ class TestHandleMessageEventDebate:
         monkeypatch.setattr(events_module, "SLACK_BOT_TOKEN", "xoxb-test")
         monkeypatch.setattr(events_module, "create_tracked_task", mock_task)
 
-        ev = {"channel_type": "im", "text": "debate Should we use Rust for backend?", "user": "U1", "channel": "D1"}
+        ev = {
+            "channel_type": "im",
+            "text": "debate Should we use Rust for backend?",
+            "user": "U1",
+            "channel": "D1",
+        }
         result = slack_handler._handle_message_event(ev)
         assert _body(result)["ok"] is True
         # Two calls: one for debate task, one for response
@@ -780,7 +814,12 @@ class TestHandleMessageEventDebate:
         monkeypatch.setattr(events_module, "SLACK_BOT_TOKEN", None)
         monkeypatch.setattr(events_module, "create_tracked_task", mock_task)
 
-        ev = {"channel_type": "im", "text": "debate Should we use Rust for backend?", "user": "U1", "channel": "D1"}
+        ev = {
+            "channel_type": "im",
+            "text": "debate Should we use Rust for backend?",
+            "user": "U1",
+            "channel": "D1",
+        }
         result = slack_handler._handle_message_event(ev)
         assert _body(result)["ok"] is True
         mock_task.assert_not_called()
@@ -791,7 +830,12 @@ class TestHandleMessageEventDebate:
         monkeypatch.setattr(events_module, "SLACK_BOT_TOKEN", "xoxb-test")
         monkeypatch.setattr(events_module, "create_tracked_task", mock_task)
 
-        ev = {"channel_type": "im", "text": 'debate "Should we adopt Kubernetes?"', "user": "U1", "channel": "D1"}
+        ev = {
+            "channel_type": "im",
+            "text": 'debate "Should we adopt Kubernetes?"',
+            "user": "U1",
+            "channel": "D1",
+        }
         result = slack_handler._handle_message_event(ev)
         assert _body(result)["ok"] is True
         assert mock_task.call_count == 2
@@ -812,7 +856,12 @@ class TestHandleMessageEventDebate:
     def test_debate_case_insensitive(self, slack_handler):
         """'Debate' and 'DEBATE' also trigger debate handling."""
         for prefix in ["Debate", "DEBATE"]:
-            ev = {"channel_type": "im", "text": f"{prefix} This is a long enough topic for debate", "user": "U1", "channel": "D1"}
+            ev = {
+                "channel_type": "im",
+                "text": f"{prefix} This is a long enough topic for debate",
+                "user": "U1",
+                "channel": "D1",
+            }
             result = slack_handler._handle_message_event(ev)
             assert _body(result)["ok"] is True
 
@@ -879,10 +928,12 @@ class TestCreateDmDebateAsync:
 
         mock_agents = [MagicMock(), MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment") as mock_env_cls, \
-             patch("aragora.DebateProtocol") as mock_proto_cls, \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment") as mock_env_cls,
+            patch("aragora.DebateProtocol") as mock_proto_cls,
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena_cls.from_env.return_value = mock_arena
             slack_handler._post_message_async = AsyncMock()
 
@@ -897,10 +948,12 @@ class TestCreateDmDebateAsync:
     @pytest.mark.asyncio
     async def test_no_agents(self, slack_handler):
         """When no agents are available, posts error message."""
-        with patch("aragora.Arena"), \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=[]):
+        with (
+            patch("aragora.Arena"),
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=[]),
+        ):
             slack_handler._post_message_async = AsyncMock()
 
             await slack_handler._create_dm_debate_async("test topic", "D1", "U1")
@@ -915,6 +968,7 @@ class TestCreateDmDebateAsync:
         slack_handler._post_message_async = AsyncMock()
 
         import sys
+
         # Temporarily block aragora.agents import to trigger ImportError
         orig = sys.modules.get("aragora.agents")
         sys.modules["aragora.agents"] = None  # type: ignore[assignment]
@@ -943,10 +997,12 @@ class TestCreateDmDebateAsync:
 
         mock_agents = [MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena_cls.from_env.return_value = mock_arena
             slack_handler._post_message_async = AsyncMock()
 
@@ -969,10 +1025,12 @@ class TestCreateDmDebateAsync:
 
         mock_agents = [MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena_cls.from_env.return_value = mock_arena
             slack_handler._post_message_async = AsyncMock()
 
@@ -986,10 +1044,12 @@ class TestCreateDmDebateAsync:
         """ValueError during debate posts error message."""
         mock_agents = [MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena_cls.from_env.side_effect = ValueError("bad config")
             slack_handler._post_message_async = AsyncMock()
 
@@ -1003,10 +1063,12 @@ class TestCreateDmDebateAsync:
         """RuntimeError during debate posts error message."""
         mock_agents = [MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena = MagicMock()
             mock_arena.run = AsyncMock(side_effect=RuntimeError("connection lost"))
             mock_arena_cls.from_env.return_value = mock_arena
@@ -1032,10 +1094,12 @@ class TestCreateDmDebateAsync:
 
         mock_agents = [MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena_cls.from_env.return_value = mock_arena
             slack_handler._post_message_async = AsyncMock()
 
@@ -1059,10 +1123,12 @@ class TestCreateDmDebateAsync:
 
         mock_agents = [MagicMock()]
 
-        with patch("aragora.Arena") as mock_arena_cls, \
-             patch("aragora.Environment"), \
-             patch("aragora.DebateProtocol"), \
-             patch("aragora.agents.get_agents_by_names", return_value=mock_agents):
+        with (
+            patch("aragora.Arena") as mock_arena_cls,
+            patch("aragora.Environment"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.agents.get_agents_by_names", return_value=mock_agents),
+        ):
             mock_arena_cls.from_env.return_value = mock_arena
             slack_handler._post_message_async = AsyncMock()
 
@@ -1106,9 +1172,9 @@ class TestFullEventFlow:
         monkeypatch.setattr(events_module, "SLACK_BOT_TOKEN", "xoxb-test")
         monkeypatch.setattr(events_module, "create_tracked_task", mock_task)
 
-        h = _make_event_handler(_message_event(
-            "debate Should we use microservices architecture?", channel_type="im"
-        ))
+        h = _make_event_handler(
+            _message_event("debate Should we use microservices architecture?", channel_type="im")
+        )
         result = slack_handler._handle_events(h)
         assert _status(result) == 200
         assert mock_task.call_count == 2  # debate task + response task

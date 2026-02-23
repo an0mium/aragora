@@ -339,18 +339,12 @@ class TestGroupByTimeEdgeCases:
 
     def test_large_number_of_items(self):
         base_dt = datetime(2025, 1, 1, tzinfo=timezone.utc)
-        items = [
-            {"ts": (base_dt + timedelta(days=i)).isoformat(), "val": i}
-            for i in range(100)
-        ]
+        items = [{"ts": (base_dt + timedelta(days=i)).isoformat(), "val": i} for i in range(100)]
         result = _group_by_time(items, "ts", "daily")
         assert len(result) == 100  # each day unique
 
     def test_all_items_same_bucket(self):
-        items = [
-            {"ts": "2025-03-01T01:00:00+00:00", "val": i}
-            for i in range(10)
-        ]
+        items = [{"ts": "2025-03-01T01:00:00+00:00", "val": i} for i in range(10)]
         result = _group_by_time(items, "ts", "daily")
         assert len(result) == 1
         assert len(result["2025-03-01"]) == 10

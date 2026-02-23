@@ -372,7 +372,10 @@ class TierManager:
             new_tier = self.get_next_tier(entry_tier, "faster")
             if new_tier:
                 self.record_promotion(entry_tier, new_tier)
-                return new_tier, f"Consolidated: promoted from {entry_tier.value} to {new_tier.value}"
+                return (
+                    new_tier,
+                    f"Consolidated: promoted from {entry_tier.value} to {new_tier.value}",
+                )
             return None, f"Already at fastest tier ({entry_tier.value})"
 
         elif decision_action == "demote":

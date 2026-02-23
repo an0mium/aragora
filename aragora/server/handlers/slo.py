@@ -196,9 +196,7 @@ class SLOHandler(BaseHandler):
             return json_response(status_json)
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get SLO status: %s", e)
-            return error_response(
-                "Internal server error", 500, code="SLO_STATUS_ERROR"
-            )
+            return error_response("Internal server error", 500, code="SLO_STATUS_ERROR")
 
     def _handle_slo_detail(self, slo_name: str) -> HandlerResult:
         """GET /api/slos/{slo_name} - Individual SLO details."""
@@ -229,9 +227,7 @@ class SLOHandler(BaseHandler):
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get SLO detail for %s: %s", slo_name, e)
-            return error_response(
-                "Internal server error", 500, code="SLO_DETAIL_ERROR"
-            )
+            return error_response("Internal server error", 500, code="SLO_DETAIL_ERROR")
 
     def _handle_error_budget(self) -> HandlerResult:
         """GET /api/slos/error-budget - Error budget timeline."""
@@ -270,9 +266,7 @@ class SLOHandler(BaseHandler):
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get error budget: %s", e)
-            return error_response(
-                "Internal server error", 500, code="ERROR_BUDGET_ERROR"
-            )
+            return error_response("Internal server error", 500, code="ERROR_BUDGET_ERROR")
 
     def _handle_violations(self) -> HandlerResult:
         """GET /api/slos/violations - Recent SLO violations."""
@@ -305,9 +299,7 @@ class SLOHandler(BaseHandler):
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get violations: %s", e)
-            return error_response(
-                "Internal server error", 500, code="VIOLATIONS_ERROR"
-            )
+            return error_response("Internal server error", 500, code="VIOLATIONS_ERROR")
 
     def _handle_targets(self) -> HandlerResult:
         """GET /api/slos/targets - Get configured SLO targets."""

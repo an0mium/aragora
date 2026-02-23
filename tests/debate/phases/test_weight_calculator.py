@@ -40,6 +40,7 @@ from aragora.debate.phases.weight_calculator import (
 # Mock helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
@@ -78,6 +79,7 @@ class MockVote:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _clean_global_cache():
     """Clean the global weight cache manager between tests."""
@@ -89,6 +91,7 @@ def _clean_global_cache():
 # ===========================================================================
 # WeightFactors
 # ===========================================================================
+
 
 class TestWeightFactors:
     """Tests for WeightFactors dataclass."""
@@ -131,6 +134,7 @@ class TestWeightFactors:
 # ===========================================================================
 # WeightCache
 # ===========================================================================
+
 
 class TestWeightCache:
     """Tests for WeightCache class."""
@@ -200,7 +204,7 @@ class TestWeightCache:
         cache = WeightCache("sess-1")
         cache.put("alice", "general", 1.0, WeightFactors())
         cache.get("alice", "general")  # hit
-        cache.get("bob", "general")    # miss
+        cache.get("bob", "general")  # miss
 
         cache.clear()
 
@@ -216,7 +220,7 @@ class TestWeightCache:
 
         cache.get("alice", "general")  # hit
         cache.get("alice", "general")  # hit
-        cache.get("bob", "general")    # miss
+        cache.get("bob", "general")  # miss
 
         stats = cache.get_stats()
         assert stats["session_id"] == "sess-1"
@@ -253,6 +257,7 @@ class TestWeightCache:
 # Global cache manager
 # ===========================================================================
 
+
 class TestGlobalCacheManager:
     """Tests for get_weight_cache / cleanup_weight_cache."""
 
@@ -283,6 +288,7 @@ class TestGlobalCacheManager:
 # ===========================================================================
 # WeightCalculator
 # ===========================================================================
+
 
 class TestWeightCalculator:
     """Tests for WeightCalculator class."""

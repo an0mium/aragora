@@ -377,6 +377,7 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_timeout_exhausts_retries(self, connector):
         """Test timeout exhausts all retries."""
+
         async def always_timeout():
             raise httpx.TimeoutException("timeout")
 
@@ -439,6 +440,7 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_client_error_no_retry(self, connector):
         """Test 4xx error does not retry."""
+
         async def client_error():
             response = MagicMock()
             response.status_code = 400
@@ -453,6 +455,7 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_parse_error_no_retry(self, connector):
         """Test parse error does not retry."""
+
         async def parse_error():
             raise RuntimeError("json decode error")
 

@@ -33,6 +33,7 @@ def _body(result: object) -> dict:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_node(
     node_id: str = "n-1",
     stage: str = "ideas",
@@ -86,6 +87,7 @@ def _make_graph(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def handler():
     return PipelineGraphHandler()
@@ -109,6 +111,7 @@ def mock_store():
 # ---------------------------------------------------------------------------
 # can_handle
 # ---------------------------------------------------------------------------
+
 
 class TestCanHandle:
     def test_v1_pipeline_graph(self, handler):
@@ -152,6 +155,7 @@ class TestCanHandle:
 # Dispatch routing
 # ---------------------------------------------------------------------------
 
+
 class TestDispatch:
     def test_handle_dispatches_get_graph(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
@@ -186,25 +190,25 @@ class TestDispatch:
 
     def test_handle_post_dispatches_create(self, handler, mock_store):
         mock_handler = MagicMock()
-        mock_handler.request.body = b'{}'
+        mock_handler.request.body = b"{}"
         result = handler.handle_post("/api/v1/pipeline/graph", {}, mock_handler)
         assert result is not None
 
     def test_handle_post_dispatches_add_node(self, handler, mock_store):
         mock_handler = MagicMock()
-        mock_handler.request.body = b'{}'
+        mock_handler.request.body = b"{}"
         result = handler.handle_post("/api/v1/pipeline/graph/g-1/node", {}, mock_handler)
         assert result is not None
 
     def test_handle_post_dispatches_promote(self, handler, mock_store):
         mock_handler = MagicMock()
-        mock_handler.request.body = b'{}'
+        mock_handler.request.body = b"{}"
         result = handler.handle_post("/api/v1/pipeline/graph/g-1/promote", {}, mock_handler)
         assert result is not None
 
     def test_handle_post_returns_none_for_unknown(self, handler, mock_store):
         mock_handler = MagicMock()
-        mock_handler.request.body = b'{}'
+        mock_handler.request.body = b"{}"
         result = handler.handle_post("/api/v1/pipeline/unknown", {}, mock_handler)
         assert result is None
 
@@ -225,6 +229,7 @@ class TestDispatch:
 # _get_request_body
 # ---------------------------------------------------------------------------
 
+
 class TestGetRequestBody:
     def test_parses_json_body(self):
         handler = MagicMock()
@@ -240,13 +245,13 @@ class TestGetRequestBody:
 
     def test_invalid_json_returns_empty_dict(self):
         handler = MagicMock()
-        handler.request.body = b'not json'
+        handler.request.body = b"not json"
         result = PipelineGraphHandler._get_request_body(handler)
         assert result == {}
 
     def test_empty_body_returns_empty_dict(self):
         handler = MagicMock()
-        handler.request.body = b''
+        handler.request.body = b""
         result = PipelineGraphHandler._get_request_body(handler)
         assert result == {}
 
@@ -259,6 +264,7 @@ class TestGetRequestBody:
 # ---------------------------------------------------------------------------
 # POST create graph
 # ---------------------------------------------------------------------------
+
 
 class TestCreateGraph:
     @pytest.mark.asyncio
@@ -285,26 +291,32 @@ class TestCreateGraph:
 
     @pytest.mark.asyncio
     async def test_with_owner_and_workspace(self, handler, mock_store):
-        result = await handler.handle_create_graph({
-            "owner_id": "user-1",
-            "workspace_id": "ws-1",
-        })
+        result = await handler.handle_create_graph(
+            {
+                "owner_id": "user-1",
+                "workspace_id": "ws-1",
+            }
+        )
         assert _body(result)["created"] is True
 
     @pytest.mark.asyncio
     async def test_with_metadata(self, handler, mock_store):
-        result = await handler.handle_create_graph({
-            "metadata": {"purpose": "test"},
-        })
+        result = await handler.handle_create_graph(
+            {
+                "metadata": {"purpose": "test"},
+            }
+        )
         assert _body(result)["created"] is True
 
     @pytest.mark.asyncio
     async def test_with_nodes(self, handler, mock_store):
-        result = await handler.handle_create_graph({
-            "nodes": [
-                {"stage": "ideas", "node_subtype": "concept", "label": "Idea 1"},
-            ],
-        })
+        result = await handler.handle_create_graph(
+            {
+                "nodes": [
+                    {"stage": "ideas", "node_subtype": "concept", "label": "Idea 1"},
+                ],
+            }
+        )
         assert _body(result)["node_count"] == 1
 
     @pytest.mark.asyncio
@@ -317,6 +329,7 @@ class TestCreateGraph:
 # ---------------------------------------------------------------------------
 # GET get graph
 # ---------------------------------------------------------------------------
+
 
 class TestGetGraph:
     @pytest.mark.asyncio
@@ -346,6 +359,7 @@ class TestGetGraph:
 # GET list graphs
 # ---------------------------------------------------------------------------
 
+
 class TestListGraphs:
     @pytest.mark.asyncio
     async def test_empty_list(self, handler, mock_store):
@@ -365,37 +379,50 @@ class TestListGraphs:
     async def test_with_owner_filter(self, handler, mock_store):
         await handler.handle_list_graphs({"owner_id": "user-1"})
         mock_store.list.assert_called_once_with(
-            owner_id="user-1", workspace_id=None, limit=50,
+            owner_id="user-1",
+            workspace_id=None,
+            limit=50,
         )
 
     @pytest.mark.asyncio
     async def test_with_workspace_filter(self, handler, mock_store):
         await handler.handle_list_graphs({"workspace_id": "ws-1"})
         mock_store.list.assert_called_once_with(
-            owner_id=None, workspace_id="ws-1", limit=50,
+            owner_id=None,
+            workspace_id="ws-1",
+            limit=50,
         )
 
     @pytest.mark.asyncio
     async def test_combined_filters(self, handler, mock_store):
-        await handler.handle_list_graphs({
-            "owner_id": "u-1", "workspace_id": "ws-1",
-        })
+        await handler.handle_list_graphs(
+            {
+                "owner_id": "u-1",
+                "workspace_id": "ws-1",
+            }
+        )
         mock_store.list.assert_called_once_with(
-            owner_id="u-1", workspace_id="ws-1", limit=50,
+            owner_id="u-1",
+            workspace_id="ws-1",
+            limit=50,
         )
 
     @pytest.mark.asyncio
     async def test_with_limit(self, handler, mock_store):
         await handler.handle_list_graphs({"limit": "10"})
         mock_store.list.assert_called_once_with(
-            owner_id=None, workspace_id=None, limit=10,
+            owner_id=None,
+            workspace_id=None,
+            limit=10,
         )
 
     @pytest.mark.asyncio
     async def test_default_limit(self, handler, mock_store):
         await handler.handle_list_graphs({})
         mock_store.list.assert_called_once_with(
-            owner_id=None, workspace_id=None, limit=50,
+            owner_id=None,
+            workspace_id=None,
+            limit=50,
         )
 
     @pytest.mark.asyncio
@@ -411,6 +438,7 @@ class TestListGraphs:
 # ---------------------------------------------------------------------------
 # DELETE delete graph
 # ---------------------------------------------------------------------------
+
 
 class TestDeleteGraph:
     @pytest.mark.asyncio
@@ -440,24 +468,32 @@ class TestDeleteGraph:
 # POST add node
 # ---------------------------------------------------------------------------
 
+
 class TestAddNode:
     @pytest.mark.asyncio
     async def test_success(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
-        result = await handler.handle_add_node("g-1", {
-            "stage": "ideas",
-            "node_subtype": "concept",
-            "label": "New Idea",
-        })
+        result = await handler.handle_add_node(
+            "g-1",
+            {
+                "stage": "ideas",
+                "node_subtype": "concept",
+                "label": "New Idea",
+            },
+        )
         assert _body(result)["added"] is True
         assert _body(result)["graph_id"] == "g-1"
 
     @pytest.mark.asyncio
     async def test_graph_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
-        result = await handler.handle_add_node("g-1", {
-            "stage": "ideas", "node_subtype": "concept",
-        })
+        result = await handler.handle_add_node(
+            "g-1",
+            {
+                "stage": "ideas",
+                "node_subtype": "concept",
+            },
+        )
         assert result.status_code >= 400
         assert "not found" in _body(result)["error"]
 
@@ -484,15 +520,20 @@ class TestAddNode:
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler, mock_store):
         with patch.dict("sys.modules", {"aragora.pipeline.universal_node": None}):
-            result = await handler.handle_add_node("g-1", {
-                "stage": "ideas", "node_subtype": "concept",
-            })
+            result = await handler.handle_add_node(
+                "g-1",
+                {
+                    "stage": "ideas",
+                    "node_subtype": "concept",
+                },
+            )
         assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
 # DELETE remove node
 # ---------------------------------------------------------------------------
+
 
 class TestRemoveNode:
     @pytest.mark.asyncio
@@ -529,6 +570,7 @@ class TestRemoveNode:
 # GET query nodes
 # ---------------------------------------------------------------------------
 
+
 class TestQueryNodes:
     @pytest.mark.asyncio
     async def test_without_filters(self, handler, mock_store):
@@ -551,7 +593,8 @@ class TestQueryNodes:
     @pytest.mark.asyncio
     async def test_with_both_filters(self, handler, mock_store):
         result = await handler.handle_query_nodes(
-            "g-1", {"stage": "goals", "subtype": "goal"},
+            "g-1",
+            {"stage": "goals", "subtype": "goal"},
         )
         assert _body(result)["count"] == 0
 
@@ -574,6 +617,7 @@ class TestQueryNodes:
 # POST promote
 # ---------------------------------------------------------------------------
 
+
 class TestPromote:
     @pytest.mark.asyncio
     async def test_ideas_to_goals(self, handler, mock_store):
@@ -585,7 +629,8 @@ class TestPromote:
             return_value=[created_node],
         ) as mock_fn:
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
+                "g-1",
+                {"node_ids": ["n-1"], "target_stage": "goals"},
             )
         assert _body(result)["graph_id"] == "g-1"
         assert _body(result)["target_stage"] == "goals"
@@ -604,7 +649,8 @@ class TestPromote:
             return_value=[created],
         ):
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["goal-1"], "target_stage": "actions"},
+                "g-1",
+                {"node_ids": ["goal-1"], "target_stage": "actions"},
             )
         assert _body(result)["promoted_count"] == 1
 
@@ -618,7 +664,8 @@ class TestPromote:
             return_value=[created],
         ):
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["action-1"], "target_stage": "orchestration"},
+                "g-1",
+                {"node_ids": ["action-1"], "target_stage": "orchestration"},
             )
         assert _body(result)["promoted_count"] == 1
 
@@ -626,7 +673,8 @@ class TestPromote:
     async def test_cannot_promote_to_ideas(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_promote(
-            "g-1", {"node_ids": ["n-1"], "target_stage": "ideas"},
+            "g-1",
+            {"node_ids": ["n-1"], "target_stage": "ideas"},
         )
         assert result.status_code >= 400
 
@@ -634,7 +682,8 @@ class TestPromote:
     async def test_invalid_target_stage(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_promote(
-            "g-1", {"node_ids": ["n-1"], "target_stage": "invalid"},
+            "g-1",
+            {"node_ids": ["n-1"], "target_stage": "invalid"},
         )
         assert result.status_code >= 400
         assert "Invalid" in _body(result)["error"]
@@ -643,7 +692,8 @@ class TestPromote:
     async def test_missing_node_ids(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_promote(
-            "g-1", {"target_stage": "goals"},
+            "g-1",
+            {"target_stage": "goals"},
         )
         assert result.status_code >= 400
         assert "node_ids" in _body(result)["error"]
@@ -652,7 +702,8 @@ class TestPromote:
     async def test_missing_target_stage(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_promote(
-            "g-1", {"node_ids": ["n-1"]},
+            "g-1",
+            {"node_ids": ["n-1"]},
         )
         assert result.status_code >= 400
         assert "target_stage" in _body(result)["error"]
@@ -667,7 +718,8 @@ class TestPromote:
     async def test_graph_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
         result = await handler.handle_promote(
-            "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
+            "g-1",
+            {"node_ids": ["n-1"], "target_stage": "goals"},
         )
         assert result.status_code >= 400
         assert "not found" in _body(result)["error"]
@@ -683,7 +735,8 @@ class TestPromote:
             return_value=[created],
         ):
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
+                "g-1",
+                {"node_ids": ["n-1"], "target_stage": "goals"},
             )
         assert _body(result)["transition_count"] == 2
 
@@ -697,7 +750,8 @@ class TestPromote:
             return_value=nodes,
         ):
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
+                "g-1",
+                {"node_ids": ["n-1"], "target_stage": "goals"},
             )
         assert _body(result)["promoted_count"] == 3
         assert mock_store.add_node.call_count == 3
@@ -706,7 +760,8 @@ class TestPromote:
     async def test_import_error_fallback(self, handler, mock_store):
         with patch.dict("sys.modules", {"aragora.pipeline.stage_transitions": None}):
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
+                "g-1",
+                {"node_ids": ["n-1"], "target_stage": "goals"},
             )
         assert result.status_code >= 400
 
@@ -714,6 +769,7 @@ class TestPromote:
 # ---------------------------------------------------------------------------
 # GET provenance
 # ---------------------------------------------------------------------------
+
 
 class TestProvenance:
     @pytest.mark.asyncio
@@ -749,6 +805,7 @@ class TestProvenance:
 # ---------------------------------------------------------------------------
 # GET react-flow
 # ---------------------------------------------------------------------------
+
 
 class TestReactFlow:
     @pytest.mark.asyncio
@@ -810,6 +867,7 @@ class TestReactFlow:
 # GET integrity
 # ---------------------------------------------------------------------------
 
+
 class TestIntegrity:
     @pytest.mark.asyncio
     async def test_success(self, handler, mock_store):
@@ -846,6 +904,7 @@ class TestIntegrity:
 # ---------------------------------------------------------------------------
 # Import fallback paths
 # ---------------------------------------------------------------------------
+
 
 class TestImportFallbacks:
     @pytest.mark.asyncio
@@ -888,9 +947,13 @@ class TestImportFallbacks:
             "aragora.pipeline.universal_node.UniversalNode.from_dict",
             side_effect=ValueError("bad data"),
         ):
-            result = await handler.handle_add_node("g-1", {
-                "stage": "ideas", "node_subtype": "concept",
-            })
+            result = await handler.handle_add_node(
+                "g-1",
+                {
+                    "stage": "ideas",
+                    "node_subtype": "concept",
+                },
+            )
         assert result.status_code >= 400
 
     @pytest.mark.asyncio
@@ -915,7 +978,8 @@ class TestImportFallbacks:
     async def test_promote_import_error(self, handler, mock_store):
         with patch.dict("sys.modules", {"aragora.pipeline.stage_transitions": None}):
             result = await handler.handle_promote(
-                "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
+                "g-1",
+                {"node_ids": ["n-1"], "target_stage": "goals"},
             )
         assert result.status_code >= 400
 
@@ -950,6 +1014,7 @@ class TestImportFallbacks:
 # ---------------------------------------------------------------------------
 # Constructor / routes
 # ---------------------------------------------------------------------------
+
 
 class TestConstructor:
     def test_default_context(self):

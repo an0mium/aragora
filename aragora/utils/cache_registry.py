@@ -53,7 +53,7 @@ def register_lru_cache(func: F) -> F:
     with _registry_lock:
         if func not in _registered_caches:
             _registered_caches.append(func)
-            logger.debug("Registered LRU cache: %s", getattr(func, '__name__', repr(func)))
+            logger.debug("Registered LRU cache: %s", getattr(func, "__name__", repr(func)))
     return func
 
 
@@ -89,7 +89,7 @@ def clear_all_lru_caches() -> int:
                     func.cache_clear()
                     total_cleared += entries
                     logger.debug(
-                        "Cleared %s entries from %s", entries, getattr(func, '__name__', 'unknown')
+                        "Cleared %s entries from %s", entries, getattr(func, "__name__", "unknown")
                     )
                 except (TypeError, AttributeError) as e:
                     logger.warning("Failed to clear cache for %s: %s", func, e)

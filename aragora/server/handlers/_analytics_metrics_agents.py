@@ -319,7 +319,9 @@ class AgentAnalyticsMixin:
                         "total_matches": h2h.get("total", 0),
                     }
                 except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-                    logger.debug("Error computing head-to-head for %s vs %s: %s", agent_a, agent_b, e)
+                    logger.debug(
+                        "Error computing head-to-head for %s vs %s: %s", agent_a, agent_b, e
+                    )
 
         return json_response(
             {

@@ -111,7 +111,11 @@ async def emit_scan_events(
         await emitter.emit(event)
 
         logger.info(
-            "[Security] Emitted %s event for scan %s: %s critical, %s high severity findings", event_type.value, scan_id, critical_count, high_count
+            "[Security] Emitted %s event for scan %s: %s critical, %s high severity findings",
+            event_type.value,
+            scan_id,
+            critical_count,
+            high_count,
         )
 
     except (KeyError, ValueError, TypeError, RuntimeError) as e:
@@ -201,7 +205,11 @@ async def emit_secrets_events(
         await emitter.emit(event)
 
         logger.info(
-            "[Security] Emitted %s event for secrets scan %s: %s critical, %s high severity findings", event_type.value, scan_id, critical_count, high_count
+            "[Security] Emitted %s event for secrets scan %s: %s critical, %s high severity findings",
+            event_type.value,
+            scan_id,
+            critical_count,
+            high_count,
         )
 
     except (KeyError, ValueError, TypeError, RuntimeError) as e:

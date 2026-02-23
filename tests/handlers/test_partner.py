@@ -1485,7 +1485,11 @@ class TestAuthentication:
     )
     def test_unauthenticated_returns_401(self, handler, unauth_ctx, path, method):
         """All @require_user_auth endpoints reject unauthenticated users."""
-        body = {"name": "test", "email": "t@t.com", "url": "https://ex.com/wh"} if method == "POST" else None
+        body = (
+            {"name": "test", "email": "t@t.com", "url": "https://ex.com/wh"}
+            if method == "POST"
+            else None
+        )
         headers = {"X-Partner-ID": "partner-001"}
         mock_h = MockHTTPHandler(method=method, body=body, headers=headers)
 

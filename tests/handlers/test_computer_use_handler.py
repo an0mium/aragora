@@ -69,12 +69,14 @@ class MockHTTPHandler:
 
 class MockTaskStatus(Enum):
     """Mirrors aragora.computer_use.orchestrator.TaskStatus."""
+
     COMPLETED = "completed"
     FAILED = "failed"
 
 
 class MockApprovalStatus(Enum):
     """Mirrors aragora.computer_use.approval.ApprovalStatus."""
+
     PENDING = "pending"
     APPROVED = "approved"
     DENIED = "denied"
@@ -101,10 +103,10 @@ def _make_task(
     task.created_at = kwargs.get("created_at", datetime.now(timezone.utc))
     task.updated_at = kwargs.get("updated_at", datetime.now(timezone.utc))
     task.steps_json = kwargs.get("steps_json", "[]")
-    task.result_json = kwargs.get("result_json", None)
-    task.error = kwargs.get("error", None)
-    task.user_id = kwargs.get("user_id", None)
-    task.tenant_id = kwargs.get("tenant_id", None)
+    task.result_json = kwargs.get("result_json")
+    task.error = kwargs.get("error")
+    task.user_id = kwargs.get("user_id")
+    task.tenant_id = kwargs.get("tenant_id")
     task.to_dict.return_value = {
         "task_id": task_id,
         "goal": goal,
@@ -203,13 +205,9 @@ def mock_workflow():
 def handler(mock_storage, monkeypatch):
     """Create a ComputerUseHandler with mocked dependencies."""
     # Ensure COMPUTER_USE_AVAILABLE is True
-    monkeypatch.setattr(
-        "aragora.server.handlers.computer_use_handler.COMPUTER_USE_AVAILABLE", True
-    )
+    monkeypatch.setattr("aragora.server.handlers.computer_use_handler.COMPUTER_USE_AVAILABLE", True)
     # Patch RBAC to be available and permissive
-    monkeypatch.setattr(
-        "aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True
-    )
+    monkeypatch.setattr("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True)
 
     from aragora.server.handlers.computer_use_handler import ComputerUseHandler
 
@@ -338,9 +336,7 @@ class TestListTasks:
         mock_storage.list_tasks.return_value = []
         mock_storage.count_tasks.return_value = 0
 
-        handler.handle(
-            "/api/v1/computer-use/tasks", {"limit": "999"}, MockHTTPHandler()
-        )
+        handler.handle("/api/v1/computer-use/tasks", {"limit": "999"}, MockHTTPHandler())
         mock_storage.list_tasks.assert_called_once_with(limit=100, status=None)
 
     def test_list_tasks_limit_invalid_uses_default(self, handler, mock_storage):
@@ -348,9 +344,7 @@ class TestListTasks:
         mock_storage.list_tasks.return_value = []
         mock_storage.count_tasks.return_value = 0
 
-        handler.handle(
-            "/api/v1/computer-use/tasks", {"limit": "abc"}, MockHTTPHandler()
-        )
+        handler.handle("/api/v1/computer-use/tasks", {"limit": "abc"}, MockHTTPHandler())
         mock_storage.list_tasks.assert_called_once_with(limit=20, status=None)
 
 
@@ -366,9 +360,7 @@ class TestGetTask:
         task = _make_task("task-abc123", "open file", "completed")
         mock_storage.get_task.return_value = task
 
-        result = handler.handle(
-            "/api/v1/computer-use/tasks/task-abc123", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/tasks/task-abc123", {}, MockHTTPHandler())
         body = _body(result)
 
         assert _status(result) == 200
@@ -377,9 +369,7 @@ class TestGetTask:
     def test_get_missing_task_404(self, handler, mock_storage):
         mock_storage.get_task.return_value = None
 
-        result = handler.handle(
-            "/api/v1/computer-use/tasks/nonexistent", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/tasks/nonexistent", {}, MockHTTPHandler())
 
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
@@ -420,9 +410,7 @@ class TestCreateTask:
         body = {"goal": "test click", "dry_run": True}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
         body_result = _body(result)
 
         assert _status(result) == 201
@@ -451,9 +439,7 @@ class TestCreateTask:
         )
 
         http_handler = MockHTTPHandler("POST", {"dry_run": True})
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
 
         assert _status(result) == 400
         assert "goal" in _body(result).get("error", "").lower()
@@ -480,9 +466,7 @@ class TestCreateTask:
         http_handler.rfile.read.return_value = b"not json"
         http_handler.headers["Content-Length"] = "8"
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
 
         assert _status(result) == 400
         assert "json" in _body(result).get("error", "").lower()
@@ -495,9 +479,7 @@ class TestCreateTask:
         )
 
         http_handler = MockHTTPHandler("POST", {"goal": "test"})
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
 
         assert _status(result) == 503
 
@@ -540,9 +522,7 @@ class TestCreateTask:
         body = {"goal": "click button", "max_steps": 5}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
 
         assert _status(result) == 201
         body_data = _body(result)
@@ -574,9 +554,7 @@ class TestCreateTask:
         body = {"goal": "test runtime error"}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
 
         # Should still succeed (201) but with failed status
         assert _status(result) == 201
@@ -609,9 +587,7 @@ class TestCreateTask:
         body = {"goal": "test os error"}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
         assert _status(result) == 201
         assert _body(result)["status"] == "failed"
 
@@ -637,9 +613,7 @@ class TestCreateTask:
         body = {"goal": ""}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
         assert _status(result) == 400
 
     def test_create_task_custom_max_steps(self, handler, mock_storage, monkeypatch):
@@ -664,9 +638,7 @@ class TestCreateTask:
         body = {"goal": "test", "dry_run": True, "max_steps": 25}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/tasks", {}, http_handler)
         assert _status(result) == 201
 
         # Verify saved task has max_steps=25
@@ -776,9 +748,7 @@ class TestActionStats:
     """Tests for GET /api/v1/computer-use/actions/stats."""
 
     def test_get_action_stats(self, handler, mock_storage):
-        result = handler.handle(
-            "/api/v1/computer-use/actions/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/actions/stats", {}, MockHTTPHandler())
 
         assert _status(result) == 200
         body = _body(result)
@@ -786,9 +756,7 @@ class TestActionStats:
         assert body["stats"]["click"]["total"] == 5
 
     def test_action_stats_calls_storage(self, handler, mock_storage):
-        handler.handle(
-            "/api/v1/computer-use/actions/stats", {}, MockHTTPHandler()
-        )
+        handler.handle("/api/v1/computer-use/actions/stats", {}, MockHTTPHandler())
         mock_storage.get_action_stats.assert_called_once()
 
 
@@ -803,9 +771,7 @@ class TestListPolicies:
     def test_list_policies_includes_default(self, handler, mock_storage):
         mock_storage.list_policies.return_value = []
 
-        result = handler.handle(
-            "/api/v1/computer-use/policies", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/policies", {}, MockHTTPHandler())
         body = _body(result)
 
         assert _status(result) == 200
@@ -816,9 +782,7 @@ class TestListPolicies:
         p1 = _make_policy("policy-001", "Custom Policy")
         mock_storage.list_policies.return_value = [p1]
 
-        result = handler.handle(
-            "/api/v1/computer-use/policies", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/policies", {}, MockHTTPHandler())
         body = _body(result)
 
         assert body["total"] == 2
@@ -829,9 +793,7 @@ class TestListPolicies:
     def test_list_policies_default_has_expected_actions(self, handler, mock_storage):
         mock_storage.list_policies.return_value = []
 
-        result = handler.handle(
-            "/api/v1/computer-use/policies", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/policies", {}, MockHTTPHandler())
         body = _body(result)
         default_policy = body["policies"][0]
 
@@ -846,9 +808,7 @@ class TestListPolicies:
     def test_list_policies_default_has_no_blocked_domains(self, handler, mock_storage):
         mock_storage.list_policies.return_value = []
 
-        result = handler.handle(
-            "/api/v1/computer-use/policies", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/policies", {}, MockHTTPHandler())
         body = _body(result)
         assert body["policies"][0]["blocked_domains"] == []
 
@@ -865,9 +825,7 @@ class TestCreatePolicy:
         body = {"name": "Strict Policy", "description": "Limits actions"}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/policies", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/policies", {}, http_handler)
         body_result = _body(result)
 
         assert _status(result) == 201
@@ -878,9 +836,7 @@ class TestCreatePolicy:
         body = {"description": "no name"}
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/policies", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/policies", {}, http_handler)
 
         assert _status(result) == 400
         assert "name" in _body(result).get("error", "").lower()
@@ -890,9 +846,7 @@ class TestCreatePolicy:
         http_handler.rfile.read.return_value = b"bad json"
         http_handler.headers["Content-Length"] = "8"
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/policies", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/policies", {}, http_handler)
         assert _status(result) == 400
 
     def test_create_policy_with_custom_actions(self, handler, mock_storage):
@@ -903,9 +857,7 @@ class TestCreatePolicy:
         }
         http_handler = MockHTTPHandler("POST", body)
 
-        result = handler.handle_post(
-            "/api/v1/computer-use/policies", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/computer-use/policies", {}, http_handler)
         assert _status(result) == 201
 
         saved = mock_storage.save_policy.call_args[0][0]
@@ -920,9 +872,7 @@ class TestCreatePolicy:
         handler.handle_post("/api/v1/computer-use/policies", {}, http_handler)
 
         saved = mock_storage.save_policy.call_args[0][0]
-        assert set(saved["allowed_actions"]) == {
-            "screenshot", "click", "type", "scroll", "key"
-        }
+        assert set(saved["allowed_actions"]) == {"screenshot", "click", "type", "scroll", "key"}
 
 
 # ---------------------------------------------------------------------------
@@ -940,9 +890,7 @@ class TestListApprovals:
         )
         handler._approval_workflow = None
 
-        result = handler.handle(
-            "/api/v1/computer-use/approvals", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/approvals", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_list_approvals_empty(self, handler, mock_workflow, monkeypatch):
@@ -956,9 +904,7 @@ class TestListApprovals:
         )
         handler._approval_workflow = mock_workflow
 
-        result = handler.handle(
-            "/api/v1/computer-use/approvals", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/approvals", {}, MockHTTPHandler())
         body = _body(result)
 
         assert _status(result) == 200
@@ -979,9 +925,7 @@ class TestListApprovals:
         )
         handler._approval_workflow = mock_workflow
 
-        result = handler.handle(
-            "/api/v1/computer-use/approvals", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/approvals", {}, MockHTTPHandler())
         body = _body(result)
 
         assert body["count"] == 2
@@ -1043,9 +987,7 @@ class TestGetApproval:
         )
         handler._approval_workflow = None
 
-        result = handler.handle(
-            "/api/v1/computer-use/approvals/req-001", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/approvals/req-001", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_get_approval_found(self, handler, mock_workflow, monkeypatch):
@@ -1060,9 +1002,7 @@ class TestGetApproval:
         )
         handler._approval_workflow = mock_workflow
 
-        result = handler.handle(
-            "/api/v1/computer-use/approvals/req-001", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/approvals/req-001", {}, MockHTTPHandler())
         body = _body(result)
 
         assert _status(result) == 200
@@ -1079,9 +1019,7 @@ class TestGetApproval:
         )
         handler._approval_workflow = mock_workflow
 
-        result = handler.handle(
-            "/api/v1/computer-use/approvals/req-999", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/approvals/req-999", {}, MockHTTPHandler())
         assert _status(result) == 404
 
 
@@ -1229,9 +1167,7 @@ class TestModuleUnavailable:
     """Tests when COMPUTER_USE_AVAILABLE is False."""
 
     def test_handle_returns_503(self, handler_no_computer_use):
-        result = handler_no_computer_use.handle(
-            "/api/v1/computer-use/tasks", {}, MockHTTPHandler()
-        )
+        result = handler_no_computer_use.handle("/api/v1/computer-use/tasks", {}, MockHTTPHandler())
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
 
@@ -1242,9 +1178,7 @@ class TestModuleUnavailable:
         assert _status(result) == 503
 
     def test_handle_unrelated_path_returns_none(self, handler_no_computer_use):
-        result = handler_no_computer_use.handle(
-            "/api/v1/debates", {}, MockHTTPHandler()
-        )
+        result = handler_no_computer_use.handle("/api/v1/debates", {}, MockHTTPHandler())
         assert result is None
 
 
@@ -1257,15 +1191,11 @@ class TestUnmatchedPaths:
     """Tests that handle/handle_post return None for unmatched sub-routes."""
 
     def test_handle_unknown_sub_path(self, handler):
-        result = handler.handle(
-            "/api/v1/computer-use/unknown", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/unknown", {}, MockHTTPHandler())
         assert result is None
 
     def test_handle_post_unknown_sub_path(self, handler):
-        result = handler.handle_post(
-            "/api/v1/computer-use/unknown", {}, MockHTTPHandler("POST")
-        )
+        result = handler.handle_post("/api/v1/computer-use/unknown", {}, MockHTTPHandler("POST"))
         assert result is None
 
     def test_handle_returns_none_for_non_matching(self, handler):
@@ -1273,9 +1203,7 @@ class TestUnmatchedPaths:
         assert result is None
 
     def test_handle_post_returns_none_for_non_matching(self, handler):
-        result = handler.handle_post(
-            "/api/v1/other", {}, MockHTTPHandler("POST")
-        )
+        result = handler.handle_post("/api/v1/other", {}, MockHTTPHandler("POST"))
         assert result is None
 
 
@@ -1434,9 +1362,7 @@ class TestRBACChecks:
     @pytest.mark.no_auto_auth
     def test_rbac_fail_closed_in_production(self, monkeypatch):
         """When RBAC is unavailable and environment is production, return 503."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.computer_use_handler.rbac_fail_closed",
             lambda: True,
@@ -1459,9 +1385,7 @@ class TestRBACChecks:
     @pytest.mark.no_auto_auth
     def test_rbac_permissive_in_dev(self, monkeypatch):
         """When RBAC is unavailable but not production, skip check."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.computer_use_handler.rbac_fail_closed",
             lambda: False,
@@ -1476,9 +1400,7 @@ class TestRBACChecks:
     @pytest.mark.no_auto_auth
     def test_rbac_unauthenticated_returns_401(self, monkeypatch):
         """When RBAC is available but user is not authenticated, return 401."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True
-        )
+        monkeypatch.setattr("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True)
         monkeypatch.setattr(
             "aragora.server.handlers.computer_use_handler.COMPUTER_USE_AVAILABLE", True
         )
@@ -1496,9 +1418,7 @@ class TestRBACChecks:
     @pytest.mark.no_auto_auth
     def test_rbac_permission_denied_returns_403(self, monkeypatch):
         """When permission check fails, return 403."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True
-        )
+        monkeypatch.setattr("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True)
 
         mock_ctx = MagicMock()
         mock_ctx.user_id = "user-001"
@@ -1523,9 +1443,7 @@ class TestRBACChecks:
     @pytest.mark.no_auto_auth
     def test_rbac_permission_allowed_returns_none(self, monkeypatch):
         """When permission check passes, returns None."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True
-        )
+        monkeypatch.setattr("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", True)
 
         mock_ctx = MagicMock()
         mock_ctx.user_id = "user-001"
@@ -1631,9 +1549,7 @@ class TestPathExtraction:
     def test_get_task_short_path_returns_none(self, handler):
         """Path with too few segments after /tasks/ skipped gracefully."""
         # /api/v1/computer-use/tasks/ with nothing after -> handled by exact match
-        result = handler.handle(
-            "/api/v1/computer-use/tasks/", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/computer-use/tasks/", {}, MockHTTPHandler())
         # The trailing slash means parts = ["api", "v1", "computer-use", "tasks", ""]
         # len(parts) >= 5, so task_id="" is used
         # This is fine; the storage will return None for empty id
@@ -1721,15 +1637,11 @@ class TestTaskSaveDetails:
             MagicMock(),
         )
 
-    def test_dry_run_task_saved_with_completed_status(
-        self, handler, mock_storage, monkeypatch
-    ):
+    def test_dry_run_task_saved_with_completed_status(self, handler, mock_storage, monkeypatch):
         self._setup_create_task(handler, monkeypatch)
 
         body = {"goal": "test", "dry_run": True}
-        handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, MockHTTPHandler("POST", body)
-        )
+        handler.handle_post("/api/v1/computer-use/tasks", {}, MockHTTPHandler("POST", body))
 
         # save_task called twice: once pending, once completed
         assert mock_storage.save_task.call_count == 2
@@ -1752,9 +1664,7 @@ class TestTaskSaveDetails:
         self._setup_create_task(handler, monkeypatch)
 
         body = {"goal": "test", "dry_run": True}
-        handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, MockHTTPHandler("POST", body)
-        )
+        handler.handle_post("/api/v1/computer-use/tasks", {}, MockHTTPHandler("POST", body))
 
         last_saved = mock_storage.save_task.call_args_list[-1][0][0]
         assert last_saved["result"]["steps_taken"] == 0
@@ -1763,9 +1673,7 @@ class TestTaskSaveDetails:
         self._setup_create_task(handler, monkeypatch)
 
         body = {"goal": "test", "dry_run": True}
-        handler.handle_post(
-            "/api/v1/computer-use/tasks", {}, MockHTTPHandler("POST", body)
-        )
+        handler.handle_post("/api/v1/computer-use/tasks", {}, MockHTTPHandler("POST", body))
 
         first_saved = mock_storage.save_task.call_args_list[0][0][0]
         assert "created_at" in first_saved

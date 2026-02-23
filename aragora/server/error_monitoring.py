@@ -409,7 +409,11 @@ def track_error_recovery(
     """
     if not _sentry_available:
         logger.info(
-            "Error recovery: type=%s, strategy=%s, success=%s, duration_ms=%s", error_type, recovery_strategy, success, duration_ms
+            "Error recovery: type=%s, strategy=%s, success=%s, duration_ms=%s",
+            error_type,
+            recovery_strategy,
+            success,
+            duration_ms,
         )
         return
 

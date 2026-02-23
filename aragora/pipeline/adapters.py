@@ -36,6 +36,7 @@ from aragora.pipeline.universal_node import (
 
 # ── CanvasNode ↔ UniversalNode ──────────────────────────────────────────
 
+
 def from_canvas_node(node: CanvasNode, stage: PipelineStage) -> UniversalNode:
     """Convert a CanvasNode to a UniversalNode."""
     subtype = node.data.get("idea_type", node.data.get("subtype", "concept"))
@@ -52,9 +53,19 @@ def from_canvas_node(node: CanvasNode, stage: PipelineStage) -> UniversalNode:
         content_hash=node.data.get("content_hash", content_hash(node.label)),
         status="active",
         confidence=float(node.data.get("confidence", 0)),
-        data={k: v for k, v in node.data.items()
-              if k not in ("idea_type", "subtype", "full_content", "description",
-                           "content_hash", "confidence")},
+        data={
+            k: v
+            for k, v in node.data.items()
+            if k
+            not in (
+                "idea_type",
+                "subtype",
+                "full_content",
+                "description",
+                "content_hash",
+                "confidence",
+            )
+        },
         style=node.style,
         metadata={"source_type": "canvas_node", "canvas_node_type": node.node_type.value},
         created_at=node.created_at.timestamp(),
@@ -111,6 +122,7 @@ def to_canvas_node(unode: UniversalNode) -> CanvasNode:
 
 # ── GoalNode ↔ UniversalNode ───────────────────────────────────────────
 
+
 def from_goal_node(goal: GoalNode) -> UniversalNode:
     """Convert a GoalNode to a UniversalNode."""
     return UniversalNode(
@@ -153,12 +165,14 @@ def to_goal_node(unode: UniversalNode) -> GoalNode:
         dependencies=unode.metadata.get("dependencies", []),
         source_idea_ids=list(unode.parent_ids),
         confidence=unode.confidence,
-        metadata={k: v for k, v in unode.metadata.items()
-                  if k not in ("source_type", "dependencies")},
+        metadata={
+            k: v for k, v in unode.metadata.items() if k not in ("source_type", "dependencies")
+        },
     )
 
 
 # ── Argument dict → UniversalNode ──────────────────────────────────────
+
 
 def from_argument_node(
     node: dict[str, Any],
@@ -170,21 +184,35 @@ def from_argument_node(
     return UniversalNode(
         id=node.get("id", str(uuid.uuid4())),
         stage=stage,
-        node_subtype=node_type if node_type in ("concept", "cluster", "question",
-                                                  "insight", "evidence", "assumption",
-                                                  "constraint") else "concept",
+        node_subtype=node_type
+        if node_type
+        in ("concept", "cluster", "question", "insight", "evidence", "assumption", "constraint")
+        else "concept",
         label=label,
         description=node.get("description", ""),
         content_hash=content_hash(label),
         confidence=float(node.get("weight", node.get("confidence", 0))),
-        data={k: v for k, v in node.items()
-              if k not in ("id", "label", "content", "node_type", "type",
-                           "description", "weight", "confidence")},
+        data={
+            k: v
+            for k, v in node.items()
+            if k
+            not in (
+                "id",
+                "label",
+                "content",
+                "node_type",
+                "type",
+                "description",
+                "weight",
+                "confidence",
+            )
+        },
         metadata={"source_type": "argument_node"},
     )
 
 
 # ── Bulk conversions ────────────────────────────────────────────────────
+
 
 def canvas_to_universal_graph(
     canvas: Canvas,

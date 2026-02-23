@@ -88,7 +88,9 @@ def _make_rule(
         name=name,
         conditions=[_make_condition()] if conditions is None else conditions,
         condition_logic=condition_logic,
-        actions=[RuleAction(type=RuleActionType.ASSIGN, target="support-team")] if actions is None else actions,
+        actions=[RuleAction(type=RuleActionType.ASSIGN, target="support-team")]
+        if actions is None
+        else actions,
         priority=priority,
         enabled=enabled,
         created_at=kwargs.get("created_at", datetime.now(timezone.utc)),
@@ -169,90 +171,122 @@ class TestEvaluateRuleConditionFields:
     """Test _evaluate_rule with different condition fields."""
 
     def test_from_field_contains(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "user"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "user")
+            ]
+        )
         msg = _FakeMessage(from_address="user@example.com")
         assert _evaluate_rule(rule, msg) is True
 
     def test_from_field_no_match(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin")
+            ]
+        )
         msg = _FakeMessage(from_address="user@example.com")
         assert _evaluate_rule(rule, msg) is False
 
     def test_to_field_contains(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.TO, RuleConditionOperator.CONTAINS, "inbox"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.TO, RuleConditionOperator.CONTAINS, "inbox")
+            ]
+        )
         msg = _FakeMessage(to_addresses=["inbox@company.com", "cc@company.com"])
         assert _evaluate_rule(rule, msg) is True
 
     def test_to_field_no_match(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.TO, RuleConditionOperator.CONTAINS, "sales"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.TO, RuleConditionOperator.CONTAINS, "sales")
+            ]
+        )
         msg = _FakeMessage(to_addresses=["inbox@company.com"])
         assert _evaluate_rule(rule, msg) is False
 
     def test_subject_field_contains(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ]
+        )
         msg = _FakeMessage(subject="Urgent: server issues")
         assert _evaluate_rule(rule, msg) is True
 
     def test_subject_field_no_match(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing"
+                )
+            ]
+        )
         msg = _FakeMessage(subject="Urgent: server issues")
         assert _evaluate_rule(rule, msg) is False
 
     def test_sender_domain_field(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "example.com"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "example.com"
+                )
+            ]
+        )
         msg = _FakeMessage(from_address="user@example.com")
         assert _evaluate_rule(rule, msg) is True
 
     def test_sender_domain_no_at_sign(self):
         """When from_address has no @, sender_domain is empty string."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "example.com"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "example.com"
+                )
+            ]
+        )
         msg = _FakeMessage(from_address="localuser")
         assert _evaluate_rule(rule, msg) is False
 
     def test_sender_domain_no_at_equals_empty(self):
         """No @ in address yields empty string; rule matching empty succeeds."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, ""
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "")
+            ]
+        )
         msg = _FakeMessage(from_address="localuser")
         assert _evaluate_rule(rule, msg) is True
 
     def test_priority_field(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.PRIORITY, RuleConditionOperator.EQUALS, "high"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.PRIORITY, RuleConditionOperator.EQUALS, "high")
+            ]
+        )
         msg = _FakeMessage(priority="high")
         assert _evaluate_rule(rule, msg) is True
 
     def test_priority_field_none(self):
         """When message.priority is None, it becomes empty string."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.PRIORITY, RuleConditionOperator.EQUALS, "high"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.PRIORITY, RuleConditionOperator.EQUALS, "high")
+            ]
+        )
         msg = _FakeMessage(priority=None)
         assert _evaluate_rule(rule, msg) is False
 
     def test_priority_field_none_matches_empty(self):
         """None priority resolves to empty string; equals '' matches."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.PRIORITY, RuleConditionOperator.EQUALS, ""
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.PRIORITY, RuleConditionOperator.EQUALS, "")
+            ]
+        )
         msg = _FakeMessage(priority=None)
         assert _evaluate_rule(rule, msg) is True
 
@@ -266,52 +300,74 @@ class TestEvaluateRuleOperators:
     """Test _evaluate_rule with different operators."""
 
     def test_contains_operator(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "alert"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "alert")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="Security alert!")) is True
         assert _evaluate_rule(rule, _FakeMessage(subject="Hello world")) is False
 
     def test_equals_operator(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.EQUALS, "hello"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.EQUALS, "hello")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="Hello")) is True
         assert _evaluate_rule(rule, _FakeMessage(subject="Hello World")) is False
 
     def test_starts_with_operator(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.STARTS_WITH, "re:"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.STARTS_WITH, "re:"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="Re: meeting")) is True
         assert _evaluate_rule(rule, _FakeMessage(subject="Fwd: Re: meeting")) is False
 
     def test_ends_with_operator(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.ENDS_WITH, "please"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.ENDS_WITH, "please"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="Help me please")) is True
         assert _evaluate_rule(rule, _FakeMessage(subject="Please help me")) is False
 
     def test_matches_operator_simple_regex(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"\d{3,}"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"\d{3,}"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="Ticket 12345")) is True
         assert _evaluate_rule(rule, _FakeMessage(subject="No digits")) is False
 
     def test_matches_operator_invalid_regex_returns_false(self):
         """Invalid regex pattern returns None from execute_regex_with_timeout -> no match."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, "[invalid"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, "[invalid"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="anything")) is False
 
     def test_matches_operator_regex_timeout(self):
         """Regex that times out returns None -> no match."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"test"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"test")
+            ]
+        )
         with patch(f"{MODULE}.execute_regex_with_timeout", return_value=None):
             assert _evaluate_rule(rule, _FakeMessage(subject="test")) is False
 
@@ -325,27 +381,37 @@ class TestEvaluateRuleCaseInsensitivity:
     """Test that rule evaluation is case-insensitive."""
 
     def test_from_case_insensitive(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "USER"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "USER")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(from_address="user@test.com")) is True
 
     def test_subject_case_insensitive(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.EQUALS, "URGENT"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.EQUALS, "URGENT")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="urgent")) is True
 
     def test_domain_case_insensitive(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "EXAMPLE.COM"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "EXAMPLE.COM"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(from_address="u@example.com")) is True
 
     def test_to_case_insensitive(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.TO, RuleConditionOperator.CONTAINS, "INBOX"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.TO, RuleConditionOperator.CONTAINS, "INBOX")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(to_addresses=["inbox@co.com"])) is True
 
 
@@ -360,7 +426,9 @@ class TestEvaluateRuleConditionLogic:
     def test_and_logic_all_match(self):
         rule = _make_rule(
             conditions=[
-                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"),
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                ),
                 _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "user"),
             ],
             condition_logic="AND",
@@ -371,7 +439,9 @@ class TestEvaluateRuleConditionLogic:
     def test_and_logic_one_fails(self):
         rule = _make_rule(
             conditions=[
-                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"),
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                ),
                 _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin"),
             ],
             condition_logic="AND",
@@ -382,7 +452,9 @@ class TestEvaluateRuleConditionLogic:
     def test_or_logic_one_matches(self):
         rule = _make_rule(
             conditions=[
-                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"),
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                ),
                 _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin"),
             ],
             condition_logic="OR",
@@ -393,7 +465,9 @@ class TestEvaluateRuleConditionLogic:
     def test_or_logic_none_match(self):
         rule = _make_rule(
             conditions=[
-                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing"),
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing"
+                ),
                 _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin"),
             ],
             condition_logic="OR",
@@ -419,57 +493,79 @@ class TestEvaluateRuleEdgeCases:
     """Edge cases for rule evaluation."""
 
     def test_empty_subject(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "test"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "test")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="")) is False
 
     def test_empty_from_address(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "test"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "test")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(from_address="")) is False
 
     def test_empty_to_addresses(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.TO, RuleConditionOperator.CONTAINS, "test"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.TO, RuleConditionOperator.CONTAINS, "test")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(to_addresses=[])) is False
 
     def test_multiple_to_addresses_joined(self):
         """TO field joins all addresses with space."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.TO, RuleConditionOperator.CONTAINS, "second"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.TO, RuleConditionOperator.CONTAINS, "second")
+            ]
+        )
         msg = _FakeMessage(to_addresses=["first@co.com", "second@co.com"])
         assert _evaluate_rule(rule, msg) is True
 
     def test_single_condition_matches(self):
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="Urgent")) is True
 
     def test_sender_domain_multiple_at_signs(self):
         """Multiple @ signs -- split('@')[-1] gets the last part."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "domain.com"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SENDER_DOMAIN, RuleConditionOperator.EQUALS, "domain.com"
+                )
+            ]
+        )
         msg = _FakeMessage(from_address="user@weird@domain.com")
         assert _evaluate_rule(rule, msg) is True
 
     def test_matches_with_dot_star(self):
         """Regex .* should match anything."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, ".*"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, ".*")
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="anything")) is True
 
     def test_matches_with_anchored_pattern(self):
         """Anchored regex ^...$ for exact matching."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"^hello$"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"^hello$"
+                )
+            ]
+        )
         assert _evaluate_rule(rule, _FakeMessage(subject="hello")) is True
         assert _evaluate_rule(rule, _FakeMessage(subject="hello world")) is False
 
@@ -496,9 +592,11 @@ class TestGetMatchingRulesForEmail:
         rule = _make_rule(
             rule_id="r1",
             workspace_id="ws_1",
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ],
         )
         with _storage_lock:
             _routing_rules["r1"] = rule
@@ -520,9 +618,11 @@ class TestGetMatchingRulesForEmail:
     @pytest.mark.asyncio
     async def test_non_matching_rule_excluded(self):
         rule = _make_rule(
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing"
+                )
+            ],
         )
         with _storage_lock:
             _routing_rules["r1"] = rule
@@ -827,10 +927,12 @@ class TestApplyRoutingRulesActions:
 
     @pytest.mark.asyncio
     async def test_assign_action(self):
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "assign", "target": "agent-42"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "assign", "target": "agent-42"}],
+            }
+        ]
         msg = _make_inbox_message(status=MessageStatus.OPEN)
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -847,10 +949,12 @@ class TestApplyRoutingRulesActions:
     @pytest.mark.asyncio
     async def test_assign_action_non_open_status_unchanged(self):
         """Assign does not change status if message is not OPEN."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "assign", "target": "agent-1"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "assign", "target": "agent-1"}],
+            }
+        ]
         msg = _make_inbox_message(status=MessageStatus.IN_PROGRESS)
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -864,10 +968,12 @@ class TestApplyRoutingRulesActions:
     @pytest.mark.asyncio
     async def test_assign_without_target_skipped(self):
         """Assign action without target is skipped."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "assign", "target": None}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "assign", "target": None}],
+            }
+        ]
         msg = _make_inbox_message()
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -879,10 +985,12 @@ class TestApplyRoutingRulesActions:
 
     @pytest.mark.asyncio
     async def test_label_action(self):
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "label", "target": "important"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "label", "target": "important"}],
+            }
+        ]
         msg = _make_inbox_message(tags=[])
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -896,10 +1004,12 @@ class TestApplyRoutingRulesActions:
     @pytest.mark.asyncio
     async def test_label_action_no_duplicate(self):
         """Label is not added if already present."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "label", "target": "existing"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "label", "target": "existing"}],
+            }
+        ]
         msg = _make_inbox_message(tags=["existing"])
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -910,10 +1020,12 @@ class TestApplyRoutingRulesActions:
 
     @pytest.mark.asyncio
     async def test_label_without_target_skipped(self):
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "label", "target": None}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "label", "target": None}],
+            }
+        ]
         msg = _make_inbox_message(tags=[])
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -924,10 +1036,12 @@ class TestApplyRoutingRulesActions:
 
     @pytest.mark.asyncio
     async def test_escalate_action(self):
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "escalate"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "escalate"}],
+            }
+        ]
         msg = _make_inbox_message(priority="low")
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -941,10 +1055,12 @@ class TestApplyRoutingRulesActions:
 
     @pytest.mark.asyncio
     async def test_archive_action(self):
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "archive"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "archive"}],
+            }
+        ]
         msg = _make_inbox_message(status=MessageStatus.OPEN)
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -958,14 +1074,16 @@ class TestApplyRoutingRulesActions:
 
     @pytest.mark.asyncio
     async def test_multiple_actions_in_one_rule(self):
-        matching = [{
-            "id": "r1",
-            "actions": [
-                {"type": "assign", "target": "agent-1"},
-                {"type": "label", "target": "vip"},
-                {"type": "escalate"},
-            ],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [
+                    {"type": "assign", "target": "agent-1"},
+                    {"type": "label", "target": "vip"},
+                    {"type": "escalate"},
+                ],
+            }
+        ]
         msg = _make_inbox_message(status=MessageStatus.OPEN, tags=[])
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -1004,10 +1122,12 @@ class TestApplyRoutingRulesActions:
     @pytest.mark.asyncio
     async def test_unknown_action_type_ignored(self):
         """Unknown action types are silently ignored."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "teleport", "target": "mars"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "teleport", "target": "mars"}],
+            }
+        ]
         msg = _make_inbox_message()
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -1020,10 +1140,12 @@ class TestApplyRoutingRulesActions:
     @pytest.mark.asyncio
     async def test_action_params_reserved(self):
         """Action params are read but not currently used."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "assign", "target": "t1", "params": {"key": "val"}}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "assign", "target": "t1", "params": {"key": "val"}}],
+            }
+        ]
         msg = _make_inbox_message(status=MessageStatus.OPEN)
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -1179,9 +1301,11 @@ class TestEvaluateRuleForTest:
             _inbox_messages["inbox_1"] = {"msg_1": msg}
 
         rule = _make_rule(
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ],
         )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 1
@@ -1198,9 +1322,11 @@ class TestEvaluateRuleForTest:
             _inbox_messages["inbox_1"] = {"msg_1": msg}
 
         rule = _make_rule(
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ],
         )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 0
@@ -1217,9 +1343,11 @@ class TestEvaluateRuleForTest:
             _inbox_messages["inbox_1"] = {"msg_1": msg}
 
         rule = _make_rule(
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ],
         )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 0
@@ -1238,9 +1366,11 @@ class TestEvaluateRuleForTest:
             _inbox_messages["inbox_b"] = {"b1": msg_b1}
 
         rule = _make_rule(
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ],
         )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 2
@@ -1252,9 +1382,11 @@ class TestEvaluateRuleForTest:
             _inbox_messages["orphan_inbox"] = {"msg_1": msg}
 
         rule = _make_rule(
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "urgent"
+                )
+            ],
         )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 0
@@ -1270,9 +1402,13 @@ class TestSecurityEdgeCases:
 
     def test_regex_timeout_protection(self):
         """Regex that times out is handled gracefully."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"(a+)+$"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"(a+)+$"
+                )
+            ]
+        )
         # Simulate timeout by patching execute_regex_with_timeout
         with patch(f"{MODULE}.execute_regex_with_timeout", return_value=None):
             result = _evaluate_rule(rule, _FakeMessage(subject="aaaaaaaaaaaaaaaaaaaab"))
@@ -1280,9 +1416,13 @@ class TestSecurityEdgeCases:
 
     def test_path_traversal_in_from_address(self):
         """Path traversal attempts in from_address don't cause issues."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "../../../etc/passwd"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "../../../etc/passwd"
+                )
+            ]
+        )
         msg = _FakeMessage(from_address="../../../etc/passwd@evil.com")
         # Should just do string matching, no file access
         result = _evaluate_rule(rule, msg)
@@ -1290,18 +1430,22 @@ class TestSecurityEdgeCases:
 
     def test_null_bytes_in_subject(self):
         """Null bytes in subject are handled."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "test"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "test")
+            ]
+        )
         msg = _FakeMessage(subject="test\x00injection")
         result = _evaluate_rule(rule, msg)
         assert result is True
 
     def test_unicode_normalization(self):
         """Unicode characters don't break evaluation."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "cafe"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "cafe")
+            ]
+        )
         msg = _FakeMessage(subject="Welcome to the caf\u00e9")
         # "cafe" is not in "caf\u00e9" because \u00e9 != e
         result = _evaluate_rule(rule, msg)
@@ -1309,36 +1453,48 @@ class TestSecurityEdgeCases:
 
     def test_very_long_subject(self):
         """Very long subjects don't cause errors."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "needle"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "needle"
+                )
+            ]
+        )
         msg = _FakeMessage(subject="x" * 100000 + "needle")
         result = _evaluate_rule(rule, msg)
         assert result is True
 
     def test_very_long_condition_value(self):
         """Very long condition values don't cause errors."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "x" * 100000
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "x" * 100000
+                )
+            ]
+        )
         msg = _FakeMessage(subject="short")
         result = _evaluate_rule(rule, msg)
         assert result is False
 
     def test_sql_injection_in_from(self):
         """SQL injection attempts are just string-matched."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "admin")
+            ]
+        )
         msg = _FakeMessage(from_address="'; DROP TABLE users; --@evil.com")
         result = _evaluate_rule(rule, msg)
         assert result is False
 
     def test_html_injection_in_subject(self):
         """HTML injection in subject is just string-matched."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "alert"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "alert")
+            ]
+        )
         msg = _FakeMessage(subject="<script>alert('xss')</script>")
         result = _evaluate_rule(rule, msg)
         assert result is True
@@ -1346,9 +1502,11 @@ class TestSecurityEdgeCases:
     @pytest.mark.asyncio
     async def test_injection_in_email_data_keys(self):
         """Extra keys in email_data don't affect evaluation."""
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "test"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "test")
+            ]
+        )
         with _storage_lock:
             _routing_rules["r1"] = rule
 
@@ -1380,9 +1538,11 @@ class TestIntegrationScenarios:
         """Full flow: rule matches email -> assigns + labels message."""
         rule = _make_rule(
             rule_id="r1",
-            conditions=[_make_condition(
-                RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "support"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "support"
+                )
+            ],
             actions=[
                 RuleAction(type=RuleActionType.ASSIGN, target="agent-support"),
                 RuleAction(type=RuleActionType.LABEL, target="needs-attention"),
@@ -1410,9 +1570,11 @@ class TestIntegrationScenarios:
         """Full flow: escalate then archive."""
         rule = _make_rule(
             rule_id="r1",
-            conditions=[_make_condition(
-                RuleConditionField.FROM, RuleConditionOperator.ENDS_WITH, "spam.com"
-            )],
+            conditions=[
+                _make_condition(
+                    RuleConditionField.FROM, RuleConditionOperator.ENDS_WITH, "spam.com"
+                )
+            ],
             actions=[
                 RuleAction(type=RuleActionType.ESCALATE),
                 RuleAction(type=RuleActionType.ARCHIVE),
@@ -1499,9 +1661,11 @@ class TestIntegrationScenarios:
             _shared_inboxes["inbox_1"] = inbox
             _inbox_messages["inbox_1"] = {"m1": msg}
 
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "vip"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(RuleConditionField.FROM, RuleConditionOperator.CONTAINS, "vip")
+            ]
+        )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 1
 
@@ -1517,19 +1681,25 @@ class TestIntegrationScenarios:
             _shared_inboxes["inbox_1"] = inbox
             _inbox_messages["inbox_1"] = {"m1": msg}
 
-        rule = _make_rule(conditions=[_make_condition(
-            RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"ticket-\d+"
-        )])
+        rule = _make_rule(
+            conditions=[
+                _make_condition(
+                    RuleConditionField.SUBJECT, RuleConditionOperator.MATCHES, r"ticket-\d+"
+                )
+            ]
+        )
         count = evaluate_rule_for_test(rule, workspace_id="ws_1")
         assert count == 1
 
     @pytest.mark.asyncio
     async def test_actions_without_type_key_skipped(self):
         """Actions missing the 'type' key are silently skipped."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"target": "someone"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"target": "someone"}],
+            }
+        ]
         msg = _make_inbox_message()
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -1541,10 +1711,12 @@ class TestIntegrationScenarios:
     @pytest.mark.asyncio
     async def test_actions_empty_list(self):
         """Rule with empty actions list doesn't crash."""
-        matching = [{
-            "id": "r1",
-            "actions": [],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [],
+            }
+        ]
         msg = _make_inbox_message()
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),
@@ -1568,10 +1740,12 @@ class TestIntegrationScenarios:
     @pytest.mark.asyncio
     async def test_action_missing_target_key(self):
         """Action dict missing 'target' key defaults to None."""
-        matching = [{
-            "id": "r1",
-            "actions": [{"type": "assign"}],
-        }]
+        matching = [
+            {
+                "id": "r1",
+                "actions": [{"type": "assign"}],
+            }
+        ]
         msg = _make_inbox_message()
         with (
             patch(f"{MODULE}.get_matching_rules_for_email", return_value=matching),

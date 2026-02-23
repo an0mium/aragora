@@ -67,9 +67,7 @@ def _snap_to_grid(value: float) -> float:
     return round(value / GRID_SNAP) * GRID_SNAP
 
 
-def _topological_sort(
-    adj: dict[str, list[str]], nodes: list[str]
-) -> list[list[str]]:
+def _topological_sort(adj: dict[str, list[str]], nodes: list[str]) -> list[list[str]]:
     """Topological layer assignment using Kahn's algorithm.
 
     Returns a list of layers, each containing node IDs at that depth.
@@ -104,9 +102,7 @@ def _topological_sort(
     return layers
 
 
-def _barycenter_reorder(
-    layers: list[list[str]], adj: dict[str, list[str]]
-) -> list[list[str]]:
+def _barycenter_reorder(layers: list[list[str]], adj: dict[str, list[str]]) -> list[list[str]]:
     """Minimize edge crossings using the barycenter heuristic.
 
     Performs 4 iterations of forward/backward sweeps.
@@ -130,18 +126,13 @@ def _barycenter_reorder(
             barycenters: dict[str, float] = {}
             for node in layers[layer_idx]:
                 parents = [
-                    p for p in rev_adj.get(node, [])
-                    if node_to_layer.get(p, -1) == layer_idx - 1
+                    p for p in rev_adj.get(node, []) if node_to_layer.get(p, -1) == layer_idx - 1
                 ]
                 if parents:
-                    barycenters[node] = sum(
-                        node_to_order.get(p, 0) for p in parents
-                    ) / len(parents)
+                    barycenters[node] = sum(node_to_order.get(p, 0) for p in parents) / len(parents)
                 else:
                     barycenters[node] = float(node_to_order.get(node, 0))
-            layers[layer_idx] = sorted(
-                layers[layer_idx], key=lambda n: barycenters.get(n, 0)
-            )
+            layers[layer_idx] = sorted(layers[layer_idx], key=lambda n: barycenters.get(n, 0))
             for order, node in enumerate(layers[layer_idx]):
                 node_to_order[node] = order
 
@@ -150,18 +141,15 @@ def _barycenter_reorder(
             barycenters = {}
             for node in layers[layer_idx]:
                 children = [
-                    c for c in adj.get(node, [])
-                    if node_to_layer.get(c, -1) == layer_idx + 1
+                    c for c in adj.get(node, []) if node_to_layer.get(c, -1) == layer_idx + 1
                 ]
                 if children:
-                    barycenters[node] = sum(
-                        node_to_order.get(c, 0) for c in children
-                    ) / len(children)
+                    barycenters[node] = sum(node_to_order.get(c, 0) for c in children) / len(
+                        children
+                    )
                 else:
                     barycenters[node] = float(node_to_order.get(node, 0))
-            layers[layer_idx] = sorted(
-                layers[layer_idx], key=lambda n: barycenters.get(n, 0)
-            )
+            layers[layer_idx] = sorted(layers[layer_idx], key=lambda n: barycenters.get(n, 0))
             for order, node in enumerate(layers[layer_idx]):
                 node_to_order[node] = order
 
@@ -204,13 +192,15 @@ def flow_layout(
         for order, node_id in enumerate(layer):
             x = _snap_to_grid(order * (NODE_WIDTH + HORIZONTAL_GAP))
             y = _snap_to_grid(layer_idx * (NODE_HEIGHT + VERTICAL_GAP))
-            positions.append(NodePosition(
-                step_id=node_id,
-                x=x,
-                y=y,
-                layer=layer_idx,
-                order=order,
-            ))
+            positions.append(
+                NodePosition(
+                    step_id=node_id,
+                    x=x,
+                    y=y,
+                    layer=layer_idx,
+                    order=order,
+                )
+            )
 
     return positions
 
@@ -237,12 +227,14 @@ def grid_layout(
         row = idx // columns
         x = _snap_to_grid(col * (NODE_WIDTH + HORIZONTAL_GAP))
         y = _snap_to_grid(row * (NODE_HEIGHT + VERTICAL_GAP))
-        positions.append(NodePosition(
-            step_id=step["id"],
-            x=x,
-            y=y,
-            layer=row,
-            order=col,
-        ))
+        positions.append(
+            NodePosition(
+                step_id=step["id"],
+                x=x,
+                y=y,
+                layer=row,
+                order=col,
+            )
+        )
 
     return positions

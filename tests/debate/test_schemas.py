@@ -237,23 +237,17 @@ class TestValidateAgentResponse:
         assert result.response.agent_name == "claude"
 
     def test_valid_dict_content(self):
-        result = validate_agent_response(
-            {"content": "Hello from dict"}, agent_name="claude"
-        )
+        result = validate_agent_response({"content": "Hello from dict"}, agent_name="claude")
         assert result.is_valid
         assert "Hello from dict" in result.response.content
 
     def test_valid_dict_text(self):
-        result = validate_agent_response(
-            {"text": "Hello from text"}, agent_name="claude"
-        )
+        result = validate_agent_response({"text": "Hello from text"}, agent_name="claude")
         assert result.is_valid
         assert "Hello from text" in result.response.content
 
     def test_valid_dict_message(self):
-        result = validate_agent_response(
-            {"message": "Hello from message"}, agent_name="claude"
-        )
+        result = validate_agent_response({"message": "Hello from message"}, agent_name="claude")
         assert result.is_valid
         assert "Hello from message" in result.response.content
 
@@ -277,16 +271,12 @@ class TestValidateAgentResponse:
         assert result.warnings and any("truncated" in w.lower() for w in result.warnings)
 
     def test_role_and_round(self):
-        result = validate_agent_response(
-            "text", agent_name="claude", role="judge", round_number=3
-        )
+        result = validate_agent_response("text", agent_name="claude", role="judge", round_number=3)
         assert result.response.role == "judge"
         assert result.response.round_number == 3
 
     def test_metadata_attached(self):
-        result = validate_agent_response(
-            "text", agent_name="claude", metadata={"key": "value"}
-        )
+        result = validate_agent_response("text", agent_name="claude", metadata={"key": "value"})
         assert result.response.metadata == {"key": "value"}
 
 

@@ -120,7 +120,9 @@ class TeamsUserIdentityBridge:
         )
 
         if not identity:
-            logger.debug("No identity mapping for AAD user: %s in tenant %s", aad_object_id, tenant_id)
+            logger.debug(
+                "No identity mapping for AAD user: %s in tenant %s", aad_object_id, tenant_id
+            )
             return None
 
         # Update last seen

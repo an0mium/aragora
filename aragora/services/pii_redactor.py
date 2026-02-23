@@ -319,7 +319,9 @@ class PIIRedactor:
 
         if self.log_redactions and result.has_pii:
             logger.info(
-                "[PIIRedactor] Redacted %s PII items: %s", result.match_count, [t.value for t in pii_types_found]
+                "[PIIRedactor] Redacted %s PII items: %s",
+                result.match_count,
+                [t.value for t in pii_types_found],
             )
 
         return result

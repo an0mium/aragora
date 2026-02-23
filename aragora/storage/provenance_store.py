@@ -591,7 +591,10 @@ class ProvenanceStore(SQLiteStore):
             self.save_citation(manager.chain.chain_id, citation)
 
         logger.debug(
-            "Saved ProvenanceManager for debate %s (%s records, %s citations)", manager.debate_id, len(manager.chain.records), len(manager.graph.citations)
+            "Saved ProvenanceManager for debate %s (%s records, %s citations)",
+            manager.debate_id,
+            len(manager.chain.records),
+            len(manager.graph.citations),
         )
 
     def load_manager(self, debate_id: str) -> ProvenanceManager | None:

@@ -239,7 +239,7 @@ class HookRunner:
         # Execute hook script
         result = await self._execute_hook(hook, context or {})
 
-        logger.debug("Triggered hook %s: %s", hook_id, result.get('success'))
+        logger.debug("Triggered hook %s: %s", hook_id, result.get("success"))
         return result
 
     async def _write_hook_script(self, path: str, content: str) -> None:

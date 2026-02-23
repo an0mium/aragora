@@ -91,11 +91,17 @@ class ConvergenceDetector:
                 return backend
             except (ImportError, RuntimeError, OSError) as e:
                 logger.warning(
-                    "%s=%s failed: %s. Falling back to factory.", _ENV_CONVERGENCE_BACKEND, env_override, e
+                    "%s=%s failed: %s. Falling back to factory.",
+                    _ENV_CONVERGENCE_BACKEND,
+                    env_override,
+                    e,
                 )
             except (ValueError, TypeError, AttributeError) as e:
                 logger.exception(
-                    "%s=%s unexpected error: %s. Falling back to factory.", _ENV_CONVERGENCE_BACKEND, env_override, e
+                    "%s=%s unexpected error: %s. Falling back to factory.",
+                    _ENV_CONVERGENCE_BACKEND,
+                    env_override,
+                    e,
                 )
 
         # Use SimilarityFactory for unified backend selection

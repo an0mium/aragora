@@ -317,7 +317,7 @@ async def design_handler(
             }
         else:
             # Design failed - attempt recovery
-            logger.warning("Design phase failed: %s", result.get('error'))
+            logger.warning("Design phase failed: %s", result.get("error"))
             return NomicState.RECOVERY, {
                 "error": result.get("error"),
                 "phase": "design",

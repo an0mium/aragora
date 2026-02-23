@@ -134,9 +134,7 @@ class MockBatchEmailResult:
 
     @property
     def action_required_count(self) -> int:
-        return len(
-            [r for r in self.results if r.category == MockEmailCategory.ACTION_REQUIRED]
-        )
+        return len([r for r in self.results if r.category == MockEmailCategory.ACTION_REQUIRED])
 
 
 # ---------------------------------------------------------------------------
@@ -370,15 +368,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)
@@ -393,15 +387,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -412,15 +402,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -430,9 +416,7 @@ class TestPrioritizeSingle:
         body = {"sender": "john@example.com"}
         mock_http = _make_mock_http_handler(body)
 
-        result = await handler.handle_post(
-            "/api/v1/email/prioritize", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 400
         assert "subject or body" in _body(result).get("error", "").lower()
@@ -443,9 +427,7 @@ class TestPrioritizeSingle:
         body = {"subject": "", "body": ""}
         mock_http = _make_mock_http_handler(body)
 
-        result = await handler.handle_post(
-            "/api/v1/email/prioritize", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 400
 
@@ -456,17 +438,13 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
             await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
-            MockService.assert_called_once_with(
-                fast_mode=False, enable_pii_redaction=True
-            )
+            MockService.assert_called_once_with(fast_mode=False, enable_pii_redaction=True)
 
     @pytest.mark.asyncio
     async def test_prioritize_passes_pii_redaction(self, handler):
@@ -475,17 +453,13 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
             await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
-            MockService.assert_called_once_with(
-                fast_mode=True, enable_pii_redaction=False
-            )
+            MockService.assert_called_once_with(fast_mode=True, enable_pii_redaction=False)
 
     @pytest.mark.asyncio
     async def test_prioritize_default_user_id(self, handler):
@@ -494,9 +468,7 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
@@ -512,9 +484,7 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
@@ -533,15 +503,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -552,15 +518,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -571,15 +533,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -590,15 +548,11 @@ class TestPrioritizeSingle:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -608,17 +562,11 @@ class TestPrioritizeSingle:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_email = AsyncMock(
-                side_effect=ConnectionError("API unreachable")
-            )
+            instance.prioritize_email = AsyncMock(side_effect=ConnectionError("API unreachable"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 500
         assert "failed" in _body(result).get("error", "").lower()
@@ -629,17 +577,11 @@ class TestPrioritizeSingle:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_email = AsyncMock(
-                side_effect=TimeoutError("Request timed out")
-            )
+            instance.prioritize_email = AsyncMock(side_effect=TimeoutError("Request timed out"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -649,17 +591,11 @@ class TestPrioritizeSingle:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_email = AsyncMock(
-                side_effect=ValueError("Invalid config")
-            )
+            instance.prioritize_email = AsyncMock(side_effect=ValueError("Invalid config"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -669,17 +605,11 @@ class TestPrioritizeSingle:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_email = AsyncMock(
-                side_effect=RuntimeError("Unexpected error")
-            )
+            instance.prioritize_email = AsyncMock(side_effect=RuntimeError("Unexpected error"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -689,17 +619,11 @@ class TestPrioritizeSingle:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_email = AsyncMock(
-                side_effect=OSError("Disk error")
-            )
+            instance.prioritize_email = AsyncMock(side_effect=OSError("Disk error"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -723,15 +647,11 @@ class TestPrioritizeSingle:
             duration_seconds=2.1,
         )
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         data = _body(result)
         assert data["message_id"] == "msg-xyz"
@@ -763,15 +683,11 @@ class TestPrioritizeBatch:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=3, urgent=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)
@@ -786,9 +702,7 @@ class TestPrioritizeBatch:
         body = {"user_id": "user-456"}
         mock_http = _make_mock_http_handler(body)
 
-        result = await handler.handle_post(
-            "/api/v1/email/prioritize/batch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 400
         assert "emails" in _body(result).get("error", "").lower()
@@ -799,9 +713,7 @@ class TestPrioritizeBatch:
         body = {"emails": []}
         mock_http = _make_mock_http_handler(body)
 
-        result = await handler.handle_post(
-            "/api/v1/email/prioritize/batch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 400
 
@@ -812,15 +724,11 @@ class TestPrioritizeBatch:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
             call_args = instance.prioritize_batch.call_args
             assert call_args[0][2] == 10  # max_concurrent
@@ -832,15 +740,11 @@ class TestPrioritizeBatch:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
             call_args = instance.prioritize_batch.call_args
             assert call_args[0][2] == 5
@@ -855,15 +759,11 @@ class TestPrioritizeBatch:
         mock_result.total_emails = 2
         mock_result.processed_emails = 1
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         data = _body(result)
         assert data["errors"] == ["msg-1: timeout"]
@@ -876,17 +776,11 @@ class TestPrioritizeBatch:
         body = _batch_email_body(count=1)
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_batch = AsyncMock(
-                side_effect=ConnectionError("API unreachable")
-            )
+            instance.prioritize_batch = AsyncMock(side_effect=ConnectionError("API unreachable"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 500
         assert "batch" in _body(result).get("error", "").lower()
@@ -897,17 +791,11 @@ class TestPrioritizeBatch:
         body = _batch_email_body(count=1)
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_batch = AsyncMock(
-                side_effect=TimeoutError("Timed out")
-            )
+            instance.prioritize_batch = AsyncMock(side_effect=TimeoutError("Timed out"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -918,15 +806,11 @@ class TestPrioritizeBatch:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2, urgent=1, action_required=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         data = _body(result)
         assert "results" in data
@@ -953,15 +837,11 @@ class TestPrioritizeBatch:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -972,19 +852,13 @@ class TestPrioritizeBatch:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
-            MockService.assert_called_once_with(
-                fast_mode=False, enable_pii_redaction=True
-            )
+            MockService.assert_called_once_with(fast_mode=False, enable_pii_redaction=True)
 
 
 # ============================================================================
@@ -1002,15 +876,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=3, urgent=1, action_required=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)
@@ -1046,15 +916,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2, action_required=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)
@@ -1070,15 +936,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=3, urgent=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)
@@ -1093,15 +955,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         data = _body(result)
         assert "results" in data
@@ -1138,15 +996,11 @@ class TestTriageInbox:
             duration_seconds=1.5,
         )
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         data = _body(result)
         result_ids = [r["message_id"] for r in data["results"]]
@@ -1160,17 +1014,11 @@ class TestTriageInbox:
         body = _batch_email_body(count=1)
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_batch = AsyncMock(
-                side_effect=RuntimeError("Service down")
-            )
+            instance.prioritize_batch = AsyncMock(side_effect=RuntimeError("Service down"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         assert _status(result) == 500
         assert "triage" in _body(result).get("error", "").lower()
@@ -1182,15 +1030,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         data = _body(result)
         assert "results" in data
@@ -1203,15 +1047,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2, urgent=1, action_required=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         data = _body(result)
         assert "results" in data
@@ -1227,15 +1067,11 @@ class TestTriageInbox:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=2, urgent=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         data = _body(result)
         assert "grouped" in data
@@ -1258,15 +1094,11 @@ class TestRateLimiting:
         """Exceeding rate limit returns 429."""
         body = _single_email_body()
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_http = _make_mock_http_handler(body)
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 429
         assert "rate limit" in _body(result).get("error", "").lower()
@@ -1278,18 +1110,15 @@ class TestRateLimiting:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with (
+            patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter,
+            patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService,
+        ):
             mock_limiter.is_allowed.return_value = True
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1298,15 +1127,11 @@ class TestRateLimiting:
         """Rate limit also applies to batch endpoint."""
         body = _batch_email_body(count=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_http = _make_mock_http_handler(body)
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 429
 
@@ -1315,15 +1140,11 @@ class TestRateLimiting:
         """Rate limit also applies to triage endpoint."""
         body = _batch_email_body(count=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             mock_http = _make_mock_http_handler(body)
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         assert _status(result) == 429
 
@@ -1335,11 +1156,10 @@ class TestRateLimiting:
         mock_http.client_address = ("10.0.0.1", 8080)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with (
+            patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter,
+            patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService,
+        ):
             mock_limiter.is_allowed.return_value = True
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
@@ -1363,14 +1183,10 @@ class TestUnknownRoute:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = await handler.handle_post(
-                "/api/v1/email/unknown", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/unknown", {}, mock_http)
 
         assert result is None
 
@@ -1379,9 +1195,7 @@ class TestUnknownRoute:
         """Empty path returns None."""
         mock_http = _make_mock_http_handler(_single_email_body())
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
             result = await handler.handle_post("", {}, mock_http)
@@ -1402,9 +1216,7 @@ class TestInputValidation:
         """Empty JSON body for prioritize returns 400 (no subject/body)."""
         mock_http = _make_mock_http_handler({})
 
-        result = await handler.handle_post(
-            "/api/v1/email/prioritize", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 400
 
@@ -1420,14 +1232,10 @@ class TestInputValidation:
         mock_http.rfile = MagicMock()
         mock_http.rfile.read.return_value = b"not-json!!!"
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 400
 
@@ -1438,15 +1246,11 @@ class TestInputValidation:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1457,15 +1261,11 @@ class TestInputValidation:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1480,15 +1280,11 @@ class TestInputValidation:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_batch_result(count=1)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_batch = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1498,9 +1294,7 @@ class TestInputValidation:
         body = {"emails": None}
         mock_http = _make_mock_http_handler(body)
 
-        result = await handler.handle_post(
-            "/api/v1/email/prioritize/batch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         assert _status(result) == 400
 
@@ -1520,15 +1314,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1539,15 +1329,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1558,15 +1344,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1577,15 +1359,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1596,15 +1374,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1615,15 +1389,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1634,15 +1404,11 @@ class TestSecurity:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -1665,14 +1431,10 @@ class TestContentTypeValidation:
         mock_http.rfile = MagicMock()
         mock_http.rfile.read.return_value = body_bytes
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 415
 
@@ -1689,14 +1451,10 @@ class TestContentTypeValidation:
         mock_http.rfile = MagicMock()
         mock_http.rfile.read.return_value = body_bytes
 
-        with patch(
-            "aragora.server.handlers.email_debate._email_debate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.email_debate._email_debate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         assert _status(result) == 415
 
@@ -1720,11 +1478,10 @@ class TestEmailInputConstruction:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService, patch(
-            "aragora.server.handlers.email_debate.EmailInput"
-        ) as MockEmailInput:
+        with (
+            patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService,
+            patch("aragora.server.handlers.email_debate.EmailInput") as MockEmailInput,
+        ):
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
@@ -1747,11 +1504,10 @@ class TestEmailInputConstruction:
         mock_http = _make_mock_http_handler(body)
         mock_result = _make_single_result()
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService, patch(
-            "aragora.server.handlers.email_debate.EmailInput"
-        ) as MockEmailInput:
+        with (
+            patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService,
+            patch("aragora.server.handlers.email_debate.EmailInput") as MockEmailInput,
+        ):
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(return_value=mock_result)
 
@@ -1779,17 +1535,13 @@ class TestErrorMessages:
         body = _single_email_body()
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
             instance.prioritize_email = AsyncMock(
                 side_effect=ConnectionError("Secret internal DB host at 10.0.0.5:5432")
             )
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize", {}, mock_http)
 
         error_msg = _body(result).get("error", "")
         assert "10.0.0.5" not in error_msg
@@ -1802,17 +1554,11 @@ class TestErrorMessages:
         body = _batch_email_body(count=1)
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_batch = AsyncMock(
-                side_effect=ValueError("API key abc123xyz")
-            )
+            instance.prioritize_batch = AsyncMock(side_effect=ValueError("API key abc123xyz"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/prioritize/batch", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/prioritize/batch", {}, mock_http)
 
         error_msg = _body(result).get("error", "")
         assert "abc123xyz" not in error_msg
@@ -1824,17 +1570,11 @@ class TestErrorMessages:
         body = _batch_email_body(count=1)
         mock_http = _make_mock_http_handler(body)
 
-        with patch(
-            "aragora.server.handlers.email_debate.EmailDebateService"
-        ) as MockService:
+        with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
             instance = MockService.return_value
-            instance.prioritize_batch = AsyncMock(
-                side_effect=KeyError("sensitive_table_name")
-            )
+            instance.prioritize_batch = AsyncMock(side_effect=KeyError("sensitive_table_name"))
 
-            result = await handler.handle_post(
-                "/api/v1/email/triage", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/email/triage", {}, mock_http)
 
         error_msg = _body(result).get("error", "")
         assert "sensitive_table_name" not in error_msg

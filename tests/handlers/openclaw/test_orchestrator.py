@@ -119,15 +119,19 @@ def mock_user():
 @pytest.fixture()
 def handler(store, mock_user):
     """OpenClawGatewayHandler with _get_store and get_current_user patched."""
-    with patch(
-        "aragora.server.handlers.openclaw.orchestrator._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.credentials._get_store",
-        return_value=store,
-    ), patch(
-        "aragora.server.handlers.openclaw.policies._get_store",
-        return_value=store,
+    with (
+        patch(
+            "aragora.server.handlers.openclaw.orchestrator._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.credentials._get_store",
+            return_value=store,
+        ),
+        patch(
+            "aragora.server.handlers.openclaw.policies._get_store",
+            return_value=store,
+        ),
     ):
         h = OpenClawGatewayHandler(server_context={})
         # Override get_current_user on the instance so _get_user_id / _get_tenant_id
@@ -221,9 +225,7 @@ class TestListSessions:
         store.update_session_status(active_session.id, SessionStatus.CLOSED)
         store.create_session(user_id="test-user-001")
 
-        result = handler.handle(
-            "/api/v1/openclaw/sessions", {"status": "active"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/sessions", {"status": "active"}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         for s in body["sessions"]:
@@ -245,15 +247,11 @@ class TestListSessions:
         assert body["offset"] == 0
 
     def test_list_sessions_invalid_status_returns_400(self, handler, mock_http):
-        result = handler.handle(
-            "/api/v1/openclaw/sessions", {"status": "bogus"}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/sessions", {"status": "bogus"}, mock_http())
         assert _status(result) == 400
 
     def test_list_sessions_legacy_path(self, handler, mock_http, active_session):
-        result = handler.handle(
-            "/api/gateway/openclaw/sessions", {}, mock_http()
-        )
+        result = handler.handle("/api/gateway/openclaw/sessions", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] >= 1
@@ -276,9 +274,7 @@ class TestGetSession:
     """Tests for _handle_get_session (GET /sessions/:id)."""
 
     def test_get_session_success(self, handler, mock_http, active_session):
-        result = handler.handle(
-            f"/api/v1/openclaw/sessions/{active_session.id}", {}, mock_http()
-        )
+        result = handler.handle(f"/api/v1/openclaw/sessions/{active_session.id}", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["id"] == active_session.id
@@ -286,9 +282,7 @@ class TestGetSession:
         assert body["status"] == "active"
 
     def test_get_session_not_found(self, handler, mock_http):
-        result = handler.handle(
-            "/api/v1/openclaw/sessions/nonexistent-id", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/sessions/nonexistent-id", {}, mock_http())
         assert _status(result) == 404
 
     def test_get_session_other_user_denied(self, handler, mock_http, other_user_session):
@@ -410,9 +404,7 @@ class TestCloseSession:
         assert session.status == SessionStatus.CLOSED
 
     def test_close_session_not_found(self, handler, mock_http):
-        result = handler.handle_delete(
-            "/api/v1/openclaw/sessions/nonexistent", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/sessions/nonexistent", {}, mock_http())
         assert _status(result) == 404
 
     def test_close_session_other_user_denied(self, handler, mock_http, other_user_session):
@@ -438,9 +430,7 @@ class TestCloseSession:
             assert session.status == SessionStatus.CLOSED
 
     def test_close_session_audit_logged(self, handler, mock_http, active_session, store):
-        handler.handle_delete(
-            f"/api/v1/openclaw/sessions/{active_session.id}", {}, mock_http()
-        )
+        handler.handle_delete(f"/api/v1/openclaw/sessions/{active_session.id}", {}, mock_http())
         entries, total = store.get_audit_log(action="session.close")
         assert total >= 1
 
@@ -465,9 +455,7 @@ class TestEndSession:
 
     def test_end_session_success(self, handler, mock_http, active_session, store):
         http = mock_http(body={}, method="POST")
-        result = handler.handle_post(
-            f"/api/v1/openclaw/sessions/{active_session.id}/end", {}, http
-        )
+        result = handler.handle_post(f"/api/v1/openclaw/sessions/{active_session.id}/end", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -477,9 +465,7 @@ class TestEndSession:
 
     def test_end_session_not_found(self, handler, mock_http):
         http = mock_http(body={}, method="POST")
-        result = handler.handle_post(
-            "/api/v1/openclaw/sessions/nonexistent/end", {}, http
-        )
+        result = handler.handle_post("/api/v1/openclaw/sessions/nonexistent/end", {}, http)
         assert _status(result) == 404
 
     def test_end_session_other_user_denied(self, handler, mock_http, other_user_session):
@@ -506,9 +492,7 @@ class TestEndSession:
 
     def test_end_session_audit_logged(self, handler, mock_http, active_session, store):
         http = mock_http(body={}, method="POST")
-        handler.handle_post(
-            f"/api/v1/openclaw/sessions/{active_session.id}/end", {}, http
-        )
+        handler.handle_post(f"/api/v1/openclaw/sessions/{active_session.id}/end", {}, http)
         entries, total = store.get_audit_log(action="session.end")
         assert total >= 1
 
@@ -522,9 +506,7 @@ class TestGetAction:
     """Tests for _handle_get_action (GET /actions/:id)."""
 
     def test_get_action_success(self, handler, mock_http, pending_action):
-        result = handler.handle(
-            f"/api/v1/openclaw/actions/{pending_action.id}", {}, mock_http()
-        )
+        result = handler.handle(f"/api/v1/openclaw/actions/{pending_action.id}", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["id"] == pending_action.id
@@ -532,14 +514,10 @@ class TestGetAction:
         assert body["status"] == "pending"
 
     def test_get_action_not_found(self, handler, mock_http):
-        result = handler.handle(
-            "/api/v1/openclaw/actions/nonexistent", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/actions/nonexistent", {}, mock_http())
         assert _status(result) == 404
 
-    def test_get_action_other_user_denied(
-        self, handler, mock_http, store, other_user_session
-    ):
+    def test_get_action_other_user_denied(self, handler, mock_http, store, other_user_session):
         """Non-admin cannot read actions from another user's session."""
         action = store.create_action(
             session_id=other_user_session.id,
@@ -550,14 +528,10 @@ class TestGetAction:
             "aragora.server.handlers.openclaw.orchestrator._has_permission",
             return_value=False,
         ):
-            result = handler.handle(
-                f"/api/v1/openclaw/actions/{action.id}", {}, mock_http()
-            )
+            result = handler.handle(f"/api/v1/openclaw/actions/{action.id}", {}, mock_http())
             assert _status(result) == 403
 
-    def test_get_action_admin_can_read_any(
-        self, handler, mock_http, store, other_user_session
-    ):
+    def test_get_action_admin_can_read_any(self, handler, mock_http, store, other_user_session):
         action = store.create_action(
             session_id=other_user_session.id,
             action_type="code.run",
@@ -567,9 +541,7 @@ class TestGetAction:
             "aragora.server.handlers.openclaw.orchestrator._has_permission",
             return_value=True,
         ):
-            result = handler.handle(
-                f"/api/v1/openclaw/actions/{action.id}", {}, mock_http()
-            )
+            result = handler.handle(f"/api/v1/openclaw/actions/{action.id}", {}, mock_http())
             assert _status(result) == 200
 
     def test_get_action_store_error(self, handler, mock_http, pending_action):
@@ -591,9 +563,7 @@ class TestGetAction:
 class TestExecuteAction:
     """Tests for _handle_execute_action (POST /actions)."""
 
-    def test_execute_action_success(
-        self, handler, mock_http, active_session, store
-    ):
+    def test_execute_action_success(self, handler, mock_http, active_session, store):
         http = mock_http(
             body={
                 "session_id": active_session.id,
@@ -654,9 +624,7 @@ class TestExecuteAction:
         result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
         assert _status(result) == 404
 
-    def test_execute_action_session_not_active(
-        self, handler, mock_http, active_session, store
-    ):
+    def test_execute_action_session_not_active(self, handler, mock_http, active_session, store):
         store.update_session_status(active_session.id, SessionStatus.CLOSED)
         http = mock_http(
             body={
@@ -671,9 +639,7 @@ class TestExecuteAction:
         body = _body(result)
         assert "not active" in body.get("error", "").lower()
 
-    def test_execute_action_other_user_denied(
-        self, handler, mock_http, other_user_session
-    ):
+    def test_execute_action_other_user_denied(self, handler, mock_http, other_user_session):
         with patch(
             "aragora.server.handlers.openclaw.orchestrator._has_permission",
             return_value=False,
@@ -689,9 +655,7 @@ class TestExecuteAction:
             result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
             assert _status(result) == 403
 
-    def test_execute_action_admin_can_execute_any(
-        self, handler, mock_http, other_user_session
-    ):
+    def test_execute_action_admin_can_execute_any(self, handler, mock_http, other_user_session):
         with patch(
             "aragora.server.handlers.openclaw.orchestrator._has_permission",
             return_value=True,
@@ -707,9 +671,7 @@ class TestExecuteAction:
             result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
             assert _status(result) == 202
 
-    def test_execute_action_sanitizes_input(
-        self, handler, mock_http, active_session, store
-    ):
+    def test_execute_action_sanitizes_input(self, handler, mock_http, active_session, store):
         """Shell metacharacters in input are escaped."""
         http = mock_http(
             body={
@@ -753,9 +715,7 @@ class TestExecuteAction:
         result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
         assert _status(result) == 400
 
-    def test_execute_action_audit_logged(
-        self, handler, mock_http, active_session, store
-    ):
+    def test_execute_action_audit_logged(self, handler, mock_http, active_session, store):
         http = mock_http(
             body={
                 "session_id": active_session.id,
@@ -818,9 +778,7 @@ class TestCancelAction:
 
     def test_cancel_action_not_found(self, handler, mock_http):
         http = mock_http(body={}, method="POST")
-        result = handler.handle_post(
-            "/api/v1/openclaw/actions/nonexistent/cancel", {}, http
-        )
+        result = handler.handle_post("/api/v1/openclaw/actions/nonexistent/cancel", {}, http)
         assert _status(result) == 404
 
     def test_cancel_completed_action_rejected(self, handler, mock_http, pending_action, store):
@@ -853,9 +811,7 @@ class TestCancelAction:
         )
         assert _status(result) == 400
 
-    def test_cancel_action_other_user_denied(
-        self, handler, mock_http, store, other_user_session
-    ):
+    def test_cancel_action_other_user_denied(self, handler, mock_http, store, other_user_session):
         action = store.create_action(
             session_id=other_user_session.id,
             action_type="code.run",
@@ -866,9 +822,7 @@ class TestCancelAction:
             return_value=False,
         ):
             http = mock_http(body={}, method="POST")
-            result = handler.handle_post(
-                f"/api/v1/openclaw/actions/{action.id}/cancel", {}, http
-            )
+            result = handler.handle_post(f"/api/v1/openclaw/actions/{action.id}/cancel", {}, http)
             assert _status(result) == 403
 
     def test_cancel_action_admin_can_cancel_any(
@@ -884,18 +838,12 @@ class TestCancelAction:
             return_value=True,
         ):
             http = mock_http(body={}, method="POST")
-            result = handler.handle_post(
-                f"/api/v1/openclaw/actions/{action.id}/cancel", {}, http
-            )
+            result = handler.handle_post(f"/api/v1/openclaw/actions/{action.id}/cancel", {}, http)
             assert _status(result) == 200
 
-    def test_cancel_action_audit_logged(
-        self, handler, mock_http, pending_action, store
-    ):
+    def test_cancel_action_audit_logged(self, handler, mock_http, pending_action, store):
         http = mock_http(body={}, method="POST")
-        handler.handle_post(
-            f"/api/v1/openclaw/actions/{pending_action.id}/cancel", {}, http
-        )
+        handler.handle_post(f"/api/v1/openclaw/actions/{pending_action.id}/cancel", {}, http)
         entries, total = store.get_audit_log(action="action.cancel")
         assert total >= 1
         assert entries[0].result == "success"
@@ -921,9 +869,7 @@ class TestRouting:
     """Verify path normalization across all supported prefixes."""
 
     def test_api_v1_openclaw_prefix(self, handler, mock_http, active_session):
-        result = handler.handle(
-            f"/api/v1/openclaw/sessions/{active_session.id}", {}, mock_http()
-        )
+        result = handler.handle(f"/api/v1/openclaw/sessions/{active_session.id}", {}, mock_http())
         assert _status(result) == 200
 
     def test_api_gateway_openclaw_prefix(self, handler, mock_http, active_session):
@@ -939,9 +885,7 @@ class TestRouting:
         assert _status(result) == 200
 
     def test_api_openclaw_prefix(self, handler, mock_http, active_session):
-        result = handler.handle(
-            f"/api/openclaw/sessions/{active_session.id}", {}, mock_http()
-        )
+        result = handler.handle(f"/api/openclaw/sessions/{active_session.id}", {}, mock_http())
         assert _status(result) == 200
 
     def test_can_handle_matches_openclaw_paths(self, handler):
@@ -955,16 +899,12 @@ class TestRouting:
         assert handler.can_handle("/api/v1/agents") is False
 
     def test_unknown_get_path_returns_none(self, handler, mock_http):
-        result = handler.handle(
-            "/api/v1/openclaw/unknown-endpoint", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/openclaw/unknown-endpoint", {}, mock_http())
         assert result is None
 
     def test_unknown_post_path_returns_none(self, handler, mock_http):
         http = mock_http(body={}, method="POST")
-        result = handler.handle_post(
-            "/api/v1/openclaw/unknown-endpoint", {}, http
-        )
+        result = handler.handle_post("/api/v1/openclaw/unknown-endpoint", {}, http)
         assert result is None
 
 
@@ -1003,9 +943,7 @@ class TestSessionLifecycle:
         action_id = _body(result)["id"]
 
         # 4. Get action status
-        result = handler.handle(
-            f"/api/v1/openclaw/actions/{action_id}", {}, mock_http()
-        )
+        result = handler.handle(f"/api/v1/openclaw/actions/{action_id}", {}, mock_http())
         assert _status(result) == 200
         assert _body(result)["status"] == "running"
 
@@ -1023,16 +961,12 @@ class TestSessionLifecycle:
         action_id_2 = _body(result)["id"]
 
         http = mock_http(body={}, method="POST")
-        result = handler.handle_post(
-            f"/api/v1/openclaw/actions/{action_id_2}/cancel", {}, http
-        )
+        result = handler.handle_post(f"/api/v1/openclaw/actions/{action_id_2}/cancel", {}, http)
         assert _status(result) == 200
         assert _body(result)["cancelled"] is True
 
         # 6. Close session
-        result = handler.handle_delete(
-            f"/api/v1/openclaw/sessions/{session_id}", {}, mock_http()
-        )
+        result = handler.handle_delete(f"/api/v1/openclaw/sessions/{session_id}", {}, mock_http())
         assert _status(result) == 200
         assert _body(result)["closed"] is True
 

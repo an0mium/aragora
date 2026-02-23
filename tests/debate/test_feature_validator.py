@@ -32,15 +32,11 @@ class TestFeatureDependency:
         assert fd.check_fn is None
 
     def test_with_modules(self):
-        fd = FeatureDependency(
-            name="test", description="test", required_modules=["z3"]
-        )
+        fd = FeatureDependency(name="test", description="test", required_modules=["z3"])
         assert fd.required_modules == ["z3"]
 
     def test_with_check_fn(self):
-        fd = FeatureDependency(
-            name="test", description="test", check_fn=lambda: True
-        )
+        fd = FeatureDependency(name="test", description="test", check_fn=lambda: True)
         assert fd.check_fn() is True
 
 

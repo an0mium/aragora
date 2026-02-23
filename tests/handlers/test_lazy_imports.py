@@ -246,9 +246,7 @@ class TestConsistency:
         for name in ALL_HANDLER_NAMES:
             if name not in HANDLER_MODULES:
                 missing.append(name)
-        assert missing == [], (
-            f"Names in ALL_HANDLER_NAMES without HANDLER_MODULES entry: {missing}"
-        )
+        assert missing == [], f"Names in ALL_HANDLER_NAMES without HANDLER_MODULES entry: {missing}"
 
     def test_handler_modules_superset_of_names(self):
         """HANDLER_MODULES may have entries not in ALL_HANDLER_NAMES (e.g., functions),
@@ -676,9 +674,7 @@ class TestHandlerNameConventions:
         for name in HANDLER_MODULES:
             if not any(name.startswith(p) for p in function_prefixes):
                 # Should start with uppercase (PascalCase) or be a constant (ALL_CAPS)
-                assert name[0].isupper(), (
-                    f"Handler class name {name!r} should start with uppercase"
-                )
+                assert name[0].isupper(), f"Handler class name {name!r} should start with uppercase"
 
     def test_function_handlers_use_snake_case(self):
         """Handler functions should be snake_case."""
@@ -719,16 +715,18 @@ class TestHandlerGroups:
 
     def test_cross_pollination_handlers_grouped(self):
         """All cross-pollination handlers should map to the same module."""
-        cp_handlers = [
-            name for name in HANDLER_MODULES if name.startswith("CrossPollination")
-        ]
+        cp_handlers = [name for name in HANDLER_MODULES if name.startswith("CrossPollination")]
         assert len(cp_handlers) >= 5, "Expected at least 5 cross-pollination handlers"
         modules = {HANDLER_MODULES[name] for name in cp_handlers}
         assert len(modules) == 1, f"Cross-pollination handlers map to multiple modules: {modules}"
 
     def test_gauntlet_v1_handlers_grouped(self):
         """All gauntlet v1 handlers should map to the same module."""
-        gv1_handlers = [name for name in HANDLER_MODULES if name.startswith("Gauntlet") and "v1" in HANDLER_MODULES[name].lower()]
+        gv1_handlers = [
+            name
+            for name in HANDLER_MODULES
+            if name.startswith("Gauntlet") and "v1" in HANDLER_MODULES[name].lower()
+        ]
         assert len(gv1_handlers) >= 5, "Expected at least 5 gauntlet v1 handlers"
         modules = {HANDLER_MODULES[name] for name in gv1_handlers}
         assert len(modules) == 1, f"Gauntlet v1 handlers map to multiple modules: {modules}"
@@ -768,8 +766,7 @@ class TestHandlerGroups:
     def test_onboarding_handlers_grouped(self):
         """All onboarding entries should map to the onboarding module."""
         onboarding_names = [
-            name for name in HANDLER_MODULES
-            if "onboarding" in HANDLER_MODULES[name].lower()
+            name for name in HANDLER_MODULES if "onboarding" in HANDLER_MODULES[name].lower()
         ]
         assert len(onboarding_names) >= 8, "Expected at least 8 onboarding entries"
         modules = {HANDLER_MODULES[name] for name in onboarding_names}

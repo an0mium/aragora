@@ -377,7 +377,7 @@ class Refinery:
             (return_code, stdout, stderr)
         """
         cmd = ["git"] + list(args)
-        logger.debug("Running: %s", ' '.join(cmd))
+        logger.debug("Running: %s", " ".join(cmd))
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,

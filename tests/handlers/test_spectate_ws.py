@@ -65,18 +65,14 @@ class TestRouteMatching:
         result = handler.handle("/api/v1/debates", {}, mock_handler)
         assert result is None
 
-    def test_handle_recent_path(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_handle_recent_path(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         result = handler.handle("/api/v1/spectate/recent", {}, mock_handler)
         assert result is not None
         body = result[0]
         assert "events" in body
         assert "count" in body
 
-    def test_handle_status_path(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_handle_status_path(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         result = handler.handle("/api/v1/spectate/status", {}, mock_handler)
         assert result is not None
         body = result[0]
@@ -84,9 +80,7 @@ class TestRouteMatching:
         assert "subscribers" in body
         assert "buffer_size" in body
 
-    def test_handle_stream_path(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_handle_stream_path(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         """Stream endpoint returns recent events as a snapshot."""
         result = handler.handle("/api/v1/spectate/stream", {}, mock_handler)
         assert result is not None
@@ -110,9 +104,7 @@ class TestRecentEvents:
         assert body["events"] == []
         assert body["count"] == 0
 
-    def test_returns_buffered_events(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_returns_buffered_events(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         from aragora.spectate.ws_bridge import get_spectate_bridge
 
         bridge = get_spectate_bridge()
@@ -139,9 +131,7 @@ class TestRecentEvents:
         assert body["events"][0]["event_type"] == "debate_start"
         assert body["events"][1]["agent_name"] == "gpt4"
 
-    def test_count_parameter(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_count_parameter(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         from aragora.spectate.ws_bridge import get_spectate_bridge
 
         bridge = get_spectate_bridge()
@@ -154,9 +144,7 @@ class TestRecentEvents:
                 )
             )
 
-        result = handler.handle(
-            "/api/v1/spectate/recent", {"count": "3"}, mock_handler
-        )
+        result = handler.handle("/api/v1/spectate/recent", {"count": "3"}, mock_handler)
         body = result[0]
         assert body["count"] == 3
 
@@ -164,15 +152,11 @@ class TestRecentEvents:
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
     ):
         """Non-integer count should fall back to default of 50."""
-        result = handler.handle(
-            "/api/v1/spectate/recent", {"count": "abc"}, mock_handler
-        )
+        result = handler.handle("/api/v1/spectate/recent", {"count": "abc"}, mock_handler)
         body = result[0]
         assert body["count"] == 0  # 0 events in buffer, but no error
 
-    def test_filter_by_debate_id(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_filter_by_debate_id(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         from aragora.spectate.ws_bridge import get_spectate_bridge
 
         bridge = get_spectate_bridge()
@@ -191,16 +175,12 @@ class TestRecentEvents:
             )
         )
 
-        result = handler.handle(
-            "/api/v1/spectate/recent", {"debate_id": "d-111"}, mock_handler
-        )
+        result = handler.handle("/api/v1/spectate/recent", {"debate_id": "d-111"}, mock_handler)
         body = result[0]
         assert body["count"] == 1
         assert body["events"][0]["debate_id"] == "d-111"
 
-    def test_filter_by_pipeline_id(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_filter_by_pipeline_id(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         from aragora.spectate.ws_bridge import get_spectate_bridge
 
         bridge = get_spectate_bridge()
@@ -219,9 +199,7 @@ class TestRecentEvents:
             )
         )
 
-        result = handler.handle(
-            "/api/v1/spectate/recent", {"pipeline_id": "p-abc"}, mock_handler
-        )
+        result = handler.handle("/api/v1/spectate/recent", {"pipeline_id": "p-abc"}, mock_handler)
         body = result[0]
         assert body["count"] == 1
         assert body["events"][0]["pipeline_id"] == "p-abc"
@@ -235,18 +213,14 @@ class TestRecentEvents:
 class TestStatus:
     """Tests for GET /api/v1/spectate/status."""
 
-    def test_status_when_inactive(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_status_when_inactive(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         result = handler.handle("/api/v1/spectate/status", {}, mock_handler)
         body = result[0]
         assert body["active"] is False
         assert body["subscribers"] == 0
         assert body["buffer_size"] == 0
 
-    def test_status_when_active(
-        self, handler: SpectateStreamHandler, mock_handler: MagicMock
-    ):
+    def test_status_when_active(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         from aragora.spectate.ws_bridge import get_spectate_bridge
 
         bridge = get_spectate_bridge()

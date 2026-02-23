@@ -91,9 +91,7 @@ class TestExplainPlanningDecision:
         goals = [_make_goal()]
 
         mock_module = MagicMock()
-        mock_module.ExplanationBuilder = MagicMock(
-            side_effect=RuntimeError("builder init failed")
-        )
+        mock_module.ExplanationBuilder = MagicMock(side_effect=RuntimeError("builder init failed"))
 
         with patch.dict(
             "sys.modules",

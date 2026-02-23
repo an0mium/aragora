@@ -104,8 +104,7 @@ def _make_routing_rule(
             )
         ],
         condition_logic="AND",
-        actions=actions
-        or [RuleAction(type=RuleActionType.ASSIGN, target="user-1")],
+        actions=actions or [RuleAction(type=RuleActionType.ASSIGN, target="user-1")],
         enabled=enabled,
     )
     if inbox_id is not None:
@@ -305,6 +304,7 @@ class TestValidateSafeRegex:
         from aragora.server.validation.security import (
             MAX_REGEX_PATTERN_LENGTH as SECURITY_MAX,
         )
+
         pattern = "a" * (SECURITY_MAX + 1)
         if SECURITY_MAX < MAX_REGEX_PATTERN_LENGTH:
             is_safe, err = validate_safe_regex(pattern)
@@ -565,9 +565,7 @@ class TestValidateRuleAction:
         assert "params must be a dictionary" in err
 
     def test_target_sanitized(self):
-        ok, err, sanitized = validate_rule_action(
-            {"type": "assign", "target": "user\x00-1"}
-        )
+        ok, err, sanitized = validate_rule_action({"type": "assign", "target": "user\x00-1"})
         assert ok is True
         assert "\x00" not in sanitized["target"]
 
@@ -587,9 +585,7 @@ class TestDetectCircularRouting:
     def test_no_circular_with_non_forward_action(self):
         actions = [{"type": "assign", "target": "user-1"}]
         existing = [
-            _make_routing_rule(
-                actions=[RuleAction(type=RuleActionType.FORWARD, target="inbox-c")]
-            )
+            _make_routing_rule(actions=[RuleAction(type=RuleActionType.FORWARD, target="inbox-c")])
         ]
         has_circ, err = detect_circular_routing(actions, existing, "ws-1")
         assert has_circ is False
@@ -684,9 +680,7 @@ class TestDetectCircularRouting:
             actions=[RuleAction(type=RuleActionType.FORWARD, target="inbox-b")],
         )
         new_actions = [{"type": "forward", "target": "inbox-b"}]
-        has_circ, err = detect_circular_routing(
-            new_actions, [rule_b, rule_c], "ws-1"
-        )
+        has_circ, err = detect_circular_routing(new_actions, [rule_b, rule_c], "ws-1")
         assert has_circ is True
         assert "Circular routing" in err
 
@@ -825,7 +819,10 @@ class TestValidateRoutingRule:
     def test_second_condition_invalid(self):
         result = validate_routing_rule(
             name="Rule",
-            conditions=[_valid_condition(), {"field": "bad_field", "operator": "contains", "value": "x"}],
+            conditions=[
+                _valid_condition(),
+                {"field": "bad_field", "operator": "contains", "value": "x"},
+            ],
             actions=[_valid_action()],
             workspace_id="ws-1",
         )
@@ -1004,9 +1001,7 @@ class TestValidateInboxInput:
         assert "maximum length" in err
 
     def test_description_at_max_length(self):
-        ok, err = validate_inbox_input(
-            name="Inbox", description="d" * MAX_INBOX_DESCRIPTION_LENGTH
-        )
+        ok, err = validate_inbox_input(name="Inbox", description="d" * MAX_INBOX_DESCRIPTION_LENGTH)
         assert ok is True
 
     def test_description_none(self):

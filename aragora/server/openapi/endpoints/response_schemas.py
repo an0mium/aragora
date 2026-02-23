@@ -27,7 +27,10 @@ _DASHBOARD_ENDPOINTS = {
                     {
                         "total_debates": {"type": "integer", "description": "Total debates"},
                         "active_debates": {"type": "integer", "description": "Active debates"},
-                        "completed_debates": {"type": "integer", "description": "Completed debates"},
+                        "completed_debates": {
+                            "type": "integer",
+                            "description": "Completed debates",
+                        },
                         "total_agents": {"type": "integer", "description": "Total agents"},
                         "recent_activity": {"type": "array", "items": {"type": "object"}},
                         "health_status": {

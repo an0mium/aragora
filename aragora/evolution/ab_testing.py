@@ -385,7 +385,11 @@ class ABTestManager(SQLiteStore):
             )
 
         logger.info(
-            "Started A/B test %s for %s: v%s vs v%s", test.id, agent, baseline_version, evolved_version
+            "Started A/B test %s for %s: v%s vs v%s",
+            test.id,
+            agent,
+            baseline_version,
+            evolved_version,
         )
         self._log_event(
             "ab_test_started", test, rubric=test.rubric.to_dict() if test.rubric else None
@@ -512,7 +516,7 @@ class ABTestManager(SQLiteStore):
                     (1 if won else 0, test.id),
                 )
 
-        logger.info("Recorded %s %s for test %s", variant, 'win' if won else 'loss', test.id)
+        logger.info("Recorded %s %s for test %s", variant, "win" if won else "loss", test.id)
 
         rubric_obj = (
             rubric

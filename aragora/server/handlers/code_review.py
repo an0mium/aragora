@@ -292,7 +292,7 @@ async def handle_review_pr(
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError):
         # Record failure for circuit breaker
         cb.record_failure()
-        logger.exception("Error reviewing PR: %s", data.get('pr_url'))
+        logger.exception("Error reviewing PR: %s", data.get("pr_url"))
         return error_response("PR review failed", status=500)
 
 

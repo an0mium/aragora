@@ -104,7 +104,10 @@ def apply_persona_to_agent(agent, persona_name: str, manager: PersonaManager | N
             agent.frequency_penalty = persona.frequency_penalty
 
     logger.debug(
-        "Applied persona '%s' to agent: temp=%s, traits=%s", persona_name, persona.temperature, persona.traits[:2] if persona.traits else []
+        "Applied persona '%s' to agent: temp=%s, traits=%s",
+        persona_name,
+        persona.temperature,
+        persona.traits[:2] if persona.traits else [],
     )
     return True
 

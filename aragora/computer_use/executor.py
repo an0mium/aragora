@@ -201,7 +201,9 @@ class PlaywrightActionExecutor:
 
         self._running = True
         logger.info(
-            "PlaywrightActionExecutor started (%s, headless=%s)", self._config.browser_type, self._config.headless
+            "PlaywrightActionExecutor started (%s, headless=%s)",
+            self._config.browser_type,
+            self._config.headless,
         )
 
     async def stop(self) -> None:

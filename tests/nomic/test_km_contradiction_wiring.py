@@ -161,9 +161,13 @@ def _patch_km_and_detector(report: MagicMock):
 
     @contextlib.contextmanager
     def _ctx():
-        with patch(_KM_GET, return_value=MagicMock()) as km_mock, patch(
-            _DETECTOR_CLS, return_value=mock_detector_instance,
-        ) as det_mock:
+        with (
+            patch(_KM_GET, return_value=MagicMock()) as km_mock,
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector_instance,
+            ) as det_mock,
+        ):
             yield km_mock, det_mock, mock_detector_instance
 
     return _ctx()
@@ -242,7 +246,9 @@ class TestFeedbackStepKnowledgeContradiction:
 
         contradictions = [
             _make_contradiction(
-                severity="high", item_a_id=f"a{i}", item_b_id=f"b{i}",
+                severity="high",
+                item_a_id=f"a{i}",
+                item_b_id=f"b{i}",
             )
             for i in range(20)
         ]
@@ -361,11 +367,16 @@ class TestHardenedOrchestratorContradictionDetection:
 
         mock_queue = MagicMock()
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
-        ), patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-        ) as mock_queue_cls:
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+            ) as mock_queue_cls,
+        ):
             mock_queue_cls.load.return_value = mock_queue
 
             await orch._detect_km_contradictions("test goal", result)
@@ -394,11 +405,16 @@ class TestHardenedOrchestratorContradictionDetection:
 
         mock_queue = MagicMock()
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
-        ), patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-        ) as mock_queue_cls:
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+            ) as mock_queue_cls,
+        ):
             mock_queue_cls.load.return_value = mock_queue
 
             await orch._detect_km_contradictions("test goal", result)
@@ -431,11 +447,16 @@ class TestHardenedOrchestratorContradictionDetection:
 
         mock_queue = MagicMock()
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
-        ), patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-        ) as mock_queue_cls:
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+            ) as mock_queue_cls,
+        ):
             mock_queue_cls.load.return_value = mock_queue
 
             await orch._detect_km_contradictions("test goal", result)
@@ -453,8 +474,12 @@ class TestHardenedOrchestratorContradictionDetection:
         mock_detector = MagicMock()
         mock_detector.detect_contradictions = AsyncMock(return_value=report)
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
         ):
             await orch._detect_km_contradictions("test goal", result)
 
@@ -484,8 +509,12 @@ class TestHardenedOrchestratorContradictionDetection:
             side_effect=RuntimeError("detection failed"),
         )
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
         ):
             # Should not raise
             await orch._detect_km_contradictions("test goal", result)
@@ -511,11 +540,16 @@ class TestHardenedOrchestratorContradictionDetection:
 
         mock_queue = MagicMock()
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
-        ), patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-        ) as mock_queue_cls:
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+            ) as mock_queue_cls,
+        ):
             mock_queue_cls.load.return_value = mock_queue
 
             await orch._detect_km_contradictions("test goal", result)
@@ -537,11 +571,16 @@ class TestHardenedOrchestratorContradictionDetection:
 
         mock_queue = MagicMock()
 
-        with patch(_KM_GET, return_value=MagicMock()), patch(
-            _DETECTOR_CLS, return_value=mock_detector,
-        ), patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-        ) as mock_queue_cls:
+        with (
+            patch(_KM_GET, return_value=MagicMock()),
+            patch(
+                _DETECTOR_CLS,
+                return_value=mock_detector,
+            ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+            ) as mock_queue_cls,
+        ):
             mock_queue_cls.load.return_value = mock_queue
 
             await orch._detect_km_contradictions("Improve SDK coverage", result)
@@ -563,21 +602,23 @@ class TestContradictionQueueRoundTrip:
         queue_path = tmp_path / "queue.json"
 
         queue = ImprovementQueue()
-        queue.add(FeedbackGoal(
-            description="KM contradiction (critical): semantic conflict",
-            source="km_contradiction",
-            track="core",
-            priority=1,
-            estimated_impact="high",
-            metadata={
-                "contradiction_type": "semantic",
-                "severity": "critical",
-                "conflict_score": 0.9,
-                "item_a_id": "item-a",
-                "item_b_id": "item-b",
-                "cycle_id": "cycle-010",
-            },
-        ))
+        queue.add(
+            FeedbackGoal(
+                description="KM contradiction (critical): semantic conflict",
+                source="km_contradiction",
+                track="core",
+                priority=1,
+                estimated_impact="high",
+                metadata={
+                    "contradiction_type": "semantic",
+                    "severity": "critical",
+                    "conflict_score": 0.9,
+                    "item_a_id": "item-a",
+                    "item_b_id": "item-b",
+                    "cycle_id": "cycle-010",
+                },
+            )
+        )
         queue.save(queue_path)
 
         loaded = ImprovementQueue.load(queue_path)
@@ -628,8 +669,12 @@ class TestFeedbackResultContradictionField:
         """When step 7 fails, steps_failed increments and pipeline continues."""
         queue_path = tmp_path / "queue.json"
 
-        with _patch_other_steps(), patch(
-            _KM_GET, side_effect=ImportError("KM not installed"),
+        with (
+            _patch_other_steps(),
+            patch(
+                _KM_GET,
+                side_effect=ImportError("KM not installed"),
+            ),
         ):
             orch = SelfImproveFeedbackOrchestrator(queue_path=queue_path)
             result = orch.run("cycle-012", [])

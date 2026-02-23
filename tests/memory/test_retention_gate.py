@@ -188,13 +188,19 @@ class TestRetentionGateEvaluate:
         """Access count should contribute up to 0.2 bonus to retention score."""
         gate = RetentionGate()
         d_no_access = gate.evaluate(
-            item_id="a1", source="km", content="",
-            outcome_surprise=0.4, current_confidence=0.5,
+            item_id="a1",
+            source="km",
+            content="",
+            outcome_surprise=0.4,
+            current_confidence=0.5,
         )
         gate.clear_decisions()
         d_high_access = gate.evaluate(
-            item_id="a2", source="km", content="",
-            outcome_surprise=0.4, current_confidence=0.5,
+            item_id="a2",
+            source="km",
+            content="",
+            outcome_surprise=0.4,
+            current_confidence=0.5,
             access_count=20,
         )
         assert d_high_access.retention_score > d_no_access.retention_score
@@ -254,7 +260,12 @@ class TestBatchEvaluate:
         gate = RetentionGate()
         items = [
             {"item_id": "b1", "source": "km", "outcome_surprise": 0.9, "current_confidence": 0.5},
-            {"item_id": "b2", "source": "continuum", "outcome_surprise": 0.1, "current_confidence": 0.2},
+            {
+                "item_id": "b2",
+                "source": "continuum",
+                "outcome_surprise": 0.1,
+                "current_confidence": 0.2,
+            },
             {"item_id": "b3", "source": "km", "outcome_surprise": 0.4, "current_confidence": 0.6},
         ]
         decisions = gate.batch_evaluate(items)
@@ -267,8 +278,13 @@ class TestBatchEvaluate:
         """batch_evaluate should respect red_line flag in item dicts."""
         gate = RetentionGate()
         items = [
-            {"item_id": "r1", "source": "km", "outcome_surprise": 0.01,
-             "current_confidence": 0.1, "is_red_line": True},
+            {
+                "item_id": "r1",
+                "source": "km",
+                "outcome_surprise": 0.01,
+                "current_confidence": 0.1,
+                "is_red_line": True,
+            },
         ]
         decisions = gate.batch_evaluate(items)
         assert decisions[0].action == "retain"

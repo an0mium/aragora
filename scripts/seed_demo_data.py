@@ -165,14 +165,13 @@ def _past(days: int = 0, hours: int = 0) -> str:
 # Database helpers
 # ---------------------------------------------------------------------------
 
+
 def get_connection(database_url: str):
     """Return a psycopg2 connection."""
     try:
         import psycopg2
     except ImportError:
-        logger.error(
-            "psycopg2 not installed. Install with: pip install psycopg2-binary"
-        )
+        logger.error("psycopg2 not installed. Install with: pip install psycopg2-binary")
         sys.exit(1)
 
     try:
@@ -193,6 +192,7 @@ def _row_exists(cur, table: str, id_value: str) -> bool:
 # ---------------------------------------------------------------------------
 # Seed functions
 # ---------------------------------------------------------------------------
+
 
 def seed_organizations(cur) -> int:
     count = 0
@@ -253,11 +253,13 @@ def seed_debates(cur) -> int:
                 d["question"],
                 d["decision"],
                 d["confidence"],
-                json.dumps({
-                    "outcome": d["outcome"],
-                    "rounds": 3,
-                    "duration_seconds": random.randint(45, 300),
-                }),
+                json.dumps(
+                    {
+                        "outcome": d["outcome"],
+                        "rounds": 3,
+                        "duration_seconds": random.randint(45, 300),
+                    }
+                ),
                 json.dumps(d["agents"]),
                 json.dumps(votes),
                 json.dumps({"demo": True, "outcome": d["outcome"]}),
@@ -300,6 +302,7 @@ def seed_templates(cur) -> int:
 # Clear
 # ---------------------------------------------------------------------------
 
+
 def clear_demo_data(cur) -> dict[str, int]:
     """Remove all demo-prefixed rows. Returns counts per table."""
     counts = {}
@@ -318,6 +321,7 @@ def clear_demo_data(cur) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 # Check
 # ---------------------------------------------------------------------------
+
 
 def check_data(cur) -> dict[str, int]:
     queries = {
@@ -339,6 +343,7 @@ def check_data(cur) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Seed Aragora demo data into PostgreSQL")

@@ -185,7 +185,11 @@ class BidirectionalCoordinator:
         )
 
         logger.info(
-            "Registered adapter: %s (forward=%s, reverse=%s, priority=%s)", name, forward_method, reverse_method, priority
+            "Registered adapter: %s (forward=%s, reverse=%s, priority=%s)",
+            name,
+            forward_method,
+            reverse_method,
+            priority,
         )
         return True
 
@@ -625,7 +629,13 @@ class BidirectionalCoordinator:
             self._sync_history = self._sync_history[-self._max_history :]
 
         logger.info(
-            "Bidirectional sync complete: forward=%s/%s, reverse=%s/%s, errors=%s, duration=%sms", report.successful_forward, len(report.forward_results), report.successful_reverse, len(report.reverse_results), report.total_errors, report.total_duration_ms
+            "Bidirectional sync complete: forward=%s/%s, reverse=%s/%s, errors=%s, duration=%sms",
+            report.successful_forward,
+            len(report.forward_results),
+            report.successful_reverse,
+            len(report.reverse_results),
+            report.total_errors,
+            report.total_duration_ms,
         )
 
         return report

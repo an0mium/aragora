@@ -242,26 +242,20 @@ class TestRateLimiting:
     """Test rate limiting on all metrics endpoints."""
 
     def test_rate_limit_exceeded_returns_429(self, handler, mock_http):
-        with patch(
-            "aragora.server.handlers.metrics.handler._metrics_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.metrics.handler._metrics_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = handler.handle("/api/metrics", {}, mock_http)
             assert _status(result) == 429
             assert "Rate limit" in _body(result).get("error", "")
 
     def test_rate_limit_allowed_continues(self, handler, mock_http):
-        with patch(
-            "aragora.server.handlers.metrics.handler._metrics_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.metrics.handler._metrics_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             result = handler.handle("/api/metrics", {}, mock_http)
             assert _status(result) == 200
 
     def test_rate_limit_on_prometheus_endpoint(self, handler, mock_http):
-        with patch(
-            "aragora.server.handlers.metrics.handler._metrics_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.metrics.handler._metrics_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = handler.handle("/metrics", {}, mock_http)
             assert _status(result) == 429
@@ -334,6 +328,7 @@ class TestMetricsTokenAuth:
         ):
             # Make sure ARAGORA_METRICS_TOKEN is not set
             import os
+
             os.environ.pop("ARAGORA_METRICS_TOKEN", None)
             result = handler.handle("/metrics", {}, mock_http)
             assert _status(result) == 200
@@ -374,9 +369,7 @@ class TestMetricsTokenAuth:
         """Query param tokens are always rejected for security."""
         mock_http = _make_http_handler(headers={"Authorization": "Bearer secret123"})
         with patch.dict("os.environ", {"ARAGORA_METRICS_TOKEN": "secret123"}):
-            result = handler.handle(
-                "/metrics", {"token": ["secret123"]}, mock_http
-            )
+            result = handler.handle("/metrics", {"token": ["secret123"]}, mock_http)
             assert _status(result) == 401
 
     def test_no_authorization_header_at_all(self, handler):
@@ -515,9 +508,7 @@ class TestGetHealth:
         nomic_dir.exists.return_value = True
         nomic_dir.__str__ = lambda self: "/tmp/nomic"
 
-        h = MetricsHandler(
-            ctx={"storage": storage, "elo_system": elo, "nomic_dir": nomic_dir}
-        )
+        h = MetricsHandler(ctx={"storage": storage, "elo_system": elo, "nomic_dir": nomic_dir})
         result = h.handle("/api/metrics/health", {}, mock_http)
         body = _body(result)
         assert _status(result) == 200
@@ -891,11 +882,7 @@ class TestGetBackgroundStats:
         mock_manager.get_stats.side_effect = RuntimeError("boom")
         with patch.dict(
             "sys.modules",
-            {
-                "aragora.server.background": MagicMock(
-                    get_background_manager=lambda: mock_manager
-                )
-            },
+            {"aragora.server.background": MagicMock(get_background_manager=lambda: mock_manager)},
         ):
             result = handler.handle("/api/metrics/background", {}, mock_http)
             assert _status(result) == 500
@@ -923,9 +910,7 @@ class TestGetDebatePerfStats:
                 )
             },
         ):
-            result = handler.handle(
-                "/api/metrics/debate", {"debate_id": [None]}, mock_http
-            )
+            result = handler.handle("/api/metrics/debate", {"debate_id": [None]}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert "slow_debates_history" in body
@@ -958,12 +943,8 @@ class TestGetDebatePerfStats:
             assert body["debate_id"] == "d123"
 
     def test_import_error_returns_fallback(self, handler, mock_http):
-        with patch.dict(
-            "sys.modules", {"aragora.debate.performance_monitor": None}
-        ):
-            result = handler.handle(
-                "/api/metrics/debate", {"debate_id": [None]}, mock_http
-            )
+        with patch.dict("sys.modules", {"aragora.debate.performance_monitor": None}):
+            result = handler.handle("/api/metrics/debate", {"debate_id": [None]}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert "message" in body or "slow_debates_history" in body
@@ -979,9 +960,7 @@ class TestGetDebatePerfStats:
                 )
             },
         ):
-            result = handler.handle(
-                "/api/metrics/debate", {"debate_id": [None]}, mock_http
-            )
+            result = handler.handle("/api/metrics/debate", {"debate_id": [None]}, mock_http)
             assert _status(result) == 500
 
     def test_no_debate_id_param_defaults_to_none(self, handler, mock_http):
@@ -1049,9 +1028,7 @@ class TestGetPrometheusMetrics:
                 "aragora.server.handlers.metrics.handler.get_metrics_output",
                 return_value=("# metrics\n", "text/plain"),
             ),
-            patch(
-                "aragora.server.handlers.metrics.handler.set_cache_size"
-            ) as mock_set,
+            patch("aragora.server.handlers.metrics.handler.set_cache_size") as mock_set,
         ):
             handler.handle("/metrics", {}, mock_http)
             mock_set.assert_called_once()
@@ -1064,9 +1041,7 @@ class TestGetPrometheusMetrics:
                 "aragora.server.handlers.metrics.handler.get_metrics_output",
                 return_value=("# metrics\n", "text/plain"),
             ),
-            patch(
-                "aragora.server.handlers.metrics.handler.set_server_info"
-            ) as mock_set,
+            patch("aragora.server.handlers.metrics.handler.set_server_info") as mock_set,
         ):
             handler.handle("/metrics", {}, mock_http)
             mock_set.assert_called_once()

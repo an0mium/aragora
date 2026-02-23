@@ -852,7 +852,9 @@ def _handle_checkout_session_completed(obj: Any) -> dict[str, Any]:
                 if org:
                     old_tier = org.tier.value
                     try:
-                        new_tier = SubscriptionTier(tier_str) if tier_str else SubscriptionTier.STARTER
+                        new_tier = (
+                            SubscriptionTier(tier_str) if tier_str else SubscriptionTier.STARTER
+                        )
                     except ValueError:
                         new_tier = SubscriptionTier.STARTER
 
@@ -1309,13 +1311,13 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 
         # Process different event types
         if event_type == "net.authorize.payment.authcapture.created":
-            logger.info("Payment captured: %s", payload.get('payload', {}).get('id'))
+            logger.info("Payment captured: %s", payload.get("payload", {}).get("id"))
         elif event_type == "net.authorize.payment.refund.created":
-            logger.info("Refund processed: %s", payload.get('payload', {}).get('id'))
+            logger.info("Refund processed: %s", payload.get("payload", {}).get("id"))
         elif event_type == "net.authorize.customer.subscription.created":
-            logger.info("Subscription created: %s", payload.get('payload', {}).get('id'))
+            logger.info("Subscription created: %s", payload.get("payload", {}).get("id"))
         elif event_type == "net.authorize.customer.subscription.cancelled":
-            logger.info("Subscription canceled: %s", payload.get('payload', {}).get('id'))
+            logger.info("Subscription canceled: %s", payload.get("payload", {}).get("id"))
 
         # Mark as processed after successful handling
         _pkg()._mark_webhook_processed(event_id)

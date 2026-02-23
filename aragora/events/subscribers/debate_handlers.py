@@ -227,7 +227,14 @@ class DebateHandlersMixin:
                                 "hints": patterns,
                                 "timestamp": time.time(),
                             }
-                except (ImportError, RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
+                except (
+                    ImportError,
+                    RuntimeError,
+                    TypeError,
+                    AttributeError,
+                    ValueError,
+                    OSError,
+                ) as e:
                     logger.debug("Culture retrieval failed: %s", e)
 
             try:
@@ -453,24 +460,18 @@ class DebateHandlersMixin:
             subscriber = PostDebateWorkflowSubscriber()
             subscriber.handle_debate_end(event)
 
-            self.stats.setdefault(
-                "debate_end_to_workflow", {"events": 0, "errors": 0}
-            )
+            self.stats.setdefault("debate_end_to_workflow", {"events": 0, "errors": 0})
             self.stats["debate_end_to_workflow"]["events"] += 1
 
             # Propagate error count from the subscriber
             if subscriber.stats["errors"] > 0:
-                self.stats["debate_end_to_workflow"]["errors"] += subscriber.stats[
-                    "errors"
-                ]
+                self.stats["debate_end_to_workflow"]["errors"] += subscriber.stats["errors"]
 
         except ImportError:
             logger.debug("PostDebateWorkflowSubscriber not available")
         except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Debate End -> Workflow handler error: %s", e)
-            self.stats.setdefault(
-                "debate_end_to_workflow", {"events": 0, "errors": 0}
-            )
+            self.stats.setdefault("debate_end_to_workflow", {"events": 0, "errors": 0})
             self.stats["debate_end_to_workflow"]["errors"] += 1
 
     def _handle_mound_to_provenance(self, event: StreamEvent) -> None:

@@ -318,7 +318,15 @@ class RLMContextManager:
 
             except asyncio.TimeoutError:
                 logger.warning("[ExtendedRounds] RLM compression timed out for round %s", round_num)
-            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                KeyError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.error("[ExtendedRounds] RLM compression failed: %s", e)
 
         # Build final context
@@ -375,7 +383,15 @@ class RLMContextManager:
                 )
                 if result and result.answer:
                     return result.answer
-            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                KeyError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.debug("[ExtendedRounds] Drill-down query failed: %s", e)
 
         # Fallback: return the compressed history itself

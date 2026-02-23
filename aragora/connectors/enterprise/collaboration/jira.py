@@ -761,7 +761,7 @@ class JiraConnector(EnterpriseConnector):
         event = payload.get("webhookEvent", "")
         issue = payload.get("issue", {})
 
-        logger.info("[%s] Webhook: %s on issue %s", self.name, event, issue.get('key', 'unknown'))
+        logger.info("[%s] Webhook: %s on issue %s", self.name, event, issue.get("key", "unknown"))
 
         # Handle issue events
         if event.startswith("jira:issue_"):

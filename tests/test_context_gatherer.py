@@ -268,9 +268,7 @@ class TestGatherAll:
             enable_trending_context=False,
         )
 
-        with patch.object(
-            gatherer, "_gather_claude_web_search", AsyncMock(return_value=None)
-        ):
+        with patch.object(gatherer, "_gather_claude_web_search", AsyncMock(return_value=None)):
             with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
                 with patch.object(
                     gatherer,

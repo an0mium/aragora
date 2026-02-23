@@ -179,7 +179,11 @@ def health_check(handler) -> HandlerResult:
     except (KeyError, TypeError, AttributeError) as e:
         logger.debug("Circuit breaker metrics access error: %s: %s", type(e).__name__, e)
         checks["circuit_breakers"] = {"healthy": True, "error": "Health check failed"}
-    except (OSError, RuntimeError, ValueError) as e:  # broad catch: last-resort handler for CB metrics
+    except (
+        OSError,
+        RuntimeError,
+        ValueError,
+    ) as e:  # broad catch: last-resort handler for CB metrics
         logger.warning("Circuit breaker health check failed: %s: %s", type(e).__name__, e)
         checks["circuit_breakers"] = {"healthy": True, "error": "Health check failed"}
 
@@ -199,7 +203,11 @@ def health_check(handler) -> HandlerResult:
     except (KeyError, TypeError, AttributeError) as e:
         logger.debug("Rate limiter stats access error: %s: %s", type(e).__name__, e)
         checks["rate_limiters"] = {"healthy": True, "error": "Health check failed"}
-    except (OSError, RuntimeError, ValueError) as e:  # broad catch: last-resort handler for rate limiter
+    except (
+        OSError,
+        RuntimeError,
+        ValueError,
+    ) as e:  # broad catch: last-resort handler for rate limiter
         logger.warning("Rate limiter health check failed: %s: %s", type(e).__name__, e)
         checks["rate_limiters"] = {"healthy": True, "error": "Health check failed"}
 

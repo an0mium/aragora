@@ -422,7 +422,9 @@ class EmailRateLimiter:
 
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(
-                "Redis rate limit connection error, falling back to local: %s: %s", type(e).__name__, e
+                "Redis rate limit connection error, falling back to local: %s: %s",
+                type(e).__name__,
+                e,
             )
             return await self._acquire_local(tenant_id, provider, limits, count)
         except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable

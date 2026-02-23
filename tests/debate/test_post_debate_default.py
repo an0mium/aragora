@@ -76,15 +76,19 @@ class TestCoordinatorWithDefaultConfig:
         mock_result.final_answer = "answer"
         mock_result.participants = []
 
-        with patch.object(coordinator, "_step_explain", return_value={"explanation": "test"}) as mock_explain, \
-             patch.object(coordinator, "_step_persist_receipt", return_value=True) as mock_receipt, \
-             patch.object(coordinator, "_step_create_plan") as mock_plan, \
-             patch.object(coordinator, "_step_notify") as mock_notify, \
-             patch.object(coordinator, "_step_execution_bridge", return_value=[]), \
-             patch.object(coordinator, "_step_gauntlet_validate", return_value=None), \
-             patch.object(coordinator, "_step_push_calibration", return_value=False), \
-             patch.object(coordinator, "_step_queue_improvement", return_value=True) as mock_improve, \
-             patch.object(coordinator, "_step_outcome_feedback", return_value=None) as mock_feedback:
+        with (
+            patch.object(
+                coordinator, "_step_explain", return_value={"explanation": "test"}
+            ) as mock_explain,
+            patch.object(coordinator, "_step_persist_receipt", return_value=True) as mock_receipt,
+            patch.object(coordinator, "_step_create_plan") as mock_plan,
+            patch.object(coordinator, "_step_notify") as mock_notify,
+            patch.object(coordinator, "_step_execution_bridge", return_value=[]),
+            patch.object(coordinator, "_step_gauntlet_validate", return_value=None),
+            patch.object(coordinator, "_step_push_calibration", return_value=False),
+            patch.object(coordinator, "_step_queue_improvement", return_value=True) as mock_improve,
+            patch.object(coordinator, "_step_outcome_feedback", return_value=None) as mock_feedback,
+        ):
             result = coordinator.run("d1", mock_result, confidence=0.9, task="test")
 
         mock_explain.assert_called_once()
@@ -100,16 +104,19 @@ class TestDisablePostDebatePipeline:
 
     def test_arena_config_disable_flag_default_false(self):
         from aragora.debate.arena_config import ArenaConfig
+
         config = ArenaConfig()
         assert config.disable_post_debate_pipeline is False
 
     def test_arena_config_disable_flag_true(self):
         from aragora.debate.arena_config import ArenaConfig
+
         config = ArenaConfig(disable_post_debate_pipeline=True)
         assert config.disable_post_debate_pipeline is True
 
     def test_arena_config_to_arena_kwargs_includes_flag(self):
         from aragora.debate.arena_config import ArenaConfig
+
         config = ArenaConfig(disable_post_debate_pipeline=True)
         kwargs = config.to_arena_kwargs()
         assert "disable_post_debate_pipeline" in kwargs
@@ -121,6 +128,7 @@ class TestPresetPostDebateConfig:
 
     def test_enterprise_preset_has_post_debate_config(self):
         from aragora.debate.presets import get_preset
+
         preset = get_preset("enterprise")
         assert "post_debate_config" in preset
         config = preset["post_debate_config"]
@@ -133,6 +141,7 @@ class TestPresetPostDebateConfig:
 
     def test_audit_preset_has_post_debate_config(self):
         from aragora.debate.presets import get_preset
+
         preset = get_preset("audit")
         assert "post_debate_config" in preset
         config = preset["post_debate_config"]
@@ -144,11 +153,13 @@ class TestPresetPostDebateConfig:
 
     def test_minimal_preset_no_post_debate_config(self):
         from aragora.debate.presets import get_preset
+
         preset = get_preset("minimal")
         assert "post_debate_config" not in preset
 
     def test_preset_no_internal_key_leak(self):
         from aragora.debate.presets import get_preset
+
         preset = get_preset("enterprise")
         assert "_post_debate_preset" not in preset
 

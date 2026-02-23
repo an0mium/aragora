@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SignalSource:
     """A source of improvement signals."""
+
     name: str
     weight: float  # 0.0-1.0, relative importance
     findings: list[Any] = field(default_factory=list)
@@ -36,6 +37,7 @@ class SignalSource:
 @dataclass
 class ImprovementCandidate:
     """A ranked improvement candidate derived from signal sources."""
+
     description: str
     priority: float  # 0.0-1.0, higher is more urgent
     source: str  # Which signal source identified this
@@ -55,6 +57,7 @@ class ImprovementCandidate:
 @dataclass
 class CodebaseHealthReport:
     """Complete codebase health assessment."""
+
     health_score: float  # 0.0-1.0, higher is healthier
     signal_sources: list[SignalSource] = field(default_factory=list)
     improvement_candidates: list[ImprovementCandidate] = field(default_factory=list)
@@ -65,7 +68,12 @@ class CodebaseHealthReport:
         return {
             "health_score": self.health_score,
             "signal_sources": [
-                {"name": s.name, "weight": s.weight, "findings_count": len(s.findings), "error": s.error}
+                {
+                    "name": s.name,
+                    "weight": s.weight,
+                    "findings_count": len(s.findings),
+                    "error": s.error,
+                }
                 for s in self.signal_sources
             ],
             "improvement_candidates": [c.to_dict() for c in self.improvement_candidates],
@@ -264,21 +272,27 @@ class AutonomousAssessmentEngine:
 
         for finding in source.findings:
             if isinstance(finding, dict):
-                candidates.append(ImprovementCandidate(
-                    description=finding.get("description", str(finding)),
-                    priority=self._severity_to_priority(finding.get("severity", "medium")),
-                    source="scanner",
-                    files=[finding["file_path"]] if "file_path" in finding else [],
-                    category=finding.get("category", "general"),
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=finding.get("description", str(finding)),
+                        priority=self._severity_to_priority(finding.get("severity", "medium")),
+                        source="scanner",
+                        files=[finding["file_path"]] if "file_path" in finding else [],
+                        category=finding.get("category", "general"),
+                    )
+                )
             elif hasattr(finding, "description"):
-                candidates.append(ImprovementCandidate(
-                    description=getattr(finding, "description", str(finding)),
-                    priority=self._severity_to_priority(getattr(finding, "severity", "medium")),
-                    source="scanner",
-                    files=[getattr(finding, "file_path", "")] if hasattr(finding, "file_path") else [],
-                    category=getattr(finding, "category", "general"),
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=getattr(finding, "description", str(finding)),
+                        priority=self._severity_to_priority(getattr(finding, "severity", "medium")),
+                        source="scanner",
+                        files=[getattr(finding, "file_path", "")]
+                        if hasattr(finding, "file_path")
+                        else [],
+                        category=getattr(finding, "category", "general"),
+                    )
+                )
 
         return candidates
 
@@ -295,22 +309,26 @@ class AutonomousAssessmentEngine:
             # High test failure rate
             fail_count = snapshot.get("tests_failed", 0)
             if fail_count > 0:
-                candidates.append(ImprovementCandidate(
-                    description=f"Fix {fail_count} failing test(s)",
-                    priority=0.9,
-                    source="metrics",
-                    category="test",
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=f"Fix {fail_count} failing test(s)",
+                        priority=0.9,
+                        source="metrics",
+                        category="test",
+                    )
+                )
 
             # Lint violations
             lint_count = snapshot.get("lint_errors", 0)
             if lint_count > 10:
-                candidates.append(ImprovementCandidate(
-                    description=f"Reduce {lint_count} lint violations",
-                    priority=0.5 if lint_count < 50 else 0.7,
-                    source="metrics",
-                    category="lint",
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=f"Reduce {lint_count} lint violations",
+                        priority=0.5 if lint_count < 50 else 0.7,
+                        source="metrics",
+                        category="lint",
+                    )
+                )
 
         return candidates
 
@@ -324,13 +342,15 @@ class AutonomousAssessmentEngine:
             if isinstance(regression, dict):
                 metrics = regression.get("regressed_metrics", [])
                 desc = f"Fix regression in cycle {regression.get('cycle_id', '?')}: {', '.join(metrics)}"
-                candidates.append(ImprovementCandidate(
-                    description=regression.get("description", desc),
-                    priority=0.85,
-                    source="regressions",
-                    files=regression.get("files", []),
-                    category="regression",
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=regression.get("description", desc),
+                        priority=0.85,
+                        source="regressions",
+                        files=regression.get("files", []),
+                        category="regression",
+                    )
+                )
 
         return candidates
 
@@ -342,13 +362,15 @@ class AutonomousAssessmentEngine:
 
         for item in source.findings:
             if isinstance(item, dict):
-                candidates.append(ImprovementCandidate(
-                    description=item.get("goal", item.get("description", str(item))),
-                    priority=float(item.get("priority", 0.6)),
-                    source="queue",
-                    files=item.get("files", []),
-                    category=item.get("category", "feedback"),
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=item.get("goal", item.get("description", str(item))),
+                        priority=float(item.get("priority", 0.6)),
+                        source="queue",
+                        files=item.get("files", []),
+                        category=item.get("category", "feedback"),
+                    )
+                )
 
         return candidates
 
@@ -360,13 +382,15 @@ class AutonomousAssessmentEngine:
 
         for finding in source.findings:
             if isinstance(finding, dict):
-                candidates.append(ImprovementCandidate(
-                    description=finding.get("description", str(finding)),
-                    priority=float(finding.get("priority", 0.65)),
-                    source="feedback",
-                    files=finding.get("files", []),
-                    category="feedback",
-                ))
+                candidates.append(
+                    ImprovementCandidate(
+                        description=finding.get("description", str(finding)),
+                        priority=float(finding.get("priority", 0.65)),
+                        source="feedback",
+                        files=finding.get("files", []),
+                        category="feedback",
+                    )
+                )
 
         return candidates
 

@@ -15,6 +15,7 @@ from aragora.debate.context.processors import ContentProcessor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_rlm_result(answer: str, used_true_rlm: bool = False, confidence: float = 0.8):
     """Create a mock RLM result object."""
     return SimpleNamespace(answer=answer, used_true_rlm=used_true_rlm, confidence=confidence)
@@ -187,7 +188,9 @@ class TestCompressWithRLM:
             mock_al.SUMMARY = "SUMMARY"
             mock_al.ABSTRACT = "ABSTRACT"
             # Patch the import inside the method
-            with patch.dict("sys.modules", {"aragora.rlm.types": MagicMock(AbstractionLevel=mock_al)}):
+            with patch.dict(
+                "sys.modules", {"aragora.rlm.types": MagicMock(AbstractionLevel=mock_al)}
+            ):
                 content = "x" * 5000
                 result = await processor_with_rlm.compress_with_rlm(content, max_chars=3000)
         assert result == summary_text
@@ -257,9 +260,7 @@ class TestQueryWithTrueRLM:
     async def test_true_rlm_success(self):
         """TRUE RLM query returns an answer when available."""
         mock_rlm = AsyncMock()
-        mock_rlm.query = AsyncMock(
-            return_value=_make_rlm_result("the answer", used_true_rlm=True)
-        )
+        mock_rlm.query = AsyncMock(return_value=_make_rlm_result("the answer", used_true_rlm=True))
         with patch.object(proc_mod, "HAS_RLM", False):
             cp = ContentProcessor()
         cp._enable_rlm = True
@@ -393,7 +394,10 @@ class TestGatherAragoraContext:
         (docs_dir / "FEATURES.md").write_text("Features")
 
         with patch.object(
-            processor, "_gather_codebase_context", new_callable=AsyncMock, return_value="## MAP\ncode"
+            processor,
+            "_gather_codebase_context",
+            new_callable=AsyncMock,
+            return_value="## MAP\ncode",
         ):
             result = await processor.gather_aragora_context("aragora improvements")
         assert result is not None
@@ -437,6 +441,7 @@ class TestGatherCodebaseContext:
         ):
             # Force the import to fail inside the method
             import builtins
+
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
@@ -766,9 +771,7 @@ class TestQueryKnowledgeWithTrueRLM:
 
     @pytest.mark.asyncio
     async def test_no_mound_returns_none(self, processor):
-        result = await processor.query_knowledge_with_true_rlm(
-            task="test", knowledge_mound=None
-        )
+        result = await processor.query_knowledge_with_true_rlm(task="test", knowledge_mound=None)
         assert result is None
 
     @pytest.mark.asyncio
@@ -790,6 +793,7 @@ class TestQueryKnowledgeWithTrueRLM:
         mound = MagicMock()
 
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -827,10 +831,13 @@ class TestQueryKnowledgeWithTrueRLM:
         with (
             patch.object(proc_mod, "HAS_RLM", True),
             patch.object(proc_mod, "HAS_OFFICIAL_RLM", True),
-            patch.dict("sys.modules", {
-                "aragora.rlm": mock_rlm_module,
-                "aragora.debate.context.cache": mock_cache_module,
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.rlm": mock_rlm_module,
+                    "aragora.debate.context.cache": mock_cache_module,
+                },
+            ),
         ):
             result = await processor.query_knowledge_with_true_rlm(
                 task="test query", knowledge_mound=mound
@@ -857,10 +864,13 @@ class TestQueryKnowledgeWithTrueRLM:
         with (
             patch.object(proc_mod, "HAS_RLM", True),
             patch.object(proc_mod, "HAS_OFFICIAL_RLM", True),
-            patch.dict("sys.modules", {
-                "aragora.rlm": mock_rlm_module,
-                "aragora.debate.context.cache": mock_cache_module,
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.rlm": mock_rlm_module,
+                    "aragora.debate.context.cache": mock_cache_module,
+                },
+            ),
         ):
             result = await processor.query_knowledge_with_true_rlm(
                 task="test", knowledge_mound=mound
@@ -885,10 +895,13 @@ class TestQueryKnowledgeWithTrueRLM:
         with (
             patch.object(proc_mod, "HAS_RLM", True),
             patch.object(proc_mod, "HAS_OFFICIAL_RLM", True),
-            patch.dict("sys.modules", {
-                "aragora.rlm": mock_rlm_module,
-                "aragora.debate.context.cache": mock_cache_module,
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.rlm": mock_rlm_module,
+                    "aragora.debate.context.cache": mock_cache_module,
+                },
+            ),
         ):
             result = await processor.query_knowledge_with_true_rlm(
                 task="test", knowledge_mound=mound

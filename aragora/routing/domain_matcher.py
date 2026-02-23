@@ -503,7 +503,15 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             # No valid domains found, fallback
             return None
 
-        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            RuntimeError,
+        ) as e:
             logger.debug("LLM domain detection failed: %s", e)
             return None
 

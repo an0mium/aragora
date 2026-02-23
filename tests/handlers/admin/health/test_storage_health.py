@@ -81,11 +81,13 @@ def handler():
 @pytest.fixture
 def handler_with_ctx():
     """StorageHealthHandler with populated context."""
-    return StorageHealthHandler(ctx={
-        "storage": MagicMock(name="mock_storage"),
-        "elo_system": MagicMock(name="mock_elo"),
-        "nomic_dir": "/tmp/nomic",
-    })
+    return StorageHealthHandler(
+        ctx={
+            "storage": MagicMock(name="mock_storage"),
+            "elo_system": MagicMock(name="mock_elo"),
+            "nomic_dir": "/tmp/nomic",
+        }
+    )
 
 
 @pytest.fixture
@@ -190,7 +192,7 @@ class TestHandle:
     @pytest.mark.asyncio
     async def test_handle_stores_v1_dispatches(self, handler, http_handler):
         """Route /api/v1/health/stores dispatches to _database_stores_health."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result) as m:
             result = await handler.handle("/api/v1/health/stores", {}, http_handler)
         m.assert_called_once()
@@ -199,7 +201,7 @@ class TestHandle:
     @pytest.mark.asyncio
     async def test_handle_stores_non_v1_dispatches(self, handler, http_handler):
         """Route /api/health/stores dispatches to _database_stores_health."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result) as m:
             result = await handler.handle("/api/health/stores", {}, http_handler)
         m.assert_called_once()
@@ -208,7 +210,7 @@ class TestHandle:
     @pytest.mark.asyncio
     async def test_handle_database_v1_dispatches(self, handler, http_handler):
         """Route /api/v1/health/database dispatches to _database_schema_health."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_schema_health", return_value=mock_result) as m:
             result = await handler.handle("/api/v1/health/database", {}, http_handler)
         m.assert_called_once()
@@ -223,15 +225,19 @@ class TestHandle:
     @pytest.mark.asyncio
     async def test_handle_passes_query_params_ignored(self, handler, http_handler):
         """Query params are accepted but not used by this handler."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result):
-            result = await handler.handle("/api/v1/health/stores", {"verbose": "true"}, http_handler)
+            result = await handler.handle(
+                "/api/v1/health/stores", {"verbose": "true"}, http_handler
+            )
         assert result is mock_result
 
     @pytest.mark.asyncio
     async def test_handle_returns_handler_result(self, handler, http_handler):
         """handle() returns a HandlerResult for valid routes."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{"status":"ok"}')
+        mock_result = HandlerResult(
+            status_code=200, content_type="application/json", body=b'{"status":"ok"}'
+        )
         with patch.object(handler, "_database_stores_health", return_value=mock_result):
             result = await handler.handle("/api/v1/health/stores", {}, http_handler)
         assert isinstance(result, HandlerResult)
@@ -251,7 +257,10 @@ class TestHandleAuth:
         """UnauthorizedError from get_auth_context returns 401."""
         h = StorageHealthHandler(ctx={})
         with patch.object(
-            h, "get_auth_context", new_callable=AsyncMock, side_effect=UnauthorizedError("Not authenticated")
+            h,
+            "get_auth_context",
+            new_callable=AsyncMock,
+            side_effect=UnauthorizedError("Not authenticated"),
         ):
             result = await h.handle("/api/v1/health/stores", {}, http_handler)
         assert _status(result) == 401
@@ -263,10 +272,13 @@ class TestHandleAuth:
         """ForbiddenError from check_permission returns 403."""
         h = StorageHealthHandler(ctx={})
         mock_auth_ctx = MagicMock()
-        with patch.object(
-            h, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth_ctx
-        ), patch.object(
-            h, "check_permission", side_effect=ForbiddenError("No access", permission="system.health.read")
+        with (
+            patch.object(h, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth_ctx),
+            patch.object(
+                h,
+                "check_permission",
+                side_effect=ForbiddenError("No access", permission="system.health.read"),
+            ),
         ):
             result = await h.handle("/api/v1/health/stores", {}, http_handler)
         assert _status(result) == 403
@@ -278,7 +290,10 @@ class TestHandleAuth:
         """Auth check happens before path routing -- even unknown paths get 401."""
         h = StorageHealthHandler(ctx={})
         with patch.object(
-            h, "get_auth_context", new_callable=AsyncMock, side_effect=UnauthorizedError("Missing token")
+            h,
+            "get_auth_context",
+            new_callable=AsyncMock,
+            side_effect=UnauthorizedError("Missing token"),
         ):
             result = await h.handle("/api/v1/health/stores", {}, http_handler)
         assert _status(result) == 401
@@ -289,13 +304,11 @@ class TestHandleAuth:
         """check_permission is called with HEALTH_PERMISSION."""
         h = StorageHealthHandler(ctx={})
         mock_auth_ctx = MagicMock()
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
-        with patch.object(
-            h, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth_ctx
-        ), patch.object(
-            h, "check_permission"
-        ) as mock_perm, patch.object(
-            h, "_database_stores_health", return_value=mock_result
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
+        with (
+            patch.object(h, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth_ctx),
+            patch.object(h, "check_permission") as mock_perm,
+            patch.object(h, "_database_stores_health", return_value=mock_result),
         ):
             await h.handle("/api/v1/health/stores", {}, http_handler)
         mock_perm.assert_called_once_with(mock_auth_ctx, "system.health.read")
@@ -317,10 +330,9 @@ class TestHandleAuth:
         """Auth forbidden on non-v1 /api/health/stores returns 403."""
         h = StorageHealthHandler(ctx={})
         mock_auth_ctx = MagicMock()
-        with patch.object(
-            h, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth_ctx
-        ), patch.object(
-            h, "check_permission", side_effect=ForbiddenError("Denied")
+        with (
+            patch.object(h, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth_ctx),
+            patch.object(h, "check_permission", side_effect=ForbiddenError("Denied")),
         ):
             result = await h.handle("/api/health/stores", {}, http_handler)
         assert _status(result) == 403
@@ -336,7 +348,9 @@ class TestDatabaseStoresHealthDelegate:
 
     def test_delegates_to_database_stores_health(self, handler):
         """_database_stores_health calls database.database_stores_health."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{"status":"ok"}')
+        mock_result = HandlerResult(
+            status_code=200, content_type="application/json", body=b'{"status":"ok"}'
+        )
         with patch(f"{_STORAGE_MOD}.database_stores_health", return_value=mock_result) as m:
             result = handler._database_stores_health()
         m.assert_called_once()
@@ -352,7 +366,9 @@ class TestDatabaseStoresHealthDelegate:
 
     def test_returns_handler_result(self, handler):
         """Return type is HandlerResult from the delegate."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{"stores":{}}')
+        mock_result = HandlerResult(
+            status_code=200, content_type="application/json", body=b'{"stores":{}}'
+        )
         with patch(f"{_STORAGE_MOD}.database_stores_health", return_value=mock_result):
             result = handler._database_stores_health()
         assert isinstance(result, HandlerResult)
@@ -368,7 +384,9 @@ class TestDatabaseSchemaHealthDelegate:
 
     def test_delegates_to_database_schema_health(self, handler):
         """_database_schema_health calls database.database_schema_health."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{"status":"ok"}')
+        mock_result = HandlerResult(
+            status_code=200, content_type="application/json", body=b'{"status":"ok"}'
+        )
         with patch(f"{_STORAGE_MOD}.database_schema_health", return_value=mock_result) as m:
             result = handler._database_schema_health()
         m.assert_called_once()
@@ -383,7 +401,9 @@ class TestDatabaseSchemaHealthDelegate:
 
     def test_returns_handler_result(self, handler):
         """Return type is HandlerResult from the delegate."""
-        mock_result = HandlerResult(status_code=503, content_type="application/json", body=b'{"status":"unavailable"}')
+        mock_result = HandlerResult(
+            status_code=503, content_type="application/json", body=b'{"status":"unavailable"}'
+        )
         with patch(f"{_STORAGE_MOD}.database_schema_health", return_value=mock_result):
             result = handler._database_schema_health()
         assert isinstance(result, HandlerResult)
@@ -520,7 +540,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_v1_stores_normalized_to_api_stores(self, handler, http_handler):
         """v1 path /api/v1/health/stores normalizes to /api/health/stores."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result) as m:
             await handler.handle("/api/v1/health/stores", {}, http_handler)
         m.assert_called_once()
@@ -528,7 +548,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_non_v1_stores_already_normalized(self, handler, http_handler):
         """Non-v1 /api/health/stores matches without needing normalization."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result) as m:
             await handler.handle("/api/health/stores", {}, http_handler)
         m.assert_called_once()
@@ -536,7 +556,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_v1_database_normalized_to_api_database(self, handler, http_handler):
         """v1 path /api/v1/health/database normalizes to /api/health/database."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_schema_health", return_value=mock_result) as m:
             await handler.handle("/api/v1/health/database", {}, http_handler)
         m.assert_called_once()
@@ -553,7 +573,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_handle_empty_query_params(self, handler, http_handler):
         """Empty query params dict works fine."""
-        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        mock_result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result):
             result = await handler.handle("/api/v1/health/stores", {}, http_handler)
         assert result is not None
@@ -568,6 +588,7 @@ class TestEdgeCases:
     def test_handler_is_instance_of_secure_handler(self, handler):
         """StorageHealthHandler extends SecureHandler."""
         from aragora.server.handlers.secure import SecureHandler
+
         assert isinstance(handler, SecureHandler)
 
     def test_multiple_handlers_independent_ctx(self):
@@ -586,8 +607,12 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_handle_stores_and_database_independent(self, handler, http_handler):
         """Both routes can be called independently on the same handler."""
-        stores_result = HandlerResult(status_code=200, content_type="application/json", body=b'{"type":"stores"}')
-        db_result = HandlerResult(status_code=200, content_type="application/json", body=b'{"type":"database"}')
+        stores_result = HandlerResult(
+            status_code=200, content_type="application/json", body=b'{"type":"stores"}'
+        )
+        db_result = HandlerResult(
+            status_code=200, content_type="application/json", body=b'{"type":"database"}'
+        )
         with patch.object(handler, "_database_stores_health", return_value=stores_result):
             r1 = await handler.handle("/api/v1/health/stores", {}, http_handler)
         with patch.object(handler, "_database_schema_health", return_value=db_result):
@@ -598,4 +623,5 @@ class TestEdgeCases:
     def test_all_in_dunder_all(self):
         """__all__ exports StorageHealthHandler."""
         from aragora.server.handlers.admin.health import storage_health
+
         assert "StorageHealthHandler" in storage_health.__all__

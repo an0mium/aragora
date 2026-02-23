@@ -89,7 +89,9 @@ def _make_impl(**overrides: Any) -> ModuleType:
     mod._get_apple_redirect_uri = lambda: "http://localhost:8080/callback/apple"
     mod._get_apple_team_id = lambda: "TEAM123"
     mod._get_apple_key_id = lambda: "KEY456"
-    mod._get_apple_private_key = lambda: "-----BEGIN EC PRIVATE KEY-----\nfake\n-----END EC PRIVATE KEY-----"
+    mod._get_apple_private_key = (
+        lambda: "-----BEGIN EC PRIVATE KEY-----\nfake\n-----END EC PRIVATE KEY-----"
+    )
     mod._get_oauth_success_url = lambda: "http://localhost:3000/auth/success"
     mod._get_oauth_error_url = lambda: "http://localhost:3000/auth/error"
     mod._validate_redirect_url = lambda url: True
@@ -182,9 +184,7 @@ class TestAppleAuthStart:
 
     def test_returns_redirect_to_apple(self, handler, impl, mock_http_handler):
         """Auth start returns a 302 with Location to Apple auth URL."""
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_apple_auth_start(mock_http_handler, {})
 
@@ -222,9 +222,7 @@ class TestAppleAuthStart:
     def test_invalid_redirect_url_returns_400(self, handler, impl, mock_http_handler):
         """Returns 400 when redirect_url fails validation."""
         impl._validate_redirect_url = lambda url: False
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_apple_auth_start(
                 mock_http_handler, {"redirect_url": "https://evil.com"}
@@ -243,9 +241,7 @@ class TestAppleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             handler._handle_apple_auth_start(
                 mock_http_handler, {"redirect_url": "https://app.example.com/done"}
@@ -253,9 +249,7 @@ class TestAppleAuthStart:
 
         assert captured["redirect_url"] == "https://app.example.com/done"
 
-    def test_authenticated_user_passes_user_id_to_state(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_authenticated_user_passes_user_id_to_state(self, handler, impl, mock_http_handler):
         """When user is already authenticated, user_id is included in state."""
         captured = {}
 
@@ -264,17 +258,13 @@ class TestAppleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user-42")
             handler._handle_apple_auth_start(mock_http_handler, {})
 
         assert captured["user_id"] == "user-42"
 
-    def test_unauthenticated_user_passes_none_user_id(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_unauthenticated_user_passes_none_user_id(self, handler, impl, mock_http_handler):
         """When user is not authenticated, user_id is None in state."""
         captured = {}
 
@@ -283,17 +273,13 @@ class TestAppleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             handler._handle_apple_auth_start(mock_http_handler, {})
 
         assert captured["user_id"] is None
 
-    def test_default_redirect_url_when_not_in_params(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_default_redirect_url_when_not_in_params(self, handler, impl, mock_http_handler):
         """Uses OAuth success URL as default redirect when not specified in query."""
         captured = {}
 
@@ -302,9 +288,7 @@ class TestAppleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             handler._handle_apple_auth_start(mock_http_handler, {})
 
@@ -312,9 +296,7 @@ class TestAppleAuthStart:
 
     def test_redirect_body_contains_meta_refresh(self, handler, impl, mock_http_handler):
         """Response body contains a meta refresh tag as fallback."""
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_apple_auth_start(mock_http_handler, {})
 
@@ -322,9 +304,7 @@ class TestAppleAuthStart:
 
     def test_redirect_uri_included_in_params(self, handler, impl, mock_http_handler):
         """Authorization URL includes the configured redirect URI."""
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_apple_auth_start(mock_http_handler, {})
 
@@ -334,9 +314,7 @@ class TestAppleAuthStart:
 
     def test_query_param_as_list(self, handler, impl, mock_http_handler):
         """Query parameters provided as lists are handled correctly."""
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_apple_auth_start(
                 mock_http_handler,
@@ -356,18 +334,14 @@ class TestAppleCallback:
 
     def test_error_from_apple_redirects_with_error(self, handler, impl, mock_http_handler):
         """Apple error parameter triggers redirect with error."""
-        result = handler._handle_apple_callback(
-            mock_http_handler, {"error": "access_denied"}
-        )
+        result = handler._handle_apple_callback(mock_http_handler, {"error": "access_denied"})
         assert _status(result) == 302
         assert len(handler._error_messages) == 1
         assert "access_denied" in handler._error_messages[0]
 
     def test_missing_state_returns_error(self, handler, impl, mock_http_handler):
         """Missing state parameter triggers redirect with error."""
-        result = handler._handle_apple_callback(
-            mock_http_handler, {"code": "auth-code"}
-        )
+        result = handler._handle_apple_callback(mock_http_handler, {"code": "auth-code"})
         assert _status(result) == 302
         assert "Missing state" in handler._error_messages[0]
 
@@ -382,18 +356,17 @@ class TestAppleCallback:
 
     def test_missing_code_and_id_token_returns_error(self, handler, impl, mock_http_handler):
         """Missing both authorization code and id_token triggers redirect with error."""
-        result = handler._handle_apple_callback(
-            mock_http_handler, {"state": "valid-state"}
-        )
+        result = handler._handle_apple_callback(mock_http_handler, {"state": "valid-state"})
         assert _status(result) == 302
-        assert "Missing authorization code" in handler._error_messages[0] or "id_token" in handler._error_messages[0]
+        assert (
+            "Missing authorization code" in handler._error_messages[0]
+            or "id_token" in handler._error_messages[0]
+        )
 
     def test_successful_callback_with_code(self, handler, impl, mock_http_handler):
         """Successful callback with authorization code exchanges and completes flow."""
         id_token = _make_apple_id_token()
-        handler._exchange_apple_code = MagicMock(
-            return_value={"id_token": id_token}
-        )
+        handler._exchange_apple_code = MagicMock(return_value={"id_token": id_token})
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -417,9 +390,7 @@ class TestAppleCallback:
 
     def test_code_exchange_failure_returns_error(self, handler, impl, mock_http_handler):
         """ConnectionError during code exchange triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=ConnectionError("network down")
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=ConnectionError("network down"))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -428,9 +399,7 @@ class TestAppleCallback:
 
     def test_code_exchange_timeout_returns_error(self, handler, impl, mock_http_handler):
         """TimeoutError during code exchange triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=TimeoutError("timed out")
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=TimeoutError("timed out"))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -439,9 +408,7 @@ class TestAppleCallback:
 
     def test_code_exchange_os_error_returns_error(self, handler, impl, mock_http_handler):
         """OSError during code exchange triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=OSError("network unreachable")
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=OSError("network unreachable"))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -450,9 +417,7 @@ class TestAppleCallback:
 
     def test_code_exchange_value_error_returns_error(self, handler, impl, mock_http_handler):
         """ValueError during code exchange triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=ValueError("bad config")
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=ValueError("bad config"))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -461,9 +426,7 @@ class TestAppleCallback:
 
     def test_code_exchange_key_error_returns_error(self, handler, impl, mock_http_handler):
         """KeyError during code exchange triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=KeyError("missing key")
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=KeyError("missing key"))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -472,9 +435,7 @@ class TestAppleCallback:
 
     def test_code_exchange_json_decode_error_returns_error(self, handler, impl, mock_http_handler):
         """json.JSONDecodeError during code exchange triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=json.JSONDecodeError("bad", "", 0)
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=json.JSONDecodeError("bad", "", 0))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -483,9 +444,7 @@ class TestAppleCallback:
 
     def test_code_exchange_import_error_returns_error(self, handler, impl, mock_http_handler):
         """ImportError during code exchange (missing PyJWT) triggers redirect with error."""
-        handler._exchange_apple_code = MagicMock(
-            side_effect=ImportError("No module named 'jwt'")
-        )
+        handler._exchange_apple_code = MagicMock(side_effect=ImportError("No module named 'jwt'"))
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -508,9 +467,7 @@ class TestAppleCallback:
         form_data = f"code=form-auth-code&state=form-state&id_token={id_token}"
         mock_http_handler.request.body = form_data.encode()
 
-        handler._exchange_apple_code = MagicMock(
-            return_value={"id_token": id_token}
-        )
+        handler._exchange_apple_code = MagicMock(return_value={"id_token": id_token})
 
         result = handler._handle_apple_callback(mock_http_handler, {})
         assert _status(result) == 302
@@ -522,9 +479,7 @@ class TestAppleCallback:
         form_data = f"state=form-state&id_token={id_token}"
         mock_http_handler.request.body = form_data.encode()
 
-        result = handler._handle_apple_callback(
-            mock_http_handler, {"state": "query-state"}
-        )
+        result = handler._handle_apple_callback(mock_http_handler, {"state": "query-state"})
         assert _status(result) == 302
         assert len(handler._complete_oauth_flow_calls) == 1
         user_info, _ = handler._complete_oauth_flow_calls[0]
@@ -554,7 +509,9 @@ class TestAppleCallback:
         """Apple user data JSON is parsed and passed to _parse_apple_id_token."""
         id_token = _make_apple_id_token()
         user_data = json.dumps({"name": {"firstName": "Jane", "lastName": "Doe"}})
-        mock_http_handler.request.body = f"state=valid&id_token={id_token}&user={user_data}".encode()
+        mock_http_handler.request.body = (
+            f"state=valid&id_token={id_token}&user={user_data}".encode()
+        )
 
         result = handler._handle_apple_callback(mock_http_handler, {})
         assert _status(result) == 302
@@ -586,9 +543,7 @@ class TestAppleCallback:
     def test_code_exchange_provides_id_token_to_parser(self, handler, impl, mock_http_handler):
         """When code is present, exchanged id_token is used for parsing."""
         exchanged_token = _make_apple_id_token(email="exchanged@example.com")
-        handler._exchange_apple_code = MagicMock(
-            return_value={"id_token": exchanged_token}
-        )
+        handler._exchange_apple_code = MagicMock(return_value={"id_token": exchanged_token})
         result = handler._handle_apple_callback(
             mock_http_handler, {"state": "valid-state", "code": "auth-code"}
         )
@@ -745,7 +700,9 @@ class TestGenerateAppleClientSecret:
             # Force re-import to trigger ImportError
             with patch(
                 "builtins.__import__",
-                side_effect=lambda name, *args, **kwargs: (_ for _ in ()).throw(ImportError()) if name == "jwt" else __import__(name, *args, **kwargs),
+                side_effect=lambda name, *args, **kwargs: (_ for _ in ()).throw(ImportError())
+                if name == "jwt"
+                else __import__(name, *args, **kwargs),
             ):
                 with pytest.raises(ValueError, match="PyJWT"):
                     handler._generate_apple_client_secret()
@@ -950,7 +907,9 @@ class TestParseAppleIdToken:
 
     def test_missing_sub_defaults_to_empty(self, handler, impl):
         """Missing sub claim defaults to empty string."""
-        header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
+        )
         payload_data = {"email": "nosub@example.com", "email_verified": True}
         payload = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).rstrip(b"=").decode()
         sig = base64.urlsafe_b64encode(b"sig").rstrip(b"=").decode()
@@ -1009,7 +968,9 @@ class TestHandleRouting:
             )
         assert _status(result) == 302
 
-    def test_apple_auth_start_routed_non_v1(self, oauth_handler, impl, mock_http_handler_for_routing):
+    def test_apple_auth_start_routed_non_v1(
+        self, oauth_handler, impl, mock_http_handler_for_routing
+    ):
         """GET /api/auth/oauth/apple routes to Apple auth start."""
         with patch(
             "aragora.billing.jwt_auth.extract_user_from_request",
@@ -1030,7 +991,9 @@ class TestHandleRouting:
         )
         assert _status(result) == 302
 
-    def test_apple_callback_routed_v1_post(self, oauth_handler, impl, mock_http_handler_for_routing):
+    def test_apple_callback_routed_v1_post(
+        self, oauth_handler, impl, mock_http_handler_for_routing
+    ):
         """POST /api/v1/auth/oauth/apple/callback routes to callback handler (form_post)."""
         mock_http_handler_for_routing.command = "POST"
         result = oauth_handler.handle(

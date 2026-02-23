@@ -305,13 +305,9 @@ class TestListAuditTrails:
         mock_store.list_trails.return_value = []
         mock_store.count_trails.return_value = 0
 
-        result = await handler.handle(
-            "/api/v1/audit-trails", {"verdict": "APPROVED"}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails", {"verdict": "APPROVED"}, http_get)
         assert _status(result) == 200
-        mock_store.list_trails.assert_called_with(
-            limit=20, offset=0, verdict="APPROVED"
-        )
+        mock_store.list_trails.assert_called_with(limit=20, offset=0, verdict="APPROVED")
         mock_store.count_trails.assert_called_with(verdict="APPROVED")
 
     @pytest.mark.asyncio
@@ -347,9 +343,7 @@ class TestListAuditTrails:
         mock_store.list_trails.return_value = []
         mock_store.count_trails.return_value = 0
 
-        result = await handler.handle(
-            "/api/v1/audit-trails", {"limit": "0"}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails", {"limit": "0"}, http_get)
         assert _status(result) == 200
         body = _body(result)
         # safe_query_int with min_val=1 should clamp to 1
@@ -369,9 +363,7 @@ class TestGetAuditTrail:
         """Returns trail from database store."""
         mock_store.get_trail.return_value = SAMPLE_TRAIL
 
-        result = await handler.handle(
-            "/api/v1/audit-trails/trail-abc123", {}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails/trail-abc123", {}, http_get)
         assert _status(result) == 200
         body = _body(result)
         assert body["trail_id"] == "trail-abc123"
@@ -384,9 +376,7 @@ class TestGetAuditTrail:
 
         AuditTrailHandler._trails = {"trail-abc123": SAMPLE_TRAIL}
 
-        result = await handler.handle(
-            "/api/v1/audit-trails/trail-abc123", {}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails/trail-abc123", {}, http_get)
         assert _status(result) == 200
         body = _body(result)
         assert body["trail_id"] == "trail-abc123"
@@ -396,9 +386,7 @@ class TestGetAuditTrail:
     @pytest.mark.asyncio
     async def test_get_trail_not_found(self, handler, http_get, mock_store):
         """Returns 404 when trail does not exist."""
-        result = await handler.handle(
-            "/api/v1/audit-trails/nonexistent", {}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails/nonexistent", {}, http_get)
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body.get("error", "").lower()
@@ -427,9 +415,7 @@ class TestGetAuditTrail:
                     )
                 },
             ):
-                result = await handler.handle(
-                    "/api/v1/audit-trails/trail-abc123", {}, http_get
-                )
+                result = await handler.handle("/api/v1/audit-trails/trail-abc123", {}, http_get)
 
         # It should either succeed or return 404 (depending on import path)
         # The key test is that it tries the gauntlet handler
@@ -447,9 +433,7 @@ class TestExportAuditTrail:
     @pytest.mark.asyncio
     async def test_export_trail_not_found(self, handler, http_get, mock_store):
         """Returns 404 when trail to export does not exist."""
-        result = await handler.handle(
-            "/api/v1/audit-trails/nonexistent/export", {}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails/nonexistent/export", {}, http_get)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -464,9 +448,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -492,9 +474,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -519,9 +499,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -546,9 +524,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -572,9 +548,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -600,9 +574,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -647,9 +619,7 @@ class TestExportAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
@@ -659,9 +629,7 @@ class TestExportAuditTrail:
                 http_get,
             )
 
-        assert "trail-abc123.json" in (result.headers or {}).get(
-            "Content-Disposition", ""
-        )
+        assert "trail-abc123.json" in (result.headers or {}).get("Content-Disposition", "")
 
 
 # ===========================================================================
@@ -675,9 +643,7 @@ class TestVerifyAuditTrail:
     @pytest.mark.asyncio
     async def test_verify_trail_not_found(self, handler, http_post, mock_store):
         """Returns 404 when trail to verify does not exist."""
-        result = await handler.handle(
-            "/api/v1/audit-trails/nonexistent/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/audit-trails/nonexistent/verify", {}, http_post)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -695,15 +661,11 @@ class TestVerifyAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
-            result = await handler.handle(
-                "/api/v1/audit-trails/trail-abc123/verify", {}, http_post
-            )
+            result = await handler.handle("/api/v1/audit-trails/trail-abc123/verify", {}, http_post)
 
         assert _status(result) == 200
         body = _body(result)
@@ -728,15 +690,11 @@ class TestVerifyAuditTrail:
             "sys.modules",
             {
                 "aragora.export.audit_trail": MagicMock(
-                    AuditTrail=MagicMock(
-                        from_json=MagicMock(return_value=mock_audit_trail)
-                    )
+                    AuditTrail=MagicMock(from_json=MagicMock(return_value=mock_audit_trail))
                 )
             },
         ):
-            result = await handler.handle(
-                "/api/v1/audit-trails/trail-abc123/verify", {}, http_post
-            )
+            result = await handler.handle("/api/v1/audit-trails/trail-abc123/verify", {}, http_post)
 
         assert _status(result) == 200
         body = _body(result)
@@ -757,9 +715,7 @@ class TestVerifyAuditTrail:
             "sys.modules",
             {"aragora.export.audit_trail": None},
         ):
-            result = await handler.handle(
-                "/api/v1/audit-trails/trail-abc123/verify", {}, http_post
-            )
+            result = await handler.handle("/api/v1/audit-trails/trail-abc123/verify", {}, http_post)
 
         assert _status(result) == 200
         body = _body(result)
@@ -810,9 +766,7 @@ class TestListReceipts:
         mock_store.list_receipts.return_value = []
         mock_store.count_receipts.return_value = 100
 
-        result = await handler.handle(
-            "/api/v1/receipts", {"limit": "5", "offset": "10"}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts", {"limit": "5", "offset": "10"}, http_get)
         assert _status(result) == 200
         body = _body(result)
         assert body["limit"] == 5
@@ -827,9 +781,7 @@ class TestListReceipts:
         mock_store.list_receipts.return_value = []
         mock_store.count_receipts.return_value = 0
 
-        result = await handler.handle(
-            "/api/v1/receipts", {"verdict": "REJECTED"}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts", {"verdict": "REJECTED"}, http_get)
         assert _status(result) == 200
         mock_store.list_receipts.assert_called_with(
             limit=20, offset=0, verdict="REJECTED", risk_level=None
@@ -841,9 +793,7 @@ class TestListReceipts:
         mock_store.list_receipts.return_value = []
         mock_store.count_receipts.return_value = 0
 
-        result = await handler.handle(
-            "/api/v1/receipts", {"risk_level": "HIGH"}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts", {"risk_level": "HIGH"}, http_get)
         assert _status(result) == 200
         mock_store.list_receipts.assert_called_with(
             limit=20, offset=0, verdict=None, risk_level="HIGH"
@@ -861,9 +811,7 @@ class TestListReceipts:
             http_get,
         )
         assert _status(result) == 200
-        mock_store.count_receipts.assert_called_with(
-            verdict="APPROVED", risk_level="LOW"
-        )
+        mock_store.count_receipts.assert_called_with(verdict="APPROVED", risk_level="LOW")
 
     @pytest.mark.asyncio
     async def test_list_fallback_to_in_memory(self, handler, http_get, mock_store):
@@ -906,9 +854,7 @@ class TestGetReceipt:
         """Returns receipt from database store."""
         mock_store.get_receipt.return_value = SAMPLE_RECEIPT
 
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123", {}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123", {}, http_get)
         assert _status(result) == 200
         body = _body(result)
         assert body["receipt_id"] == "receipt-abc123"
@@ -921,9 +867,7 @@ class TestGetReceipt:
 
         AuditTrailHandler._receipts = {"receipt-abc123": SAMPLE_RECEIPT}
 
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123", {}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123", {}, http_get)
         assert _status(result) == 200
         body = _body(result)
         assert body["receipt_id"] == "receipt-abc123"
@@ -933,9 +877,7 @@ class TestGetReceipt:
     @pytest.mark.asyncio
     async def test_get_receipt_not_found(self, handler, http_get, mock_store):
         """Returns 404 when receipt does not exist."""
-        result = await handler.handle(
-            "/api/v1/receipts/nonexistent", {}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts/nonexistent", {}, http_get)
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body.get("error", "").lower()
@@ -954,15 +896,11 @@ class TestGetReceipt:
             "sys.modules",
             {
                 "aragora.export.decision_receipt": MagicMock(
-                    generate_decision_receipt=MagicMock(
-                        return_value=mock_receipt_obj
-                    )
+                    generate_decision_receipt=MagicMock(return_value=mock_receipt_obj)
                 )
             },
         ):
-            result = await handler.handle(
-                "/api/v1/receipts/receipt-abc123", {}, http_get
-            )
+            result = await handler.handle("/api/v1/receipts/receipt-abc123", {}, http_get)
 
         # Should succeed or return 404 depending on import path resolution
         assert _status(result) in (200, 404)
@@ -979,9 +917,7 @@ class TestVerifyReceipt:
     @pytest.mark.asyncio
     async def test_verify_receipt_not_found(self, handler, http_post, mock_store):
         """Returns 404 when receipt to verify does not exist."""
-        result = await handler.handle(
-            "/api/v1/receipts/nonexistent/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/receipts/nonexistent/verify", {}, http_post)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -989,9 +925,7 @@ class TestVerifyReceipt:
         """Verifies a receipt with matching checksum."""
         mock_store.get_receipt.return_value = SAMPLE_RECEIPT
 
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123/verify", {}, http_post)
         assert _status(result) == 200
         body = _body(result)
         assert body["receipt_id"] == "receipt-abc123"
@@ -1007,9 +941,7 @@ class TestVerifyReceipt:
         bad_receipt["checksum"] = "wrong_checksum"
         mock_store.get_receipt.return_value = bad_receipt
 
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123/verify", {}, http_post)
         assert _status(result) == 200
         body = _body(result)
         assert body["valid"] is False
@@ -1023,9 +955,7 @@ class TestVerifyReceipt:
 
         AuditTrailHandler._receipts = {"receipt-abc123": SAMPLE_RECEIPT}
 
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123/verify", {}, http_post)
         assert _status(result) == 200
         body = _body(result)
         assert body["receipt_id"] == "receipt-abc123"
@@ -1040,9 +970,7 @@ class TestVerifyReceipt:
         del receipt["checksum"]
         mock_store.get_receipt.return_value = receipt
 
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123/verify", {}, http_post)
         assert _status(result) == 200
         body = _body(result)
         assert body["valid"] is False
@@ -1206,26 +1134,20 @@ class TestRoutingEdgeCases:
     @pytest.mark.asyncio
     async def test_verify_receipt_path_routing(self, handler, http_post, mock_store):
         """POST to /verify routes to verify handler, not get handler."""
-        result = await handler.handle(
-            "/api/v1/receipts/receipt-abc123/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/receipts/receipt-abc123/verify", {}, http_post)
         # Should be 404 (not found) since there's no receipt, not a different error
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_verify_trail_path_routing(self, handler, http_post, mock_store):
         """POST to /verify routes to verify handler, not get handler."""
-        result = await handler.handle(
-            "/api/v1/audit-trails/trail-abc123/verify", {}, http_post
-        )
+        result = await handler.handle("/api/v1/audit-trails/trail-abc123/verify", {}, http_post)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_export_path_routing(self, handler, http_get, mock_store):
         """GET to /export routes to export handler, not get handler."""
-        result = await handler.handle(
-            "/api/v1/audit-trails/trail-abc123/export", {}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails/trail-abc123/export", {}, http_get)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1236,9 +1158,7 @@ class TestRoutingEdgeCases:
             "verdict": "APPROVED",
         }
 
-        result = await handler.handle(
-            "/api/v1/audit-trails/my-special-trail", {}, http_get
-        )
+        result = await handler.handle("/api/v1/audit-trails/my-special-trail", {}, http_get)
         assert _status(result) == 200
         mock_store.get_trail.assert_called_with("my-special-trail")
 
@@ -1250,9 +1170,7 @@ class TestRoutingEdgeCases:
             "verdict": "REJECTED",
         }
 
-        result = await handler.handle(
-            "/api/v1/receipts/my-receipt-id", {}, http_get
-        )
+        result = await handler.handle("/api/v1/receipts/my-receipt-id", {}, http_get)
         assert _status(result) == 200
         mock_store.get_receipt.assert_called_with("my-receipt-id")
 

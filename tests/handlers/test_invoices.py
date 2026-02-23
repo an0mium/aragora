@@ -208,9 +208,7 @@ def _make_mock_processor():
     processor.get_pending_approvals = AsyncMock(return_value=[MockInvoice()])
     processor.match_to_po = AsyncMock(return_value=MockPOMatch())
     processor.schedule_payment = AsyncMock(return_value=MockPaymentSchedule())
-    processor.get_scheduled_payments = AsyncMock(
-        return_value=[MockPaymentSchedule()]
-    )
+    processor.get_scheduled_payments = AsyncMock(return_value=[MockPaymentSchedule()])
     processor.add_purchase_order = AsyncMock(return_value=MockPurchaseOrder())
     processor.get_stats = MagicMock(
         return_value={
@@ -219,9 +217,7 @@ def _make_mock_processor():
             "pending_count": 5,
         }
     )
-    processor.get_overdue_invoices = AsyncMock(
-        return_value=[MockInvoice(total_amount=500.0)]
-    )
+    processor.get_overdue_invoices = AsyncMock(return_value=[MockInvoice(total_amount=500.0)])
     return processor
 
 
@@ -323,9 +319,7 @@ class TestCanHandle:
         assert not handler.can_handle("/api/v2/accounting/invoices")
 
     def test_rejects_extra_nested_path(self, handler):
-        assert not handler.can_handle(
-            "/api/v1/accounting/invoices/inv-123/approve/extra"
-        )
+        assert not handler.can_handle("/api/v1/accounting/invoices/inv-123/approve/extra")
 
 
 # ============================================================================
@@ -345,9 +339,7 @@ class TestHandleGetRouting:
 
     @pytest.mark.asyncio
     async def test_pending_approvals(self, handler, patch_processor):
-        result = await handler.handle_get(
-            "/api/v1/accounting/invoices/pending", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/invoices/pending", {})
         assert _status(result) == 200
         body = _body(result)
         assert "invoices" in body
@@ -355,9 +347,7 @@ class TestHandleGetRouting:
 
     @pytest.mark.asyncio
     async def test_overdue_invoices(self, handler, patch_processor):
-        result = await handler.handle_get(
-            "/api/v1/accounting/invoices/overdue", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/invoices/overdue", {})
         assert _status(result) == 200
         body = _body(result)
         assert "invoices" in body
@@ -365,18 +355,14 @@ class TestHandleGetRouting:
 
     @pytest.mark.asyncio
     async def test_invoice_stats(self, handler, patch_processor):
-        result = await handler.handle_get(
-            "/api/v1/accounting/invoices/stats", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/invoices/stats", {})
         assert _status(result) == 200
         body = _body(result)
         assert "stats" in body
 
     @pytest.mark.asyncio
     async def test_handler_status(self, handler):
-        result = await handler.handle_get(
-            "/api/v1/accounting/invoices/status", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/invoices/status", {})
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "healthy"
@@ -384,9 +370,7 @@ class TestHandleGetRouting:
 
     @pytest.mark.asyncio
     async def test_scheduled_payments(self, handler, patch_processor):
-        result = await handler.handle_get(
-            "/api/v1/accounting/payments/scheduled", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/payments/scheduled", {})
         assert _status(result) == 200
         body = _body(result)
         assert "payments" in body
@@ -394,18 +378,14 @@ class TestHandleGetRouting:
 
     @pytest.mark.asyncio
     async def test_get_invoice_by_id(self, handler, patch_processor):
-        result = await handler.handle_get(
-            "/api/v1/accounting/invoices/inv-001", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/invoices/inv-001", {})
         assert _status(result) == 200
         body = _body(result)
         assert "invoice" in body
 
     @pytest.mark.asyncio
     async def test_get_invoice_anomalies(self, handler, patch_processor):
-        result = await handler.handle_get(
-            "/api/v1/accounting/invoices/inv-001/anomalies", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/invoices/inv-001/anomalies", {})
         assert _status(result) == 200
         body = _body(result)
         assert "anomalies" in body
@@ -413,9 +393,7 @@ class TestHandleGetRouting:
 
     @pytest.mark.asyncio
     async def test_unknown_get_route(self, handler):
-        result = await handler.handle_get(
-            "/api/v1/accounting/unknown", {}
-        )
+        result = await handler.handle_get("/api/v1/accounting/unknown", {})
         assert _status(result) == 404
 
 
@@ -431,9 +409,7 @@ class TestHandlePostRouting:
     async def test_upload_invoice(self, handler, patch_processor):
         doc_b64 = base64.b64encode(b"fake-pdf-data").decode()
         data = {"document_data": doc_b64}
-        result = await handler.handle_post(
-            "/api/v1/accounting/invoices/upload", data
-        )
+        result = await handler.handle_post("/api/v1/accounting/invoices/upload", data)
         assert _status(result) == 200
         body = _body(result)
         assert "invoice" in body
@@ -441,9 +417,7 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_create_invoice(self, handler, patch_processor):
         data = {"vendor_name": "Acme Corp", "total_amount": 1500.00}
-        result = await handler.handle_post(
-            "/api/v1/accounting/invoices", data
-        )
+        result = await handler.handle_post("/api/v1/accounting/invoices", data)
         assert _status(result) == 200
         body = _body(result)
         assert "invoice" in body
@@ -455,18 +429,14 @@ class TestHandlePostRouting:
             "vendor_name": "Acme Corp",
             "total_amount": 1500.00,
         }
-        result = await handler.handle_post(
-            "/api/v1/accounting/purchase-orders", data
-        )
+        result = await handler.handle_post("/api/v1/accounting/purchase-orders", data)
         assert _status(result) == 200
         body = _body(result)
         assert "purchaseOrder" in body
 
     @pytest.mark.asyncio
     async def test_approve_invoice(self, handler, patch_processor):
-        result = await handler.handle_post(
-            "/api/v1/accounting/invoices/inv-001/approve", {}
-        )
+        result = await handler.handle_post("/api/v1/accounting/invoices/inv-001/approve", {})
         assert _status(result) == 200
         body = _body(result)
         assert "invoice" in body
@@ -483,9 +453,7 @@ class TestHandlePostRouting:
 
     @pytest.mark.asyncio
     async def test_match_to_po(self, handler, patch_processor):
-        result = await handler.handle_post(
-            "/api/v1/accounting/invoices/inv-001/match", {}
-        )
+        result = await handler.handle_post("/api/v1/accounting/invoices/inv-001/match", {})
         assert _status(result) == 200
         body = _body(result)
         assert "match" in body
@@ -502,9 +470,7 @@ class TestHandlePostRouting:
 
     @pytest.mark.asyncio
     async def test_unknown_post_route(self, handler):
-        result = await handler.handle_post(
-            "/api/v1/accounting/unknown", {}
-        )
+        result = await handler.handle_post("/api/v1/accounting/unknown", {})
         assert _status(result) == 404
 
 
@@ -519,9 +485,7 @@ class TestUploadInvoice:
     @pytest.mark.asyncio
     async def test_successful_upload(self, patch_processor):
         doc_b64 = base64.b64encode(b"fake-pdf-content").decode()
-        result = await handle_upload_invoice(
-            {"document_data": doc_b64, "vendor_hint": "Acme"}
-        )
+        result = await handle_upload_invoice({"document_data": doc_b64, "vendor_hint": "Acme"})
         assert _status(result) == 200
         body = _body(result)
         assert "invoice" in body
@@ -543,9 +507,7 @@ class TestUploadInvoice:
     @pytest.mark.asyncio
     async def test_processor_error_returns_500(self):
         mock_proc = _make_mock_processor()
-        mock_proc.extract_invoice_data = AsyncMock(
-            side_effect=RuntimeError("Extraction failed")
-        )
+        mock_proc.extract_invoice_data = AsyncMock(side_effect=RuntimeError("Extraction failed"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -648,16 +610,12 @@ class TestCreateInvoice:
     @pytest.mark.asyncio
     async def test_processor_error_returns_500(self):
         mock_proc = _make_mock_processor()
-        mock_proc.create_manual_invoice = AsyncMock(
-            side_effect=ValueError("DB error")
-        )
+        mock_proc.create_manual_invoice = AsyncMock(side_effect=ValueError("DB error"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
         ):
-            result = await handle_create_invoice(
-                {"vendor_name": "Acme", "total_amount": 100.0}
-            )
+            result = await handle_create_invoice({"vendor_name": "Acme", "total_amount": 100.0})
             assert _status(result) == 500
 
 
@@ -704,9 +662,7 @@ class TestListInvoices:
 
     @pytest.mark.asyncio
     async def test_with_date_filters(self, patch_processor):
-        result = await handle_list_invoices(
-            {"start_date": "2026-01-01", "end_date": "2026-02-01"}
-        )
+        result = await handle_list_invoices({"start_date": "2026-01-01", "end_date": "2026-02-01"})
         assert _status(result) == 200
         call_kwargs = patch_processor.list_invoices.call_args[1]
         assert call_kwargs["start_date"] is not None
@@ -782,13 +738,9 @@ class TestApproveInvoice:
 
     @pytest.mark.asyncio
     async def test_approval_with_approver_id(self, patch_processor):
-        result = await handle_approve_invoice(
-            "inv-001", {"approver_id": "user-mgr-001"}
-        )
+        result = await handle_approve_invoice("inv-001", {"approver_id": "user-mgr-001"})
         assert _status(result) == 200
-        patch_processor.approve_invoice.assert_called_once_with(
-            "inv-001", "user-mgr-001"
-        )
+        patch_processor.approve_invoice.assert_called_once_with("inv-001", "user-mgr-001")
 
     @pytest.mark.asyncio
     async def test_approval_not_found(self, patch_processor):
@@ -799,9 +751,7 @@ class TestApproveInvoice:
     @pytest.mark.asyncio
     async def test_approval_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.approve_invoice = AsyncMock(
-            side_effect=RuntimeError("Approval failed")
-        )
+        mock_proc.approve_invoice = AsyncMock(side_effect=RuntimeError("Approval failed"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -820,9 +770,7 @@ class TestRejectInvoice:
 
     @pytest.mark.asyncio
     async def test_successful_rejection(self, patch_processor):
-        result = await handle_reject_invoice(
-            "inv-001", {"reason": "Duplicate invoice"}
-        )
+        result = await handle_reject_invoice("inv-001", {"reason": "Duplicate invoice"})
         assert _status(result) == 200
         body = _body(result)
         assert body["message"] == "Invoice rejected"
@@ -842,9 +790,7 @@ class TestRejectInvoice:
     @pytest.mark.asyncio
     async def test_rejection_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.reject_invoice = AsyncMock(
-            side_effect=TypeError("bad type")
-        )
+        mock_proc.reject_invoice = AsyncMock(side_effect=TypeError("bad type"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -881,9 +827,7 @@ class TestPendingApprovals:
     @pytest.mark.asyncio
     async def test_processor_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.get_pending_approvals = AsyncMock(
-            side_effect=OSError("connection lost")
-        )
+        mock_proc.get_pending_approvals = AsyncMock(side_effect=OSError("connection lost"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -917,9 +861,7 @@ class TestMatchToPO:
     @pytest.mark.asyncio
     async def test_match_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.match_to_po = AsyncMock(
-            side_effect=AttributeError("no PO data")
-        )
+        mock_proc.match_to_po = AsyncMock(side_effect=AttributeError("no PO data"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -961,9 +903,7 @@ class TestGetAnomalies:
     @pytest.mark.asyncio
     async def test_anomaly_detection_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.detect_anomalies = AsyncMock(
-            side_effect=ValueError("detection failed")
-        )
+        mock_proc.detect_anomalies = AsyncMock(side_effect=ValueError("detection failed"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -991,23 +931,17 @@ class TestSchedulePayment:
 
     @pytest.mark.asyncio
     async def test_schedule_with_pay_date(self, patch_processor):
-        result = await handle_schedule_payment(
-            "inv-001", {"pay_date": "2026-03-01"}
-        )
+        result = await handle_schedule_payment("inv-001", {"pay_date": "2026-03-01"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_schedule_with_payment_method(self, patch_processor):
-        result = await handle_schedule_payment(
-            "inv-001", {"payment_method": "wire"}
-        )
+        result = await handle_schedule_payment("inv-001", {"payment_method": "wire"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_schedule_invalid_pay_date(self, patch_processor):
-        result = await handle_schedule_payment(
-            "inv-001", {"pay_date": "not-a-date"}
-        )
+        result = await handle_schedule_payment("inv-001", {"pay_date": "not-a-date"})
         assert _status(result) == 400
         assert "Invalid pay_date format" in _body(result).get("error", "")
 
@@ -1021,9 +955,7 @@ class TestSchedulePayment:
     async def test_schedule_value_error_returns_400(self):
         """ValueError in schedule_payment returns 400 (special case in handler)."""
         mock_proc = _make_mock_processor()
-        mock_proc.schedule_payment = AsyncMock(
-            side_effect=ValueError("Invalid payment state")
-        )
+        mock_proc.schedule_payment = AsyncMock(side_effect=ValueError("Invalid payment state"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -1034,9 +966,7 @@ class TestSchedulePayment:
     @pytest.mark.asyncio
     async def test_schedule_runtime_error_returns_500(self):
         mock_proc = _make_mock_processor()
-        mock_proc.schedule_payment = AsyncMock(
-            side_effect=RuntimeError("DB error")
-        )
+        mock_proc.schedule_payment = AsyncMock(side_effect=RuntimeError("DB error"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -1074,9 +1004,7 @@ class TestScheduledPayments:
 
     @pytest.mark.asyncio
     async def test_invalid_dates_ignored(self, patch_processor):
-        result = await handle_get_scheduled_payments(
-            {"start_date": "bad", "end_date": "worse"}
-        )
+        result = await handle_get_scheduled_payments({"start_date": "bad", "end_date": "worse"})
         assert _status(result) == 200
         call_kwargs = patch_processor.get_scheduled_payments.call_args[1]
         assert call_kwargs["start_date"] is None
@@ -1094,9 +1022,7 @@ class TestScheduledPayments:
     @pytest.mark.asyncio
     async def test_processor_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.get_scheduled_payments = AsyncMock(
-            side_effect=ImportError("missing module")
-        )
+        mock_proc.get_scheduled_payments = AsyncMock(side_effect=ImportError("missing module"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -1129,25 +1055,19 @@ class TestCreatePurchaseOrder:
 
     @pytest.mark.asyncio
     async def test_missing_po_number(self, patch_processor):
-        result = await handle_create_purchase_order(
-            {"vendor_name": "Acme", "total_amount": 100.0}
-        )
+        result = await handle_create_purchase_order({"vendor_name": "Acme", "total_amount": 100.0})
         assert _status(result) == 400
         assert "po_number is required" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_missing_vendor_name(self, patch_processor):
-        result = await handle_create_purchase_order(
-            {"po_number": "PO-001", "total_amount": 100.0}
-        )
+        result = await handle_create_purchase_order({"po_number": "PO-001", "total_amount": 100.0})
         assert _status(result) == 400
         assert "vendor_name is required" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_missing_total_amount(self, patch_processor):
-        result = await handle_create_purchase_order(
-            {"po_number": "PO-001", "vendor_name": "Acme"}
-        )
+        result = await handle_create_purchase_order({"po_number": "PO-001", "vendor_name": "Acme"})
         assert _status(result) == 400
         assert "total_amount is required" in _body(result).get("error", "")
 
@@ -1181,9 +1101,7 @@ class TestCreatePurchaseOrder:
     @pytest.mark.asyncio
     async def test_processor_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.add_purchase_order = AsyncMock(
-            side_effect=RuntimeError("storage error")
-        )
+        mock_proc.add_purchase_order = AsyncMock(side_effect=RuntimeError("storage error"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -1255,9 +1173,7 @@ class TestOverdueInvoices:
     @pytest.mark.asyncio
     async def test_overdue_error(self):
         mock_proc = _make_mock_processor()
-        mock_proc.get_overdue_invoices = AsyncMock(
-            side_effect=TypeError("bad data")
-        )
+        mock_proc.get_overdue_invoices = AsyncMock(side_effect=TypeError("bad data"))
         with patch(
             "aragora.server.handlers.invoices.get_invoice_processor",
             return_value=mock_proc,
@@ -1317,9 +1233,7 @@ class TestCircuitBreaker:
         cb = get_invoice_circuit_breaker()
         for _ in range(20):
             cb.record_failure()
-        result = await handle_create_invoice(
-            {"vendor_name": "Acme", "total_amount": 100.0}
-        )
+        result = await handle_create_invoice({"vendor_name": "Acme", "total_amount": 100.0})
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1373,19 +1287,20 @@ class TestExtractInvoiceId:
     """Tests for invoice ID extraction from path."""
 
     def test_simple_id(self, handler):
-        assert handler._extract_invoice_id(
-            "/api/v1/accounting/invoices/inv-123"
-        ) == "inv-123"
+        assert handler._extract_invoice_id("/api/v1/accounting/invoices/inv-123") == "inv-123"
 
     def test_uuid_id(self, handler):
-        assert handler._extract_invoice_id(
-            "/api/v1/accounting/invoices/550e8400-e29b-41d4-a716-446655440000"
-        ) == "550e8400-e29b-41d4-a716-446655440000"
+        assert (
+            handler._extract_invoice_id(
+                "/api/v1/accounting/invoices/550e8400-e29b-41d4-a716-446655440000"
+            )
+            == "550e8400-e29b-41d4-a716-446655440000"
+        )
 
     def test_path_with_action(self, handler):
-        assert handler._extract_invoice_id(
-            "/api/v1/accounting/invoices/inv-001/approve"
-        ) == "inv-001"
+        assert (
+            handler._extract_invoice_id("/api/v1/accounting/invoices/inv-001/approve") == "inv-001"
+        )
 
     def test_short_path_returns_none(self, handler):
         assert handler._extract_invoice_id("/api/v1/accounting") is None

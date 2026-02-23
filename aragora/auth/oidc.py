@@ -130,7 +130,8 @@ def validate_oidc_security_settings() -> None:
         fallback_enabled = fallback_setting.lower() in ("1", "true", "yes")
         if fallback_enabled:
             logger.warning(
-                "SECURITY WARNING: ARAGORA_ALLOW_DEV_AUTH_FALLBACK is enabled. ID token validation failures will fall back to userinfo endpoint. This is INSECURE and should NEVER be used in production. Current ARAGORA_ENV=%s", env
+                "SECURITY WARNING: ARAGORA_ALLOW_DEV_AUTH_FALLBACK is enabled. ID token validation failures will fall back to userinfo endpoint. This is INSECURE and should NEVER be used in production. Current ARAGORA_ENV=%s",
+                env,
             )
 
 
@@ -715,7 +716,8 @@ class OIDCProvider(SSOProvider):
                 if is_production:
                     logger.error(
                         "ID token validation failed in PRODUCTION mode: %s. "
-                        "Fallback is BLOCKED for security.", e
+                        "Fallback is BLOCKED for security.",
+                        e,
                     )
                     raise SSOAuthenticationError(
                         "ID token validation failed. "
@@ -765,7 +767,8 @@ class OIDCProvider(SSOProvider):
                         )
 
                 logger.warning(
-                    "ID token validation failed, using userinfo fallback (dev mode): %s. This is INSECURE - do not use in production!", e
+                    "ID token validation failed, using userinfo fallback (dev mode): %s. This is INSECURE - do not use in production!",
+                    e,
                 )
                 # Emit security audit event for the fallback if audit system is available
                 try:

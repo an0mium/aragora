@@ -44,6 +44,7 @@ from aragora.server.handlers.utils.file_validation import (
 # FileValidationErrorCode enum
 # ---------------------------------------------------------------------------
 
+
 class TestFileValidationErrorCode:
     """Tests for the FileValidationErrorCode enum."""
 
@@ -75,6 +76,7 @@ class TestFileValidationErrorCode:
 # ---------------------------------------------------------------------------
 # FileValidationResult dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestFileValidationResult:
     """Tests for the FileValidationResult dataclass."""
@@ -117,6 +119,7 @@ class TestFileValidationResult:
 # ---------------------------------------------------------------------------
 # FileValidationError exception
 # ---------------------------------------------------------------------------
+
 
 class TestFileValidationError:
     """Tests for the FileValidationError exception."""
@@ -161,6 +164,7 @@ class TestFileValidationError:
 # ---------------------------------------------------------------------------
 # validate_file_size
 # ---------------------------------------------------------------------------
+
 
 class TestValidateFileSize:
     """Tests for validate_file_size."""
@@ -228,6 +232,7 @@ class TestValidateFileSize:
 # ---------------------------------------------------------------------------
 # validate_mime_type
 # ---------------------------------------------------------------------------
+
 
 class TestValidateMimeType:
     """Tests for validate_mime_type."""
@@ -309,6 +314,7 @@ class TestValidateMimeType:
 # validate_extension
 # ---------------------------------------------------------------------------
 
+
 class TestValidateExtension:
     """Tests for validate_extension."""
 
@@ -389,6 +395,7 @@ class TestValidateExtension:
 # ---------------------------------------------------------------------------
 # validate_filename_security
 # ---------------------------------------------------------------------------
+
 
 class TestValidateFilenameSecurity:
     """Tests for validate_filename_security."""
@@ -526,6 +533,7 @@ class TestValidateFilenameSecurity:
 # sanitize_filename
 # ---------------------------------------------------------------------------
 
+
 class TestSanitizeFilename:
     """Tests for sanitize_filename."""
 
@@ -624,6 +632,7 @@ class TestSanitizeFilename:
 # ---------------------------------------------------------------------------
 # validate_file_upload (end-to-end)
 # ---------------------------------------------------------------------------
+
 
 class TestValidateFileUpload:
     """Tests for validate_file_upload orchestrating all validators."""
@@ -743,6 +752,7 @@ class TestValidateFileUpload:
 # get_max_file_size / get_max_file_size_mb
 # ---------------------------------------------------------------------------
 
+
 class TestGetMaxFileSize:
     """Tests for size helper functions."""
 
@@ -763,6 +773,7 @@ class TestGetMaxFileSize:
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+
 
 class TestConstants:
     """Tests for module-level constants."""
@@ -818,6 +829,7 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 # Edge cases and security scenarios
 # ---------------------------------------------------------------------------
+
 
 class TestSecurityEdgeCases:
     """Edge-case and adversarial input tests."""

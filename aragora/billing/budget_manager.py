@@ -665,7 +665,13 @@ class BudgetManager:
             self.update_budget(budget.budget_id, status=BudgetStatus.SUSPENDED)
 
         logger.warning(
-            "Suspended %s budget(s) for org %s due to %s %s anomaly (actual=%s, expected=%s)", len(budgets), org_id, severity, anomaly_type, amount, expected
+            "Suspended %s budget(s) for org %s due to %s %s anomaly (actual=%s, expected=%s)",
+            len(budgets),
+            org_id,
+            severity,
+            anomaly_type,
+            amount,
+            expected,
         )
 
         # Emit COST_ANOMALY event
@@ -673,17 +679,19 @@ class BudgetManager:
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                self._event_emitter.emit(StreamEvent(
-                    type=StreamEventType.COST_ANOMALY,
-                    data={
-                        "org_id": org_id,
-                        "anomaly_type": anomaly_type,
-                        "severity": severity,
-                        "actual_amount": amount,
-                        "expected_amount": expected,
-                        "budgets_suspended": len(budgets),
-                    },
-                ))
+                self._event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.COST_ANOMALY,
+                        data={
+                            "org_id": org_id,
+                            "anomaly_type": anomaly_type,
+                            "severity": severity,
+                            "actual_amount": amount,
+                            "expected_amount": expected,
+                            "budgets_suspended": len(budgets),
+                        },
+                    )
+                )
             except (ImportError, AttributeError, TypeError):
                 pass
 

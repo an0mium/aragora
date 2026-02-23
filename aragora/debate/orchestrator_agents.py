@@ -63,7 +63,9 @@ def select_debate_team(
                 max_agents=len(agents),
             )
             logger.debug(
-                "[ml] Selected %s agents via ML delegation: %s", len(selected), [a.name for a in selected]
+                "[ml] Selected %s agents via ML delegation: %s",
+                len(selected),
+                [a.name for a in selected],
             )
             return selected
         except (ValueError, TypeError, KeyError) as e:
@@ -149,7 +151,9 @@ def should_terminate_early(
         )
         if should_stop:
             logger.info(
-                "[ml] Consensus estimator recommends early termination at round %s/%s", current_round, protocol.rounds
+                "[ml] Consensus estimator recommends early termination at round %s/%s",
+                current_round,
+                protocol.rounds,
             )
         return should_stop
     except (ValueError, TypeError, KeyError) as e:
@@ -181,7 +185,9 @@ def init_agent_hierarchy(
     config = hierarchy_config or HC()
     hierarchy = AgentHierarchy(config)
     logger.info(
-        "[hierarchy] AgentHierarchy initialized (max_orchestrators=%s, max_monitors=%s)", config.max_orchestrators, config.max_monitors
+        "[hierarchy] AgentHierarchy initialized (max_orchestrators=%s, max_monitors=%s)",
+        config.max_orchestrators,
+        config.max_monitors,
     )
     return hierarchy
 

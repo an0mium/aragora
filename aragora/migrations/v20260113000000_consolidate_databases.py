@@ -245,7 +245,9 @@ class DatabaseConsolidator:
                 mapped_cols.append((src_col, tgt_col))
 
         if not mapped_cols:
-            logger.warning("No matching columns between %s and %s", validated_source, validated_target)
+            logger.warning(
+                "No matching columns between %s and %s", validated_source, validated_target
+            )
             return 0
 
         # Read source data (validated_source already checked)
@@ -741,7 +743,7 @@ class DatabaseConsolidator:
     def run(self) -> dict[str, dict[str, int]]:
         """Run full consolidation migration."""
         logger.info("=" * 60)
-        logger.info("DATABASE CONSOLIDATION MIGRATION %s", '(DRY RUN)' if self.dry_run else '')
+        logger.info("DATABASE CONSOLIDATION MIGRATION %s", "(DRY RUN)" if self.dry_run else "")
         logger.info("=" * 60)
 
         # Run all migrations

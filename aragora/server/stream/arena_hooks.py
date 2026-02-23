@@ -51,7 +51,9 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
             # Use UUID for truly unique task_id (prevents collision in concurrent streams)
             task_id = f"{debate_id}:{agent.name}:{uuid.uuid4().hex[:8]}"
             logger.warning(
-                "Missing task_id for %s, using fallback: %s. Consider wrapping the generate() call with streaming_task_context().", agent.name, task_id
+                "Missing task_id for %s, using fallback: %s. Consider wrapping the generate() call with streaming_task_context().",
+                agent.name,
+                task_id,
             )
 
         # Emit start event
@@ -89,7 +91,8 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
 
             if not full_response.strip():
                 logger.warning(
-                    "Empty streamed response for %s, falling back to non-streaming generate.", agent.name
+                    "Empty streamed response for %s, falling back to non-streaming generate.",
+                    agent.name,
                 )
                 fallback_response = await original_generate(prompt, context)
                 if fallback_response:

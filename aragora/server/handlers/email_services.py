@@ -574,7 +574,14 @@ async def handle_apply_snooze(
                     await gmail.add_label(email_id, f"Snoozed/{label}")
                 if hasattr(gmail, "archive_message"):
                     await gmail.archive_message(email_id)
-        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            AttributeError,
+            ValueError,
+        ) as gmail_error:
             logger.warning("Could not apply Gmail snooze: %s", gmail_error)
 
         return success_response(
@@ -623,7 +630,14 @@ async def handle_cancel_snooze(
                     await gmail.remove_label(email_id, "Snoozed")
                 if hasattr(gmail, "unarchive_message"):
                     await gmail.unarchive_message(email_id)
-        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            AttributeError,
+            ValueError,
+        ) as gmail_error:
             logger.warning("Could not remove Gmail snooze: %s", gmail_error)
 
         return success_response(
@@ -724,7 +738,14 @@ async def handle_process_due_snoozes(
                         await gmail.unarchive_message(email_id)
                     if hasattr(gmail, "remove_label"):
                         await gmail.remove_label(email_id, "Snoozed")
-            except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
+            except (
+                ImportError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                AttributeError,
+                ValueError,
+            ) as gmail_error:
                 logger.warning("Could not unsnooze %s in Gmail: %s", email_id, gmail_error)
 
         return success_response(
@@ -971,7 +992,9 @@ class EmailServicesHandler(SecureHandler):
         try:
             self.check_permission(auth_context, permission)
         except ForbiddenError:
-            logger.warning("Email permission denied: %s for user %s", permission, auth_context.user_id)
+            logger.warning(
+                "Email permission denied: %s for user %s", permission, auth_context.user_id
+            )
             return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id

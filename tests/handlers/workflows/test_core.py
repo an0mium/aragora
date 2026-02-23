@@ -45,6 +45,7 @@ from aragora.workflow.types import StepResult, StepStatus
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_step_result(
     step_id: str = "step-1",
     step_name: str = "analysis",
@@ -189,9 +190,16 @@ class TestStepResultToDict:
         sr = _make_step_result()
         d = _step_result_to_dict(sr)
         expected_keys = {
-            "step_id", "step_name", "status", "started_at",
-            "completed_at", "duration_ms", "output", "error",
-            "metrics", "retry_count",
+            "step_id",
+            "step_name",
+            "status",
+            "started_at",
+            "completed_at",
+            "duration_ms",
+            "output",
+            "error",
+            "metrics",
+            "retry_count",
         }
         assert set(d.keys()) == expected_keys
 
@@ -299,6 +307,7 @@ class TestCallStoreMethod:
     @patch("aragora.server.handlers.workflows.core._run_async")
     def test_coroutine_dispatched_via_run_async(self, mock_run):
         """Coroutine objects are dispatched to _run_async."""
+
         async def my_coro():
             return "async_result"
 
@@ -332,6 +341,7 @@ class TestGetEngine:
     def test_returns_workflow_engine(self):
         """Returns a WorkflowEngine instance."""
         from aragora.workflow.engine import WorkflowEngine
+
         engine = _get_engine()
         assert isinstance(engine, WorkflowEngine)
 
@@ -345,6 +355,7 @@ class TestGetEngine:
     def test_creates_engine_when_none(self, mock_cls):
         """Creates new WorkflowEngine when _engine is None."""
         import aragora.server.handlers.workflows.core as core_mod
+
         old_engine = core_mod._engine
         try:
             core_mod._engine = None
@@ -369,6 +380,7 @@ class TestGetEngine:
         override_engine = MagicMock(name="override_engine")
         pkg = sys.modules.get("aragora.server.handlers.workflows")
         import aragora.server.handlers.workflows.core as core_mod
+
         old_engine = core_mod._engine
         old_pkg_engine = getattr(pkg, "_engine", None) if pkg else None
         try:
@@ -389,6 +401,7 @@ class TestGetEngine:
     def test_package_not_in_sys_modules_still_works(self):
         """When package missing from sys.modules, engine still created."""
         import aragora.server.handlers.workflows.core as core_mod
+
         key = "aragora.server.handlers.workflows"
         old_engine = core_mod._engine
         old_module = sys.modules.pop(key, None)
@@ -396,6 +409,7 @@ class TestGetEngine:
             core_mod._engine = None
             engine = _get_engine()
             from aragora.workflow.engine import WorkflowEngine
+
             assert isinstance(engine, WorkflowEngine)
         finally:
             if old_module is not None:
@@ -477,6 +491,7 @@ class TestModuleConstants:
     def test_logger_exists(self):
         """Module logger is properly configured."""
         import logging
+
         assert isinstance(logger, logging.Logger)
 
     def test_logger_name(self):
@@ -491,19 +506,31 @@ class TestModuleConstants:
     def test_all_exports_exist(self):
         """Every name in __all__ is actually importable from the module."""
         import aragora.server.handlers.workflows.core as core_mod
+
         for name in CORE_ALL:
             assert hasattr(core_mod, name), f"{name} listed in __all__ but not found"
 
     def test_all_contains_key_items(self):
         """__all__ contains the most important exports."""
         required = {
-            "logger", "_step_result_to_dict", "_get_store",
-            "_call_store_method", "_get_engine", "_store",
-            "RBAC_AVAILABLE", "METRICS_AVAILABLE",
-            "WorkflowDefinition", "WorkflowCategory",
-            "StepDefinition", "StepResult", "TransitionRule",
-            "PersistentWorkflowStore", "_UnauthenticatedSentinel",
-            "record_rbac_check", "track_handler", "audit_data",
+            "logger",
+            "_step_result_to_dict",
+            "_get_store",
+            "_call_store_method",
+            "_get_engine",
+            "_store",
+            "RBAC_AVAILABLE",
+            "METRICS_AVAILABLE",
+            "WorkflowDefinition",
+            "WorkflowCategory",
+            "StepDefinition",
+            "StepResult",
+            "TransitionRule",
+            "PersistentWorkflowStore",
+            "_UnauthenticatedSentinel",
+            "record_rbac_check",
+            "track_handler",
+            "audit_data",
             "_run_async",
         }
         assert required.issubset(set(CORE_ALL))
@@ -520,6 +547,7 @@ class TestMetricsFallbacks:
     def test_record_rbac_check_callable(self):
         """record_rbac_check is callable regardless of metrics availability."""
         from aragora.server.handlers.workflows.core import record_rbac_check
+
         # Should not raise -- signature is (permission: str, granted: bool)
         record_rbac_check("workflows:read", True)
 
@@ -536,6 +564,7 @@ class TestMetricsFallbacks:
     def test_record_rbac_check_with_kwargs(self):
         """record_rbac_check accepts keyword arguments."""
         from aragora.server.handlers.workflows.core import record_rbac_check
+
         # When metrics available: (permission, granted); when not: (*args, **kwargs)
         if METRICS_AVAILABLE:
             record_rbac_check(permission="workflows:write", granted=False)
@@ -567,44 +596,52 @@ class TestReExports:
         """WorkflowDefinition is re-exported from workflow.types."""
         from aragora.server.handlers.workflows.core import WorkflowDefinition
         from aragora.workflow.types import WorkflowDefinition as OrigWD
+
         assert WorkflowDefinition is OrigWD
 
     def test_workflow_category_enum(self):
         """WorkflowCategory is re-exported from workflow.types."""
         from aragora.server.handlers.workflows.core import WorkflowCategory
         from aragora.workflow.types import WorkflowCategory as OrigWC
+
         assert WorkflowCategory is OrigWC
 
     def test_step_definition_class(self):
         """StepDefinition is re-exported."""
         from aragora.server.handlers.workflows.core import StepDefinition
         from aragora.workflow.types import StepDefinition as OrigSD
+
         assert StepDefinition is OrigSD
 
     def test_step_result_class(self):
         """StepResult is re-exported."""
         from aragora.server.handlers.workflows.core import StepResult as CoreSR
+
         assert CoreSR is StepResult
 
     def test_transition_rule_class(self):
         """TransitionRule is re-exported."""
         from aragora.server.handlers.workflows.core import TransitionRule
         from aragora.workflow.types import TransitionRule as OrigTR
+
         assert TransitionRule is OrigTR
 
     def test_persistent_workflow_store_class(self):
         """PersistentWorkflowStore is re-exported."""
         from aragora.server.handlers.workflows.core import PersistentWorkflowStore
         from aragora.workflow.persistent_store import PersistentWorkflowStore as OrigPWS
+
         assert PersistentWorkflowStore is OrigPWS
 
     def test_audit_data_function(self):
         """audit_data is re-exported from aragora.audit.unified."""
         from aragora.server.handlers.workflows.core import audit_data
         from aragora.audit.unified import audit_data as OrigAD
+
         assert audit_data is OrigAD
 
     def test_run_async_function(self):
         """_run_async is re-exported from http_utils."""
         from aragora.server.handlers.workflows.core import _run_async
+
         assert callable(_run_async)

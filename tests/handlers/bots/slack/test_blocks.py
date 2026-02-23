@@ -1209,7 +1209,7 @@ class TestSecurityAndEdgeCases:
 
     def test_agents_with_special_chars(self):
         """Special characters in agent names are preserved."""
-        agents = ["claude<>", 'gpt4"\'', "gem&ini"]
+        agents = ["claude<>", "gpt4\"'", "gem&ini"]
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
@@ -1274,7 +1274,7 @@ class TestSecurityAndEdgeCases:
             vote_counts={},
         )
         section = blocks[1]
-        assert 'DROP TABLE debates' in section["text"]["text"]
+        assert "DROP TABLE debates" in section["text"]["text"]
 
     def test_consensus_winner_with_injection(self):
         """Injection patterns in winner are preserved."""
@@ -1283,13 +1283,13 @@ class TestSecurityAndEdgeCases:
             task="task",
             consensus_reached=True,
             confidence=0.5,
-            winner='<img src=x onerror=alert(1)>',
+            winner="<img src=x onerror=alert(1)>",
             final_answer=None,
             vote_counts={},
         )
         fields_block = blocks[2]
         winner_field = fields_block["fields"][1]
-        assert '<img src=x onerror=alert(1)>' in winner_field["text"]
+        assert "<img src=x onerror=alert(1)>" in winner_field["text"]
 
     def test_consensus_final_answer_with_backticks(self):
         """Backticks in final answer are preserved."""

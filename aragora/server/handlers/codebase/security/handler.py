@@ -169,9 +169,7 @@ class SecurityHandler(BaseHandler):
             if cve_id:
                 from aragora.utils.async_utils import get_event_loop_safe
 
-                return get_event_loop_safe().run_until_complete(
-                    self.handle_get_cve(params, cve_id)
-                )
+                return get_event_loop_safe().run_until_complete(self.handle_get_cve(params, cve_id))
         if path == "/api/v1/cve":
             return None
 

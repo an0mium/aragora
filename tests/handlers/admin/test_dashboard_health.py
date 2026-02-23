@@ -348,6 +348,7 @@ class TestGetConnectorHealth:
     def _call_with_import_error(self):
         """Call get_connector_health with import failure."""
         import sys
+
         saved = sys.modules.get("aragora.server.handlers.connectors")
         try:
             sys.modules["aragora.server.handlers.connectors"] = None  # type: ignore
@@ -487,7 +488,9 @@ class TestGetConnectorHealth:
         history = [
             FakeSyncHistory(status=_FakeSyncStatus.COMPLETED, duration_seconds=2.0, items_synced=5),
             FakeSyncHistory(status=_FakeSyncStatus.FAILED, duration_seconds=1.0, items_synced=0),
-            FakeSyncHistory(status=_FakeSyncStatus.COMPLETED, duration_seconds=3.0, items_synced=15),
+            FakeSyncHistory(
+                status=_FakeSyncStatus.COMPLETED, duration_seconds=3.0, items_synced=15
+            ),
         ]
         scheduler = FakeScheduler(
             stats={"total_jobs": 1, "running_syncs": 0, "success_rate": 0.67},
@@ -728,8 +731,12 @@ class TestGetConnectorHealth:
         """History entries with None duration count as 0."""
         job = FakeSyncJob()
         history = [
-            FakeSyncHistory(status=_FakeSyncStatus.COMPLETED, duration_seconds=None, items_synced=5),
-            FakeSyncHistory(status=_FakeSyncStatus.COMPLETED, duration_seconds=4.0, items_synced=10),
+            FakeSyncHistory(
+                status=_FakeSyncStatus.COMPLETED, duration_seconds=None, items_synced=5
+            ),
+            FakeSyncHistory(
+                status=_FakeSyncStatus.COMPLETED, duration_seconds=4.0, items_synced=10
+            ),
         ]
         scheduler = FakeScheduler(
             stats={"total_jobs": 1, "running_syncs": 0, "success_rate": 1.0},

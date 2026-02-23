@@ -492,7 +492,9 @@ class TestHandleGetHotspots:
 
     @pytest.mark.asyncio
     async def test_limit(self):
-        hotspots = [_make_hotspot(complexity=float(i + 10), function_name=f"f{i}") for i in range(10)]
+        hotspots = [
+            _make_hotspot(complexity=float(i + 10), function_name=f"f{i}") for i in range(10)
+        ]
         report = _make_report(scan_id="hs-lim", hotspots=hotspots)
         _metrics_reports["repo"] = {"hs-lim": report}
 

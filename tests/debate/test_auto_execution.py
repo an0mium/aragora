@@ -163,9 +163,7 @@ class TestAutoExecutePlan:
         """Plan is created and its ID is stored in result metadata."""
         mock_plan = _make_mock_plan(requires_approval=True)
 
-        with patch.object(
-            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
-        ):
+        with patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan):
             arena = _make_arena()
             result = _make_result()
             updated = await _auto_execute_plan(arena, result)
@@ -180,9 +178,7 @@ class TestAutoExecutePlan:
             plan_id="plan-xyz", status_value="awaiting_approval", requires_approval=True
         )
 
-        with patch.object(
-            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
-        ):
+        with patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan):
             arena = _make_arena()
             result = _make_result()
             updated = await _auto_execute_plan(arena, result)
@@ -198,9 +194,7 @@ class TestAutoExecutePlan:
         mock_plan = _make_mock_plan(requires_approval=True)
 
         with (
-            patch.object(
-                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
-            ),
+            patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
             patch.object(PlanExecutor, "execute", new_callable=AsyncMock) as mock_exec,
         ):
             arena = _make_arena()
@@ -221,9 +215,7 @@ class TestAutoExecutePlan:
         mock_outcome.tasks_total = 3
 
         with (
-            patch.object(
-                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
-            ),
+            patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
             patch(
                 "aragora.pipeline.executor.PlanExecutor",
             ) as mock_executor_cls,
@@ -261,17 +253,13 @@ class TestAutoExecutePlan:
         mock_plan = _make_mock_plan(requires_approval=False)
 
         with (
-            patch.object(
-                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
-            ),
+            patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
             patch(
                 "aragora.pipeline.executor.PlanExecutor",
             ) as mock_executor_cls,
         ):
             mock_executor_instance = MagicMock()
-            mock_executor_instance.execute = AsyncMock(
-                side_effect=RuntimeError("Connection lost")
-            )
+            mock_executor_instance.execute = AsyncMock(side_effect=RuntimeError("Connection lost"))
             mock_executor_cls.return_value = mock_executor_instance
 
             arena = _make_arena()
@@ -457,9 +445,7 @@ class TestExecutionModePassthrough:
         mock_outcome.tasks_total = 1
 
         with (
-            patch.object(
-                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
-            ),
+            patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
             patch(
                 "aragora.pipeline.executor.PlanExecutor",
             ) as mock_executor_cls,

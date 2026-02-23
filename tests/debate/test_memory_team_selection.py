@@ -88,11 +88,13 @@ class MockContinuumMemory:
         min_importance: float = 0.0,
         **kwargs,
     ) -> list[MockMemoryEntry]:
-        self.retrieve_calls.append({
-            "query": query,
-            "limit": limit,
-            "min_importance": min_importance,
-        })
+        self.retrieve_calls.append(
+            {
+                "query": query,
+                "limit": limit,
+                "min_importance": min_importance,
+            }
+        )
         return self._entries
 
 
@@ -173,9 +175,11 @@ class TestComputeMemoryScore:
 
     def test_returns_zero_when_disabled(self):
         """Returns 0.0 when enable_memory_selection is False."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(agent_name="claude", success_count=10, failure_count=0),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(agent_name="claude", success_count=10, failure_count=0),
+            ]
+        )
         config = TeamSelectionConfig(enable_memory_selection=False)
         selector = TeamSelector(continuum_memory=mock_memory, config=config)
         agent = MockAgent("claude")
@@ -192,9 +196,11 @@ class TestComputeMemoryScore:
 
     def test_returns_zero_when_no_agent_memories(self):
         """Returns 0.0 when no memories match the agent name."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(agent_name="gpt", success_count=10, failure_count=0),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(agent_name="gpt", success_count=10, failure_count=0),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -202,11 +208,13 @@ class TestComputeMemoryScore:
 
     def test_filters_by_agent_name(self):
         """Only considers memories with matching agent_name in metadata."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(agent_name="claude", success_count=10, failure_count=0),
-            MockMemoryEntry(agent_name="gpt", success_count=0, failure_count=10),
-            MockMemoryEntry(agent_name="claude", success_count=8, failure_count=2),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(agent_name="claude", success_count=10, failure_count=0),
+                MockMemoryEntry(agent_name="gpt", success_count=0, failure_count=10),
+                MockMemoryEntry(agent_name="claude", success_count=8, failure_count=2),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -215,16 +223,18 @@ class TestComputeMemoryScore:
 
     def test_high_success_rate_gives_high_score(self):
         """Agent with 100% success rate gets score above 0.5."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=20,
-                failure_count=0,
-                update_count=20,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=20,
+                    failure_count=0,
+                    update_count=20,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -232,16 +242,18 @@ class TestComputeMemoryScore:
 
     def test_low_success_rate_gives_low_score(self):
         """Agent with 0% success rate gets score below 0.5."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=0,
-                failure_count=20,
-                update_count=20,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=0,
+                    failure_count=20,
+                    update_count=20,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -249,16 +261,18 @@ class TestComputeMemoryScore:
 
     def test_neutral_success_rate_gives_midrange_score(self):
         """Agent with 50% success rate gets score near 0.5."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=10,
-                failure_count=10,
-                update_count=20,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=10,
+                    failure_count=10,
+                    update_count=20,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -266,26 +280,30 @@ class TestComputeMemoryScore:
 
     def test_confidence_scaling_few_observations(self):
         """Fewer observations reduce confidence and compress score toward 0.5."""
-        mock_memory_few = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=2,
-                failure_count=0,
-                update_count=2,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
-        mock_memory_many = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=20,
-                failure_count=0,
-                update_count=20,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
+        mock_memory_few = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=2,
+                    failure_count=0,
+                    update_count=2,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
+        mock_memory_many = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=20,
+                    failure_count=0,
+                    update_count=20,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
         selector_few = TeamSelector(continuum_memory=mock_memory_few)
         selector_many = TeamSelector(continuum_memory=mock_memory_many)
         agent = MockAgent("claude")
@@ -300,16 +318,18 @@ class TestComputeMemoryScore:
 
     def test_confidence_capped_at_one(self):
         """Confidence is capped at 1.0 even with many observations."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=100,
-                failure_count=0,
-                update_count=100,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=100,
+                    failure_count=0,
+                    update_count=100,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -317,16 +337,18 @@ class TestComputeMemoryScore:
 
     def test_score_clamped_to_zero_one(self):
         """Score is always clamped between 0.0 and 1.0."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=1000,
-                failure_count=0,
-                update_count=1000,
-                importance=1.0,
-                consolidation_score=1.0,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=1000,
+                    failure_count=0,
+                    update_count=1000,
+                    importance=1.0,
+                    consolidation_score=1.0,
+                ),
+            ]
+        )
         selector = TeamSelector(continuum_memory=mock_memory)
         agent = MockAgent("claude")
         score = selector._compute_memory_score(agent, "code", "Fix a bug")
@@ -387,12 +409,8 @@ class TestComputeMemoryScore:
                 consolidation_score=0.9,
             ),
         ]
-        selector_high = TeamSelector(
-            continuum_memory=MockContinuumMemory(entries_high_importance)
-        )
-        selector_low = TeamSelector(
-            continuum_memory=MockContinuumMemory(entries_low_importance)
-        )
+        selector_high = TeamSelector(continuum_memory=MockContinuumMemory(entries_high_importance))
+        selector_low = TeamSelector(continuum_memory=MockContinuumMemory(entries_low_importance))
         agent = MockAgent("claude")
 
         score_high = selector_high._compute_memory_score(agent, "code", "task")
@@ -415,16 +433,18 @@ class TestMemoryScoreIntegration:
 
     def test_memory_score_added_to_compute_score(self):
         """Memory score contributes to the overall score when memory is present."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=20,
-                failure_count=0,
-                update_count=20,
-                importance=0.8,
-                consolidation_score=0.9,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=20,
+                    failure_count=0,
+                    update_count=20,
+                    importance=0.8,
+                    consolidation_score=0.9,
+                ),
+            ]
+        )
         config = TeamSelectionConfig(
             enable_memory_selection=True,
             memory_weight=0.15,
@@ -447,22 +467,26 @@ class TestMemoryScoreIntegration:
 
         agent = MockAgent("claude")
         score_with = selector_with_memory._compute_score(agent, domain="code", task="Fix a bug")
-        score_without = selector_without_memory._compute_score(agent, domain="code", task="Fix a bug")
+        score_without = selector_without_memory._compute_score(
+            agent, domain="code", task="Fix a bug"
+        )
 
         # With memory and high success, score should be higher
         assert score_with > score_without
 
     def test_memory_score_not_added_when_disabled(self):
         """Memory score does not contribute when enable_memory_selection is False."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=20,
-                failure_count=0,
-                update_count=20,
-                importance=0.8,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=20,
+                    failure_count=0,
+                    update_count=20,
+                    importance=0.8,
+                ),
+            ]
+        )
         # Use a no-op calibration tracker to prevent auto-detection from
         # contributing score.  get_brier_score raises KeyError which the
         # scorer handles gracefully.
@@ -495,14 +519,16 @@ class TestMemoryScoreIntegration:
 
     def test_memory_score_not_added_when_no_domain(self):
         """Memory score skipped when domain is None."""
-        mock_memory = MockContinuumMemory(entries=[
-            MockMemoryEntry(
-                agent_name="claude",
-                success_count=20,
-                failure_count=0,
-                update_count=20,
-            ),
-        ])
+        mock_memory = MockContinuumMemory(
+            entries=[
+                MockMemoryEntry(
+                    agent_name="claude",
+                    success_count=20,
+                    failure_count=0,
+                    update_count=20,
+                ),
+            ]
+        )
         no_cal = MagicMock()
         no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(

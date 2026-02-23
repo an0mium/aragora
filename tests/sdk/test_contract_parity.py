@@ -178,9 +178,8 @@ class TestPipelineContractParity:
         canonical = set(PIPELINE_ENDPOINTS)
 
         missing = canonical - sdk_paths
-        assert not missing, (
-            f"Python SDK pipeline missing {len(missing)} endpoints:\n"
-            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        assert not missing, f"Python SDK pipeline missing {len(missing)} endpoints:\n" + "\n".join(
+            f"  {m} {p}" for m, p in sorted(missing)
         )
 
     def test_typescript_sdk_covers_all_endpoints(self):
@@ -222,9 +221,8 @@ class TestPipelineContractParity:
 
         canonical = set(PIPELINE_ENDPOINTS)
         missing = canonical - handler_endpoints
-        assert not missing, (
-            f"Handler ROUTES missing {len(missing)} endpoints:\n"
-            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        assert not missing, f"Handler ROUTES missing {len(missing)} endpoints:\n" + "\n".join(
+            f"  {m} {p}" for m, p in sorted(missing)
         )
 
 
@@ -440,9 +438,8 @@ class TestActionsContractParity:
         canonical = set(ACTIONS_ENDPOINTS)
 
         missing = canonical - sdk_paths
-        assert not missing, (
-            f"Python SDK actions missing {len(missing)} endpoints:\n"
-            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        assert not missing, f"Python SDK actions missing {len(missing)} endpoints:\n" + "\n".join(
+            f"  {m} {p}" for m, p in sorted(missing)
         )
 
     def test_typescript_sdk_covers_all_endpoints(self):

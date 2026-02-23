@@ -24,6 +24,7 @@ def handler():
 @pytest.fixture
 def mock_request():
     """Create a mock HTTP handler object."""
+
     def _make(method: str = "GET", body: dict | None = None):
         h = MagicMock()
         h.command = method
@@ -36,6 +37,7 @@ def mock_request():
         h.auth_user.org_id = "test-org"
         h.auth_user.roles = {"admin"}
         return h
+
     return _make
 
 
@@ -76,14 +78,23 @@ class TestRouteMatching:
     def test_routes_unknown_path(self, handler):
         result = handler._route_request(
             "/api/v1/orchestration/canvas/test/unknown/path",
-            "GET", {}, {}, "u1", "ws1",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
             MagicMock(),
         )
         assert result is None
 
     def test_method_not_allowed_list(self, handler):
         result = handler._route_request(
-            "/api/v1/orchestration/canvas", "DELETE", {}, {}, "u1", "ws1",
+            "/api/v1/orchestration/canvas",
+            "DELETE",
+            {},
+            {},
+            "u1",
+            "ws1",
             MagicMock(),
         )
         assert result is not None
@@ -135,7 +146,10 @@ class TestCreateCanvas:
 
         ctx = MagicMock()
         result = handler._create_canvas(
-            ctx, {"name": "Pipeline Build"}, "u1", "ws1",
+            ctx,
+            {"name": "Pipeline Build"},
+            "u1",
+            "ws1",
         )
         assert result is not None
         mock_store.save_canvas.assert_called_once()
@@ -193,9 +207,7 @@ class TestUpdateCanvas:
         mock_get_store.return_value = mock_store
 
         ctx = MagicMock()
-        result = handler._update_canvas(
-            ctx, "orch-1", {"name": "Updated"}, "u1"
-        )
+        result = handler._update_canvas(ctx, "orch-1", {"name": "Updated"}, "u1")
         assert result is not None
 
 
@@ -211,7 +223,10 @@ class TestAddNode:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_node(
-                ctx, "c1", {"orchestration_type": "INVALID_TYPE"}, "u1",
+                ctx,
+                "c1",
+                {"orchestration_type": "INVALID_TYPE"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -221,6 +236,7 @@ class TestAddNode:
     def test_valid_orchestration_types(self, handler):
         """All OrchestrationNodeType values should be accepted."""
         from aragora.canvas.stages import OrchestrationNodeType
+
         for orch_type in OrchestrationNodeType:
             with patch.object(handler, "_get_canvas_manager") as mock_mgr:
                 manager = MagicMock()
@@ -231,7 +247,8 @@ class TestAddNode:
                     mock_run.return_value = node_mock
                     ctx = MagicMock()
                     result = handler._add_node(
-                        ctx, "c1",
+                        ctx,
+                        "c1",
                         {"orchestration_type": orch_type.value, "label": "test"},
                         "u1",
                     )
@@ -246,7 +263,11 @@ class TestUpdateNode:
             with patch.object(handler, "_run_async", return_value=None):
                 ctx = MagicMock()
                 result = handler._update_node(
-                    ctx, "c1", "n1", {"label": "Updated"}, "u1",
+                    ctx,
+                    "c1",
+                    "n1",
+                    {"label": "Updated"},
+                    "u1",
                 )
                 assert result is not None
 
@@ -274,7 +295,10 @@ class TestAddEdge:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_edge(
-                ctx, "c1", {"target_id": "n2"}, "u1",
+                ctx,
+                "c1",
+                {"target_id": "n2"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -285,7 +309,10 @@ class TestAddEdge:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_edge(
-                ctx, "c1", {"source_id": "n1"}, "u1",
+                ctx,
+                "c1",
+                {"source_id": "n1"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -342,7 +369,8 @@ class TestExecutePipeline:
     def test_execute_success(self, mock_get_store, handler):
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {
-            "id": "orch-1", "name": "Pipeline",
+            "id": "orch-1",
+            "name": "Pipeline",
             "metadata": {"stage": "orchestration"},
         }
         mock_get_store.return_value = mock_store
@@ -370,7 +398,5 @@ class TestRateLimit:
     @patch("aragora.server.handlers.orchestration_canvas._orchestration_limiter")
     def test_rate_limit_blocks(self, mock_limiter, handler, mock_request):
         mock_limiter.is_allowed.return_value = False
-        result = handler.handle(
-            "/api/v1/orchestration/canvas", {}, mock_request("GET")
-        )
+        result = handler.handle("/api/v1/orchestration/canvas", {}, mock_request("GET"))
         assert result is not None

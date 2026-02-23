@@ -153,9 +153,7 @@ def _make_impl(**overrides: Any) -> ModuleType:
     mod._get_oauth_error_url = lambda: "http://localhost:3000/auth/error"
     mod._validate_redirect_url = lambda url: True
     mod._generate_state = lambda user_id=None, redirect_url=None: "mock-state-token"
-    mod._validate_state = lambda state: {
-        "redirect_url": "http://localhost:3000/auth/success"
-    }
+    mod._validate_state = lambda state: {"redirect_url": "http://localhost:3000/auth/success"}
     # Constants
     mod.MICROSOFT_AUTH_URL_TEMPLATE = (
         "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
@@ -366,9 +364,7 @@ class TestMicrosoftAuthStart:
             )
         assert calls[-1] == "http://localhost/custom"
 
-    def test_default_redirect_url_when_not_in_params(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_default_redirect_url_when_not_in_params(self, handler, impl, mock_http_handler):
         """Uses OAuth success URL as default redirect when not specified in query."""
         calls: list[str | None] = []
         impl._generate_state = lambda user_id=None, redirect_url=None: (
@@ -381,9 +377,7 @@ class TestMicrosoftAuthStart:
             handler._handle_microsoft_auth_start(mock_http_handler, {})
         assert calls[-1] == "http://localhost:3000/auth/success"
 
-    def test_authenticated_user_passes_user_id_to_state(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_authenticated_user_passes_user_id_to_state(self, handler, impl, mock_http_handler):
         """When user is already authenticated, user_id is included in state."""
         calls: list[str | None] = []
         impl._generate_state = lambda user_id=None, redirect_url=None: (
@@ -396,9 +390,7 @@ class TestMicrosoftAuthStart:
             handler._handle_microsoft_auth_start(mock_http_handler, {})
         assert calls[-1] == "existing-user"
 
-    def test_unauthenticated_user_passes_none_user_id(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_unauthenticated_user_passes_none_user_id(self, handler, impl, mock_http_handler):
         """When user is not authenticated, user_id is None in state."""
         calls: list[str | None] = []
         impl._generate_state = lambda user_id=None, redirect_url=None: (
@@ -472,9 +464,7 @@ class TestMicrosoftCallback:
             )
         )
 
-    def test_error_from_microsoft_redirects_with_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_error_from_microsoft_redirects_with_error(self, handler, impl, mock_http_handler):
         """Microsoft error parameter triggers redirect with error."""
         result = self._run_callback(
             handler,
@@ -484,9 +474,7 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "User denied" in handler._error_messages[0]
 
-    def test_error_without_description_uses_error_code(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_error_without_description_uses_error_code(self, handler, impl, mock_http_handler):
         """When error_description is missing, error code itself is used."""
         result = self._run_callback(
             handler,
@@ -496,19 +484,13 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "server_error" in handler._error_messages[0]
 
-    def test_missing_state_redirects_with_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_missing_state_redirects_with_error(self, handler, impl, mock_http_handler):
         """Missing state parameter triggers error redirect."""
-        result = self._run_callback(
-            handler, mock_http_handler, {"code": "auth-code"}
-        )
+        result = self._run_callback(handler, mock_http_handler, {"code": "auth-code"})
         assert _status(result) == 302
         assert "Missing state" in handler._error_messages[0]
 
-    def test_invalid_state_redirects_with_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_invalid_state_redirects_with_error(self, handler, impl, mock_http_handler):
         """Invalid/expired state triggers error redirect."""
         impl._validate_state = lambda state: None
         result = self._run_callback(
@@ -519,23 +501,15 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Invalid or expired" in handler._error_messages[0]
 
-    def test_missing_code_redirects_with_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_missing_code_redirects_with_error(self, handler, impl, mock_http_handler):
         """Missing authorization code triggers error redirect."""
-        result = self._run_callback(
-            handler, mock_http_handler, {"state": "valid-state"}
-        )
+        result = self._run_callback(handler, mock_http_handler, {"state": "valid-state"})
         assert _status(result) == 302
         assert "Missing authorization code" in handler._error_messages[0]
 
-    def test_token_exchange_connection_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_exchange_connection_error_redirects(self, handler, impl, mock_http_handler):
         """ConnectionError during token exchange redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            side_effect=ConnectionError("network down")
-        )
+        handler._exchange_microsoft_code = MagicMock(side_effect=ConnectionError("network down"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -544,15 +518,11 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to exchange" in handler._error_messages[0]
 
-    def test_token_exchange_httpx_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_exchange_httpx_error_redirects(self, handler, impl, mock_http_handler):
         """httpx.HTTPError during token exchange redirects with error."""
         import httpx
 
-        handler._exchange_microsoft_code = MagicMock(
-            side_effect=httpx.HTTPError("bad gateway")
-        )
+        handler._exchange_microsoft_code = MagicMock(side_effect=httpx.HTTPError("bad gateway"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -561,13 +531,9 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to exchange" in handler._error_messages[0]
 
-    def test_token_exchange_timeout_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_exchange_timeout_error_redirects(self, handler, impl, mock_http_handler):
         """TimeoutError during token exchange redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            side_effect=TimeoutError("request timed out")
-        )
+        handler._exchange_microsoft_code = MagicMock(side_effect=TimeoutError("request timed out"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -576,13 +542,9 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to exchange" in handler._error_messages[0]
 
-    def test_token_exchange_os_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_exchange_os_error_redirects(self, handler, impl, mock_http_handler):
         """OSError during token exchange redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            side_effect=OSError("network unreachable")
-        )
+        handler._exchange_microsoft_code = MagicMock(side_effect=OSError("network unreachable"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -591,13 +553,9 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to exchange" in handler._error_messages[0]
 
-    def test_token_exchange_value_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_exchange_value_error_redirects(self, handler, impl, mock_http_handler):
         """ValueError during token exchange redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            side_effect=ValueError("bad response")
-        )
+        handler._exchange_microsoft_code = MagicMock(side_effect=ValueError("bad response"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -606,13 +564,9 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to exchange" in handler._error_messages[0]
 
-    def test_token_exchange_json_decode_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_exchange_json_decode_error_redirects(self, handler, impl, mock_http_handler):
         """json.JSONDecodeError during token exchange redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            side_effect=json.JSONDecodeError("bad", "", 0)
-        )
+        handler._exchange_microsoft_code = MagicMock(side_effect=json.JSONDecodeError("bad", "", 0))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -623,9 +577,7 @@ class TestMicrosoftCallback:
 
     def test_no_access_token_redirects(self, handler, impl, mock_http_handler):
         """Token response without access_token triggers error redirect."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"token_type": "Bearer"}
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"token_type": "Bearer"})
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -636,9 +588,7 @@ class TestMicrosoftCallback:
 
     def test_user_info_failure_redirects(self, handler, impl, mock_http_handler):
         """Failed user info retrieval redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
         handler._get_microsoft_user_info = MagicMock(
             side_effect=ConnectionError("cannot reach Microsoft Graph")
         )
@@ -654,12 +604,8 @@ class TestMicrosoftCallback:
         """httpx.HTTPError during user info retrieval redirects with error."""
         import httpx
 
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_microsoft_user_info = MagicMock(
-            side_effect=httpx.HTTPError("graph api error")
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_microsoft_user_info = MagicMock(side_effect=httpx.HTTPError("graph api error"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -668,16 +614,10 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to get user info" in handler._error_messages[0]
 
-    def test_user_info_timeout_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_user_info_timeout_error_redirects(self, handler, impl, mock_http_handler):
         """TimeoutError during user info retrieval redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_microsoft_user_info = MagicMock(
-            side_effect=TimeoutError("timeout")
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_microsoft_user_info = MagicMock(side_effect=TimeoutError("timeout"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -688,12 +628,8 @@ class TestMicrosoftCallback:
 
     def test_user_info_value_error_redirects(self, handler, impl, mock_http_handler):
         """ValueError during user info retrieval redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_microsoft_user_info = MagicMock(
-            side_effect=ValueError("bad data")
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_microsoft_user_info = MagicMock(side_effect=ValueError("bad data"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -704,12 +640,8 @@ class TestMicrosoftCallback:
 
     def test_user_info_key_error_redirects(self, handler, impl, mock_http_handler):
         """KeyError during user info retrieval redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_microsoft_user_info = MagicMock(
-            side_effect=KeyError("id")
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_microsoft_user_info = MagicMock(side_effect=KeyError("id"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -718,16 +650,10 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert "Failed to get user info" in handler._error_messages[0]
 
-    def test_user_info_json_decode_error_redirects(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_user_info_json_decode_error_redirects(self, handler, impl, mock_http_handler):
         """json.JSONDecodeError during user info retrieval redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_microsoft_user_info = MagicMock(
-            side_effect=json.JSONDecodeError("bad", "", 0)
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_microsoft_user_info = MagicMock(side_effect=json.JSONDecodeError("bad", "", 0))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -740,9 +666,7 @@ class TestMicrosoftCallback:
         self, handler, impl, mock_http_handler, sample_user_info
     ):
         """Successful callback invokes _complete_oauth_flow."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
         handler._get_microsoft_user_info = MagicMock(return_value=sample_user_info)
         result = self._run_callback(
             handler,
@@ -774,13 +698,9 @@ class TestMicrosoftCallback:
         assert _status(result) == 302
         assert len(handler._complete_flow_calls) == 1
 
-    def test_awaitable_user_info_result(
-        self, handler, impl, mock_http_handler, sample_user_info
-    ):
+    def test_awaitable_user_info_result(self, handler, impl, mock_http_handler, sample_user_info):
         """When _get_microsoft_user_info returns a coroutine, it is awaited."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
 
         async def async_user_info(token):
             return sample_user_info
@@ -802,9 +722,7 @@ class TestMicrosoftCallback:
             "redirect_url": "https://custom.example.com/done",
             "user_id": "linking-user",
         }
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
         handler._get_microsoft_user_info = MagicMock(return_value=sample_user_info)
         result = self._run_callback(
             handler,
@@ -816,9 +734,7 @@ class TestMicrosoftCallback:
         assert state_data["redirect_url"] == "https://custom.example.com/done"
         assert state_data["user_id"] == "linking-user"
 
-    def test_empty_token_response_no_access_token(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_empty_token_response_no_access_token(self, handler, impl, mock_http_handler):
         """Empty token response (empty dict) triggers no access token error."""
         handler._exchange_microsoft_code = MagicMock(return_value={})
         result = self._run_callback(
@@ -831,12 +747,8 @@ class TestMicrosoftCallback:
 
     def test_user_info_os_error_redirects(self, handler, impl, mock_http_handler):
         """OSError during user info retrieval redirects with error."""
-        handler._exchange_microsoft_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_microsoft_user_info = MagicMock(
-            side_effect=OSError("network error")
-        )
+        handler._exchange_microsoft_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_microsoft_user_info = MagicMock(side_effect=OSError("network error"))
         result = self._run_callback(
             handler,
             mock_http_handler,
@@ -1014,10 +926,7 @@ class TestExchangeMicrosoftCodeAsync:
 
         # Verify the POST call
         call_kwargs = mock_client.post.call_args
-        assert (
-            "login.microsoftonline.com/common/oauth2/v2.0/token"
-            in call_kwargs.args[0]
-        )
+        assert "login.microsoftonline.com/common/oauth2/v2.0/token" in call_kwargs.args[0]
         data = call_kwargs.kwargs["data"]
         assert data["code"] == "test-code"
         assert data["client_id"] == "ms-client-id"
@@ -1636,9 +1545,7 @@ class TestHandleRouting:
         )
         assert _status(result) == 302
 
-    def test_non_v1_microsoft_auth_start_routed(
-        self, oauth_handler, impl, mock_http_handler
-    ):
+    def test_non_v1_microsoft_auth_start_routed(self, oauth_handler, impl, mock_http_handler):
         """GET /api/auth/oauth/microsoft also routes correctly (non-v1)."""
         impl._get_microsoft_client_id = lambda: "ms-id"
 
@@ -1646,14 +1553,10 @@ class TestHandleRouting:
             "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=FakeAuthCtx(is_authenticated=False),
         ):
-            result = oauth_handler.handle(
-                "/api/auth/oauth/microsoft", {}, mock_http_handler, "GET"
-            )
+            result = oauth_handler.handle("/api/auth/oauth/microsoft", {}, mock_http_handler, "GET")
         assert _status(result) == 302
 
-    def test_non_v1_microsoft_callback_routed(
-        self, oauth_handler, impl, mock_http_handler
-    ):
+    def test_non_v1_microsoft_callback_routed(self, oauth_handler, impl, mock_http_handler):
         """GET /api/auth/oauth/microsoft/callback also routes correctly (non-v1)."""
         result = oauth_handler.handle(
             "/api/auth/oauth/microsoft/callback",
@@ -1666,7 +1569,5 @@ class TestHandleRouting:
     def test_rate_limited_returns_429(self, oauth_handler, impl, mock_http_handler):
         """When rate limiter denies request, returns 429."""
         impl._oauth_limiter.is_allowed = MagicMock(return_value=False)
-        result = oauth_handler.handle(
-            "/api/v1/auth/oauth/microsoft", {}, mock_http_handler, "GET"
-        )
+        result = oauth_handler.handle("/api/v1/auth/oauth/microsoft", {}, mock_http_handler, "GET")
         assert _status(result) == 429

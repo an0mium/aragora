@@ -165,7 +165,9 @@ async def initialize_shared_pool(
                 break
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 last_err = e
-                logger.warning("[pool_manager] Pool creation attempt %s/3 failed: %s", attempt + 1, e)
+                logger.warning(
+                    "[pool_manager] Pool creation attempt %s/3 failed: %s", attempt + 1, e
+                )
                 _ps_mod._pool = None
                 if attempt < 2:
                     await asyncio.sleep(2.0 * (attempt + 1))
@@ -219,7 +221,10 @@ async def initialize_shared_pool(
         pool_size = _shared_pool.get_size() if hasattr(_shared_pool, "get_size") else "unknown"
         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
         logger.warning(
-            "[pool_manager] Shared %s pool initialized (size: %s, event_loop: %s)", backend_name, pool_size, id(_pool_event_loop)
+            "[pool_manager] Shared %s pool initialized (size: %s, event_loop: %s)",
+            backend_name,
+            pool_size,
+            id(_pool_event_loop),
         )
         return _shared_pool
 

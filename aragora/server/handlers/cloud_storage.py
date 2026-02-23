@@ -509,7 +509,12 @@ class CloudStorageHandler(BaseHandler):
                 "Cloud storage service temporarily unavailable",
                 503,
             )
-        except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+        except (
+            KeyError,
+            ValueError,
+            OSError,
+            RuntimeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Error handling cloud storage GET request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
@@ -567,7 +572,12 @@ class CloudStorageHandler(BaseHandler):
                 "Cloud storage service temporarily unavailable",
                 503,
             )
-        except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+        except (
+            KeyError,
+            ValueError,
+            OSError,
+            RuntimeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Error handling cloud storage POST request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
@@ -619,7 +629,12 @@ class CloudStorageHandler(BaseHandler):
                 "Cloud storage service temporarily unavailable",
                 503,
             )
-        except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+        except (
+            KeyError,
+            ValueError,
+            OSError,
+            RuntimeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Error handling cloud storage DELETE request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()

@@ -11,7 +11,6 @@ from aragora.mcp.tools_module.verification import (
 )
 
 
-
 class TestGetConsensusProofsTool:
     """Tests for get_consensus_proofs_tool."""
 

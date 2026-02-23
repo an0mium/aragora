@@ -457,7 +457,10 @@ class OrganizationsHandler(SecureHandler):
         decision = check_permission(auth_ctx, permission_key)
         if not decision.allowed:
             logger.warning(
-                "RBAC denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission_key, decision.reason
+                "RBAC denied: user=%s permission=%s reason=%s",
+                auth_ctx.user_id,
+                permission_key,
+                decision.reason,
             )
             return error_response(
                 "Permission denied",
@@ -706,7 +709,11 @@ class OrganizationsHandler(SecureHandler):
         user_store.create_invitation(invitation)
 
         logger.info(
-            "Invitation created: %s invited to org %s by %s (token=%s...)", email, org_id, user.id, invitation.token[:8]
+            "Invitation created: %s invited to org %s by %s (token=%s...)",
+            email,
+            org_id,
+            user.id,
+            invitation.token[:8],
         )
         audit_admin(
             admin_id=user.id,
@@ -1048,7 +1055,10 @@ class OrganizationsHandler(SecureHandler):
         )
 
         logger.info(
-            "User %s accepted invitation to org %s with role %s", user.id, invitation.org_id, invitation.role
+            "User %s accepted invitation to org %s with role %s",
+            user.id,
+            invitation.org_id,
+            invitation.role,
         )
         audit_data(
             user_id=user.id,

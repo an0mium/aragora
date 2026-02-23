@@ -661,10 +661,12 @@ class BeadStore:
             return None
 
         try:
+
             async def _git(*args: str) -> tuple[int, str]:
                 """Run git command with timeout and zombie prevention."""
                 p = await asyncio.create_subprocess_exec(
-                    "git", *args,
+                    "git",
+                    *args,
                     cwd=str(self.bead_dir),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,

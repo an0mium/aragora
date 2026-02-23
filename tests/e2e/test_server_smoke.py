@@ -393,10 +393,7 @@ class TestServerConfig:
         """Verify server handles concurrent requests without deadlock."""
         async with aiohttp.ClientSession() as session:
             # Fire 10 concurrent requests
-            tasks = [
-                session.get(f"{live_server.base_url}/healthz")
-                for _ in range(10)
-            ]
+            tasks = [session.get(f"{live_server.base_url}/healthz") for _ in range(10)]
             responses = await asyncio.gather(*tasks)
             statuses = [r.status for r in responses]
             for r in responses:

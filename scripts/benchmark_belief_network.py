@@ -65,8 +65,14 @@ DEBATE_CLAIMS = [
         "type": ClaimType.ASSERTION,
         "confidence": 0.75,
         "evidence": [
-            ("Gartner 2024 report shows average 35% TCO reduction for well-planned migrations", 0.8),
-            ("Our hardware refresh cycle costs $2.1M every 4 years vs. estimated $1.4M annual cloud spend", 0.7),
+            (
+                "Gartner 2024 report shows average 35% TCO reduction for well-planned migrations",
+                0.8,
+            ),
+            (
+                "Our hardware refresh cycle costs $2.1M every 4 years vs. estimated $1.4M annual cloud spend",
+                0.7,
+            ),
         ],
     },
     {
@@ -87,10 +93,12 @@ DEBATE_CLAIMS = [
         "type": ClaimType.PROPOSAL,
         "confidence": 0.70,
         "evidence": [
-            ("Industry benchmark: cloud-native teams deploy 46x more frequently (DORA report)", 0.8),
+            (
+                "Industry benchmark: cloud-native teams deploy 46x more frequently (DORA report)",
+                0.8,
+            ),
         ],
     },
-
     # Agent: security_lead (cautious)
     {
         "id": "data-sovereignty",
@@ -124,7 +132,6 @@ DEBATE_CLAIMS = [
             ("AWS Lambda, DynamoDB have no direct equivalents on other clouds", 0.6),
         ],
     },
-
     # Agent: engineering_manager (pragmatic)
     {
         "id": "team-skills",
@@ -148,7 +155,6 @@ DEBATE_CLAIMS = [
             ("Starting with 3 stateless APIs covers 40% of traffic with minimal risk", 0.7),
         ],
     },
-
     # Agent: cfo (cost-focused)
     {
         "id": "hidden-costs",
@@ -171,7 +177,6 @@ DEBATE_CLAIMS = [
             ("CFO of similar-size company reported 15% improvement in cash flow", 0.6),
         ],
     },
-
     # Agent: cto (synthesizer)
     {
         "id": "hybrid-strategy",
@@ -202,33 +207,31 @@ CLAIM_RELATIONS = [
     # Cost-savings is supported by capex-to-opex, contradicted by hidden-costs
     ("capex-to-opex", "cost-savings", RelationType.SUPPORTS, 0.6),
     ("hidden-costs", "cost-savings", RelationType.CONTRADICTS, 0.8),
-
     # Scalability supports cost-savings and deployment-velocity
     ("scalability", "cost-savings", RelationType.SUPPORTS, 0.5),
     ("scalability", "deployment-velocity", RelationType.SUPPORTS, 0.7),
-
     # Security objections contradict migration proposals
     ("data-sovereignty", "cost-savings", RelationType.CONTRADICTS, 0.4),
     ("attack-surface", "scalability", RelationType.CONTRADICTS, 0.5),
     ("vendor-lock-in", "deployment-velocity", RelationType.CONTRADICTS, 0.3),
-
     # Team skills affects deployment velocity
     ("team-skills", "deployment-velocity", RelationType.CONTRADICTS, 0.7),
-
     # Phased approach addresses objections
     ("phased-approach", "team-skills", RelationType.SUPPORTS, 0.6),
     ("phased-approach", "attack-surface", RelationType.CONTRADICTS, 0.4),
-
     # Hybrid strategy synthesizes multiple claims
     ("hybrid-strategy", "data-sovereignty", RelationType.SUPPORTS, 0.7),
     ("hybrid-strategy", "cost-savings", RelationType.SUPPORTS, 0.5),
     ("hybrid-strategy", "vendor-lock-in", RelationType.CONTRADICTS, 0.6),
-
     # Containerization supports hybrid and reduces lock-in
     ("containerization-first", "hybrid-strategy", RelationType.SUPPORTS, 0.8),
     ("containerization-first", "vendor-lock-in", RelationType.CONTRADICTS, 0.7),
-    ("containerization-first", "team-skills", RelationType.CONTRADICTS, 0.3),  # Adds learning burden
-
+    (
+        "containerization-first",
+        "team-skills",
+        RelationType.CONTRADICTS,
+        0.3,
+    ),  # Adds learning burden
     # Hidden costs contradict scalability benefits
     ("hidden-costs", "scalability", RelationType.CONTRADICTS, 0.3),
 ]
@@ -242,6 +245,7 @@ CLAIM_RELATIONS = [
 @dataclass
 class CounterfactualResult:
     """Result of a counterfactual analysis (what-if)."""
+
     claim_id: str
     claim_statement: str
     hypothesis: str  # "true" or "false"
@@ -252,6 +256,7 @@ class CounterfactualResult:
 @dataclass
 class BenchmarkResults:
     """Aggregated benchmark results."""
+
     # Network statistics
     total_claims: int = 0
     total_relations: int = 0
@@ -408,8 +413,10 @@ def run_benchmark() -> BenchmarkResults:
         }
         results.crux_details.append(crux_info)
         print(f"  CRUX: [{crux.crux_score:.3f}] {crux.claim_id}: {crux.statement[:60]}...")
-        print(f"    Influence: {crux.influence_score:.3f} | Disagreement: {crux.disagreement_score:.3f} | "
-              f"Uncertainty: {crux.uncertainty_score:.3f}")
+        print(
+            f"    Influence: {crux.influence_score:.3f} | Disagreement: {crux.disagreement_score:.3f} | "
+            f"Uncertainty: {crux.uncertainty_score:.3f}"
+        )
 
     print()
 
@@ -423,10 +430,7 @@ def run_benchmark() -> BenchmarkResults:
     # Get baseline from a fresh propagation
     baseline_net, _ = build_belief_network()
     baseline_net.propagate()
-    baseline = {
-        node.claim_id: node.posterior.p_true
-        for node in baseline_net.nodes.values()
-    }
+    baseline = {node.claim_id: node.posterior.p_true for node in baseline_net.nodes.values()}
 
     for crux in crux_result.cruxes[:3]:
         for hypothesis_value, hypothesis_label in [(True, "true"), (False, "false")]:
@@ -450,13 +454,15 @@ def run_benchmark() -> BenchmarkResults:
                 new_p = node.posterior.p_true
                 delta = new_p - base_p
                 if abs(delta) > 0.005 and node.claim_id != crux.claim_id:
-                    changes.append({
-                        "claim_id": node.claim_id,
-                        "statement": node.claim_statement[:100],
-                        "original_p_true": round(base_p, 4),
-                        "new_p_true": round(new_p, 4),
-                        "delta": round(delta, 4),
-                    })
+                    changes.append(
+                        {
+                            "claim_id": node.claim_id,
+                            "statement": node.claim_statement[:100],
+                            "original_p_true": round(base_p, 4),
+                            "new_p_true": round(new_p, 4),
+                            "delta": round(delta, 4),
+                        }
+                    )
 
             changes.sort(key=lambda x: -abs(x["delta"]))
 
@@ -469,11 +475,15 @@ def run_benchmark() -> BenchmarkResults:
             )
             results.counterfactuals.append(cf)
 
-            print(f"  If '{crux.claim_id}' is {hypothesis_label.upper()}: {len(changes)} claims shift")
+            print(
+                f"  If '{crux.claim_id}' is {hypothesis_label.upper()}: {len(changes)} claims shift"
+            )
             for shift in changes[:3]:
                 d = shift["delta"]
                 direction = "+" if d > 0 else ""
-                print(f"    {shift['claim_id']}: {shift['original_p_true']:.3f} -> {shift['new_p_true']:.3f} ({direction}{d:.3f})")
+                print(
+                    f"    {shift['claim_id']}: {shift['original_p_true']:.3f} -> {shift['new_p_true']:.3f} ({direction}{d:.3f})"
+                )
 
     print()
 
@@ -499,14 +509,16 @@ def run_benchmark() -> BenchmarkResults:
     )[:5]
     for node in certain_claims:
         verdict = "TRUE" if node.posterior.p_true > 0.5 else "FALSE"
-        results.most_certain.append({
-            "claim_id": node.claim_id,
-            "statement": node.claim_statement[:60],
-            "author": node.author,
-            "confidence": node.posterior.confidence,
-            "p_true": node.posterior.p_true,
-            "verdict": verdict,
-        })
+        results.most_certain.append(
+            {
+                "claim_id": node.claim_id,
+                "statement": node.claim_statement[:60],
+                "author": node.author,
+                "confidence": node.posterior.confidence,
+                "p_true": node.posterior.p_true,
+                "verdict": verdict,
+            }
+        )
 
     uncertain_claims = sorted(
         network.nodes.values(),
@@ -514,22 +526,26 @@ def run_benchmark() -> BenchmarkResults:
         reverse=True,
     )[:5]
     for node in uncertain_claims:
-        results.most_uncertain.append({
-            "claim_id": node.claim_id,
-            "statement": node.claim_statement[:60],
-            "author": node.author,
-            "entropy": node.posterior.entropy,
-            "p_true": node.posterior.p_true,
-        })
+        results.most_uncertain.append(
+            {
+                "claim_id": node.claim_id,
+                "statement": node.claim_statement[:60],
+                "author": node.author,
+                "entropy": node.posterior.entropy,
+                "p_true": node.posterior.p_true,
+            }
+        )
 
     load_bearing = network.get_load_bearing_claims(5)
     for node, centrality in load_bearing:
-        results.load_bearing.append({
-            "claim_id": node.claim_id,
-            "statement": node.claim_statement[:60],
-            "author": node.author,
-            "centrality": centrality,
-        })
+        results.load_bearing.append(
+            {
+                "claim_id": node.claim_id,
+                "statement": node.claim_statement[:60],
+                "author": node.author,
+                "centrality": centrality,
+            }
+        )
 
     results.duration_ms = (time.monotonic() - start) * 1000
     print(f"\nBenchmark completed in {results.duration_ms:.1f}ms")
@@ -592,18 +608,26 @@ def generate_report(results: BenchmarkResults) -> str:
     lines.append("## Methodology")
     lines.append("")
     lines.append("- **Debate topic:** Cloud migration strategy (migrate vs. stay on-premises)")
-    lines.append("- **Agents:** 5 agents with distinct roles (cloud_architect, security_lead, engineering_manager, cfo, cto)")
-    lines.append(f"- **Claims:** {results.total_claims} structured claims with evidence and confidence scores")
-    lines.append(f"- **Relationships:** {results.total_relations} typed relationships (SUPPORTS, CONTRADICTS, DEPENDS_ON)")
+    lines.append(
+        "- **Agents:** 5 agents with distinct roles (cloud_architect, security_lead, engineering_manager, cfo, cto)"
+    )
+    lines.append(
+        f"- **Claims:** {results.total_claims} structured claims with evidence and confidence scores"
+    )
+    lines.append(
+        f"- **Relationships:** {results.total_relations} typed relationships (SUPPORTS, CONTRADICTS, DEPENDS_ON)"
+    )
     lines.append("- **Propagation:** Loopy belief propagation with damping factor 0.5")
-    lines.append("- **Crux detection:** Weighted composite of influence, disagreement, uncertainty, and centrality scores")
+    lines.append(
+        "- **Crux detection:** Weighted composite of influence, disagreement, uncertainty, and centrality scores"
+    )
     lines.append("")
 
     # Network statistics
     lines.append("## Network Statistics")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|:-------|------:|")
+    lines.append("| Metric | Value |")
+    lines.append("|:-------|------:|")
     lines.append(f"| Total claims | {results.total_claims} |")
     lines.append(f"| Total relationships | {results.total_relations} |")
     lines.append(f"| Graph density | {results.graph_density:.3f} |")
@@ -623,8 +647,12 @@ def generate_report(results: BenchmarkResults) -> str:
         "simultaneously influential, contested, uncertain, and central to the argument graph."
     )
     lines.append("")
-    lines.append("| Rank | Claim | Author | Crux Score | Influence | Disagreement | Uncertainty | Centrality | Affected |")
-    lines.append("|:----:|:------|:------:|:----------:|:---------:|:------------:|:-----------:|:----------:|:--------:|")
+    lines.append(
+        "| Rank | Claim | Author | Crux Score | Influence | Disagreement | Uncertainty | Centrality | Affected |"
+    )
+    lines.append(
+        "|:----:|:------|:------:|:----------:|:---------:|:------------:|:-----------:|:----------:|:--------:|"
+    )
 
     for i, crux in enumerate(results.crux_details, 1):
         lines.append(
@@ -639,8 +667,8 @@ def generate_report(results: BenchmarkResults) -> str:
     lines.append("## Counterfactual Analysis")
     lines.append("")
     lines.append(
-        "For each top crux claim, the Belief Network simulates: \"What if this claim "
-        "were definitively true? What if it were definitively false?\" The number of "
+        'For each top crux claim, the Belief Network simulates: "What if this claim '
+        'were definitively true? What if it were definitively false?" The number of '
         "affected claims and the magnitude of belief shifts reveal the claim's true "
         "pivotal power."
     )
@@ -712,17 +740,16 @@ def generate_report(results: BenchmarkResults) -> str:
     lines.append("|:------|:------:|:----------:|")
 
     for claim in results.load_bearing:
-        lines.append(
-            f"| {claim['statement']}... | {claim['author']} | "
-            f"{claim['centrality']:.4f} |"
-        )
+        lines.append(f"| {claim['statement']}... | {claim['author']} | {claim['centrality']:.4f} |")
     lines.append("")
 
     # Consensus estimation
     lines.append("## Consensus Estimation")
     lines.append("")
     lines.append(f"- **Consensus probability:** {results.consensus_probability:.0%}")
-    lines.append(f"- **Contested claims:** {results.contested_claims} out of {results.total_claims}")
+    lines.append(
+        f"- **Contested claims:** {results.contested_claims} out of {results.total_claims}"
+    )
     lines.append(f"- **Convergence barrier:** {results.convergence_barrier:.2f}")
     lines.append("")
 

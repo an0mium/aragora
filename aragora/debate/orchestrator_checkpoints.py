@@ -173,7 +173,9 @@ async def restore_from_checkpoint(
         ctx._checkpoint_resume_round = resumed.checkpoint.current_round
 
         logger.info(
-            "[checkpoint] Restored from checkpoint %s at round %s", checkpoint_id, resumed.checkpoint.current_round
+            "[checkpoint] Restored from checkpoint %s at round %s",
+            checkpoint_id,
+            resumed.checkpoint.current_round,
         )
         return ctx
 
@@ -255,7 +257,7 @@ async def cleanup_checkpoints(
         for cp in checkpoints[keep_latest:]:
             if await checkpoint_manager.store.delete(cp["checkpoint_id"]):
                 deleted += 1
-                logger.debug("[checkpoint] Deleted checkpoint %s", cp['checkpoint_id'])
+                logger.debug("[checkpoint] Deleted checkpoint %s", cp["checkpoint_id"])
 
         if deleted > 0:
             logger.info("[checkpoint] Cleaned up %s checkpoints for debate %s", deleted, debate_id)

@@ -98,9 +98,7 @@ class ConvergenceHistoryStore:
             # LRU eviction
             if len(self._records) >= self._max_records:
                 # Remove oldest record
-                oldest_key = min(
-                    self._records, key=lambda k: self._records[k].get("timestamp", 0)
-                )
+                oldest_key = min(self._records, key=lambda k: self._records[k].get("timestamp", 0))
                 del self._records[oldest_key]
                 self._topic_index.pop(oldest_key, None)
 

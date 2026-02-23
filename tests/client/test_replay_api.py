@@ -298,7 +298,7 @@ class TestReplayAPIGet:
         assert result.consensus is not None
         assert result.consensus.reached is True
         assert result.duration_seconds == 120
-        mock_client._get.assert_called_once_with(f"/api/replays/rpl-001")
+        mock_client._get.assert_called_once_with("/api/replays/rpl-001")
 
     def test_get_replay_minimal(
         self,

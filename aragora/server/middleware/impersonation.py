@@ -454,7 +454,9 @@ def impersonation_middleware(func: Callable) -> Callable:
 
         if session is None:
             logger.warning(
-                "Impersonation session validation failed: %s (session_id=%s...)", error, session_id[:16] if session_id else 'none'
+                "Impersonation session validation failed: %s (session_id=%s...)",
+                error,
+                session_id[:16] if session_id else "none",
             )
             return _error_response(error or "Invalid impersonation session", 403)
 

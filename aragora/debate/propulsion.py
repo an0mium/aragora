@@ -355,7 +355,9 @@ class PropulsionEngine:
                 payload.last_error = f"handler_error:{type(e).__name__}"
 
                 logger.error(
-                    "Propulsion handler %s failed: %s", registered.name, e,
+                    "Propulsion handler %s failed: %s",
+                    registered.name,
+                    e,
                     exc_info=True,
                 )
 
@@ -400,7 +402,9 @@ class PropulsionEngine:
                 failures = [r for r in results if not r.success]
                 if failures:
                     logger.warning(
-                        "Chain stopped at %s due to failures: %s", event_type, [f.error_message for f in failures]
+                        "Chain stopped at %s due to failures: %s",
+                        event_type,
+                        [f.error_message for f in failures],
                     )
                     break
 

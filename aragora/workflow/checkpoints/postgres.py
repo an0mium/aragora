@@ -111,7 +111,9 @@ class PostgresCheckpointStore:
 
             if current_version == 0:
                 # New database - run initial schema
-                logger.info("[%s] Creating initial schema v%s", self.SCHEMA_NAME, self.SCHEMA_VERSION)
+                logger.info(
+                    "[%s] Creating initial schema v%s", self.SCHEMA_NAME, self.SCHEMA_VERSION
+                )
                 await conn.execute(self.INITIAL_SCHEMA)
                 await conn.execute(
                     """
@@ -177,7 +179,9 @@ class PostgresCheckpointStore:
             )
 
         logger.info(
-            "Saved checkpoint to PostgreSQL: workflow=%s, id=%s", checkpoint.workflow_id, checkpoint_id
+            "Saved checkpoint to PostgreSQL: workflow=%s, id=%s",
+            checkpoint.workflow_id,
+            checkpoint_id,
         )
         return checkpoint_id
 
@@ -211,7 +215,10 @@ class PostgresCheckpointStore:
                         expected_checksum = self._compute_checksum(checkpoint)
                         if checkpoint.checksum != expected_checksum:
                             logger.warning(
-                                "Checkpoint %s checksum mismatch: expected=%s, got=%s", checkpoint_id, expected_checksum, checkpoint.checksum
+                                "Checkpoint %s checksum mismatch: expected=%s, got=%s",
+                                checkpoint_id,
+                                expected_checksum,
+                                checkpoint.checksum,
                             )
                             # Don't fail, just log warning - checksum may be from different serialization
 

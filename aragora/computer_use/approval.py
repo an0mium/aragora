@@ -185,7 +185,11 @@ class LoggingNotifier(ApprovalNotifier):
     async def notify_request(self, request: ApprovalRequest) -> None:
         """Log new approval request."""
         logger.info(
-            "[Approval Request] %s: %s - %s (priority: %s)", request.id, request.context.action_type, request.context.reason, request.priority.value
+            "[Approval Request] %s: %s - %s (priority: %s)",
+            request.id,
+            request.context.action_type,
+            request.context.reason,
+            request.priority.value,
         )
 
     async def notify_decision(self, request: ApprovalRequest) -> None:
@@ -348,7 +352,10 @@ class ApprovalWorkflow:
 
         if self._config.log_all_requests:
             logger.info(
-                "Approval request created: %s for %s (%s)", request_id, context.action_type, context.category.value
+                "Approval request created: %s for %s (%s)",
+                request_id,
+                context.action_type,
+                context.category.value,
             )
 
         await _audit_approval_action(

@@ -400,7 +400,7 @@ class TestHandleScanSecrets:
         scan_id = body["scan_id"]
         assert scan_id.startswith("secrets_")
         # After the prefix, the rest should be hex characters
-        hex_part = scan_id[len("secrets_"):]
+        hex_part = scan_id[len("secrets_") :]
         assert len(hex_part) == 12
         assert all(c in "0123456789abcdef" for c in hex_part)
 
@@ -419,9 +419,7 @@ class TestHandleGetSecretsScanStatus:
         scan = _make_secrets_scan(scan_id="secrets_abc")
         repo_scans["secrets_abc"] = scan
 
-        result = await handle_get_secrets_scan_status(
-            repo_id="test-repo", scan_id="secrets_abc"
-        )
+        result = await handle_get_secrets_scan_status(repo_id="test-repo", scan_id="secrets_abc")
 
         assert _status(result) == 200
         body = _body(result)
@@ -431,9 +429,7 @@ class TestHandleGetSecretsScanStatus:
     @pytest.mark.asyncio
     async def test_get_specific_scan_not_found(self, repo_scans):
         """Request for non-existent scan_id returns 404."""
-        result = await handle_get_secrets_scan_status(
-            repo_id="test-repo", scan_id="nonexistent"
-        )
+        result = await handle_get_secrets_scan_status(repo_id="test-repo", scan_id="nonexistent")
 
         assert _status(result) == 404
         body = _body(result)
@@ -481,9 +477,7 @@ class TestHandleGetSecretsScanStatus:
         )
         repo_scans["secrets_full"] = scan
 
-        result = await handle_get_secrets_scan_status(
-            repo_id="test-repo", scan_id="secrets_full"
-        )
+        result = await handle_get_secrets_scan_status(repo_id="test-repo", scan_id="secrets_full")
 
         assert _status(result) == 200
         body = _body(result)
@@ -514,9 +508,7 @@ class TestHandleGetSecretsScanStatus:
         scan.error = "Secrets scan failed"
         repo_scans["secrets_failed"] = scan
 
-        result = await handle_get_secrets_scan_status(
-            repo_id="test-repo", scan_id="secrets_failed"
-        )
+        result = await handle_get_secrets_scan_status(repo_id="test-repo", scan_id="secrets_failed")
 
         assert _status(result) == 200
         body = _body(result)
@@ -535,9 +527,7 @@ class TestHandleGetSecretsScanStatus:
         for i in range(5):
             scan = _make_secrets_scan(
                 scan_id=f"secrets_{i:03d}",
-                started_at=datetime(
-                    2024, 1, 10 + i, 10, 0, tzinfo=timezone.utc
-                ),
+                started_at=datetime(2024, 1, 10 + i, 10, 0, tzinfo=timezone.utc),
             )
             repo_scans[f"secrets_{i:03d}"] = scan
 
@@ -619,9 +609,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_sev", secrets=secrets)
         repo_scans["secrets_sev"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", severity="critical"
-        )
+        result = await handle_get_secrets(repo_id="test-repo", severity="critical")
 
         assert _status(result) == 200
         body = _body(result)
@@ -639,9 +627,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_high", secrets=secrets)
         repo_scans["secrets_high"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", severity="high"
-        )
+        result = await handle_get_secrets(repo_id="test-repo", severity="high")
 
         assert _status(result) == 200
         body = _body(result)
@@ -659,9 +645,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_type", secrets=secrets)
         repo_scans["secrets_type"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", secret_type="github_token"
-        )
+        result = await handle_get_secrets(repo_id="test-repo", secret_type="github_token")
 
         assert _status(result) == 200
         body = _body(result)
@@ -679,9 +663,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_hist", secrets=secrets)
         repo_scans["secrets_hist"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", include_history=False
-        )
+        result = await handle_get_secrets(repo_id="test-repo", include_history=False)
 
         assert _status(result) == 200
         body = _body(result)
@@ -772,15 +754,12 @@ class TestHandleGetSecrets:
     async def test_pagination_limit(self, repo_scans):
         """Pagination limit is respected."""
         secrets = [
-            _make_secret(secret_id=f"s_{i}", severity=VulnerabilitySeverity.HIGH)
-            for i in range(10)
+            _make_secret(secret_id=f"s_{i}", severity=VulnerabilitySeverity.HIGH) for i in range(10)
         ]
         scan = _make_secrets_scan(scan_id="secrets_page", secrets=secrets)
         repo_scans["secrets_page"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", limit=3
-        )
+        result = await handle_get_secrets(repo_id="test-repo", limit=3)
 
         assert _status(result) == 200
         body = _body(result)
@@ -792,15 +771,12 @@ class TestHandleGetSecrets:
     async def test_pagination_offset(self, repo_scans):
         """Pagination offset is respected."""
         secrets = [
-            _make_secret(secret_id=f"s_{i}", severity=VulnerabilitySeverity.HIGH)
-            for i in range(10)
+            _make_secret(secret_id=f"s_{i}", severity=VulnerabilitySeverity.HIGH) for i in range(10)
         ]
         scan = _make_secrets_scan(scan_id="secrets_off", secrets=secrets)
         repo_scans["secrets_off"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", limit=3, offset=8
-        )
+        result = await handle_get_secrets(repo_id="test-repo", limit=3, offset=8)
 
         assert _status(result) == 200
         body = _body(result)
@@ -815,9 +791,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_beyond", secrets=secrets)
         repo_scans["secrets_beyond"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", offset=100
-        )
+        result = await handle_get_secrets(repo_id="test-repo", offset=100)
 
         assert _status(result) == 200
         body = _body(result)
@@ -874,9 +848,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_nomatch", secrets=secrets)
         repo_scans["secrets_nomatch"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", severity="critical"
-        )
+        result = await handle_get_secrets(repo_id="test-repo", severity="critical")
 
         assert _status(result) == 200
         body = _body(result)
@@ -890,9 +862,7 @@ class TestHandleGetSecrets:
         scan = _make_secrets_scan(scan_id="secrets_notype", secrets=secrets)
         repo_scans["secrets_notype"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", secret_type="aws_access_key"
-        )
+        result = await handle_get_secrets(repo_id="test-repo", secret_type="aws_access_key")
 
         assert _status(result) == 200
         body = _body(result)
@@ -908,9 +878,7 @@ class TestHandleGetSecrets:
         )
         repo_scans["secrets_meta"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", limit=50, offset=0
-        )
+        result = await handle_get_secrets(repo_id="test-repo", limit=50, offset=0)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1014,9 +982,7 @@ class TestHandleListSecretsScans:
         repo_scans["s2"] = _make_secrets_scan(scan_id="s2", status="running")
         repo_scans["s3"] = _make_secrets_scan(scan_id="s3", status="completed")
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", status="completed"
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", status="completed")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1029,9 +995,7 @@ class TestHandleListSecretsScans:
         repo_scans["s1"] = _make_secrets_scan(scan_id="s1", status="completed")
         repo_scans["s2"] = _make_secrets_scan(scan_id="s2", status="running")
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", status="running"
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", status="running")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1043,9 +1007,7 @@ class TestHandleListSecretsScans:
         """Filtering by failed status works."""
         repo_scans["s1"] = _make_secrets_scan(scan_id="s1", status="failed")
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", status="failed"
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", status="failed")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1056,9 +1018,7 @@ class TestHandleListSecretsScans:
         """Filtering by a status with no matches returns empty list."""
         repo_scans["s1"] = _make_secrets_scan(scan_id="s1", status="completed")
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", status="running"
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", status="running")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1075,9 +1035,7 @@ class TestHandleListSecretsScans:
             )
             repo_scans[f"secrets_{i:03d}"] = scan
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", limit=3
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", limit=3)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1095,9 +1053,7 @@ class TestHandleListSecretsScans:
             )
             repo_scans[f"secrets_{i:03d}"] = scan
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", limit=2, offset=3
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", limit=2, offset=3)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1110,9 +1066,7 @@ class TestHandleListSecretsScans:
         """Offset beyond total returns empty list."""
         repo_scans["s1"] = _make_secrets_scan(scan_id="s1")
 
-        result = await handle_list_secrets_scans(
-            repo_id="test-repo", offset=100
-        )
+        result = await handle_list_secrets_scans(repo_id="test-repo", offset=100)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1266,9 +1220,7 @@ class TestScanBackgroundTask:
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
         monkeypatch.setattr(secrets_mod, "emit_secrets_events", AsyncMock())
 
         result = await handle_scan_secrets(
@@ -1306,9 +1258,7 @@ class TestScanBackgroundTask:
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
         monkeypatch.setattr(secrets_mod, "emit_secrets_events", AsyncMock())
 
         result = await handle_scan_secrets(
@@ -1337,9 +1287,7 @@ class TestScanBackgroundTask:
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
 
         result = await handle_scan_secrets(
             repo_path="/tmp/test-repo",
@@ -1357,9 +1305,7 @@ class TestScanBackgroundTask:
         assert stored.completed_at is not None
 
     @pytest.mark.asyncio
-    async def test_background_scan_cleans_up_running(
-        self, repo_scans, running_scans, monkeypatch
-    ):
+    async def test_background_scan_cleans_up_running(self, repo_scans, running_scans, monkeypatch):
         """After completion, the task is removed from running_scans."""
         scan_result = _make_secrets_scan(scan_id="bg_clean")
 
@@ -1368,9 +1314,7 @@ class TestScanBackgroundTask:
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
         monkeypatch.setattr(secrets_mod, "emit_secrets_events", AsyncMock())
 
         result = await handle_scan_secrets(
@@ -1388,18 +1332,14 @@ class TestScanBackgroundTask:
         assert "test-repo" not in running_scans
 
     @pytest.mark.asyncio
-    async def test_background_scan_failure_cleans_up_running(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_failure_cleans_up_running(self, running_scans, monkeypatch):
         """Even on failure, the task is removed from running_scans."""
         mock_scanner = AsyncMock()
         mock_scanner.scan_repository.side_effect = OSError("no access")
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
 
         await handle_scan_secrets(
             repo_path="/tmp/test-repo",
@@ -1425,9 +1365,7 @@ class TestScanBackgroundTask:
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
         monkeypatch.setattr(secrets_mod, "emit_secrets_events", mock_emit)
 
         result = await handle_scan_secrets(
@@ -1448,9 +1386,7 @@ class TestScanBackgroundTask:
         assert call_args[0][3] == "ws_test"  # workspace_id
 
     @pytest.mark.asyncio
-    async def test_background_scan_passes_branch_to_scanner(
-        self, repo_scans, monkeypatch
-    ):
+    async def test_background_scan_passes_branch_to_scanner(self, repo_scans, monkeypatch):
         """The background task passes branch to the scanner."""
         scan_result = _make_secrets_scan(scan_id="bg_branch")
 
@@ -1459,9 +1395,7 @@ class TestScanBackgroundTask:
 
         import aragora.server.handlers.codebase.security.secrets as secrets_mod
 
-        monkeypatch.setattr(
-            secrets_mod, "SecretsScanner", lambda: mock_scanner
-        )
+        monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_scanner)
         monkeypatch.setattr(secrets_mod, "emit_secrets_events", AsyncMock())
 
         await handle_scan_secrets(
@@ -1553,9 +1487,7 @@ class TestSecurityInputValidation:
         )
         repo_scans["sec_zero"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", limit=0
-        )
+        result = await handle_get_secrets(repo_id="test-repo", limit=0)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1570,9 +1502,7 @@ class TestSecurityInputValidation:
         repo_scans["sec_neg"] = scan
 
         # Python handles negative slicing: secrets[-1:-1+100] = secrets[-1:]
-        result = await handle_get_secrets(
-            repo_id="test-repo", offset=-1
-        )
+        result = await handle_get_secrets(repo_id="test-repo", offset=-1)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1586,9 +1516,7 @@ class TestSecurityInputValidation:
         scan = _make_secrets_scan(scan_id="sec_large", secrets=secrets)
         repo_scans["sec_large"] = scan
 
-        result = await handle_get_secrets(
-            repo_id="test-repo", limit=10000
-        )
+        result = await handle_get_secrets(repo_id="test-repo", limit=10000)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1617,12 +1545,8 @@ class TestEdgeCases:
         repo_a["scan_a"] = _make_secrets_scan(scan_id="scan_a", repo_id="repo-a")
         repo_b["scan_b"] = _make_secrets_scan(scan_id="scan_b", repo_id="repo-b")
 
-        result_a = await handle_get_secrets_scan_status(
-            repo_id="repo-a", scan_id="scan_a"
-        )
-        result_b = await handle_get_secrets_scan_status(
-            repo_id="repo-b", scan_id="scan_b"
-        )
+        result_a = await handle_get_secrets_scan_status(repo_id="repo-a", scan_id="scan_a")
+        result_b = await handle_get_secrets_scan_status(repo_id="repo-b", scan_id="scan_b")
 
         assert _status(result_a) == 200
         assert _status(result_b) == 200
@@ -1639,9 +1563,7 @@ class TestEdgeCases:
         repo_a = get_or_create_secrets_scans("repo-a")
         repo_a["scan_a"] = _make_secrets_scan(scan_id="scan_a", repo_id="repo-a")
 
-        result = await handle_get_secrets_scan_status(
-            repo_id="repo-b", scan_id="scan_a"
-        )
+        result = await handle_get_secrets_scan_status(repo_id="repo-b", scan_id="scan_a")
 
         assert _status(result) == 404
 
@@ -1703,9 +1625,7 @@ class TestEdgeCases:
         )
         repo_scans["sec_dict"] = scan
 
-        result = await handle_get_secrets_scan_status(
-            repo_id="test-repo", scan_id="sec_dict"
-        )
+        result = await handle_get_secrets_scan_status(repo_id="test-repo", scan_id="sec_dict")
 
         body = _body(result)
         scan_data = body["scan_result"]

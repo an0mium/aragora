@@ -481,15 +481,21 @@ class ComplianceMonitor:
                     "overall_health": status.overall_health.value,
                     "overall_score": round(status.overall_score, 2),
                     "open_violations": status.open_violations,
-                    "trend": status.trend.value if hasattr(status.trend, 'value') else str(status.trend),
+                    "trend": status.trend.value
+                    if hasattr(status.trend, "value")
+                    else str(status.trend),
                     "frameworks": {
                         name: {
-                            "health": fs.health.value if hasattr(fs.health, 'value') else str(getattr(fs, 'health', 'unknown')),
-                            "score": getattr(fs, 'score', 0),
-                            "critical": getattr(fs, 'critical_violations', 0),
+                            "health": fs.health.value
+                            if hasattr(fs.health, "value")
+                            else str(getattr(fs, "health", "unknown")),
+                            "score": getattr(fs, "score", 0),
+                            "critical": getattr(fs, "critical_violations", 0),
                         }
                         for name, fs in status.frameworks.items()
-                    } if status.frameworks else {},
+                    }
+                    if status.frameworks
+                    else {},
                 },
             )
         except (ImportError, RuntimeError, AttributeError) as e:
@@ -502,15 +508,17 @@ class ComplianceMonitor:
         try:
             from aragora.events.types import StreamEvent, StreamEventType
 
-            self._event_emitter.emit(StreamEvent(
-                type=StreamEventType.COMPLIANCE_FINDING,
-                data={
-                    "alert_type": alert_type,
-                    "severity": severity,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    **data,
-                },
-            ))
+            self._event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.COMPLIANCE_FINDING,
+                    data={
+                        "alert_type": alert_type,
+                        "severity": severity,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        **data,
+                    },
+                )
+            )
         except (ImportError, AttributeError, TypeError):
             pass
 
@@ -535,11 +543,15 @@ class ComplianceMonitor:
         }
 
         # Emit COMPLIANCE_FINDING event
-        self._emit_compliance_event(alert_type, severity, {
-            "title": title,
-            "message": message,
-            **data,
-        })
+        self._emit_compliance_event(
+            alert_type,
+            severity,
+            {
+                "title": title,
+                "message": message,
+                **data,
+            },
+        )
 
         # Invoke registered callbacks
         for callback in self._violation_callbacks:
@@ -758,7 +770,9 @@ def init_compliance_monitoring(
 
     _monitor = ComplianceMonitor(config)
     logger.info(
-        "Compliance monitoring initialized: interval=%ss, frameworks=%s", check_interval_seconds, config.enabled_frameworks
+        "Compliance monitoring initialized: interval=%ss, frameworks=%s",
+        check_interval_seconds,
+        config.enabled_frameworks,
     )
 
     return _monitor

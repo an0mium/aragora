@@ -49,7 +49,10 @@ from aragora.cli.parser import get_version, build_parser  # noqa: E402, F401
 # Lazy re-export mapping: name -> (module, attr)
 _LAZY_REEXPORTS: dict[str, tuple[str, str]] = {
     # From aragora.cli.commands.debate
-    "get_event_emitter_if_available": ("aragora.cli.commands.debate", "get_event_emitter_if_available"),
+    "get_event_emitter_if_available": (
+        "aragora.cli.commands.debate",
+        "get_event_emitter_if_available",
+    ),
     "parse_agents": ("aragora.cli.commands.debate", "parse_agents"),
     "run_debate": ("aragora.cli.commands.debate", "run_debate"),
     "cmd_ask": ("aragora.cli.commands.debate", "cmd_ask"),

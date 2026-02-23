@@ -79,9 +79,7 @@ def _get_provider():
 
             _provider = Web3Provider.from_env()
         except ImportError:
-            raise ImportError(
-                "web3 is required for blockchain endpoints"
-            )
+            raise ImportError("web3 is required for blockchain endpoints")
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error("Failed to create Web3Provider: %s", e)
             raise
@@ -407,7 +405,15 @@ async def handle_blockchain_health() -> HandlerResult:
         try:
             adapter = _get_adapter()
             adapter_status = adapter.get_health_status()
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            AttributeError,
+        ) as e:
             logger.warning("ERC-8004 adapter health check error: %s", e)
             adapter_status = {"error": "Adapter unavailable. Check server logs for details."}
 
@@ -503,7 +509,14 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
             try:
                 identity = contract.get_agent(token_id)
                 agents.append(_serialize_identity(identity))
-            except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
+            except (
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                LookupError,
+                ValueError,
+                RuntimeError,
+            ) as e:
                 logger.debug("Could not fetch agent %s: %s", token_id, e)
 
         return json_response(

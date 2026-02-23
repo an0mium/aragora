@@ -207,7 +207,15 @@ class ArenaEventAdapter:
                     },
                 )
                 await self.stream_server.broadcast(event)
-            except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
+            except (
+                ImportError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                AttributeError,
+            ) as e:
                 logger.warning("Failed to emit event %s: %s", event_type, e)
 
         # Also update shared state if available
@@ -221,7 +229,14 @@ class ArenaEventAdapter:
                         **data,
                     },
                 )
-            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                AttributeError,
+            ) as e:
                 logger.debug("Failed to update shared state: %s", e)
 
     def _ensure_agent_metrics(self, agent_id: str) -> AgentMetrics:
@@ -742,7 +757,15 @@ class ArenaControlPlaneBridge:
                 sla_compliant=False,
             )
 
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            AttributeError,
+            KeyError,
+        ) as e:
             task.metrics.completed_at = time.time()
             logger.warning("Arena bridge debate failed: %s", e)
             error_msg = "Debate execution failed"

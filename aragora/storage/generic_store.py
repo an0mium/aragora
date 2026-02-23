@@ -657,7 +657,9 @@ def create_store_factory(
                                 return _store
                         except (ImportError, RuntimeError) as e:
                             logger.warning(
-                                "[%s] Postgres unavailable, falling back to SQLite: %s", store_name, e
+                                "[%s] Postgres unavailable, falling back to SQLite: %s",
+                                store_name,
+                                e,
                             )
 
                     # Default to SQLite

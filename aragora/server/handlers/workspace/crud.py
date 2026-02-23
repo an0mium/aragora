@@ -87,7 +87,10 @@ class WorkspaceCrudMixin:
         requested_org_id = body.get("organization_id")
         if requested_org_id and requested_org_id != org_id:
             logger.warning(
-                "Cross-tenant workspace creation attempt: user=%s own_org=%s requested_org=%s", auth_ctx.user_id, org_id, requested_org_id
+                "Cross-tenant workspace creation attempt: user=%s own_org=%s requested_org=%s",
+                auth_ctx.user_id,
+                org_id,
+                requested_org_id,
             )
             return m.error_response("Cannot create workspace in another organization", 403)
 
@@ -157,7 +160,10 @@ class WorkspaceCrudMixin:
         requested_org_id = query_params.get("organization_id")
         if requested_org_id and requested_org_id != org_id:
             logger.warning(
-                "Cross-tenant workspace list attempt: user=%s own_org=%s requested_org=%s", auth_ctx.user_id, org_id, requested_org_id
+                "Cross-tenant workspace list attempt: user=%s own_org=%s requested_org=%s",
+                auth_ctx.user_id,
+                org_id,
+                requested_org_id,
             )
             return m.error_response("Cannot list workspaces from another organization", 403)
 

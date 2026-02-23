@@ -106,7 +106,9 @@ class OpenRouterRateLimiter:
         self._backoff = ExponentialBackoff(base_delay=2.0, max_delay=60.0, jitter=0.15)
 
         logger.debug(
-            "OpenRouter rate limiter initialized: tier=%s, rpm=%s", self.tier.name, self.tier.requests_per_minute
+            "OpenRouter rate limiter initialized: tier=%s, rpm=%s",
+            self.tier.name,
+            self.tier.requests_per_minute,
         )
 
     async def acquire(self, timeout: float = 30.0) -> bool:
@@ -365,7 +367,10 @@ class ProviderRateLimiter:
         self._backoff = ExponentialBackoff(base_delay=2.0, max_delay=60.0, jitter=0.15)
 
         logger.debug(
-            "Provider rate limiter initialized: provider=%s, rpm=%s, burst=%s", self.provider, self.requests_per_minute, self.burst_size
+            "Provider rate limiter initialized: provider=%s, rpm=%s, burst=%s",
+            self.provider,
+            self.requests_per_minute,
+            self.burst_size,
         )
 
     async def acquire(self, timeout: float = 30.0) -> bool:

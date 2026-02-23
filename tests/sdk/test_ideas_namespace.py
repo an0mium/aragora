@@ -80,9 +80,7 @@ class TestIdeasNamespaceStructure:
 
     def test_sync_has_all_methods(self) -> None:
         for method_name in ALL_METHODS:
-            assert hasattr(IdeasAPI, method_name), (
-                f"IdeasAPI missing method: {method_name}"
-            )
+            assert hasattr(IdeasAPI, method_name), f"IdeasAPI missing method: {method_name}"
 
     def test_async_has_all_methods(self) -> None:
         for method_name in ALL_METHODS:
@@ -92,9 +90,7 @@ class TestIdeasNamespaceStructure:
 
     def test_sync_method_count(self) -> None:
         public = [
-            m
-            for m in dir(IdeasAPI)
-            if not m.startswith("_") and callable(getattr(IdeasAPI, m))
+            m for m in dir(IdeasAPI) if not m.startswith("_") and callable(getattr(IdeasAPI, m))
         ]
         assert len(public) == 12
 
@@ -241,9 +237,7 @@ class TestIdeasAPISyncUpdateNode:
 class TestIdeasAPISyncDeleteNode:
     def test_calls_delete(self, sync_api: IdeasAPI, sync_client: MagicMock) -> None:
         sync_api.delete_node("c1", "n1")
-        sync_client._request.assert_called_once_with(
-            "DELETE", "/api/v1/ideas/c1/nodes/n1"
-        )
+        sync_client._request.assert_called_once_with("DELETE", "/api/v1/ideas/c1/nodes/n1")
 
 
 class TestIdeasAPISyncAddEdge:
@@ -278,17 +272,13 @@ class TestIdeasAPISyncAddEdge:
 class TestIdeasAPISyncDeleteEdge:
     def test_calls_delete(self, sync_api: IdeasAPI, sync_client: MagicMock) -> None:
         sync_api.delete_edge("c1", "e1")
-        sync_client._request.assert_called_once_with(
-            "DELETE", "/api/v1/ideas/c1/edges/e1"
-        )
+        sync_client._request.assert_called_once_with("DELETE", "/api/v1/ideas/c1/edges/e1")
 
 
 class TestIdeasAPISyncExportCanvas:
     def test_calls_get(self, sync_api: IdeasAPI, sync_client: MagicMock) -> None:
         sync_api.export_canvas("c1")
-        sync_client._request.assert_called_once_with(
-            "GET", "/api/v1/ideas/c1/export"
-        )
+        sync_client._request.assert_called_once_with("GET", "/api/v1/ideas/c1/export")
 
 
 class TestIdeasAPISyncPromoteNodes:
@@ -328,7 +318,9 @@ class TestIdeasAPIAsyncCreateCanvas:
 
 class TestIdeasAPIAsyncGetCanvas:
     @pytest.mark.asyncio
-    async def test_calls_correct_endpoint(self, async_api: AsyncIdeasAPI, async_client: MagicMock) -> None:
+    async def test_calls_correct_endpoint(
+        self, async_api: AsyncIdeasAPI, async_client: MagicMock
+    ) -> None:
         await async_api.get_canvas("abc-123")
         async_client._request.assert_awaited_once_with("GET", "/api/v1/ideas/abc-123")
 
@@ -373,9 +365,7 @@ class TestIdeasAPIAsyncDeleteNode:
     @pytest.mark.asyncio
     async def test_calls_delete(self, async_api: AsyncIdeasAPI, async_client: MagicMock) -> None:
         await async_api.delete_node("c1", "n1")
-        async_client._request.assert_awaited_once_with(
-            "DELETE", "/api/v1/ideas/c1/nodes/n1"
-        )
+        async_client._request.assert_awaited_once_with("DELETE", "/api/v1/ideas/c1/nodes/n1")
 
 
 class TestIdeasAPIAsyncAddEdge:
@@ -398,18 +388,14 @@ class TestIdeasAPIAsyncDeleteEdge:
     @pytest.mark.asyncio
     async def test_calls_delete(self, async_api: AsyncIdeasAPI, async_client: MagicMock) -> None:
         await async_api.delete_edge("c1", "e1")
-        async_client._request.assert_awaited_once_with(
-            "DELETE", "/api/v1/ideas/c1/edges/e1"
-        )
+        async_client._request.assert_awaited_once_with("DELETE", "/api/v1/ideas/c1/edges/e1")
 
 
 class TestIdeasAPIAsyncExportCanvas:
     @pytest.mark.asyncio
     async def test_calls_get(self, async_api: AsyncIdeasAPI, async_client: MagicMock) -> None:
         await async_api.export_canvas("c1")
-        async_client._request.assert_awaited_once_with(
-            "GET", "/api/v1/ideas/c1/export"
-        )
+        async_client._request.assert_awaited_once_with("GET", "/api/v1/ideas/c1/export")
 
 
 class TestIdeasAPIAsyncPromoteNodes:

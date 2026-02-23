@@ -381,6 +381,7 @@ def _bypass_tier_gating(monkeypatch):
         def mock_require_tier(*args, **kwargs):
             def decorator(func):
                 return func
+
             return decorator
 
         monkeypatch.setattr(tier_gating, "require_tier", mock_require_tier)
@@ -394,9 +395,7 @@ def _bypass_workspace_validation(monkeypatch):
     try:
         from aragora.server.handlers.utils import tenant_validation
 
-        monkeypatch.setattr(
-            tenant_validation, "validate_workspace_access_sync", lambda **kw: None
-        )
+        monkeypatch.setattr(tenant_validation, "validate_workspace_access_sync", lambda **kw: None)
     except (ImportError, AttributeError):
         pass
 
@@ -404,9 +403,7 @@ def _bypass_workspace_validation(monkeypatch):
     try:
         import aragora.server.handlers.knowledge_base.mound.routing as routing_mod
 
-        monkeypatch.setattr(
-            routing_mod, "validate_workspace_access_sync", lambda **kw: None
-        )
+        monkeypatch.setattr(routing_mod, "validate_workspace_access_sync", lambda **kw: None)
     except (ImportError, AttributeError):
         pass
 
@@ -494,13 +491,9 @@ def _build_mound() -> MagicMock:
     mound.get_node = MagicMock(return_value=MockKnowledgeNode())
     mound.query_nodes = MagicMock(return_value=[MockKnowledgeNode()])
     mound.query_semantic = MagicMock(
-        return_value=MockQueryResult(
-            nodes=[MockKnowledgeNode()], total_count=1
-        )
+        return_value=MockQueryResult(nodes=[MockKnowledgeNode()], total_count=1)
     )
-    mound.get_stats = MagicMock(
-        return_value={"total_nodes": 100, "by_type": {"fact": 50}}
-    )
+    mound.get_stats = MagicMock(return_value={"total_nodes": 100, "by_type": {"fact": 50}})
 
     # Relationship operations
     mound.get_relationships = MagicMock(return_value=[MockRelationship()])
@@ -554,9 +547,7 @@ def _build_mound() -> MagicMock:
     mound.register_federated_region = MagicMock(return_value=MockFederationRegion())
     mound.unregister_federated_region = MagicMock(return_value=True)
     mound.sync_to_region = MagicMock(return_value=MockFederationSyncResult())
-    mound.pull_from_region = MagicMock(
-        return_value=MockFederationSyncResult(direction="pull")
-    )
+    mound.pull_from_region = MagicMock(return_value=MockFederationSyncResult(direction="pull"))
     mound.sync_all_regions = MagicMock(return_value=[MockFederationSyncResult()])
     mound.get_federation_status = MagicMock(
         return_value={"us-east-1": {"enabled": True, "healthy": True}}
@@ -598,7 +589,9 @@ def _build_mound() -> MagicMock:
     _auto_prune_result.workspace_id = "default"
     _auto_prune_result.policy_id = "policy-001"
     _auto_prune_result.dry_run = True
-    _auto_prune_result.executed_at = MagicMock(isoformat=MagicMock(return_value="2026-01-01T00:00:00"))
+    _auto_prune_result.executed_at = MagicMock(
+        isoformat=MagicMock(return_value="2026-01-01T00:00:00")
+    )
     _auto_prune_result.items_analyzed = 0
     _auto_prune_result.items_pruned = 0
     _auto_prune_result.items_archived = 0
@@ -635,7 +628,11 @@ def _build_mound() -> MagicMock:
     from aragora.knowledge.mound.ops.governance import Permission
 
     _role_mock = MagicMock()
-    _role_mock.to_dict.return_value = {"role_id": "role-001", "name": "editor", "permissions": ["read"]}
+    _role_mock.to_dict.return_value = {
+        "role_id": "role-001",
+        "name": "editor",
+        "permissions": ["read"],
+    }
     mound.create_role = AsyncMock(return_value=_role_mock)
     _assignment_mock = MagicMock()
     _assignment_mock.to_dict.return_value = {"user_id": "user-001", "role_id": "role-001"}
@@ -945,11 +942,13 @@ class TestRelationshipRoutes:
 
     def test_create_relationship_post(self, handler, mock_mound):
         """POST /relationships creates a relationship."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/mound/relationships", {}, http)
         assert result is not None
         assert _status(result) == 201
@@ -963,11 +962,13 @@ class TestRelationshipRoutes:
 
     def test_create_relationship_invalid_type(self, handler):
         """POST /relationships with invalid type returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "INVALID",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "INVALID",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/mound/relationships", {}, http)
         assert result is not None
         assert _status(result) == 400
@@ -975,9 +976,7 @@ class TestRelationshipRoutes:
     def test_get_node_relationships(self, handler, mock_mound):
         """GET /nodes/:id/relationships returns relationships."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/nodes/node-001/relationships", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/nodes/node-001/relationships", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1003,9 +1002,7 @@ class TestGraphRoutes:
         The graph mixin returns 400 because entity_id lacks enough path segments.
         """
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/graph/node-001", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/graph/node-001", {}, http)
         assert result is not None
         # Dispatch succeeds but graph mixin returns 400 due to entity_id path parsing
         assert _status(result) == 400
@@ -1013,27 +1010,21 @@ class TestGraphRoutes:
     def test_graph_lineage_dispatches(self, handler, mock_mound):
         """GET /graph/:id/lineage dispatches to lineage handler."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/graph/node-001/lineage", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/graph/node-001/lineage", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_graph_related_dispatches(self, handler, mock_mound):
         """GET /graph/:id/related dispatches to related nodes handler."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/graph/node-001/related", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/graph/node-001/related", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_graph_wrong_method_returns_none(self, handler):
         """POST on GET-only /graph/:id returns None."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/graph/node-001", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/graph/node-001", {}, http)
         assert result is None
 
 
@@ -1055,36 +1046,28 @@ class TestCultureRoutes:
     def test_add_culture_document(self, handler, mock_mound):
         """POST /culture/documents adds document."""
         http = MockHTTPHandler.post({"content": "Our company values..."})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/culture/documents", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/culture/documents", {}, http)
         assert result is not None
         assert _status(result) == 201
 
     def test_add_culture_document_missing_content(self, handler):
         """POST /culture/documents with no content returns 400."""
         http = MockHTTPHandler.post({"document_type": "policy"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/culture/documents", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/culture/documents", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_promote_to_culture(self, handler, mock_mound):
         """POST /culture/promote promotes node to culture."""
         http = MockHTTPHandler.post({"node_id": "node-001"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/culture/promote", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/culture/promote", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_promote_to_culture_missing_node_id(self, handler):
         """POST /culture/promote without node_id returns 400."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/culture/promote", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/culture/promote", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -1107,42 +1090,38 @@ class TestStalenessRoutes:
     def test_revalidate_node(self, handler, mock_mound):
         """POST /revalidate/:id triggers revalidation."""
         http = MockHTTPHandler.post({"validator": "api"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/revalidate/node-001", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/revalidate/node-001", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_schedule_revalidation(self, handler, mock_mound):
         """POST /schedule-revalidation schedules batch."""
-        http = MockHTTPHandler.post({
-            "node_ids": ["node-001", "node-002"],
-            "priority": "medium",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/schedule-revalidation", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "node_ids": ["node-001", "node-002"],
+                "priority": "medium",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/schedule-revalidation", {}, http)
         assert result is not None
         assert _status(result) == 202
 
     def test_schedule_revalidation_missing_node_ids(self, handler):
         """POST /schedule-revalidation without node_ids returns 400."""
         http = MockHTTPHandler.post({"priority": "low"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/schedule-revalidation", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/schedule-revalidation", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_schedule_revalidation_invalid_priority(self, handler):
         """POST /schedule-revalidation with bad priority returns 400."""
-        http = MockHTTPHandler.post({
-            "node_ids": ["node-001"],
-            "priority": "ultra-high",
-        })
-        result = handler.handle(
-            "/api/v1/knowledge/mound/schedule-revalidation", {}, http
+        http = MockHTTPHandler.post(
+            {
+                "node_ids": ["node-001"],
+                "priority": "ultra-high",
+            }
         )
+        result = handler.handle("/api/v1/knowledge/mound/schedule-revalidation", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -1158,27 +1137,21 @@ class TestSyncRoutes:
     def test_sync_continuum(self, handler, mock_mound):
         """POST /sync/continuum syncs from continuum."""
         http = MockHTTPHandler.post({"workspace_id": "default"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/sync/continuum", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/sync/continuum", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_sync_consensus(self, handler, mock_mound):
         """POST /sync/consensus syncs from consensus."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/sync/consensus", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/sync/consensus", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_sync_facts(self, handler, mock_mound):
         """POST /sync/facts syncs from fact store."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/sync/facts", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/sync/facts", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1194,18 +1167,14 @@ class TestExportRoutes:
     def test_export_d3(self, handler, mock_mound):
         """GET /export/d3 exports D3 format."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/export/d3", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/export/d3", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_export_graphml(self, handler, mock_mound):
         """GET /export/graphml exports GraphML format."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/export/graphml", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/export/graphml", {}, http)
         assert result is not None
         assert _status(result) == 200
         assert result.content_type == "application/xml"
@@ -1222,18 +1191,14 @@ class TestVisibilityRoutes:
     def test_get_visibility(self, handler, mock_mound):
         """GET /nodes/:id/visibility returns visibility."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/nodes/node-001/visibility", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/nodes/node-001/visibility", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_access_grants(self, handler, mock_mound):
         """GET /nodes/:id/access returns access grants."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/nodes/node-001/access", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/nodes/node-001/access", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1248,47 +1213,51 @@ class TestSharingRoutes:
 
     def test_share_item_to_workspace(self, handler, mock_mound):
         """POST /share shares item with workspace."""
-        http = MockHTTPHandler.post({
-            "item_id": "node-001",
-            "target_type": "workspace",
-            "target_id": "ws-002",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/share", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "item_id": "node-001",
+                "target_type": "workspace",
+                "target_id": "ws-002",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/share", {}, http)
         assert result is not None
         assert _status(result) == 201
 
     def test_share_item_to_user(self, handler, mock_mound):
         """POST /share shares item with user."""
-        http = MockHTTPHandler.post({
-            "item_id": "node-001",
-            "target_type": "user",
-            "target_id": "user-002",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/share", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "item_id": "node-001",
+                "target_type": "user",
+                "target_id": "user-002",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/share", {}, http)
         assert result is not None
         assert _status(result) == 201
 
     def test_share_item_missing_item_id(self, handler):
         """POST /share without item_id returns 400."""
-        http = MockHTTPHandler.post({
-            "target_type": "workspace",
-            "target_id": "ws-002",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "target_type": "workspace",
+                "target_id": "ws-002",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/mound/share", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_share_item_invalid_target_type(self, handler):
         """POST /share with invalid target_type returns 400."""
-        http = MockHTTPHandler.post({
-            "item_id": "node-001",
-            "target_type": "invalid",
-            "target_id": "ws-002",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "item_id": "node-001",
+                "target_type": "invalid",
+                "target_id": "ws-002",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/mound/share", {}, http)
         assert result is not None
         assert _status(result) == 400
@@ -1296,43 +1265,39 @@ class TestSharingRoutes:
     def test_get_shared_with_me(self, handler, mock_mound):
         """GET /shared-with-me returns shared items."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/shared-with-me", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/shared-with-me", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_my_shares(self, handler, mock_mound):
         """GET /my-shares returns items I shared."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/my-shares", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/my-shares", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_revoke_share(self, handler, mock_mound):
         """DELETE /share revokes a share."""
-        http = MockHTTPHandler.delete({
-            "item_id": "node-001",
-            "grantee_id": "user-002",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/share", {}, http
-            )
+        http = MockHTTPHandler.delete(
+            {
+                "item_id": "node-001",
+                "grantee_id": "user-002",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/share", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_update_share(self, handler, mock_mound):
         """PATCH /share updates share permissions."""
-        http = MockHTTPHandler.patch_method({
-            "item_id": "node-001",
-            "grantee_id": "user-002",
-            "permissions": ["read", "write"],
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/share", {}, http
-            )
+        http = MockHTTPHandler.patch_method(
+            {
+                "item_id": "node-001",
+                "grantee_id": "user-002",
+                "permissions": ["read", "write"],
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/share", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1347,13 +1312,13 @@ class TestGlobalKnowledgeRoutes:
 
     def test_store_verified_fact(self, handler, mock_mound):
         """POST /global stores verified fact."""
-        http = MockHTTPHandler.post({
-            "content": "Earth is round",
-            "source": "science",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/global", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "content": "Earth is round",
+                "source": "science",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/global", {}, http)
         assert result is not None
         assert _status(result) == 201
 
@@ -1374,49 +1339,41 @@ class TestGlobalKnowledgeRoutes:
     def test_query_global_get(self, handler, mock_mound):
         """GET /global queries global knowledge."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/global", {"query": "test"}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/global", {"query": "test"}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_promote_to_global(self, handler, mock_mound):
         """POST /global/promote promotes to global."""
-        http = MockHTTPHandler.post({
-            "item_id": "node-001",
-            "workspace_id": "ws-001",
-            "reason": "Universally applicable",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/global/promote", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "item_id": "node-001",
+                "workspace_id": "ws-001",
+                "reason": "Universally applicable",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/global/promote", {}, http)
         assert result is not None
         assert _status(result) == 201
 
     def test_promote_to_global_missing_fields(self, handler):
         """POST /global/promote with missing fields returns 400."""
         http = MockHTTPHandler.post({"item_id": "node-001"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/global/promote", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/global/promote", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_get_system_facts(self, handler, mock_mound):
         """GET /global/facts returns system facts."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/global/facts", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/global/facts", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_system_workspace_id(self, handler, mock_mound):
         """GET /global/workspace-id returns workspace ID."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-            "/api/v1/knowledge/mound/global/workspace-id", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/global/workspace-id", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1432,45 +1389,35 @@ class TestDedupRoutes:
     def test_get_duplicate_clusters(self, handler, mock_mound):
         """GET /dedup/clusters returns duplicate clusters."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/dedup/clusters", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/dedup/clusters", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_dedup_report(self, handler, mock_mound):
         """GET /dedup/report returns dedup report."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/dedup/report", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/dedup/report", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_merge_duplicate_cluster(self, handler, mock_mound):
         """POST /dedup/merge merges a duplicate cluster."""
         http = MockHTTPHandler.post({"cluster_id": "cluster-001"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/dedup/merge", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/dedup/merge", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_merge_duplicate_cluster_missing_cluster_id(self, handler):
         """POST /dedup/merge without cluster_id returns 400."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/dedup/merge", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/dedup/merge", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_auto_merge(self, handler, mock_mound):
         """POST /dedup/auto-merge auto-merges duplicates."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/dedup/auto-merge", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/dedup/auto-merge", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1486,72 +1433,56 @@ class TestPruningRoutes:
     def test_get_prunable_items(self, handler, mock_mound):
         """GET /pruning/items returns prunable items."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/pruning/items", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/items", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_execute_prune(self, handler, mock_mound):
         """POST /pruning/execute prunes items."""
         http = MockHTTPHandler.post({"item_ids": ["node-001", "node-002"]})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/pruning/execute", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/execute", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_execute_prune_missing_item_ids(self, handler):
         """POST /pruning/execute without item_ids returns 400."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/pruning/execute", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/execute", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_auto_prune(self, handler, mock_mound):
         """POST /pruning/auto runs auto-prune."""
         http = MockHTTPHandler.post({"dry_run": True})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/pruning/auto", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/auto", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_prune_history(self, handler, mock_mound):
         """GET /pruning/history returns prune history."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/pruning/history", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/history", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_restore_pruned_item(self, handler, mock_mound):
         """POST /pruning/restore restores a pruned item."""
         http = MockHTTPHandler.post({"node_id": "node-001"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/pruning/restore", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/restore", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_restore_pruned_item_missing_node_id(self, handler):
         """POST /pruning/restore without node_id returns 400."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/pruning/restore", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/restore", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_apply_confidence_decay(self, handler, mock_mound):
         """POST /pruning/decay applies confidence decay."""
         http = MockHTTPHandler.post({"decay_rate": "0.05"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/pruning/decay", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/pruning/decay", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1567,48 +1498,40 @@ class TestContradictionRoutes:
     def test_detect_contradictions(self, handler, mock_mound):
         """POST /contradictions/detect triggers scan."""
         http = MockHTTPHandler.post({"workspace_id": "default"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/contradictions/detect", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/contradictions/detect", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_list_contradictions(self, handler, mock_mound):
         """GET /contradictions lists unresolved contradictions."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/contradictions", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/contradictions", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_resolve_contradiction(self, handler, mock_mound):
         """POST /contradictions/:id/resolve resolves a contradiction."""
-        http = MockHTTPHandler.post({
-            "strategy": "prefer_newer",
-            "resolved_by": "admin",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/contradictions/c-001/resolve", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "strategy": "prefer_newer",
+                "resolved_by": "admin",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/contradictions/c-001/resolve", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_resolve_contradiction_missing_strategy(self, handler):
         """POST /contradictions/:id/resolve without strategy returns 400."""
         http = MockHTTPHandler.post({"resolved_by": "admin"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/contradictions/c-001/resolve", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/contradictions/c-001/resolve", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_contradiction_stats(self, handler, mock_mound):
         """GET /contradictions/stats returns statistics."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/contradictions/stats", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/contradictions/stats", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1624,108 +1547,92 @@ class TestGovernanceRoutes:
     def test_create_role(self, handler, mock_mound):
         """POST /governance/roles creates a role."""
         http = MockHTTPHandler.post({"name": "editor", "permissions": ["read", "update"]})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/roles", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/governance/roles", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_create_role_missing_name(self, handler):
         """POST /governance/roles without name returns 400."""
         http = MockHTTPHandler.post({"permissions": ["read"]})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/governance/roles", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/governance/roles", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_assign_role(self, handler, mock_mound):
         """POST /governance/roles/assign assigns role."""
-        http = MockHTTPHandler.post({
-            "user_id": "user-001",
-            "role_id": "role-001",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/roles/assign", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "user_id": "user-001",
+                "role_id": "role-001",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/governance/roles/assign", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_assign_role_missing_fields(self, handler):
         """POST /governance/roles/assign without user_id returns 400."""
         http = MockHTTPHandler.post({"role_id": "role-001"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/governance/roles/assign", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/governance/roles/assign", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_revoke_role(self, handler, mock_mound):
         """POST /governance/roles/revoke revokes role."""
-        http = MockHTTPHandler.post({
-            "user_id": "user-001",
-            "role_id": "role-001",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/roles/revoke", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "user_id": "user-001",
+                "role_id": "role-001",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/governance/roles/revoke", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_check_permission(self, handler, mock_mound):
         """POST /governance/permissions/check checks permission."""
-        http = MockHTTPHandler.post({
-            "user_id": "user-001",
-            "permission": "read",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/permissions/check", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "user_id": "user-001",
+                "permission": "read",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/governance/permissions/check", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_check_permission_missing_fields(self, handler):
         """POST /governance/permissions/check without user_id returns 400."""
         http = MockHTTPHandler.post({"permission": "read"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/governance/permissions/check", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/governance/permissions/check", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_query_audit(self, handler, mock_mound):
         """GET /governance/audit queries audit trail."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/audit", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/governance/audit", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_user_permissions(self, handler, mock_mound):
         """GET /governance/permissions/:user_id returns permissions."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/permissions/user-001", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/governance/permissions/user-001", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_user_activity(self, handler, mock_mound):
         """GET /governance/audit/user/:user_id returns user activity."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/audit/user/user-001", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/governance/audit/user/user-001", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_governance_stats(self, handler, mock_mound):
         """GET /governance/stats returns governance stats."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/governance/stats", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/governance/stats", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1741,63 +1648,49 @@ class TestAnalyticsRoutes:
     def test_analyze_coverage(self, handler, mock_mound):
         """GET /analytics/coverage returns coverage analysis."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/analytics/coverage", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/coverage", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_analyze_usage(self, handler, mock_mound):
         """GET /analytics/usage returns usage patterns."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/analytics/usage", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/usage", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_record_usage_event(self, handler, mock_mound):
         """POST /analytics/usage/record records event."""
         http = MockHTTPHandler.post({"event_type": "query"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/analytics/usage/record", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/usage/record", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_record_usage_event_missing_type(self, handler):
         """POST /analytics/usage/record without event_type returns 400."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/analytics/usage/record", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/usage/record", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_capture_quality_snapshot(self, handler, mock_mound):
         """POST /analytics/quality/snapshot captures snapshot."""
         http = MockHTTPHandler.post({"workspace_id": "default"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/analytics/quality/snapshot", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/quality/snapshot", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_quality_trend(self, handler, mock_mound):
         """GET /analytics/quality/trend returns trend data."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/analytics/quality/trend", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/quality/trend", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_analytics_stats(self, handler, mock_mound):
         """GET /analytics/stats returns analytics stats."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/analytics/stats", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/analytics/stats", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1812,49 +1705,41 @@ class TestExtractionRoutes:
 
     def test_extract_from_debate(self, handler, mock_mound):
         """POST /extraction/debate extracts from debate."""
-        http = MockHTTPHandler.post({
-            "debate_id": "debate-001",
-            "messages": [{"role": "agent", "content": "I think..."}],
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/extraction/debate", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "debate_id": "debate-001",
+                "messages": [{"role": "agent", "content": "I think..."}],
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/extraction/debate", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_extract_from_debate_missing_debate_id(self, handler):
         """POST /extraction/debate without debate_id returns 400."""
         http = MockHTTPHandler.post({"messages": [{"content": "test"}]})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/extraction/debate", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/extraction/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_extract_from_debate_missing_messages(self, handler):
         """POST /extraction/debate without messages returns 400."""
         http = MockHTTPHandler.post({"debate_id": "debate-001"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/extraction/debate", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/extraction/debate", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_promote_extracted(self, handler, mock_mound):
         """POST /extraction/promote promotes extracted claims."""
         http = MockHTTPHandler.post({"min_confidence": "0.7"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/extraction/promote", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/extraction/promote", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_extraction_stats(self, handler, mock_mound):
         """GET /extraction/stats returns extraction stats."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/extraction/stats", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/extraction/stats", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1870,57 +1755,47 @@ class TestConfidenceDecayRoutes:
     def test_apply_confidence_decay_new(self, handler, mock_mound):
         """POST /confidence/decay applies decay."""
         http = MockHTTPHandler.post({"workspace_id": "default"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/confidence/decay", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/confidence/decay", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_record_confidence_event(self, handler, mock_mound):
         """POST /confidence/event records event."""
-        http = MockHTTPHandler.post({
-            "item_id": "node-001",
-            "event": "validated",
-        })
-        result = handler.handle(
-                "/api/v1/knowledge/mound/confidence/event", {}, http
-            )
+        http = MockHTTPHandler.post(
+            {
+                "item_id": "node-001",
+                "event": "validated",
+            }
+        )
+        result = handler.handle("/api/v1/knowledge/mound/confidence/event", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_record_confidence_event_missing_item_id(self, handler):
         """POST /confidence/event without item_id returns 400."""
         http = MockHTTPHandler.post({"event": "accessed"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/confidence/event", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/confidence/event", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_record_confidence_event_missing_event(self, handler):
         """POST /confidence/event without event returns 400."""
         http = MockHTTPHandler.post({"item_id": "node-001"})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/confidence/event", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/confidence/event", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_get_confidence_history(self, handler, mock_mound):
         """GET /confidence/history returns history."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/confidence/history", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/confidence/history", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_decay_stats(self, handler, mock_mound):
         """GET /confidence/stats returns decay stats."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/confidence/stats", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/confidence/stats", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1935,58 +1810,42 @@ class TestMoundUnavailable:
 
     def test_query_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.post({"query": "test"})
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/query", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/query", {}, http)
         assert _status(result) == 503
 
     def test_list_nodes_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/nodes", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/nodes", {}, http)
         assert _status(result) == 503
 
     def test_get_node_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/nodes/node-001", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/nodes/node-001", {}, http)
         assert _status(result) == 503
 
     def test_stats_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/stats", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/stats", {}, http)
         assert _status(result) == 503
 
     def test_culture_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/culture", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/culture", {}, http)
         assert _status(result) == 503
 
     def test_stale_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/stale", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/stale", {}, http)
         assert _status(result) == 503
 
     def test_export_d3_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/export/d3", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/export/d3", {}, http)
         assert _status(result) == 503
 
     def test_graph_no_mound(self, handler_no_mound):
         http = MockHTTPHandler.get()
-        result = handler_no_mound.handle(
-            "/api/v1/knowledge/mound/graph/node-001", {}, http
-        )
+        result = handler_no_mound.handle("/api/v1/knowledge/mound/graph/node-001", {}, http)
         # Graph mixin validates entity_id path parsing before checking mound,
         # so returns 400 ("Node ID required") rather than 503.
         assert _status(result) == 400
@@ -2015,9 +1874,7 @@ class TestMethodNotAllowed:
     def test_relationships_get_returns_none(self, handler):
         """GET on POST-only /relationships returns None."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-            "/api/v1/knowledge/mound/relationships", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/relationships", {}, http)
         assert result is None
 
 
@@ -2032,17 +1889,13 @@ class TestUnknownPaths:
     def test_completely_unknown_path(self, handler):
         """Unknown path returns None."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-            "/api/v1/knowledge/mound/nonexistent", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/nonexistent", {}, http)
         assert result is None
 
     def test_partially_matching_path(self, handler):
         """Partially matching but not exact path returns None."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-            "/api/v1/knowledge/mound/stats/extra", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/stats/extra", {}, http)
         assert result is None
 
 
@@ -2067,7 +1920,9 @@ class TestGetMound:
         # so the initialize() call inside the try block fails.
         import aragora.server.handlers.knowledge_base.mound.handler as handler_mod
 
-        monkeypatch.setattr(handler_mod, "_run_async", MagicMock(side_effect=RuntimeError("init fail")))
+        monkeypatch.setattr(
+            handler_mod, "_run_async", MagicMock(side_effect=RuntimeError("init fail"))
+        )
 
         # Patch KnowledgeMound at its source so the local import in _get_mound
         # returns a mock (constructor succeeds), but _run_async will raise
@@ -2091,62 +1946,48 @@ class TestFederationRoutes:
     def test_list_regions(self, handler, mock_mound):
         """GET /federation/regions lists regions."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/federation/regions", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/federation/regions", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_get_federation_status(self, handler, mock_mound):
         """GET /federation/status returns status."""
         http = MockHTTPHandler.get()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/federation/status", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/federation/status", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_sync_push(self, handler, mock_mound):
         """POST /federation/sync/push pushes to region."""
         http = MockHTTPHandler.post({"region_id": "us-east-1"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/federation/sync/push", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/federation/sync/push", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_sync_push_missing_region_id(self, handler):
         """POST /federation/sync/push without region_id returns 400."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-            "/api/v1/knowledge/mound/federation/sync/push", {}, http
-        )
+        result = handler.handle("/api/v1/knowledge/mound/federation/sync/push", {}, http)
         assert result is not None
         assert _status(result) == 400
 
     def test_sync_pull(self, handler, mock_mound):
         """POST /federation/sync/pull pulls from region."""
         http = MockHTTPHandler.post({"region_id": "us-east-1"})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/federation/sync/pull", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/federation/sync/pull", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_sync_all(self, handler, mock_mound):
         """POST /federation/sync/all syncs all regions."""
         http = MockHTTPHandler.post({})
-        result = handler.handle(
-                "/api/v1/knowledge/mound/federation/sync/all", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/federation/sync/all", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     def test_unregister_region(self, handler, mock_mound):
         """DELETE /federation/regions/:id unregisters region."""
         http = MockHTTPHandler.delete()
-        result = handler.handle(
-                "/api/v1/knowledge/mound/federation/regions/us-east-1", {}, http
-            )
+        result = handler.handle("/api/v1/knowledge/mound/federation/regions/us-east-1", {}, http)
         assert result is not None
         assert _status(result) == 200

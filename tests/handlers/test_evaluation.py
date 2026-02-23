@@ -568,10 +568,12 @@ class TestEvaluateResponse:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "Python is a programming language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "Python is a programming language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -596,11 +598,13 @@ class TestEvaluateResponse:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-            "context": "Programming languages discussion",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+                "context": "Programming languages discussion",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -625,11 +629,13 @@ class TestEvaluateResponse:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is 2+2?",
-            "response": "4",
-            "reference": "The answer is 4.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is 2+2?",
+                "response": "4",
+                "reference": "The answer is 4.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -657,11 +663,13 @@ class TestEvaluateResponse:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-            "use_case": "factual_qa",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+                "use_case": "factual_qa",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -690,11 +698,13 @@ class TestEvaluateResponse:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-            "threshold": 4.0,
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+                "threshold": 4.0,
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -722,11 +732,13 @@ class TestEvaluateResponse:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-            "dimensions": ["accuracy", "relevance"],
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+                "dimensions": ["accuracy", "relevance"],
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -744,11 +756,13 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_invalid_dimension(self, handler):
         """Returns 400 for invalid dimension value."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-            "dimensions": ["nonexistent_dimension"],
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+                "dimensions": ["nonexistent_dimension"],
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -765,9 +779,11 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_missing_query(self, handler):
         """Returns 400 when query is missing."""
-        http_handler = _make_http_handler({
-            "response": "A language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "response": "A language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -783,9 +799,11 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_missing_response(self, handler):
         """Returns 400 when response is missing."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -801,10 +819,12 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_empty_query(self, handler):
         """Returns 400 when query is empty string."""
-        http_handler = _make_http_handler({
-            "query": "",
-            "response": "A language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "",
+                "response": "A language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -819,10 +839,12 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_empty_response(self, handler):
         """Returns 400 when response is empty string."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -871,10 +893,12 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_judge_not_available(self, handler):
         """Returns 503 when judge is not available."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -887,10 +911,12 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_llm_judge_none(self, handler):
         """Returns 503 when LLMJudge is None."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -904,10 +930,12 @@ class TestEvaluateResponse:
     @pytest.mark.asyncio
     async def test_evaluate_judge_config_none(self, handler):
         """Returns 503 when JudgeConfig is None."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response": "A language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response": "A language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -932,10 +960,12 @@ class TestEvaluateResponse:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -962,10 +992,12 @@ class TestEvaluateResponse:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1001,11 +1033,13 @@ class TestCompareResponses:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_a": "Python is a programming language.",
-            "response_b": "Python is a snake.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_a": "Python is a programming language.",
+                "response_b": "Python is a snake.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1028,12 +1062,14 @@ class TestCompareResponses:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_a": "A language.",
-            "response_b": "A great language.",
-            "context": "Programming discussion",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_a": "A language.",
+                "response_b": "A great language.",
+                "context": "Programming discussion",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1056,13 +1092,15 @@ class TestCompareResponses:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_a": "A language.",
-            "response_b": "A great language.",
-            "response_a_id": "model_x",
-            "response_b_id": "model_y",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_a": "A language.",
+                "response_b": "A great language.",
+                "response_a_id": "model_x",
+                "response_b_id": "model_y",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1086,11 +1124,13 @@ class TestCompareResponses:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_a": "A language.",
-            "response_b": "A great language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_a": "A language.",
+                "response_b": "A great language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1118,12 +1158,14 @@ class TestCompareResponses:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_a": "A language.",
-            "response_b": "A great language.",
-            "use_case": "code_generation",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_a": "A language.",
+                "response_b": "A great language.",
+                "use_case": "code_generation",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1140,10 +1182,12 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_missing_query(self, handler):
         """Returns 400 when query is missing."""
-        http_handler = _make_http_handler({
-            "response_a": "A language.",
-            "response_b": "A great language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "response_a": "A language.",
+                "response_b": "A great language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1159,10 +1203,12 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_missing_response_a(self, handler):
         """Returns 400 when response_a is missing."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_b": "A great language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_b": "A great language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1178,10 +1224,12 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_missing_response_b(self, handler):
         """Returns 400 when response_b is missing."""
-        http_handler = _make_http_handler({
-            "query": "What is Python?",
-            "response_a": "A language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What is Python?",
+                "response_a": "A language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1197,11 +1245,13 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_empty_query(self, handler):
         """Returns 400 when query is empty."""
-        http_handler = _make_http_handler({
-            "query": "",
-            "response_a": "A language.",
-            "response_b": "A great language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "",
+                "response_a": "A language.",
+                "response_b": "A great language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1216,11 +1266,13 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_empty_response_a(self, handler):
         """Returns 400 when response_a is empty."""
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "",
-            "response_b": "A great language.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "",
+                "response_b": "A great language.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1235,11 +1287,13 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_empty_response_b(self, handler):
         """Returns 400 when response_b is empty."""
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "A language.",
-            "response_b": "",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "A language.",
+                "response_b": "",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1273,11 +1327,13 @@ class TestCompareResponses:
     @pytest.mark.asyncio
     async def test_compare_judge_not_available(self, handler):
         """Returns 503 when judge is not available."""
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "A.",
-            "response_b": "B.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "A.",
+                "response_b": "B.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1305,10 +1361,12 @@ class TestHandlePostRouting:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1330,11 +1388,13 @@ class TestHandlePostRouting:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "A.",
-            "response_b": "B.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "A.",
+                "response_b": "B.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1456,10 +1516,12 @@ class TestErrorHandling:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(side_effect=RuntimeError("LLM API error"))
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1478,11 +1540,13 @@ class TestErrorHandling:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(side_effect=RuntimeError("LLM API error"))
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "A.",
-            "response_b": "B.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "A.",
+                "response_b": "B.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1520,10 +1584,12 @@ class TestSecurity:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "<script>alert('xss')</script>",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "<script>alert('xss')</script>",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1546,10 +1612,12 @@ class TestSecurity:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "'; DROP TABLE evaluations; --",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "'; DROP TABLE evaluations; --",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1613,10 +1681,12 @@ class TestEdgeCases:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1643,11 +1713,13 @@ class TestEdgeCases:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-            "dimensions": [],
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+                "dimensions": [],
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1675,11 +1747,13 @@ class TestEdgeCases:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-            "threshold": "4.5",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+                "threshold": "4.5",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1720,11 +1794,13 @@ class TestEdgeCases:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "A.",
-            "response_b": "B.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "A.",
+                "response_b": "B.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1750,11 +1826,13 @@ class TestEdgeCases:
 
         mock_config_cls = MagicMock()
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-            "dimensions": ["accuracy"],
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+                "dimensions": ["accuracy"],
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1778,10 +1856,12 @@ class TestEdgeCases:
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response": "Answer.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response": "Answer.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",
@@ -1805,11 +1885,13 @@ class TestEdgeCases:
         mock_judge = MagicMock()
         mock_judge.compare = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_http_handler({
-            "query": "What?",
-            "response_a": "A.",
-            "response_b": "B.",
-        })
+        http_handler = _make_http_handler(
+            {
+                "query": "What?",
+                "response_a": "A.",
+                "response_b": "B.",
+            }
+        )
 
         with patch.multiple(
             "aragora.server.handlers.evaluation",

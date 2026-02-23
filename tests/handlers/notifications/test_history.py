@@ -189,16 +189,12 @@ class TestRateLimiting:
         # Exhaust the 30 rpm limit
         for _ in range(30):
             _notification_history_limiter.is_allowed("10.0.0.99")
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http)
         assert _status(result) == 429
         assert "Rate limit" in _body(result).get("error", "")
 
     def test_rate_limit_allows_normal_traffic(self, handler_with_service, http_handler):
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 200
 
 
@@ -212,9 +208,7 @@ class TestGetHistory:
 
     def test_empty_history(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = []
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["notifications"] == []
@@ -224,52 +218,34 @@ class TestGetHistory:
     def test_history_returns_items(self, handler_with_service, http_handler, mock_service):
         items = [{"id": "n1", "msg": "hello"}, {"id": "n2", "msg": "world"}]
         mock_service.get_history.return_value = items
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         body = _body(result)
         assert body["count"] == 2
         assert body["notifications"] == items
 
     def test_default_limit_is_50(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = []
-        handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
-        mock_service.get_history.assert_called_once_with(
-            limit=50, channel=None
-        )
+        handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
+        mock_service.get_history.assert_called_once_with(limit=50, channel=None)
 
     def test_custom_limit(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = []
-        handler_with_service.handle(
-            "/api/v1/notifications/history", {"limit": "25"}, http_handler
-        )
+        handler_with_service.handle("/api/v1/notifications/history", {"limit": "25"}, http_handler)
         body_limit = 25  # limit param
         # get_history called with limit + offset (0) = 25
-        mock_service.get_history.assert_called_once_with(
-            limit=25, channel=None
-        )
+        mock_service.get_history.assert_called_once_with(limit=25, channel=None)
 
     def test_limit_clamped_to_max_200(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = []
-        handler_with_service.handle(
-            "/api/v1/notifications/history", {"limit": "500"}, http_handler
-        )
+        handler_with_service.handle("/api/v1/notifications/history", {"limit": "500"}, http_handler)
         # limit is clamped to 200, offset=0, so limit+offset=200
-        mock_service.get_history.assert_called_once_with(
-            limit=200, channel=None
-        )
+        mock_service.get_history.assert_called_once_with(limit=200, channel=None)
 
     def test_limit_clamped_to_min_1(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = []
-        handler_with_service.handle(
-            "/api/v1/notifications/history", {"limit": "-10"}, http_handler
-        )
+        handler_with_service.handle("/api/v1/notifications/history", {"limit": "-10"}, http_handler)
         # limit clamped to 1, offset=0, so limit+offset=1
-        mock_service.get_history.assert_called_once_with(
-            limit=1, channel=None
-        )
+        mock_service.get_history.assert_called_once_with(limit=1, channel=None)
 
     def test_offset_applied(self, handler_with_service, http_handler, mock_service):
         items = [{"id": f"n{i}"} for i in range(10)]
@@ -284,7 +260,9 @@ class TestGetHistory:
         assert body["limit"] == 5
         assert body["notifications"] == items[3:8]
 
-    def test_negative_offset_clamped_to_zero(self, handler_with_service, http_handler, mock_service):
+    def test_negative_offset_clamped_to_zero(
+        self, handler_with_service, http_handler, mock_service
+    ):
         items = [{"id": "n1"}, {"id": "n2"}]
         mock_service.get_history.return_value = items
         result = handler_with_service.handle(
@@ -304,7 +282,9 @@ class TestGetHistory:
         assert body["count"] == 0
         assert body["notifications"] == []
 
-    def test_channel_filter_included_in_response(self, handler_with_service, http_handler, mock_service):
+    def test_channel_filter_included_in_response(
+        self, handler_with_service, http_handler, mock_service
+    ):
         mock_service.get_history.return_value = []
         result = handler_with_service.handle(
             "/api/v1/notifications/history",
@@ -350,7 +330,9 @@ class TestGetHistory:
             assert _status(result) == 400
             assert "Invalid channel" in _body(result).get("error", "")
 
-    def test_channel_import_error_returns_400(self, handler_with_service, http_handler, mock_service):
+    def test_channel_import_error_returns_400(
+        self, handler_with_service, http_handler, mock_service
+    ):
         """When aragora.notifications.models cannot be imported, treat as invalid channel."""
         mock_service.get_history.return_value = []
         with patch.dict("sys.modules", {"aragora.notifications.models": None}):
@@ -363,47 +345,37 @@ class TestGetHistory:
 
     def test_no_channel_filter(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = []
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         body = _body(result)
         assert body["channel"] is None
 
     def test_service_not_available_returns_503(self, handler, http_handler):
         with patch.object(handler, "_get_notification_service", return_value=None):
-            result = handler.handle(
-                "/api/v1/notifications/history", {}, http_handler
-            )
+            result = handler.handle("/api/v1/notifications/history", {}, http_handler)
             assert _status(result) == 503
             assert "not available" in _body(result).get("error", "")
 
     def test_service_exception_returns_500(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.side_effect = RuntimeError("DB down")
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 500
         assert "Failed to get notification history" in _body(result).get("error", "")
 
-    def test_service_value_error_returns_500(self, handler_with_service, http_handler, mock_service):
+    def test_service_value_error_returns_500(
+        self, handler_with_service, http_handler, mock_service
+    ):
         mock_service.get_history.side_effect = ValueError("bad value")
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 500
 
     def test_service_type_error_returns_500(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.side_effect = TypeError("bad type")
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 500
 
     def test_service_os_error_returns_500(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.side_effect = OSError("disk error")
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 500
 
     def test_total_reflects_full_history(self, handler_with_service, http_handler, mock_service):
@@ -427,7 +399,9 @@ class TestGetHistory:
 class TestGetDeliveryStats:
     """Tests for the delivery stats endpoint."""
 
-    def test_empty_history_returns_zero_stats(self, handler_with_service, http_handler, mock_service):
+    def test_empty_history_returns_zero_stats(
+        self, handler_with_service, http_handler, mock_service
+    ):
         mock_service.get_history.return_value = []
         result = handler_with_service.handle(
             "/api/v1/notifications/delivery-stats", {}, http_handler
@@ -601,9 +575,7 @@ class TestGetDeliveryStats:
 
     def test_service_not_available_returns_503(self, handler, http_handler):
         with patch.object(handler, "_get_notification_service", return_value=None):
-            result = handler.handle(
-                "/api/v1/notifications/delivery-stats", {}, http_handler
-            )
+            result = handler.handle("/api/v1/notifications/delivery-stats", {}, http_handler)
             assert _status(result) == 503
 
     def test_service_exception_returns_500(self, handler_with_service, http_handler, mock_service):
@@ -618,9 +590,7 @@ class TestGetDeliveryStats:
         self, handler_with_service, http_handler, mock_service
     ):
         mock_service.get_history.return_value = []
-        handler_with_service.handle(
-            "/api/v1/notifications/delivery-stats", {}, http_handler
-        )
+        handler_with_service.handle("/api/v1/notifications/delivery-stats", {}, http_handler)
         mock_service.get_history.assert_called_once_with(limit=1000)
 
     def test_all_failed(self, handler_with_service, http_handler, mock_service):
@@ -700,20 +670,18 @@ class TestHandleRouting:
     def test_unknown_path_returns_none(self, handler_with_service, http_handler):
         # A path that can_handle returns False for; but if we force call handle
         # with a path that strip_version_prefix resolves to something unknown
-        result = handler_with_service.handle(
-            "/api/v1/notifications/unknown", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/unknown", {}, http_handler)
         assert result is None
 
     def test_history_route_dispatches(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.return_value = [{"id": "n1"}]
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 200
         assert _body(result)["count"] == 1
 
-    def test_delivery_stats_route_dispatches(self, handler_with_service, http_handler, mock_service):
+    def test_delivery_stats_route_dispatches(
+        self, handler_with_service, http_handler, mock_service
+    ):
         mock_service.get_history.return_value = []
         result = handler_with_service.handle(
             "/api/v1/notifications/delivery-stats", {}, http_handler
@@ -721,12 +689,12 @@ class TestHandleRouting:
         assert _status(result) == 200
         assert "total_notifications" in _body(result)
 
-    def test_handle_with_different_version_prefix(self, handler_with_service, http_handler, mock_service):
+    def test_handle_with_different_version_prefix(
+        self, handler_with_service, http_handler, mock_service
+    ):
         """strip_version_prefix should handle v2 or other versions gracefully."""
         mock_service.get_history.return_value = []
-        result = handler_with_service.handle(
-            "/api/v2/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v2/notifications/history", {}, http_handler)
         # strip_version_prefix removes /v<N>/ so this should still match
         if result is not None:
             assert _status(result) == 200
@@ -776,7 +744,9 @@ class TestEdgeCases:
         assert body["count"] == 0
         assert body["notifications"] == []
 
-    def test_delivery_stats_empty_results_array(self, handler_with_service, http_handler, mock_service):
+    def test_delivery_stats_empty_results_array(
+        self, handler_with_service, http_handler, mock_service
+    ):
         mock_service.get_history.return_value = [{"results": []}]
         result = handler_with_service.handle(
             "/api/v1/notifications/delivery-stats", {}, http_handler
@@ -785,7 +755,9 @@ class TestEdgeCases:
         assert body["total_notifications"] == 0
         assert body["by_channel"] == {}
 
-    def test_delivery_stats_key_error_returns_500(self, handler_with_service, http_handler, mock_service):
+    def test_delivery_stats_key_error_returns_500(
+        self, handler_with_service, http_handler, mock_service
+    ):
         mock_service.get_history.side_effect = KeyError("missing key")
         result = handler_with_service.handle(
             "/api/v1/notifications/delivery-stats", {}, http_handler
@@ -794,9 +766,7 @@ class TestEdgeCases:
 
     def test_history_key_error_returns_500(self, handler_with_service, http_handler, mock_service):
         mock_service.get_history.side_effect = KeyError("missing key")
-        result = handler_with_service.handle(
-            "/api/v1/notifications/history", {}, http_handler
-        )
+        result = handler_with_service.handle("/api/v1/notifications/history", {}, http_handler)
         assert _status(result) == 500
 
     def test_delivery_stats_single_channel_many_entries(

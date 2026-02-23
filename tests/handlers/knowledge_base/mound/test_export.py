@@ -30,9 +30,7 @@ from aragora.server.handlers.utils.responses import HandlerResult
 
 _TEST_TOKEN = "test-token-123"
 
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.export._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.export._run_async"
 
 
 def _body(result) -> dict | str:
@@ -226,7 +224,10 @@ class TestHandleExportD3:
         # Verify export_graph_d3 was called with start_node_id
         mock_mound.export_graph_d3.assert_called_once()
         call_kwargs = mock_mound.export_graph_d3.call_args
-        assert call_kwargs[1]["start_node_id"] == "n5" or call_kwargs.kwargs.get("start_node_id") == "n5"
+        assert (
+            call_kwargs[1]["start_node_id"] == "n5"
+            or call_kwargs.kwargs.get("start_node_id") == "n5"
+        )
 
     def test_d3_export_custom_depth(self, handler, mock_mound):
         """D3 export respects custom depth parameter."""
@@ -334,7 +335,7 @@ class TestHandleExportD3:
         """D3 export correctly counts multiple nodes and links."""
         d3_result = {
             "nodes": [{"id": f"n{i}"} for i in range(5)],
-            "links": [{"source": f"n{i}", "target": f"n{i+1}"} for i in range(4)],
+            "links": [{"source": f"n{i}", "target": f"n{i + 1}"} for i in range(4)],
         }
         with patch(_RUN_ASYNC_PATCH, return_value=d3_result):
             result = handler._handle_export_d3({})
@@ -350,7 +351,10 @@ class TestHandleExportD3:
             result = handler._handle_export_d3({})
         assert _status(result) == 200
         call_kwargs = mock_mound.export_graph_d3.call_args
-        assert call_kwargs.kwargs.get("start_node_id") is None or call_kwargs[1].get("start_node_id") is None
+        assert (
+            call_kwargs.kwargs.get("start_node_id") is None
+            or call_kwargs[1].get("start_node_id") is None
+        )
 
     def test_d3_export_content_type_json(self, handler, mock_mound):
         """D3 export returns application/json content type."""
@@ -394,7 +398,10 @@ class TestHandleExportGraphML:
         assert _status(result) == 200
         mock_mound.export_graph_graphml.assert_called_once()
         call_kwargs = mock_mound.export_graph_graphml.call_args
-        assert call_kwargs.kwargs.get("start_node_id") == "node-42" or call_kwargs[1].get("start_node_id") == "node-42"
+        assert (
+            call_kwargs.kwargs.get("start_node_id") == "node-42"
+            or call_kwargs[1].get("start_node_id") == "node-42"
+        )
 
     def test_graphml_export_custom_depth(self, handler, mock_mound):
         """GraphML export respects custom depth parameter."""
@@ -542,14 +549,16 @@ class TestHandleIndexRepository:
                 return mock_crawl_result
             return 42  # nodes_created
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-                 return_value=mock_crawler_instance,
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+                return_value=mock_crawler_instance,
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
 
         assert _status(result) == 200
@@ -593,13 +602,15 @@ class TestHandleIndexRepository:
                 return mock_crawl_result
             return 1
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ) as mock_crawler_cls, \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ) as mock_crawler_cls,
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
 
         assert _status(result) == 200
@@ -678,13 +689,15 @@ class TestHandleIndexRepository:
         body = {"repo_path": "/nonexistent/path"}
         http_handler = MockHTTPHandler.post(body)
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=FileNotFoundError("no such directory")), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=FileNotFoundError("no such directory")),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
         assert _status(result) == 404
         resp = _body(result)
@@ -695,11 +708,14 @@ class TestHandleIndexRepository:
         body = {"repo_path": "/tmp/repo"}
         http_handler = MockHTTPHandler.post(body)
 
-        with patch(
-            "aragora.connectors.repository_crawler.RepositoryCrawler",
-            side_effect=ImportError("no module"),
-        ), patch(
-            "aragora.connectors.repository_crawler.CrawlConfig",
+        with (
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+                side_effect=ImportError("no module"),
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
         ):
             result = handler._handle_index_repository(http_handler)
         # ImportError is caught by the except block or the handle_errors decorator
@@ -710,13 +726,15 @@ class TestHandleIndexRepository:
         body = {"repo_path": "/tmp/repo"}
         http_handler = MockHTTPHandler.post(body)
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=RuntimeError("crawl failed")), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=RuntimeError("crawl failed")),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
         assert _status(result) == 500
 
@@ -725,13 +743,15 @@ class TestHandleIndexRepository:
         body = {"repo_path": "/tmp/repo"}
         http_handler = MockHTTPHandler.post(body)
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=OSError("permission denied")), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=OSError("permission denied")),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
         assert _status(result) == 500
 
@@ -762,13 +782,15 @@ class TestHandleIndexRepository:
                 return mock_crawl_result
             return 50
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
 
         assert _status(result) == 200
@@ -803,13 +825,15 @@ class TestHandleIndexRepository:
                 return mock_crawl_result
             return 5
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
 
         assert _status(result) == 200
@@ -854,21 +878,24 @@ class TestHandleIndexRepository:
                 return mock_crawl_result
             return 10
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ) as mock_config_cls:
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ) as mock_config_cls,
+        ):
             result = handler._handle_index_repository(http_handler)
 
         assert _status(result) == 200
         # Verify CrawlConfig was called with custom parameters
         mock_config_cls.assert_called_once()
         config_kwargs = mock_config_cls.call_args
-        assert config_kwargs.kwargs.get("include_patterns") == ["*.py"] or \
-            (config_kwargs[1] and config_kwargs[1].get("include_patterns") == ["*.py"])
+        assert config_kwargs.kwargs.get("include_patterns") == ["*.py"] or (
+            config_kwargs[1] and config_kwargs[1].get("include_patterns") == ["*.py"]
+        )
 
     def test_index_repo_default_exclude_patterns(self, handler, mock_mound):
         """Repository indexing uses default exclude patterns when not specified."""
@@ -897,18 +924,22 @@ class TestHandleIndexRepository:
                 return mock_crawl_result
             return 1
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ) as mock_config_cls:
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=run_async_dispatch),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ) as mock_config_cls,
+        ):
             result = handler._handle_index_repository(http_handler)
 
         assert _status(result) == 200
         config_call = mock_config_cls.call_args
-        exclude = config_call.kwargs.get("exclude_patterns") or config_call[1].get("exclude_patterns", [])
+        exclude = config_call.kwargs.get("exclude_patterns") or config_call[1].get(
+            "exclude_patterns", []
+        )
         # Should contain the default patterns
         assert "**/node_modules/**" in exclude
         assert "**/.git/**" in exclude
@@ -919,13 +950,15 @@ class TestHandleIndexRepository:
         body = {"repo_path": "/tmp/repo"}
         http_handler = MockHTTPHandler.post(body)
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=ValueError("bad value")), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=ValueError("bad value")),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
         assert _status(result) == 500
 
@@ -934,12 +967,14 @@ class TestHandleIndexRepository:
         body = {"repo_path": "/tmp/repo"}
         http_handler = MockHTTPHandler.post(body)
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=KeyError("missing")), \
-             patch(
-                 "aragora.connectors.repository_crawler.RepositoryCrawler",
-             ), \
-             patch(
-                 "aragora.connectors.repository_crawler.CrawlConfig",
-             ):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=KeyError("missing")),
+            patch(
+                "aragora.connectors.repository_crawler.RepositoryCrawler",
+            ),
+            patch(
+                "aragora.connectors.repository_crawler.CrawlConfig",
+            ),
+        ):
             result = handler._handle_index_repository(http_handler)
         assert _status(result) == 500

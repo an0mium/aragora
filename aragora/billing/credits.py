@@ -349,7 +349,10 @@ class CreditManager:
 
         remaining = amount_cents - amount_to_deduct
         logger.info(
-            "Deducted %s cents from org %s, remaining to bill: %s cents", amount_to_deduct, org_id, remaining
+            "Deducted %s cents from org %s, remaining to bill: %s cents",
+            amount_to_deduct,
+            org_id,
+            remaining,
         )
 
         return DeductionResult(
@@ -621,7 +624,9 @@ class CreditManager:
         )
         conn.commit()
 
-        logger.info("Adjusted balance for org %s by %s cents: %s", org_id, amount_cents, description)
+        logger.info(
+            "Adjusted balance for org %s by %s cents: %s", org_id, amount_cents, description
+        )
         return transaction
 
 

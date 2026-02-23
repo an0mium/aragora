@@ -90,7 +90,9 @@ class LazyStore(Generic[T]):
                 logger.info("[%s] Initialized %s", self.logger_context, self.store_name)
             except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as e:
                 self._init_error = f"Init failed: {e}"
-                logger.warning("[%s] Failed to init %s: %s", self.logger_context, self.store_name, e)
+                logger.warning(
+                    "[%s] Failed to init %s: %s", self.logger_context, self.store_name, e
+                )
 
             self._initialized = True
 
@@ -196,7 +198,9 @@ class LazyStoreFactory:
 
         except ImportError as e:
             self._init_error = f"Module not available: {e}"
-            logger.warning("[%s] %s module not available: %s", self.logger_context, self.store_name, e)
+            logger.warning(
+                "[%s] %s module not available: %s", self.logger_context, self.store_name, e
+            )
             return None
 
         except AttributeError as e:
@@ -207,7 +211,11 @@ class LazyStoreFactory:
         except (OSError, RuntimeError) as e:
             self._init_error = f"Init failed: {type(e).__name__}: {e}"
             logger.warning(
-                "[%s] %s init failed: %s: %s", self.logger_context, self.store_name, type(e).__name__, e
+                "[%s] %s init failed: %s: %s",
+                self.logger_context,
+                self.store_name,
+                type(e).__name__,
+                e,
             )
             return None
 

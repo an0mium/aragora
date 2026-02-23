@@ -460,7 +460,8 @@ class ExternalAgentGateway:
 
         # Fallback: no credentials available without vault
         logger.warning(
-            "No credential vault configured - agent %s will execute without injected credentials", adapter.agent_name
+            "No credential vault configured - agent %s will execute without injected credentials",
+            adapter.agent_name,
         )
         return {}
 

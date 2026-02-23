@@ -172,9 +172,7 @@ def bypass_require_auth(monkeypatch):
     from aragora.server import auth as _auth_mod
 
     monkeypatch.setattr(_auth_mod.auth_config, "api_token", "test-token")
-    monkeypatch.setattr(
-        _auth_mod.auth_config, "validate_token", lambda token, loop_id="": True
-    )
+    monkeypatch.setattr(_auth_mod.auth_config, "validate_token", lambda token, loop_id="": True)
 
 
 @pytest.fixture
@@ -222,18 +220,14 @@ class TestHandlerInit:
     """Test handler initialization."""
 
     def test_handler_creates_with_default_context(self):
-        with patch(
-            "aragora.server.handlers.threat_intel.get_threat_service"
-        ) as mock_get:
+        with patch("aragora.server.handlers.threat_intel.get_threat_service") as mock_get:
             mock_get.return_value = MagicMock()
             h = ThreatIntelHandler()
             assert h.service is not None
 
     def test_handler_creates_with_provided_context(self):
         ctx = {"key": "value"}
-        with patch(
-            "aragora.server.handlers.threat_intel.get_threat_service"
-        ) as mock_get:
+        with patch("aragora.server.handlers.threat_intel.get_threat_service") as mock_get:
             mock_get.return_value = MagicMock()
             h = ThreatIntelHandler(server_context=ctx)
             assert h.service is not None
@@ -483,7 +477,8 @@ class TestCheckUrlsBatch:
         mock_service.check_urls_batch.return_value = [r1, r2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com", "https://b.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -497,11 +492,14 @@ class TestCheckUrlsBatch:
     @pytest.mark.asyncio
     async def test_batch_urls_with_malicious(self, handler, mock_service):
         r1 = _make_threat_result("https://good.com", is_malicious=False)
-        r2 = _make_threat_result("https://bad.com", is_malicious=True, threat_type=ThreatType.PHISHING)
+        r2 = _make_threat_result(
+            "https://bad.com", is_malicious=True, threat_type=ThreatType.PHISHING
+        )
         mock_service.check_urls_batch.return_value = [r1, r2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://good.com", "https://bad.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -512,11 +510,14 @@ class TestCheckUrlsBatch:
 
     @pytest.mark.asyncio
     async def test_batch_urls_with_suspicious(self, handler, mock_service):
-        r1 = _make_threat_result("https://sus.com", is_malicious=False, threat_type=ThreatType.SUSPICIOUS)
+        r1 = _make_threat_result(
+            "https://sus.com", is_malicious=False, threat_type=ThreatType.SUSPICIOUS
+        )
         mock_service.check_urls_batch.return_value = [r1]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://sus.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -527,13 +528,18 @@ class TestCheckUrlsBatch:
         assert body["summary"]["malicious"] == 0
 
     @pytest.mark.asyncio
-    async def test_batch_urls_suspicious_but_malicious_not_counted_twice(self, handler, mock_service):
+    async def test_batch_urls_suspicious_but_malicious_not_counted_twice(
+        self, handler, mock_service
+    ):
         """A malicious+suspicious result should only count as malicious."""
-        r1 = _make_threat_result("https://bad.com", is_malicious=True, threat_type=ThreatType.SUSPICIOUS)
+        r1 = _make_threat_result(
+            "https://bad.com", is_malicious=True, threat_type=ThreatType.SUSPICIOUS
+        )
         mock_service.check_urls_batch.return_value = [r1]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://bad.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -583,7 +589,8 @@ class TestCheckUrlsBatch:
         mock_service.check_urls_batch.return_value = [r1]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com"], "max_concurrent": 100},
         )
         result = await handler.check_urls_batch(req)
@@ -600,7 +607,8 @@ class TestCheckUrlsBatch:
         mock_service.check_urls_batch.return_value = [r1]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -616,7 +624,8 @@ class TestCheckUrlsBatch:
         mock_service.check_urls_batch.side_effect = ConnectionError("fail")
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -630,7 +639,8 @@ class TestCheckUrlsBatch:
         mock_service.check_urls_batch.return_value = [r1, r2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com", "https://b.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -743,7 +753,8 @@ class TestCheckIpsBatch:
         mock_service.check_ip.side_effect = [ip1, ip2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/ips",
+            "POST",
+            "/api/v1/threat/ips",
             {"ips": ["1.2.3.4", "5.6.7.8"]},
         )
         result = await handler.check_ips_batch(req)
@@ -762,7 +773,8 @@ class TestCheckIpsBatch:
         mock_service.check_ip.side_effect = [ip1, ip2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/ips",
+            "POST",
+            "/api/v1/threat/ips",
             {"ips": ["1.2.3.4", "10.0.0.1"]},
         )
         result = await handler.check_ips_batch(req)
@@ -922,7 +934,8 @@ class TestCheckHashesBatch:
         mock_service.check_file_hash.side_effect = [h1, h2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/hashes",
+            "POST",
+            "/api/v1/threat/hashes",
             {"hashes": ["hash1", "hash2"]},
         )
         result = await handler.check_hashes_batch(req)
@@ -941,7 +954,8 @@ class TestCheckHashesBatch:
         mock_service.check_file_hash.side_effect = [h1, h2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/hashes",
+            "POST",
+            "/api/v1/threat/hashes",
             {"hashes": ["clean_hash", "bad_hash"]},
         )
         result = await handler.check_hashes_batch(req)
@@ -977,9 +991,7 @@ class TestCheckHashesBatch:
     @pytest.mark.asyncio
     async def test_batch_hashes_exactly_20(self, handler, mock_service):
         hashes = [f"hash_{i}" for i in range(20)]
-        mock_service.check_file_hash.side_effect = [
-            _make_hash_result(h) for h in hashes
-        ]
+        mock_service.check_file_hash.side_effect = [_make_hash_result(h) for h in hashes]
 
         req = _make_request("POST", "/api/v1/threat/hashes", {"hashes": hashes})
         result = await handler.check_hashes_batch(req)
@@ -1004,7 +1016,8 @@ class TestCheckHashesBatch:
         mock_service.check_file_hash.side_effect = [h1, h2]
 
         req = _make_request(
-            "POST", "/api/v1/threat/hashes",
+            "POST",
+            "/api/v1/threat/hashes",
             {"hashes": ["aaa", "bbb"]},
         )
         result = await handler.check_hashes_batch(req)
@@ -1033,7 +1046,8 @@ class TestScanEmailContent:
         }
 
         req = _make_request(
-            "POST", "/api/v1/threat/email",
+            "POST",
+            "/api/v1/threat/email",
             {"body": "Hello, this is a normal email."},
         )
         result = await handler.scan_email_content(req)
@@ -1054,7 +1068,8 @@ class TestScanEmailContent:
         }
 
         req = _make_request(
-            "POST", "/api/v1/threat/email",
+            "POST",
+            "/api/v1/threat/email",
             {"body": "Check out https://evil.com"},
         )
         result = await handler.scan_email_content(req)
@@ -1075,7 +1090,8 @@ class TestScanEmailContent:
         }
 
         req = _make_request(
-            "POST", "/api/v1/threat/email",
+            "POST",
+            "/api/v1/threat/email",
             {"body": "Email body text", "headers": {"Received": "from [10.0.0.1]"}},
         )
         result = await handler.scan_email_content(req)
@@ -1265,16 +1281,12 @@ class TestRegisterRoutes:
 
     def test_register_routes_adds_all(self):
         app = web.Application()
-        with patch(
-            "aragora.server.handlers.threat_intel.get_threat_service"
-        ) as mock_get:
+        with patch("aragora.server.handlers.threat_intel.get_threat_service") as mock_get:
             mock_get.return_value = MagicMock()
             register_threat_intel_routes(app)
 
         routes = [
-            r.resource.canonical
-            for r in app.router.routes()
-            if hasattr(r.resource, "canonical")
+            r.resource.canonical for r in app.router.routes() if hasattr(r.resource, "canonical")
         ]
         assert "/api/v1/threat/url" in routes
         assert "/api/v1/threat/urls" in routes
@@ -1287,18 +1299,14 @@ class TestRegisterRoutes:
 
     def test_register_routes_count(self):
         app = web.Application()
-        with patch(
-            "aragora.server.handlers.threat_intel.get_threat_service"
-        ) as mock_get:
+        with patch("aragora.server.handlers.threat_intel.get_threat_service") as mock_get:
             mock_get.return_value = MagicMock()
             register_threat_intel_routes(app)
 
         # aiohttp adds extra routes (HEAD for GET endpoints), so count
         # the unique resource canonical paths instead
         resources = {
-            r.resource.canonical
-            for r in app.router.routes()
-            if hasattr(r.resource, "canonical")
+            r.resource.canonical for r in app.router.routes() if hasattr(r.resource, "canonical")
         }
         assert len(resources) == 8
 
@@ -1358,7 +1366,8 @@ class TestEdgeCases:
         mock_service.check_urls_batch.return_value = [r1]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://only.com"]},
         )
         result = await handler.check_urls_batch(req)
@@ -1372,7 +1381,8 @@ class TestEdgeCases:
         mock_service.check_urls_batch.return_value = [r1]
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com"], "max_concurrent": 1},
         )
         result = await handler.check_urls_batch(req)
@@ -1393,7 +1403,8 @@ class TestEdgeCases:
         }
 
         req = _make_request(
-            "POST", "/api/v1/threat/email",
+            "POST",
+            "/api/v1/threat/email",
             {"body": "Hello", "headers": {}},
         )
         result = await handler.scan_email_content(req)
@@ -1410,7 +1421,8 @@ class TestEdgeCases:
         mock_service.check_file_hash.return_value = h1
 
         req = _make_request(
-            "POST", "/api/v1/threat/hashes",
+            "POST",
+            "/api/v1/threat/hashes",
             {"hashes": ["single_hash"]},
         )
         result = await handler.check_hashes_batch(req)
@@ -1420,14 +1432,12 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_batch_urls_all_malicious(self, handler, mock_service):
-        results = [
-            _make_threat_result(f"https://bad{i}.com", is_malicious=True)
-            for i in range(3)
-        ]
+        results = [_make_threat_result(f"https://bad{i}.com", is_malicious=True) for i in range(3)]
         mock_service.check_urls_batch.return_value = results
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": [f"https://bad{i}.com" for i in range(3)]},
         )
         result = await handler.check_urls_batch(req)
@@ -1507,7 +1517,8 @@ class TestEdgeCases:
         mock_service.check_urls_batch.side_effect = OSError("network")
 
         req = _make_request(
-            "POST", "/api/v1/threat/urls",
+            "POST",
+            "/api/v1/threat/urls",
             {"urls": ["https://a.com"]},
         )
         result = await handler.check_urls_batch(req)

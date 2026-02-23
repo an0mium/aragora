@@ -19,7 +19,6 @@ from aragora.mcp.tools_module.control_plane import (
 )
 
 
-
 @pytest.fixture(autouse=True)
 def reset_coordinator():
     """Reset global coordinator between tests."""

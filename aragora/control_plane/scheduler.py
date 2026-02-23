@@ -629,7 +629,11 @@ class TaskScheduler:
 
         region_info = f", region={target_region}" if target_region else ""
         logger.info(
-            "Task submitted: %s (type=%s, priority=%s%s)", task.id, task_type, priority.name, region_info
+            "Task submitted: %s (type=%s, priority=%s%s)",
+            task.id,
+            task_type,
+            priority.name,
+            region_info,
         )
 
         return task.id
@@ -782,7 +786,11 @@ class TaskScheduler:
             record_control_plane_task_retry(task.task_type, "error")
 
             logger.warning(
-                "Task %s failed (attempt %s/%s), requeued: %s", task_id, task.retries, task.max_retries, error
+                "Task %s failed (attempt %s/%s), requeued: %s",
+                task_id,
+                task.retries,
+                task.max_retries,
+                error,
             )
         else:
             task.status = TaskStatus.FAILED
@@ -1179,7 +1187,11 @@ class TaskScheduler:
                             await self._enqueue_task(task)
 
                             logger.debug(
-                                "Task %s rejected by %s: needs %s, has %s", task_id, worker_id, task.required_capabilities, cap_set
+                                "Task %s rejected by %s: needs %s, has %s",
+                                task_id,
+                                worker_id,
+                                task.required_capabilities,
+                                cap_set,
                             )
                             continue
 
@@ -1220,7 +1232,10 @@ class TaskScheduler:
                                     )
                                 else:
                                     logger.debug(
-                                        "Task %s rejected by policy for %s: %s", task_id, worker_id, result.reason
+                                        "Task %s rejected by policy for %s: %s",
+                                        task_id,
+                                        worker_id,
+                                        result.reason,
                                     )
                                 continue
 
@@ -1294,7 +1309,10 @@ class TaskScheduler:
                         )
                     else:
                         logger.debug(
-                            "Task %s rejected by policy for %s: %s", task.id, worker_id, result.reason
+                            "Task %s rejected by policy for %s: %s",
+                            task.id,
+                            worker_id,
+                            result.reason,
                         )
                     continue
 

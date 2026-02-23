@@ -32,6 +32,7 @@ from aragora.server.handlers.features.pulse import PulseHandler
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -97,10 +98,12 @@ class FakeSchedulerState(Enum):
 # Module-level fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_pulse_singletons(monkeypatch):
     """Reset pulse module singletons between tests."""
     import aragora.server.handlers.features.pulse as pulse_mod
+
     monkeypatch.setattr(pulse_mod, "_shared_pulse_manager", None)
     monkeypatch.setattr(pulse_mod, "_shared_scheduler", None)
     monkeypatch.setattr(pulse_mod, "_shared_debate_store", None)
@@ -111,6 +114,7 @@ def _patch_require_auth(monkeypatch):
     """Bypass the @require_auth token check for tests."""
     try:
         from aragora.server import auth as server_auth
+
         mock_auth_config = MagicMock()
         mock_auth_config.api_token = "test-valid-token"
         mock_auth_config.validate_token.return_value = True
@@ -131,12 +135,14 @@ def _clear_ttl_cache():
     """Clear handler caches between tests."""
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except (ImportError, AttributeError):
         pass
     yield
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except (ImportError, AttributeError):
         pass
@@ -151,14 +157,17 @@ def handler():
 @pytest.fixture
 def mock_http():
     """Create a mock HTTP handler factory."""
+
     def _make(body=None, token="test-valid-token"):
         return MockHTTPHandler(body=body, token=token)
+
     return _make
 
 
 # ---------------------------------------------------------------------------
 # Mock factories
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_manager(topics=None, analytics=None, outcomes=None):
     """Create a mock PulseManager."""
@@ -213,6 +222,7 @@ def _mock_pulse_ingestor_module():
 # ============================================================================
 # can_handle tests
 # ============================================================================
+
 
 class TestCanHandle:
     """Tests for PulseHandler.can_handle()."""
@@ -276,6 +286,7 @@ class TestCanHandle:
 # GET /api/v1/pulse/trending
 # ============================================================================
 
+
 class TestGetTrending:
     """Tests for trending topics endpoint."""
 
@@ -307,7 +318,9 @@ class TestGetTrending:
         with patch(
             "aragora.server.handlers.features.pulse.PulseHandler._get_trending_topics"
         ) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=json.dumps({"topics": [], "count": 0}).encode())
+            mock_get.return_value = MagicMock(
+                status_code=200, body=json.dumps({"topics": [], "count": 0}).encode()
+            )
             handler.handle("/api/v1/pulse/trending", {"limit": "100"}, mock_http())
             mock_get.assert_called_once_with(50)
 
@@ -316,7 +329,7 @@ class TestGetTrending:
         with patch(
             "aragora.server.handlers.features.pulse.PulseHandler._get_trending_topics"
         ) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/trending", {}, mock_http())
             mock_get.assert_called_once_with(10)
 
@@ -325,7 +338,7 @@ class TestGetTrending:
         with patch(
             "aragora.server.handlers.features.pulse.PulseHandler._get_trending_topics"
         ) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/trending", {"limit": "5"}, mock_http())
             mock_get.assert_called_once_with(5)
 
@@ -431,6 +444,7 @@ class TestGetTrending:
 # GET /api/v1/pulse/suggest
 # ============================================================================
 
+
 class TestSuggestDebateTopic:
     """Tests for suggest debate topic endpoint."""
 
@@ -439,13 +453,18 @@ class TestSuggestDebateTopic:
         with patch(
             "aragora.server.handlers.features.pulse.PulseHandler._suggest_debate_topic"
         ) as mock_sug:
-            mock_sug.return_value = MagicMock(status_code=200, body=json.dumps({
-                "topic": "AI Ethics",
-                "debate_prompt": "Debate: AI Ethics",
-                "source": "hackernews",
-                "category": "tech",
-                "volume": 100,
-            }).encode())
+            mock_sug.return_value = MagicMock(
+                status_code=200,
+                body=json.dumps(
+                    {
+                        "topic": "AI Ethics",
+                        "debate_prompt": "Debate: AI Ethics",
+                        "source": "hackernews",
+                        "category": "tech",
+                        "volume": 100,
+                    }
+                ).encode(),
+            )
             result = handler.handle("/api/v1/pulse/suggest", {}, mock_http())
         assert _status(result) == 200
 
@@ -454,7 +473,7 @@ class TestSuggestDebateTopic:
         with patch(
             "aragora.server.handlers.features.pulse.PulseHandler._suggest_debate_topic"
         ) as mock_sug:
-            mock_sug.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_sug.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/suggest", {"category": "tech"}, mock_http())
             mock_sug.assert_called_once_with("tech")
 
@@ -526,7 +545,7 @@ class TestSuggestDebateTopic:
         with patch(
             "aragora.server.handlers.features.pulse.PulseHandler._suggest_debate_topic"
         ) as mock_sug:
-            mock_sug.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_sug.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/suggest", {}, mock_http())
             mock_sug.assert_called_once_with(None)
 
@@ -535,13 +554,16 @@ class TestSuggestDebateTopic:
 # GET /api/v1/pulse/analytics
 # ============================================================================
 
+
 class TestGetAnalytics:
     """Tests for pulse analytics endpoint."""
 
     def test_analytics_with_manager(self, handler, mock_http):
         """Returns analytics when manager is available."""
         mock_mgr = _make_mock_manager(analytics={"total_debates": 5, "consensus_rate": 0.8})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+        ):
             result = handler._get_analytics()
         body = _body(result)
         assert _status(result) == 200
@@ -557,14 +579,16 @@ class TestGetAnalytics:
     def test_analytics_route_dispatch(self, handler, mock_http):
         """Verify handle() dispatches /analytics to _get_analytics."""
         with patch.object(handler, "_get_analytics") as mock_an:
-            mock_an.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_an.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/analytics", {}, mock_http())
             mock_an.assert_called_once()
 
     def test_analytics_manager_returns_empty(self, handler, mock_http):
         """Analytics with empty data returns 200."""
         mock_mgr = _make_mock_manager(analytics={})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+        ):
             result = handler._get_analytics()
         assert _status(result) == 200
 
@@ -572,6 +596,7 @@ class TestGetAnalytics:
 # ============================================================================
 # GET /api/v1/pulse/topics/{topic_id}/outcomes
 # ============================================================================
+
 
 class TestTopicOutcomes:
     """Tests for topic outcomes endpoint."""
@@ -595,8 +620,13 @@ class TestTopicOutcomes:
         mock_store.fetch_all.return_value = rows
         mock_store._row_to_record.return_value = mock_record
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None
+            ):
                 result = handler._get_topic_outcomes("topic123")
 
         body = _body(result)
@@ -624,8 +654,13 @@ class TestTopicOutcomes:
         mock_mgr = MagicMock()
         mock_mgr._outcomes = [mock_outcome]
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+            ):
                 result = handler._get_topic_outcomes("d456")
 
         body = _body(result)
@@ -639,8 +674,13 @@ class TestTopicOutcomes:
         mock_mgr = MagicMock()
         mock_mgr._outcomes = []
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+            ):
                 result = handler._get_topic_outcomes("nonexistent")
         body = _body(result)
         assert _status(result) == 404
@@ -648,8 +688,12 @@ class TestTopicOutcomes:
 
     def test_outcomes_no_store_no_manager(self, handler, mock_http):
         """When both store and manager are unavailable, returns 404."""
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=None):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=None
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None
+            ):
                 result = handler._get_topic_outcomes("topic123")
         body = _body(result)
         assert _status(result) == 404
@@ -658,13 +702,19 @@ class TestTopicOutcomes:
     def test_outcomes_store_error_falls_through(self, handler, mock_http):
         """SQLite error in store lookup falls through to manager."""
         import sqlite3
+
         mock_store = MagicMock()
         mock_store.fetch_all.side_effect = sqlite3.Error("db locked")
         mock_mgr = MagicMock()
         mock_mgr._outcomes = []
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+            ):
                 result = handler._get_topic_outcomes("topic123")
         body = _body(result)
         assert _status(result) == 404
@@ -672,7 +722,7 @@ class TestTopicOutcomes:
     def test_outcomes_route_dispatch(self, handler, mock_http):
         """The handle() method dispatches topic outcomes paths correctly."""
         with patch.object(handler, "_get_topic_outcomes") as mock_out:
-            mock_out.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_out.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/topics/abc123/outcomes", {}, mock_http())
             mock_out.assert_called_once_with("abc123")
 
@@ -698,8 +748,13 @@ class TestTopicOutcomes:
         mock_store.fetch_all.return_value = []
         mock_mgr = MagicMock(spec=[])  # no _outcomes attribute
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+            ):
                 result = handler._get_topic_outcomes("topic123")
         assert _status(result) == 404
 
@@ -710,8 +765,13 @@ class TestTopicOutcomes:
         mock_mgr = MagicMock()
         mock_mgr._outcomes = []
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
-            with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr
+            ):
                 result = handler._get_topic_outcomes("topic123")
         assert _status(result) == 404
 
@@ -745,7 +805,10 @@ class TestTopicOutcomes:
         mock_store.fetch_all.return_value = [("row1",), ("row2",)]
         mock_store._row_to_record.side_effect = [rec1, rec2]
 
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
             result = handler._get_topic_outcomes("topicABC")
         body = _body(result)
         assert body["count"] == 2
@@ -755,13 +818,14 @@ class TestTopicOutcomes:
 # POST /api/v1/pulse/debate-topic
 # ============================================================================
 
+
 class TestStartDebateOnTopic:
     """Tests for starting a debate on a trending topic."""
 
     def test_post_routes_to_debate_topic(self, handler, mock_http):
         """POST /debate-topic dispatches to _start_debate_on_topic."""
         with patch.object(handler, "_start_debate_on_topic") as mock_start:
-            mock_start.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_start.return_value = MagicMock(status_code=200, body=b"{}")
             h = mock_http(body={"topic": "test"})
             handler.handle_post("/api/v1/pulse/debate-topic", {}, h)
             mock_start.assert_called_once_with(h)
@@ -917,7 +981,10 @@ class TestStartDebateOnTopic:
             with patch("aragora.agents.get_agents_by_names", return_value=[mock_agent]):
                 with patch("aragora.debate.orchestrator.Arena", mock_arena_cls):
                     with patch("aragora.Arena", mock_arena_cls):
-                        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None):
+                        with patch(
+                            "aragora.server.handlers.features.pulse.get_pulse_manager",
+                            return_value=None,
+                        ):
                             result = handler._start_debate_on_topic(h)
 
         body = _body(result)
@@ -958,10 +1025,12 @@ class TestStartDebateOnTopic:
 
     def test_agents_max_5(self, handler, mock_http):
         """Only the first 5 agents are used."""
-        h = mock_http(body={
-            "topic": "Test",
-            "agents": ["a1", "a2", "a3", "a4", "a5", "a6", "a7"],
-        })
+        h = mock_http(
+            body={
+                "topic": "Test",
+                "agents": ["a1", "a2", "a3", "a4", "a5", "a6", "a7"],
+            }
+        )
         mock_gan = MagicMock(return_value=[])
         with patch("aragora.agents.get_agents_by_names", mock_gan):
             handler._start_debate_on_topic(h)
@@ -992,7 +1061,10 @@ class TestStartDebateOnTopic:
             with patch("aragora.agents.get_agents_by_names", return_value=[mock_agent]):
                 with patch("aragora.debate.orchestrator.Arena", mock_arena_cls):
                     with patch("aragora.Arena", mock_arena_cls):
-                        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=mock_mgr):
+                        with patch(
+                            "aragora.server.handlers.features.pulse.get_pulse_manager",
+                            return_value=mock_mgr,
+                        ):
                             with patch("aragora.pulse.ingestor.TrendingTopic", FakeTrendingTopic):
                                 result = handler._start_debate_on_topic(h)
         assert _status(result) == 200
@@ -1004,10 +1076,15 @@ class TestStartDebateOnTopic:
         # We need the local import inside _start_debate_on_topic to fail.
         # The function does: from aragora import Arena, DebateProtocol, Environment
         # Patching at the module level to raise ImportError
-        orig_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
 
         def mock_import(name, *args, **kwargs):
-            if name == "aragora" and args and args[0] and ("Arena" in args[0] if isinstance(args[0], dict) else False):
+            if (
+                name == "aragora"
+                and args
+                and args[0]
+                and ("Arena" in args[0] if isinstance(args[0], dict) else False)
+            ):
                 raise ImportError("no aragora")
             return orig_import(name, *args, **kwargs)
 
@@ -1055,7 +1132,10 @@ class TestStartDebateOnTopic:
             with patch("aragora.agents.get_agents_by_names", return_value=[mock_agent]):
                 with patch("aragora.debate.orchestrator.Arena", mock_arena_cls):
                     with patch("aragora.Arena", mock_arena_cls):
-                        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None):
+                        with patch(
+                            "aragora.server.handlers.features.pulse.get_pulse_manager",
+                            return_value=None,
+                        ):
                             result = handler._start_debate_on_topic(h)
         body = _body(result)
         assert len(body["final_answer"]) == 500
@@ -1082,7 +1162,10 @@ class TestStartDebateOnTopic:
             with patch("aragora.agents.get_agents_by_names", return_value=[mock_agent]):
                 with patch("aragora.debate.orchestrator.Arena", mock_arena_cls):
                     with patch("aragora.Arena", mock_arena_cls):
-                        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None):
+                        with patch(
+                            "aragora.server.handlers.features.pulse.get_pulse_manager",
+                            return_value=None,
+                        ):
                             result = handler._start_debate_on_topic(h)
         body = _body(result)
         assert body["final_answer"] is None
@@ -1092,30 +1175,31 @@ class TestStartDebateOnTopic:
 # POST handler dispatch
 # ============================================================================
 
+
 class TestHandlePost:
     """Tests for handle_post routing."""
 
     def test_post_scheduler_start(self, handler, mock_http):
         with patch.object(handler, "_start_scheduler") as mock_s:
-            mock_s.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_s.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/pulse/scheduler/start", {}, mock_http())
             mock_s.assert_called_once()
 
     def test_post_scheduler_stop(self, handler, mock_http):
         with patch.object(handler, "_stop_scheduler") as mock_s:
-            mock_s.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_s.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/pulse/scheduler/stop", {}, mock_http())
             mock_s.assert_called_once()
 
     def test_post_scheduler_pause(self, handler, mock_http):
         with patch.object(handler, "_pause_scheduler") as mock_s:
-            mock_s.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_s.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/pulse/scheduler/pause", {}, mock_http())
             mock_s.assert_called_once()
 
     def test_post_scheduler_resume(self, handler, mock_http):
         with patch.object(handler, "_resume_scheduler") as mock_s:
-            mock_s.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_s.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/pulse/scheduler/resume", {}, mock_http())
             mock_s.assert_called_once()
 
@@ -1125,7 +1209,7 @@ class TestHandlePost:
 
     def test_post_debate_topic_routes(self, handler, mock_http):
         with patch.object(handler, "_start_debate_on_topic") as mock_s:
-            mock_s.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_s.return_value = MagicMock(status_code=200, body=b"{}")
             h = mock_http(body={"topic": "test"})
             handler.handle_post("/api/v1/pulse/debate-topic", {}, h)
             mock_s.assert_called_once_with(h)
@@ -1135,12 +1219,13 @@ class TestHandlePost:
 # PATCH handler dispatch
 # ============================================================================
 
+
 class TestHandlePatch:
     """Tests for handle_patch routing."""
 
     def test_patch_scheduler_config(self, handler, mock_http):
         with patch.object(handler, "_update_scheduler_config") as mock_u:
-            mock_u.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_u.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_patch("/api/v1/pulse/scheduler/config", {}, mock_http())
             mock_u.assert_called_once()
 
@@ -1157,14 +1242,20 @@ class TestHandlePatch:
 # Scheduler Status
 # ============================================================================
 
+
 class TestSchedulerStatus:
     """Tests for scheduler status endpoint."""
 
     def test_status_with_scheduler(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         mock_store = _make_mock_store(analytics={"total": 10})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=mock_store,
+            ):
                 result = handler._get_scheduler_status()
         body = _body(result)
         assert _status(result) == 200
@@ -1177,8 +1268,13 @@ class TestSchedulerStatus:
 
     def test_status_no_store(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=None):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=None,
+            ):
                 result = handler._get_scheduler_status()
         body = _body(result)
         assert _status(result) == 200
@@ -1186,15 +1282,20 @@ class TestSchedulerStatus:
 
     def test_status_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_get_scheduler_status") as mock_s:
-            mock_s.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_s.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/scheduler/status", {}, mock_http())
             mock_s.assert_called_once()
 
     def test_status_includes_store_analytics(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         mock_store = _make_mock_store(analytics={"by_platform": {"reddit": 5}})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=mock_store,
+            ):
                 result = handler._get_scheduler_status()
         body = _body(result)
         assert body["store_analytics"]["by_platform"]["reddit"] == 5
@@ -1204,14 +1305,20 @@ class TestSchedulerStatus:
 # Scheduler Analytics
 # ============================================================================
 
+
 class TestSchedulerAnalytics:
     """Tests for scheduler analytics endpoint."""
 
     def test_analytics_with_scheduler(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         mock_store = _make_mock_store(analytics={"by_platform": {}})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=mock_store,
+            ):
                 result = handler._get_scheduler_analytics()
         body = _body(result)
         assert _status(result) == 200
@@ -1226,8 +1333,13 @@ class TestSchedulerAnalytics:
     def test_analytics_scheduler_no_metrics(self, handler, mock_http):
         mock_sched = MagicMock(spec=[])  # No metrics attribute
         mock_store = _make_mock_store()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=mock_store,
+            ):
                 result = handler._get_scheduler_analytics()
         body = _body(result)
         assert _status(result) == 200
@@ -1235,14 +1347,19 @@ class TestSchedulerAnalytics:
 
     def test_analytics_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_get_scheduler_analytics") as mock_a:
-            mock_a.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_a.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/scheduler/analytics", {}, mock_http())
             mock_a.assert_called_once()
 
     def test_analytics_no_store(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=None):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
+            with patch(
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+                return_value=None,
+            ):
                 result = handler._get_scheduler_analytics()
         body = _body(result)
         assert _status(result) == 200
@@ -1253,12 +1370,15 @@ class TestSchedulerAnalytics:
 # Scheduler Start
 # ============================================================================
 
+
 class TestSchedulerStart:
     """Tests for starting the scheduler."""
 
     def test_start_scheduler(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._start_scheduler(mock_http())
         body = _body(result)
@@ -1269,7 +1389,9 @@ class TestSchedulerStart:
     def test_start_sets_debate_creator(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         mock_sched._debate_creator = None
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 handler._start_scheduler(mock_http())
         mock_sched.set_debate_creator.assert_called_once()
@@ -1282,14 +1404,18 @@ class TestSchedulerStart:
     def test_start_skips_creator_if_set(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         mock_sched._debate_creator = MagicMock()  # Already set
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 handler._start_scheduler(mock_http())
         mock_sched.set_debate_creator.assert_not_called()
 
     def test_start_returns_state(self, handler, mock_http):
         mock_sched = _make_mock_scheduler(state="running")
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._start_scheduler(mock_http())
         body = _body(result)
@@ -1300,12 +1426,15 @@ class TestSchedulerStart:
 # Scheduler Stop
 # ============================================================================
 
+
 class TestSchedulerStop:
     """Tests for stopping the scheduler."""
 
     def test_stop_scheduler_graceful(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._stop_scheduler(mock_http(body={"graceful": True}))
         body = _body(result)
@@ -1314,7 +1443,9 @@ class TestSchedulerStop:
 
     def test_stop_scheduler_force(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._stop_scheduler(mock_http(body={"graceful": False}))
         body = _body(result)
@@ -1330,7 +1461,9 @@ class TestSchedulerStop:
         """Default graceful is True when no body provided."""
         mock_sched = _make_mock_scheduler()
         h = MockHTTPHandler(body=None)
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._stop_scheduler(h)
         body = _body(result)
@@ -1342,7 +1475,9 @@ class TestSchedulerStop:
         h = MockHTTPHandler()
         h.rfile.read.return_value = b"not json"
         h.headers = {"Content-Length": "8", "Authorization": "Bearer test-valid-token"}
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._stop_scheduler(h)
         body = _body(result)
@@ -1350,7 +1485,9 @@ class TestSchedulerStop:
 
     def test_stop_returns_state(self, handler, mock_http):
         mock_sched = _make_mock_scheduler(state="stopped")
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._stop_scheduler(mock_http(body={}))
         body = _body(result)
@@ -1361,12 +1498,15 @@ class TestSchedulerStop:
 # Scheduler Pause
 # ============================================================================
 
+
 class TestSchedulerPause:
     """Tests for pausing the scheduler."""
 
     def test_pause_scheduler(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._pause_scheduler(mock_http())
         body = _body(result)
@@ -1380,7 +1520,9 @@ class TestSchedulerPause:
 
     def test_pause_returns_state(self, handler, mock_http):
         mock_sched = _make_mock_scheduler(state="paused")
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._pause_scheduler(mock_http())
         body = _body(result)
@@ -1391,12 +1533,15 @@ class TestSchedulerPause:
 # Scheduler Resume
 # ============================================================================
 
+
 class TestSchedulerResume:
     """Tests for resuming the scheduler."""
 
     def test_resume_scheduler(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._resume_scheduler(mock_http())
         body = _body(result)
@@ -1410,7 +1555,9 @@ class TestSchedulerResume:
 
     def test_resume_returns_state(self, handler, mock_http):
         mock_sched = _make_mock_scheduler(state="running")
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             with patch("aragora.server.handlers.features.pulse.PulseHandler._run_async_safely"):
                 result = handler._resume_scheduler(mock_http())
         body = _body(result)
@@ -1421,13 +1568,16 @@ class TestSchedulerResume:
 # Scheduler Config
 # ============================================================================
 
+
 class TestUpdateSchedulerConfig:
     """Tests for updating scheduler configuration."""
 
     def test_update_valid_config(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         h = mock_http(body={"poll_interval_seconds": 600})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         body = _body(result)
         assert _status(result) == 200
@@ -1442,7 +1592,9 @@ class TestUpdateSchedulerConfig:
     def test_update_empty_body(self, handler, mock_http):
         h = MockHTTPHandler(body=None)
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         assert _status(result) == 400
 
@@ -1451,7 +1603,9 @@ class TestUpdateSchedulerConfig:
         h.rfile.read.return_value = b"not json"
         h.headers = {"Content-Length": "8", "Authorization": "Bearer test-valid-token"}
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         assert _status(result) == 400
 
@@ -1459,9 +1613,14 @@ class TestUpdateSchedulerConfig:
         body_bytes = json.dumps([1, 2, 3]).encode()
         h = MockHTTPHandler()
         h.rfile.read.return_value = body_bytes
-        h.headers = {"Content-Length": str(len(body_bytes)), "Authorization": "Bearer test-valid-token"}
+        h.headers = {
+            "Content-Length": str(len(body_bytes)),
+            "Authorization": "Bearer test-valid-token",
+        }
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         body = _body(result)
         assert _status(result) == 400
@@ -1470,7 +1629,9 @@ class TestUpdateSchedulerConfig:
     def test_update_invalid_keys(self, handler, mock_http):
         h = mock_http(body={"bad_key": "value", "another_bad": 1})
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         body = _body(result)
         assert _status(result) == 400
@@ -1493,7 +1654,9 @@ class TestUpdateSchedulerConfig:
         }
         h = mock_http(body=valid_config)
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         assert _status(result) == 200
 
@@ -1501,7 +1664,9 @@ class TestUpdateSchedulerConfig:
         """Mix of valid and invalid keys returns 400."""
         h = mock_http(body={"poll_interval_seconds": 300, "bad_key": "x"})
         mock_sched = _make_mock_scheduler()
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         assert _status(result) == 400
 
@@ -1509,7 +1674,9 @@ class TestUpdateSchedulerConfig:
         """Response includes updated config."""
         mock_sched = _make_mock_scheduler()
         h = mock_http(body={"debate_rounds": 5})
-        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=mock_sched
+        ):
             result = handler._update_scheduler_config(h)
         body = _body(result)
         assert "config" in body
@@ -1519,6 +1686,7 @@ class TestUpdateSchedulerConfig:
 # ============================================================================
 # Scheduler History
 # ============================================================================
+
 
 class TestSchedulerHistory:
     """Tests for scheduler history endpoint."""
@@ -1539,7 +1707,10 @@ class TestSchedulerHistory:
         record.scheduler_run_id = "run1"
 
         mock_store = _make_mock_store(records=[record], total=1)
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
             result = handler._get_scheduler_history(50, 0, None)
         body = _body(result)
         assert _status(result) == 200
@@ -1549,39 +1720,47 @@ class TestSchedulerHistory:
         assert body["debates"][0]["scheduler_run_id"] == "run1"
 
     def test_history_no_store(self, handler, mock_http):
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=None):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=None
+        ):
             result = handler._get_scheduler_history(50, 0, None)
         assert _status(result) == 503
 
     def test_history_with_platform_filter(self, handler, mock_http):
         mock_store = _make_mock_store(records=[], total=0)
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
             handler._get_scheduler_history(50, 0, "hackernews")
         mock_store.get_history.assert_called_once_with(limit=50, offset=0, platform="hackernews")
 
     def test_history_limit_clamped(self, handler, mock_http):
         """Limit is clamped to max 100 in handle()."""
         with patch.object(handler, "_get_scheduler_history") as mock_h:
-            mock_h.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_h.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/scheduler/history", {"limit": "200"}, mock_http())
             mock_h.assert_called_once_with(100, 0, None)
 
     def test_history_default_params(self, handler, mock_http):
         """Default limit=50, offset=0, platform=None."""
         with patch.object(handler, "_get_scheduler_history") as mock_h:
-            mock_h.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_h.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/scheduler/history", {}, mock_http())
             mock_h.assert_called_once_with(50, 0, None)
 
     def test_history_with_offset(self, handler, mock_http):
         with patch.object(handler, "_get_scheduler_history") as mock_h:
-            mock_h.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_h.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/scheduler/history", {"offset": "10"}, mock_http())
             mock_h.assert_called_once_with(50, 10, None)
 
     def test_history_empty(self, handler, mock_http):
         mock_store = _make_mock_store(records=[], total=0)
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
             result = handler._get_scheduler_history(50, 0, None)
         body = _body(result)
         assert body["count"] == 0
@@ -1589,7 +1768,10 @@ class TestSchedulerHistory:
 
     def test_history_pagination_params(self, handler, mock_http):
         mock_store = _make_mock_store(records=[], total=100)
-        with patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
+            return_value=mock_store,
+        ):
             result = handler._get_scheduler_history(25, 50, None)
         body = _body(result)
         assert body["limit"] == 25
@@ -1598,7 +1780,7 @@ class TestSchedulerHistory:
 
     def test_history_with_platform_param(self, handler, mock_http):
         with patch.object(handler, "_get_scheduler_history") as mock_h:
-            mock_h.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_h.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/pulse/scheduler/history", {"platform": "reddit"}, mock_http())
             mock_h.assert_called_once_with(50, 0, "reddit")
 
@@ -1606,6 +1788,7 @@ class TestSchedulerHistory:
 # ============================================================================
 # _run_async_safely
 # ============================================================================
+
 
 class TestRunAsyncSafely:
     """Tests for the async runner helper."""
@@ -1624,21 +1807,32 @@ class TestRunAsyncSafely:
         async def coro():
             raise asyncio.TimeoutError()
 
-        with patch("aragora.server.handlers.features.pulse.run_async", side_effect=asyncio.TimeoutError()):
+        with patch(
+            "aragora.server.handlers.features.pulse.run_async", side_effect=asyncio.TimeoutError()
+        ):
             result = handler._run_async_safely(coro)
         assert result == []
 
     def test_runtime_error_returns_empty_list(self, handler):
-        with patch("aragora.server.handlers.features.pulse.run_async", side_effect=RuntimeError("loop closed")):
+        with patch(
+            "aragora.server.handlers.features.pulse.run_async",
+            side_effect=RuntimeError("loop closed"),
+        ):
+
             async def coro():
                 pass
+
             result = handler._run_async_safely(coro)
         assert result == []
 
     def test_os_error_returns_empty_list(self, handler):
-        with patch("aragora.server.handlers.features.pulse.run_async", side_effect=OSError("network")):
+        with patch(
+            "aragora.server.handlers.features.pulse.run_async", side_effect=OSError("network")
+        ):
+
             async def coro():
                 pass
+
             result = handler._run_async_safely(coro)
         assert result == []
 
@@ -1646,6 +1840,7 @@ class TestRunAsyncSafely:
 # ============================================================================
 # Handler initialization
 # ============================================================================
+
 
 class TestHandlerInit:
     """Tests for PulseHandler initialization."""
@@ -1677,6 +1872,7 @@ class TestHandlerInit:
 # Handle returns None for non-matching paths
 # ============================================================================
 
+
 class TestHandleRouteReturnsNone:
     """Tests that handle() returns None for unrecognized paths."""
 
@@ -1701,11 +1897,13 @@ class TestHandleRouteReturnsNone:
 # Module-level singleton functions
 # ============================================================================
 
+
 class TestGetPulseManager:
     """Tests for get_pulse_manager singleton."""
 
     def test_returns_none_on_import_error(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
             pulse_mod._shared_pulse_manager = None
             result = pulse_mod.get_pulse_manager()
@@ -1713,6 +1911,7 @@ class TestGetPulseManager:
 
     def test_returns_cached_instance(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         mock_mgr = MagicMock()
         pulse_mod._shared_pulse_manager = mock_mgr
         result = pulse_mod.get_pulse_manager()
@@ -1724,12 +1923,14 @@ class TestGetPulseScheduler:
 
     def test_returns_none_when_manager_unavailable(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         with patch.object(pulse_mod, "get_pulse_manager", return_value=None):
             result = pulse_mod.get_pulse_scheduler()
             assert result is None
 
     def test_returns_none_when_store_unavailable(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         with patch.object(pulse_mod, "get_pulse_manager", return_value=MagicMock()):
             with patch.object(pulse_mod, "get_scheduled_debate_store", return_value=None):
                 result = pulse_mod.get_pulse_scheduler()
@@ -1737,6 +1938,7 @@ class TestGetPulseScheduler:
 
     def test_returns_cached_scheduler(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         mock_sched = MagicMock()
         pulse_mod._shared_scheduler = mock_sched
         result = pulse_mod.get_pulse_scheduler()
@@ -1748,6 +1950,7 @@ class TestGetScheduledDebateStore:
 
     def test_creates_lazy_store(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         mock_lazy = MagicMock()
         mock_lazy.get.return_value = MagicMock()
         with patch.object(pulse_mod, "_create_lazy_debate_store", return_value=mock_lazy):
@@ -1756,6 +1959,7 @@ class TestGetScheduledDebateStore:
 
     def test_returns_cached_store(self):
         import aragora.server.handlers.features.pulse as pulse_mod
+
         mock_lazy = MagicMock()
         mock_lazy.get.return_value = "cached_store"
         pulse_mod._shared_debate_store = mock_lazy
@@ -1766,6 +1970,7 @@ class TestGetScheduledDebateStore:
 # ============================================================================
 # ROUTES constant
 # ============================================================================
+
 
 class TestRoutes:
     """Tests for the ROUTES class attribute."""
@@ -1796,11 +2001,13 @@ class TestRoutes:
 # MAX_TOPIC_LENGTH
 # ============================================================================
 
+
 class TestConstants:
     """Tests for module constants."""
 
     def test_max_topic_length(self):
         from aragora.server.handlers.features.pulse import MAX_TOPIC_LENGTH
+
         assert MAX_TOPIC_LENGTH == 200
 
     def test_topic_at_exactly_max_length(self, handler, mock_http):

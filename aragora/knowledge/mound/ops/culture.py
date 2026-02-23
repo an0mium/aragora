@@ -128,9 +128,7 @@ class CultureOperationsMixin(_CultureMixinBase):
         self._ensure_initialized()
 
         # Access _org_culture_manager attribute from composed class
-        manager: OrganizationCultureManager | None = getattr(
-            self, "_org_culture_manager", None
-        )
+        manager: OrganizationCultureManager | None = getattr(self, "_org_culture_manager", None)
         if manager is None:
             from aragora.knowledge.mound.culture import OrganizationCultureManager
 

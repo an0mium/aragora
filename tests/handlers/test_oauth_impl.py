@@ -416,7 +416,10 @@ class TestValidateRedirectUrl:
             "_get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
-            assert _oauth_impl._validate_redirect_url("https://example.com/cb?code=abc&state=xyz") is True
+            assert (
+                _oauth_impl._validate_redirect_url("https://example.com/cb?code=abc&state=xyz")
+                is True
+            )
 
     def test_url_with_fragment(self):
         with patch.object(

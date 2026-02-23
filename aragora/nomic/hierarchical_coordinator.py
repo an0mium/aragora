@@ -272,9 +272,7 @@ class HierarchicalCoordinator:
     ) -> TaskDecomposition:
         """Replan only the rejected tasks from the prior cycle."""
         rejected_ids = [
-            task_id
-            for task_id, approved in verdict.partial_approvals.items()
-            if not approved
+            task_id for task_id, approved in verdict.partial_approvals.items() if not approved
         ]
 
         # Build a focused goal from revision instructions
@@ -482,9 +480,7 @@ class HierarchicalCoordinator:
             task_id = report.assignment_id.replace("assign_", "")
             partial_approvals[task_id] = report.success
             if not report.success and report.error:
-                revision_instructions.append(
-                    f"Fix {report.subtask_title}: {report.error}"
-                )
+                revision_instructions.append(f"Fix {report.subtask_title}: {report.error}")
 
         feedback = f"Heuristic: {success_rate:.0%} success rate ({success_count}/{len(reports)})"
 
@@ -520,9 +516,7 @@ class HierarchicalCoordinator:
                 lines.append(f"    Error: {report.error}")
             lines.append(f"    Duration: {report.duration_seconds:.1f}s")
 
-        lines.append(
-            "\nProvide your verdict: APPROVE or REJECT with reasoning."
-        )
+        lines.append("\nProvide your verdict: APPROVE or REJECT with reasoning.")
 
         return "\n".join(lines)
 
@@ -548,9 +542,7 @@ class HierarchicalCoordinator:
         if not approved:
             for report in reports:
                 if not report.success and report.error:
-                    revision_instructions.append(
-                        f"Fix {report.subtask_title}: {report.error}"
-                    )
+                    revision_instructions.append(f"Fix {report.subtask_title}: {report.error}")
 
         return JudgeVerdict(
             approved=approved,

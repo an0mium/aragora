@@ -1217,7 +1217,9 @@ class TestMigrateConsensusMemory:
         from aragora.knowledge.migration import KnowledgeMoundMigrator
 
         mock_mound = AsyncMock()
-        mock_mound.add_node = AsyncMock(side_effect=["cons_001", RuntimeError("Failed"), "cons_003"])
+        mock_mound.add_node = AsyncMock(
+            side_effect=["cons_001", RuntimeError("Failed"), "cons_003"]
+        )
 
         mock_source = MagicMock()
         records = [

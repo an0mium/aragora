@@ -104,7 +104,14 @@ class DebateStep(BaseStep):
                 try:
                     agent = create_agent(agent_type)
                     agents.append(agent)
-                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
+                except (
+                    ImportError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    OSError,
+                    ConnectionError,
+                ) as e:
                     logger.warning("Failed to create agent %s: %s", agent_type, e)
 
             if not agents:
@@ -143,7 +150,14 @@ class DebateStep(BaseStep):
                         k: v for k, v in interpolated_config.items() if k in valid_fields
                     }
                     arena_config = ArenaConfig(**filtered_config)
-                except (ImportError, TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+                except (
+                    ImportError,
+                    TypeError,
+                    ValueError,
+                    AttributeError,
+                    KeyError,
+                    RuntimeError,
+                ) as e:
                     logger.warning("Failed to build ArenaConfig: %s", e)
 
             # Get memory systems from context if available
@@ -241,14 +255,24 @@ class DebateStep(BaseStep):
             except (ImportError, AttributeError, TypeError) as exc:
                 logger.debug("Failed to emit debate complete event: %s", exc)
 
-            logger.info("Debate '%s' completed. Consensus: %s", self.name, output['consensus_reached'])
+            logger.info(
+                "Debate '%s' completed. Consensus: %s", self.name, output["consensus_reached"]
+            )
             return output
 
         except ImportError as e:
             logger.warning("Aragora debate components not available: %s", e)
             return {"success": False, "error": f"Debate components not available: {e}"}
 
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            AttributeError,
+            KeyError,
+        ) as e:
             logger.error("Debate execution failed: %s", e)
             return {"success": False, "error": "Debate execution failed"}
 
@@ -326,9 +350,21 @@ class QuickDebateStep(BaseStep):
                         ),
                         "success": True,
                     }
-                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
+                except (
+                    ImportError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    OSError,
+                    ConnectionError,
+                    TimeoutError,
+                ) as e:
                     logger.warning("Agent %s response failed: %s", agent_type_str, e)
-                    return {"agent": agent_type_str, "error": "Agent response failed", "success": False}
+                    return {
+                        "agent": agent_type_str,
+                        "error": "Agent response failed",
+                        "success": False,
+                    }
 
             responses = await asyncio.gather(*[get_response(at) for at in agent_types])
 

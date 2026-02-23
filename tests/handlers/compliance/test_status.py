@@ -72,19 +72,23 @@ def _make_controls(compliant: int, non_compliant: int) -> list[dict]:
     """Build a list of mock controls with the given counts."""
     controls = []
     for i in range(compliant):
-        controls.append({
-            "control_id": f"C-{i}",
-            "category": "Security",
-            "name": f"Compliant Control {i}",
-            "status": "compliant",
-        })
+        controls.append(
+            {
+                "control_id": f"C-{i}",
+                "category": "Security",
+                "name": f"Compliant Control {i}",
+                "status": "compliant",
+            }
+        )
     for i in range(non_compliant):
-        controls.append({
-            "control_id": f"NC-{i}",
-            "category": "Security",
-            "name": f"Non-Compliant Control {i}",
-            "status": "non_compliant",
-        })
+        controls.append(
+            {
+                "control_id": f"NC-{i}",
+                "category": "Security",
+                "name": f"Non-Compliant Control {i}",
+                "status": "non_compliant",
+            }
+        )
     return controls
 
 

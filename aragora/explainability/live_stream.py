@@ -130,21 +130,26 @@ class LiveExplainabilityStream:
     ) -> None:
         """Record a proposal from an agent."""
         rn = round_num if round_num is not None else self._round_num
-        self._evidence.append(LiveEvidence(
-            content=content,
-            source=agent,
-            evidence_type="proposal",
-            round_num=rn,
-        ))
+        self._evidence.append(
+            LiveEvidence(
+                content=content,
+                source=agent,
+                evidence_type="proposal",
+                round_num=rn,
+            )
+        )
         self._agent_positions[agent] = content[:200]
         if confidence > 0:
             self._agent_confidences[agent] = confidence
-        self._emit_update("evidence_added", {
-            "agent": agent,
-            "type": "proposal",
-            "round": rn,
-            "evidence_count": len(self._evidence),
-        })
+        self._emit_update(
+            "evidence_added",
+            {
+                "agent": agent,
+                "type": "proposal",
+                "round": rn,
+                "evidence_count": len(self._evidence),
+            },
+        )
 
     def on_critique(
         self,
@@ -155,18 +160,23 @@ class LiveExplainabilityStream:
     ) -> None:
         """Record a critique from an agent."""
         rn = round_num if round_num is not None else self._round_num
-        self._evidence.append(LiveEvidence(
-            content=content,
-            source=agent,
-            evidence_type="critique",
-            round_num=rn,
-        ))
-        self._emit_update("critique_recorded", {
-            "agent": agent,
-            "target": target_agent,
-            "round": rn,
-            "evidence_count": len(self._evidence),
-        })
+        self._evidence.append(
+            LiveEvidence(
+                content=content,
+                source=agent,
+                evidence_type="critique",
+                round_num=rn,
+            )
+        )
+        self._emit_update(
+            "critique_recorded",
+            {
+                "agent": agent,
+                "target": target_agent,
+                "round": rn,
+                "evidence_count": len(self._evidence),
+            },
+        )
 
     def on_refinement(
         self,
@@ -177,25 +187,29 @@ class LiveExplainabilityStream:
         """Record a refinement/revision from an agent."""
         rn = round_num if round_num is not None else self._round_num
         old_position = self._agent_positions.get(agent, "")
-        self._evidence.append(LiveEvidence(
-            content=content,
-            source=agent,
-            evidence_type="refinement",
-            round_num=rn,
-        ))
+        self._evidence.append(
+            LiveEvidence(
+                content=content,
+                source=agent,
+                evidence_type="refinement",
+                round_num=rn,
+            )
+        )
         self._agent_positions[agent] = content[:200]
 
         # Track as belief shift if position changed
         if old_position and old_position != content[:200]:
             old_conf = self._agent_confidences.get(agent, 0.5)
-            self._belief_shifts.append(LiveBeliefShift(
-                agent=agent,
-                round_num=rn,
-                topic="position",
-                prior_confidence=old_conf,
-                posterior_confidence=old_conf * 0.9,  # Revision implies reduced confidence
-                trigger="critique_response",
-            ))
+            self._belief_shifts.append(
+                LiveBeliefShift(
+                    agent=agent,
+                    round_num=rn,
+                    topic="position",
+                    prior_confidence=old_conf,
+                    posterior_confidence=old_conf * 0.9,  # Revision implies reduced confidence
+                    trigger="critique_response",
+                )
+            )
 
     def on_vote(
         self,
@@ -213,36 +227,43 @@ class LiveExplainabilityStream:
         previous = self._previous_votes.get(agent)
         flipped = previous is not None and previous != choice
 
-        self._votes.append(LiveVote(
-            agent=agent,
-            choice=choice,
-            confidence=confidence,
-            round_num=rn,
-            reasoning=reasoning,
-            weight=weight,
-            flipped=flipped,
-        ))
+        self._votes.append(
+            LiveVote(
+                agent=agent,
+                choice=choice,
+                confidence=confidence,
+                round_num=rn,
+                reasoning=reasoning,
+                weight=weight,
+                flipped=flipped,
+            )
+        )
         self._previous_votes[agent] = choice
         self._agent_confidences[agent] = confidence
 
         if flipped:
-            self._belief_shifts.append(LiveBeliefShift(
-                agent=agent,
-                round_num=rn,
-                topic="vote_position",
-                prior_confidence=self._agent_confidences.get(agent, 0.5),
-                posterior_confidence=confidence,
-                trigger="vote_flip",
-            ))
+            self._belief_shifts.append(
+                LiveBeliefShift(
+                    agent=agent,
+                    round_num=rn,
+                    topic="vote_position",
+                    prior_confidence=self._agent_confidences.get(agent, 0.5),
+                    posterior_confidence=confidence,
+                    trigger="vote_flip",
+                )
+            )
 
-        self._emit_update("vote_recorded", {
-            "agent": agent,
-            "choice": choice[:50],
-            "confidence": confidence,
-            "flipped": flipped,
-            "round": rn,
-            "vote_count": len(self._votes),
-        })
+        self._emit_update(
+            "vote_recorded",
+            {
+                "agent": agent,
+                "choice": choice[:50],
+                "confidence": confidence,
+                "flipped": flipped,
+                "round": rn,
+                "vote_count": len(self._votes),
+            },
+        )
 
     def on_consensus(
         self,
@@ -251,14 +272,17 @@ class LiveExplainabilityStream:
         consensus_type: str = "majority",
     ) -> None:
         """Record consensus reached."""
-        self._emit_update("consensus_reached", {
-            "conclusion": conclusion[:200],
-            "confidence": confidence,
-            "type": consensus_type,
-            "total_evidence": len(self._evidence),
-            "total_votes": len(self._votes),
-            "total_shifts": len(self._belief_shifts),
-        })
+        self._emit_update(
+            "consensus_reached",
+            {
+                "conclusion": conclusion[:200],
+                "confidence": confidence,
+                "type": consensus_type,
+                "total_evidence": len(self._evidence),
+                "total_votes": len(self._votes),
+                "total_shifts": len(self._belief_shifts),
+            },
+        )
 
     def on_belief_change(
         self,
@@ -271,14 +295,16 @@ class LiveExplainabilityStream:
     ) -> None:
         """Explicitly record a belief change."""
         rn = round_num if round_num is not None else self._round_num
-        self._belief_shifts.append(LiveBeliefShift(
-            agent=agent,
-            round_num=rn,
-            topic=topic,
-            prior_confidence=prior,
-            posterior_confidence=posterior,
-            trigger=trigger,
-        ))
+        self._belief_shifts.append(
+            LiveBeliefShift(
+                agent=agent,
+                round_num=rn,
+                topic=topic,
+                prior_confidence=prior,
+                posterior_confidence=posterior,
+                trigger=trigger,
+            )
+        )
         self._agent_confidences[agent] = posterior
 
     def compute_factors(self) -> list[LiveFactor]:
@@ -294,13 +320,15 @@ class LiveExplainabilityStream:
 
             # More critiques + refinements = more thorough vetting
             quality = min(1.0, (critique_count + refinement_count) / max(1, total))
-            factors.append(LiveFactor(
-                name="evidence_quality",
-                contribution=quality * 0.3,
-                explanation=f"{total} pieces of evidence ({proposal_count} proposals, "
-                           f"{critique_count} critiques, {refinement_count} refinements)",
-                raw_value=quality,
-            ))
+            factors.append(
+                LiveFactor(
+                    name="evidence_quality",
+                    contribution=quality * 0.3,
+                    explanation=f"{total} pieces of evidence ({proposal_count} proposals, "
+                    f"{critique_count} critiques, {refinement_count} refinements)",
+                    raw_value=quality,
+                )
+            )
 
         # 2. Agent agreement factor
         if self._votes:
@@ -309,9 +337,10 @@ class LiveExplainabilityStream:
                 latest_votes[v.agent] = v.choice
             unique_choices = set(latest_votes.values())
             if latest_votes:
-                most_common = max(set(latest_votes.values()),
-                                  key=list(latest_votes.values()).count)
-                agreement = sum(1 for c in latest_votes.values() if c == most_common) / len(latest_votes)
+                most_common = max(set(latest_votes.values()), key=list(latest_votes.values()).count)
+                agreement = sum(1 for c in latest_votes.values() if c == most_common) / len(
+                    latest_votes
+                )
             else:
                 agreement = 0.0
 
@@ -323,26 +352,30 @@ class LiveExplainabilityStream:
                 elif agreement < prev_agreement - 0.05:
                     trend = "falling"
 
-            factors.append(LiveFactor(
-                name="agent_agreement",
-                contribution=agreement * 0.3,
-                explanation=f"{len(latest_votes)} agents, {len(unique_choices)} distinct positions, "
-                           f"{agreement:.0%} agreement",
-                trend=trend,
-                raw_value=agreement,
-            ))
+            factors.append(
+                LiveFactor(
+                    name="agent_agreement",
+                    contribution=agreement * 0.3,
+                    explanation=f"{len(latest_votes)} agents, {len(unique_choices)} distinct positions, "
+                    f"{agreement:.0%} agreement",
+                    trend=trend,
+                    raw_value=agreement,
+                )
+            )
 
         # 3. Confidence-weighted consensus factor
         if self._votes:
             weighted_sum = sum(v.confidence * v.weight for v in self._votes)
             weight_total = sum(v.weight for v in self._votes)
             weighted_confidence = weighted_sum / max(weight_total, 0.001)
-            factors.append(LiveFactor(
-                name="confidence_weighted_consensus",
-                contribution=weighted_confidence * 0.2,
-                explanation=f"Weighted average confidence: {weighted_confidence:.2f}",
-                raw_value=weighted_confidence,
-            ))
+            factors.append(
+                LiveFactor(
+                    name="confidence_weighted_consensus",
+                    contribution=weighted_confidence * 0.2,
+                    explanation=f"Weighted average confidence: {weighted_confidence:.2f}",
+                    raw_value=weighted_confidence,
+                )
+            )
 
         # 4. Belief stability factor
         if self._belief_shifts:
@@ -350,13 +383,15 @@ class LiveExplainabilityStream:
             late_shifts = [s for s in self._belief_shifts if s.round_num > 1]
             early_shifts = [s for s in self._belief_shifts if s.round_num <= 1]
             stability = 1.0 - min(1.0, len(late_shifts) / max(len(early_shifts), 1))
-            factors.append(LiveFactor(
-                name="belief_stability",
-                contribution=stability * 0.2,
-                explanation=f"{len(self._belief_shifts)} total belief shifts "
-                           f"({len(late_shifts)} in later rounds)",
-                raw_value=stability,
-            ))
+            factors.append(
+                LiveFactor(
+                    name="belief_stability",
+                    contribution=stability * 0.2,
+                    explanation=f"{len(self._belief_shifts)} total belief shifts "
+                    f"({len(late_shifts)} in later rounds)",
+                    raw_value=stability,
+                )
+            )
 
         return factors
 
@@ -389,8 +424,9 @@ class LiveExplainabilityStream:
 
         leading, confidence = self.get_leading_position()
         if leading:
-            parts.append(f"The leading position ({confidence:.0%} weighted support) is: "
-                        f"\"{leading[:100]}\"")
+            parts.append(
+                f'The leading position ({confidence:.0%} weighted support) is: "{leading[:100]}"'
+            )
 
         if self._evidence:
             parts.append(f"So far, {len(self._evidence)} pieces of evidence have been presented.")
@@ -398,7 +434,9 @@ class LiveExplainabilityStream:
         if self._votes:
             latest_round_votes = [v for v in self._votes if v.round_num == self._round_num]
             if latest_round_votes:
-                parts.append(f"In round {self._round_num}, {len(latest_round_votes)} votes were cast.")
+                parts.append(
+                    f"In round {self._round_num}, {len(latest_round_votes)} votes were cast."
+                )
 
         flips = [v for v in self._votes if v.flipped]
         if flips:
@@ -406,8 +444,11 @@ class LiveExplainabilityStream:
             parts.append(f"Notable: {agents} changed their position during the debate.")
 
         if self._belief_shifts:
-            significant = [s for s in self._belief_shifts
-                          if abs(s.posterior_confidence - s.prior_confidence) > 0.1]
+            significant = [
+                s
+                for s in self._belief_shifts
+                if abs(s.posterior_confidence - s.prior_confidence) > 0.1
+            ]
             if significant:
                 parts.append(f"{len(significant)} significant belief shifts have occurred.")
 
@@ -433,12 +474,15 @@ class LiveExplainabilityStream:
             evidence_count=len(self._evidence),
             vote_count=len(self._votes),
             belief_shifts=len(self._belief_shifts),
-            top_factors=[{
-                "name": f.name,
-                "contribution": round(f.contribution, 3),
-                "explanation": f.explanation,
-                "trend": f.trend,
-            } for f in sorted(factors, key=lambda x: x.contribution, reverse=True)],
+            top_factors=[
+                {
+                    "name": f.name,
+                    "contribution": round(f.contribution, 3),
+                    "explanation": f.explanation,
+                    "trend": f.trend,
+                }
+                for f in sorted(factors, key=lambda x: x.contribution, reverse=True)
+            ],
             leading_position=leading,
             position_confidence=round(confidence, 3),
             agent_agreement=round(agent_agreement, 3),
@@ -447,15 +491,18 @@ class LiveExplainabilityStream:
         )
         self._snapshots.append(snapshot)
 
-        self._emit_update("explanation_snapshot", {
-            "round": self._round_num,
-            "evidence_count": snapshot.evidence_count,
-            "vote_count": snapshot.vote_count,
-            "position_confidence": snapshot.position_confidence,
-            "agent_agreement": snapshot.agent_agreement,
-            "narrative": snapshot.narrative[:300],
-            "factors": snapshot.top_factors[:4],
-        })
+        self._emit_update(
+            "explanation_snapshot",
+            {
+                "round": self._round_num,
+                "evidence_count": snapshot.evidence_count,
+                "vote_count": snapshot.vote_count,
+                "position_confidence": snapshot.position_confidence,
+                "agent_agreement": snapshot.agent_agreement,
+                "narrative": snapshot.narrative[:300],
+                "factors": snapshot.top_factors[:4],
+            },
+        )
 
         return snapshot
 

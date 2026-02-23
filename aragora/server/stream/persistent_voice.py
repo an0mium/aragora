@@ -248,7 +248,11 @@ class PersistentVoiceManager:
         await self._persist_session(session)
 
         logger.info(
-            "Created voice session %s for user %s (persistent=%s, ttl=%sh)", session_id, user_id, persistent, ttl_hours
+            "Created voice session %s for user %s (persistent=%s, ttl=%sh)",
+            session_id,
+            user_id,
+            persistent,
+            ttl_hours,
         )
         return session
 
@@ -382,7 +386,9 @@ class PersistentVoiceManager:
         await self._persist_session(session)
 
         logger.info(
-            "Session %s disconnected, reconnect window: %ss", session.session_id, VOICE_RECONNECT_WINDOW_SECONDS
+            "Session %s disconnected, reconnect window: %ss",
+            session.session_id,
+            VOICE_RECONNECT_WINDOW_SECONDS,
         )
         return reconnect_token
 

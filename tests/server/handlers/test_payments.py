@@ -4184,9 +4184,7 @@ class TestStripeWebhookHardening:
             "customer": "cus_456",
             "subscription": "sub_789",
         }
-        event = self._make_mock_event(
-            "checkout.session.completed", obj_data=obj_data
-        )
+        event = self._make_mock_event("checkout.session.completed", obj_data=obj_data)
         mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
 
         request = MagicMock(spec=web.Request)
@@ -4232,9 +4230,7 @@ class TestStripeWebhookHardening:
             "subscription": "sub_789",
             "attempt_count": 3,
         }
-        event = self._make_mock_event(
-            "invoice.payment_failed", obj_data=obj_data
-        )
+        event = self._make_mock_event("invoice.payment_failed", obj_data=obj_data)
         mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
 
         request = MagicMock(spec=web.Request)

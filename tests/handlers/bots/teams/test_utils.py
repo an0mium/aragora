@@ -568,7 +568,9 @@ class TestBuildDebateCard:
         """Vote buttons are included when include_vote_buttons=True."""
         from aragora.server.handlers.bots.teams_utils import build_debate_card
 
-        card = build_debate_card("d-001", "Test", ["claude", "gpt4"], 1, 3, include_vote_buttons=True)
+        card = build_debate_card(
+            "d-001", "Test", ["claude", "gpt4"], 1, 3, include_vote_buttons=True
+        )
         actions = card["actions"]
         assert actions is not None
         vote_actions = [a for a in actions if a.get("data", {}).get("action") == "vote"]

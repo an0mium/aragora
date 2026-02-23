@@ -325,7 +325,10 @@ class ReplicationHealthMonitor:
             self._record_failure_metric(error_type or "unknown")
 
         logger.debug(
-            "Replication recorded: lag=%ss, success=%s, status=%s", lag_seconds, success, self._current_status.value
+            "Replication recorded: lag=%ss, success=%s, status=%s",
+            lag_seconds,
+            success,
+            self._current_status.value,
         )
 
     def record_standby_disconnect(self) -> None:
@@ -377,7 +380,10 @@ class ReplicationHealthMonitor:
         health = self.get_health()
 
         logger.warning(
-            "Replication alert: %s - lag=%ss, status=%s", alert_type, self._current_lag, self._current_status.value
+            "Replication alert: %s - lag=%ss, status=%s",
+            alert_type,
+            self._current_lag,
+            self._current_status.value,
         )
 
         if self._alert_callback:

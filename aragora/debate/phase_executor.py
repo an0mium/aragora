@@ -269,7 +269,8 @@ class PhaseExecutor:
 
                         if has_critical_remaining:
                             logger.warning(
-                                "Required phase '%s' failed, but continuing to critical phases", phase_name
+                                "Required phase '%s' failed, but continuing to critical phases",
+                                phase_name,
                             )
                             # Continue to ensure consensus/synthesis runs
                         else:

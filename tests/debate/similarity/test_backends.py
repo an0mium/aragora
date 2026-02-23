@@ -218,9 +218,12 @@ class TestIsContradictory:
     def test_accept_reject_no_shared_context(self, backend):
         # Both texts have >3 words and share no meaningful context words
         # (the "or len <= 3" short-circuit doesn't apply here)
-        assert backend.is_contradictory(
-            "accept the fresh tropical apples", "reject the wilted stale oranges"
-        ) is False
+        assert (
+            backend.is_contradictory(
+                "accept the fresh tropical apples", "reject the wilted stale oranges"
+            )
+            is False
+        )
 
     # --- labeled options ---
 
@@ -240,9 +243,10 @@ class TestIsContradictory:
     # --- non-contradictory similar texts ---
 
     def test_paraphrase_not_contradictory(self, backend):
-        assert backend.is_contradictory(
-            "we should increase investment", "we should raise investment"
-        ) is False
+        assert (
+            backend.is_contradictory("we should increase investment", "we should raise investment")
+            is False
+        )
 
     def test_unrelated_texts_not_contradictory(self, backend):
         assert backend.is_contradictory("the sky is blue", "cats like tuna") is False
@@ -540,11 +544,16 @@ class TestTFIDFBackend:
         for k in saved:
             del sys.modules[k]
         # Also patch the import inside TFIDFBackend.__init__
-        with patch.dict("sys.modules", {"sklearn": None,
-                                        "sklearn.feature_extraction": None,
-                                        "sklearn.feature_extraction.text": None,
-                                        "sklearn.metrics": None,
-                                        "sklearn.metrics.pairwise": None}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "sklearn": None,
+                "sklearn.feature_extraction": None,
+                "sklearn.feature_extraction.text": None,
+                "sklearn.metrics": None,
+                "sklearn.metrics.pairwise": None,
+            },
+        ):
             from aragora.debate.similarity.backends import TFIDFBackend
 
             with pytest.raises(ImportError, match="scikit-learn"):

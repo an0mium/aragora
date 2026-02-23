@@ -751,7 +751,10 @@ def with_retry(
                     if attempt >= config.max_retries:
                         provider_name = config.provider_name or func.__name__
                         logger.warning(
-                            "Retry exhausted for %s after %s attempts: %s", provider_name, attempt + 1, e
+                            "Retry exhausted for %s after %s attempts: %s",
+                            provider_name,
+                            attempt + 1,
+                            e,
                         )
                         config.record_failure(e)
                         raise
@@ -850,7 +853,10 @@ def with_retry_sync(
                     if attempt >= config.max_retries:
                         provider_name = config.provider_name or func.__name__
                         logger.warning(
-                            "Retry exhausted for %s after %s attempts: %s", provider_name, attempt + 1, e
+                            "Retry exhausted for %s after %s attempts: %s",
+                            provider_name,
+                            attempt + 1,
+                            e,
                         )
                         config.record_failure(e)
                         raise

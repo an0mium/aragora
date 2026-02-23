@@ -24,6 +24,7 @@ def handler():
 @pytest.fixture
 def mock_request():
     """Create a mock HTTP handler object."""
+
     def _make(method: str = "GET", body: dict | None = None):
         h = MagicMock()
         h.command = method
@@ -36,6 +37,7 @@ def mock_request():
         h.auth_user.org_id = "test-org"
         h.auth_user.roles = {"admin"}
         return h
+
     return _make
 
 
@@ -73,14 +75,23 @@ class TestRouteMatching:
     def test_routes_unknown_path(self, handler):
         result = handler._route_request(
             "/api/v1/actions/test/unknown/path",
-            "GET", {}, {}, "u1", "ws1",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
             MagicMock(),
         )
         assert result is None
 
     def test_method_not_allowed_list(self, handler):
         result = handler._route_request(
-            "/api/v1/actions", "DELETE", {}, {}, "u1", "ws1",
+            "/api/v1/actions",
+            "DELETE",
+            {},
+            {},
+            "u1",
+            "ws1",
             MagicMock(),
         )
         assert result is not None
@@ -127,9 +138,7 @@ class TestListCanvases:
         mock_get_store.return_value = mock_store
 
         ctx = MagicMock()
-        result = handler._list_canvases(
-            ctx, {"source_canvas_id": "goals-abc"}, "u1", "ws1"
-        )
+        result = handler._list_canvases(ctx, {"source_canvas_id": "goals-abc"}, "u1", "ws1")
         assert result is not None
         mock_store.list_canvases.assert_called_once()
 
@@ -145,7 +154,10 @@ class TestCreateCanvas:
 
         ctx = MagicMock()
         result = handler._create_canvas(
-            ctx, {"name": "Sprint Planning"}, "u1", "ws1",
+            ctx,
+            {"name": "Sprint Planning"},
+            "u1",
+            "ws1",
         )
         assert result is not None
         mock_store.save_canvas.assert_called_once()
@@ -160,7 +172,8 @@ class TestCreateCanvas:
         result = handler._create_canvas(
             ctx,
             {"name": "From Goals", "source_canvas_id": "goals-123"},
-            "u1", "ws1",
+            "u1",
+            "ws1",
         )
         assert result is not None
 
@@ -233,7 +246,10 @@ class TestAddNode:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_node(
-                ctx, "c1", {"action_type": "INVALID_TYPE"}, "u1",
+                ctx,
+                "c1",
+                {"action_type": "INVALID_TYPE"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -243,6 +259,7 @@ class TestAddNode:
     def test_valid_action_types(self, handler):
         """All ActionNodeType values should be accepted."""
         from aragora.canvas.stages import ActionNodeType
+
         for action_type in ActionNodeType:
             with patch.object(handler, "_get_canvas_manager") as mock_mgr:
                 manager = MagicMock()
@@ -253,7 +270,8 @@ class TestAddNode:
                     mock_run.return_value = node_mock
                     ctx = MagicMock()
                     result = handler._add_node(
-                        ctx, "c1",
+                        ctx,
+                        "c1",
                         {"action_type": action_type.value, "label": "test"},
                         "u1",
                     )
@@ -268,7 +286,11 @@ class TestUpdateNode:
             with patch.object(handler, "_run_async", return_value=None):
                 ctx = MagicMock()
                 result = handler._update_node(
-                    ctx, "c1", "n1", {"label": "Updated"}, "u1",
+                    ctx,
+                    "c1",
+                    "n1",
+                    {"label": "Updated"},
+                    "u1",
                 )
                 assert result is not None
 
@@ -296,7 +318,10 @@ class TestAddEdge:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_edge(
-                ctx, "c1", {"target_id": "n2"}, "u1",
+                ctx,
+                "c1",
+                {"target_id": "n2"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -307,7 +332,10 @@ class TestAddEdge:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_edge(
-                ctx, "c1", {"source_id": "n1"}, "u1",
+                ctx,
+                "c1",
+                {"source_id": "n1"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -364,7 +392,9 @@ class TestAdvanceToOrchestration:
     def test_advance_success(self, mock_get_store, handler):
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {
-            "id": "ac-1", "name": "Sprint 1", "metadata": {"stage": "actions"},
+            "id": "ac-1",
+            "name": "Sprint 1",
+            "metadata": {"stage": "actions"},
         }
         mock_get_store.return_value = mock_store
 

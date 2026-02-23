@@ -64,14 +64,16 @@ class TransparencyChecklist:
 
     @property
     def all_satisfied(self) -> bool:
-        return all([
-            self.agents_identified,
-            self.decision_rationale_provided,
-            self.dissenting_views_recorded,
-            self.confidence_score_disclosed,
-            self.ai_system_disclosed,
-            self.limitations_documented,
-        ])
+        return all(
+            [
+                self.agents_identified,
+                self.decision_rationale_provided,
+                self.dissenting_views_recorded,
+                self.confidence_score_disclosed,
+                self.ai_system_disclosed,
+                self.limitations_documented,
+            ]
+        )
 
 
 @dataclass
@@ -503,10 +505,12 @@ class ReceiptComplianceGenerator:
         artifact_id = f"EUAIA-{uuid.uuid4().hex[:8]}"
 
         # Classify risk
-        text = " ".join([
-            receipt.get("input_summary", ""),
-            receipt.get("verdict_reasoning", ""),
-        ]).lower()
+        text = " ".join(
+            [
+                receipt.get("input_summary", ""),
+                receipt.get("verdict_reasoning", ""),
+            ]
+        ).lower()
 
         risk_level, risk_rationale, applicable_articles = self._classify_eu_risk(text)
 
@@ -713,35 +717,43 @@ class ReceiptComplianceGenerator:
         control_evidence: list[dict[str, Any]] = []
 
         if artifact_hash:
-            control_evidence.append({
-                "control": "CC6.1 - Integrity Controls",
-                "evidence_type": "artifact_hash",
-                "value": artifact_hash[:16] + "...",
-                "description": "SHA-256 content-addressable hash of receipt",
-            })
+            control_evidence.append(
+                {
+                    "control": "CC6.1 - Integrity Controls",
+                    "evidence_type": "artifact_hash",
+                    "value": artifact_hash[:16] + "...",
+                    "description": "SHA-256 content-addressable hash of receipt",
+                }
+            )
 
         if has_signature:
-            control_evidence.append({
-                "control": "CC6.1 - Cryptographic Signing",
-                "evidence_type": "digital_signature",
-                "description": "Receipt cryptographically signed for non-repudiation",
-            })
+            control_evidence.append(
+                {
+                    "control": "CC6.1 - Cryptographic Signing",
+                    "evidence_type": "digital_signature",
+                    "description": "Receipt cryptographically signed for non-repudiation",
+                }
+            )
 
         if provenance:
-            control_evidence.append({
-                "control": "CC7.2 - Monitoring",
-                "evidence_type": "provenance_chain",
-                "event_count": len(provenance),
-                "description": "Complete provenance chain of decision events",
-            })
+            control_evidence.append(
+                {
+                    "control": "CC7.2 - Monitoring",
+                    "evidence_type": "provenance_chain",
+                    "event_count": len(provenance),
+                    "description": "Complete provenance chain of decision events",
+                }
+            )
 
         if consensus.get("reached"):
-            control_evidence.append({
-                "control": "PI1.3 - Processing Accuracy",
-                "evidence_type": "consensus_proof",
-                "confidence": confidence,
-                "description": f"Multi-agent consensus with {confidence:.1%} confidence",
-            })
+            control_evidence.append(
+                {
+                    "control": "PI1.3 - Processing Accuracy",
+                    "evidence_type": "consensus_proof",
+                    "confidence": confidence,
+                    "description": f"Multi-agent consensus with {confidence:.1%} confidence",
+                }
+            )
 
         # Exceptions
         exceptions: list[dict[str, Any]] = []
@@ -749,25 +761,31 @@ class ReceiptComplianceGenerator:
         risk_high = risk_summary.get("high", 0)
 
         if risk_critical > 0:
-            exceptions.append({
-                "severity": "critical",
-                "description": f"{risk_critical} critical risk(s) identified during validation",
-                "remediation": "Address critical risks before production use",
-            })
+            exceptions.append(
+                {
+                    "severity": "critical",
+                    "description": f"{risk_critical} critical risk(s) identified during validation",
+                    "remediation": "Address critical risks before production use",
+                }
+            )
 
         if risk_high > 0:
-            exceptions.append({
-                "severity": "high",
-                "description": f"{risk_high} high-severity risk(s) identified",
-                "remediation": "Review and mitigate high risks per risk register",
-            })
+            exceptions.append(
+                {
+                    "severity": "high",
+                    "description": f"{risk_high} high-severity risk(s) identified",
+                    "remediation": "Review and mitigate high risks per risk register",
+                }
+            )
 
         if not has_signature:
-            exceptions.append({
-                "severity": "medium",
-                "description": "Receipt not cryptographically signed",
-                "remediation": "Enable receipt signing for non-repudiation",
-            })
+            exceptions.append(
+                {
+                    "severity": "medium",
+                    "description": "Receipt not cryptographically signed",
+                    "remediation": "Enable receipt signing for non-repudiation",
+                }
+            )
 
         # Period of review
         receipt_timestamp = receipt.get("timestamp", timestamp_str)
@@ -878,7 +896,8 @@ class ReceiptComplianceGenerator:
                         else getattr(entry, "event_type", "unknown")
                     ),
                     "has_timestamp": bool(
-                        entry.get("timestamp") if isinstance(entry, dict)
+                        entry.get("timestamp")
+                        if isinstance(entry, dict)
                         else getattr(entry, "timestamp", "")
                     ),
                 }
@@ -895,8 +914,7 @@ class ReceiptComplianceGenerator:
             "status": "satisfied",
             "controls": {
                 "data_minimization": (
-                    "Receipt stores decision summary (max 500 chars), "
-                    "not full input data."
+                    "Receipt stores decision summary (max 500 chars), not full input data."
                 ),
                 "purpose_limitation": "Data accessed only for decision validation and audit",
                 "access_scope": (
@@ -1014,9 +1032,7 @@ class ReceiptComplianceGenerator:
             [],
         )
 
-    def _detect_human_oversight(
-        self, config: dict[str, Any], receipt: dict[str, Any]
-    ) -> bool:
+    def _detect_human_oversight(self, config: dict[str, Any], receipt: dict[str, Any]) -> bool:
         """Detect whether human oversight was present in the decision process."""
         oversight_indicators = [
             "human_approval",

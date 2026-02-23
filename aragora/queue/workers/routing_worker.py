@@ -174,12 +174,19 @@ class RoutingWorker:
                 )
                 if should_retry:
                     logger.info(
-                        "[%s] Job %s will retry (attempt %s/%s)", self.worker_id, job.id, job.attempts, job.max_attempts
+                        "[%s] Job %s will retry (attempt %s/%s)",
+                        self.worker_id,
+                        job.id,
+                        job.attempts,
+                        job.max_attempts,
                     )
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
-                "[%s] Job %s failed: %s", self.worker_id, job.id, e,
+                "[%s] Job %s failed: %s",
+                self.worker_id,
+                job.id,
+                e,
                 exc_info=True,
             )
 
@@ -193,7 +200,11 @@ class RoutingWorker:
 
             if should_retry:
                 logger.info(
-                    "[%s] Job %s will retry (attempt %s/%s)", self.worker_id, job.id, job.attempts, job.max_attempts
+                    "[%s] Job %s will retry (attempt %s/%s)",
+                    self.worker_id,
+                    job.id,
+                    job.attempts,
+                    job.max_attempts,
                 )
 
     async def _route_debate_result(self, job: QueuedJob) -> bool:

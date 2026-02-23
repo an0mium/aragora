@@ -114,7 +114,10 @@ class RevalidationScheduler:
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
         logger.info(
-            "RevalidationScheduler started: threshold=%s, interval=%ss, method=%s", self._staleness_threshold, self._check_interval, self._revalidation_method
+            "RevalidationScheduler started: threshold=%s, interval=%ss, method=%s",
+            self._staleness_threshold,
+            self._check_interval,
+            self._revalidation_method,
         )
 
     async def stop(self) -> None:
@@ -184,7 +187,9 @@ class RevalidationScheduler:
                         self._on_task_created(task_id, item.node_id)
 
             logger.info(
-                "Scheduled %s revalidation tasks (threshold=%s)", len(task_ids), self._staleness_threshold
+                "Scheduled %s revalidation tasks (threshold=%s)",
+                len(task_ids),
+                self._staleness_threshold,
             )
 
             return task_ids

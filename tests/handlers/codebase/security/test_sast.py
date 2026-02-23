@@ -154,11 +154,13 @@ def mock_sast_scanner_and_events(monkeypatch):
     mock_scanner = AsyncMock()
     mock_scanner.initialize = AsyncMock()
     mock_scanner.scan_repository = AsyncMock(return_value=_make_scan_result())
-    mock_scanner.get_owasp_summary = AsyncMock(return_value={
-        "owasp_top_10": {},
-        "total_findings": 0,
-        "most_common": [],
-    })
+    mock_scanner.get_owasp_summary = AsyncMock(
+        return_value={
+            "owasp_top_10": {},
+            "total_findings": 0,
+            "most_common": [],
+        }
+    )
 
     monkeypatch.setattr(sast_mod, "get_sast_scanner", lambda: mock_scanner)
     monkeypatch.setattr(sast_mod, "emit_sast_events", AsyncMock())
@@ -238,7 +240,7 @@ class TestHandleScanSast:
         body = _body(result)
         scan_id = body["scan_id"]
         assert scan_id.startswith("sast_")
-        hex_part = scan_id[len("sast_"):]
+        hex_part = scan_id[len("sast_") :]
         assert len(hex_part) == 12
         assert all(c in "0123456789abcdef" for c in hex_part)
 
@@ -576,10 +578,7 @@ class TestHandleGetSastScanStatus:
     @pytest.mark.asyncio
     async def test_completed_scan_with_multiple_findings(self, sast_scan_results):
         """Completed scan with multiple findings includes all."""
-        findings = [
-            _make_finding(rule_id=f"rule_{i}", file_path=f"file_{i}.py")
-            for i in range(5)
-        ]
+        findings = [_make_finding(rule_id=f"rule_{i}", file_path=f"file_{i}.py") for i in range(5)]
         scan = _make_scan_result(scan_id="sast_multi", findings=findings)
         sast_scan_results["test-repo"] = {"sast_multi": scan}
 
@@ -677,9 +676,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_sev", findings=findings)
         sast_scan_results["test-repo"] = {"sast_sev": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", severity="critical"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", severity="critical")
 
         assert _status(result) == 200
         body = _body(result)
@@ -697,9 +694,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_err", findings=findings)
         sast_scan_results["test-repo"] = {"sast_err": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", severity="error"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", severity="error")
 
         assert _status(result) == 200
         body = _body(result)
@@ -716,9 +711,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_warn", findings=findings)
         sast_scan_results["test-repo"] = {"sast_warn": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", severity="warning"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", severity="warning")
 
         assert _status(result) == 200
         body = _body(result)
@@ -735,9 +728,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_info", findings=findings)
         sast_scan_results["test-repo"] = {"sast_info": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", severity="info"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", severity="info")
 
         assert _status(result) == 200
         body = _body(result)
@@ -758,9 +749,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_owasp", findings=findings)
         sast_scan_results["test-repo"] = {"sast_owasp": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", owasp_category="Injection"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", owasp_category="Injection")
 
         assert _status(result) == 200
         body = _body(result)
@@ -824,15 +813,11 @@ class TestHandleGetSastFindings:
     @pytest.mark.asyncio
     async def test_pagination_limit(self, sast_scan_results):
         """Pagination limit is respected."""
-        findings = [
-            _make_finding(rule_id=f"r_{i}") for i in range(10)
-        ]
+        findings = [_make_finding(rule_id=f"r_{i}") for i in range(10)]
         scan = _make_scan_result(scan_id="sast_page", findings=findings)
         sast_scan_results["test-repo"] = {"sast_page": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=3
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=3)
 
         assert _status(result) == 200
         body = _body(result)
@@ -843,15 +828,11 @@ class TestHandleGetSastFindings:
     @pytest.mark.asyncio
     async def test_pagination_offset(self, sast_scan_results):
         """Pagination offset is respected."""
-        findings = [
-            _make_finding(rule_id=f"r_{i}") for i in range(10)
-        ]
+        findings = [_make_finding(rule_id=f"r_{i}") for i in range(10)]
         scan = _make_scan_result(scan_id="sast_off", findings=findings)
         sast_scan_results["test-repo"] = {"sast_off": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=3, offset=8
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=3, offset=8)
 
         assert _status(result) == 200
         body = _body(result)
@@ -866,9 +847,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_beyond", findings=findings)
         sast_scan_results["test-repo"] = {"sast_beyond": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", offset=100
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", offset=100)
 
         assert _status(result) == 200
         body = _body(result)
@@ -896,9 +875,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_large", findings=findings)
         sast_scan_results["test-repo"] = {"sast_large": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=10000
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=10000)
 
         assert _status(result) == 200
         body = _body(result)
@@ -925,9 +902,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_nomatch", findings=findings)
         sast_scan_results["test-repo"] = {"sast_nomatch": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", severity="critical"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", severity="critical")
 
         assert _status(result) == 200
         body = _body(result)
@@ -941,9 +916,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_nowasp", findings=findings)
         sast_scan_results["test-repo"] = {"sast_nowasp": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", owasp_category="SSRF"
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", owasp_category="SSRF")
 
         assert _status(result) == 200
         body = _body(result)
@@ -957,9 +930,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_meta", findings=findings)
         sast_scan_results["test-repo"] = {"sast_meta": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=50, offset=0
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=50, offset=0)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1047,16 +1018,11 @@ class TestHandleGetSastFindings:
     @pytest.mark.asyncio
     async def test_many_findings_paginated(self, sast_scan_results):
         """Large number of findings are properly paginated."""
-        findings = [
-            _make_finding(rule_id=f"r_{i}", file_path=f"file_{i}.py")
-            for i in range(200)
-        ]
+        findings = [_make_finding(rule_id=f"r_{i}", file_path=f"file_{i}.py") for i in range(200)]
         scan = _make_scan_result(scan_id="sast_many", findings=findings)
         sast_scan_results["test-repo"] = {"sast_many": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=10
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=10)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1125,9 +1091,7 @@ class TestHandleGetSastFindings:
         scan = _make_scan_result(scan_id="sast_zero", findings=findings)
         sast_scan_results["test-repo"] = {"sast_zero": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=0
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=0)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1144,9 +1108,7 @@ class TestHandleGetOwaspSummary:
     """Tests for handle_get_owasp_summary."""
 
     @pytest.mark.asyncio
-    async def test_get_owasp_summary_success(
-        self, sast_scan_results, mock_sast_scanner_and_events
-    ):
+    async def test_get_owasp_summary_success(self, sast_scan_results, mock_sast_scanner_and_events):
         """Returns OWASP summary from the latest scan."""
         finding = _make_finding(owasp_category=OWASPCategory.A03_INJECTION)
         scan = _make_scan_result(scan_id="sast_owasp1", findings=[finding])
@@ -1159,7 +1121,13 @@ class TestHandleGetOwaspSummary:
                     "critical": 0,
                     "error": 1,
                     "warning": 0,
-                    "findings": [{"file": "app/db.py", "line": 42, "message": "Possible SQL injection via string formatting"}],
+                    "findings": [
+                        {
+                            "file": "app/db.py",
+                            "line": 42,
+                            "message": "Possible SQL injection via string formatting",
+                        }
+                    ],
                 },
             },
             "total_findings": 1,
@@ -1196,9 +1164,7 @@ class TestHandleGetOwaspSummary:
         assert body["total_findings"] == 0
 
     @pytest.mark.asyncio
-    async def test_uses_latest_scan(
-        self, sast_scan_results, mock_sast_scanner_and_events
-    ):
+    async def test_uses_latest_scan(self, sast_scan_results, mock_sast_scanner_and_events):
         """Gets OWASP summary from the scan with the most recent scanned_at."""
         old_scan = _make_scan_result(
             scan_id="sast_old",
@@ -1349,9 +1315,7 @@ class TestScanBackgroundTask:
     """Tests for the background SAST scan task behavior."""
 
     @pytest.mark.asyncio
-    async def test_background_scan_stores_result(
-        self, sast_scan_results, monkeypatch
-    ):
+    async def test_background_scan_stores_result(self, sast_scan_results, monkeypatch):
         """The background task stores the scan result on success."""
         scan_result = _make_scan_result(scan_id="bg_sast")
 
@@ -1452,15 +1416,11 @@ class TestScanBackgroundTask:
         assert call_kwargs["scan_id"] == scan_id
 
     @pytest.mark.asyncio
-    async def test_background_scan_failure_cleans_up(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_failure_cleans_up(self, running_scans, monkeypatch):
         """On failure, the task is removed from running_scans."""
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
-        mock_scanner.scan_repository = AsyncMock(
-            side_effect=RuntimeError("disk error")
-        )
+        mock_scanner.scan_repository = AsyncMock(side_effect=RuntimeError("disk error"))
 
         import aragora.server.handlers.codebase.security.sast as sast_mod
 
@@ -1477,9 +1437,7 @@ class TestScanBackgroundTask:
         assert "test-repo" not in running_scans
 
     @pytest.mark.asyncio
-    async def test_background_scan_success_cleans_up(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_success_cleans_up(self, running_scans, monkeypatch):
         """On success, the task is removed from running_scans."""
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
@@ -1504,15 +1462,11 @@ class TestScanBackgroundTask:
         assert "test-repo" not in running_scans
 
     @pytest.mark.asyncio
-    async def test_background_scan_os_error_cleans_up(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_os_error_cleans_up(self, running_scans, monkeypatch):
         """OSError during scan still cleans up running_scans."""
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
-        mock_scanner.scan_repository = AsyncMock(
-            side_effect=OSError("no access")
-        )
+        mock_scanner.scan_repository = AsyncMock(side_effect=OSError("no access"))
 
         import aragora.server.handlers.codebase.security.sast as sast_mod
 
@@ -1529,15 +1483,11 @@ class TestScanBackgroundTask:
         assert "test-repo" not in running_scans
 
     @pytest.mark.asyncio
-    async def test_background_scan_value_error_cleans_up(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_value_error_cleans_up(self, running_scans, monkeypatch):
         """ValueError during scan still cleans up running_scans."""
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
-        mock_scanner.scan_repository = AsyncMock(
-            side_effect=ValueError("bad path")
-        )
+        mock_scanner.scan_repository = AsyncMock(side_effect=ValueError("bad path"))
 
         import aragora.server.handlers.codebase.security.sast as sast_mod
 
@@ -1552,15 +1502,11 @@ class TestScanBackgroundTask:
         assert "test-repo" not in running_scans
 
     @pytest.mark.asyncio
-    async def test_background_scan_type_error_cleans_up(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_type_error_cleans_up(self, running_scans, monkeypatch):
         """TypeError during scan still cleans up running_scans."""
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
-        mock_scanner.scan_repository = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_scanner.scan_repository = AsyncMock(side_effect=TypeError("wrong type"))
 
         import aragora.server.handlers.codebase.security.sast as sast_mod
 
@@ -1575,9 +1521,7 @@ class TestScanBackgroundTask:
         assert "test-repo" not in running_scans
 
     @pytest.mark.asyncio
-    async def test_background_scan_emits_events_for_critical(
-        self, sast_scan_results, monkeypatch
-    ):
+    async def test_background_scan_emits_events_for_critical(self, sast_scan_results, monkeypatch):
         """The background task emits events when critical findings exist."""
         critical_finding = _make_finding(
             severity=SASTSeverity.CRITICAL,
@@ -1647,9 +1591,7 @@ class TestScanBackgroundTask:
         mock_emit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_background_scan_no_events_for_warning_only(
-        self, sast_scan_results, monkeypatch
-    ):
+    async def test_background_scan_no_events_for_warning_only(self, sast_scan_results, monkeypatch):
         """The background task does not emit events for warning-only findings."""
         warning_finding = _make_finding(
             severity=SASTSeverity.WARNING,
@@ -1679,9 +1621,7 @@ class TestScanBackgroundTask:
         mock_emit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_background_scan_no_events_for_info_only(
-        self, sast_scan_results, monkeypatch
-    ):
+    async def test_background_scan_no_events_for_info_only(self, sast_scan_results, monkeypatch):
         """The background task does not emit events for info-only findings."""
         info_finding = _make_finding(
             severity=SASTSeverity.INFO,
@@ -1711,9 +1651,7 @@ class TestScanBackgroundTask:
         mock_emit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_background_scan_no_events_for_no_findings(
-        self, sast_scan_results, monkeypatch
-    ):
+    async def test_background_scan_no_events_for_no_findings(self, sast_scan_results, monkeypatch):
         """The background task does not emit events when there are no findings."""
         scan_result = _make_scan_result(
             scan_id="bg_none",
@@ -1740,14 +1678,10 @@ class TestScanBackgroundTask:
         mock_emit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_background_scan_initializer_error_cleans_up(
-        self, running_scans, monkeypatch
-    ):
+    async def test_background_scan_initializer_error_cleans_up(self, running_scans, monkeypatch):
         """If scanner.initialize() fails, running_scans is cleaned up."""
         mock_scanner = AsyncMock()
-        mock_scanner.initialize = AsyncMock(
-            side_effect=RuntimeError("init failed")
-        )
+        mock_scanner.initialize = AsyncMock(side_effect=RuntimeError("init failed"))
 
         import aragora.server.handlers.codebase.security.sast as sast_mod
 
@@ -1844,12 +1778,8 @@ class TestEdgeCases:
         sast_scan_results["repo-a"] = {"sast_a": scan_a}
         sast_scan_results["repo-b"] = {"sast_b": scan_b}
 
-        result_a = await handle_get_sast_scan_status(
-            repo_id="repo-a", scan_id="sast_a"
-        )
-        result_b = await handle_get_sast_scan_status(
-            repo_id="repo-b", scan_id="sast_b"
-        )
+        result_a = await handle_get_sast_scan_status(repo_id="repo-a", scan_id="sast_a")
+        result_b = await handle_get_sast_scan_status(repo_id="repo-b", scan_id="sast_b")
 
         assert _status(result_a) == 200
         assert _status(result_b) == 200
@@ -1860,25 +1790,18 @@ class TestEdgeCases:
         scan = _make_scan_result(scan_id="sast_a")
         sast_scan_results["repo-a"] = {"sast_a": scan}
 
-        result = await handle_get_sast_scan_status(
-            repo_id="repo-b", scan_id="sast_a"
-        )
+        result = await handle_get_sast_scan_status(repo_id="repo-b", scan_id="sast_a")
 
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_scan_with_many_findings(self, sast_scan_results):
         """Handler handles a large number of findings efficiently."""
-        findings = [
-            _make_finding(rule_id=f"r_{i}", file_path=f"file_{i}.py")
-            for i in range(500)
-        ]
+        findings = [_make_finding(rule_id=f"r_{i}", file_path=f"file_{i}.py") for i in range(500)]
         scan = _make_scan_result(scan_id="sast_many", findings=findings)
         sast_scan_results["test-repo"] = {"sast_many": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=10
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=10)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1950,9 +1873,7 @@ class TestEdgeCases:
             # Use a substring from the category value for filtering
             # The handler checks: owasp_category in f.owasp_category.value
             filter_str = cat.value.split(" - ")[1]  # e.g., "Injection"
-            result = await handle_get_sast_findings(
-                repo_id="test-repo", owasp_category=filter_str
-            )
+            result = await handle_get_sast_findings(repo_id="test-repo", owasp_category=filter_str)
 
             assert _status(result) == 200
             body = _body(result)
@@ -1967,17 +1888,12 @@ class TestEdgeCases:
             SASTSeverity.WARNING,
             SASTSeverity.INFO,
         ]
-        findings = [
-            _make_finding(rule_id=f"r_{sev.value}", severity=sev)
-            for sev in severities
-        ]
+        findings = [_make_finding(rule_id=f"r_{sev.value}", severity=sev) for sev in severities]
         scan = _make_scan_result(scan_id="sast_all_sev", findings=findings)
         sast_scan_results["test-repo"] = {"sast_all_sev": scan}
 
         for sev in severities:
-            result = await handle_get_sast_findings(
-                repo_id="test-repo", severity=sev.value
-            )
+            result = await handle_get_sast_findings(repo_id="test-repo", severity=sev.value)
 
             assert _status(result) == 200
             body = _body(result)
@@ -1987,12 +1903,8 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_concurrent_scans_different_repos(self, running_scans):
         """Different repos can have concurrent scans."""
-        result_a = await handle_scan_sast(
-            repo_path="/tmp/repo-a", repo_id="repo-a"
-        )
-        result_b = await handle_scan_sast(
-            repo_path="/tmp/repo-b", repo_id="repo-b"
-        )
+        result_a = await handle_scan_sast(repo_path="/tmp/repo-a", repo_id="repo-a")
+        result_b = await handle_scan_sast(repo_path="/tmp/repo-b", repo_id="repo-b")
 
         assert _status(result_a) == 200
         assert _status(result_b) == 200
@@ -2002,16 +1914,12 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_pagination_limit_and_offset_combined(self, sast_scan_results):
         """Pagination with both limit and offset works together."""
-        findings = [
-            _make_finding(rule_id=f"r_{i}") for i in range(20)
-        ]
+        findings = [_make_finding(rule_id=f"r_{i}") for i in range(20)]
         scan = _make_scan_result(scan_id="sast_pag", findings=findings)
         sast_scan_results["test-repo"] = {"sast_pag": scan}
 
         # Get page 2 (offset=5, limit=5)
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", limit=5, offset=5
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", limit=5, offset=5)
 
         assert _status(result) == 200
         body = _body(result)
@@ -2027,9 +1935,7 @@ class TestEdgeCases:
         scan = _make_scan_result(scan_id="sast_neg", findings=findings)
         sast_scan_results["test-repo"] = {"sast_neg": scan}
 
-        result = await handle_get_sast_findings(
-            repo_id="test-repo", offset=-1
-        )
+        result = await handle_get_sast_findings(repo_id="test-repo", offset=-1)
 
         assert _status(result) == 200
         body = _body(result)
@@ -2050,9 +1956,7 @@ class TestEdgeCases:
         )
         sast_scan_results["test-repo"] = {"sast_todict": scan}
 
-        result = await handle_get_sast_scan_status(
-            repo_id="test-repo", scan_id="sast_todict"
-        )
+        result = await handle_get_sast_scan_status(repo_id="test-repo", scan_id="sast_todict")
 
         assert _status(result) == 200
         body = _body(result)
@@ -2085,9 +1989,7 @@ class TestEdgeCases:
         scan = _make_scan_result(scan_id="sast_summ", findings=findings)
         sast_scan_results["test-repo"] = {"sast_summ": scan}
 
-        result = await handle_get_sast_scan_status(
-            repo_id="test-repo", scan_id="sast_summ"
-        )
+        result = await handle_get_sast_scan_status(repo_id="test-repo", scan_id="sast_summ")
 
         assert _status(result) == 200
         body = _body(result)
@@ -2100,9 +2002,7 @@ class TestEdgeCases:
         assert summary["by_severity"]["warning"] == 1
 
     @pytest.mark.asyncio
-    async def test_background_scan_mixed_severity_events(
-        self, sast_scan_results, monkeypatch
-    ):
+    async def test_background_scan_mixed_severity_events(self, sast_scan_results, monkeypatch):
         """Events are emitted when mixed severity includes critical/error."""
         findings = [
             _make_finding(rule_id="r1", severity=SASTSeverity.CRITICAL),

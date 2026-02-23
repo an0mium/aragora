@@ -110,7 +110,9 @@ class EvolutionTracker(SQLiteStore):
                 ),
             )
 
-        logger.debug("Recorded outcome for %s: %s (gen=%s)", agent, 'win' if won else 'loss', generation)
+        logger.debug(
+            "Recorded outcome for %s: %s (gen=%s)", agent, "win" if won else "loss", generation
+        )
 
     def get_agent_stats(self, agent: str) -> dict:
         """

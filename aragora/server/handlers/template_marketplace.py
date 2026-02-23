@@ -238,7 +238,9 @@ def validate_review_content(content: str) -> tuple[bool, str]:
 # =============================================================================
 
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as MarketplaceCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as MarketplaceCircuitBreaker,
+)
 
 
 # Global circuit breaker instance
@@ -418,7 +420,8 @@ def _init_persistent_store() -> bool:
             )
 
         logger.warning(
-            "TEMPLATE MARKETPLACE: Persistent storage unavailable (%s). Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART! Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage.", e
+            "TEMPLATE MARKETPLACE: Persistent storage unavailable (%s). Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART! Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage.",
+            e,
         )
         _use_persistent_store = False
         return False

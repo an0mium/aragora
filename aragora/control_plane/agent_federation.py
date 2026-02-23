@@ -275,7 +275,8 @@ class FederatedAgentPool:
                     await self._event_bus.publish(event)
 
             logger.debug(
-                "[FederatedAgentPool] Published %s agents for discovery", len(self.list_local_agents())
+                "[FederatedAgentPool] Published %s agents for discovery",
+                len(self.list_local_agents()),
             )
 
         except (OSError, ConnectionError, RuntimeError) as e:
@@ -344,7 +345,9 @@ class FederatedAgentPool:
                     self._agents[agent_id] = remote_agent
                     self._remote_instances[source_region] = {"last_seen": time.time()}
                     logger.debug(
-                        "[FederatedAgentPool] Added remote agent %s from %s", agent_id, source_region
+                        "[FederatedAgentPool] Added remote agent %s from %s",
+                        agent_id,
+                        source_region,
                     )
 
             elif event_type == RegionalEventType.AGENT_UNREGISTERED:

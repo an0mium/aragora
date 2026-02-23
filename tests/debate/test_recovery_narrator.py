@@ -160,19 +160,23 @@ class TestHandleHealthEvent:
 
     def test_ignores_unknown_event_types(self):
         narrator = RecoveryNarrator()
-        result = narrator.handle_health_event({
-            "type": "health_event",
-            "data": {"event_type": "some_random_thing"},
-        })
+        result = narrator.handle_health_event(
+            {
+                "type": "health_event",
+                "data": {"event_type": "some_random_thing"},
+            }
+        )
         assert result is None
 
     def test_generates_narrative_for_known_event(self):
         narrator = RecoveryNarrator()
         random.seed(42)
-        result = narrator.handle_health_event({
-            "type": "health_event",
-            "data": {"event_type": "agent_timeout", "component": "claude"},
-        })
+        result = narrator.handle_health_event(
+            {
+                "type": "health_event",
+                "data": {"event_type": "agent_timeout", "component": "claude"},
+            }
+        )
         assert result is not None
         assert result.event_type == "agent_timeout"
         assert result.agent == "claude"
@@ -181,10 +185,12 @@ class TestHandleHealthEvent:
         callback = MagicMock()
         narrator = RecoveryNarrator(broadcast_callback=callback)
         random.seed(42)
-        narrator.handle_health_event({
-            "type": "health_event",
-            "data": {"event_type": "agent_recovered", "component": "gpt"},
-        })
+        narrator.handle_health_event(
+            {
+                "type": "health_event",
+                "data": {"event_type": "agent_recovered", "component": "gpt"},
+            }
+        )
         callback.assert_called_once()
         call_arg = callback.call_args[0][0]
         assert call_arg["type"] == "recovery_narrative"
@@ -194,23 +200,27 @@ class TestHandleHealthEvent:
         narrator = RecoveryNarrator(broadcast_callback=callback)
         random.seed(42)
         # Should not raise
-        result = narrator.handle_health_event({
-            "type": "health_event",
-            "data": {"event_type": "agent_failed", "component": "x"},
-        })
+        result = narrator.handle_health_event(
+            {
+                "type": "health_event",
+                "data": {"event_type": "agent_failed", "component": "x"},
+            }
+        )
         assert result is not None
 
     def test_uses_details_from_event(self):
         narrator = RecoveryNarrator()
         random.seed(42)
-        result = narrator.handle_health_event({
-            "type": "health_event",
-            "data": {
-                "event_type": "checkpoint_created",
-                "component": "System",
-                "details": {"round": 5},
-            },
-        })
+        result = narrator.handle_health_event(
+            {
+                "type": "health_event",
+                "data": {
+                    "event_type": "checkpoint_created",
+                    "component": "System",
+                    "details": {"round": 5},
+                },
+            }
+        )
         assert result is not None
 
 

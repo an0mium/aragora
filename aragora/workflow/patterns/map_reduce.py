@@ -262,9 +262,20 @@ def _register_map_reduce_handlers():
                             timeout=timeout_per_chunk,
                         )
                         return {"index": index, "result": result, "success": True}
-                    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
+                    except (
+                        RuntimeError,
+                        ValueError,
+                        TypeError,
+                        OSError,
+                        ConnectionError,
+                        TimeoutError,
+                    ) as e:
                         logger.warning("Map-reduce chunk %d failed: %s", index, e)
-                        return {"index": index, "error": "Chunk processing failed", "success": False}
+                        return {
+                            "index": index,
+                            "error": "Chunk processing failed",
+                            "success": False,
+                        }
 
             tasks = [process_chunk(chunk, i) for i, chunk in enumerate(chunks)]
             results = await asyncio.gather(*tasks)

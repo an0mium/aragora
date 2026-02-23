@@ -478,7 +478,9 @@ async def _init_all_components(
                 still_failing = len(failed_items) - succeeded
                 logger.info(
                     "DLQ processing complete: %d retried, %d succeeded, %d still failing",
-                    len(failed_items), succeeded, still_failing,
+                    len(failed_items),
+                    succeeded,
+                    still_failing,
                 )
             except (ImportError, AttributeError):
                 logger.debug("KM not available for DLQ retry, items preserved for next startup")

@@ -118,8 +118,10 @@ def mock_http():
 @pytest.fixture
 def mock_http_post():
     """Factory for creating MockHTTPHandler for POST requests with body."""
+
     def _make(body: dict | None = None) -> MockHTTPHandler:
         return MockHTTPHandler(body=body, method="POST")
+
     return _make
 
 
@@ -402,6 +404,7 @@ class TestRecentFlips:
     @pytest.mark.asyncio
     async def test_recent_flips_no_agents(self, handler, mock_http, mock_insight_store):
         """When a position_reversal has empty agents_involved, use 'unknown'."""
+
         async def _empty_agents(limit=20):
             return [
                 MockInsight(
@@ -421,6 +424,7 @@ class TestRecentFlips:
     @pytest.mark.asyncio
     async def test_recent_flips_store_exception(self, handler, mock_http, mock_insight_store):
         """When store raises an exception, return empty flips gracefully."""
+
         async def _raise(limit=20):
             raise RuntimeError("store unavailable")
 
@@ -439,6 +443,7 @@ class TestRecentFlips:
     @pytest.mark.asyncio
     async def test_recent_flips_limit_respected(self, handler, mock_http, mock_insight_store):
         """With limit=1, only 1 flip should be returned even if more exist."""
+
         async def _many_flips(limit=20):
             return [
                 MockInsight(
@@ -493,9 +498,7 @@ class TestFlipsSummary:
     @pytest.mark.asyncio
     async def test_summary_with_period(self, handler, mock_http):
         """When period param is provided, it should be in response."""
-        result = await handler.handle(
-            "/api/flips/summary", {"period": "7d"}, mock_http
-        )
+        result = await handler.handle("/api/flips/summary", {"period": "7d"}, mock_http)
         body = _body(result)
         assert body["period"] == "7d"
 
@@ -517,6 +520,7 @@ class TestFlipsSummary:
     @pytest.mark.asyncio
     async def test_summary_store_exception(self, handler, mock_http, mock_insight_store):
         """When store raises, return 0 total gracefully."""
+
         async def _raise(limit=20):
             raise ValueError("bad query")
 
@@ -570,10 +574,12 @@ class TestExtractDetailed:
 
     @pytest.mark.asyncio
     async def test_extract_success(self, handler, mock_http_post):
-        http = mock_http_post({
-            "content": "Therefore we should adopt option A. Because option B is worse.",
-            "debate_id": "debate-123",
-        })
+        http = mock_http_post(
+            {
+                "content": "Therefore we should adopt option A. Because option B is worse.",
+                "debate_id": "debate-123",
+            }
+        )
         result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -619,10 +625,12 @@ class TestExtractDetailed:
 
     @pytest.mark.asyncio
     async def test_extract_claims_disabled(self, handler, mock_http_post):
-        http = mock_http_post({
-            "content": "Therefore we should adopt option A.",
-            "extract_claims": False,
-        })
+        http = mock_http_post(
+            {
+                "content": "Therefore we should adopt option A.",
+                "extract_claims": False,
+            }
+        )
         result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -632,10 +640,12 @@ class TestExtractDetailed:
 
     @pytest.mark.asyncio
     async def test_extract_evidence_disabled(self, handler, mock_http_post):
-        http = mock_http_post({
-            "content": "According to experts, the data indicates improvement.",
-            "extract_evidence": False,
-        })
+        http = mock_http_post(
+            {
+                "content": "According to experts, the data indicates improvement.",
+                "extract_evidence": False,
+            }
+        )
         result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -645,10 +655,12 @@ class TestExtractDetailed:
 
     @pytest.mark.asyncio
     async def test_extract_patterns_disabled(self, handler, mock_http_post):
-        http = mock_http_post({
-            "content": "On one hand X, on the other hand Y. Because Z.",
-            "extract_patterns": False,
-        })
+        http = mock_http_post(
+            {
+                "content": "On one hand X, on the other hand Y. Because Z.",
+                "extract_patterns": False,
+            }
+        )
         result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -658,12 +670,14 @@ class TestExtractDetailed:
 
     @pytest.mark.asyncio
     async def test_extract_all_disabled(self, handler, mock_http_post):
-        http = mock_http_post({
-            "content": "Some content here.",
-            "extract_claims": False,
-            "extract_evidence": False,
-            "extract_patterns": False,
-        })
+        http = mock_http_post(
+            {
+                "content": "Some content here.",
+                "extract_claims": False,
+                "extract_evidence": False,
+                "extract_patterns": False,
+            }
+        )
         result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -681,12 +695,12 @@ class TestExtractDetailed:
 
     @pytest.mark.asyncio
     async def test_extract_versioned_path(self, handler, mock_http_post):
-        http = mock_http_post({
-            "content": "Therefore we must act now.",
-        })
-        result = await handler.handle_post(
-            "/api/v1/insights/extract-detailed", {}, http
+        http = mock_http_post(
+            {
+                "content": "Therefore we must act now.",
+            }
         )
+        result = await handler.handle_post("/api/v1/insights/extract-detailed", {}, http)
         assert _status(result) == 200
 
 
@@ -700,29 +714,24 @@ class TestClaimExtraction:
 
     def _handler(self):
         from aragora.server.handlers.memory.insights import InsightsHandler
+
         return InsightsHandler(server_context={})
 
     def test_extracts_therefore_claim(self):
         h = self._handler()
-        claims = h._extract_claims_from_content(
-            "Therefore we should adopt the new strategy."
-        )
+        claims = h._extract_claims_from_content("Therefore we should adopt the new strategy.")
         assert len(claims) >= 1
         assert claims[0]["type"] == "argument"  # contains "should"
 
     def test_extracts_should_claim_as_argument(self):
         h = self._handler()
-        claims = h._extract_claims_from_content(
-            "We should invest in renewable energy now."
-        )
+        claims = h._extract_claims_from_content("We should invest in renewable energy now.")
         assert len(claims) >= 1
         assert claims[0]["type"] == "argument"
 
     def test_extracts_evidence_shows_as_assertion(self):
         h = self._handler()
-        claims = h._extract_claims_from_content(
-            "Evidence shows that the approach is effective."
-        )
+        claims = h._extract_claims_from_content("Evidence shows that the approach is effective.")
         assert len(claims) >= 1
         assert claims[0]["type"] == "assertion"
 
@@ -755,9 +764,7 @@ class TestClaimExtraction:
 
     def test_no_claims_in_plain_text(self):
         h = self._handler()
-        claims = h._extract_claims_from_content(
-            "The weather is nice today and the sky is blue."
-        )
+        claims = h._extract_claims_from_content("The weather is nice today and the sky is blue.")
         assert len(claims) == 0
 
 
@@ -771,6 +778,7 @@ class TestEvidenceExtraction:
 
     def _handler(self):
         from aragora.server.handlers.memory.insights import InsightsHandler
+
         return InsightsHandler(server_context={})
 
     def test_extracts_citation(self):
@@ -784,9 +792,7 @@ class TestEvidenceExtraction:
 
     def test_extracts_research(self):
         h = self._handler()
-        evidence = h._extract_evidence_from_content(
-            "Research shows the treatment is effective."
-        )
+        evidence = h._extract_evidence_from_content("Research shows the treatment is effective.")
         assert len(evidence) >= 1
         assert evidence[0]["type"] == "research"
 
@@ -825,9 +831,7 @@ class TestEvidenceExtraction:
 
     def test_limits_to_15(self):
         h = self._handler()
-        content = ". ".join(
-            [f"According to source {i}, finding {i}" for i in range(20)]
-        )
+        content = ". ".join([f"According to source {i}, finding {i}" for i in range(20)])
         evidence = h._extract_evidence_from_content(content)
         assert len(evidence) <= 15
 
@@ -843,17 +847,13 @@ class TestEvidenceExtraction:
     def test_text_truncated_to_300(self):
         h = self._handler()
         long_finding = "y" * 400
-        evidence = h._extract_evidence_from_content(
-            f"Research shows {long_finding}."
-        )
+        evidence = h._extract_evidence_from_content(f"Research shows {long_finding}.")
         if evidence:
             assert len(evidence[0]["text"]) <= 300
 
     def test_no_evidence_in_plain_text(self):
         h = self._handler()
-        evidence = h._extract_evidence_from_content(
-            "The project deadline is next Friday."
-        )
+        evidence = h._extract_evidence_from_content("The project deadline is next Friday.")
         assert len(evidence) == 0
 
 
@@ -867,6 +867,7 @@ class TestPatternExtraction:
 
     def _handler(self):
         from aragora.server.handlers.memory.insights import InsightsHandler
+
         return InsightsHandler(server_context={})
 
     def test_balanced_comparison(self):
@@ -965,9 +966,7 @@ class TestRateLimiting:
 
         http = mock_http_post({"content": "test content"})
         with patch.object(_insights_limiter, "is_allowed", return_value=False):
-            result = await handler.handle_post(
-                "/api/insights/extract-detailed", {}, http
-            )
+            result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
             assert _status(result) == 429
 
     @pytest.mark.asyncio
@@ -1024,11 +1023,13 @@ class TestAuth:
         mock_http = MockHTTPHandler()
 
         mock_ctx = MagicMock()
-        with patch.object(
-            SecureHandler, "get_auth_context", return_value=mock_ctx
-        ), patch.object(
-            SecureHandler, "check_permission",
-            side_effect=ForbiddenError("no permission"),
+        with (
+            patch.object(SecureHandler, "get_auth_context", return_value=mock_ctx),
+            patch.object(
+                SecureHandler,
+                "check_permission",
+                side_effect=ForbiddenError("no permission"),
+            ),
         ):
             result = await handler.handle("/api/insights/recent", {}, mock_http)
             assert _status(result) == 403
@@ -1045,9 +1046,7 @@ class TestAuth:
         with patch.object(
             SecureHandler, "get_auth_context", side_effect=UnauthorizedError("no token")
         ):
-            result = await handler.handle_post(
-                "/api/insights/extract-detailed", {}, http
-            )
+            result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
             assert _status(result) == 401
 
     @pytest.mark.no_auto_auth
@@ -1061,15 +1060,15 @@ class TestAuth:
         http = MockHTTPHandler(body={"content": "test"}, method="POST")
 
         mock_ctx = MagicMock()
-        with patch.object(
-            SecureHandler, "get_auth_context", return_value=mock_ctx
-        ), patch.object(
-            SecureHandler, "check_permission",
-            side_effect=ForbiddenError("no permission"),
+        with (
+            patch.object(SecureHandler, "get_auth_context", return_value=mock_ctx),
+            patch.object(
+                SecureHandler,
+                "check_permission",
+                side_effect=ForbiddenError("no permission"),
+            ),
         ):
-            result = await handler.handle_post(
-                "/api/insights/extract-detailed", {}, http
-            )
+            result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
             assert _status(result) == 403
 
 
@@ -1154,7 +1153,5 @@ class TestInvalidBody:
         http.rfile.read.return_value = b"not json"
         http.headers["Content-Length"] = "8"
 
-        result = await handler.handle_post(
-            "/api/insights/extract-detailed", {}, http
-        )
+        result = await handler.handle_post("/api/insights/extract-detailed", {}, http)
         assert _status(result) == 400

@@ -149,7 +149,10 @@ class NoveltySelectionBridge:
             self._novelty_adjustments[agent_name] = adjustment
 
         logger.debug(
-            "novelty_selection_recorded round=%s agents=%s low_novelty=%s", novelty_result.round_num, len(adjustments), novelty_result.low_novelty_agents
+            "novelty_selection_recorded round=%s agents=%s low_novelty=%s",
+            novelty_result.round_num,
+            len(adjustments),
+            novelty_result.low_novelty_agents,
         )
 
         return adjustments

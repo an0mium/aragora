@@ -343,7 +343,9 @@ class LegalHandler:
 
             envelope = await connector.create_envelope(create_request)
 
-            logger.info("[Legal] Created envelope %s for tenant %s", envelope.envelope_id, tenant_id)
+            logger.info(
+                "[Legal] Created envelope %s for tenant %s", envelope.envelope_id, tenant_id
+            )
 
             return json_response(
                 {
@@ -597,7 +599,10 @@ class LegalHandler:
             event_time = body.get("statusChangedDateTime")
 
             logger.info(
-                "[Legal] DocuSign webhook: envelope=%s status=%s time=%s", envelope_id, status, event_time
+                "[Legal] DocuSign webhook: envelope=%s status=%s time=%s",
+                envelope_id,
+                status,
+                event_time,
             )
 
             # Emit event for downstream processing
@@ -669,7 +674,8 @@ class LegalHandler:
 
             # Log structured event for processing pipelines
             logger.info(
-                "[Legal] Connector event: %s", event_type,
+                "[Legal] Connector event: %s",
+                event_type,
                 extra={"event_data": event_data},
             )
 

@@ -155,7 +155,7 @@ def cmd_plan(args: argparse.Namespace) -> None:
             print(f"  {st.id:<14} {st.title:<30} {st.estimated_complexity:<8} {files}")
 
     if args.dry_run:
-        print(f"\n(dry-run -- manifest not saved)")
+        print("\n(dry-run -- manifest not saved)")
         return
 
     manifest_path = _save_manifest(manifest)
@@ -242,7 +242,7 @@ def cmd_setup(args: argparse.Namespace) -> None:
     # Persist worktree info back to manifest
     manifest["worktrees"] = worktrees_info
     _save_manifest(manifest)
-    print(f"\nManifest updated with worktree paths.")
+    print("\nManifest updated with worktree paths.")
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +311,7 @@ def cmd_execute(args: argparse.Namespace) -> None:
 {description}
 
 ## File Scope
-{chr(10).join(f'- {f}' for f in file_scope) if file_scope else '(auto-detect)'}
+{chr(10).join(f"- {f}" for f in file_scope) if file_scope else "(auto-detect)"}
 
 ## Instructions
 1. Read the relevant files in the scope above
@@ -344,8 +344,7 @@ def cmd_execute(args: argparse.Namespace) -> None:
         )
 
         print(
-            f"  {_color('STARTED', _GREEN)}: [{subtask_id}] "
-            f"PID={proc.pid}  branch={info['branch']}"
+            f"  {_color('STARTED', _GREEN)}: [{subtask_id}] PID={proc.pid}  branch={info['branch']}"
         )
         return proc
 
@@ -375,6 +374,7 @@ def cmd_execute(args: argparse.Namespace) -> None:
 
         if active:
             import time
+
             time.sleep(2)
 
     # Summary
@@ -384,7 +384,7 @@ def cmd_execute(args: argparse.Namespace) -> None:
     print(f"  Completed: {successes}  |  Failed: {failures}")
 
     if failures:
-        print(f"\n  Check logs in each worktree: .sprint-agent.log")
+        print("\n  Check logs in each worktree: .sprint-agent.log")
 
     # Update manifest with execution status
     manifest["last_execution"] = {

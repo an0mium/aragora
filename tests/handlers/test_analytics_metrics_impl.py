@@ -188,7 +188,7 @@ def _make_elo_system(
     }
 
     def _get_rating(agent_id):
-        for a in (agents or lb):
+        for a in agents or lb:
             if a.agent_name == agent_id:
                 return a
         raise ValueError(f"Agent not found: {agent_id}")
@@ -545,9 +545,10 @@ class TestHandleRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded_returns_429(self, handler, http_handler):
         """When rate limit is exceeded, returns 429."""
-        with patch.object(
-            _analytics_metrics_limiter, "is_allowed", return_value=False
-        ), patch.dict("os.environ", {}, clear=False):
+        with (
+            patch.object(_analytics_metrics_limiter, "is_allowed", return_value=False),
+            patch.dict("os.environ", {}, clear=False),
+        ):
             # Ensure demo mode is off
             with patch(
                 "aragora.server.handlers._analytics_metrics_impl._is_demo_mode",
@@ -1262,9 +1263,7 @@ class TestAgentPerformanceEndpoint:
     @pytest.mark.asyncio
     async def test_agent_performance_with_calibration(self, handler, http_handler):
         """Agent with calibration scores includes them in response."""
-        agent = _make_agent(
-            "claude", calibration_score=0.92, calibration_accuracy=0.88
-        )
+        agent = _make_agent("claude", calibration_score=0.92, calibration_accuracy=0.88)
         elo_sys = _make_elo_system(agents=[agent])
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
             result = await handler.handle(
@@ -1458,7 +1457,9 @@ class TestDebateEndpointsViaHandle:
     """Additional debate endpoint tests through handle()."""
 
     @pytest.mark.asyncio
-    async def test_overview_with_real_debates(self, handler, http_handler, mock_storage, five_debates):
+    async def test_overview_with_real_debates(
+        self, handler, http_handler, mock_storage, five_debates
+    ):
         """Overview returns correct data with real debates."""
         mock_storage.list_debates.return_value = five_debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
@@ -1513,10 +1514,20 @@ class TestDebateEndpointsViaHandle:
         """Outcomes endpoint with varied outcome types."""
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", consensus_reached=True, confidence=0.9,
-                         outcome_type="consensus", created_at=now.isoformat()),
-            _make_debate("d2", consensus_reached=False, confidence=0.1,
-                         outcome_type="", created_at=now.isoformat()),
+            _make_debate(
+                "d1",
+                consensus_reached=True,
+                confidence=0.9,
+                outcome_type="consensus",
+                created_at=now.isoformat(),
+            ),
+            _make_debate(
+                "d2",
+                consensus_reached=False,
+                confidence=0.1,
+                outcome_type="",
+                created_at=now.isoformat(),
+            ),
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):

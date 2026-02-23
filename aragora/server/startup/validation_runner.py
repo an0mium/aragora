@@ -143,20 +143,26 @@ async def run_startup_validation(
                 )
         else:
             logger.warning(
-                "[STARTUP VALIDATION] %s critical issue(s), %s warning(s). Server may not function correctly.", critical_count, warning_count
+                "[STARTUP VALIDATION] %s critical issue(s), %s warning(s). Server may not function correctly.",
+                critical_count,
+                warning_count,
             )
 
         # Log warnings (always)
         for issue in result.issues:
             if issue.severity == Severity.WARNING:
-                logger.warning("[STARTUP VALIDATION] WARNING - %s: %s", issue.component, issue.message)
+                logger.warning(
+                    "[STARTUP VALIDATION] WARNING - %s: %s", issue.component, issue.message
+                )
                 if issue.suggestion:
                     logger.warning("  Suggestion: %s", issue.suggestion)
 
         # Log critical issues (always)
         for issue in result.issues:
             if issue.severity == Severity.CRITICAL:
-                logger.error("[STARTUP VALIDATION] CRITICAL - %s: %s", issue.component, issue.message)
+                logger.error(
+                    "[STARTUP VALIDATION] CRITICAL - %s: %s", issue.component, issue.message
+                )
                 if issue.suggestion:
                     logger.error("  Suggestion: %s", issue.suggestion)
 

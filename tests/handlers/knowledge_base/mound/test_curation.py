@@ -68,7 +68,9 @@ def _bypass_require_auth(monkeypatch):
     from aragora.server import auth as auth_module
 
     monkeypatch.setattr(auth_module.auth_config, "api_token", _TEST_TOKEN)
-    monkeypatch.setattr(auth_module.auth_config, "validate_token", lambda token: token == _TEST_TOKEN)
+    monkeypatch.setattr(
+        auth_module.auth_config, "validate_token", lambda token: token == _TEST_TOKEN
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -299,9 +301,7 @@ def handler_no_mound():
 
 
 # Patch targets
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.curation._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.curation._run_async"
 
 
 # ============================================================================
@@ -315,8 +315,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_get_policy(self, handler):
         """GET policy path dispatches to _handle_get_curation_policy."""
         http = MockHTTPHandler.get()
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_get_curation_policy", return_value=HandlerResult(200, "application/json", b'{}')) as mock_get:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_get_curation_policy",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_get,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/policy", {}, http
             )
@@ -326,8 +332,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_set_policy_on_post(self, handler):
         """POST policy path dispatches to _handle_set_curation_policy."""
         http = MockHTTPHandler.post({"enabled": True})
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_set_curation_policy", return_value=HandlerResult(200, "application/json", b'{}')) as mock_set:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_set_curation_policy",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_set,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/policy", {}, http
             )
@@ -337,8 +349,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_status(self, handler):
         """Status path dispatches to _handle_curation_status."""
         http = MockHTTPHandler.get()
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_curation_status", return_value=HandlerResult(200, "application/json", b'{}')) as mock_fn:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_curation_status",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_fn,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/status", {}, http
             )
@@ -347,8 +365,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_run(self, handler):
         """Run path dispatches to _handle_run_curation."""
         http = MockHTTPHandler.post({})
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_run_curation", return_value=HandlerResult(200, "application/json", b'{}')) as mock_fn:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_run_curation",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_fn,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/run", {}, http
             )
@@ -357,8 +381,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_history(self, handler):
         """History path dispatches to _handle_curation_history."""
         http = MockHTTPHandler.get()
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_curation_history", return_value=HandlerResult(200, "application/json", b'{}')) as mock_fn:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_curation_history",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_fn,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/history", {}, http
             )
@@ -367,8 +397,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_scores(self, handler):
         """Scores path dispatches to _handle_quality_scores."""
         http = MockHTTPHandler.get()
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_quality_scores", return_value=HandlerResult(200, "application/json", b'{}')) as mock_fn:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_quality_scores",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_fn,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/scores", {}, http
             )
@@ -377,8 +413,14 @@ class TestCurationRouteDispatch:
     def test_routes_to_tiers(self, handler):
         """Tiers path dispatches to _handle_tier_distribution."""
         http = MockHTTPHandler.get()
-        with patch.object(handler, "_check_knowledge_permission", return_value=None), \
-             patch.object(handler, "_handle_tier_distribution", return_value=HandlerResult(200, "application/json", b'{}')) as mock_fn:
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None),
+            patch.object(
+                handler,
+                "_handle_tier_distribution",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ) as mock_fn,
+        ):
             result = handler._handle_curation_routes(
                 "/api/v1/knowledge/mound/curation/tiers", {}, http
             )
@@ -406,21 +448,29 @@ class TestCurationRouteDispatch:
     def test_post_uses_update_action_for_rbac(self, handler):
         """POST requests check 'update' RBAC action, GET checks 'read'."""
         http = MockHTTPHandler.post({})
-        with patch.object(handler, "_check_knowledge_permission", return_value=None) as mock_check, \
-             patch.object(handler, "_handle_set_curation_policy", return_value=HandlerResult(200, "application/json", b'{}')):
-            handler._handle_curation_routes(
-                "/api/v1/knowledge/mound/curation/policy", {}, http
-            )
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None) as mock_check,
+            patch.object(
+                handler,
+                "_handle_set_curation_policy",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ),
+        ):
+            handler._handle_curation_routes("/api/v1/knowledge/mound/curation/policy", {}, http)
             mock_check.assert_called_once_with(http, "update")
 
     def test_get_uses_read_action_for_rbac(self, handler):
         """GET requests check 'read' RBAC action."""
         http = MockHTTPHandler.get()
-        with patch.object(handler, "_check_knowledge_permission", return_value=None) as mock_check, \
-             patch.object(handler, "_handle_get_curation_policy", return_value=HandlerResult(200, "application/json", b'{}')):
-            handler._handle_curation_routes(
-                "/api/v1/knowledge/mound/curation/policy", {}, http
-            )
+        with (
+            patch.object(handler, "_check_knowledge_permission", return_value=None) as mock_check,
+            patch.object(
+                handler,
+                "_handle_get_curation_policy",
+                return_value=HandlerResult(200, "application/json", b"{}"),
+            ),
+        ):
+            handler._handle_curation_routes("/api/v1/knowledge/mound/curation/policy", {}, http)
             mock_check.assert_called_once_with(http, "read")
 
 
@@ -507,9 +557,15 @@ class TestGetCurationPolicy:
         body = _body(result)
         policy = body["policy"]
         expected_fields = [
-            "policy_id", "enabled", "name", "quality_threshold",
-            "promotion_threshold", "demotion_threshold", "archive_threshold",
-            "refresh_staleness_threshold", "usage_window_days",
+            "policy_id",
+            "enabled",
+            "name",
+            "quality_threshold",
+            "promotion_threshold",
+            "demotion_threshold",
+            "archive_threshold",
+            "refresh_staleness_threshold",
+            "usage_window_days",
             "min_retrievals_for_promotion",
         ]
         for field_name in expected_fields:
@@ -604,14 +660,16 @@ class TestSetCurationPolicy:
     def test_set_policy_custom_thresholds(self, mound_with_policy):
         """Custom threshold values are forwarded to CurationPolicy."""
         h = CurationTestHandler(mound=mound_with_policy)
-        http = MockHTTPHandler.post({
-            "quality_threshold": 0.7,
-            "promotion_threshold": 0.95,
-            "demotion_threshold": 0.25,
-            "archive_threshold": 0.1,
-            "usage_window_days": 60,
-            "min_retrievals_for_promotion": 10,
-        })
+        http = MockHTTPHandler.post(
+            {
+                "quality_threshold": 0.7,
+                "promotion_threshold": 0.95,
+                "demotion_threshold": 0.25,
+                "archive_threshold": 0.1,
+                "usage_window_days": 60,
+                "min_retrievals_for_promotion": 10,
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = h._handle_set_curation_policy(http)
         assert _status(result) == 200
@@ -780,8 +838,10 @@ class TestRunCuration:
         """None body => body or {} => defaults used."""
         h = CurationTestHandler(mound=mound_with_curation)
         http = MockHTTPHandler.get()
-        with patch.object(h, "_read_request_body", return_value=None), \
-             patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
+        with (
+            patch.object(h, "_read_request_body", return_value=None),
+            patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro),
+        ):
             result = h._handle_run_curation(http)
         body = _body(result)
         assert _status(result) == 200
@@ -944,11 +1004,13 @@ class TestQualityScores:
 
     def test_scores_custom_filters(self, mock_mound):
         h = CurationTestHandler(mound=mock_mound)
-        result = h._handle_quality_scores({
-            "min_score": "0.3",
-            "max_score": "0.9",
-            "limit": "25",
-        })
+        result = h._handle_quality_scores(
+            {
+                "min_score": "0.3",
+                "max_score": "0.9",
+                "limit": "25",
+            }
+        )
         body = _body(result)
         assert body["filters"]["min_score"] == 0.3
         assert body["filters"]["max_score"] == 0.9
@@ -1090,12 +1152,15 @@ class TestCheckKnowledgePermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=mock_user,
-        ), patch(
-            "aragora.server.handlers.knowledge_base.mound.curation.get_permission_checker",
-            return_value=mock_checker,
+        with (
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=mock_user,
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.curation.get_permission_checker",
+                return_value=mock_checker,
+            ),
         ):
             result = handler._check_knowledge_permission(http, "write")
         assert _status(result) == 403
@@ -1115,12 +1180,15 @@ class TestCheckKnowledgePermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=mock_user,
-        ), patch(
-            "aragora.server.handlers.knowledge_base.mound.curation.get_permission_checker",
-            return_value=mock_checker,
+        with (
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=mock_user,
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.curation.get_permission_checker",
+                return_value=mock_checker,
+            ),
         ):
             result = handler._check_knowledge_permission(http, "read")
         assert result is None
@@ -1147,12 +1215,15 @@ class TestCheckKnowledgePermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=mock_user,
-        ), patch(
-            "aragora.server.handlers.knowledge_base.mound.curation.get_permission_checker",
-            return_value=mock_checker,
+        with (
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=mock_user,
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.curation.get_permission_checker",
+                return_value=mock_checker,
+            ),
         ):
             handler._check_knowledge_permission(http, "delete")
 

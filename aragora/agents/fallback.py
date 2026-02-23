@@ -127,7 +127,9 @@ class QuotaFallbackMixin:
             if self._fallback_agent:
                 name = getattr(self, "name", "unknown")
                 logger.info(
-                    "[%s] Created OpenRouter fallback agent with model %s", name, self._fallback_agent.model
+                    "[%s] Created OpenRouter fallback agent with model %s",
+                    name,
+                    self._fallback_agent.model,
                 )
         return self._fallback_agent
 
@@ -318,7 +320,9 @@ class QuotaFallbackMixin:
         status_info = f" (status {status_code})" if status_code else ""
         error_type = "rate_limit" if status_code == 429 else "quota"
         logger.warning(
-            "API quota/rate limit error%s for %s, falling back to OpenRouter streaming", status_info, name
+            "API quota/rate limit error%s for %s, falling back to OpenRouter streaming",
+            status_info,
+            name,
         )
 
         # Record fallback activation telemetry
@@ -573,7 +577,9 @@ class AgentFallbackChain:
             provider_key = self._provider_key(provider)
             # Check retry limit
             if retry_count >= self.max_retries:
-                logger.warning("Max retries (%s) reached, stopping fallback chain", self.max_retries)
+                logger.warning(
+                    "Max retries (%s) reached, stopping fallback chain", self.max_retries
+                )
                 break
 
             # Check time limit

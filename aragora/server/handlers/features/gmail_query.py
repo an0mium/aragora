@@ -314,7 +314,14 @@ class GmailQueryHandler(SecureHandler):
 
             return response.content if response else self._simple_answer(question, emails_content)
 
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             logger.debug("[GmailQuery] LLM fallback failed: %s", e)
             return self._simple_answer(question, emails_content)
 
@@ -394,7 +401,15 @@ class GmailQueryHandler(SecureHandler):
 
             return json_response(result)
 
-        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError, TypeError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            AttributeError,
+            TypeError,
+        ) as e:
             logger.error("[GmailQuery] Voice query failed: %s", e)
             return error_response("Voice query failed", 500)
 

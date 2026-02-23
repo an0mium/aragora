@@ -632,10 +632,17 @@ def _mock_sast_scanner(monkeypatch):
 
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
-        mock_scanner.scan_repository = AsyncMock(return_value=MagicMock(
-            findings=[], scanned_files=0, skipped_files=0,
-            scan_duration_ms=0, languages_detected=[], rules_used=[], errors=[],
-        ))
+        mock_scanner.scan_repository = AsyncMock(
+            return_value=MagicMock(
+                findings=[],
+                scanned_files=0,
+                skipped_files=0,
+                scan_duration_ms=0,
+                languages_detected=[],
+                rules_used=[],
+                errors=[],
+            )
+        )
         mock_scanner.scan_file = AsyncMock(return_value=[])
         monkeypatch.setattr(sast_mod, "get_sast_scanner", lambda: mock_scanner)
     except (ImportError, AttributeError):
@@ -645,14 +652,19 @@ def _mock_sast_scanner(monkeypatch):
         from aragora.server.handlers.features.codebase_audit import scanning
 
         for fn_name in (
-            "run_sast_scan", "run_bug_scan", "run_secrets_scan",
-            "run_dependency_scan", "run_metrics_analysis",
+            "run_sast_scan",
+            "run_bug_scan",
+            "run_secrets_scan",
+            "run_dependency_scan",
+            "run_metrics_analysis",
         ):
             mock_fn_name = f"_get_mock_{fn_name.removeprefix('run_')}"
             fallback = getattr(scanning, mock_fn_name, None)
             if fallback and hasattr(scanning, fn_name):
+
                 async def _mock(tp, sid, tid, _fb=fallback, _sid_ref=fn_name, **kw):
                     return _fb(sid)
+
                 monkeypatch.setattr(scanning, fn_name, _mock)
     except (ImportError, AttributeError):
         pass

@@ -156,9 +156,7 @@ def test_role_match_result_defaults():
 def test_role_match_result_with_data():
     """Test RoleMatchResult with populated data."""
     assignments = {
-        "agent1": RoleAssignment(
-            agent_name="agent1", role=CognitiveRole.ANALYST, round_num=1
-        ),
+        "agent1": RoleAssignment(agent_name="agent1", role=CognitiveRole.ANALYST, round_num=1),
     }
     result = RoleMatchResult(
         round_num=1,
@@ -186,9 +184,7 @@ def test_role_matcher_initialization():
     manager = MagicMock()
     config = RoleMatchingConfig(strategy="calibration")
 
-    matcher = RoleMatcher(
-        calibration_tracker=tracker, persona_manager=manager, config=config
-    )
+    matcher = RoleMatcher(calibration_tracker=tracker, persona_manager=manager, config=config)
 
     assert matcher.calibration_tracker is tracker
     assert matcher.persona_manager is manager
@@ -276,9 +272,7 @@ def test_rotation_strategy_wraps_around():
 # Test calibration strategy
 
 
-def test_calibration_strategy_well_calibrated_agent(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_calibration_strategy_well_calibrated_agent(mock_calibration_tracker, mock_persona_manager):
     """Test calibration strategy assigns SKEPTIC/QUALITY_CHALLENGER to well-calibrated agents."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")
@@ -289,9 +283,7 @@ def test_calibration_strategy_well_calibrated_agent(
     )
 
     # Well-calibrated agent
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
     mock_calibration_tracker.get_calibration_summary.return_value = cal
 
     result = matcher.match_roles(["agent1"], round_num=0)
@@ -302,9 +294,7 @@ def test_calibration_strategy_well_calibrated_agent(
     assert assignment.role in (CognitiveRole.SKEPTIC, CognitiveRole.QUALITY_CHALLENGER)
 
 
-def test_calibration_strategy_overconfident_agent(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_calibration_strategy_overconfident_agent(mock_calibration_tracker, mock_persona_manager):
     """Test calibration strategy assigns DEVIL_ADVOCATE to overconfident agents."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")
@@ -331,9 +321,7 @@ def test_calibration_strategy_overconfident_agent(
     assert "agent1" in result.developmental_assignments
 
 
-def test_calibration_strategy_underconfident_agent(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_calibration_strategy_underconfident_agent(mock_calibration_tracker, mock_persona_manager):
     """Test calibration strategy assigns ADVOCATE to underconfident agents."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")
@@ -360,9 +348,7 @@ def test_calibration_strategy_underconfident_agent(
     assert "agent1" in result.developmental_assignments
 
 
-def test_calibration_strategy_high_accuracy_agent(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_calibration_strategy_high_accuracy_agent(mock_calibration_tracker, mock_persona_manager):
     """Test calibration strategy assigns SYNTHESIZER to high-accuracy agents."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")
@@ -388,9 +374,7 @@ def test_calibration_strategy_high_accuracy_agent(
     assert assignment.role in (CognitiveRole.SYNTHESIZER, CognitiveRole.ANALYST)
 
 
-def test_calibration_strategy_cold_start_agent(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_calibration_strategy_cold_start_agent(mock_calibration_tracker, mock_persona_manager):
     """Test calibration strategy assigns random role to cold-start agents."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration", min_predictions_for_calibration=5)
@@ -429,9 +413,7 @@ def test_calibration_strategy_developmental_disabled(
 ):
     """Test developmental assignments can be disabled."""
     random.seed(42)
-    config = RoleMatchingConfig(
-        strategy="calibration", enable_developmental_assignment=False
-    )
+    config = RoleMatchingConfig(strategy="calibration", enable_developmental_assignment=False)
     matcher = RoleMatcher(
         calibration_tracker=mock_calibration_tracker,
         persona_manager=mock_persona_manager,
@@ -466,9 +448,7 @@ def test_hybrid_strategy_basic(mock_calibration_tracker, mock_persona_manager):
         config=config,
     )
 
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
     persona = MockPersona(
         agent_name="agent1",
         expertise={"security": 0.8},
@@ -515,12 +495,8 @@ def test_hybrid_strategy_affinity_matrix(mock_calibration_tracker, mock_persona_
         config=config,
     )
 
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
-    persona = MockPersona(
-        agent_name="agent1", expertise={"security": 0.9}, traits=["thorough"]
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
+    persona = MockPersona(agent_name="agent1", expertise={"security": 0.9}, traits=["thorough"])
 
     mock_calibration_tracker.get_calibration_summary.return_value = cal
     mock_persona_manager.get_persona.return_value = persona
@@ -550,9 +526,7 @@ def test_hybrid_strategy_temperature_zero(mock_calibration_tracker, mock_persona
         config=config,
     )
 
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
     mock_calibration_tracker.get_calibration_summary.return_value = cal
     mock_persona_manager.get_persona.return_value = None
 
@@ -571,9 +545,7 @@ def test_hybrid_strategy_high_temperature(mock_calibration_tracker, mock_persona
         config=config,
     )
 
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
     mock_calibration_tracker.get_calibration_summary.return_value = cal
     mock_persona_manager.get_persona.return_value = None
 
@@ -589,9 +561,7 @@ def test_calibration_affinity_well_calibrated(default_config):
     """Test calibration affinity for well-calibrated agent."""
     matcher = RoleMatcher(config=default_config)
 
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
 
     # Well-calibrated → high affinity for SKEPTIC/QUALITY_CHALLENGER
     skeptic_affinity = matcher._calibration_affinity(cal, CognitiveRole.SKEPTIC)
@@ -642,9 +612,7 @@ def test_expertise_affinity_high_expertise(default_config):
     persona = MockPersona(agent_name="agent1", expertise={"security": 0.9})
 
     # High expertise → ANALYST/SYNTHESIZER
-    analyst_affinity = matcher._expertise_affinity(
-        persona, "security", CognitiveRole.ANALYST
-    )
+    analyst_affinity = matcher._expertise_affinity(persona, "security", CognitiveRole.ANALYST)
     assert analyst_affinity == 0.9 * 0.8
 
 
@@ -655,9 +623,7 @@ def test_expertise_affinity_low_expertise(default_config):
     persona = MockPersona(agent_name="agent1", expertise={"security": 0.1})
 
     # Low expertise → LATERAL_THINKER
-    lt_affinity = matcher._expertise_affinity(
-        persona, "security", CognitiveRole.LATERAL_THINKER
-    )
+    lt_affinity = matcher._expertise_affinity(persona, "security", CognitiveRole.LATERAL_THINKER)
     assert lt_affinity == (1.0 - 0.1) * 0.6
 
 
@@ -777,9 +743,7 @@ def test_get_calibrations_handles_errors(mock_calibration_tracker):
     matcher = RoleMatcher(calibration_tracker=mock_calibration_tracker)
 
     # Simulate error
-    mock_calibration_tracker.get_calibration_summary.side_effect = RuntimeError(
-        "Database error"
-    )
+    mock_calibration_tracker.get_calibration_summary.side_effect = RuntimeError("Database error")
 
     result = matcher._get_calibrations(["agent1"])
 
@@ -848,9 +812,7 @@ def test_single_agent(mock_calibration_tracker, mock_persona_manager, default_co
     assert "agent1" in result.assignments
 
 
-def test_multiple_agents_same_calibration(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_multiple_agents_same_calibration(mock_calibration_tracker, mock_persona_manager):
     """Test match_roles with multiple agents having same calibration state."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")
@@ -894,17 +856,13 @@ def test_role_assignment_includes_prompt(mock_calibration_tracker, mock_persona_
 # Test select_role_by_calibration edge cases
 
 
-def test_select_role_by_calibration_all_roles_used(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_select_role_by_calibration_all_roles_used(mock_calibration_tracker, mock_persona_manager):
     """Test _select_role_by_calibration when all roles are used."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")
     matcher = RoleMatcher(config=config)
 
-    cal = MockCalibrationSummary(
-        agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10
-    )
+    cal = MockCalibrationSummary(agent="agent1", brier_score=0.15, ece=0.05, total_predictions=10)
 
     # All roles already used
     used_roles = set(CognitiveRole)
@@ -915,9 +873,7 @@ def test_select_role_by_calibration_all_roles_used(
     assert isinstance(role, CognitiveRole)
 
 
-def test_select_role_by_calibration_fallback_path(
-    mock_calibration_tracker, mock_persona_manager
-):
+def test_select_role_by_calibration_fallback_path(mock_calibration_tracker, mock_persona_manager):
     """Test _select_role_by_calibration fallback path."""
     random.seed(42)
     config = RoleMatchingConfig(strategy="calibration")

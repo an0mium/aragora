@@ -767,7 +767,7 @@ class RoutingRulesHandler(SecureHandler):
             action = "enable" if existing["enabled"] else "disable"
             self._audit_rule_change(action, rule_id, existing.get("name", ""))
 
-            logger.info("Toggled rule %s to enabled=%s", rule_id, existing['enabled'])
+            logger.info("Toggled rule %s to enabled=%s", rule_id, existing["enabled"])
 
             return {
                 "status": "success",

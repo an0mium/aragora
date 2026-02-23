@@ -202,9 +202,7 @@ class TestProviderDispatch:
     async def test_openai_dispatch_no_key(self):
         from aragora.server.stream.oracle_stream import _call_provider_llm_stream
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key", return_value=None
-        ):
+        with patch("aragora.server.stream.oracle_stream._get_api_key", return_value=None):
             tokens = []
             async for t in _call_provider_llm_stream("openai", "model", "prompt"):
                 tokens.append(t)
@@ -214,11 +212,12 @@ class TestProviderDispatch:
     async def test_openai_dispatch_with_key(self):
         from aragora.server.stream.oracle_stream import _call_provider_llm_stream
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key", return_value="sk-test"
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_openai_compat",
-        ) as mock_oai:
+        with (
+            patch("aragora.server.stream.oracle_stream._get_api_key", return_value="sk-test"),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_openai_compat",
+            ) as mock_oai,
+        ):
 
             async def fake_gen(*a, **kw):
                 yield "oai-token"
@@ -234,11 +233,12 @@ class TestProviderDispatch:
     async def test_xai_dispatch_with_key(self):
         from aragora.server.stream.oracle_stream import _call_provider_llm_stream
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key", return_value="xai-key"
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_openai_compat",
-        ) as mock_xai:
+        with (
+            patch("aragora.server.stream.oracle_stream._get_api_key", return_value="xai-key"),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_openai_compat",
+            ) as mock_xai,
+        ):
 
             async def fake_gen(*a, **kw):
                 yield "grok-token"
@@ -271,29 +271,33 @@ class TestStreamPhase:
             yield "Hello world. "
             yield "Done."
 
-        with patch(
-            "aragora.server.stream.oracle_stream._call_provider_llm_stream",
-            side_effect=fake_stream,
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_tts",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._call_provider_llm_stream",
+                side_effect=fake_stream,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_tts",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await _stream_phase(
-                ws, "prompt", "deep", _PHASE_TAG_DEEP, session,
-                provider="openrouter", model="test-model",
+                ws,
+                "prompt",
+                "deep",
+                _PHASE_TAG_DEEP,
+                session,
+                provider="openrouter",
+                model="test-model",
             )
 
         # Should have sent token events
-        token_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "token"
-        ]
+        token_calls = [c for c in ws.send_json.call_args_list if c.args[0].get("type") == "token"]
         assert len(token_calls) >= 1
 
         # Should have sent phase_done
         phase_done_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "phase_done"
+            c for c in ws.send_json.call_args_list if c.args[0].get("type") == "phase_done"
         ]
         assert len(phase_done_calls) == 1
         assert phase_done_calls[0].args[0]["phase"] == "deep"
@@ -311,21 +315,30 @@ class TestStreamPhase:
             yield "token1"
             yield "token2"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._call_provider_llm_stream",
-            side_effect=fake_stream,
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_tts",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._call_provider_llm_stream",
+                side_effect=fake_stream,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_tts",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await _stream_phase(
-                ws, "prompt", "deep", _PHASE_TAG_DEEP, session,
-                provider="openrouter", model="test-model",
+                ws,
+                "prompt",
+                "deep",
+                _PHASE_TAG_DEEP,
+                session,
+                provider="openrouter",
+                model="test-model",
             )
 
         # Should NOT have sent phase_done since cancelled
         phase_done_calls = [
-            c for c in ws.send_json.call_args_list
+            c
+            for c in ws.send_json.call_args_list
             if c.args and c.args[0].get("type") == "phase_done"
         ]
         assert len(phase_done_calls) == 0
@@ -341,21 +354,30 @@ class TestStreamPhase:
         async def fake_stream(*a, **kw):
             yield "token"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._call_provider_llm_stream",
-            side_effect=fake_stream,
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_tts",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._call_provider_llm_stream",
+                side_effect=fake_stream,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_tts",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await _stream_phase(
-                ws, "prompt", "deep", _PHASE_TAG_DEEP, session,
-                provider="openrouter", model="test-model",
+                ws,
+                "prompt",
+                "deep",
+                _PHASE_TAG_DEEP,
+                session,
+                provider="openrouter",
+                model="test-model",
             )
 
         # Should not send phase_done when ws is closed
         phase_done_calls = [
-            c for c in ws.send_json.call_args_list
+            c
+            for c in ws.send_json.call_args_list
             if c.args and c.args[0].get("type") == "phase_done"
         ]
         assert len(phase_done_calls) == 0
@@ -377,14 +399,17 @@ class TestStreamReflex:
         ws.closed = False
         session = OracleSession()
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key",
-            side_effect=lambda k: "key" if k == "OPENROUTER_API_KEY" else None,
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_phase",
-            new_callable=AsyncMock,
-            return_value="Quick ack",
-        ) as mock_phase:
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_api_key",
+                side_effect=lambda k: "key" if k == "OPENROUTER_API_KEY" else None,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_phase",
+                new_callable=AsyncMock,
+                return_value="Quick ack",
+            ) as mock_phase,
+        ):
             result = await _stream_reflex(ws, "test question", session)
 
         assert result == "Quick ack"
@@ -401,14 +426,17 @@ class TestStreamReflex:
         ws.closed = False
         session = OracleSession()
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key",
-            side_effect=lambda k: "key" if k == "OPENAI_API_KEY" else None,
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_phase",
-            new_callable=AsyncMock,
-            return_value="OpenAI ack",
-        ) as mock_phase:
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_api_key",
+                side_effect=lambda k: "key" if k == "OPENAI_API_KEY" else None,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_phase",
+                new_callable=AsyncMock,
+                return_value="OpenAI ack",
+            ) as mock_phase,
+        ):
             result = await _stream_reflex(ws, "test question", session)
 
         assert result == "OpenAI ack"
@@ -447,17 +475,21 @@ class TestStreamDeep:
         ws.closed = False
         session = OracleSession()
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key",
-            return_value="key",
-        ), patch(
-            "aragora.server.stream.oracle_stream._get_oracle_models",
-            return_value=("or-model", "anth-model", "oai-model"),
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_phase",
-            new_callable=AsyncMock,
-            return_value="Deep response",
-        ) as mock_phase:
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_api_key",
+                return_value="key",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._get_oracle_models",
+                return_value=("or-model", "anth-model", "oai-model"),
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_phase",
+                new_callable=AsyncMock,
+                return_value="Deep response",
+            ) as mock_phase,
+        ):
             result = await _stream_deep(ws, "prompt", session)
 
         assert result == "Deep response"
@@ -480,15 +512,19 @@ class TestStreamDeep:
                 return ""  # OpenRouter returns empty
             return "Anthropic response"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key",
-            return_value="key",
-        ), patch(
-            "aragora.server.stream.oracle_stream._get_oracle_models",
-            return_value=("or-model", "anth-model", "oai-model"),
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_phase",
-            side_effect=mock_stream_phase,
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_api_key",
+                return_value="key",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._get_oracle_models",
+                return_value=("or-model", "anth-model", "oai-model"),
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_phase",
+                side_effect=mock_stream_phase,
+            ),
         ):
             result = await _stream_deep(ws, "prompt", session)
 
@@ -502,12 +538,15 @@ class TestStreamDeep:
         ws.closed = False
         session = OracleSession()
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key",
-            return_value=None,
-        ), patch(
-            "aragora.server.stream.oracle_stream._get_oracle_models",
-            return_value=("or", "anth", "oai"),
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_api_key",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._get_oracle_models",
+                return_value=("or", "anth", "oai"),
+            ),
         ):
             result = await _stream_deep(ws, "prompt", session)
 
@@ -554,30 +593,32 @@ class TestStreamTentacles:
             yield "perspective "
             yield "text"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_tentacle_models",
-            return_value=models,
-        ), patch(
-            "aragora.server.stream.oracle_stream._build_oracle_prompt",
-            return_value="prompt",
-        ), patch(
-            "aragora.server.stream.oracle_stream._call_provider_llm_stream",
-            side_effect=fake_stream,
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._build_oracle_prompt",
+                return_value="prompt",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._call_provider_llm_stream",
+                side_effect=fake_stream,
+            ),
         ):
             await _stream_tentacles(ws, "question", "consult", session)
 
         # Should have sent tentacle_start
         start_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "tentacle_start"
+            c for c in ws.send_json.call_args_list if c.args[0].get("type") == "tentacle_start"
         ]
         assert len(start_calls) == 1
         assert start_calls[0].args[0]["agent"] == "Claude"
 
         # Should have sent tentacle_done
         done_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "tentacle_done"
+            c for c in ws.send_json.call_args_list if c.args[0].get("type") == "tentacle_done"
         ]
         assert len(done_calls) == 1
         assert "perspective" in done_calls[0].args[0]["full_text"]
@@ -591,29 +632,31 @@ class TestStreamTentacles:
         session = OracleSession()
 
         models = [
-            {"name": f"Agent{i}", "provider": "openrouter", "model": f"model{i}"}
-            for i in range(8)
+            {"name": f"Agent{i}", "provider": "openrouter", "model": f"model{i}"} for i in range(8)
         ]
 
         async def fake_stream(*a, **kw):
             yield "ok"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_tentacle_models",
-            return_value=models,
-        ), patch(
-            "aragora.server.stream.oracle_stream._build_oracle_prompt",
-            return_value="prompt",
-        ), patch(
-            "aragora.server.stream.oracle_stream._call_provider_llm_stream",
-            side_effect=fake_stream,
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._build_oracle_prompt",
+                return_value="prompt",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._call_provider_llm_stream",
+                side_effect=fake_stream,
+            ),
         ):
             await _stream_tentacles(ws, "question", "consult", session)
 
         # Should only start 5 tentacles (max)
         start_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "tentacle_start"
+            c for c in ws.send_json.call_args_list if c.args[0].get("type") == "tentacle_start"
         ]
         assert len(start_calls) == 5
 
@@ -628,19 +671,21 @@ class TestStreamTentacles:
 
         models = [{"name": "Agent", "provider": "openrouter", "model": "m"}]
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_tentacle_models",
-            return_value=models,
-        ), patch(
-            "aragora.server.stream.oracle_stream._build_oracle_prompt",
-            return_value="prompt",
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._build_oracle_prompt",
+                return_value="prompt",
+            ),
         ):
             await _stream_tentacles(ws, "question", "consult", session)
 
         # No tentacle_done since cancelled before start
         done_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "tentacle_done"
+            c for c in ws.send_json.call_args_list if c.args[0].get("type") == "tentacle_done"
         ]
         assert len(done_calls) == 0
 
@@ -661,23 +706,29 @@ class TestHandleAsk:
         ws.closed = False
         session = OracleSession()
 
-        with patch(
-            "aragora.server.stream.oracle_stream._stream_reflex",
-            new_callable=AsyncMock,
-            return_value="Quick response",
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_deep",
-            new_callable=AsyncMock,
-            return_value="Deep response",
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_tentacles",
-            new_callable=AsyncMock,
-        ), patch(
-            "aragora.server.stream.oracle_stream._build_oracle_prompt",
-            return_value="full prompt",
-        ), patch(
-            "aragora.server.stream.oracle_stream._get_tentacle_models",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._stream_reflex",
+                new_callable=AsyncMock,
+                return_value="Quick response",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_deep",
+                new_callable=AsyncMock,
+                return_value="Deep response",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_tentacles",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._build_oracle_prompt",
+                return_value="full prompt",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._get_tentacle_models",
+                return_value=[],
+            ),
         ):
             await _handle_ask(ws, "What is life?", "consult", session)
 
@@ -685,8 +736,7 @@ class TestHandleAsk:
 
         # Should send synthesis at the end
         synthesis_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "synthesis"
+            c for c in ws.send_json.call_args_list if c.args[0].get("type") == "synthesis"
         ]
         assert len(synthesis_calls) == 1
 
@@ -699,20 +749,25 @@ class TestHandleAsk:
         session = OracleSession()
         session.prebuilt_prompt = "prebuilt from interim"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._stream_reflex",
-            new_callable=AsyncMock,
-            return_value="",
-        ) as mock_reflex, patch(
-            "aragora.server.stream.oracle_stream._stream_deep",
-            new_callable=AsyncMock,
-            return_value="deep",
-        ) as mock_deep, patch(
-            "aragora.server.stream.oracle_stream._stream_tentacles",
-            new_callable=AsyncMock,
-        ), patch(
-            "aragora.server.stream.oracle_stream._get_tentacle_models",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._stream_reflex",
+                new_callable=AsyncMock,
+                return_value="",
+            ) as mock_reflex,
+            patch(
+                "aragora.server.stream.oracle_stream._stream_deep",
+                new_callable=AsyncMock,
+                return_value="deep",
+            ) as mock_deep,
+            patch(
+                "aragora.server.stream.oracle_stream._stream_tentacles",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._get_tentacle_models",
+                return_value=[],
+            ),
         ):
             await _handle_ask(ws, "What is life?", "consult", session)
 
@@ -733,15 +788,19 @@ class TestHandleAsk:
             session.cancelled = True
             return "reflex"
 
-        with patch(
-            "aragora.server.stream.oracle_stream._stream_reflex",
-            side_effect=cancel_after_reflex,
-        ), patch(
-            "aragora.server.stream.oracle_stream._stream_deep",
-            new_callable=AsyncMock,
-        ) as mock_deep, patch(
-            "aragora.server.stream.oracle_stream._build_oracle_prompt",
-            return_value="prompt",
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._stream_reflex",
+                side_effect=cancel_after_reflex,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_deep",
+                new_callable=AsyncMock,
+            ) as mock_deep,
+            patch(
+                "aragora.server.stream.oracle_stream._build_oracle_prompt",
+                return_value="prompt",
+            ),
         ):
             await _handle_ask(ws, "question", "consult", session)
 
@@ -825,10 +884,7 @@ class TestOracleWebSocketHandler:
         ):
             await oracle_websocket_handler(request)
 
-        error_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "error"
-        ]
+        error_calls = [c for c in ws.send_json.call_args_list if c.args[0].get("type") == "error"]
         assert len(error_calls) == 1
         assert "Invalid JSON" in error_calls[0].args[0]["message"]
 
@@ -845,10 +901,7 @@ class TestOracleWebSocketHandler:
         ):
             await oracle_websocket_handler(request)
 
-        error_calls = [
-            c for c in ws.send_json.call_args_list
-            if c.args[0].get("type") == "error"
-        ]
+        error_calls = [c for c in ws.send_json.call_args_list if c.args[0].get("type") == "error"]
         assert len(error_calls) == 1
         assert "Missing question" in error_calls[0].args[0]["message"]
 
@@ -859,12 +912,15 @@ class TestOracleWebSocketHandler:
         ws = _make_ws_mock([{"type": "interim", "text": "partial speech"}])
 
         request = MagicMock()
-        with patch(
-            "aragora.server.stream.oracle_stream.web.WebSocketResponse",
-            return_value=ws,
-        ), patch(
-            "aragora.server.stream.oracle_stream._handle_interim",
-        ) as mock_interim:
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream.web.WebSocketResponse",
+                return_value=ws,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._handle_interim",
+            ) as mock_interim,
+        ):
             await oracle_websocket_handler(request)
 
         mock_interim.assert_called_once()
@@ -882,10 +938,13 @@ class TestHelpers:
     def test_get_api_key_from_env(self):
         from aragora.server.stream.oracle_stream import _get_api_key
 
-        with patch.dict("os.environ", {"TEST_KEY": "test-value"}), patch(
-            "aragora.server.stream.oracle_stream.get_secret",
-            create=True,
-            side_effect=ImportError,
+        with (
+            patch.dict("os.environ", {"TEST_KEY": "test-value"}),
+            patch(
+                "aragora.server.stream.oracle_stream.get_secret",
+                create=True,
+                side_effect=ImportError,
+            ),
         ):
             # Falls back to env when import fails
             with patch(
@@ -943,7 +1002,8 @@ class TestRouteRegistration:
         register_oracle_stream_routes(app)
 
         app.router.add_get.assert_called_once_with(
-            "/ws/oracle", oracle_websocket_handler,
+            "/ws/oracle",
+            oracle_websocket_handler,
         )
 
 
@@ -962,9 +1022,7 @@ class TestStreamTTS:
         ws = AsyncMock()
         ws.closed = False
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key", return_value=None
-        ):
+        with patch("aragora.server.stream.oracle_stream._get_api_key", return_value=None):
             await _stream_tts(ws, "Hello world", _PHASE_TAG_DEEP)
 
         # No bytes should be sent
@@ -998,12 +1056,15 @@ class TestStreamTTS:
             sess.post = _fake_post
             yield sess
 
-        with patch(
-            "aragora.server.stream.oracle_stream._get_api_key",
-            return_value="el-key",
-        ), patch(
-            "aragora.server.stream.oracle_stream.aiohttp.ClientSession",
-            side_effect=lambda: _fake_session(),
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._get_api_key",
+                return_value="el-key",
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream.aiohttp.ClientSession",
+                side_effect=lambda: _fake_session(),
+            ),
         ):
             await _stream_tts(ws, "Hello", _PHASE_TAG_DEEP)
 

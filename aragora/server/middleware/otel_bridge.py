@@ -152,7 +152,9 @@ class OTelBridgeConfig:
             sampler_type = SamplerType(sampler_str)
         except ValueError:
             logger.warning(
-                "Unknown sampler type: %s, using parentbased_always_on. Valid options: %s", sampler_str, [s.value for s in SamplerType]
+                "Unknown sampler type: %s, using parentbased_always_on. Valid options: %s",
+                sampler_str,
+                [s.value for s in SamplerType],
             )
             sampler_type = SamplerType.PARENT_BASED_ALWAYS_ON
 

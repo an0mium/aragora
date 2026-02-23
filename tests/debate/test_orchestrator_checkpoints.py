@@ -54,8 +54,9 @@ def make_agents(names=("agent-a", "agent-b")):
     return agents
 
 
-def make_checkpoint_record(checkpoint_id="ckpt-001", debate_id="debate-001",
-                            created_at="2026-02-17T10:00:00"):
+def make_checkpoint_record(
+    checkpoint_id="ckpt-001", debate_id="debate-001", created_at="2026-02-17T10:00:00"
+):
     """Return a checkpoint metadata dict as returned by list_checkpoints."""
     return {
         "checkpoint_id": checkpoint_id,
@@ -67,8 +68,9 @@ def make_checkpoint_record(checkpoint_id="ckpt-001", debate_id="debate-001",
     }
 
 
-def make_resumed(original_debate_id="debate-001", checkpoint_id="ckpt-001",
-                 current_round=2, critiques_dicts=None):
+def make_resumed(
+    original_debate_id="debate-001", checkpoint_id="ckpt-001", current_round=2, critiques_dicts=None
+):
     """Create a mock resumed checkpoint object."""
     resumed = MagicMock()
     resumed.original_debate_id = original_debate_id
@@ -468,9 +470,7 @@ class TestRestoreFromCheckpoint:
         from aragora.debate.orchestrator_checkpoints import restore_from_checkpoint
 
         mgr = make_checkpoint_manager()
-        mgr.resume_from_checkpoint.return_value = make_resumed(
-            original_debate_id="orig-debate-99"
-        )
+        mgr.resume_from_checkpoint.return_value = make_resumed(original_debate_id="orig-debate-99")
 
         result = await restore_from_checkpoint(
             checkpoint_manager=mgr,
@@ -640,10 +640,24 @@ class TestRestoreFromCheckpoint:
 
         mgr = make_checkpoint_manager()
         critique_dicts = [
-            {"agent": "a1", "target_agent": "a2", "target_content": "", "issues": [],
-             "suggestions": [], "severity": 2.0, "reasoning": "r1"},
-            {"agent": "a2", "target_agent": "a1", "target_content": "", "issues": [],
-             "suggestions": [], "severity": 7.5, "reasoning": "r2"},
+            {
+                "agent": "a1",
+                "target_agent": "a2",
+                "target_content": "",
+                "issues": [],
+                "suggestions": [],
+                "severity": 2.0,
+                "reasoning": "r1",
+            },
+            {
+                "agent": "a2",
+                "target_agent": "a1",
+                "target_content": "",
+                "issues": [],
+                "suggestions": [],
+                "severity": 7.5,
+                "reasoning": "r2",
+            },
         ]
         mgr.resume_from_checkpoint.return_value = make_resumed(critiques_dicts=critique_dicts)
 

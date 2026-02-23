@@ -327,9 +327,20 @@ class TestMockDebate:
         result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
         body = _body(result)
         required_fields = [
-            "id", "topic", "status", "rounds_used", "consensus_reached",
-            "confidence", "verdict", "duration_seconds", "participants",
-            "proposals", "critiques", "votes", "dissenting_views", "final_answer",
+            "id",
+            "topic",
+            "status",
+            "rounds_used",
+            "consensus_reached",
+            "confidence",
+            "verdict",
+            "duration_seconds",
+            "participants",
+            "proposals",
+            "critiques",
+            "votes",
+            "dissenting_views",
+            "final_answer",
         ]
         for field in required_fields:
             assert field in body, f"Missing required field: {field}"
@@ -420,9 +431,7 @@ class TestOracleMode:
             "aragora.server.handlers.playground._try_oracle_response",
             return_value=None,
         ) as mock_oracle:
-            mock_h = _MockHTTPHandler(
-                "POST", body={"question": "test question"}
-            )
+            mock_h = _MockHTTPHandler("POST", body={"question": "test question"})
             handler.handle_post("/api/v1/playground/debate", {}, mock_h)
             mock_oracle.assert_called_once()
             assert mock_oracle.call_args.kwargs.get("mode") == "consult"
@@ -510,9 +519,7 @@ class TestCostEstimate:
 
     def test_default_cost_estimate(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "estimated_cost_usd" in body
@@ -522,9 +529,7 @@ class TestCostEstimate:
 
     def test_custom_agents_and_rounds(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"agents": 5, "rounds": 2})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert body["agent_count"] == 5
         assert body["rounds"] == 2
@@ -533,57 +538,43 @@ class TestCostEstimate:
 
     def test_agents_clamped_to_max(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"agents": 100})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert body["agent_count"] == _MAX_AGENTS
 
     def test_agents_clamped_to_min(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"agents": 0})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert body["agent_count"] == _MIN_AGENTS
 
     def test_rounds_clamped(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"rounds": 100})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert body["rounds"] == _MAX_ROUNDS
 
     def test_invalid_agents_uses_default(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"agents": "invalid"})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert body["agent_count"] == _DEFAULT_AGENTS
 
     def test_invalid_rounds_uses_default(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"rounds": "invalid"})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert body["rounds"] == _DEFAULT_ROUNDS
 
     def test_null_handler_uses_empty_body(self, handler):
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, None
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, None)
         assert _status(result) == 200
         body = _body(result)
         assert body["agent_count"] == _DEFAULT_AGENTS
 
     def test_timeout_seconds_in_response(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         body = _body(result)
         assert "timeout_seconds" in body
 
@@ -597,12 +588,15 @@ class TestLiveDebate:
     """Tests for the live debate endpoint."""
 
     def test_no_api_keys_falls_back_to_mock(self, handler):
-        with patch(
-            "aragora.server.handlers.playground._get_api_key",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.playground._try_oracle_response",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_api_key",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.playground._try_oracle_response",
+                return_value=None,
+            ),
         ):
             mock_h = _MockHTTPHandler("POST", body={"topic": "AI Safety"})
             result = handler._handle_live_debate(mock_h)
@@ -642,12 +636,15 @@ class TestLiveDebate:
             "final_answer": "response A",
             "is_live": True,
         }
-        with patch(
-            "aragora.server.handlers.playground._get_api_key",
-            return_value="key",
-        ), patch(
-            "aragora.server.handlers.playground._try_oracle_tentacles",
-            return_value=tentacle_result,
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_api_key",
+                return_value="key",
+            ),
+            patch(
+                "aragora.server.handlers.playground._try_oracle_tentacles",
+                return_value=tentacle_result,
+            ),
         ):
             mock_h = _MockHTTPHandler(
                 "POST", body={"question": "What is truth?", "topic": "system prompt"}
@@ -659,36 +656,42 @@ class TestLiveDebate:
 
     def test_tentacle_failure_falls_back_to_live_factory(self, handler):
         _reset_rate_limits()
-        with patch(
-            "aragora.server.handlers.playground._get_api_key",
-            return_value="key",
-        ), patch(
-            "aragora.server.handlers.playground._try_oracle_tentacles",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.playground.PlaygroundHandler._run_live_debate",
-        ) as mock_run_live:
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_api_key",
+                return_value="key",
+            ),
+            patch(
+                "aragora.server.handlers.playground._try_oracle_tentacles",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.playground.PlaygroundHandler._run_live_debate",
+            ) as mock_run_live,
+        ):
             mock_run_live.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"status": "completed"}).encode(),
                 content_type="application/json",
             )
-            mock_h = _MockHTTPHandler(
-                "POST", body={"question": "What is truth?"}
-            )
+            mock_h = _MockHTTPHandler("POST", body={"question": "What is truth?"})
             result = handler._handle_live_debate(mock_h)
             mock_run_live.assert_called_once()
 
     def test_live_debate_500_falls_back_to_mock(self, handler):
         _reset_rate_limits()
-        with patch(
-            "aragora.server.handlers.playground._get_api_key",
-            return_value="key",
-        ), patch(
-            "aragora.server.handlers.playground.PlaygroundHandler._run_live_debate",
-        ) as mock_run_live, patch(
-            "aragora.server.handlers.playground._try_oracle_response",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_api_key",
+                return_value="key",
+            ),
+            patch(
+                "aragora.server.handlers.playground.PlaygroundHandler._run_live_debate",
+            ) as mock_run_live,
+            patch(
+                "aragora.server.handlers.playground._try_oracle_response",
+                return_value=None,
+            ),
         ):
             from aragora.server.handlers.utils.responses import HandlerResult
 
@@ -705,18 +708,30 @@ class TestLiveDebate:
 
     def test_source_parameter_passed_through(self, handler):
         _reset_rate_limits()
-        with patch(
-            "aragora.server.handlers.playground._get_api_key",
-            return_value="key",
-        ), patch(
-            "aragora.server.handlers.playground._try_oracle_tentacles",
-        ) as mock_tentacles:
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_api_key",
+                return_value="key",
+            ),
+            patch(
+                "aragora.server.handlers.playground._try_oracle_tentacles",
+            ) as mock_tentacles,
+        ):
             mock_tentacles.return_value = {
-                "id": "t1", "topic": "q", "status": "completed",
-                "rounds_used": 1, "consensus_reached": True, "confidence": 0.7,
-                "verdict": "needs_review", "duration_seconds": 1,
-                "participants": ["a"], "proposals": {}, "critiques": [],
-                "votes": [], "dissenting_views": [], "final_answer": "text",
+                "id": "t1",
+                "topic": "q",
+                "status": "completed",
+                "rounds_used": 1,
+                "consensus_reached": True,
+                "confidence": 0.7,
+                "verdict": "needs_review",
+                "duration_seconds": 1,
+                "participants": ["a"],
+                "proposals": {},
+                "critiques": [],
+                "votes": [],
+                "dissenting_views": [],
+                "final_answer": "text",
                 "is_live": True,
             }
             mock_h = _MockHTTPHandler(
@@ -765,10 +780,13 @@ class TestTTS:
 
     def test_successful_tts_returns_audio(self, handler):
         fake_audio = b"\xff\xfb\x90\x00" * 100  # fake mp3 bytes
-        with patch(
-            "aragora.config.secrets.get_secret",
-            return_value="fake-key",
-        ), patch("urllib.request.urlopen") as mock_urlopen:
+        with (
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value="fake-key",
+            ),
+            patch("urllib.request.urlopen") as mock_urlopen,
+        ):
             mock_resp = MagicMock()
             mock_resp.read.return_value = fake_audio
             mock_resp.__enter__ = lambda s: s
@@ -784,22 +802,26 @@ class TestTTS:
     def test_elevenlabs_http_error_returns_502(self, handler):
         import urllib.error
 
-        with patch(
-            "aragora.config.secrets.get_secret",
-            return_value="fake-key",
-        ), patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.side_effect = urllib.error.HTTPError(
-                "url", 400, "Bad Request", {}, None
-            )
+        with (
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value="fake-key",
+            ),
+            patch("urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_urlopen.side_effect = urllib.error.HTTPError("url", 400, "Bad Request", {}, None)
             mock_h = _MockHTTPHandler("POST", body={"text": "test"})
             result = handler._handle_tts(mock_h)
             assert _status(result) == 502
 
     def test_elevenlabs_timeout_returns_503(self, handler):
-        with patch(
-            "aragora.config.secrets.get_secret",
-            return_value="fake-key",
-        ), patch("urllib.request.urlopen") as mock_urlopen:
+        with (
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value="fake-key",
+            ),
+            patch("urllib.request.urlopen") as mock_urlopen,
+        ):
             mock_urlopen.side_effect = TimeoutError("timeout")
             mock_h = _MockHTTPHandler("POST", body={"text": "test"})
             result = handler._handle_tts(mock_h)
@@ -823,10 +845,13 @@ class TestTTS:
 
     def test_text_truncated_to_max(self, handler):
         fake_audio = b"\xff\xfb\x90\x00"
-        with patch(
-            "aragora.config.secrets.get_secret",
-            return_value="fake-key",
-        ), patch("urllib.request.urlopen") as mock_urlopen:
+        with (
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value="fake-key",
+            ),
+            patch("urllib.request.urlopen") as mock_urlopen,
+        ):
             mock_resp = MagicMock()
             mock_resp.read.return_value = fake_audio
             mock_resp.__enter__ = lambda s: s
@@ -861,10 +886,22 @@ class TestInlineMockDebate:
     def test_returns_required_fields(self):
         result = _run_inline_mock_debate("Test topic", 2, 3)
         required = [
-            "id", "topic", "status", "rounds_used", "consensus_reached",
-            "confidence", "verdict", "duration_seconds", "participants",
-            "proposals", "critiques", "votes", "dissenting_views",
-            "final_answer", "receipt", "receipt_hash",
+            "id",
+            "topic",
+            "status",
+            "rounds_used",
+            "consensus_reached",
+            "confidence",
+            "verdict",
+            "duration_seconds",
+            "participants",
+            "proposals",
+            "critiques",
+            "votes",
+            "dissenting_views",
+            "final_answer",
+            "receipt",
+            "receipt_hash",
         ]
         for field in required:
             assert field in result, f"Missing: {field}"
@@ -1091,9 +1128,12 @@ class TestRunLiveDebate:
             assert _status(result) == 503
 
     def test_timeout_returns_408(self, handler):
-        with patch("importlib.util.find_spec", return_value=True), patch(
-            "aragora.server.handlers.playground.start_playground_debate",
-            side_effect=TimeoutError("timed out"),
+        with (
+            patch("importlib.util.find_spec", return_value=True),
+            patch(
+                "aragora.server.handlers.playground.start_playground_debate",
+                side_effect=TimeoutError("timed out"),
+            ),
         ):
             result = handler._run_live_debate("topic", 2, 3)
             assert _status(result) == 408
@@ -1102,9 +1142,12 @@ class TestRunLiveDebate:
             assert "upgrade_cta" in body
 
     def test_value_error_returns_500(self, handler):
-        with patch("importlib.util.find_spec", return_value=True), patch(
-            "aragora.server.handlers.playground.start_playground_debate",
-            side_effect=ValueError("no agents"),
+        with (
+            patch("importlib.util.find_spec", return_value=True),
+            patch(
+                "aragora.server.handlers.playground.start_playground_debate",
+                side_effect=ValueError("no agents"),
+            ),
         ):
             result = handler._run_live_debate("topic", 2, 3)
             assert _status(result) == 500
@@ -1124,9 +1167,12 @@ class TestRunLiveDebate:
             "dissenting_views": [],
             "final_answer": "Conclusion",
         }
-        with patch("importlib.util.find_spec", return_value=True), patch(
-            "aragora.server.handlers.playground.start_playground_debate",
-            return_value=mock_result,
+        with (
+            patch("importlib.util.find_spec", return_value=True),
+            patch(
+                "aragora.server.handlers.playground.start_playground_debate",
+                return_value=mock_result,
+            ),
         ):
             result = handler._run_live_debate("test topic", 2, 3)
             assert _status(result) == 200
@@ -1156,9 +1202,7 @@ class TestPostDispatch:
 
     def test_cost_estimate_path_dispatches(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = handler.handle_post(
-            "/api/v1/playground/debate/live/cost-estimate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
         assert _status(result) == 200
 
     def test_live_path_dispatches(self, handler):
@@ -1230,9 +1274,7 @@ class TestClientIPExtraction:
     )
     def test_ip_from_client_address(self, mock_oracle, handler):
         """Rate limiting uses the IP from handler.client_address."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={}, client_address=("192.168.1.1", 54321)
-        )
+        mock_h = _MockHTTPHandler("POST", body={}, client_address=("192.168.1.1", 54321))
         # First call should succeed
         result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
         assert _status(result) == 200

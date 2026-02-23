@@ -61,9 +61,7 @@ class WorkspaceActivityMixin:
     @handle_errors
     @require_permission("workspaces:read")
     @rate_limit(requests_per_minute=60)
-    def handle_workspace_activity(
-        self: Any, handler: HTTPRequestHandler
-    ) -> HandlerResult:
+    def handle_workspace_activity(self: Any, handler: HTTPRequestHandler) -> HandlerResult:
         """Return recent activity events for a workspace."""
         from aragora.server.handlers.utils.path_utils import extract_path_param
 
@@ -90,14 +88,18 @@ class WorkspaceActivityMixin:
                     offset=offset,
                 )
                 for evt in raw_events:
-                    events.append({
-                        "id": getattr(evt, "id", str(hash(str(evt)))),
-                        "type": getattr(evt, "event_type", getattr(evt, "type", "unknown")),
-                        "actor": getattr(evt, "actor", getattr(evt, "user_id", "system")),
-                        "description": _describe_event(evt),
-                        "timestamp": str(getattr(evt, "timestamp", getattr(evt, "created_at", ""))),
-                        "metadata": getattr(evt, "metadata", {}),
-                    })
+                    events.append(
+                        {
+                            "id": getattr(evt, "id", str(hash(str(evt)))),
+                            "type": getattr(evt, "event_type", getattr(evt, "type", "unknown")),
+                            "actor": getattr(evt, "actor", getattr(evt, "user_id", "system")),
+                            "description": _describe_event(evt),
+                            "timestamp": str(
+                                getattr(evt, "timestamp", getattr(evt, "created_at", ""))
+                            ),
+                            "metadata": getattr(evt, "metadata", {}),
+                        }
+                    )
             except (TypeError, ValueError, AttributeError, OSError) as exc:
                 logger.debug("Activity feed query failed: %s", exc)
 
@@ -126,7 +128,9 @@ def _describe_event(evt: Any) -> str:
         "policy_updated": f"{actor} updated retention policies",
     }
 
-    return descriptions.get(event_type, getattr(evt, "description", f"{actor} performed {event_type}"))
+    return descriptions.get(
+        event_type, getattr(evt, "description", f"{actor} performed {event_type}")
+    )
 
 
 def _parse_query(path: str) -> dict[str, str]:

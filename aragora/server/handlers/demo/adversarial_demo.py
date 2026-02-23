@@ -47,10 +47,7 @@ _demo_store: dict[str, dict[str, Any]] = {}
 
 def _is_demo_mode() -> bool:
     """Return True when running without live agent backends."""
-    return bool(
-        os.environ.get("ARAGORA_OFFLINE")
-        or os.environ.get("DEMO_MODE")
-    )
+    return bool(os.environ.get("ARAGORA_OFFLINE") or os.environ.get("DEMO_MODE"))
 
 
 # ---------------------------------------------------------------------------
@@ -208,11 +205,13 @@ async def _run_demo_debate(
                 critique = _generate_critique(agent, other, topic, round_idx)
                 critiques.append(critique)
 
-        debate_rounds.append({
-            "round": round_idx,
-            "proposals": round_entries,
-            "critiques": critiques,
-        })
+        debate_rounds.append(
+            {
+                "round": round_idx,
+                "proposals": round_entries,
+                "critiques": critiques,
+            }
+        )
 
     # -- Build positions (final round snapshot) ----------------------------
     positions = _build_positions(agents, topic, rounds)
@@ -517,26 +516,30 @@ def _generate_receipt(
     for agent in agents:
         name = agent["name"]
         pos = positions[name]
-        evidence_chain.append({
-            "timestamp": now,
-            "event_type": "position",
-            "agent": name,
-            "description": f"{name} ({pos['bias']}): confidence {pos['confidence']:.2f}, "
-                           f"calibration weight {pos['calibration_weight']}",
-            "evidence_hash": _sha256(pos["position"]),
-        })
+        evidence_chain.append(
+            {
+                "timestamp": now,
+                "event_type": "position",
+                "agent": name,
+                "description": f"{name} ({pos['bias']}): confidence {pos['confidence']:.2f}, "
+                f"calibration weight {pos['calibration_weight']}",
+                "evidence_hash": _sha256(pos["position"]),
+            }
+        )
 
-    evidence_chain.append({
-        "timestamp": now,
-        "event_type": "consensus",
-        "agent": None,
-        "description": (
-            f"Consensus {'reached' if consensus['reached'] else 'NOT reached'} "
-            f"(confidence={consensus['confidence']}, "
-            f"threshold={consensus['threshold_used']})"
-        ),
-        "evidence_hash": _sha256(json.dumps(consensus, sort_keys=True)),
-    })
+    evidence_chain.append(
+        {
+            "timestamp": now,
+            "event_type": "consensus",
+            "agent": None,
+            "description": (
+                f"Consensus {'reached' if consensus['reached'] else 'NOT reached'} "
+                f"(confidence={consensus['confidence']}, "
+                f"threshold={consensus['threshold_used']})"
+            ),
+            "evidence_hash": _sha256(json.dumps(consensus, sort_keys=True)),
+        }
+    )
 
     decision = synthesis
 

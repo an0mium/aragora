@@ -309,7 +309,11 @@ class WorkspaceInvitesMixin:
         )
 
         logger.info(
-            "Created workspace invite: workspace=%s email=%s role=%s by=%s", workspace_id, email, role, auth_ctx.user_id
+            "Created workspace invite: workspace=%s email=%s role=%s by=%s",
+            workspace_id,
+            email,
+            role,
+            auth_ctx.user_id,
         )
 
         # Return invite without token (token is sent via email)
@@ -459,7 +463,10 @@ class WorkspaceInvitesMixin:
         )
 
         logger.info(
-            "Canceled workspace invite: workspace=%s invite=%s by=%s", workspace_id, invite_id, auth_ctx.user_id
+            "Canceled workspace invite: workspace=%s invite=%s by=%s",
+            workspace_id,
+            invite_id,
+            auth_ctx.user_id,
         )
 
         return m.json_response({"message": "Invite canceled", "invite_id": invite_id})
@@ -509,7 +516,10 @@ class WorkspaceInvitesMixin:
 
         # In production, this would trigger email sending
         logger.info(
-            "Resent workspace invite: workspace=%s invite=%s to=%s", workspace_id, invite_id, invite.email
+            "Resent workspace invite: workspace=%s invite=%s to=%s",
+            workspace_id,
+            invite_id,
+            invite.email,
         )
 
         return m.json_response(
@@ -548,7 +558,10 @@ class WorkspaceInvitesMixin:
 
         # Check if invite is still valid
         if not invite.is_valid():
-            if invite.status == InviteStatus.EXPIRED or datetime.now(timezone.utc) >= invite.expires_at:
+            if (
+                invite.status == InviteStatus.EXPIRED
+                or datetime.now(timezone.utc) >= invite.expires_at
+            ):
                 store.update_status(invite.id, InviteStatus.EXPIRED)
                 return m.error_response("This invite has expired", 410)
             return m.error_response(
@@ -614,7 +627,10 @@ class WorkspaceInvitesMixin:
         )
 
         logger.info(
-            "Accepted workspace invite: workspace=%s user=%s role=%s", invite.workspace_id, auth_ctx.user_id, invite.role
+            "Accepted workspace invite: workspace=%s user=%s role=%s",
+            invite.workspace_id,
+            auth_ctx.user_id,
+            invite.role,
         )
 
         emit_handler_event(

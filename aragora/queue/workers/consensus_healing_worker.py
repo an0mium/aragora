@@ -323,7 +323,11 @@ class ConsensusHealingWorker:
         action = self._determine_action(candidate)
 
         logger.info(
-            "[%s] Healing %s: reason=%s, action=%s", self.worker_id, candidate.debate_id, candidate.reason.value, action.value
+            "[%s] Healing %s: reason=%s, action=%s",
+            self.worker_id,
+            candidate.debate_id,
+            candidate.reason.value,
+            action.value,
         )
 
         try:
@@ -518,9 +522,7 @@ async def start_consensus_healing() -> ConsensusHealingWorker:
     worker = get_consensus_healing_worker()
     task = asyncio.create_task(worker.start())
     task.add_done_callback(
-        lambda t: logger.error(
-            "Consensus healing worker crashed: %s", t.exception()
-        )
+        lambda t: logger.error("Consensus healing worker crashed: %s", t.exception())
         if not t.cancelled() and t.exception()
         else None
     )

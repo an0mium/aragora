@@ -96,13 +96,15 @@ class PatternFixer:
                 if compiled.search(line):
                     start = max(0, i - 2)
                     end = min(len(lines), i + 3)
-                    matches.append(PatternMatch(
-                        file=str(path),
-                        line=i + 1,
-                        content=line,
-                        context_before=lines[start:i],
-                        context_after=lines[i + 1:end],
-                    ))
+                    matches.append(
+                        PatternMatch(
+                            file=str(path),
+                            line=i + 1,
+                            content=line,
+                            context_before=lines[start:i],
+                            context_after=lines[i + 1 : end],
+                        )
+                    )
         return matches
 
     def find_antipattern(self, name: str) -> list[PatternMatch]:

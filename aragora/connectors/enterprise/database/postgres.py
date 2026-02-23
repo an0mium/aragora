@@ -598,7 +598,10 @@ class PostgreSQLConnector(EnterpriseConnector):
         )
 
         logger.info(
-            "[%s] Webhook CDC event: %s on %s", self.name, event.operation.value, event.qualified_table
+            "[%s] Webhook CDC event: %s on %s",
+            self.name,
+            event.operation.value,
+            event.qualified_table,
         )
 
         # Process through CDC manager if handlers are configured

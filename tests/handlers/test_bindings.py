@@ -73,6 +73,7 @@ def _make_request(
 
 class MockBindingType(Enum):
     """Mock BindingType enum."""
+
     default = "default"
     direct = "direct"
     broadcast = "broadcast"
@@ -234,6 +235,7 @@ def handler(mock_router):
         },
     ):
         from aragora.server.handlers.bindings import BindingsHandler
+
         h = BindingsHandler(server_context={})
         h._router = mock_router
         yield h
@@ -243,9 +245,11 @@ def handler(mock_router):
 def handler_no_bindings():
     """Create a BindingsHandler with bindings system unavailable."""
     with patch(
-        "aragora.server.handlers.bindings.BINDINGS_AVAILABLE", False,
+        "aragora.server.handlers.bindings.BINDINGS_AVAILABLE",
+        False,
     ):
         from aragora.server.handlers.bindings import BindingsHandler
+
         h = BindingsHandler(server_context={})
         yield h
 
@@ -263,6 +267,7 @@ def handler_no_router():
         },
     ):
         from aragora.server.handlers.bindings import BindingsHandler
+
         h = BindingsHandler(server_context={})
         h._router = None
         yield h
@@ -272,6 +277,7 @@ def handler_no_router():
 def reset_rate_limiter():
     """Reset rate limiter state between tests."""
     from aragora.server.handlers.bindings import _bindings_limiter
+
     _bindings_limiter._buckets.clear()
     yield
     _bindings_limiter._buckets.clear()
@@ -299,9 +305,11 @@ class TestHandlerInit:
     def test_router_initialized_to_none(self):
         """Test _router starts as None."""
         with patch(
-            "aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True,
+            "aragora.server.handlers.bindings.BINDINGS_AVAILABLE",
+            True,
         ):
             from aragora.server.handlers.bindings import BindingsHandler
+
             h = BindingsHandler(server_context={})
             # Before any request, router is None
             assert h._router is None
@@ -757,9 +765,7 @@ class TestResolveBinding:
     @pytest.mark.asyncio
     async def test_resolve_with_user_id(self, handler, mock_router):
         """Test resolving with optional user_id."""
-        mock_router.add_binding(
-            MockMessageBinding(provider="telegram", account_id="acc1")
-        )
+        mock_router.add_binding(MockMessageBinding(provider="telegram", account_id="acc1"))
         body = {
             "provider": "telegram",
             "account_id": "acc1",
@@ -773,9 +779,7 @@ class TestResolveBinding:
     @pytest.mark.asyncio
     async def test_resolve_with_hour(self, handler, mock_router):
         """Test resolving with optional hour parameter."""
-        mock_router.add_binding(
-            MockMessageBinding(provider="telegram", account_id="acc1")
-        )
+        mock_router.add_binding(MockMessageBinding(provider="telegram", account_id="acc1"))
         body = {
             "provider": "telegram",
             "account_id": "acc1",
@@ -828,9 +832,7 @@ class TestResolveBinding:
     @pytest.mark.asyncio
     async def test_resolve_version_prefix(self, handler, mock_router):
         """Test resolve with version prefix."""
-        mock_router.add_binding(
-            MockMessageBinding(provider="telegram", account_id="acc1")
-        )
+        mock_router.add_binding(MockMessageBinding(provider="telegram", account_id="acc1"))
         body = {
             "provider": "telegram",
             "account_id": "acc1",
@@ -843,9 +845,7 @@ class TestResolveBinding:
     @pytest.mark.asyncio
     async def test_resolve_response_format(self, handler, mock_router):
         """Test resolve response contains all expected fields."""
-        mock_router.add_binding(
-            MockMessageBinding(provider="telegram", account_id="acc1")
-        )
+        mock_router.add_binding(MockMessageBinding(provider="telegram", account_id="acc1"))
         body = {
             "provider": "telegram",
             "account_id": "acc1",
@@ -996,9 +996,7 @@ class TestBindingsUnavailable:
     async def test_delete_unavailable(self, handler_no_bindings):
         """Test DELETE returns 503 when bindings unavailable."""
         req = _make_request("DELETE", "/api/bindings/telegram/acc1/*")
-        result = await handler_no_bindings.handle_delete(
-            "/api/bindings/telegram/acc1/*", req
-        )
+        result = await handler_no_bindings.handle_delete("/api/bindings/telegram/acc1/*", req)
         resp = _body(result)
         assert result.status_code == 503
         assert resp["error"]["code"] == "BINDINGS_UNAVAILABLE"
@@ -1093,9 +1091,7 @@ class TestRouterUnavailable:
     async def test_delete_no_router(self, handler_no_router):
         """Test delete returns 503 when router is None."""
         req = _make_request("DELETE", "/api/bindings/telegram/acc1/*")
-        result = await handler_no_router.handle_delete(
-            "/api/bindings/telegram/acc1/*", req
-        )
+        result = await handler_no_router.handle_delete("/api/bindings/telegram/acc1/*", req)
         resp = _body(result)
         assert result.status_code == 503
         assert resp["error"]["code"] == "ROUTER_UNAVAILABLE"
@@ -1112,9 +1108,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_get(self, handler):
         """Test rate limit on GET endpoint."""
-        with patch(
-            "aragora.server.handlers.bindings._bindings_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.bindings._bindings_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             req = _make_request("GET", "/api/bindings")
             result = await handler.handle_get("/api/bindings", req)
@@ -1125,9 +1119,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_post(self, handler):
         """Test rate limit on POST endpoint."""
-        with patch(
-            "aragora.server.handlers.bindings._bindings_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.bindings._bindings_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             body = {
                 "provider": "telegram",
@@ -1144,9 +1136,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_delete(self, handler):
         """Test rate limit on DELETE endpoint."""
-        with patch(
-            "aragora.server.handlers.bindings._bindings_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.bindings._bindings_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             req = _make_request("DELETE", "/api/bindings/telegram/acc1/*")
             result = await handler.handle_delete("/api/bindings/telegram/acc1/*", req)
@@ -1157,9 +1147,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_allowed_passes(self, handler, mock_router):
         """Test that allowed requests pass through rate limiter."""
-        with patch(
-            "aragora.server.handlers.bindings._bindings_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.bindings._bindings_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             req = _make_request("GET", "/api/bindings")
             result = await handler.handle_get("/api/bindings", req)
@@ -1368,12 +1356,8 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_binding_to_dict_in_list_response(self, handler, mock_router):
         """Test that binding to_dict is called for each binding in list."""
-        mock_router.add_binding(
-            MockMessageBinding(provider="telegram", name="b1")
-        )
-        mock_router.add_binding(
-            MockMessageBinding(provider="telegram", name="b2")
-        )
+        mock_router.add_binding(MockMessageBinding(provider="telegram", name="b1"))
+        mock_router.add_binding(MockMessageBinding(provider="telegram", name="b2"))
         req = _make_request("GET", "/api/bindings")
         result = await handler.handle_get("/api/bindings", req)
         resp = _body(result)

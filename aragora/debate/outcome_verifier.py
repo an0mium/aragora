@@ -314,9 +314,7 @@ class OutcomeVerifier:
         self._update_outcome_tracker(decision, outcome_correct, signal_detail)
 
         # 6. Track systematic errors
-        self._update_systematic_errors(
-            agents, decision.domain, confidence, outcome_correct
-        )
+        self._update_systematic_errors(agents, decision.domain, confidence, outcome_correct)
 
         # 7. Mark as verified
         now = datetime.now().isoformat()
@@ -424,17 +422,19 @@ class OutcomeVerifier:
             overconfidence = avg_conf - success_rate
 
             if overconfidence >= min_overconfidence:
-                errors.append({
-                    "domain": row[0],
-                    "agent": row[1],
-                    "total_verifications": total,
-                    "correct_count": correct,
-                    "success_rate": success_rate,
-                    "avg_confidence": avg_conf,
-                    "avg_brier_score": brier_avg,
-                    "overconfidence": overconfidence,
-                    "last_updated": row[6],
-                })
+                errors.append(
+                    {
+                        "domain": row[0],
+                        "agent": row[1],
+                        "total_verifications": total,
+                        "correct_count": correct,
+                        "success_rate": success_rate,
+                        "avg_confidence": avg_conf,
+                        "avg_brier_score": brier_avg,
+                        "overconfidence": overconfidence,
+                        "last_updated": row[6],
+                    }
+                )
 
         return errors
 
@@ -575,9 +575,7 @@ class OutcomeVerifier:
                     domain=domain,
                     debate_id=debate_id,
                 )
-            logger.debug(
-                "Updated calibration for %d agents in domain=%s", len(agents), domain
-            )
+            logger.debug("Updated calibration for %d agents in domain=%s", len(agents), domain)
         except (ImportError, OSError, sqlite3.Error) as e:
             logger.debug("CalibrationTracker update skipped: %s", e)
 

@@ -289,7 +289,12 @@ class PrivacyAuditLog:
         await self._write_entry(entry)
 
         logger.debug(
-            "Audit: %s by %s on %s/%s -> %s", action.value, actor.id, resource.type, resource.id, outcome.value
+            "Audit: %s by %s on %s/%s -> %s",
+            action.value,
+            actor.id,
+            resource.type,
+            resource.id,
+            outcome.value,
         )
 
         return entry

@@ -15,6 +15,7 @@ from aragora.debate.event_bridge import EventEmitterBridge
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_bridge(spectator=None, event_emitter=None, cartographer=None, loop_id=""):
     """Construct an EventEmitterBridge with optional mocks."""
     return EventEmitterBridge(
@@ -122,7 +123,9 @@ class TestEventTypeMapping:
     def test_all_values_correct(self):
         for key, expected_value in self.EXPECTED.items():
             actual = EventEmitterBridge.EVENT_TYPE_MAPPING[key]
-            assert actual == expected_value, f"Mapping for {key!r}: expected {expected_value!r}, got {actual!r}"
+            assert actual == expected_value, (
+                f"Mapping for {key!r}: expected {expected_value!r}, got {actual!r}"
+            )
 
     def test_no_extra_unmapped_keys(self):
         """The mapping should contain exactly the expected entries."""
@@ -146,7 +149,9 @@ class TestInit:
         spec = MagicMock(name="spectator")
         ee = MagicMock(name="event_emitter")
         cart = MagicMock(name="cartographer")
-        bridge = EventEmitterBridge(spectator=spec, event_emitter=ee, cartographer=cart, loop_id="loop-99")
+        bridge = EventEmitterBridge(
+            spectator=spec, event_emitter=ee, cartographer=cart, loop_id="loop-99"
+        )
 
         assert bridge.spectator is spec
         assert bridge.event_emitter is ee
@@ -220,7 +225,7 @@ class TestNotifySSE:
             push_fn.assert_called_once()
             args = push_fn.call_args
             assert args[0][0] == "debate-42"  # first positional arg
-            assert args[0][1] == "proposal"   # second positional arg
+            assert args[0][1] == "proposal"  # second positional arg
 
     def test_push_not_called_when_no_loop_id(self):
         push_fn = MagicMock(name="push_spectator_event")
@@ -316,7 +321,9 @@ class TestEmitToWebSocket:
         bridge = _make_bridge(event_emitter=ee, loop_id="loop-5")
 
         with _patch_lazy_imports(SE, SET):
-            bridge._emit_to_websocket("proposal", agent="alice", details="My idea", round_number=3, metric=0.8)
+            bridge._emit_to_websocket(
+                "proposal", agent="alice", details="My idea", round_number=3, metric=0.8
+            )
 
         SE.assert_called()
         call_kwargs = SE.call_args[1]
@@ -373,7 +380,9 @@ class TestUpdateCartographer:
         bridge = _make_bridge(event_emitter=ee, cartographer=cart)
 
         with _patch_lazy_imports(SE, SET):
-            bridge._update_cartographer("proposal", agent="alice", details="My plan", round_number=2)
+            bridge._update_cartographer(
+                "proposal", agent="alice", details="My plan", round_number=2
+            )
 
         cart.update_from_message.assert_called_once_with(
             agent="alice",
@@ -401,7 +410,9 @@ class TestUpdateCartographer:
 
         details = "Critiqued alice: weak argument"
         with _patch_lazy_imports(SE, SET):
-            bridge._update_cartographer("critique", agent="bob", details=details, metric=0.7, round_number=3)
+            bridge._update_cartographer(
+                "critique", agent="bob", details=details, metric=0.7, round_number=3
+            )
 
         cart.update_from_critique.assert_called_once_with(
             critic_agent="bob",
@@ -418,7 +429,9 @@ class TestUpdateCartographer:
         bridge = _make_bridge(event_emitter=ee, cartographer=cart)
 
         with _patch_lazy_imports(SE, SET):
-            bridge._update_cartographer("critique", agent="x", details="Some critique", metric="bad_value")
+            bridge._update_cartographer(
+                "critique", agent="x", details="Some critique", metric="bad_value"
+            )
 
         call_kwargs = cart.update_from_critique.call_args[1]
         assert call_kwargs["severity"] == 0.5
@@ -430,7 +443,9 @@ class TestUpdateCartographer:
         bridge = _make_bridge(event_emitter=ee, cartographer=cart)
 
         with _patch_lazy_imports(SE, SET):
-            bridge._update_cartographer("vote", agent="carol", details="choice: agree", round_number=1)
+            bridge._update_cartographer(
+                "vote", agent="carol", details="choice: agree", round_number=1
+            )
 
         cart.update_from_vote.assert_called_once_with(
             agent="carol",
@@ -460,7 +475,9 @@ class TestUpdateCartographer:
         bridge = _make_bridge(event_emitter=ee, cartographer=cart)
 
         with _patch_lazy_imports(SE, SET):
-            bridge._update_cartographer("consensus", agent="", details="result: approved", round_number=4)
+            bridge._update_cartographer(
+                "consensus", agent="", details="result: approved", round_number=4
+            )
 
         cart.update_from_consensus.assert_called_once_with(
             result="approved",
@@ -581,7 +598,9 @@ class TestEmitGraphUpdate:
 
 class TestExtractCritiqueTarget:
     def test_extracts_target_when_critiqued_present(self):
-        target = EventEmitterBridge._extract_critique_target("Critiqued alice: the argument is weak")
+        target = EventEmitterBridge._extract_critique_target(
+            "Critiqued alice: the argument is weak"
+        )
         assert target == "alice"
 
     def test_extracts_target_with_extra_spaces(self):
@@ -589,7 +608,9 @@ class TestExtractCritiqueTarget:
         assert target == "bob smith"
 
     def test_returns_empty_when_critiqued_absent(self):
-        target = EventEmitterBridge._extract_critique_target("General critique text without the keyword")
+        target = EventEmitterBridge._extract_critique_target(
+            "General critique text without the keyword"
+        )
         assert target == ""
 
     def test_returns_empty_for_empty_string(self):
@@ -683,7 +704,9 @@ class TestNotifyIntegration:
         cart = MagicMock(name="cartographer")
         push_fn = MagicMock(name="push_fn")
 
-        bridge = _make_bridge(spectator=spec, event_emitter=ee, cartographer=cart, loop_id="loop-ALL")
+        bridge = _make_bridge(
+            spectator=spec, event_emitter=ee, cartographer=cart, loop_id="loop-ALL"
+        )
         with _patch_lazy_imports(SE, SET, push_fn):
             bridge.notify("proposal", agent="alice", details="My idea", round_number=1)
 

@@ -396,7 +396,10 @@ class RevisionGenerator:
                 )
                 self._active_molecules[agent.name] = molecule.molecule_id
                 logger.debug(
-                    "[molecule] Created revision molecule %s for agent=%s round=%s", molecule.molecule_id, agent.name, round_num
+                    "[molecule] Created revision molecule %s for agent=%s round=%s",
+                    molecule.molecule_id,
+                    agent.name,
+                    round_num,
                 )
         except ImportError:
             logger.debug("[molecule] Molecule imports unavailable")

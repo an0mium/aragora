@@ -437,7 +437,11 @@ class FileGatewayStore:
                     logger.warning("Failed to load session: %s", e)
 
             logger.debug(
-                "Loaded gateway state: %s messages, %s devices, %s rules, %s sessions", len(self._messages), len(self._devices), len(self._rules), len(self._sessions)
+                "Loaded gateway state: %s messages, %s devices, %s rules, %s sessions",
+                len(self._messages),
+                len(self._devices),
+                len(self._rules),
+                len(self._sessions),
             )
         except json.JSONDecodeError as e:
             logger.error("Failed to parse gateway state file: %s", e)

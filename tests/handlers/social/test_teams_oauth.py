@@ -297,9 +297,7 @@ class TestHandleWrapper:
     @pytest.mark.asyncio
     async def test_handle_delegates_to_dispatch_get(self, handler, mock_state_store):
         """handle(path, qp, handler) should delegate to dispatch(method='GET', ...)."""
-        result = await handler.handle(
-            "/api/integrations/teams/install", {}, MagicMock()
-        )
+        result = await handler.handle("/api/integrations/teams/install", {}, MagicMock())
         assert _status(result) == 302
 
     @pytest.mark.asyncio
@@ -316,9 +314,7 @@ class TestHandleWrapper:
         # Mock org/me responses
         org_resp = MagicMock()
         org_resp.status_code = 200
-        org_resp.json.return_value = {
-            "value": [{"id": "tid-1", "displayName": "My Org"}]
-        }
+        org_resp.json.return_value = {"value": [{"id": "tid-1", "displayName": "My Org"}]}
         me_resp = MagicMock()
         me_resp.status_code = 200
         me_resp.json.return_value = {"id": "me-id-1"}
@@ -355,49 +351,37 @@ class TestInstall:
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_ms_oauth_url(self, handler):
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         location = result.headers.get("Location", "")
         assert "login.microsoftonline.com" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_client_id(self, handler):
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         location = result.headers.get("Location", "")
         assert "client_id=test-client-id" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_state(self, handler):
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         location = result.headers.get("Location", "")
         assert "state=test-state-token-abc123def456" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_redirect_uri(self, handler):
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         location = result.headers.get("Location", "")
         assert "redirect_uri=" in location
 
     @pytest.mark.asyncio
     async def test_redirect_location_contains_scopes(self, handler):
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         location = result.headers.get("Location", "")
         assert "scope=" in location
 
     @pytest.mark.asyncio
     async def test_redirect_no_cache(self, handler):
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         assert result.headers.get("Cache-Control") == "no-store"
 
     @pytest.mark.asyncio
@@ -417,27 +401,19 @@ class TestInstall:
     @pytest.mark.asyncio
     async def test_install_not_configured(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "TEAMS_CLIENT_ID", None)
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         assert _status(result) == 503
         assert "not configured" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_install_state_generation_failure(
-        self, handler, mock_state_store
-    ):
+    async def test_install_state_generation_failure(self, handler, mock_state_store):
         mock_state_store.generate.side_effect = RuntimeError("state store down")
-        result = await handler.dispatch(
-            method="GET", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="GET", path="/api/integrations/teams/install")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_install_method_not_allowed_post(self, handler):
-        result = await handler.dispatch(
-            method="POST", path="/api/integrations/teams/install"
-        )
+        result = await handler.dispatch(method="POST", path="/api/integrations/teams/install")
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -471,9 +447,7 @@ class TestInstall:
         assert "localhost" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_install_allows_127_0_0_1_fallback(
-        self, handler, handler_module, monkeypatch
-    ):
+    async def test_install_allows_127_0_0_1_fallback(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "TEAMS_REDIRECT_URI", None)
         result = await handler.dispatch(
             method="GET",
@@ -516,9 +490,7 @@ class TestCallback:
     def org_response(self):
         resp = MagicMock()
         resp.status_code = 200
-        resp.json.return_value = {
-            "value": [{"id": "tid-123", "displayName": "Contoso"}]
-        }
+        resp.json.return_value = {"value": [{"id": "tid-123", "displayName": "Contoso"}]}
         return resp
 
     @pytest.fixture
@@ -683,9 +655,7 @@ class TestCallback:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_callback_no_access_token_in_response(
-        self, handler, mock_tenant_store
-    ):
+    async def test_callback_no_access_token_in_response(self, handler, mock_tenant_store):
         mock_client, _ = _make_httpx_mock({"refresh_token": "rt-1", "expires_in": 3600})
         with patch("httpx.AsyncClient", return_value=mock_client):
             result = await handler.dispatch(
@@ -833,9 +803,7 @@ class TestCallback:
         assert _status(result) != 401
 
     @pytest.mark.asyncio
-    async def test_callback_state_metadata_none(
-        self, handler, mock_state_store, httpx_setup
-    ):
+    async def test_callback_state_metadata_none(self, handler, mock_state_store, httpx_setup):
         """State data with no metadata should still work (org_id = None)."""
         state_data = MagicMock()
         state_data.metadata = None
@@ -1239,9 +1207,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         body = _body(result)
         assert body["tenants"][0]["token_status"] == "valid"
 
@@ -1254,9 +1220,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         body = _body(result)
         assert body["tenants"][0]["token_status"] == "expired"
 
@@ -1270,9 +1234,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         body = _body(result)
         assert body["tenants"][0]["token_status"] == "expiring_soon"
 
@@ -1286,9 +1248,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         body = _body(result)
         assert body["tenants"][0]["token_status"] == "valid"
 
@@ -1298,9 +1258,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             side_effect=ImportError("no module"),
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1311,9 +1269,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1326,9 +1282,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         body = _body(result)
         assert body["total"] == 2
         ids = {t["tenant_id"] for t in body["tenants"]}
@@ -1348,9 +1302,7 @@ class TestListTenants:
             "aragora.storage.teams_tenant_store.get_teams_tenant_store",
             return_value=mock_tenant_store,
         ):
-            result = await handler.dispatch(
-                method="GET", path="/api/integrations/teams/tenants"
-            )
+            result = await handler.dispatch(method="GET", path="/api/integrations/teams/tenants")
         body = _body(result)
         t = body["tenants"][0]
         expected_keys = {
@@ -2117,9 +2069,7 @@ class TestCheckPermission:
         """If both primary and fallback fail, raises ForbiddenError."""
         from aragora.server.handlers.secure import ForbiddenError
 
-        with patch.object(
-            handler, "check_permission", side_effect=ForbiddenError("denied")
-        ):
+        with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
             with pytest.raises(ForbiddenError):
                 handler._check_permission(
                     MagicMock(),
@@ -2131,9 +2081,7 @@ class TestCheckPermission:
         """If primary fails and there is no fallback, raises."""
         from aragora.server.handlers.secure import ForbiddenError
 
-        with patch.object(
-            handler, "check_permission", side_effect=ForbiddenError("denied")
-        ):
+        with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
             with pytest.raises(ForbiddenError):
                 handler._check_permission(MagicMock(), "teams:oauth:install")
 

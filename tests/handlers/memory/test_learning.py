@@ -293,9 +293,7 @@ class TestGetCycleSummaries:
         for i in range(5):
             _create_cycle(replays, i + 1)
 
-        result = await handler.handle(
-            "/api/v1/learning/cycles", {"limit": "2"}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/cycles", {"limit": "2"}, mock_http)
         body = _body(result)
         assert body["count"] == 2
         assert body["has_more"] is True
@@ -382,9 +380,7 @@ class TestGetCycleSummaries:
     @pytest.mark.asyncio
     async def test_nomic_dir_not_configured(self, handler_no_nomic, mock_http):
         """Return 503 when nomic dir is not configured."""
-        result = await handler_no_nomic.handle(
-            "/api/v1/learning/cycles", {}, mock_http
-        )
+        result = await handler_no_nomic.handle("/api/v1/learning/cycles", {}, mock_http)
         assert _status(result) == 503
         assert "not configured" in _body(result).get("error", "").lower()
 
@@ -409,9 +405,7 @@ class TestGetLearnedPatterns:
         assert body["agent_specializations"] == {}
 
     @pytest.mark.asyncio
-    async def test_risk_register_with_failed_entries(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_risk_register_with_failed_entries(self, handler, nomic_dir, mock_http):
         """Low-confidence entries should appear as failed patterns."""
         _create_risk_register(
             nomic_dir,
@@ -440,9 +434,7 @@ class TestGetLearnedPatterns:
         assert body["failed_patterns"][0]["phase"] == "implement"
 
     @pytest.mark.asyncio
-    async def test_risk_register_with_successful_entries(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_risk_register_with_successful_entries(self, handler, nomic_dir, mock_http):
         """High-confidence entries should appear as successful patterns."""
         _create_risk_register(
             nomic_dir,
@@ -474,9 +466,7 @@ class TestGetLearnedPatterns:
         assert len(body["successful_patterns"]) == 1
 
     @pytest.mark.asyncio
-    async def test_risk_register_limits_to_last_10(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_risk_register_limits_to_last_10(self, handler, nomic_dir, mock_http):
         """Both pattern lists should be capped at last 10 entries."""
         entries = [
             {"cycle": i, "phase": "test", "confidence": 0.1, "task": f"task-{i}", "error": "err"}
@@ -551,9 +541,7 @@ class TestGetLearnedPatterns:
     @pytest.mark.asyncio
     async def test_nomic_dir_not_configured(self, handler_no_nomic, mock_http):
         """Return 503 when nomic dir is not configured."""
-        result = await handler_no_nomic.handle(
-            "/api/v1/learning/patterns", {}, mock_http
-        )
+        result = await handler_no_nomic.handle("/api/v1/learning/patterns", {}, mock_http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -587,9 +575,7 @@ class TestGetAgentEvolution:
     @pytest.mark.asyncio
     async def test_no_replays(self, handler, nomic_dir, mock_http):
         """Return empty data when replays dir doesn't exist."""
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert _status(result) == 200
         assert body["agents"] == {}
@@ -608,9 +594,7 @@ class TestGetAgentEvolution:
             vote_tally={"claude": 5},
         )
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert "claude" in body["agents"]
         claude = body["agents"]["claude"]
@@ -629,9 +613,7 @@ class TestGetAgentEvolution:
         _create_cycle(replays, 3, agents=[{"name": "claude"}], winner="claude")
         _create_cycle(replays, 4, agents=[{"name": "claude"}], winner="claude")
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["agents"]["claude"]["trend"] == "improving"
 
@@ -650,9 +632,7 @@ class TestGetAgentEvolution:
                 vote_tally={"claude": 0, "grok": 5},
             )
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["agents"]["claude"]["trend"] == "declining"
 
@@ -666,9 +646,7 @@ class TestGetAgentEvolution:
         _create_cycle(replays, 2, agents=[{"name": "claude"}], winner="grok")
         _create_cycle(replays, 3, agents=[{"name": "claude"}], winner="grok")
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["agents"]["claude"]["trend"] == "stable"
 
@@ -685,9 +663,7 @@ class TestGetAgentEvolution:
             vote_tally={"claude": 5, "grok": 2},
         )
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert "claude" in body["agents"]
         assert "grok" in body["agents"]
@@ -701,9 +677,7 @@ class TestGetAgentEvolution:
         for i in range(1, 26):
             _create_cycle(replays, i, agents=[{"name": "claude"}])
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert len(body["agents"]["claude"]["data_points"]) == 20
         assert body["agents"]["claude"]["total_cycles"] == 25
@@ -716,18 +690,14 @@ class TestGetAgentEvolution:
         (replays / "nomic-cycle-abc").mkdir()
         _create_cycle(replays, 1)
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["total_cycles_analyzed"] == 1
 
     @pytest.mark.asyncio
     async def test_nomic_dir_not_configured(self, handler_no_nomic, mock_http):
         """Return 503 when nomic dir is not configured."""
-        result = await handler_no_nomic.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler_no_nomic.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -740,9 +710,7 @@ class TestGetAgentEvolution:
         (bad_dir / "meta.json").write_text("{invalid json")
         _create_cycle(replays, 2, agents=[{"name": "claude"}])
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["total_cycles_analyzed"] == 1
 
@@ -759,9 +727,7 @@ class TestGetAgentEvolution:
             vote_tally={"claude": 7},
         )
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         dp = body["agents"]["claude"]["data_points"][0]
         assert dp["votes"] == 7
@@ -824,14 +790,12 @@ class TestGetAggregatedInsights:
     async def test_insights_limit_param(self, handler, nomic_dir, mock_http):
         """Respect the limit query parameter."""
         rows = [
-            (f"ins-{i}", f"d-{i}", "general", f"Content {i}", 0.5, f"2026-01-{i+1:02d}")
+            (f"ins-{i}", f"d-{i}", "general", f"Content {i}", 0.5, f"2026-01-{i + 1:02d}")
             for i in range(10)
         ]
         _create_insights_db(nomic_dir, rows)
 
-        result = await handler.handle(
-            "/api/v1/learning/insights", {"limit": "3"}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/insights", {"limit": "3"}, mock_http)
         body = _body(result)
         assert body["count"] == 3
 
@@ -839,8 +803,7 @@ class TestGetAggregatedInsights:
     async def test_insights_default_limit(self, handler, nomic_dir, mock_http):
         """Default limit is 50."""
         rows = [
-            (f"ins-{i}", f"d-{i}", "general", f"Content {i}", 0.5, f"2026-01-01")
-            for i in range(5)
+            (f"ins-{i}", f"d-{i}", "general", f"Content {i}", 0.5, "2026-01-01") for i in range(5)
         ]
         _create_insights_db(nomic_dir, rows)
 
@@ -887,9 +850,7 @@ class TestGetAggregatedInsights:
     @pytest.mark.asyncio
     async def test_nomic_dir_not_configured(self, handler_no_nomic, mock_http):
         """Return 503 when nomic dir is not configured."""
-        result = await handler_no_nomic.handle(
-            "/api/v1/learning/insights", {}, mock_http
-        )
+        result = await handler_no_nomic.handle("/api/v1/learning/insights", {}, mock_http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -952,9 +913,7 @@ class TestUnknownPath:
     @pytest.mark.asyncio
     async def test_unknown_path_returns_none(self, handler, mock_http):
         """Unknown paths should return None to allow fallthrough."""
-        result = await handler.handle(
-            "/api/v1/learning/nonexistent", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/nonexistent", {}, mock_http)
         assert result is None
 
 
@@ -976,9 +935,7 @@ class TestEdgeCases:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_risk_register_boundary_confidence(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_risk_register_boundary_confidence(self, handler, nomic_dir, mock_http):
         """Test confidence boundary at 0.3 exactly."""
         _create_risk_register(
             nomic_dir,
@@ -996,9 +953,7 @@ class TestEdgeCases:
         assert len(body["failed_patterns"]) == 1
 
     @pytest.mark.asyncio
-    async def test_task_truncation_in_risk_register(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_task_truncation_in_risk_register(self, handler, nomic_dir, mock_http):
         """Long task strings should be truncated to 100 chars."""
         long_task = "x" * 200
         _create_risk_register(
@@ -1011,9 +966,7 @@ class TestEdgeCases:
         assert len(body["failed_patterns"][0]["task"]) == 100
 
     @pytest.mark.asyncio
-    async def test_error_truncation_in_risk_register(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_error_truncation_in_risk_register(self, handler, nomic_dir, mock_http):
         """Long error strings should be truncated to 200 chars."""
         long_error = "e" * 300
         _create_risk_register(
@@ -1037,25 +990,19 @@ class TestEdgeCases:
         assert body["agent_specializations"] == {}
 
     @pytest.mark.asyncio
-    async def test_agent_evolution_non_cycle_dirs_skipped(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_agent_evolution_non_cycle_dirs_skipped(self, handler, nomic_dir, mock_http):
         """Non-cycle directories should be skipped in agent evolution."""
         replays = nomic_dir / "replays"
         replays.mkdir()
         (replays / "some-other-dir").mkdir()
         _create_cycle(replays, 1, agents=[{"name": "claude"}])
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["total_cycles_analyzed"] == 1
 
     @pytest.mark.asyncio
-    async def test_cycle_with_missing_optional_fields(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_cycle_with_missing_optional_fields(self, handler, nomic_dir, mock_http):
         """Cycle meta.json with minimal fields should not crash."""
         replays = nomic_dir / "replays"
         replays.mkdir()
@@ -1074,17 +1021,13 @@ class TestEdgeCases:
         assert cycle["status"] == "unknown"
 
     @pytest.mark.asyncio
-    async def test_evolution_with_empty_agents_list(
-        self, handler, nomic_dir, mock_http
-    ):
+    async def test_evolution_with_empty_agents_list(self, handler, nomic_dir, mock_http):
         """Cycle with no agents should be counted but produce no evolution data."""
         replays = nomic_dir / "replays"
         replays.mkdir()
         _create_cycle(replays, 1, agents=[])
 
-        result = await handler.handle(
-            "/api/v1/learning/agent-evolution", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/learning/agent-evolution", {}, mock_http)
         body = _body(result)
         assert body["total_cycles_analyzed"] == 1
         assert body["agents"] == {}

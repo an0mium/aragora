@@ -145,19 +145,22 @@ class TestRunIdeation:
         mock_arena = MagicMock()
         mock_arena.run = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "aragora.pipeline.idea_to_execution.Arena",
-            return_value=mock_arena,
-            create=True,
-        ) as mock_cls, patch.dict(
-            "sys.modules",
-            {
-                "aragora.debate.orchestrator": MagicMock(Arena=mock_cls),
-                "aragora.debate.models": MagicMock(
-                    DebateProtocol=MagicMock(),
-                    Environment=MagicMock(),
-                ),
-            },
+        with (
+            patch(
+                "aragora.pipeline.idea_to_execution.Arena",
+                return_value=mock_arena,
+                create=True,
+            ) as mock_cls,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.debate.orchestrator": MagicMock(Arena=mock_cls),
+                    "aragora.debate.models": MagicMock(
+                        DebateProtocol=MagicMock(),
+                        Environment=MagicMock(),
+                    ),
+                },
+            ),
         ):
             sr = await pipeline._run_ideation("pipe-1", "Test debate", config)
 
@@ -288,13 +291,9 @@ class TestRunWorkflowGeneration:
     """Test Stage 3: workflow generation with NL builder and fallback."""
 
     @pytest.mark.asyncio
-    async def test_generates_workflow_from_goals(
-        self, pipeline, config, sample_goal_graph
-    ):
+    async def test_generates_workflow_from_goals(self, pipeline, config, sample_goal_graph):
         """Generates workflow from goal graph (via NLBuilder or fallback)."""
-        sr = await pipeline._run_workflow_generation(
-            "pipe-1", sample_goal_graph, config
-        )
+        sr = await pipeline._run_workflow_generation("pipe-1", sample_goal_graph, config)
 
         assert sr.status == "completed"
         assert sr.output["workflow"] is not None
@@ -352,12 +351,8 @@ class TestRunWorkflowGeneration:
         quick_cfg = PipelineConfig(workflow_mode="quick")
         debate_cfg = PipelineConfig(workflow_mode="debate")
 
-        sr_quick = await pipeline._run_workflow_generation(
-            "pipe-1", sample_goal_graph, quick_cfg
-        )
-        sr_debate = await pipeline._run_workflow_generation(
-            "pipe-1", sample_goal_graph, debate_cfg
-        )
+        sr_quick = await pipeline._run_workflow_generation("pipe-1", sample_goal_graph, quick_cfg)
+        sr_debate = await pipeline._run_workflow_generation("pipe-1", sample_goal_graph, debate_cfg)
 
         assert sr_quick.status == "completed"
         assert sr_debate.status == "completed"
@@ -381,9 +376,7 @@ class TestRunOrchestration:
         goals and attempts execution. Tasks complete with planned/failed
         status when DebugLoop is unavailable or path validation fails.
         """
-        sr = await pipeline._run_orchestration(
-            "pipe-1", {"steps": []}, sample_goal_graph, config
-        )
+        sr = await pipeline._run_orchestration("pipe-1", {"steps": []}, sample_goal_graph, config)
 
         assert sr.status == "completed"
         orch = sr.output["orchestration"]
@@ -412,9 +405,7 @@ class TestRunOrchestration:
         captured, callback = events
         cfg = PipelineConfig(event_callback=callback)
 
-        sr = await pipeline._run_orchestration(
-            "pipe-1", {"steps": []}, sample_goal_graph, cfg
-        )
+        sr = await pipeline._run_orchestration("pipe-1", {"steps": []}, sample_goal_graph, cfg)
 
         event_types = [e[0] for e in captured]
         assert "stage_started" in event_types
@@ -446,9 +437,7 @@ class TestAsyncPipelineRun:
         cfg = PipelineConfig(dry_run=True)
         result = await pipeline.run("Test ideas", config=cfg)
 
-        orch_results = [
-            sr for sr in result.stage_results if sr.stage_name == "orchestration"
-        ]
+        orch_results = [sr for sr in result.stage_results if sr.stage_name == "orchestration"]
         if orch_results:
             assert orch_results[0].status == "skipped"
 
@@ -462,9 +451,7 @@ class TestAsyncPipelineRun:
 
         event_types = [e[0] for e in captured]
         assert "started" in event_types
-        assert "completed" in event_types or any(
-            "stage_completed" in t for t in event_types
-        )
+        assert "completed" in event_types or any("stage_completed" in t for t in event_types)
 
     @pytest.mark.asyncio
     async def test_receipt_generation(self, pipeline):

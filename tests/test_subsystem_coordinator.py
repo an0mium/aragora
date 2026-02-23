@@ -311,7 +311,9 @@ class TestQueryMethods:
         result = coordinator.get_historical_dissent("Best programming language")
 
         assert len(result) == 1
-        dissent_retriever.retrieve_for_new_debate.assert_called_once_with("Best programming language")
+        dissent_retriever.retrieve_for_new_debate.assert_called_once_with(
+            "Best programming language"
+        )
 
     def test_get_historical_dissent_without_retriever(self):
         """Test get_historical_dissent returns empty when no retriever."""

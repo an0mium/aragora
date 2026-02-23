@@ -123,46 +123,56 @@ class TestTeamEchoRisk:
         assert risk.recommendation == "safe"
 
     def test_high_alliance_detected(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(alliance_score=0.9, agreement_rate=0.9),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(alliance_score=0.9, agreement_rate=0.9),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         risk = bridge.compute_team_echo_risk(["claude", "gpt"])
         assert risk.overall_risk > 0.0
         assert len(risk.high_alliance_pairs) > 0
 
     def test_high_risk_recommendation(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(alliance_score=0.95, agreement_rate=0.95),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(alliance_score=0.95, agreement_rate=0.95),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         risk = bridge.compute_team_echo_risk(["claude", "gpt"])
         assert risk.recommendation in ("high_risk", "caution")
 
     def test_low_alliance_safe(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(alliance_score=0.1, agreement_rate=0.2),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(alliance_score=0.1, agreement_rate=0.2),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         risk = bridge.compute_team_echo_risk(["claude", "gpt"])
         assert risk.recommendation == "safe"
 
     def test_below_min_debates_ignored(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(
-                alliance_score=0.95, agreement_rate=0.95, debate_count=2
-            ),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(
+                    alliance_score=0.95, agreement_rate=0.95, debate_count=2
+                ),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         risk = bridge.compute_team_echo_risk(["claude", "gpt"])
         assert risk.overall_risk == 0.0  # Not enough data
 
     def test_three_agent_team(self):
-        tracker = make_tracker({
-            ("claude", "gemini"): make_metrics(alliance_score=0.8, agreement_rate=0.85),
-            ("claude", "gpt"): make_metrics(alliance_score=0.2, agreement_rate=0.3),
-            ("gemini", "gpt"): make_metrics(alliance_score=0.15, agreement_rate=0.25),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gemini"): make_metrics(alliance_score=0.8, agreement_rate=0.85),
+                ("claude", "gpt"): make_metrics(alliance_score=0.2, agreement_rate=0.3),
+                ("gemini", "gpt"): make_metrics(alliance_score=0.15, agreement_rate=0.25),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         risk = bridge.compute_team_echo_risk(["claude", "gpt", "gemini"])
         # Only claude-gemini pair is high risk
@@ -198,29 +208,33 @@ class TestVoteWeightAdjustments:
         assert adj["claude"] == 1.0
 
     def test_allied_vote_penalized(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(alliance_score=0.9, agreement_rate=0.9),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(alliance_score=0.9, agreement_rate=0.9),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         votes = [make_vote("claude", "gpt")]
         adj = bridge.compute_vote_weight_adjustments(votes, {"gpt": "proposal"})
         assert adj["claude"] < 1.0
 
     def test_non_allied_vote_neutral(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(alliance_score=0.2, agreement_rate=0.3),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(alliance_score=0.2, agreement_rate=0.3),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         votes = [make_vote("claude", "gpt")]
         adj = bridge.compute_vote_weight_adjustments(votes, {"gpt": "proposal"})
         assert adj["claude"] == 1.0
 
     def test_below_min_debates_neutral(self):
-        tracker = make_tracker({
-            ("claude", "gpt"): make_metrics(
-                alliance_score=0.95, debate_count=2
-            ),
-        })
+        tracker = make_tracker(
+            {
+                ("claude", "gpt"): make_metrics(alliance_score=0.95, debate_count=2),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         votes = [make_vote("claude", "gpt")]
         adj = bridge.compute_vote_weight_adjustments(votes, {"gpt": "proposal"})
@@ -248,15 +262,15 @@ class TestDiverseTeamCandidates:
         assert "a" in result[0]
 
     def test_sorted_by_diversity(self):
-        tracker = make_tracker({
-            ("a", "b"): make_metrics(alliance_score=0.9, agreement_rate=0.9),
-            ("a", "c"): make_metrics(alliance_score=0.1, agreement_rate=0.2),
-            ("b", "c"): make_metrics(alliance_score=0.1, agreement_rate=0.2),
-        })
-        bridge = RelationshipBiasBridge(relationship_tracker=tracker)
-        result = bridge.get_diverse_team_candidates(
-            ["a", "b", "c"], team_size=2
+        tracker = make_tracker(
+            {
+                ("a", "b"): make_metrics(alliance_score=0.9, agreement_rate=0.9),
+                ("a", "c"): make_metrics(alliance_score=0.1, agreement_rate=0.2),
+                ("b", "c"): make_metrics(alliance_score=0.1, agreement_rate=0.2),
+            }
         )
+        bridge = RelationshipBiasBridge(relationship_tracker=tracker)
+        result = bridge.get_diverse_team_candidates(["a", "b", "c"], team_size=2)
         # Most diverse pair (a,c or b,c) should come first
         assert len(result) >= 1
         first_team = result[0]
@@ -276,9 +290,11 @@ class TestEchoChamberPairs:
         assert pairs == []
 
     def test_high_risk_pair_detected(self):
-        tracker = make_tracker({
-            ("a", "b"): make_metrics(alliance_score=0.8, agreement_rate=0.85),
-        })
+        tracker = make_tracker(
+            {
+                ("a", "b"): make_metrics(alliance_score=0.8, agreement_rate=0.85),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         pairs = bridge.get_echo_chamber_pairs(agents=["a", "b"])
         assert len(pairs) > 0
@@ -321,21 +337,21 @@ class TestDiversityScore:
         assert score == 0.5  # No tracker → unknown → 0.5
 
     def test_high_agreement_low_diversity(self):
-        tracker = make_tracker({
-            ("a", "b"): make_metrics(
-                alliance_score=0.3, agreement_rate=0.9, rivalry_score=0.1
-            ),
-        })
+        tracker = make_tracker(
+            {
+                ("a", "b"): make_metrics(alliance_score=0.3, agreement_rate=0.9, rivalry_score=0.1),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         score = bridge.compute_diversity_score(["a", "b"])
         assert score < 0.5
 
     def test_rival_pair_high_diversity(self):
-        tracker = make_tracker({
-            ("a", "b"): make_metrics(
-                alliance_score=0.1, agreement_rate=0.2, rivalry_score=0.8
-            ),
-        })
+        tracker = make_tracker(
+            {
+                ("a", "b"): make_metrics(alliance_score=0.1, agreement_rate=0.2, rivalry_score=0.8),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         score = bridge.compute_diversity_score(["a", "b"])
         assert score > 0.7
@@ -348,11 +364,13 @@ class TestDiversityScore:
 
 class TestCacheManagement:
     def test_refresh_cache(self):
-        tracker = make_tracker({
-            ("a", "b"): make_metrics(),
-            ("a", "c"): make_metrics(),
-            ("b", "c"): make_metrics(),
-        })
+        tracker = make_tracker(
+            {
+                ("a", "b"): make_metrics(),
+                ("a", "c"): make_metrics(),
+                ("b", "c"): make_metrics(),
+            }
+        )
         bridge = RelationshipBiasBridge(relationship_tracker=tracker)
         cached = bridge.refresh_cache(["a", "b", "c"])
         assert cached == 3

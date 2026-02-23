@@ -132,7 +132,9 @@ def _make_mock_class(name="MyClass", bases=None, methods=None, docstring="A clas
     return cls
 
 
-def _make_mock_function(name="my_func", is_async=False, params=None, docstring="A func", complexity=5):
+def _make_mock_function(
+    name="my_func", is_async=False, params=None, docstring="A func", complexity=5
+):
     func = MagicMock()
     func.name = name
     func.is_async = is_async
@@ -534,9 +536,7 @@ class TestHandleGetSymbols:
             "aragora.server.handlers.codebase.intelligence._get_code_intelligence",
             return_value=mock_intel,
         ):
-            result = await handle_get_symbols(
-                "repo1", {"path": str(tmp_path), "type": "function"}
-            )
+            result = await handle_get_symbols("repo1", {"path": str(tmp_path), "type": "function"})
 
         data = _body(result)["data"]
         assert all(s["kind"] == "function" for s in data["symbols"])
@@ -551,9 +551,7 @@ class TestHandleGetSymbols:
             "aragora.server.handlers.codebase.intelligence._get_code_intelligence",
             return_value=mock_intel,
         ):
-            result = await handle_get_symbols(
-                "repo1", {"path": str(tmp_path), "name": "MyClass"}
-            )
+            result = await handle_get_symbols("repo1", {"path": str(tmp_path), "name": "MyClass"})
 
         data = _body(result)["data"]
         assert data["total"] == 1
@@ -568,9 +566,7 @@ class TestHandleGetSymbols:
             "aragora.server.handlers.codebase.intelligence._get_code_intelligence",
             return_value=mock_intel,
         ):
-            result = await handle_get_symbols(
-                "repo1", {"path": str(tmp_path), "name": "myclass"}
-            )
+            result = await handle_get_symbols("repo1", {"path": str(tmp_path), "name": "myclass"})
 
         data = _body(result)["data"]
         assert data["total"] == 1
@@ -590,9 +586,7 @@ class TestHandleGetSymbols:
             "aragora.server.handlers.codebase.intelligence._get_code_intelligence",
             return_value=mock_intel,
         ):
-            result = await handle_get_symbols(
-                "repo1", {"path": str(tmp_path), "file": "a.py"}
-            )
+            result = await handle_get_symbols("repo1", {"path": str(tmp_path), "file": "a.py"})
 
         data = _body(result)["data"]
         for sym in data["symbols"]:
@@ -1003,9 +997,7 @@ class TestHandleAnalyzeImpact:
             "aragora.server.handlers.codebase.intelligence._get_call_graph_builder",
             return_value=None,
         ):
-            result = await handle_analyze_impact(
-                "repo1", {"path": str(tmp_path), "symbol": "func"}
-            )
+            result = await handle_analyze_impact("repo1", {"path": str(tmp_path), "symbol": "func"})
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1116,9 +1108,7 @@ class TestHandleAnalyzeImpact:
             "aragora.server.handlers.codebase.intelligence._get_call_graph_builder",
             return_value=mock_builder,
         ):
-            result = await handle_analyze_impact(
-                "repo1", {"path": str(tmp_path), "symbol": "func"}
-            )
+            result = await handle_analyze_impact("repo1", {"path": str(tmp_path), "symbol": "func"})
 
         assert _status(result) == 500
 
@@ -1153,12 +1143,16 @@ class TestHandleUnderstand:
 
     @pytest.mark.asyncio
     async def test_agent_import_error(self, tmp_path):
-        with patch(
-            "aragora.server.handlers.codebase.intelligence.CodebaseUnderstandingAgent",
-            side_effect=ImportError("not found"),
-        ) if False else patch.dict(
-            "sys.modules",
-            {"aragora.agents.codebase_agent": None},
+        with (
+            patch(
+                "aragora.server.handlers.codebase.intelligence.CodebaseUnderstandingAgent",
+                side_effect=ImportError("not found"),
+            )
+            if False
+            else patch.dict(
+                "sys.modules",
+                {"aragora.agents.codebase_agent": None},
+            )
         ):
             result = await handle_understand(
                 "repo1",
@@ -1301,9 +1295,7 @@ class TestHandleAudit:
                 return_value=None,
             ),
         ):
-            result = await handle_audit(
-                "repo1", {"path": str(tmp_path), "async": True}
-            )
+            result = await handle_audit("repo1", {"path": str(tmp_path), "async": True})
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -1688,9 +1680,7 @@ class TestHandleGetAuditStatus:
 
     @pytest.mark.asyncio
     async def test_audit_running_status(self):
-        _audit_results["repo1"] = {
-            "run1": {"audit_id": "run1", "status": "running"}
-        }
+        _audit_results["repo1"] = {"run1": {"audit_id": "run1", "status": "running"}}
 
         result = await handle_get_audit_status("repo1", "run1", {})
         assert _status(result) == 200
@@ -2034,9 +2024,7 @@ class TestRBACPermissions:
             raise UnauthorizedError("no token")
 
         with patch.object(SecureHandler, "get_auth_context", mock_auth):
-            result = await handler.audit(
-                "repo1", {"path": str(tmp_path)}, _mock_http_handler()
-            )
+            result = await handler.audit("repo1", {"path": str(tmp_path)}, _mock_http_handler())
 
         assert _status(result) == 401
 
@@ -2057,9 +2045,7 @@ class TestRBACPermissions:
             patch.object(SecureHandler, "get_auth_context", mock_auth),
             patch.object(SecureHandler, "check_permission", mock_check),
         ):
-            result = await handler.audit(
-                "repo1", {"path": str(tmp_path)}, _mock_http_handler()
-            )
+            result = await handler.audit("repo1", {"path": str(tmp_path)}, _mock_http_handler())
 
         assert _status(result) == 403
 
@@ -2072,9 +2058,7 @@ class TestRBACPermissions:
             raise UnauthorizedError("no token")
 
         with patch.object(SecureHandler, "get_auth_context", mock_auth):
-            result = await handler.get_audit_status(
-                "repo1", "aid", {}, _mock_http_handler()
-            )
+            result = await handler.get_audit_status("repo1", "aid", {}, _mock_http_handler())
 
         assert _status(result) == 401
 
@@ -2095,9 +2079,7 @@ class TestRBACPermissions:
             patch.object(SecureHandler, "get_auth_context", mock_auth),
             patch.object(SecureHandler, "check_permission", mock_check),
         ):
-            result = await handler.get_audit_status(
-                "repo1", "aid", {}, _mock_http_handler()
-            )
+            result = await handler.get_audit_status("repo1", "aid", {}, _mock_http_handler())
 
         assert _status(result) == 403
 
@@ -2155,9 +2137,7 @@ class TestServiceRegistryGetters:
     """Tests for the _get_* service registry functions."""
 
     def test_get_code_intelligence_import_error(self):
-        with patch(
-            "aragora.server.handlers.codebase.intelligence.ServiceRegistry"
-        ) as mock_reg:
+        with patch("aragora.server.handlers.codebase.intelligence.ServiceRegistry") as mock_reg:
             mock_reg.get.return_value = MagicMock()
             with patch.dict("sys.modules", {"aragora.analysis.code_intelligence": None}):
                 from aragora.server.handlers.codebase.intelligence import (
@@ -2177,9 +2157,7 @@ class TestServiceRegistryGetters:
                 _get_call_graph_builder,
             )
 
-            with patch(
-                "aragora.server.handlers.codebase.intelligence.ServiceRegistry"
-            ) as mock_sr:
+            with patch("aragora.server.handlers.codebase.intelligence.ServiceRegistry") as mock_sr:
                 mock_sr.get.return_value = MagicMock()
                 result = _get_call_graph_builder()
         assert result is None or result is not None
@@ -2192,9 +2170,7 @@ class TestServiceRegistryGetters:
                 _get_security_scanner,
             )
 
-            with patch(
-                "aragora.server.handlers.codebase.intelligence.ServiceRegistry"
-            ) as mock_sr:
+            with patch("aragora.server.handlers.codebase.intelligence.ServiceRegistry") as mock_sr:
                 mock_sr.get.return_value = MagicMock()
                 result = _get_security_scanner()
         assert result is None or result is not None
@@ -2207,9 +2183,7 @@ class TestServiceRegistryGetters:
                 _get_bug_detector,
             )
 
-            with patch(
-                "aragora.server.handlers.codebase.intelligence.ServiceRegistry"
-            ) as mock_sr:
+            with patch("aragora.server.handlers.codebase.intelligence.ServiceRegistry") as mock_sr:
                 mock_sr.get.return_value = MagicMock()
                 result = _get_bug_detector()
         assert result is None or result is not None
@@ -2330,9 +2304,7 @@ class TestEdgeCases:
             "aragora.server.handlers.codebase.intelligence._get_call_graph_builder",
             return_value=mock_builder,
         ):
-            result = await handle_analyze_impact(
-                "repo1", {"path": str(tmp_path), "symbol": "func"}
-            )
+            result = await handle_analyze_impact("repo1", {"path": str(tmp_path), "symbol": "func"})
 
         data = _body(result)["data"]
         assert data["risk_level"] == "low"
@@ -2355,9 +2327,7 @@ class TestEdgeCases:
             "aragora.server.handlers.codebase.intelligence._get_call_graph_builder",
             return_value=mock_builder,
         ):
-            result = await handle_analyze_impact(
-                "repo1", {"path": str(tmp_path), "symbol": "func"}
-            )
+            result = await handle_analyze_impact("repo1", {"path": str(tmp_path), "symbol": "func"})
 
         data = _body(result)["data"]
         assert data["risk_level"] == "medium"
@@ -2380,9 +2350,7 @@ class TestEdgeCases:
             "aragora.server.handlers.codebase.intelligence._get_call_graph_builder",
             return_value=mock_builder,
         ):
-            result = await handle_analyze_impact(
-                "repo1", {"path": str(tmp_path), "symbol": "func"}
-            )
+            result = await handle_analyze_impact("repo1", {"path": str(tmp_path), "symbol": "func"})
 
         data = _body(result)["data"]
         assert data["risk_level"] == "medium"
@@ -2405,9 +2373,7 @@ class TestEdgeCases:
             "aragora.server.handlers.codebase.intelligence._get_call_graph_builder",
             return_value=mock_builder,
         ):
-            result = await handle_analyze_impact(
-                "repo1", {"path": str(tmp_path), "symbol": "func"}
-            )
+            result = await handle_analyze_impact("repo1", {"path": str(tmp_path), "symbol": "func"})
 
         data = _body(result)["data"]
         assert data["risk_level"] == "high"

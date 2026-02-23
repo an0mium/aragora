@@ -96,12 +96,14 @@ def mock_coordinator():
     coord = MagicMock()
     coord.list_agents = AsyncMock(return_value=[])
     coord.get_agent = AsyncMock(return_value=None)
-    coord.register_agent = AsyncMock(return_value=MockAgentInfo(
-        agent_id="agent-001",
-        capabilities=["reasoning"],
-        model="claude-3",
-        provider="anthropic",
-    ))
+    coord.register_agent = AsyncMock(
+        return_value=MockAgentInfo(
+            agent_id="agent-001",
+            capabilities=["reasoning"],
+            model="claude-3",
+            provider="anthropic",
+        )
+    )
     coord.heartbeat = AsyncMock(return_value=True)
     coord.unregister_agent = AsyncMock(return_value=True)
     # Stats method needed by other mixins in some tests
@@ -282,12 +284,16 @@ class TestListAgents:
         assert _status(result) == 200
         mock_agent.to_dict.assert_called_once()
 
-    def test_list_agents_with_capability_and_available(self, handler, mock_coordinator, sample_agent):
+    def test_list_agents_with_capability_and_available(
+        self, handler, mock_coordinator, sample_agent
+    ):
         mock_coordinator.list_agents = AsyncMock(return_value=[sample_agent])
-        result = handler._handle_list_agents({
-            "capability": "search",
-            "available": "false",
-        })
+        result = handler._handle_list_agents(
+            {
+                "capability": "search",
+                "available": "false",
+            }
+        )
         assert _status(result) == 200
         mock_coordinator.list_agents.assert_called_once_with(
             capability="search",
@@ -560,42 +566,54 @@ class TestRegisterAgentAsync:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_runtime_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_runtime_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.register_agent = AsyncMock(side_effect=RuntimeError("crash"))
         body = {"agent_id": "err-agent"}
         result = await handler._handle_register_agent_async(body, mock_http_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_value_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_value_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.register_agent = AsyncMock(side_effect=ValueError("duplicate"))
         body = {"agent_id": "dup-agent"}
         result = await handler._handle_register_agent_async(body, mock_http_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_os_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_os_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.register_agent = AsyncMock(side_effect=OSError("io"))
         body = {"agent_id": "os-agent"}
         result = await handler._handle_register_agent_async(body, mock_http_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_type_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_type_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.register_agent = AsyncMock(side_effect=TypeError("type"))
         body = {"agent_id": "type-agent"}
         result = await handler._handle_register_agent_async(body, mock_http_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_key_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_key_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.register_agent = AsyncMock(side_effect=KeyError("key"))
         body = {"agent_id": "key-agent"}
         result = await handler._handle_register_agent_async(body, mock_http_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_emits_event(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_emits_event(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         agent = MockAgentInfo(
             agent_id="evt-async",
             capabilities=["code"],
@@ -621,7 +639,9 @@ class TestRegisterAgentAsync:
         )
 
     @pytest.mark.asyncio
-    async def test_register_agent_async_defaults(self, handler, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_defaults(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         agent = MockAgentInfo(
             agent_id="default-async",
             capabilities=[],
@@ -772,11 +792,15 @@ class TestHeartbeatAsync:
     @pytest.mark.asyncio
     async def test_heartbeat_async_no_coordinator(self, handler_no_coord, mock_http_handler):
         body = {"status": "ready"}
-        result = await handler_no_coord._handle_heartbeat_async("agent-001", body, mock_http_handler)
+        result = await handler_no_coord._handle_heartbeat_async(
+            "agent-001", body, mock_http_handler
+        )
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_heartbeat_async_runtime_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_heartbeat_async_runtime_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.heartbeat = AsyncMock(side_effect=RuntimeError("crash"))
         body = {"status": "ready"}
         with patch("aragora.control_plane.registry.AgentStatus", MockAgentStatus):
@@ -800,7 +824,9 @@ class TestHeartbeatAsync:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_heartbeat_async_invalid_status_enum(self, handler, mock_coordinator, mock_http_handler):
+    async def test_heartbeat_async_invalid_status_enum(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         body = {"status": "totally_bogus"}
         with patch("aragora.control_plane.registry.AgentStatus", MockAgentStatus):
             result = await handler._handle_heartbeat_async("agent-001", body, mock_http_handler)
@@ -872,7 +898,9 @@ class TestUnregisterAgent:
             reason="manual_unregistration",
         )
 
-    def test_unregister_agent_no_event_on_not_found(self, handler, mock_coordinator, mock_http_handler):
+    def test_unregister_agent_no_event_on_not_found(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         """Event should NOT be emitted when agent is not found."""
         mock_coordinator.unregister_agent = AsyncMock(return_value=False)
         with patch.object(handler, "_emit_event") as mock_emit:
@@ -919,7 +947,9 @@ class TestGetRouting:
         result = handler.handle("/api/control-plane/agents/nonexistent", {}, mock_http_handler)
         assert _status(result) == 404
 
-    def test_route_list_agents_with_query_params(self, handler, mock_coordinator, mock_http_handler):
+    def test_route_list_agents_with_query_params(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.list_agents = AsyncMock(return_value=[])
         result = handler.handle(
             "/api/control-plane/agents",
@@ -1015,7 +1045,9 @@ class TestPostRouting:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_route_post_heartbeat_extracts_agent_id(self, handler, mock_coordinator, mock_http_handler):
+    async def test_route_post_heartbeat_extracts_agent_id(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         """Verify the agent_id is correctly extracted from the path."""
         mock_coordinator.heartbeat = AsyncMock(return_value=True)
         body = {}
@@ -1051,7 +1083,9 @@ class TestDeleteRouting:
 
     def test_route_delete_agent_v1(self, handler, mock_coordinator, mock_http_handler):
         mock_coordinator.unregister_agent = AsyncMock(return_value=True)
-        result = handler.handle_delete("/api/v1/control-plane/agents/agent-001", {}, mock_http_handler)
+        result = handler.handle_delete(
+            "/api/v1/control-plane/agents/agent-001", {}, mock_http_handler
+        )
         assert _status(result) == 200
         assert _body(result)["unregistered"] is True
 
@@ -1212,6 +1246,7 @@ class TestGetHasPermission:
         from aragora.server.handlers.control_plane.agents import _get_has_permission
 
         import sys
+
         # Even when the module IS loaded, the function should be callable
         fn = _get_has_permission()
         assert callable(fn)
@@ -1331,7 +1366,9 @@ class TestAsyncPermissionDenied:
 
     @pytest.mark.no_auto_auth
     @pytest.mark.asyncio
-    async def test_register_agent_async_permission_denied(self, mock_coordinator, mock_http_handler):
+    async def test_register_agent_async_permission_denied(
+        self, mock_coordinator, mock_http_handler
+    ):
         ctx: dict[str, Any] = {"control_plane_coordinator": mock_coordinator}
         h = ControlPlaneHandler(ctx)
 
@@ -1449,10 +1486,15 @@ class TestNormalizePath:
     """Tests for _normalize_path version stripping."""
 
     def test_normalize_v1_control_plane(self, handler):
-        assert handler._normalize_path("/api/v1/control-plane/agents") == "/api/control-plane/agents"
+        assert (
+            handler._normalize_path("/api/v1/control-plane/agents") == "/api/control-plane/agents"
+        )
 
     def test_normalize_v1_control_plane_with_id(self, handler):
-        assert handler._normalize_path("/api/v1/control-plane/agents/a1") == "/api/control-plane/agents/a1"
+        assert (
+            handler._normalize_path("/api/v1/control-plane/agents/a1")
+            == "/api/control-plane/agents/a1"
+        )
 
     def test_normalize_v1_control_plane_bare(self, handler):
         assert handler._normalize_path("/api/v1/control-plane") == "/api/control-plane"
@@ -1462,7 +1504,10 @@ class TestNormalizePath:
 
     def test_normalize_coordination_path_not_changed(self, handler):
         """Coordination paths are NOT normalized by _normalize_path."""
-        assert handler._normalize_path("/api/v1/coordination/workspaces") == "/api/v1/coordination/workspaces"
+        assert (
+            handler._normalize_path("/api/v1/coordination/workspaces")
+            == "/api/v1/coordination/workspaces"
+        )
 
 
 # ============================================================================

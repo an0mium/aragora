@@ -228,7 +228,7 @@ class AgentPool:
         selected = [agent for agent, _ in scores[:count]]
 
         logger.debug(
-            "Selected team by performance: %s", [getattr(a, 'name', str(a)) for a in selected]
+            "Selected team by performance: %s", [getattr(a, "name", str(a)) for a in selected]
         )
         return selected
 

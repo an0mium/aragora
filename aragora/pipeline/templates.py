@@ -127,312 +127,330 @@ def _register(template: PipelineTemplate) -> PipelineTemplate:
 # SME Pipeline Templates
 # ---------------------------------------------------------------------------
 
-_register(PipelineTemplate(
-    name="product_launch",
-    display_name="Product Launch",
-    description=(
-        "Ideas for new product features or products flow through goal-setting, "
-        "action planning, and execution. Smart goals are enabled so each idea "
-        "becomes measurable, and human approval gates ensure nothing ships "
-        "without sign-off."
-    ),
-    category="product",
-    workflow_mode="quick",
-    enable_smart_goals=True,
-    enable_elo_assignment=True,
-    enable_km_precedents=True,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Define target customer persona and validate with user interviews",
-        "Identify top 3 competitor weaknesses to exploit at launch",
-        "Scope the minimum viable feature set for first release",
-        "Draft go-to-market messaging and positioning statement",
-        "Set pricing tiers based on willingness-to-pay research",
-        "Plan launch-day marketing blitz across email, social, and PR",
-        "Establish post-launch success metrics and review cadence",
-    ],
-    agent_config={
-        "min_agents": 4,
-        "preferred_archetypes": ["strategist", "analyst", "critic", "implementer"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["market_validation", "technical_readiness", "revenue_model"],
-    },
-    tags=["product", "launch", "gtm", "strategy"],
-))
+_register(
+    PipelineTemplate(
+        name="product_launch",
+        display_name="Product Launch",
+        description=(
+            "Ideas for new product features or products flow through goal-setting, "
+            "action planning, and execution. Smart goals are enabled so each idea "
+            "becomes measurable, and human approval gates ensure nothing ships "
+            "without sign-off."
+        ),
+        category="product",
+        workflow_mode="quick",
+        enable_smart_goals=True,
+        enable_elo_assignment=True,
+        enable_km_precedents=True,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Define target customer persona and validate with user interviews",
+            "Identify top 3 competitor weaknesses to exploit at launch",
+            "Scope the minimum viable feature set for first release",
+            "Draft go-to-market messaging and positioning statement",
+            "Set pricing tiers based on willingness-to-pay research",
+            "Plan launch-day marketing blitz across email, social, and PR",
+            "Establish post-launch success metrics and review cadence",
+        ],
+        agent_config={
+            "min_agents": 4,
+            "preferred_archetypes": ["strategist", "analyst", "critic", "implementer"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["market_validation", "technical_readiness", "revenue_model"],
+        },
+        tags=["product", "launch", "gtm", "strategy"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="bug_triage",
-    display_name="Bug Triage",
-    description=(
-        "Bug reports are prioritized by severity and impact, then routed to "
-        "the best debugging agents via ELO assignment. Quick mode keeps "
-        "turnaround fast; no human gate so fixes can flow straight to PR."
-    ),
-    category="engineering",
-    workflow_mode="quick",
-    enable_smart_goals=False,
-    enable_elo_assignment=True,
-    enable_km_precedents=False,
-    human_approval_required=False,
-    stage_1_ideas=[
-        "Reproduce the bug with a minimal test case",
-        "Classify severity: P0 (outage), P1 (degraded), P2 (cosmetic)",
-        "Identify root cause via stack trace and log analysis",
-        "Check for related regressions in recent commits",
-        "Draft a fix with unit test covering the failure mode",
-        "Verify the fix does not break adjacent functionality",
-    ],
-    agent_config={
-        "min_agents": 2,
-        "preferred_archetypes": ["implementer", "tester"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["severity_classification", "root_cause", "regression_check"],
-    },
-    tags=["engineering", "bugs", "triage", "debugging"],
-))
+_register(
+    PipelineTemplate(
+        name="bug_triage",
+        display_name="Bug Triage",
+        description=(
+            "Bug reports are prioritized by severity and impact, then routed to "
+            "the best debugging agents via ELO assignment. Quick mode keeps "
+            "turnaround fast; no human gate so fixes can flow straight to PR."
+        ),
+        category="engineering",
+        workflow_mode="quick",
+        enable_smart_goals=False,
+        enable_elo_assignment=True,
+        enable_km_precedents=False,
+        human_approval_required=False,
+        stage_1_ideas=[
+            "Reproduce the bug with a minimal test case",
+            "Classify severity: P0 (outage), P1 (degraded), P2 (cosmetic)",
+            "Identify root cause via stack trace and log analysis",
+            "Check for related regressions in recent commits",
+            "Draft a fix with unit test covering the failure mode",
+            "Verify the fix does not break adjacent functionality",
+        ],
+        agent_config={
+            "min_agents": 2,
+            "preferred_archetypes": ["implementer", "tester"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["severity_classification", "root_cause", "regression_check"],
+        },
+        tags=["engineering", "bugs", "triage", "debugging"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="content_calendar",
-    display_name="Content Calendar",
-    description=(
-        "Content ideas are organized into themed goals with SMART criteria, "
-        "then scheduled into a publishing calendar with assigned owners and "
-        "deadlines."
-    ),
-    category="marketing",
-    workflow_mode="quick",
-    enable_smart_goals=True,
-    enable_elo_assignment=False,
-    enable_km_precedents=True,
-    human_approval_required=False,
-    stage_1_ideas=[
-        "Audit existing content for gaps in the customer journey",
-        "Research trending topics in our industry vertical",
-        "Plan a monthly theme that ties individual pieces together",
-        "Assign content types: blog posts, videos, social threads, whitepapers",
-        "Set publication dates and responsible authors for each piece",
-        "Define promotion strategy per channel (email, LinkedIn, Twitter)",
-        "Establish engagement KPIs: views, shares, leads generated",
-    ],
-    agent_config={
-        "min_agents": 3,
-        "preferred_archetypes": ["strategist", "analyst", "implementer"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["content_gaps", "audience_alignment", "publishing_cadence"],
-    },
-    tags=["marketing", "content", "calendar", "publishing"],
-))
+_register(
+    PipelineTemplate(
+        name="content_calendar",
+        display_name="Content Calendar",
+        description=(
+            "Content ideas are organized into themed goals with SMART criteria, "
+            "then scheduled into a publishing calendar with assigned owners and "
+            "deadlines."
+        ),
+        category="marketing",
+        workflow_mode="quick",
+        enable_smart_goals=True,
+        enable_elo_assignment=False,
+        enable_km_precedents=True,
+        human_approval_required=False,
+        stage_1_ideas=[
+            "Audit existing content for gaps in the customer journey",
+            "Research trending topics in our industry vertical",
+            "Plan a monthly theme that ties individual pieces together",
+            "Assign content types: blog posts, videos, social threads, whitepapers",
+            "Set publication dates and responsible authors for each piece",
+            "Define promotion strategy per channel (email, LinkedIn, Twitter)",
+            "Establish engagement KPIs: views, shares, leads generated",
+        ],
+        agent_config={
+            "min_agents": 3,
+            "preferred_archetypes": ["strategist", "analyst", "implementer"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["content_gaps", "audience_alignment", "publishing_cadence"],
+        },
+        tags=["marketing", "content", "calendar", "publishing"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="strategic_review",
-    display_name="Strategic Review",
-    description=(
-        "Strategy proposals are debated by diverse agents to surface conflicts "
-        "and blind spots. KM precedents enrich evaluation with historical "
-        "outcomes. Human approval gates ensure executive sign-off before "
-        "execution begins."
-    ),
-    category="strategy",
-    workflow_mode="debate",
-    enable_smart_goals=True,
-    enable_elo_assignment=True,
-    enable_km_precedents=True,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Articulate the strategic objective and desired end state",
-        "Map current competitive position and market dynamics",
-        "Identify resource constraints and organizational readiness",
-        "Surface conflicting priorities across business units",
-        "Evaluate risk scenarios: best case, worst case, most likely",
-        "Define measurable milestones for the first 90 days",
-        "Establish a review cadence with clear escalation triggers",
-    ],
-    agent_config={
-        "min_agents": 5,
-        "preferred_archetypes": ["strategist", "analyst", "critic", "advocate", "finance"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["conflict_detection", "resource_alignment", "risk_assessment"],
-    },
-    tags=["strategy", "review", "planning", "executive"],
-))
+_register(
+    PipelineTemplate(
+        name="strategic_review",
+        display_name="Strategic Review",
+        description=(
+            "Strategy proposals are debated by diverse agents to surface conflicts "
+            "and blind spots. KM precedents enrich evaluation with historical "
+            "outcomes. Human approval gates ensure executive sign-off before "
+            "execution begins."
+        ),
+        category="strategy",
+        workflow_mode="debate",
+        enable_smart_goals=True,
+        enable_elo_assignment=True,
+        enable_km_precedents=True,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Articulate the strategic objective and desired end state",
+            "Map current competitive position and market dynamics",
+            "Identify resource constraints and organizational readiness",
+            "Surface conflicting priorities across business units",
+            "Evaluate risk scenarios: best case, worst case, most likely",
+            "Define measurable milestones for the first 90 days",
+            "Establish a review cadence with clear escalation triggers",
+        ],
+        agent_config={
+            "min_agents": 5,
+            "preferred_archetypes": ["strategist", "analyst", "critic", "advocate", "finance"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["conflict_detection", "resource_alignment", "risk_assessment"],
+        },
+        tags=["strategy", "review", "planning", "executive"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="hiring_pipeline",
-    display_name="Hiring Pipeline",
-    description=(
-        "Candidate requirements flow into structured role goals, then into "
-        "an interview process with evaluation rubrics. Human approval is "
-        "required at every stage to ensure fair, compliant hiring."
-    ),
-    category="people",
-    workflow_mode="quick",
-    enable_smart_goals=True,
-    enable_elo_assignment=False,
-    enable_km_precedents=True,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Define the role: responsibilities, required skills, and seniority",
-        "Write a job description that attracts diverse qualified candidates",
-        "Design a structured interview rubric with scoring criteria",
-        "Plan interview stages: screen, technical, culture, final",
-        "Set compensation range based on market data and internal equity",
-        "Prepare onboarding checklist for the first 30/60/90 days",
-    ],
-    agent_config={
-        "min_agents": 3,
-        "preferred_archetypes": ["analyst", "advocate", "critic"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["role_definition", "interview_design", "compensation_equity"],
-    },
-    tags=["hr", "hiring", "recruiting", "people"],
-))
+_register(
+    PipelineTemplate(
+        name="hiring_pipeline",
+        display_name="Hiring Pipeline",
+        description=(
+            "Candidate requirements flow into structured role goals, then into "
+            "an interview process with evaluation rubrics. Human approval is "
+            "required at every stage to ensure fair, compliant hiring."
+        ),
+        category="people",
+        workflow_mode="quick",
+        enable_smart_goals=True,
+        enable_elo_assignment=False,
+        enable_km_precedents=True,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Define the role: responsibilities, required skills, and seniority",
+            "Write a job description that attracts diverse qualified candidates",
+            "Design a structured interview rubric with scoring criteria",
+            "Plan interview stages: screen, technical, culture, final",
+            "Set compensation range based on market data and internal equity",
+            "Prepare onboarding checklist for the first 30/60/90 days",
+        ],
+        agent_config={
+            "min_agents": 3,
+            "preferred_archetypes": ["analyst", "advocate", "critic"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["role_definition", "interview_design", "compensation_equity"],
+        },
+        tags=["hr", "hiring", "recruiting", "people"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="compliance_audit",
-    display_name="Compliance Audit",
-    description=(
-        "Compliance gaps are surfaced through adversarial debate, then "
-        "converted into remediation goals with deadlines and owners. Human "
-        "approval gates ensure legal and executive sign-off on every "
-        "remediation action."
-    ),
-    category="compliance",
-    workflow_mode="debate",
-    enable_smart_goals=True,
-    enable_elo_assignment=True,
-    enable_km_precedents=True,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Identify applicable regulations and compliance frameworks",
-        "Map current controls to regulatory requirements",
-        "Perform gap analysis against compliance standards",
-        "Assess risk severity for each identified gap",
-        "Develop remediation plan with timelines and owners",
-        "Prepare audit-ready evidence and documentation",
-    ],
-    agent_config={
-        "min_agents": 3,
-        "preferred_archetypes": ["analyst", "auditor", "implementer"],
-    },
-    vertical_profile="compliance_sox",
-    goal_extraction_hints={
-        "prioritize": ["gap_analysis", "risk_severity", "remediation"],
-    },
-    tags=["compliance", "audit", "regulation", "sox", "controls"],
-))
+_register(
+    PipelineTemplate(
+        name="compliance_audit",
+        display_name="Compliance Audit",
+        description=(
+            "Compliance gaps are surfaced through adversarial debate, then "
+            "converted into remediation goals with deadlines and owners. Human "
+            "approval gates ensure legal and executive sign-off on every "
+            "remediation action."
+        ),
+        category="compliance",
+        workflow_mode="debate",
+        enable_smart_goals=True,
+        enable_elo_assignment=True,
+        enable_km_precedents=True,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Identify applicable regulations and compliance frameworks",
+            "Map current controls to regulatory requirements",
+            "Perform gap analysis against compliance standards",
+            "Assess risk severity for each identified gap",
+            "Develop remediation plan with timelines and owners",
+            "Prepare audit-ready evidence and documentation",
+        ],
+        agent_config={
+            "min_agents": 3,
+            "preferred_archetypes": ["analyst", "auditor", "implementer"],
+        },
+        vertical_profile="compliance_sox",
+        goal_extraction_hints={
+            "prioritize": ["gap_analysis", "risk_severity", "remediation"],
+        },
+        tags=["compliance", "audit", "regulation", "sox", "controls"],
+    )
+)
 
 
 # ---------------------------------------------------------------------------
 # Legacy templates (preserved for backward compatibility)
 # ---------------------------------------------------------------------------
 
-_register(PipelineTemplate(
-    name="hiring_decision",
-    display_name="Hiring Decision",
-    description=(
-        "Evaluate candidates with diverse agent perspectives covering "
-        "technical skills, culture fit, growth potential, and risk factors."
-    ),
-    category="evaluation",
-    workflow_mode="quick",
-    enable_smart_goals=True,
-    enable_elo_assignment=False,
-    enable_km_precedents=False,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Define role requirements and must-have qualifications",
-        "Evaluate candidate technical skills against job requirements",
-        "Assess culture fit and team dynamics compatibility",
-        "Analyze growth potential and career trajectory alignment",
-        "Identify risk factors and reference check findings",
-        "Compare compensation expectations with budget and market rates",
-    ],
-    agent_config={
-        "min_agents": 3,
-        "preferred_archetypes": ["analyst", "advocate", "critic"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["qualification_match", "culture_fit", "risk_assessment"],
-    },
-    tags=["hr", "hiring", "people", "evaluation"],
-))
+_register(
+    PipelineTemplate(
+        name="hiring_decision",
+        display_name="Hiring Decision",
+        description=(
+            "Evaluate candidates with diverse agent perspectives covering "
+            "technical skills, culture fit, growth potential, and risk factors."
+        ),
+        category="evaluation",
+        workflow_mode="quick",
+        enable_smart_goals=True,
+        enable_elo_assignment=False,
+        enable_km_precedents=False,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Define role requirements and must-have qualifications",
+            "Evaluate candidate technical skills against job requirements",
+            "Assess culture fit and team dynamics compatibility",
+            "Analyze growth potential and career trajectory alignment",
+            "Identify risk factors and reference check findings",
+            "Compare compensation expectations with budget and market rates",
+        ],
+        agent_config={
+            "min_agents": 3,
+            "preferred_archetypes": ["analyst", "advocate", "critic"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["qualification_match", "culture_fit", "risk_assessment"],
+        },
+        tags=["hr", "hiring", "people", "evaluation"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="market_entry",
-    display_name="Market Entry Strategy",
-    description=(
-        "Evaluate new market opportunities: competitive analysis, "
-        "entry strategy selection, resource planning, and execution roadmap."
-    ),
-    category="expansion",
-    workflow_mode="debate",
-    enable_smart_goals=True,
-    enable_elo_assignment=True,
-    enable_km_precedents=True,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Analyze target market dynamics and growth potential",
-        "Profile key competitors and their market positions",
-        "Evaluate entry barriers and regulatory requirements",
-        "Assess internal capabilities and resource gaps",
-        "Compare entry strategies: organic, acquisition, partnership",
-        "Model financial scenarios and investment requirements",
-        "Define success metrics and decision checkpoints",
-    ],
-    agent_config={
-        "min_agents": 4,
-        "preferred_archetypes": ["strategist", "analyst", "critic", "finance"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["market_size", "competitive_advantage", "resource_requirements"],
-    },
-    tags=["strategy", "market", "expansion", "growth"],
-))
+_register(
+    PipelineTemplate(
+        name="market_entry",
+        display_name="Market Entry Strategy",
+        description=(
+            "Evaluate new market opportunities: competitive analysis, "
+            "entry strategy selection, resource planning, and execution roadmap."
+        ),
+        category="expansion",
+        workflow_mode="debate",
+        enable_smart_goals=True,
+        enable_elo_assignment=True,
+        enable_km_precedents=True,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Analyze target market dynamics and growth potential",
+            "Profile key competitors and their market positions",
+            "Evaluate entry barriers and regulatory requirements",
+            "Assess internal capabilities and resource gaps",
+            "Compare entry strategies: organic, acquisition, partnership",
+            "Model financial scenarios and investment requirements",
+            "Define success metrics and decision checkpoints",
+        ],
+        agent_config={
+            "min_agents": 4,
+            "preferred_archetypes": ["strategist", "analyst", "critic", "finance"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["market_size", "competitive_advantage", "resource_requirements"],
+        },
+        tags=["strategy", "market", "expansion", "growth"],
+    )
+)
 
-_register(PipelineTemplate(
-    name="vendor_selection",
-    display_name="Vendor Selection",
-    description=(
-        "Systematic vendor evaluation: requirements definition, "
-        "scoring criteria, comparative analysis, and selection decision."
-    ),
-    category="procurement",
-    workflow_mode="quick",
-    enable_smart_goals=True,
-    enable_elo_assignment=False,
-    enable_km_precedents=True,
-    human_approval_required=True,
-    stage_1_ideas=[
-        "Define functional and non-functional requirements",
-        "Establish evaluation criteria and scoring weights",
-        "Shortlist vendors based on initial screening",
-        "Conduct detailed vendor capability assessment",
-        "Evaluate total cost of ownership and pricing models",
-        "Assess vendor reliability, support, and track record",
-        "Perform security and compliance due diligence",
-    ],
-    agent_config={
-        "min_agents": 3,
-        "preferred_archetypes": ["analyst", "critic", "finance"],
-    },
-    vertical_profile=None,
-    goal_extraction_hints={
-        "prioritize": ["requirements_match", "cost_analysis", "risk_assessment"],
-    },
-    tags=["procurement", "vendor", "evaluation", "selection"],
-))
+_register(
+    PipelineTemplate(
+        name="vendor_selection",
+        display_name="Vendor Selection",
+        description=(
+            "Systematic vendor evaluation: requirements definition, "
+            "scoring criteria, comparative analysis, and selection decision."
+        ),
+        category="procurement",
+        workflow_mode="quick",
+        enable_smart_goals=True,
+        enable_elo_assignment=False,
+        enable_km_precedents=True,
+        human_approval_required=True,
+        stage_1_ideas=[
+            "Define functional and non-functional requirements",
+            "Establish evaluation criteria and scoring weights",
+            "Shortlist vendors based on initial screening",
+            "Conduct detailed vendor capability assessment",
+            "Evaluate total cost of ownership and pricing models",
+            "Assess vendor reliability, support, and track record",
+            "Perform security and compliance due diligence",
+        ],
+        agent_config={
+            "min_agents": 3,
+            "preferred_archetypes": ["analyst", "critic", "finance"],
+        },
+        vertical_profile=None,
+        goal_extraction_hints={
+            "prioritize": ["requirements_match", "cost_analysis", "risk_assessment"],
+        },
+        tags=["procurement", "vendor", "evaluation", "selection"],
+    )
+)
 
 
 # =============================================================================

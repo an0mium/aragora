@@ -400,7 +400,9 @@ async def migrate_all(dry_run: bool = True) -> list[MigrationResult]:
     if dry_run:
         logger.info("Migration preview complete: %s records would be migrated", total_migrated)
     else:
-        logger.info("Migration complete: %s records migrated, %s failed", total_migrated, total_failed)
+        logger.info(
+            "Migration complete: %s records migrated, %s failed", total_migrated, total_failed
+        )
 
     return results
 

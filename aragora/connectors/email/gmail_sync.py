@@ -458,12 +458,16 @@ class GmailSyncService:
         # Verify this is for us
         if self._state and webhook.email_address != self._state.email_address:
             logger.warning(
-                "[GmailSync] Webhook for %s but expecting %s", webhook.email_address, self._state.email_address
+                "[GmailSync] Webhook for %s but expecting %s",
+                webhook.email_address,
+                self._state.email_address,
             )
             return []
 
         logger.info(
-            "[GmailSync] Webhook received: historyId=%s for %s", webhook.history_id, webhook.email_address
+            "[GmailSync] Webhook received: historyId=%s for %s",
+            webhook.history_id,
+            webhook.email_address,
         )
 
         # Perform incremental sync

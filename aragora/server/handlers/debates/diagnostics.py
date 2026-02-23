@@ -223,9 +223,7 @@ def _extract_consensus_info(debate: dict[str, Any]) -> dict[str, Any]:
         Consensus info dict with reached, method, and confidence.
     """
     consensus_reached = debate.get("consensus_reached", False)
-    consensus_method = debate.get("consensus_method") or debate.get(
-        "consensus", "majority"
-    )
+    consensus_method = debate.get("consensus_method") or debate.get("consensus", "majority")
     confidence = debate.get("confidence", 0.0)
 
     # Try to get from metadata
@@ -269,11 +267,11 @@ def _generate_suggestions(
         provider = agent["provider"]
         api_key_env = _PROVIDER_API_KEY_MAP.get(provider, "")
 
-        if error and ("key" in error.lower() or "auth" in error.lower() or "quota" in error.lower()):
+        if error and (
+            "key" in error.lower() or "auth" in error.lower() or "quota" in error.lower()
+        ):
             if api_key_env:
-                suggestions.append(
-                    f"Agent {agent['name']} failed - check your {api_key_env}"
-                )
+                suggestions.append(f"Agent {agent['name']} failed - check your {api_key_env}")
             else:
                 suggestions.append(
                     f"Agent {agent['name']} failed with authentication error - verify API credentials"
@@ -292,9 +290,7 @@ def _generate_suggestions(
                     f"Agent {agent['name']} failed - check your {api_key_env} and provider status"
                 )
             else:
-                suggestions.append(
-                    f"Agent {agent['name']} failed - check provider connectivity"
-                )
+                suggestions.append(f"Agent {agent['name']} failed - check provider connectivity")
 
     for agent in timed_out_agents:
         provider = agent["provider"]
@@ -328,9 +324,7 @@ def _generate_suggestions(
 
     # Suggest fallback provider if any agent failed
     if failed_agents and not any("OPENROUTER_API_KEY" in s for s in suggestions):
-        suggestions.append(
-            "Consider adding OPENROUTER_API_KEY as fallback for failed providers"
-        )
+        suggestions.append("Consider adding OPENROUTER_API_KEY as fallback for failed providers")
 
     # If all agents timed out, suggest fewer agents
     total_agents = len(agents_diagnostics)
@@ -435,9 +429,7 @@ class DiagnosticsMixin:
         },
     )
     @handle_errors("debate diagnostics")
-    def _get_diagnostics(
-        self: _DebatesHandlerProtocol, debate_id: str
-    ) -> HandlerResult:
+    def _get_diagnostics(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get diagnostic report for a debate.
 
         Provides comprehensive debugging information including:
@@ -490,9 +482,7 @@ class DiagnosticsMixin:
             )
         # Also check top-level receipt fields
         if not receipt_generated:
-            receipt_generated = bool(
-                debate.get("receipt_id") or debate.get("receipt")
-            )
+            receipt_generated = bool(debate.get("receipt_id") or debate.get("receipt"))
 
         # Generate suggestions
         suggestions = _generate_suggestions(debate, agents_diagnostics, status)

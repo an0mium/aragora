@@ -721,7 +721,6 @@ class TestTokenCache:
 
         # Manually expire the entry by modifying the cache
         from aragora.server.handlers.bots.google_chat import (
-            _token_cache_key,
             _token_cache,
             _token_cache_lock,
         )
@@ -747,7 +746,6 @@ class TestTokenCache:
     def test_cache_different_ttl_for_valid_vs_invalid(self):
         """Should use different TTLs for valid and invalid tokens."""
         from aragora.server.handlers.bots.google_chat import (
-            _token_cache_key,
             _TOKEN_CACHE_VALID_TTL,
             _TOKEN_CACHE_INVALID_TTL,
         )

@@ -246,7 +246,9 @@ class SlackMessagesMixin:
                 last_error = "Request timeout"
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        "[slack] send_ephemeral timeout (attempt %s/%s)", attempt + 1, self._max_retries
+                        "[slack] send_ephemeral timeout (attempt %s/%s)",
+                        attempt + 1,
+                        self._max_retries,
                     )
                     await _exponential_backoff(attempt)
                     continue
@@ -256,7 +258,9 @@ class SlackMessagesMixin:
                 last_error = f"Connection error: {e}"
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        "[slack] send_ephemeral network error (attempt %s/%s)", attempt + 1, self._max_retries
+                        "[slack] send_ephemeral network error (attempt %s/%s)",
+                        attempt + 1,
+                        self._max_retries,
                     )
                     await _exponential_backoff(attempt)
                     continue

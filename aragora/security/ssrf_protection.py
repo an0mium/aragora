@@ -435,7 +435,9 @@ def validate_webhook_url(
     )
 
     if not result.is_safe:
-        logger.warning("SSRF blocked for %s webhook: url=%s, error=%s", service_name, url, result.error)
+        logger.warning(
+            "SSRF blocked for %s webhook: url=%s, error=%s", service_name, url, result.error
+        )
 
     return result
 

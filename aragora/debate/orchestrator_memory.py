@@ -149,7 +149,10 @@ def init_rlm_limiter_state(
             )
             state["rlm_limiter"] = RLMCognitiveLoadLimiter(budget=budget)
             logger.info(
-                "[arena] RLM limiter enabled: threshold=%s, recent=%s, level=%s", rlm_compression_threshold, rlm_max_recent_messages, rlm_summary_level
+                "[arena] RLM limiter enabled: threshold=%s, recent=%s, level=%s",
+                rlm_compression_threshold,
+                rlm_max_recent_messages,
+                rlm_summary_level,
             )
         except ImportError:
             logger.warning("[arena] RLM module not available, disabling limiter")
@@ -242,24 +245,30 @@ def auto_create_knowledge_mound(
             auto_initialize=True,
         )
         logger.info(
-            "[knowledge_mound] Auto-created KM instance for debate (enable_retrieval=%s, enable_ingestion=%s)", enable_retrieval, enable_ingestion
+            "[knowledge_mound] Auto-created KM instance for debate (enable_retrieval=%s, enable_ingestion=%s)",
+            enable_retrieval,
+            enable_ingestion,
         )
         return km
     except ImportError as e:
         logger.warning(
-            "[knowledge_mound] Could not auto-create: %s. Debates will run without knowledge grounding.", e
+            "[knowledge_mound] Could not auto-create: %s. Debates will run without knowledge grounding.",
+            e,
         )
     except (RuntimeError, ConnectionError, OSError) as e:
         logger.warning(
-            "[knowledge_mound] Initialization failed (infrastructure): %s. Debates will run without knowledge grounding.", e
+            "[knowledge_mound] Initialization failed (infrastructure): %s. Debates will run without knowledge grounding.",
+            e,
         )
     except (ValueError, TypeError, AttributeError) as e:
         logger.warning(
-            "[knowledge_mound] Initialization failed (config): %s. Debates will run without knowledge grounding.", e
+            "[knowledge_mound] Initialization failed (config): %s. Debates will run without knowledge grounding.",
+            e,
         )
     except (KeyError, ImportError) as e:
         logger.exception(
-            "[knowledge_mound] Unexpected initialization error: %s. Debates will run without knowledge grounding.", e
+            "[knowledge_mound] Unexpected initialization error: %s. Debates will run without knowledge grounding.",
+            e,
         )
     return None
 

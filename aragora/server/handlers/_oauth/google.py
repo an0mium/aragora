@@ -123,13 +123,16 @@ class GoogleOAuthMixin:
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
-        logger.info("OAuth callback: validating state (len=%s, prefix=%s...)", len(state), state[:20])
+        logger.info(
+            "OAuth callback: validating state (len=%s, prefix=%s...)", len(state), state[:20]
+        )
         state_data = impl._validate_state(state)
         if state_data is None:
             logger.warning("OAuth callback: state validation failed for %s...", state[:20])
             return self._redirect_with_error("Invalid or expired state")
         logger.info(
-            "OAuth callback: state valid, redirect_url=%s", state_data.get('redirect_url', 'NOT_SET')
+            "OAuth callback: state valid, redirect_url=%s",
+            state_data.get("redirect_url", "NOT_SET"),
         )
 
         # Get authorization code
@@ -180,7 +183,9 @@ class GoogleOAuthMixin:
         try:
             logger.info("OAuth callback: looking up user by OAuth ID...")
             user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
-            logger.info("OAuth callback: find_user_by_oauth returned %s", 'user' if user else 'None')
+            logger.info(
+                "OAuth callback: find_user_by_oauth returned %s", "user" if user else "None"
+            )
         except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
             logger.error("OAuth callback: _find_user_by_oauth failed: %s", e, exc_info=True)
             error_name = type(e).__name__
@@ -201,7 +206,7 @@ class GoogleOAuthMixin:
                 else:
                     user = user_store.get_user_by_email(user_info.email)
                 logger.info(
-                    "OAuth callback: get_user_by_email returned %s", 'user' if user else 'None'
+                    "OAuth callback: get_user_by_email returned %s", "user" if user else "None"
                 )
             except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                 logger.error("OAuth callback: get_user_by_email failed: %s", e, exc_info=True)
@@ -225,9 +230,11 @@ class GoogleOAuthMixin:
             else:
                 # Create new user with OAuth
                 try:
-                    logger.info("OAuth callback: creating new OAuth user for %s...", user_info.email)
+                    logger.info(
+                        "OAuth callback: creating new OAuth user for %s...", user_info.email
+                    )
                     user = await _maybe_await(self._create_oauth_user(user_store, user_info))
-                    logger.info("OAuth callback: created user %s", user.id if user else 'FAILED')
+                    logger.info("OAuth callback: created user %s", user.id if user else "FAILED")
                 except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                     logger.error("OAuth callback: _create_oauth_user failed: %s", e, exc_info=True)
                     return self._redirect_with_error(
@@ -267,7 +274,10 @@ class GoogleOAuthMixin:
 
             token_fingerprint = hashlib.sha256(tokens.access_token.encode()).hexdigest()[:8]
             logger.info(
-                "OAuth callback: token pair created successfully (access_token fingerprint=%s, user_id=%s, org_id=%s)", token_fingerprint, user.id, user.org_id
+                "OAuth callback: token pair created successfully (access_token fingerprint=%s, user_id=%s, org_id=%s)",
+                token_fingerprint,
+                user.id,
+                user.org_id,
             )
         except ConfigurationError as e:
             logger.error("OAuth callback: JWT configuration error: %s", e, exc_info=True)

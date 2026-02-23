@@ -356,19 +356,19 @@ class TestAddVersionHeaders:
     """Tests for _add_version_headers."""
 
     def test_adds_api_version_header(self, handler):
-        result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         updated = handler._add_version_headers(result, "/api/v1/gauntlet/run")
         assert updated.headers["X-API-Version"] == "v1"
 
     def test_legacy_route_adds_deprecation(self, handler):
-        result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         updated = handler._add_version_headers(result, "/api/gauntlet/run")
         assert updated.headers["Deprecation"] == "true"
         assert updated.headers["Sunset"] == "2026-06-01"
         assert "Link" in updated.headers
 
     def test_versioned_route_no_deprecation(self, handler):
-        result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         updated = handler._add_version_headers(result, "/api/v1/gauntlet/run")
         assert "Deprecation" not in updated.headers
 
@@ -377,18 +377,20 @@ class TestAddVersionHeaders:
         assert result is None
 
     def test_initializes_headers_if_none(self, handler):
-        result = HandlerResult(status_code=200, content_type="application/json", body=b'{}', headers=None)
+        result = HandlerResult(
+            status_code=200, content_type="application/json", body=b"{}", headers=None
+        )
         # headers gets set to {} in __post_init__, but test the flow
         updated = handler._add_version_headers(result, "/api/v1/gauntlet/run")
         assert "X-API-Version" in updated.headers
 
     def test_link_header_format(self, handler):
-        result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         updated = handler._add_version_headers(result, "/api/gauntlet/run")
         assert updated.headers["Link"] == '</api/v1/gauntlet/run>; rel="successor-version"'
 
     def test_link_header_with_id(self, handler):
-        result = HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+        result = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         path = f"/api/gauntlet/{VALID_ID}"
         updated = handler._add_version_headers(result, path)
         expected_link = f'</api/v1/gauntlet/{VALID_ID}>; rel="successor-version"'
@@ -408,7 +410,7 @@ class TestHandleParameterizedRoute:
         """Routes POST /receipt/verify to _verify_receipt."""
         mock_h = _make_http_handler("POST")
         handler._verify_receipt = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}/receipt/verify"
         result = await handler._handle_parameterized_route(path, "POST", {}, mock_h)
@@ -429,7 +431,7 @@ class TestHandleParameterizedRoute:
     async def test_get_receipt(self, handler):
         """Routes GET /receipt to _get_receipt."""
         handler._get_receipt = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}/receipt"
         result = await handler._handle_parameterized_route(path, "GET", {"format": "json"}, None)
@@ -447,7 +449,7 @@ class TestHandleParameterizedRoute:
     async def test_get_heatmap(self, handler):
         """Routes GET /heatmap to _get_heatmap."""
         handler._get_heatmap = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}/heatmap"
         result = await handler._handle_parameterized_route(path, "GET", {}, None)
@@ -466,7 +468,7 @@ class TestHandleParameterizedRoute:
         """Routes GET /export to _export_report."""
         mock_h = _make_http_handler("GET")
         handler._export_report = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}/export"
         result = await handler._handle_parameterized_route(path, "GET", {}, mock_h)
@@ -485,7 +487,7 @@ class TestHandleParameterizedRoute:
     async def test_compare_results(self, handler):
         """Routes GET /compare/ to _compare_results."""
         handler._compare_results = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}/compare/{VALID_ID2}"
         result = await handler._handle_parameterized_route(path, "GET", {}, None)
@@ -519,7 +521,7 @@ class TestHandleParameterizedRoute:
     async def test_delete_result(self, handler):
         """Routes DELETE to _delete_result."""
         handler._delete_result = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}"
         result = await handler._handle_parameterized_route(path, "DELETE", {}, None)
@@ -537,7 +539,7 @@ class TestHandleParameterizedRoute:
     async def test_get_status(self, handler):
         """Routes GET with ID to _get_status."""
         handler._get_status = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         path = f"/api/gauntlet/{VALID_ID}"
         result = await handler._handle_parameterized_route(path, "GET", {}, None)
@@ -561,7 +563,9 @@ class TestHandleParameterizedRoute:
     @pytest.mark.asyncio
     async def test_non_gauntlet_path_delete(self, handler):
         """Returns None when DELETE path doesn't start with /api/gauntlet/."""
-        result = await handler._handle_parameterized_route("/api/other/something", "DELETE", {}, None)
+        result = await handler._handle_parameterized_route(
+            "/api/other/something", "DELETE", {}, None
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -584,7 +588,9 @@ class TestHandle:
         """POST /api/v1/gauntlet/run routes to _start_gauntlet."""
         mock_h = _make_http_handler("POST")
         handler._start_gauntlet = AsyncMock(
-            return_value=HandlerResult(status_code=202, content_type="application/json", body=b'{"status":"pending"}')
+            return_value=HandlerResult(
+                status_code=202, content_type="application/json", body=b'{"status":"pending"}'
+            )
         )
         result = await handler.handle("/api/v1/gauntlet/run", {}, mock_h)
         assert result is not None
@@ -625,7 +631,8 @@ class TestHandle:
         mock_h = _make_http_handler("GET")
         handler._get_status = AsyncMock(
             return_value=HandlerResult(
-                status_code=200, content_type="application/json",
+                status_code=200,
+                content_type="application/json",
                 body=json.dumps({"gauntlet_id": VALID_ID, "status": "completed"}).encode(),
             )
         )
@@ -639,7 +646,8 @@ class TestHandle:
         mock_h = _make_http_handler("DELETE")
         handler._delete_result = MagicMock(
             return_value=HandlerResult(
-                status_code=200, content_type="application/json",
+                status_code=200,
+                content_type="application/json",
                 body=b'{"deleted":true}',
             )
         )
@@ -736,7 +744,7 @@ class TestHandle:
         """GET /api/v1/gauntlet/{id}/receipt is handled."""
         mock_h = _make_http_handler("GET")
         handler._get_receipt = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/v1/gauntlet/{VALID_ID}/receipt", {}, mock_h)
         assert result is not None
@@ -747,7 +755,7 @@ class TestHandle:
         """POST /api/v1/gauntlet/{id}/receipt/verify is handled."""
         mock_h = _make_http_handler("POST")
         handler._verify_receipt = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/v1/gauntlet/{VALID_ID}/receipt/verify", {}, mock_h)
         assert result is not None
@@ -758,7 +766,7 @@ class TestHandle:
         """GET /api/v1/gauntlet/{id}/heatmap is handled."""
         mock_h = _make_http_handler("GET")
         handler._get_heatmap = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/v1/gauntlet/{VALID_ID}/heatmap", {}, mock_h)
         assert result is not None
@@ -769,7 +777,7 @@ class TestHandle:
         """GET /api/v1/gauntlet/{id}/export is handled."""
         mock_h = _make_http_handler("GET")
         handler._export_report = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/v1/gauntlet/{VALID_ID}/export", {}, mock_h)
         assert result is not None
@@ -780,7 +788,7 @@ class TestHandle:
         """GET /api/v1/gauntlet/{id}/compare/{id2} is handled."""
         mock_h = _make_http_handler("GET")
         handler._compare_results = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(
             f"/api/v1/gauntlet/{VALID_ID}/compare/{VALID_ID2}", {}, mock_h
@@ -802,7 +810,7 @@ class TestHandlePermissions:
         """POST requests check gauntlet:write permission."""
         mock_h = _make_http_handler("POST")
         handler._start_gauntlet = AsyncMock(
-            return_value=HandlerResult(status_code=202, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=202, content_type="application/json", body=b"{}")
         )
         # The conftest auto-bypasses auth/permissions, just verify it doesn't error
         result = await handler.handle("/api/v1/gauntlet/run", {}, mock_h)
@@ -814,7 +822,7 @@ class TestHandlePermissions:
         """GET requests check gauntlet:read permission."""
         mock_h = _make_http_handler("GET")
         handler._list_personas = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/v1/gauntlet/personas", {}, mock_h)
         assert result is not None
@@ -907,7 +915,7 @@ class TestHandleEdgeCases:
         """Legacy /api/gauntlet/run routes to _start_gauntlet."""
         mock_h = _make_http_handler("POST")
         handler._start_gauntlet = AsyncMock(
-            return_value=HandlerResult(status_code=202, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=202, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/gauntlet/run", {}, mock_h)
         assert result is not None
@@ -920,7 +928,7 @@ class TestHandleEdgeCases:
         """Legacy /api/gauntlet/personas routes to _list_personas."""
         mock_h = _make_http_handler("GET")
         handler._list_personas = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/gauntlet/personas", {}, mock_h)
         assert result is not None
@@ -932,7 +940,7 @@ class TestHandleEdgeCases:
         """Legacy /api/gauntlet/results routes to _list_results."""
         mock_h = _make_http_handler("GET")
         handler._list_results = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/gauntlet/results", {}, mock_h)
         assert result is not None
@@ -943,7 +951,7 @@ class TestHandleEdgeCases:
         """Legacy /api/gauntlet/{id} routes to _get_status."""
         mock_h = _make_http_handler("GET")
         handler._get_status = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/gauntlet/{VALID_ID}", {}, mock_h)
         assert result is not None
@@ -954,7 +962,7 @@ class TestHandleEdgeCases:
         """Legacy /api/gauntlet/{id} DELETE routes to _delete_result."""
         mock_h = _make_http_handler("DELETE")
         handler._delete_result = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/gauntlet/{VALID_ID}", {}, mock_h)
         assert result is not None
@@ -965,7 +973,7 @@ class TestHandleEdgeCases:
         """When query_params is a string, extracts from handler.path query string."""
         mock_h = _make_http_handler("GET", path="/api/v1/gauntlet/results?limit=5&offset=10")
         handler._list_results = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/v1/gauntlet/results", "GET", mock_h)
         assert result is not None
@@ -981,7 +989,7 @@ class TestHandleEdgeCases:
         """Multi-value query params remain as lists."""
         mock_h = _make_http_handler("GET", path="/api/v1/gauntlet/results?tag=a&tag=b")
         handler._list_results = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/v1/gauntlet/results", "GET", mock_h)
         assert result is not None
@@ -997,7 +1005,7 @@ class TestHandleEdgeCases:
         # handler with no .path attribute
         del mock_h.path
         handler._list_personas = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle("/api/v1/gauntlet/personas", "GET", mock_h)
         assert result is not None
@@ -1007,7 +1015,7 @@ class TestHandleEdgeCases:
         """Legacy receipt verify path is handled."""
         mock_h = _make_http_handler("POST")
         handler._verify_receipt = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/gauntlet/{VALID_ID}/receipt/verify", {}, mock_h)
         assert result is not None
@@ -1018,7 +1026,7 @@ class TestHandleEdgeCases:
         """Legacy heatmap path is handled with deprecation header."""
         mock_h = _make_http_handler("GET")
         handler._get_heatmap = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/gauntlet/{VALID_ID}/heatmap", {}, mock_h)
         assert result is not None
@@ -1029,7 +1037,7 @@ class TestHandleEdgeCases:
         """Legacy export path is handled with deprecation header."""
         mock_h = _make_http_handler("GET")
         handler._export_report = AsyncMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
         result = await handler.handle(f"/api/gauntlet/{VALID_ID}/export", {}, mock_h)
         assert result is not None
@@ -1040,10 +1048,8 @@ class TestHandleEdgeCases:
         """Legacy compare path is handled with deprecation header."""
         mock_h = _make_http_handler("GET")
         handler._compare_results = MagicMock(
-            return_value=HandlerResult(status_code=200, content_type="application/json", body=b'{}')
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         )
-        result = await handler.handle(
-            f"/api/gauntlet/{VALID_ID}/compare/{VALID_ID2}", {}, mock_h
-        )
+        result = await handler.handle(f"/api/gauntlet/{VALID_ID}/compare/{VALID_ID2}", {}, mock_h)
         assert result is not None
         assert result.headers.get("Deprecation") == "true"

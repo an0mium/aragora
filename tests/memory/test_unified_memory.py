@@ -360,9 +360,7 @@ class TestRetentionDuplicateDetection:
     def test_finds_duplicates_across_systems(self):
         gate = RetentionGate()
         items_by_system = {
-            "continuum": [
-                {"id": "c1", "content": "authentication login password security tokens"}
-            ],
+            "continuum": [{"id": "c1", "content": "authentication login password security tokens"}],
             "consensus": [
                 {"id": "k1", "content": "authentication login security password tokens method"}
             ],
@@ -436,9 +434,7 @@ class TestRLMContextAdapter:
     async def test_get_codebase_context(self):
         from aragora.knowledge.mound.adapters.rlm_context_adapter import RLMContextAdapter
 
-        mock_search = AsyncMock(
-            return_value=[{"content": "Auth module handles OIDC", "id": "r1"}]
-        )
+        mock_search = AsyncMock(return_value=[{"content": "Auth module handles OIDC", "id": "r1"}])
         adapter = RLMContextAdapter(search_fn=mock_search, enable_resilience=False)
         results = await adapter.get_codebase_context("authentication")
         assert len(results) == 1
@@ -484,9 +480,7 @@ class TestMemoryFabric:
     async def test_query_single_backend(self):
         backend = MagicMock()
         backend.search = MagicMock(
-            return_value=[
-                {"content": "Auth tokens use JWT", "id": "1", "relevance": 0.9}
-            ]
+            return_value=[{"content": "Auth tokens use JWT", "id": "1", "relevance": 0.9}]
         )
         fabric = MemoryFabric(backends={"km": backend})
         results = await fabric.query("authentication")
@@ -498,9 +492,7 @@ class TestMemoryFabric:
     async def test_query_async_backend(self):
         backend = MagicMock()
         backend.search = AsyncMock(
-            return_value=[
-                {"content": "Circuit breaker pattern", "id": "2", "relevance": 0.7}
-            ]
+            return_value=[{"content": "Circuit breaker pattern", "id": "2", "relevance": 0.7}]
         )
         fabric = MemoryFabric(backends={"continuum": backend})
         results = await fabric.query("resilience")
@@ -515,9 +507,7 @@ class TestMemoryFabric:
         )
         consensus = MagicMock()
         consensus.search = MagicMock(
-            return_value=[
-                {"content": "Consensus on auth approach", "id": "c1", "relevance": 0.6}
-            ]
+            return_value=[{"content": "Consensus on auth approach", "id": "c1", "relevance": 0.6}]
         )
         fabric = MemoryFabric(backends={"km": km, "consensus": consensus})
         results = await fabric.query("authentication")
@@ -700,9 +690,7 @@ class TestBusinessKnowledgeIngester:
     async def test_query_business_context(self):
         backend = MagicMock()
         backend.search = MagicMock(
-            return_value=[
-                {"content": "[invoice] Net 30 terms", "id": "1", "relevance": 0.7}
-            ]
+            return_value=[{"content": "[invoice] Net 30 terms", "id": "1", "relevance": 0.7}]
         )
         fabric = MemoryFabric(backends={"km": backend})
         ingester = BusinessKnowledgeIngester(fabric)

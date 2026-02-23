@@ -53,6 +53,7 @@ from aragora.server.handlers.webhooks.github_app import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _compute_signature(payload_bytes: bytes, secret: str) -> str:
     """Compute a valid HMAC-SHA256 signature for testing."""
     mac = hmac_mod.new(secret.encode(), payload_bytes, hashlib.sha256)
@@ -174,6 +175,7 @@ def _make_installation_payload(
 # Enum tests
 # ===========================================================================
 
+
 class TestGitHubEventType:
     """Tests for the GitHubEventType enum."""
 
@@ -204,8 +206,16 @@ class TestGitHubAction:
 
     def test_all_expected_values(self):
         values = {a.value for a in GitHubAction}
-        expected = {"opened", "closed", "reopened", "synchronize", "created",
-                    "deleted", "edited", "submitted"}
+        expected = {
+            "opened",
+            "closed",
+            "reopened",
+            "synchronize",
+            "created",
+            "deleted",
+            "edited",
+            "submitted",
+        }
         assert values == expected
 
     def test_string_enum_behaviour(self):
@@ -216,6 +226,7 @@ class TestGitHubAction:
 # ===========================================================================
 # GitHubWebhookEvent.from_request tests
 # ===========================================================================
+
 
 class TestGitHubWebhookEvent:
     """Tests for GitHubWebhookEvent dataclass construction."""
@@ -257,6 +268,7 @@ class TestGitHubWebhookEvent:
 # ===========================================================================
 # verify_signature tests
 # ===========================================================================
+
 
 class TestVerifySignature:
     """Tests for HMAC-SHA256 webhook signature verification."""
@@ -305,6 +317,7 @@ class TestVerifySignature:
 # Event handler registry tests
 # ===========================================================================
 
+
 class TestEventHandlerRegistry:
     """Tests for the register_event_handler decorator."""
 
@@ -336,12 +349,15 @@ class TestEventHandlerRegistry:
 # Individual event handler tests (called directly)
 # ===========================================================================
 
+
 class TestHandlePing:
     """Tests for the ping event handler."""
 
     @pytest.mark.asyncio
     async def test_ping_returns_pong(self):
-        event = GitHubWebhookEvent.from_request("ping", "d-1", {"zen": "Keep it logically awesome."})
+        event = GitHubWebhookEvent.from_request(
+            "ping", "d-1", {"zen": "Keep it logically awesome."}
+        )
         result = await handle_ping(event)
         assert result["status"] == "ok"
         assert result["message"] == "pong"
@@ -551,7 +567,12 @@ class TestHandlePush:
 
     @pytest.mark.asyncio
     async def test_push_missing_pusher(self):
-        payload = {"ref": "refs/heads/dev", "commits": [], "repository": {"full_name": "x/y"}, "sender": {"login": "z"}}
+        payload = {
+            "ref": "refs/heads/dev",
+            "commits": [],
+            "repository": {"full_name": "x/y"},
+            "sender": {"login": "z"},
+        }
         event = GitHubWebhookEvent.from_request("push", "d-3", payload)
         result = await handle_push(event)
         assert result["pusher"] is None
@@ -569,7 +590,9 @@ class TestHandleInstallation:
 
     @pytest.mark.asyncio
     async def test_installation_created(self):
-        payload = _make_installation_payload(action="created", installation_id=99, account_login="my-org")
+        payload = _make_installation_payload(
+            action="created", installation_id=99, account_login="my-org"
+        )
         event = GitHubWebhookEvent.from_request("installation", "d-1", payload)
         result = await handle_installation(event)
 
@@ -598,6 +621,7 @@ class TestHandleInstallation:
 # ===========================================================================
 # handle_github_webhook (main dispatcher) tests
 # ===========================================================================
+
 
 class TestHandleGitHubWebhook:
     """Tests for the main webhook dispatcher."""
@@ -794,6 +818,7 @@ class TestHandleGitHubWebhook:
 
         original = _event_handlers.get(GitHubEventType.PING)
         try:
+
             async def _bad_handler(event):
                 raise RuntimeError("boom")
 
@@ -813,6 +838,7 @@ class TestHandleGitHubWebhook:
 
         original = _event_handlers.get(GitHubEventType.PING)
         try:
+
             async def _bad_handler(event):
                 raise ValueError("invalid data")
 
@@ -851,6 +877,7 @@ class TestHandleGitHubWebhook:
 # ===========================================================================
 # handle_github_app_status tests
 # ===========================================================================
+
 
 class TestHandleGitHubAppStatus:
     """Tests for the status endpoint."""
@@ -892,6 +919,7 @@ class TestHandleGitHubAppStatus:
 # queue_code_review_debate tests
 # ===========================================================================
 
+
 def _mock_decision_modules():
     """Create mocked decision module objects for patching internal imports."""
     mock_decision = MagicMock()
@@ -912,7 +940,9 @@ class TestQueueCodeReviewDebate:
     async def test_returns_none_on_import_error(self):
         """When decision module is missing, returns None gracefully."""
         # Patch at the point of use inside the function: the local import statement
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def failing_import(name, *args, **kwargs):
             if name == "aragora.core.decision":
@@ -936,10 +966,13 @@ class TestQueueCodeReviewDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_code_review_debate(
                 {"number": 1, "title": "T", "html_url": "u", "body": "b", "user": {"login": "l"}},
                 {"full_name": "o/r"},
@@ -960,10 +993,13 @@ class TestQueueCodeReviewDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_code_review_debate(
                 {"number": 1, "title": "T", "html_url": "u", "body": "b", "user": {"login": "l"}},
                 {"full_name": "o/r"},
@@ -987,10 +1023,13 @@ class TestQueueCodeReviewDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_code_review_debate(
                 {"number": 1, "title": "T", "html_url": "u", "body": None, "user": {"login": "l"}},
                 {"full_name": "o/r"},
@@ -1008,10 +1047,13 @@ class TestQueueCodeReviewDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_code_review_debate(
                 {"number": 1, "title": "T", "html_url": "u", "body": "b", "user": {"login": "l"}},
                 {"full_name": "o/r"},
@@ -1032,12 +1074,21 @@ class TestQueueCodeReviewDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             await queue_code_review_debate(
-                {"number": 42, "title": "Fix", "html_url": "u", "body": "b", "user": {"login": "alice"}},
+                {
+                    "number": 42,
+                    "title": "Fix",
+                    "html_url": "u",
+                    "body": "b",
+                    "user": {"login": "alice"},
+                },
                 {"full_name": "octocat/Hello-World"},
                 999,
             )
@@ -1054,7 +1105,9 @@ class TestQueueIssueTriageDebate:
     @pytest.mark.asyncio
     async def test_returns_none_on_import_error(self):
         """When decision module is missing, returns None gracefully."""
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def failing_import(name, *args, **kwargs):
             if name == "aragora.core.decision":
@@ -1078,12 +1131,22 @@ class TestQueueIssueTriageDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_issue_triage_debate(
-                {"number": 5, "title": "Bug", "html_url": "u", "body": "b", "user": {"login": "c"}, "labels": []},
+                {
+                    "number": 5,
+                    "title": "Bug",
+                    "html_url": "u",
+                    "body": "b",
+                    "user": {"login": "c"},
+                    "labels": [],
+                },
                 {"full_name": "o/r"},
                 456,
             )
@@ -1103,12 +1166,22 @@ class TestQueueIssueTriageDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_issue_triage_debate(
-                {"number": 1, "title": "T", "html_url": "u", "body": None, "user": {"login": "l"}, "labels": []},
+                {
+                    "number": 1,
+                    "title": "T",
+                    "html_url": "u",
+                    "body": None,
+                    "user": {"login": "l"},
+                    "labels": [],
+                },
                 {"full_name": "o/r"},
                 None,
             )
@@ -1127,10 +1200,13 @@ class TestQueueIssueTriageDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_issue_triage_debate(
                 {
                     "number": 2,
@@ -1163,12 +1239,22 @@ class TestQueueIssueTriageDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_issue_triage_debate(
-                {"number": 1, "title": "T", "html_url": "u", "body": "b", "user": {"login": "l"}, "labels": []},
+                {
+                    "number": 1,
+                    "title": "T",
+                    "html_url": "u",
+                    "body": "b",
+                    "user": {"login": "l"},
+                    "labels": [],
+                },
                 {"full_name": "o/r"},
                 123,
             )
@@ -1183,12 +1269,22 @@ class TestQueueIssueTriageDebate:
         mock_origin = MagicMock()
         mock_origin.register_debate_origin = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision": mock_decision,
-            "aragora.server.debate_origin": mock_origin,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision": mock_decision,
+                "aragora.server.debate_origin": mock_origin,
+            },
+        ):
             result = await queue_issue_triage_debate(
-                {"number": 1, "title": "T", "html_url": "u", "body": "b", "user": {"login": "l"}, "labels": []},
+                {
+                    "number": 1,
+                    "title": "T",
+                    "html_url": "u",
+                    "body": "b",
+                    "user": {"login": "l"},
+                    "labels": [],
+                },
                 {"full_name": "o/r"},
                 123,
             )
@@ -1198,6 +1294,7 @@ class TestQueueIssueTriageDebate:
 # ===========================================================================
 # Route definitions
 # ===========================================================================
+
 
 class TestRouteDefinitions:
     """Tests for the GITHUB_APP_ROUTES constant."""
@@ -1230,6 +1327,7 @@ class TestRouteDefinitions:
 # ===========================================================================
 # Edge cases and security
 # ===========================================================================
+
 
 class TestSecurityEdgeCases:
     """Additional security and edge-case tests."""
@@ -1297,9 +1395,13 @@ class TestSecurityEdgeCases:
         monkeypatch.setenv("ARAGORA_ENV", "test")
 
         # Use action="edited" to avoid triggering the real queue_issue_triage_debate
-        large_payload = {"data": "x" * 50_000, "action": "edited",
-                         "issue": {"number": 1, "title": "big", "user": {"login": "u"}},
-                         "repository": {"full_name": "r"}, "sender": {"login": "u"}}
+        large_payload = {
+            "data": "x" * 50_000,
+            "action": "edited",
+            "issue": {"number": 1, "title": "big", "user": {"login": "u"}},
+            "repository": {"full_name": "r"},
+            "sender": {"login": "u"},
+        }
         ctx = _make_ctx(event_type="issues", payload=large_payload)
         result = await handle_github_webhook(ctx)
         assert result.status_code == 200
@@ -1338,6 +1440,7 @@ class TestSignatureEdgeCases:
 # Integration-style: full flow with signature
 # ===========================================================================
 
+
 class TestFullWebhookFlow:
     """End-to-end flow tests with proper signature verification."""
 
@@ -1373,7 +1476,9 @@ class TestFullWebhookFlow:
         secret = "inst-secret"
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", secret)
 
-        payload = _make_installation_payload(action="created", installation_id=77, account_login="acme")
+        payload = _make_installation_payload(
+            action="created", installation_id=77, account_login="acme"
+        )
         raw = json.dumps(payload).encode()
         sig = _compute_signature(raw, secret)
 

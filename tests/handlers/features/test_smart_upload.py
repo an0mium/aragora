@@ -111,6 +111,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -119,6 +120,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -274,7 +276,9 @@ class TestSmartUploadPost:
         body = {"content": content, "filename": "hello.txt"}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         assert _status(result) == 200
@@ -289,7 +293,9 @@ class TestSmartUploadPost:
         body = {"filename": "test.txt"}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         assert _status(result) == 400
@@ -302,7 +308,9 @@ class TestSmartUploadPost:
         body = {"content": content, "filename": "main.py"}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         assert _status(result) == 200
@@ -318,7 +326,9 @@ class TestSmartUploadPost:
         body = {"content": content, "filename": "data.json"}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         assert _status(result) == 200
@@ -337,7 +347,9 @@ class TestSmartUploadPost:
         }
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         assert _status(result) == 200
@@ -355,7 +367,9 @@ class TestSmartUploadPost:
         }
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         assert _status(result) == 200
@@ -369,7 +383,9 @@ class TestSmartUploadPost:
         body = {"content": encoded, "filename": "notes.txt"}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         # base64 encoded content should be accepted
@@ -391,7 +407,9 @@ class TestSmartUploadPost:
         body = {"content": content}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
         # Should complete (the file may be rejected by validation for no extension)
@@ -416,7 +434,9 @@ class TestBatchUploadPost:
         body = {"files": files}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/batch", body, mock)
 
         assert _status(result) == 200
@@ -432,7 +452,9 @@ class TestBatchUploadPost:
         body = {"files": []}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/batch", body, mock)
 
         assert _status(result) == 400
@@ -443,7 +465,9 @@ class TestBatchUploadPost:
         body = {}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/batch", body, mock)
 
         assert _status(result) == 400
@@ -461,7 +485,9 @@ class TestBatchUploadPost:
         body = {"files": files}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/batch", body, mock)
 
         assert _status(result) == 200
@@ -485,7 +511,9 @@ class TestBatchUploadPost:
         body = {"files": files}
         mock = MockHTTPHandler(command="POST", body=body)
 
-        with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
+        with patch.object(
+            handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}
+        ):
             result = await handler.handle_post("/api/v1/upload/batch", body, mock)
 
         assert _status(result) == 200
@@ -777,20 +805,26 @@ class TestProcessFile:
     @pytest.mark.asyncio
     async def test_process_text_file(self):
         text = b"Hello world, this is a test document with some text."
-        result = await process_file(text, "notes.txt", FileCategory.DOCUMENT, ProcessingAction.EXTRACT)
+        result = await process_file(
+            text, "notes.txt", FileCategory.DOCUMENT, ProcessingAction.EXTRACT
+        )
         assert result["text"] == text.decode()
         assert result["word_count"] > 0
 
     @pytest.mark.asyncio
     async def test_process_markdown_file(self):
         md = b"# Title\n\nSome markdown content."
-        result = await process_file(md, "readme.md", FileCategory.DOCUMENT, ProcessingAction.EXTRACT)
+        result = await process_file(
+            md, "readme.md", FileCategory.DOCUMENT, ProcessingAction.EXTRACT
+        )
         assert "# Title" in result["text"]
 
     @pytest.mark.asyncio
     async def test_process_json_file(self):
         json_data = json.dumps({"key": "value", "count": 42}).encode()
-        result = await process_file(json_data, "data.json", FileCategory.DATA, ProcessingAction.PARSE)
+        result = await process_file(
+            json_data, "data.json", FileCategory.DATA, ProcessingAction.PARSE
+        )
         assert result["parsed"] is True
         assert result["type"] == "json"
         assert result["record_count"] == 1
@@ -798,14 +832,18 @@ class TestProcessFile:
     @pytest.mark.asyncio
     async def test_process_json_array(self):
         json_data = json.dumps([1, 2, 3]).encode()
-        result = await process_file(json_data, "list.json", FileCategory.DATA, ProcessingAction.PARSE)
+        result = await process_file(
+            json_data, "list.json", FileCategory.DATA, ProcessingAction.PARSE
+        )
         assert result["parsed"] is True
         assert result["record_count"] == 3
 
     @pytest.mark.asyncio
     async def test_process_csv_file(self):
         csv_data = b"name,age\nAlice,30\nBob,25\n"
-        result = await process_file(csv_data, "people.csv", FileCategory.DATA, ProcessingAction.PARSE)
+        result = await process_file(
+            csv_data, "people.csv", FileCategory.DATA, ProcessingAction.PARSE
+        )
         assert result["parsed"] is True
         assert result["type"] == "csv"
         assert result["record_count"] == 2
@@ -813,13 +851,17 @@ class TestProcessFile:
 
     @pytest.mark.asyncio
     async def test_process_invalid_json(self):
-        result = await process_file(b"{bad json", "bad.json", FileCategory.DATA, ProcessingAction.PARSE)
+        result = await process_file(
+            b"{bad json", "bad.json", FileCategory.DATA, ProcessingAction.PARSE
+        )
         assert result["parsed"] is False
         assert result["error"] == "Internal server error"
 
     @pytest.mark.asyncio
     async def test_process_skip_action(self):
-        result = await process_file(b"whatever", "file.bin", FileCategory.UNKNOWN, ProcessingAction.SKIP)
+        result = await process_file(
+            b"whatever", "file.bin", FileCategory.UNKNOWN, ProcessingAction.SKIP
+        )
         assert result["stored"] is True
 
     @pytest.mark.asyncio
@@ -870,12 +912,16 @@ class TestProcessFile:
 
     @pytest.mark.asyncio
     async def test_process_unsupported_document(self):
-        result = await process_file(b"\x00" * 100, "file.rtf", FileCategory.DOCUMENT, ProcessingAction.EXTRACT)
+        result = await process_file(
+            b"\x00" * 100, "file.rtf", FileCategory.DOCUMENT, ProcessingAction.EXTRACT
+        )
         assert "Unsupported" in result.get("text", "")
 
     @pytest.mark.asyncio
     async def test_process_unsupported_data_format(self):
-        result = await process_file(b"content", "data.toml", FileCategory.DATA, ProcessingAction.PARSE)
+        result = await process_file(
+            b"content", "data.toml", FileCategory.DATA, ProcessingAction.PARSE
+        )
         assert result["parsed"] is False
         assert result["type"] == ".toml"
 
@@ -921,11 +967,14 @@ class TestSmartUpload:
     @pytest.mark.asyncio
     async def test_content_validation_failure(self):
         """Files that fail content validation are rejected."""
-        with patch(
-            "aragora.server.handlers.features.smart_upload.validate_file_upload"
-        ) as mock_validate, patch(
-            "aragora.server.handlers.features.smart_upload.validate_content_type"
-        ) as mock_content:
+        with (
+            patch(
+                "aragora.server.handlers.features.smart_upload.validate_file_upload"
+            ) as mock_validate,
+            patch(
+                "aragora.server.handlers.features.smart_upload.validate_content_type"
+            ) as mock_content,
+        ):
             mock_validate.return_value = MagicMock(valid=True)
             mock_content.return_value = ContentValidationResult(
                 valid=False,
@@ -974,11 +1023,14 @@ class TestSmartUpload:
     @pytest.mark.asyncio
     async def test_mismatch_warning_in_result(self):
         """Content type mismatch warnings are preserved in result."""
-        with patch(
-            "aragora.server.handlers.features.smart_upload.validate_file_upload"
-        ) as mock_validate, patch(
-            "aragora.server.handlers.features.smart_upload.validate_content_type"
-        ) as mock_content:
+        with (
+            patch(
+                "aragora.server.handlers.features.smart_upload.validate_file_upload"
+            ) as mock_validate,
+            patch(
+                "aragora.server.handlers.features.smart_upload.validate_content_type"
+            ) as mock_content,
+        ):
             mock_validate.return_value = MagicMock(valid=True)
             mock_content.return_value = ContentValidationResult(
                 valid=True,
@@ -994,14 +1046,18 @@ class TestSmartUpload:
     @pytest.mark.asyncio
     async def test_processing_error_sets_failed_status(self):
         """Processing errors result in 'failed' status."""
-        with patch(
-            "aragora.server.handlers.features.smart_upload.validate_file_upload"
-        ) as mock_validate, patch(
-            "aragora.server.handlers.features.smart_upload.validate_content_type"
-        ) as mock_content, patch(
-            "aragora.server.handlers.features.smart_upload.process_file",
-            new_callable=AsyncMock,
-            side_effect=RuntimeError("boom"),
+        with (
+            patch(
+                "aragora.server.handlers.features.smart_upload.validate_file_upload"
+            ) as mock_validate,
+            patch(
+                "aragora.server.handlers.features.smart_upload.validate_content_type"
+            ) as mock_content,
+            patch(
+                "aragora.server.handlers.features.smart_upload.process_file",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("boom"),
+            ),
         ):
             mock_validate.return_value = MagicMock(valid=True)
             mock_content.return_value = ContentValidationResult(valid=True)
@@ -1454,7 +1510,10 @@ class TestQueueKnowledge:
         assert result is not None
         mock_process.assert_called_once()
         call_kwargs = mock_process.call_args
-        assert call_kwargs[1]["workspace_id"] == "ws1" or call_kwargs.kwargs.get("workspace_id") == "ws1"
+        assert (
+            call_kwargs[1]["workspace_id"] == "ws1"
+            or call_kwargs.kwargs.get("workspace_id") == "ws1"
+        )
 
     @pytest.mark.asyncio
     async def test_falls_back_to_default_workspace(self):

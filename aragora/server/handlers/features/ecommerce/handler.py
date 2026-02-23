@@ -485,7 +485,9 @@ class EcommerceHandler(SecureHandler):
         except ValueError as e:
             logger.error("Data error fetching %s orders: %s", platform, e)
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.error("Unexpected error fetching %s orders: %s: %s", platform, type(e).__name__, e)
+            logger.error(
+                "Unexpected error fetching %s orders: %s: %s", platform, type(e).__name__, e
+            )
 
         return []
 
@@ -620,7 +622,9 @@ class EcommerceHandler(SecureHandler):
         except ValueError as e:
             logger.error("Data error fetching %s products: %s", platform, e)
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.error("Unexpected error fetching %s products: %s: %s", platform, type(e).__name__, e)
+            logger.error(
+                "Unexpected error fetching %s products: %s: %s", platform, type(e).__name__, e
+            )
 
         return []
 
@@ -678,13 +682,19 @@ class EcommerceHandler(SecureHandler):
                 return self._json_response(200, self._normalize_walmart_item(item))
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error("Connection error fetching product %s from %s: %s", product_id, platform, e)
+            logger.error(
+                "Connection error fetching product %s from %s: %s", product_id, platform, e
+            )
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError:
             return self._error_response(400, "Invalid product request")
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
-                "Error fetching product %s from %s: %s: %s", product_id, platform, type(e).__name__, e
+                "Error fetching product %s from %s: %s: %s",
+                product_id,
+                platform,
+                type(e).__name__,
+                e,
             )
             return self._error_response(404, "Product not found")
 
@@ -805,11 +815,18 @@ class EcommerceHandler(SecureHandler):
                             quantity = inv[0].quantity
                 except (ConnectionError, TimeoutError, OSError) as e:
                     logger.error(
-                        "Connection error fetching source inventory from %s for SKU %s: %s", source_platform, sku, e
+                        "Connection error fetching source inventory from %s for SKU %s: %s",
+                        source_platform,
+                        sku,
+                        e,
                     )
                 except (ValueError, TypeError, AttributeError, KeyError) as e:
                     logger.error(
-                        "Error fetching source inventory from %s for SKU %s: %s: %s", source_platform, sku, type(e).__name__, e
+                        "Error fetching source inventory from %s for SKU %s: %s: %s",
+                        source_platform,
+                        sku,
+                        type(e).__name__,
+                        e,
                     )
 
         if quantity is None:
@@ -837,12 +854,21 @@ class EcommerceHandler(SecureHandler):
 
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.error(
-                    "Connection error syncing inventory to %s (SKU: %s, quantity: %s): %s", platform, sku, quantity, e
+                    "Connection error syncing inventory to %s (SKU: %s, quantity: %s): %s",
+                    platform,
+                    sku,
+                    quantity,
+                    e,
                 )
                 results[platform] = {"error": "Platform temporarily unavailable"}
             except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
                 logger.error(
-                    "Error syncing inventory to %s (SKU: %s, quantity: %s): %s: %s", platform, sku, quantity, type(e).__name__, e
+                    "Error syncing inventory to %s (SKU: %s, quantity: %s): %s: %s",
+                    platform,
+                    sku,
+                    quantity,
+                    type(e).__name__,
+                    e,
                 )
                 results[platform] = {"error": "Inventory sync failed"}
 
@@ -1042,7 +1068,11 @@ class EcommerceHandler(SecureHandler):
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
-                "Error creating shipment on %s (order: %s): %s: %s", platform, order_id, type(e).__name__, e
+                "Error creating shipment on %s (order: %s): %s: %s",
+                platform,
+                order_id,
+                type(e).__name__,
+                e,
             )
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to create shipment")

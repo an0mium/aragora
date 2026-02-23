@@ -119,7 +119,9 @@ def _patch_config_tokens(monkeypatch):
 def _patch_rbac(monkeypatch):
     """Default: RBAC available but permissive (no permission errors)."""
     monkeypatch.setattr(f"{_HANDLER}.RBAC_AVAILABLE", True)
-    monkeypatch.setattr(f"{_HANDLER}.check_permission", MagicMock(return_value=MagicMock(allowed=True)))
+    monkeypatch.setattr(
+        f"{_HANDLER}.check_permission", MagicMock(return_value=MagicMock(allowed=True))
+    )
     monkeypatch.setattr(f"{_HANDLER}.extract_user_from_request", None)
     monkeypatch.setattr(f"{_HANDLER}.rbac_fail_closed", lambda: False)
 
@@ -358,19 +360,25 @@ class TestNotFound:
 class TestRBACPermissions:
     """Tests for RBAC permission checking methods."""
 
-    def test_check_permission_returns_none_when_rbac_unavailable(self, handler, monkeypatch, mock_http_handler):
+    def test_check_permission_returns_none_when_rbac_unavailable(
+        self, handler, monkeypatch, mock_http_handler
+    ):
         monkeypatch.setattr(f"{_HANDLER}.RBAC_AVAILABLE", False)
         monkeypatch.setattr(f"{_HANDLER}.rbac_fail_closed", lambda: False)
         result = handler._check_permission(mock_http_handler, "bots.read")
         assert result is None
 
-    def test_check_permission_returns_503_when_fail_closed(self, handler, monkeypatch, mock_http_handler):
+    def test_check_permission_returns_503_when_fail_closed(
+        self, handler, monkeypatch, mock_http_handler
+    ):
         monkeypatch.setattr(f"{_HANDLER}.RBAC_AVAILABLE", False)
         monkeypatch.setattr(f"{_HANDLER}.rbac_fail_closed", lambda: True)
         result = handler._check_permission(mock_http_handler, "bots.read")
         assert _status(result) == 503
 
-    def test_check_permission_returns_none_when_allowed(self, handler, monkeypatch, mock_http_handler):
+    def test_check_permission_returns_none_when_allowed(
+        self, handler, monkeypatch, mock_http_handler
+    ):
         """When RBAC is available and permission is allowed, returns None."""
         mock_user = MagicMock()
         mock_user.user_id = "test-user"
@@ -384,7 +392,9 @@ class TestRBACPermissions:
         result = handler._check_permission(mock_http_handler, "bots.read")
         assert result is None
 
-    def test_check_permission_returns_403_when_denied(self, handler, monkeypatch, mock_http_handler):
+    def test_check_permission_returns_403_when_denied(
+        self, handler, monkeypatch, mock_http_handler
+    ):
         """When permission is denied, returns 403."""
         mock_user = MagicMock()
         mock_user.user_id = "test-user"
@@ -398,7 +408,9 @@ class TestRBACPermissions:
         result = handler._check_permission(mock_http_handler, "bots.read")
         assert _status(result) == 403
 
-    def test_check_permission_no_context_returns_none(self, handler, monkeypatch, mock_http_handler):
+    def test_check_permission_no_context_returns_none(
+        self, handler, monkeypatch, mock_http_handler
+    ):
         """When extract_user_from_request returns None, no permission error."""
         monkeypatch.setattr(f"{_HANDLER}.extract_user_from_request", lambda h: None)
         result = handler._check_permission(mock_http_handler, "bots.read")
@@ -747,7 +759,9 @@ class TestHandleInteractiveReply:
             }
         }
         handler._handle_interactive_reply("12345678901", "Alice", msg)
-        handler._process_button_click.assert_called_once_with("12345678901", "Alice", "vote_agree_d1")
+        handler._process_button_click.assert_called_once_with(
+            "12345678901", "Alice", "vote_agree_d1"
+        )
 
     def test_list_reply(self, handler):
         handler._process_button_click = MagicMock()
@@ -819,7 +833,9 @@ class TestProcessButtonClick:
     def test_vote_disagree(self, handler):
         handler._record_vote = MagicMock()
         handler._process_button_click("12345678901", "Alice", "vote_disagree_debate-xyz")
-        handler._record_vote.assert_called_once_with("12345678901", "Alice", "debate-xyz", "disagree")
+        handler._record_vote.assert_called_once_with(
+            "12345678901", "Alice", "debate-xyz", "disagree"
+        )
 
     def test_details(self, handler):
         handler._send_debate_details = MagicMock()

@@ -259,7 +259,9 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     nodes_skipped += 1
-                    logger.warning("Failed to create request for continuum entry %s: %s", entry.id, e)
+                    logger.warning(
+                        "Failed to create request for continuum entry %s: %s", entry.id, e
+                    )
                     errors.append(f"continuum:{entry.id}: request creation failed")
 
             # Batch store all requests
@@ -383,7 +385,13 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                         requests.append(request)
 
-                    except (RuntimeError, ValueError, KeyError, IndexError, json.JSONDecodeError) as e:  # noqa: BLE001 - adapter isolation
+                    except (
+                        RuntimeError,
+                        ValueError,
+                        KeyError,
+                        IndexError,
+                        json.JSONDecodeError,
+                    ) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning(
                             "Failed to create request for consensus record %s: %s", row[0], e
@@ -849,7 +857,9 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     nodes_skipped += 1
-                    logger.warning("Failed to create request for continuum entry %s: %s", entry.id, e)
+                    logger.warning(
+                        "Failed to create request for continuum entry %s: %s", entry.id, e
+                    )
                     errors.append(f"continuum:{entry.id}: request creation failed")
 
             # Batch store all requests using concurrent processing
@@ -988,9 +998,17 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                         requests.append(request)
 
-                    except (RuntimeError, ValueError, KeyError, IndexError, json.JSONDecodeError) as e:  # noqa: BLE001 - adapter isolation
+                    except (
+                        RuntimeError,
+                        ValueError,
+                        KeyError,
+                        IndexError,
+                        json.JSONDecodeError,
+                    ) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
-                        logger.warning("Failed to create request for consensus record %s: %s", row[0], e)
+                        logger.warning(
+                            "Failed to create request for consensus record %s: %s", row[0], e
+                        )
                         errors.append(f"consensus:{row[0]}: request creation failed")
 
                 # Batch store all requests using concurrent processing

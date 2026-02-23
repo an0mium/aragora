@@ -248,7 +248,9 @@ class TestExecuteTaskHarnessRouting:
             model_used="harness:claude-code",
             duration_seconds=12.5,
         )
-        with patch.object(executor, "_execute_via_harness", new=AsyncMock(return_value=mock_result)):
+        with patch.object(
+            executor, "_execute_via_harness", new=AsyncMock(return_value=mock_result)
+        ):
             result = await executor.execute_task(task, attempt=1)
 
         assert result.success is True

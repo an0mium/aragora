@@ -89,8 +89,10 @@ class TestDebateEvent:
 
     def test_to_dict_without_trace_ids(self):
         """Test to_dict omits None trace IDs."""
-        with patch("aragora.debate.event_bus.get_trace_id", return_value=None), \
-             patch("aragora.debate.event_bus.get_span_id", return_value=None):
+        with (
+            patch("aragora.debate.event_bus.get_trace_id", return_value=None),
+            patch("aragora.debate.event_bus.get_span_id", return_value=None),
+        ):
             event = DebateEvent(
                 event_type="consensus",
                 debate_id="debate-4",
@@ -694,6 +696,7 @@ class TestSingletonPattern:
         """Test get_event_bus creates default instance."""
         # Reset global state
         from aragora.debate import event_bus as eb_module
+
         eb_module._default_bus = None
         bus1 = get_event_bus()
         bus2 = get_event_bus()
@@ -820,11 +823,13 @@ class TestIntegration:
         """Test audience manager processes votes correctly."""
         audience_manager = AsyncMock()
         bus = EventBus(audience_manager=audience_manager)
-        bus.queue_user_event({
-            "type": "vote",
-            "user_id": "alice",
-            "vote": "approve",
-        })
+        bus.queue_user_event(
+            {
+                "type": "vote",
+                "user_id": "alice",
+                "vote": "approve",
+            }
+        )
         await bus.drain_user_events(debate_id="debate-1")
         audience_manager.record_vote.assert_called_once_with(
             debate_id="debate-1",
@@ -837,11 +842,13 @@ class TestIntegration:
         """Test audience manager processes suggestions correctly."""
         audience_manager = AsyncMock()
         bus = EventBus(audience_manager=audience_manager)
-        bus.queue_user_event({
-            "type": "suggestion",
-            "user_id": "bob",
-            "content": "Consider security",
-        })
+        bus.queue_user_event(
+            {
+                "type": "suggestion",
+                "user_id": "bob",
+                "content": "Consider security",
+            }
+        )
         await bus.drain_user_events(debate_id="debate-1")
         audience_manager.add_suggestion.assert_called_once_with(
             debate_id="debate-1",
@@ -854,10 +861,12 @@ class TestIntegration:
         """Test unknown user event types are ignored gracefully."""
         audience_manager = AsyncMock()
         bus = EventBus(audience_manager=audience_manager)
-        bus.queue_user_event({
-            "type": "unknown_type",
-            "user_id": "charlie",
-        })
+        bus.queue_user_event(
+            {
+                "type": "unknown_type",
+                "user_id": "charlie",
+            }
+        )
         events = await bus.drain_user_events(debate_id="debate-1")
         assert len(events) == 1
         audience_manager.record_vote.assert_not_called()

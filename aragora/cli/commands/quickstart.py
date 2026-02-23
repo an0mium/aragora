@@ -205,7 +205,11 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
 
     return {
         "question": question,
-        "verdict": result.verdict.value if hasattr(result, "verdict") and hasattr(result.verdict, "value") else str(result.verdict) if hasattr(result, "verdict") else "consensus",
+        "verdict": result.verdict.value
+        if hasattr(result, "verdict") and hasattr(result.verdict, "value")
+        else str(result.verdict)
+        if hasattr(result, "verdict")
+        else "consensus",
         "confidence": result.confidence if hasattr(result, "confidence") else 0.85,
         "rounds": rounds,
         "agents": [a.name for a in agents],
@@ -327,7 +331,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print("=" * 60)
     print("  RESULT")
     print("=" * 60)
-    verdict_display = str(result['verdict']).replace('_', ' ').title()
+    verdict_display = str(result["verdict"]).replace("_", " ").title()
     print(f"\n  Verdict:    {verdict_display}")
     print(f"  Confidence: {result['confidence']:.0%}")
     print(f"  Agents:     {', '.join(result['agents'])}")

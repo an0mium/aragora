@@ -312,7 +312,7 @@ class JWTVerifier:
                 },
             )
 
-            logger.debug("Microsoft token verified: iss=%s", claims.get('iss'))
+            logger.debug("Microsoft token verified: iss=%s", claims.get("iss"))
             return JWTVerificationResult(valid=True, claims=claims)
 
         except PyJWTError as e:
@@ -413,7 +413,7 @@ class JWTVerifier:
             # Decode and verify the token
             claims = jwt.decode(token, signing_key.key, **decode_kwargs)
 
-            logger.debug("Google token verified: iss=%s", claims.get('iss'))
+            logger.debug("Google token verified: iss=%s", claims.get("iss"))
             return JWTVerificationResult(valid=True, claims=claims)
 
         except PyJWTError as e:

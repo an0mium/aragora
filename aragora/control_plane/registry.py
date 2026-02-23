@@ -357,7 +357,11 @@ class AgentRegistry:
 
         await self._save_agent(agent)
         logger.info(
-            "Agent registered: %s (model=%s, region=%s, capabilities=%s)", agent_id, model, region_id, cap_strs
+            "Agent registered: %s (model=%s, region=%s, capabilities=%s)",
+            agent_id,
+            model,
+            region_id,
+            cap_strs,
         )
 
         return agent

@@ -97,8 +97,10 @@ class TestWorktreeBranchCreation:
             config=config,
         )
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch.object(coordinator, "branch_exists", return_value=False):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=False),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             branch = await coordinator.create_track_branch(
@@ -109,8 +111,7 @@ class TestWorktreeBranchCreation:
             assert "sme" in branch
             # Should call worktree add (not checkout)
             worktree_calls = [
-                c for c in mock_git.call_args_list
-                if len(c[0]) > 0 and c[0][0] == "worktree"
+                c for c in mock_git.call_args_list if len(c[0]) > 0 and c[0][0] == "worktree"
             ]
             assert len(worktree_calls) == 1
             args = worktree_calls[0][0]
@@ -127,8 +128,10 @@ class TestWorktreeBranchCreation:
             config=config,
         )
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch.object(coordinator, "branch_exists", return_value=False):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=False),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             branch = await coordinator.create_track_branch(
@@ -149,8 +152,10 @@ class TestWorktreeBranchCreation:
             config=config,
         )
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch.object(coordinator, "branch_exists", return_value=True):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=True),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             branch = await coordinator.create_track_branch(
@@ -170,9 +175,11 @@ class TestWorktreeBranchCreation:
             config=config,
         )
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch.object(coordinator, "branch_exists", return_value=False), \
-             patch.object(coordinator, "get_current_branch", return_value="main"):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=False),
+            patch.object(coordinator, "get_current_branch", return_value="main"),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             branch = await coordinator.create_track_branch(
@@ -200,9 +207,11 @@ class TestWorktreeCleanup:
         coordinator._active_branches.append(branch)
         coordinator._worktree_paths[branch] = wt_path
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch.object(coordinator, "branch_exists", return_value=True), \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             # Simulate branch merged
             mock_git.return_value = MagicMock(
                 returncode=0,
@@ -215,7 +224,8 @@ class TestWorktreeCleanup:
             assert deleted == 1
             # Should have called worktree remove
             worktree_remove_calls = [
-                c for c in mock_git.call_args_list
+                c
+                for c in mock_git.call_args_list
                 if len(c[0]) >= 2 and c[0][0] == "worktree" and c[0][1] == "remove"
             ]
             assert len(worktree_remove_calls) >= 1
@@ -227,8 +237,10 @@ class TestWorktreeCleanup:
         wt_path = Path("/tmp/test-repo/.worktrees/dev-sme-test-0215")
         coordinator._worktree_paths[branch] = wt_path
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_git.return_value = MagicMock(returncode=0)
 
             coordinator._remove_worktree(branch)
@@ -264,8 +276,7 @@ class TestRunAssignmentWithWorktrees:
 
             # Should NOT have called checkout
             checkout_calls = [
-                c for c in mock_git.call_args_list
-                if len(c[0]) > 0 and c[0][0] == "checkout"
+                c for c in mock_git.call_args_list if len(c[0]) > 0 and c[0][0] == "checkout"
             ]
             assert len(checkout_calls) == 0
 
@@ -294,8 +305,7 @@ class TestRunAssignmentWithWorktrees:
 
             # Should have called checkout for the branch and to return to base
             checkout_calls = [
-                c for c in mock_git.call_args_list
-                if len(c[0]) > 0 and c[0][0] == "checkout"
+                c for c in mock_git.call_args_list if len(c[0]) > 0 and c[0][0] == "checkout"
             ]
             assert len(checkout_calls) >= 1
 
@@ -393,15 +403,18 @@ class TestCreateTrackBranchesWorktree:
         goal = _make_goal(Track.SME, "test goal")
         assignments = [TrackAssignment(goal=goal)]
 
-        with patch.object(coordinator, "_run_git") as mock_git, \
-             patch.object(coordinator, "branch_exists", return_value=False):
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=False),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             result = await coordinator.create_track_branches(assignments)
 
             # Should not have a bare "checkout main" call at the end
             checkout_base_calls = [
-                c for c in mock_git.call_args_list
+                c
+                for c in mock_git.call_args_list
                 if len(c[0]) >= 2 and c[0][0] == "checkout" and c[0][1] == "main"
             ]
             assert len(checkout_base_calls) == 0
@@ -459,12 +472,7 @@ class TestListWorktrees:
     @patch("subprocess.run")
     def test_list_single_worktree(self, mock_run):
         """Should parse single worktree from porcelain output."""
-        porcelain = (
-            "worktree /path/to/main\n"
-            "HEAD abc123\n"
-            "branch refs/heads/main\n"
-            "\n"
-        )
+        porcelain = "worktree /path/to/main\nHEAD abc123\nbranch refs/heads/main\n\n"
         mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
         coordinator = BranchCoordinator()
         result = coordinator.list_worktrees()
@@ -495,12 +503,7 @@ class TestListWorktrees:
     @patch("subprocess.run")
     def test_list_cross_references_tracked(self, mock_run):
         """Should use tracked WorktreeInfo when available."""
-        porcelain = (
-            "worktree /path/to/worktree\n"
-            "HEAD abc123\n"
-            "branch refs/heads/dev/sme-feature\n"
-            "\n"
-        )
+        porcelain = "worktree /path/to/worktree\nHEAD abc123\nbranch refs/heads/dev/sme-feature\n\n"
         mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
         coordinator = BranchCoordinator()
 
@@ -539,7 +542,8 @@ class TestMergeWorktreeBack:
         wt_path = Path("/tmp/.worktrees/dev-feature")
         coordinator._worktree_paths["dev/feature"] = wt_path
         coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
-            branch_name="dev/feature", worktree_path=wt_path,
+            branch_name="dev/feature",
+            worktree_path=wt_path,
         )
 
         with patch.object(Path, "exists", return_value=True):
@@ -565,7 +569,8 @@ class TestMergeWorktreeBack:
         wt_path = Path("/tmp/.worktrees/dev-feature")
         coordinator._worktree_paths["dev/feature"] = wt_path
         coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
-            branch_name="dev/feature", worktree_path=wt_path,
+            branch_name="dev/feature",
+            worktree_path=wt_path,
         )
 
         result = await coordinator.merge_worktree_back("dev/feature", cleanup=False)
@@ -593,7 +598,8 @@ class TestMergeWorktreeBack:
         wt_path = Path("/tmp/.worktrees/dev-feature")
         coordinator._worktree_paths["dev/feature"] = wt_path
         coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
-            branch_name="dev/feature", worktree_path=wt_path,
+            branch_name="dev/feature",
+            worktree_path=wt_path,
         )
 
         result = await coordinator.merge_worktree_back("dev/feature")
@@ -623,10 +629,12 @@ class TestCleanupAllWorktrees:
         coordinator._worktree_paths["branch1"] = Path("/tmp/.worktrees/branch1")
         coordinator._worktree_paths["branch2"] = Path("/tmp/.worktrees/branch2")
         coordinator._active_worktrees["branch1"] = WorktreeInfo(
-            branch_name="branch1", worktree_path=Path("/tmp/.worktrees/branch1"),
+            branch_name="branch1",
+            worktree_path=Path("/tmp/.worktrees/branch1"),
         )
         coordinator._active_worktrees["branch2"] = WorktreeInfo(
-            branch_name="branch2", worktree_path=Path("/tmp/.worktrees/branch2"),
+            branch_name="branch2",
+            worktree_path=Path("/tmp/.worktrees/branch2"),
         )
 
         with patch.object(Path, "exists", return_value=True):
@@ -662,7 +670,8 @@ class TestWorktreeGit:
     def test_basic_command(self, mock_run):
         """Should run git command in worktree directory."""
         mock_run.return_value = MagicMock(
-            stdout="feature-branch\n", returncode=0,
+            stdout="feature-branch\n",
+            returncode=0,
         )
         coordinator = BranchCoordinator()
         wt_path = Path("/tmp/.worktrees/dev-feature")
@@ -702,7 +711,8 @@ class TestContextManager:
         coordinator = BranchCoordinator()
         coordinator._worktree_paths["branch1"] = Path("/tmp/.worktrees/branch1")
         coordinator._active_worktrees["branch1"] = WorktreeInfo(
-            branch_name="branch1", worktree_path=Path("/tmp/.worktrees/branch1"),
+            branch_name="branch1",
+            worktree_path=Path("/tmp/.worktrees/branch1"),
         )
 
         with patch.object(Path, "exists", return_value=True):
@@ -747,7 +757,8 @@ class TestCoordinateWithWorktrees:
             return {"result": "done"}
 
         result = await coordinator.coordinate_parallel_work(
-            [assignment], run_nomic_fn=nomic_fn,
+            [assignment],
+            run_nomic_fn=nomic_fn,
         )
 
         assert result.total_branches == 1
@@ -791,7 +802,8 @@ class TestCoordinateWithWorktrees:
             return {"success": True}
 
         result = await coordinator.coordinate_parallel_work(
-            [assignment], run_nomic_fn=success_fn,
+            [assignment],
+            run_nomic_fn=success_fn,
         )
         assert result.total_branches == 1
 
@@ -828,7 +840,8 @@ class TestCoordinateWithWorktrees:
             raise RuntimeError("Build failed")
 
         result = await coordinator.coordinate_parallel_work(
-            [assignment], run_nomic_fn=fail_fn,
+            [assignment],
+            run_nomic_fn=fail_fn,
         )
 
         assert result.failed_branches >= 0  # gather with return_exceptions=True
@@ -1011,7 +1024,8 @@ class TestWorktreeInfoTracking:
 
         coordinator._worktree_paths["b1"] = Path("/tmp/.worktrees/b1")
         coordinator._active_worktrees["b1"] = WorktreeInfo(
-            branch_name="b1", worktree_path=Path("/tmp/.worktrees/b1"),
+            branch_name="b1",
+            worktree_path=Path("/tmp/.worktrees/b1"),
         )
 
         with patch.object(Path, "exists", return_value=True):
@@ -1028,7 +1042,8 @@ class TestWorktreeInfoTracking:
         wt_path = Path("/tmp/.worktrees/dev-feature")
         coordinator._worktree_paths["dev/feature"] = wt_path
         coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
-            branch_name="dev/feature", worktree_path=wt_path,
+            branch_name="dev/feature",
+            worktree_path=wt_path,
         )
 
         with patch.object(Path, "exists", return_value=True):

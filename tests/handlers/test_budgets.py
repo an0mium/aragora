@@ -526,7 +526,10 @@ class TestListBudgets:
 
     @pytest.mark.asyncio
     async def test_list_with_budgets(self, handler, mock_manager, _patch_auth_and_rbac):
-        mock_manager.get_budgets_for_org.return_value = [_MockBudget(), _MockBudget(budget_id="budget-002")]
+        mock_manager.get_budgets_for_org.return_value = [
+            _MockBudget(),
+            _MockBudget(budget_id="budget-002"),
+        ]
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
             result = await handler.handle("/api/v1/budgets", "GET", mock_handler)
@@ -1342,9 +1345,7 @@ class TestResetBudget:
     async def test_reset_success(self, handler, mock_manager, _patch_auth_and_rbac):
         mock_handler = _MockHTTPHandler(method="POST")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/reset", "POST", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/reset", "POST", mock_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1352,9 +1353,7 @@ class TestResetBudget:
         mock_manager.get_budget.return_value = None
         mock_handler = _MockHTTPHandler(method="POST")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/reset", "POST", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/reset", "POST", mock_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1362,9 +1361,7 @@ class TestResetBudget:
         mock_manager.get_budget.return_value = _MockBudget(org_id="other-org")
         mock_handler = _MockHTTPHandler(method="POST")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/reset", "POST", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/reset", "POST", mock_handler)
         assert _status(result) == 403
 
     @pytest.mark.asyncio
@@ -1372,18 +1369,14 @@ class TestResetBudget:
         mock_manager.reset_period.return_value = None
         mock_handler = _MockHTTPHandler(method="POST")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/reset", "POST", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/reset", "POST", mock_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_reset_manager_error(self, handler, _patch_auth_and_rbac):
         mock_handler = _MockHTTPHandler(method="POST")
         with patch.object(handler, "_get_budget_manager", side_effect=ImportError("fail")):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/reset", "POST", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/reset", "POST", mock_handler)
         assert _status(result) == 500
 
 
@@ -1411,7 +1404,9 @@ class TestGetTransactions:
         assert "pagination" in body
 
     @pytest.mark.asyncio
-    async def test_transactions_with_query_params(self, handler, mock_manager, _patch_auth_and_rbac):
+    async def test_transactions_with_query_params(
+        self, handler, mock_manager, _patch_auth_and_rbac
+    ):
         mock_manager.get_transactions.return_value = []
         mock_manager.count_transactions.return_value = 0
         mock_handler = _MockHTTPHandler(
@@ -1469,7 +1464,9 @@ class TestGetTransactions:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_transactions_with_date_filters(self, handler, mock_manager, _patch_auth_and_rbac):
+    async def test_transactions_with_date_filters(
+        self, handler, mock_manager, _patch_auth_and_rbac
+    ):
         mock_manager.get_transactions.return_value = []
         mock_manager.count_transactions.return_value = 0
         mock_handler = _MockHTTPHandler(
@@ -1508,9 +1505,7 @@ class TestBudgetTrends:
         mock_manager.get_spending_trends.return_value = [{"day": "2026-01-01", "amount": 100}]
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets/budget-001/trends")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/trends", "GET", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/trends", "GET", mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["budget_id"] == "budget-001"
@@ -1521,9 +1516,7 @@ class TestBudgetTrends:
         mock_manager.get_spending_trends.return_value = []
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets/budget-001/trends?period=week")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/trends", "GET", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/trends", "GET", mock_handler)
         assert _status(result) == 200
         assert _body(result)["period"] == "week"
 
@@ -1531,9 +1524,7 @@ class TestBudgetTrends:
     async def test_trends_invalid_period(self, handler, mock_manager, _patch_auth_and_rbac):
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets/budget-001/trends?period=year")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/trends", "GET", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/trends", "GET", mock_handler)
         assert _status(result) == 400
         assert "Invalid period" in _body(result)["error"]
 
@@ -1542,9 +1533,7 @@ class TestBudgetTrends:
         mock_manager.get_budget.return_value = None
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets/budget-001/trends")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/trends", "GET", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/trends", "GET", mock_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1552,18 +1541,14 @@ class TestBudgetTrends:
         mock_manager.get_budget.return_value = _MockBudget(org_id="other-org")
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets/budget-001/trends")
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/trends", "GET", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/trends", "GET", mock_handler)
         assert _status(result) == 403
 
     @pytest.mark.asyncio
     async def test_trends_manager_error(self, handler, _patch_auth_and_rbac):
         mock_handler = _MockHTTPHandler(path="/api/v1/budgets/budget-001/trends")
         with patch.object(handler, "_get_budget_manager", side_effect=ImportError("fail")):
-            result = await handler.handle(
-                "/api/v1/budgets/budget-001/trends", "GET", mock_handler
-            )
+            result = await handler.handle("/api/v1/budgets/budget-001/trends", "GET", mock_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1899,7 +1884,9 @@ class TestMethodExtraction:
     """Test method extraction from query_params / handler."""
 
     @pytest.mark.asyncio
-    async def test_method_from_string_query_params(self, handler, mock_manager, _patch_auth_and_rbac):
+    async def test_method_from_string_query_params(
+        self, handler, mock_manager, _patch_auth_and_rbac
+    ):
         """When query_params is a string, use it as the method."""
         mock_handler = _MockHTTPHandler()
         with patch.object(handler, "_get_budget_manager", return_value=mock_manager):

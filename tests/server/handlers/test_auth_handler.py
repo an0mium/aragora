@@ -1122,7 +1122,6 @@ class TestMFAEnforcement:
     def test_mfa_enable_with_valid_totp(self, mock_auth, auth_handler, mock_user_store):
         """MFA enable succeeds with valid TOTP code."""
 
-
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_secret=secret)
         mock_user_store.users["user-123"] = user
@@ -1161,7 +1160,6 @@ class TestMFAEnforcement:
         self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
     ):
         """MFA verify succeeds with valid TOTP code."""
-
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_enabled=True, mfa_secret=secret)
@@ -1288,7 +1286,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_backup_codes_regeneration(self, mock_auth, auth_handler, mock_user_store):
         """Regenerate backup codes succeeds with valid MFA code."""
-
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_enabled=True, mfa_secret=secret)

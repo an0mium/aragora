@@ -867,7 +867,14 @@ class GraphDebateOrchestrator:
                         response = await run_agent_fn(agent, prompt, context)
                         confidence = self._extract_confidence(response)
                         responses.append((agent.name, response, confidence))
-                    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
+                    except (
+                        RuntimeError,
+                        ValueError,
+                        TypeError,
+                        OSError,
+                        ConnectionError,
+                        TimeoutError,
+                    ) as e:
                         responses.append((agent.name, f"Error: {e}", 0.0))
 
                 # Evaluate disagreement

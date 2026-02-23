@@ -159,7 +159,7 @@ class FactStore(SQLiteStore):
                 )
                 existing = cursor.fetchone()
                 if existing:
-                    logger.debug("Fact deduplicated: %s", existing['id'])
+                    logger.debug("Fact deduplicated: %s", existing["id"])
                     return self._row_to_fact(existing)
 
             # Create new fact

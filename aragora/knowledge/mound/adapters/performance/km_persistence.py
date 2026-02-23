@@ -179,7 +179,9 @@ class KMPersistenceMixin:
                 result["errors"].append(f"Expertise {expertise_key}: {e}")
 
         logger.info(
-            "Performance sync to KM: expertise=%s, errors=%s", result['expertise_synced'], len(result['errors'])
+            "Performance sync to KM: expertise=%s, errors=%s",
+            result["expertise_synced"],
+            len(result["errors"]),
         )
         return result
 
@@ -267,7 +269,9 @@ class KMPersistenceMixin:
             logger.error("Failed to load expertise from KM: %s", e)
 
         logger.info(
-            "Performance load from KM: loaded=%s, errors=%s", result['expertise_loaded'], len(result['errors'])
+            "Performance load from KM: loaded=%s, errors=%s",
+            result["expertise_loaded"],
+            len(result["errors"]),
         )
         return result
 

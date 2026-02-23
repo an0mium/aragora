@@ -117,7 +117,9 @@ async def run_security_debate(
     )
 
     logger.info(
-        "[security_debate] Starting debate for event %s with %s findings", event.id, len(event.findings)
+        "[security_debate] Starting debate for event %s with %s findings",
+        event.id,
+        len(event.findings),
     )
 
     result = await arena.run()

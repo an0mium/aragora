@@ -873,9 +873,7 @@ class TestCommitKMPersistence:
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = self._make_subprocess_mocks()
 
-            with patch(
-                "aragora.nomic.phases.commit.CommitPhase._persist_to_km"
-            ) as mock_persist:
+            with patch("aragora.nomic.phases.commit.CommitPhase._persist_to_km") as mock_persist:
                 result = await phase.execute("No outcome test")
 
         assert result["success"] is True
@@ -915,4 +913,5 @@ class TestCommitKMPersistence:
         assert outcome.completed_at is not None
         # Verify it was set to a UTC datetime
         from datetime import timezone
+
         assert outcome.completed_at.tzinfo == timezone.utc

@@ -290,7 +290,9 @@ class _DeferredImport:
             except (ImportError, AttributeError, TypeError) as e:
                 logger.warning(
                     "Failed to import %s from %s: %s",
-                    self._class_name, self._module_path, e,
+                    self._class_name,
+                    self._module_path,
+                    e,
                 )
                 self._resolved = None
         return self._resolved
@@ -694,7 +696,9 @@ class RouteIndex:
         self._get_handler_cached.cache_clear()
 
         logger.debug(
-            "[route-index] Built index: %s exact, %s prefix patterns", len(self._exact_routes), len(self._prefix_routes)
+            "[route-index] Built index: %s exact, %s prefix patterns",
+            len(self._exact_routes),
+            len(self._prefix_routes),
         )
 
     def get_handler(self, path: str) -> tuple[str, Any] | None:
@@ -898,7 +902,11 @@ def validate_all_handlers(
 
     if invalid_count > 0 or missing_count > 0:
         logger.warning(
-            "[handler-validation] %s/%s handlers valid, %s invalid, %s missing", valid_count, total, invalid_count, missing_count
+            "[handler-validation] %s/%s handlers valid, %s invalid, %s missing",
+            valid_count,
+            total,
+            invalid_count,
+            missing_count,
         )
         for name, errors in results["invalid"].items():
             for error in errors:

@@ -253,26 +253,32 @@ class TestReExportIdentity:
 
     def test_oauth_handler_identity(self):
         from aragora.server.handlers._oauth_impl import OAuthHandler as ImplClass
+
         assert OAuthHandler is ImplClass
 
     def test_oauth_user_info_identity(self):
         from aragora.server.handlers._oauth_impl import OAuthUserInfo as ImplClass
+
         assert OAuthUserInfo is ImplClass
 
     def test_validate_oauth_config_identity(self):
         from aragora.server.handlers._oauth_impl import validate_oauth_config as impl_fn
+
         assert validate_oauth_config is impl_fn
 
     def test_oauth_limiter_identity(self):
         from aragora.server.handlers._oauth_impl import _oauth_limiter as impl_limiter
+
         assert _oauth_limiter is impl_limiter
 
     def test_validate_redirect_url_identity(self):
         from aragora.server.handlers._oauth_impl import _validate_redirect_url as impl_fn
+
         assert _validate_redirect_url is impl_fn
 
     def test_generate_state_identity(self):
         from aragora.server.handlers._oauth_impl import _generate_state as impl_fn
+
         assert _generate_state is impl_fn
 
 

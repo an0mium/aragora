@@ -216,9 +216,7 @@ class TestCheckpointPause:
     @pytest.mark.asyncio
     async def test_pause_create_checkpoint_value_error(self, mock_ctx, mock_manager):
         """Test pause handles ValueError from create_checkpoint."""
-        mock_manager.create_checkpoint = AsyncMock(
-            side_effect=ValueError("invalid debate_id")
-        )
+        mock_manager.create_checkpoint = AsyncMock(side_effect=ValueError("invalid debate_id"))
 
         result = await handle_checkpoint_pause(
             debate_id="debate-001",
@@ -231,9 +229,7 @@ class TestCheckpointPause:
     @pytest.mark.asyncio
     async def test_pause_create_checkpoint_type_error(self, mock_ctx, mock_manager):
         """Test pause handles TypeError from create_checkpoint."""
-        mock_manager.create_checkpoint = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_manager.create_checkpoint = AsyncMock(side_effect=TypeError("wrong type"))
 
         result = await handle_checkpoint_pause(
             debate_id="debate-001",
@@ -246,9 +242,7 @@ class TestCheckpointPause:
     @pytest.mark.asyncio
     async def test_pause_create_checkpoint_runtime_error(self, mock_ctx, mock_manager):
         """Test pause handles RuntimeError from create_checkpoint."""
-        mock_manager.create_checkpoint = AsyncMock(
-            side_effect=RuntimeError("concurrency issue")
-        )
+        mock_manager.create_checkpoint = AsyncMock(side_effect=RuntimeError("concurrency issue"))
 
         result = await handle_checkpoint_pause(
             debate_id="debate-001",
@@ -362,9 +356,7 @@ class TestCheckpointResume:
         assert "message_count" in body
 
     @pytest.mark.asyncio
-    async def test_resume_with_explicit_checkpoint_id(
-        self, mock_ctx, mock_manager, mock_resumed
-    ):
+    async def test_resume_with_explicit_checkpoint_id(self, mock_ctx, mock_manager, mock_resumed):
         """Test resuming from a specific checkpoint ID."""
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -486,9 +478,7 @@ class TestCheckpointResume:
     @pytest.mark.asyncio
     async def test_resume_value_error(self, mock_ctx, mock_manager):
         """Test resume handles ValueError gracefully."""
-        mock_manager.resume_from_checkpoint = AsyncMock(
-            side_effect=ValueError("corrupted data")
-        )
+        mock_manager.resume_from_checkpoint = AsyncMock(side_effect=ValueError("corrupted data"))
 
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -502,9 +492,7 @@ class TestCheckpointResume:
     @pytest.mark.asyncio
     async def test_resume_type_error(self, mock_ctx, mock_manager):
         """Test resume handles TypeError gracefully."""
-        mock_manager.resume_from_checkpoint = AsyncMock(
-            side_effect=TypeError("type mismatch")
-        )
+        mock_manager.resume_from_checkpoint = AsyncMock(side_effect=TypeError("type mismatch"))
 
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -518,9 +506,7 @@ class TestCheckpointResume:
     @pytest.mark.asyncio
     async def test_resume_key_error(self, mock_ctx, mock_manager):
         """Test resume handles KeyError gracefully."""
-        mock_manager.resume_from_checkpoint = AsyncMock(
-            side_effect=KeyError("missing key")
-        )
+        mock_manager.resume_from_checkpoint = AsyncMock(side_effect=KeyError("missing key"))
 
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -534,9 +520,7 @@ class TestCheckpointResume:
     @pytest.mark.asyncio
     async def test_resume_attribute_error(self, mock_ctx, mock_manager):
         """Test resume handles AttributeError gracefully."""
-        mock_manager.resume_from_checkpoint = AsyncMock(
-            side_effect=AttributeError("no such attr")
-        )
+        mock_manager.resume_from_checkpoint = AsyncMock(side_effect=AttributeError("no such attr"))
 
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -586,9 +570,7 @@ class TestCheckpointResume:
         )
 
     @pytest.mark.asyncio
-    async def test_resume_response_includes_round_info(
-        self, mock_ctx, mock_manager, mock_resumed
-    ):
+    async def test_resume_response_includes_round_info(self, mock_ctx, mock_manager, mock_resumed):
         """Test that resume response includes round and message info."""
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -801,9 +783,7 @@ class TestListCheckpoints:
     @pytest.mark.asyncio
     async def test_list_os_error(self, mock_ctx, mock_manager):
         """Test list handles OSError gracefully."""
-        mock_manager.store.list_checkpoints = AsyncMock(
-            side_effect=OSError("storage error")
-        )
+        mock_manager.store.list_checkpoints = AsyncMock(side_effect=OSError("storage error"))
 
         result = await handle_list_checkpoints(
             debate_id="debate-001",
@@ -818,9 +798,7 @@ class TestListCheckpoints:
     @pytest.mark.asyncio
     async def test_list_value_error(self, mock_ctx, mock_manager):
         """Test list handles ValueError gracefully."""
-        mock_manager.store.list_checkpoints = AsyncMock(
-            side_effect=ValueError("bad query")
-        )
+        mock_manager.store.list_checkpoints = AsyncMock(side_effect=ValueError("bad query"))
 
         result = await handle_list_checkpoints(
             debate_id="debate-001",
@@ -833,9 +811,7 @@ class TestListCheckpoints:
     @pytest.mark.asyncio
     async def test_list_type_error(self, mock_ctx, mock_manager):
         """Test list handles TypeError gracefully."""
-        mock_manager.store.list_checkpoints = AsyncMock(
-            side_effect=TypeError("wrong arg")
-        )
+        mock_manager.store.list_checkpoints = AsyncMock(side_effect=TypeError("wrong arg"))
 
         result = await handle_list_checkpoints(
             debate_id="debate-001",
@@ -848,9 +824,7 @@ class TestListCheckpoints:
     @pytest.mark.asyncio
     async def test_list_attribute_error(self, mock_ctx, mock_manager):
         """Test list handles AttributeError gracefully."""
-        mock_manager.store.list_checkpoints = AsyncMock(
-            side_effect=AttributeError("no store")
-        )
+        mock_manager.store.list_checkpoints = AsyncMock(side_effect=AttributeError("no store"))
 
         result = await handle_list_checkpoints(
             debate_id="debate-001",
@@ -968,9 +942,7 @@ class TestPauseResumeWorkflow:
         assert body_resumed["is_paused"] is False
 
     @pytest.mark.asyncio
-    async def test_pause_debate_a_resume_debate_b_independence(
-        self, mock_ctx, mock_manager
-    ):
+    async def test_pause_debate_a_resume_debate_b_independence(self, mock_ctx, mock_manager):
         """Test that pause/resume on different debates is independent."""
         # Pause debate A
         await handle_checkpoint_pause(
@@ -1073,9 +1045,7 @@ class TestEdgeCases:
         assert body["debate_id"] == "debate/special#chars&here"
 
     @pytest.mark.asyncio
-    async def test_resume_with_special_chars_in_checkpoint_id(
-        self, mock_ctx, mock_manager
-    ):
+    async def test_resume_with_special_chars_in_checkpoint_id(self, mock_ctx, mock_manager):
         """Test resume with special characters in checkpoint ID."""
         result = await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -1135,9 +1105,7 @@ class TestEdgeCases:
         )
 
     @pytest.mark.asyncio
-    async def test_pause_response_paused_at_is_iso_format(
-        self, mock_ctx, mock_manager
-    ):
+    async def test_pause_response_paused_at_is_iso_format(self, mock_ctx, mock_manager):
         """Test that paused_at in the response is an ISO format timestamp."""
         result = await handle_checkpoint_pause(
             debate_id="debate-001",
@@ -1153,9 +1121,7 @@ class TestEdgeCases:
         assert parsed is not None
 
     @pytest.mark.asyncio
-    async def test_resume_without_checkpoint_id_calls_get_latest(
-        self, mock_ctx, mock_manager
-    ):
+    async def test_resume_without_checkpoint_id_calls_get_latest(self, mock_ctx, mock_manager):
         """Test that resume without checkpoint_id calls get_latest."""
         await handle_checkpoint_resume(
             debate_id="debate-001",
@@ -1167,9 +1133,7 @@ class TestEdgeCases:
         mock_manager.get_latest.assert_awaited_once_with("debate-001")
 
     @pytest.mark.asyncio
-    async def test_resume_with_empty_string_checkpoint_id(
-        self, mock_ctx, mock_manager
-    ):
+    async def test_resume_with_empty_string_checkpoint_id(self, mock_ctx, mock_manager):
         """Test resume with empty string checkpoint_id uses get_latest."""
         await handle_checkpoint_resume(
             debate_id="debate-001",

@@ -84,7 +84,9 @@ class CommandsMixin(BlocksMixin):
                 ws_rate_result = workspace_limiter.allow(workspace_key, "slack_workspace_command")
                 if not ws_rate_result.allowed:
                     logger.warning(
-                        "Slack workspace rate limited: %s (retry_after=%ss)", workspace_key, ws_rate_result.retry_after
+                        "Slack workspace rate limited: %s (retry_after=%ss)",
+                        workspace_key,
+                        ws_rate_result.retry_after,
                     )
                     # Audit log workspace rate limit event
                     audit = _get_audit_logger()
@@ -109,7 +111,9 @@ class CommandsMixin(BlocksMixin):
                 rate_result = user_limiter.allow(user_key, "slack_command")
                 if not rate_result.allowed:
                     logger.warning(
-                        "Slack user rate limited: %s (retry_after=%ss)", user_key, rate_result.retry_after
+                        "Slack user rate limited: %s (retry_after=%ss)",
+                        user_key,
+                        rate_result.retry_after,
                     )
                     # Audit log rate limit event
                     audit = _get_audit_logger()

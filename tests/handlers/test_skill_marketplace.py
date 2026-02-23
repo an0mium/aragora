@@ -282,9 +282,7 @@ def mock_installer():
 def mock_publisher():
     """Create a mock SkillPublisher instance."""
     publisher = AsyncMock()
-    publisher.publish = AsyncMock(
-        return_value=(True, MockSkillListing(), [])
-    )
+    publisher.publish = AsyncMock(return_value=(True, MockSkillListing(), []))
     return publisher
 
 
@@ -371,12 +369,10 @@ class TestSearchSkills:
 
     @pytest.mark.asyncio
     async def test_search_with_query(self, handler, http_handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"q": "test"})
         assert _status(result) == 200
@@ -386,72 +382,60 @@ class TestSearchSkills:
 
     @pytest.mark.asyncio
     async def test_search_with_category(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"category": "analysis"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_search_with_tier(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"tier": "free"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_search_with_tags(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"tags": "ai,ml,nlp"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_search_with_author(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"author": "user-1"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_search_with_sort(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"sort": "downloads"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_search_with_pagination(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"limit": "10", "offset": "5"})
         body = _body(result)
@@ -460,12 +444,10 @@ class TestSearchSkills:
 
     @pytest.mark.asyncio
     async def test_search_empty_query(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({})
         assert _status(result) == 200
@@ -474,33 +456,27 @@ class TestSearchSkills:
 
     @pytest.mark.asyncio
     async def test_search_import_error(self, handler):
-        with patch(
-            "builtins.__import__", side_effect=ImportError("not available")
-        ):
+        with patch("builtins.__import__", side_effect=ImportError("not available")):
             result = await handler._search_skills({})
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_search_value_error(self, handler, mock_marketplace):
         mock_marketplace.search.side_effect = ValueError("bad value")
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({})
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_search_no_tags_param(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._search_skills({"tags": ""})
         assert _status(result) == 200
@@ -516,17 +492,13 @@ class TestGetSkill:
 
     @pytest.mark.asyncio
     async def test_get_skill_returns_200(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_skill("skill-1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_get_skill_returns_data(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_skill("skill-1")
         body = _body(result)
         assert body["id"] == "skill-1"
@@ -534,9 +506,7 @@ class TestGetSkill:
 
     @pytest.mark.asyncio
     async def test_get_skill_not_found(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_skill("nonexistent")
         assert _status(result) == 404
 
@@ -549,9 +519,7 @@ class TestGetSkill:
     @pytest.mark.asyncio
     async def test_get_skill_internal_error(self, handler, mock_marketplace):
         mock_marketplace.get_skill.side_effect = TypeError("bad type")
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_skill("skill-1")
         assert _status(result) == 500
 
@@ -566,17 +534,13 @@ class TestGetVersions:
 
     @pytest.mark.asyncio
     async def test_get_versions_returns_200(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_versions("skill-1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_get_versions_returns_list(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_versions("skill-1")
         body = _body(result)
         assert body["skill_id"] == "skill-1"
@@ -585,18 +549,14 @@ class TestGetVersions:
     @pytest.mark.asyncio
     async def test_get_versions_not_found(self, handler, mock_marketplace):
         mock_marketplace.get_versions.return_value = None
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_versions("nonexistent")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_versions_empty_list(self, handler, mock_marketplace):
         mock_marketplace.get_versions.return_value = []
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_versions("skill-1")
         assert _status(result) == 404
 
@@ -609,9 +569,7 @@ class TestGetVersions:
     @pytest.mark.asyncio
     async def test_get_versions_internal_error(self, handler, mock_marketplace):
         mock_marketplace.get_versions.side_effect = OSError("disk error")
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_versions("skill-1")
         assert _status(result) == 500
 
@@ -626,17 +584,13 @@ class TestGetRatings:
 
     @pytest.mark.asyncio
     async def test_get_ratings_returns_200(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_ratings("skill-1", {})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_get_ratings_returns_list(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_ratings("skill-1", {})
         body = _body(result)
         assert body["skill_id"] == "skill-1"
@@ -644,9 +598,7 @@ class TestGetRatings:
 
     @pytest.mark.asyncio
     async def test_get_ratings_with_pagination(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_ratings("skill-1", {"limit": "5", "offset": "10"})
         assert _status(result) == 200
 
@@ -659,9 +611,7 @@ class TestGetRatings:
     @pytest.mark.asyncio
     async def test_get_ratings_internal_error(self, handler, mock_marketplace):
         mock_marketplace.get_ratings.side_effect = KeyError("missing key")
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_ratings("skill-1", {})
         assert _status(result) == 500
 
@@ -678,14 +628,11 @@ class TestPublishSkill:
     async def test_publish_success(self, handler, mock_publisher, mock_registry):
         auth_ctx = {"user_id": "user-1", "display_name": "Tester"}
         body = {"skill_name": "my-skill", "category": "custom", "tier": "free"}
-        with patch(
-            "aragora.skills.publisher.SkillPublisher", return_value=mock_publisher
-        ), patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.publisher.SkillPublisher", return_value=mock_publisher),
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 200
@@ -710,12 +657,10 @@ class TestPublishSkill:
         mock_registry.get.return_value = None
         auth_ctx = {"user_id": "user-1"}
         body = {"skill_name": "nonexistent-skill"}
-        with patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 404
@@ -728,12 +673,10 @@ class TestPublishSkill:
         def bad_category(val):
             raise ValueError(f"Invalid category: {val}")
 
-        with patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", bad_category
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", bad_category),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 400
@@ -747,12 +690,10 @@ class TestPublishSkill:
         def bad_tier(val):
             raise ValueError(f"Invalid tier: {val}")
 
-        with patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", bad_tier
+        with (
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", bad_tier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) in (400, 500)  # 500 in isolation, 400 with mock leaks
@@ -766,14 +707,11 @@ class TestPublishSkill:
         )
         auth_ctx = {"user_id": "user-1"}
         body = {"skill_name": "my-skill"}
-        with patch(
-            "aragora.skills.publisher.SkillPublisher", return_value=mock_publisher
-        ), patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.publisher.SkillPublisher", return_value=mock_publisher),
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 400
@@ -793,14 +731,11 @@ class TestPublishSkill:
             permissions={"skills:publish"},
         )
         body = {"skill_name": "my-skill"}
-        with patch(
-            "aragora.skills.publisher.SkillPublisher", return_value=mock_publisher
-        ), patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.publisher.SkillPublisher", return_value=mock_publisher),
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 200
@@ -818,14 +753,11 @@ class TestPublishSkill:
         mock_publisher.publish.side_effect = OSError("disk full")
         auth_ctx = {"user_id": "user-1"}
         body = {"skill_name": "my-skill"}
-        with patch(
-            "aragora.skills.publisher.SkillPublisher", return_value=mock_publisher
-        ), patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.publisher.SkillPublisher", return_value=mock_publisher),
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 500
@@ -840,14 +772,11 @@ class TestPublishSkill:
             "documentation_url": "https://docs.example.com",
             "changelog": "Added features",
         }
-        with patch(
-            "aragora.skills.publisher.SkillPublisher", return_value=mock_publisher
-        ), patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.publisher.SkillPublisher", return_value=mock_publisher),
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 200
@@ -858,14 +787,11 @@ class TestPublishSkill:
     ):
         auth_ctx = {"user_id": "user-1"}
         body = {"skill_name": "my-skill"}
-        with patch(
-            "aragora.skills.publisher.SkillPublisher", return_value=mock_publisher
-        ), patch(
-            "aragora.skills.registry.get_skill_registry", return_value=mock_registry
-        ), patch(
-            "aragora.skills.marketplace.SkillCategory", MockSkillCategory
-        ), patch(
-            "aragora.skills.marketplace.SkillTier", MockSkillTier
+        with (
+            patch("aragora.skills.publisher.SkillPublisher", return_value=mock_publisher),
+            patch("aragora.skills.registry.get_skill_registry", return_value=mock_registry),
+            patch("aragora.skills.marketplace.SkillCategory", MockSkillCategory),
+            patch("aragora.skills.marketplace.SkillTier", MockSkillTier),
         ):
             result = await handler._publish_skill(body, auth_ctx)
         assert _status(result) == 200
@@ -885,9 +811,7 @@ class TestInstallSkill:
     @pytest.mark.asyncio
     async def test_install_success(self, handler, mock_installer):
         auth_ctx = {"user_id": "user-1", "tenant_id": "tenant-1", "permissions": {"skills:install"}}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._install_skill("skill-1", {}, auth_ctx)
         assert _status(result) == 200
         body = _body(result)
@@ -896,9 +820,7 @@ class TestInstallSkill:
     @pytest.mark.asyncio
     async def test_install_with_version(self, handler, mock_installer):
         auth_ctx = {"user_id": "user-1", "tenant_id": "tenant-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._install_skill("skill-1", {"version": "2.0.0"}, auth_ctx)
         assert _status(result) == 200
 
@@ -908,9 +830,7 @@ class TestInstallSkill:
             success=False, error="Incompatible version"
         )
         auth_ctx = {"user_id": "user-1", "tenant_id": "tenant-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._install_skill("skill-1", {}, auth_ctx)
         assert _status(result) == 400
         body = _body(result)
@@ -919,9 +839,7 @@ class TestInstallSkill:
     @pytest.mark.asyncio
     async def test_install_default_tenant(self, handler, mock_installer):
         auth_ctx = {"user_id": "user-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._install_skill("skill-1", {}, auth_ctx)
         assert _status(result) == 200
         call_kwargs = mock_installer.install.call_args
@@ -938,9 +856,7 @@ class TestInstallSkill:
     async def test_install_internal_error(self, handler, mock_installer):
         mock_installer.install.side_effect = ValueError("bad input")
         auth_ctx = {"user_id": "user-1", "tenant_id": "t-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._install_skill("skill-1", {}, auth_ctx)
         assert _status(result) == 500
 
@@ -957,9 +873,7 @@ class TestInstallSkill:
         )
         # tenant_id is extracted via getattr, set it as an attribute
         object.__setattr__(auth_ctx, "tenant_id", "tenant-1")
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._install_skill("skill-1", {}, auth_ctx)
         assert _status(result) == 200
 
@@ -975,9 +889,7 @@ class TestUninstallSkill:
     @pytest.mark.asyncio
     async def test_uninstall_success(self, handler, mock_installer):
         auth_ctx = {"user_id": "user-1", "tenant_id": "tenant-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._uninstall_skill("skill-1", auth_ctx)
         assert _status(result) == 200
         body = _body(result)
@@ -989,18 +901,14 @@ class TestUninstallSkill:
     async def test_uninstall_failure(self, handler, mock_installer):
         mock_installer.uninstall.return_value = False
         auth_ctx = {"user_id": "user-1", "tenant_id": "tenant-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._uninstall_skill("skill-1", auth_ctx)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_uninstall_default_tenant(self, handler, mock_installer):
         auth_ctx = {"user_id": "user-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._uninstall_skill("skill-1", auth_ctx)
         assert _status(result) == 200
         call_kwargs = mock_installer.uninstall.call_args
@@ -1017,9 +925,7 @@ class TestUninstallSkill:
     async def test_uninstall_internal_error(self, handler, mock_installer):
         mock_installer.uninstall.side_effect = AttributeError("bad attr")
         auth_ctx = {"user_id": "user-1", "tenant_id": "t-1", "permissions": set()}
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._uninstall_skill("skill-1", auth_ctx)
         assert _status(result) == 500
 
@@ -1035,9 +941,7 @@ class TestUninstallSkill:
             permissions={"skills:install"},
         )
         object.__setattr__(auth_ctx, "tenant_id", "tenant-1")
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._uninstall_skill("skill-1", auth_ctx)
         assert _status(result) == 200
 
@@ -1054,9 +958,7 @@ class TestRateSkill:
     async def test_rate_success(self, handler, mock_marketplace):
         auth_ctx = {"user_id": "user-1"}
         body = {"rating": 5, "review": "Excellent!"}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 200
 
@@ -1064,9 +966,7 @@ class TestRateSkill:
     async def test_rate_without_review(self, handler, mock_marketplace):
         auth_ctx = {"user_id": "user-1"}
         body = {"rating": 4}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 200
 
@@ -1120,9 +1020,7 @@ class TestRateSkill:
         mock_marketplace.rate.side_effect = ValueError("already rated")
         auth_ctx = {"user_id": "user-1"}
         body = {"rating": 5}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 400
 
@@ -1131,9 +1029,7 @@ class TestRateSkill:
         mock_marketplace.rate.side_effect = TypeError("bad type")
         auth_ctx = {"user_id": "user-1"}
         body = {"rating": 5}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 500
 
@@ -1149,9 +1045,7 @@ class TestRateSkill:
             permissions={"skills:rate"},
         )
         body = {"rating": 5}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 200
 
@@ -1159,9 +1053,7 @@ class TestRateSkill:
     async def test_rate_boundary_min(self, handler, mock_marketplace):
         auth_ctx = {"user_id": "user-1"}
         body = {"rating": 1}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 200
 
@@ -1169,9 +1061,7 @@ class TestRateSkill:
     async def test_rate_boundary_max(self, handler, mock_marketplace):
         auth_ctx = {"user_id": "user-1"}
         body = {"rating": 5}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._rate_skill("skill-1", body, auth_ctx)
         assert _status(result) == 200
 
@@ -1187,9 +1077,7 @@ class TestVerifySkill:
     @pytest.mark.asyncio
     async def test_verify_success(self, handler, mock_marketplace):
         auth_ctx = {"user_id": "admin-1"}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._set_verification("skill-1", True, auth_ctx)
         assert _status(result) == 200
         body = _body(result)
@@ -1201,9 +1089,7 @@ class TestVerifySkill:
     @pytest.mark.asyncio
     async def test_revoke_verification(self, handler, mock_marketplace):
         auth_ctx = {"user_id": "admin-1"}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._set_verification("skill-1", False, auth_ctx)
         assert _status(result) == 200
         body = _body(result)
@@ -1213,9 +1099,7 @@ class TestVerifySkill:
     async def test_verify_skill_not_found(self, handler, mock_marketplace):
         mock_marketplace.get_skill.return_value = None
         auth_ctx = {"user_id": "admin-1"}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._set_verification("nonexistent", True, auth_ctx)
         assert _status(result) == 404
 
@@ -1223,9 +1107,7 @@ class TestVerifySkill:
     async def test_verify_set_verified_fails(self, handler, mock_marketplace):
         mock_marketplace.set_verified.return_value = False
         auth_ctx = {"user_id": "admin-1"}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._set_verification("skill-1", True, auth_ctx)
         assert _status(result) == 500
 
@@ -1240,9 +1122,7 @@ class TestVerifySkill:
     async def test_verify_internal_error(self, handler, mock_marketplace):
         mock_marketplace.get_skill.side_effect = KeyError("missing")
         auth_ctx = {"user_id": "admin-1"}
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._set_verification("skill-1", True, auth_ctx)
         assert _status(result) == 500
 
@@ -1257,9 +1137,7 @@ class TestVerifySkill:
             roles={"admin"},
             permissions={"skills:admin"},
         )
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._set_verification("skill-1", True, auth_ctx)
         assert _status(result) == 200
 
@@ -1284,9 +1162,7 @@ class TestListInstalled:
             permissions={"skills:read"},
         )
         object.__setattr__(auth_ctx, "tenant_id", "tenant-1")
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._list_installed(auth_ctx)
         assert _status(result) == 200
         body = _body(result)
@@ -1304,9 +1180,7 @@ class TestListInstalled:
             roles={"admin"},
             permissions={"skills:read"},
         )
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._list_installed(auth_ctx)
         assert _status(result) == 200
         body = _body(result)
@@ -1339,9 +1213,7 @@ class TestListInstalled:
             roles={"admin"},
             permissions={"skills:read"},
         )
-        with patch(
-            "aragora.skills.installer.SkillInstaller", return_value=mock_installer
-        ):
+        with patch("aragora.skills.installer.SkillInstaller", return_value=mock_installer):
             result = await handler._list_installed(auth_ctx)
         assert _status(result) == 500
 
@@ -1356,9 +1228,7 @@ class TestGetStats:
 
     @pytest.mark.asyncio
     async def test_get_stats_success(self, handler, mock_marketplace):
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_stats()
         assert _status(result) == 200
         body = _body(result)
@@ -1374,9 +1244,7 @@ class TestGetStats:
     @pytest.mark.asyncio
     async def test_get_stats_internal_error(self, handler, mock_marketplace):
         mock_marketplace.get_stats.side_effect = KeyError("missing")
-        with patch(
-            "aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace
-        ):
+        with patch("aragora.skills.marketplace.get_marketplace", return_value=mock_marketplace):
             result = await handler._get_stats()
         assert _status(result) == 500
 
@@ -1552,16 +1420,12 @@ class TestHandleRouting:
 
     @pytest.mark.asyncio
     async def test_route_unknown_returns_none(self, handler, http_handler):
-        result = await handler.handle(
-            "/api/v1/skills/other/endpoint", {}, http_handler, "GET"
-        )
+        result = await handler.handle("/api/v1/skills/other/endpoint", {}, http_handler, "GET")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_route_short_path_returns_none(self, handler, http_handler):
-        result = await handler.handle(
-            "/api/v1/skills", {}, http_handler, "GET"
-        )
+        result = await handler.handle("/api/v1/skills", {}, http_handler, "GET")
         assert result is None
 
 
@@ -1753,9 +1617,7 @@ class TestPermissionDenied:
         )
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = auth_ctx
-            with patch.object(
-                handler, "check_permission", side_effect=ForbiddenError("denied")
-            ):
+            with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
                 result = await handler.handle(
                     "/api/v1/skills/marketplace/installed", {}, http_handler, "GET"
                 )
@@ -1776,9 +1638,7 @@ class TestPermissionDenied:
         )
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = auth_ctx
-            with patch.object(
-                handler, "check_permission", side_effect=ForbiddenError("denied")
-            ):
+            with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
                 result = await handler.handle(
                     "/api/v1/skills/marketplace/publish",
                     {},
@@ -1803,9 +1663,7 @@ class TestPermissionDenied:
         )
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = auth_ctx
-            with patch.object(
-                handler, "check_permission", side_effect=ForbiddenError("denied")
-            ):
+            with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
                 result = await handler.handle(
                     "/api/v1/skills/marketplace/skill-1/install",
                     {},
@@ -1829,9 +1687,7 @@ class TestPermissionDenied:
         )
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = auth_ctx
-            with patch.object(
-                handler, "check_permission", side_effect=ForbiddenError("denied")
-            ):
+            with patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")):
                 result = await handler.handle(
                     "/api/v1/skills/marketplace/skill-1/verify",
                     {},

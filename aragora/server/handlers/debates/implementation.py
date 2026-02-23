@@ -492,7 +492,14 @@ class ImplementationOperationsMixin:
                     )
                     store_plan(computer_use_plan)
                     response_payload["plan_id"] = computer_use_plan.id
-                except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
+                except (
+                    ImportError,
+                    KeyError,
+                    ValueError,
+                    OSError,
+                    AttributeError,
+                    TypeError,
+                ) as exc:
                     logger.debug("Computer use plan persistence failed: %s", exc)
             else:
                 _persist_plan(package.plan, debate_id)
@@ -838,7 +845,15 @@ class ImplementationOperationsMixin:
                     "duration_seconds": outcome.duration_seconds,
                 },
             }
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             response_payload["execution"] = {
                 "status": "failed",
                 "mode": "computer_use",
@@ -955,7 +970,15 @@ class ImplementationOperationsMixin:
                 "results": [r.to_dict() for r in results],
                 "progress": notifier.progress.to_dict(),
             }
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             response_payload["execution"] = {
                 "status": "failed",
                 "mode": "fabric",
@@ -975,7 +998,15 @@ class ImplementationOperationsMixin:
             diff = hybrid_executor.get_review_diff(max_chars=max_chars)
             review = run_async(hybrid_executor.review_with_codex(diff, timeout=timeout_seconds))
             review_passed = review.get("approved") if isinstance(review, dict) else None
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             review = {"approved": None, "error": str(exc)}
             review_passed = None
 

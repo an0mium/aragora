@@ -92,12 +92,15 @@ def _mock_redis_queue():
     """
     mock_job = MagicMock()
     mock_queue = AsyncMock()
-    with patch(
-        "aragora.queue.create_debate_job",
-        MagicMock(return_value=mock_job),
-    ), patch(
-        "aragora.queue.create_redis_queue",
-        AsyncMock(return_value=mock_queue),
+    with (
+        patch(
+            "aragora.queue.create_debate_job",
+            MagicMock(return_value=mock_job),
+        ),
+        patch(
+            "aragora.queue.create_redis_queue",
+            AsyncMock(return_value=mock_queue),
+        ),
     ):
         yield
 
@@ -156,8 +159,10 @@ class TestStartSlackDebateHappyPath:
         """start_slack_debate returns a debate key string."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Test topic",
                 channel_id="C123",
@@ -172,8 +177,10 @@ class TestStartSlackDebateHappyPath:
         """ResponseChannel is created with correct parameters."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Test topic",
                 channel_id="C123",
@@ -195,8 +202,10 @@ class TestStartSlackDebateHappyPath:
         """RequestContext is created with user_id and session_id."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="CABC123",
@@ -213,8 +222,10 @@ class TestStartSlackDebateHappyPath:
         """DecisionRequest is constructed with correct kwargs."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="My debate topic",
                 channel_id="C123",
@@ -231,8 +242,10 @@ class TestStartSlackDebateHappyPath:
         """The request is routed through the DecisionRouter."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -248,8 +261,10 @@ class TestStartSlackDebateHappyPath:
 
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Test topic",
                 channel_id="C123",
@@ -270,8 +285,10 @@ class TestStartSlackDebateHappyPath:
         mock_core, mock_router, mock_req = _mock_core_module()
         before = time.time()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -289,8 +306,10 @@ class TestStartSlackDebateHappyPath:
 
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -307,8 +326,10 @@ class TestStartSlackDebateHappyPath:
 
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -331,8 +352,10 @@ class TestDecisionConfigConstruction:
         """decision_integrity=None means no config in request."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -348,8 +371,10 @@ class TestDecisionConfigConstruction:
         """decision_integrity=True creates DecisionConfig with empty dict."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -366,8 +391,10 @@ class TestDecisionConfigConstruction:
         """decision_integrity=False means config is None (no config in request)."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -384,8 +411,10 @@ class TestDecisionConfigConstruction:
         mock_core, mock_router, mock_req = _mock_core_module()
         di_config = {"include_receipt": True, "include_plan": True}
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -403,8 +432,10 @@ class TestDecisionConfigConstruction:
         mock_core, mock_router, mock_req = _mock_core_module()
         attachments = [{"url": "https://example.com/file.png", "type": "image"}]
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -420,8 +451,10 @@ class TestDecisionConfigConstruction:
         """None attachments are converted to empty list."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -447,11 +480,13 @@ class TestOriginRegistration:
         mock_core, mock_router, mock_req = _mock_core_module()
         mock_register = MagicMock()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 mock_register,
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                mock_register,
+            ),
+        ):
             await debates_module.start_slack_debate(
                 topic="Test topic",
                 channel_id="C123",
@@ -474,11 +509,13 @@ class TestOriginRegistration:
         """If register_debate_origin raises, it is caught and logged."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 side_effect=RuntimeError("origin db error"),
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=RuntimeError("origin db error"),
+            ),
+        ):
             # Should not raise
             result = await debates_module.start_slack_debate(
                 topic="Topic",
@@ -493,11 +530,13 @@ class TestOriginRegistration:
         """KeyError from register_debate_origin is caught."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 side_effect=KeyError("missing field"),
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=KeyError("missing field"),
+            ),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -511,11 +550,13 @@ class TestOriginRegistration:
         """AttributeError from register_debate_origin is caught."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 side_effect=AttributeError("no such attr"),
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=AttributeError("no such attr"),
+            ),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -529,11 +570,13 @@ class TestOriginRegistration:
         """OSError from register_debate_origin is caught."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 side_effect=OSError("disk error"),
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=OSError("disk error"),
+            ),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -561,8 +604,10 @@ class TestQuickResult:
 
         mock_core, mock_router, _ = _mock_core_module(route_result=mock_result)
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -584,8 +629,10 @@ class TestQuickResult:
         mock_core, mock_router, mock_req = _mock_core_module()
         mock_router.route = slow_route
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -605,8 +652,10 @@ class TestQuickResult:
             route_side_effect=ValueError("route error")
         )
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -623,8 +672,10 @@ class TestQuickResult:
 
         mock_core, mock_router, mock_req = _mock_core_module(route_result=mock_result)
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -641,8 +692,10 @@ class TestQuickResult:
 
         mock_core, mock_router, mock_req = _mock_core_module(route_result=mock_result)
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -685,8 +738,10 @@ class TestStartSlackDebateFallbacks:
         mock_core, _, _ = _mock_core_module()
         mock_core.get_decision_router = MagicMock(side_effect=RuntimeError("router down"))
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Fallback topic",
                 channel_id="C123",
@@ -702,8 +757,10 @@ class TestStartSlackDebateFallbacks:
         mock_core, _, _ = _mock_core_module()
         mock_core.DecisionRequest = MagicMock(side_effect=ValueError("bad request"))
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -718,8 +775,10 @@ class TestStartSlackDebateFallbacks:
         mock_core, _, _ = _mock_core_module()
         mock_core.RequestContext = MagicMock(side_effect=KeyError("missing"))
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -734,8 +793,10 @@ class TestStartSlackDebateFallbacks:
         mock_core, _, _ = _mock_core_module()
         mock_core.ResponseChannel = MagicMock(side_effect=AttributeError("no attr"))
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -758,8 +819,10 @@ class TestResponseUrl:
         """Default response_url is empty string."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -775,8 +838,10 @@ class TestResponseUrl:
         """Custom response_url is passed to ResponseChannel."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -965,15 +1030,19 @@ class TestFallbackRedisQueue:
         mock_create_job = MagicMock(return_value=mock_job)
         mock_create_queue = AsyncMock(return_value=mock_queue)
 
-        with patch(
-            "aragora.server.debate_origin.register_debate_origin",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_debate_job",
-            mock_create_job,
-        ), patch(
-            "aragora.queue.create_redis_queue",
-            mock_create_queue,
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_debate_job",
+                mock_create_job,
+            ),
+            patch(
+                "aragora.queue.create_redis_queue",
+                mock_create_queue,
+            ),
         ):
             await debates_module._fallback_start_debate(
                 topic="Redis queue test",
@@ -1000,10 +1069,13 @@ class TestFallbackRedisQueue:
         """ImportError when importing Redis queue is caught."""
         from aragora.server.handlers.bots.slack.state import _active_debates
 
-        with patch(
-            "aragora.server.debate_origin.register_debate_origin",
-            MagicMock(),
-        ), patch.dict("sys.modules", {"aragora.queue": None}):
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                MagicMock(),
+            ),
+            patch.dict("sys.modules", {"aragora.queue": None}),
+        ):
             result = await debates_module._fallback_start_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -1019,15 +1091,19 @@ class TestFallbackRedisQueue:
         """RuntimeError from Redis queue is caught."""
         mock_create_queue = AsyncMock(side_effect=RuntimeError("connection refused"))
 
-        with patch(
-            "aragora.server.debate_origin.register_debate_origin",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_debate_job",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_redis_queue",
-            mock_create_queue,
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_debate_job",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_redis_queue",
+                mock_create_queue,
+            ),
         ):
             result = await debates_module._fallback_start_debate(
                 topic="Topic",
@@ -1044,15 +1120,19 @@ class TestFallbackRedisQueue:
         mock_queue = AsyncMock()
         mock_queue.enqueue = AsyncMock(side_effect=OSError("network"))
 
-        with patch(
-            "aragora.server.debate_origin.register_debate_origin",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_debate_job",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_redis_queue",
-            AsyncMock(return_value=mock_queue),
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_debate_job",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_redis_queue",
+                AsyncMock(return_value=mock_queue),
+            ),
         ):
             result = await debates_module._fallback_start_debate(
                 topic="Topic",
@@ -1069,15 +1149,19 @@ class TestFallbackRedisQueue:
         mock_queue = AsyncMock()
         mock_queue.enqueue = AsyncMock(side_effect=ConnectionError("refused"))
 
-        with patch(
-            "aragora.server.debate_origin.register_debate_origin",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_debate_job",
-            MagicMock(),
-        ), patch(
-            "aragora.queue.create_redis_queue",
-            AsyncMock(return_value=mock_queue),
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_debate_job",
+                MagicMock(),
+            ),
+            patch(
+                "aragora.queue.create_redis_queue",
+                AsyncMock(return_value=mock_queue),
+            ),
         ):
             result = await debates_module._fallback_start_debate(
                 topic="Topic",
@@ -1110,8 +1194,10 @@ class TestRouteDoneCallback:
         # Make sure the request has a different ID
         mock_req.request_id = "original-req-id"
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -1135,8 +1221,10 @@ class TestRouteDoneCallback:
         mock_core, mock_router, mock_req = _mock_core_module(route_result=mock_result)
         mock_req.request_id = "same-id-1234"
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -1301,8 +1389,10 @@ class TestEdgeCases:
             {"url": "https://example.com/3.csv", "type": "file"},
         ]
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -1318,8 +1408,10 @@ class TestEdgeCases:
         """Empty attachments list is passed through."""
         mock_core, mock_router, mock_req = _mock_core_module()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(f"{MODULE}.register_debate_origin", create=True):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
             await debates_module.start_slack_debate(
                 topic="Topic",
                 channel_id="C123",
@@ -1361,9 +1453,7 @@ class TestEdgeCases:
             )
 
         # Should be a valid UUID4 string
-        uuid_pattern = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_pattern.match(result), f"Expected UUID format, got: {result}"
 
 
@@ -1386,11 +1476,13 @@ class TestIntegration:
         mock_req.request_id = "initial-request-id"
         mock_register = MagicMock()
 
-        with patch.dict("sys.modules", {"aragora.core": mock_core}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 mock_register,
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                mock_register,
+            ),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Full flow test",
                 channel_id="CFULL",
@@ -1422,17 +1514,21 @@ class TestIntegration:
         mock_job = MagicMock()
         mock_queue = AsyncMock()
 
-        with patch.dict("sys.modules", {"aragora.core": None}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 mock_register,
-             ), patch(
-                 "aragora.queue.create_debate_job",
-                 MagicMock(return_value=mock_job),
-             ), patch(
-                 "aragora.queue.create_redis_queue",
-                 AsyncMock(return_value=mock_queue),
-             ):
+        with (
+            patch.dict("sys.modules", {"aragora.core": None}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                mock_register,
+            ),
+            patch(
+                "aragora.queue.create_debate_job",
+                MagicMock(return_value=mock_job),
+            ),
+            patch(
+                "aragora.queue.create_redis_queue",
+                AsyncMock(return_value=mock_queue),
+            ),
+        ):
             debate_key = await debates_module.start_slack_debate(
                 topic="Fallback flow",
                 channel_id="CFALL",
@@ -1453,11 +1549,14 @@ class TestIntegration:
         """When DecisionRouter, origin registration, and Redis all fail, still returns an ID."""
         from aragora.server.handlers.bots.slack.state import _active_debates
 
-        with patch.dict("sys.modules", {"aragora.core": None}), \
-             patch(
-                 "aragora.server.debate_origin.register_debate_origin",
-                 side_effect=RuntimeError("origin down"),
-             ), patch.dict("sys.modules", {"aragora.queue": None}):
+        with (
+            patch.dict("sys.modules", {"aragora.core": None}),
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=RuntimeError("origin down"),
+            ),
+            patch.dict("sys.modules", {"aragora.queue": None}),
+        ):
             result = await debates_module.start_slack_debate(
                 topic="All down",
                 channel_id="C123",

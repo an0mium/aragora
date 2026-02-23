@@ -382,11 +382,16 @@ class ServiceRegistry:
                             if callable(method):
                                 method()
                                 hooks_called += 1
-                                logger.debug("Called %s() on %s", method_name, service_type.__name__)
+                                logger.debug(
+                                    "Called %s() on %s", method_name, service_type.__name__
+                                )
                                 break  # Only call one cleanup method
                         except (RuntimeError, TypeError, ValueError, OSError) as e:
                             logger.warning(
-                                "Error calling %s() on %s: %s", method_name, service_type.__name__, e
+                                "Error calling %s() on %s: %s",
+                                method_name,
+                                service_type.__name__,
+                                e,
                             )
 
             logger.info("ServiceRegistry shutdown complete (%s hooks called)", hooks_called)

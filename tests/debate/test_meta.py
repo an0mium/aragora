@@ -138,7 +138,9 @@ class TestMetaObservation:
 
 
 class TestMetaCritique:
-    def _make_critique(self, observations=None, quality=0.8, productive=None, unproductive=None, recs=None):
+    def _make_critique(
+        self, observations=None, quality=0.8, productive=None, unproductive=None, recs=None
+    ):
         return MetaCritique(
             debate_id="debate-123",
             observations=observations or [],
@@ -571,9 +573,7 @@ class TestDetectIgnoredCritiques:
             suggestions=["implement distributed caching with redis cluster nodes"],
         )
         # Alice's response doesn't mention any suggestion keywords
-        messages = [
-            make_message("alice", "I will proceed with the original plan", role="proposer")
-        ]
+        messages = [make_message("alice", "I will proceed with the original plan", role="proposer")]
         obs = self.analyzer._detect_ignored_critiques([critique], messages)
         assert len(obs) == 1
         assert obs[0].observation_type == "issue"
@@ -971,10 +971,7 @@ class TestGenerateMetaPrompt:
         assert "alice" in prompt
 
     def test_prompt_truncates_messages_to_20(self):
-        messages = [
-            make_message(f"agent{i}", f"content {i}", round_=i)
-            for i in range(30)
-        ]
+        messages = [make_message(f"agent{i}", f"content {i}", round_=i) for i in range(30)]
         result = make_result(messages=messages)
         prompt = self.analyzer.generate_meta_prompt(result)
         # The 21st message should not appear (content 20 is index 20, beyond limit)

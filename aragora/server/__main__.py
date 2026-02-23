@@ -169,9 +169,7 @@ Production deployment with multiple workers:
         os.environ.setdefault("ARAGORA_ENV", "development")
         # Reduce handler surface area — skip enterprise/experimental tiers
         os.environ.setdefault("ARAGORA_HANDLER_TIERS", "core,extended")
-        _logger.info(
-            "[server] OFFLINE mode: SQLite backend, demo data for unavailable services"
-        )
+        _logger.info("[server] OFFLINE mode: SQLite backend, demo data for unavailable services")
     elif not _api_keys:
         # No API keys found — auto-enable demo mode for zero-config startup
         os.environ.setdefault("ARAGORA_DEMO_MODE", "true")

@@ -90,7 +90,7 @@ class TestPersonaCreationConfigurations:
 
     def test_create_persona_with_all_expertise_domains(self, persona_manager):
         """Test creating persona with all valid expertise domains."""
-        expertise = {domain: 0.5 for domain in EXPERTISE_DOMAINS}
+        expertise = dict.fromkeys(EXPERTISE_DOMAINS, 0.5)
         persona = persona_manager.create_persona(
             agent_name="all_domains",
             expertise=expertise,

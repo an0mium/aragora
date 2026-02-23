@@ -386,7 +386,10 @@ class MockUsageSummary:
         self.total_tokens_in = total_tokens_in
         self.total_tokens_out = total_tokens_out
         self.total_cost_usd = total_cost_usd
-        self.cost_by_provider = cost_by_provider or {"anthropic": Decimal("0.20"), "openai": Decimal("0.05")}
+        self.cost_by_provider = cost_by_provider or {
+            "anthropic": Decimal("0.20"),
+            "openai": Decimal("0.05"),
+        }
         self.total_tokens = total_tokens
         self.total_cost = total_cost
 
@@ -416,9 +419,7 @@ def user_store():
     store = MockUserStore()
 
     # The conftest auto-auth context uses user_id="test-user-001"
-    auth_user = MockUser(
-        id="test-user-001", email="test@example.com", role="owner", org_id="org_1"
-    )
+    auth_user = MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_1")
     store.add_user(auth_user)
 
     org = MockOrganization(
@@ -597,7 +598,10 @@ class TestGetPlans:
         result = handler.handle("/api/v1/billing/plans", {}, http, method="GET")
         body = _body(result)
         starter = next(p for p in body["plans"] if p["id"] == "starter")
-        assert starter["price_monthly_cents"] == TIER_LIMITS[SubscriptionTier.STARTER].price_monthly_cents
+        assert (
+            starter["price_monthly_cents"]
+            == TIER_LIMITS[SubscriptionTier.STARTER].price_monthly_cents
+        )
 
     def test_status_code_is_200(self, handler):
         http = MockHTTPHandler()
@@ -801,9 +805,7 @@ class TestGetTrialStatus:
 
     def test_trial_status_active(self, handler):
         mock_status = MockTrialStatus(is_active=True, days_remaining=5)
-        with patch(
-            "aragora.billing.trial_manager.get_trial_manager"
-        ) as mock_mgr:
+        with patch("aragora.billing.trial_manager.get_trial_manager") as mock_mgr:
             mock_mgr.return_value.get_trial_status.return_value = mock_status
             http = MockHTTPHandler()
             result = handler.handle("/api/v1/billing/trial", {}, http, method="GET")
@@ -817,9 +819,7 @@ class TestGetTrialStatus:
 
     def test_trial_status_expired_has_upgrade_options(self, handler):
         mock_status = MockTrialStatus(is_active=False, is_expired=True, days_remaining=0)
-        with patch(
-            "aragora.billing.trial_manager.get_trial_manager"
-        ) as mock_mgr:
+        with patch("aragora.billing.trial_manager.get_trial_manager") as mock_mgr:
             mock_mgr.return_value.get_trial_status.return_value = mock_status
             http = MockHTTPHandler()
             result = handler.handle("/api/v1/billing/trial", {}, http, method="GET")
@@ -830,9 +830,7 @@ class TestGetTrialStatus:
 
     def test_trial_status_warning_when_expiring_soon(self, handler):
         mock_status = MockTrialStatus(is_active=True, days_remaining=2)
-        with patch(
-            "aragora.billing.trial_manager.get_trial_manager"
-        ) as mock_mgr:
+        with patch("aragora.billing.trial_manager.get_trial_manager") as mock_mgr:
             mock_mgr.return_value.get_trial_status.return_value = mock_status
             http = MockHTTPHandler()
             result = handler.handle("/api/v1/billing/trial", {}, http, method="GET")
@@ -843,9 +841,7 @@ class TestGetTrialStatus:
 
     def test_trial_status_no_warning_when_days_above_3(self, handler):
         mock_status = MockTrialStatus(is_active=True, days_remaining=5)
-        with patch(
-            "aragora.billing.trial_manager.get_trial_manager"
-        ) as mock_mgr:
+        with patch("aragora.billing.trial_manager.get_trial_manager") as mock_mgr:
             mock_mgr.return_value.get_trial_status.return_value = mock_status
             http = MockHTTPHandler()
             result = handler.handle("/api/v1/billing/trial", {}, http, method="GET")
@@ -887,11 +883,15 @@ class TestStartTrial:
         org.tier = SubscriptionTier.FREE
 
         status = MockTrialStatus(is_active=True, days_remaining=7, debates_remaining=10)
-        with patch(
-            "aragora.billing.trial_manager.TrialManager", return_value=self._make_trial_mgr(status)
-        ), patch(
-            "aragora.billing.trial_manager.get_trial_manager",
-            return_value=self._make_trial_mgr(status),
+        with (
+            patch(
+                "aragora.billing.trial_manager.TrialManager",
+                return_value=self._make_trial_mgr(status),
+            ),
+            patch(
+                "aragora.billing.trial_manager.get_trial_manager",
+                return_value=self._make_trial_mgr(status),
+            ),
         ):
             # _start_trial has no @require_permission, so user=None; provide user_id in body
             http = MockHTTPHandler(body={"user_id": "test-user-001"}, command="POST")
@@ -1015,7 +1015,11 @@ class TestCreateCheckout:
 
     def test_checkout_free_tier_returns_400(self, handler):
         http = MockHTTPHandler(
-            body={"tier": "free", "success_url": "https://a.com/s", "cancel_url": "https://a.com/c"},
+            body={
+                "tier": "free",
+                "success_url": "https://a.com/s",
+                "cancel_url": "https://a.com/c",
+            },
             command="POST",
         )
         result = handler.handle("/api/v1/billing/checkout", {}, http, method="POST")
@@ -1150,9 +1154,7 @@ class TestCreatePortal:
         store.add_organization(
             MockOrganization(id="org_no_stripe", name="No Stripe", stripe_customer_id=None)
         )
-        http = MockHTTPHandler(
-            body={"return_url": "https://example.com/billing"}, command="POST"
-        )
+        http = MockHTTPHandler(body={"return_url": "https://example.com/billing"}, command="POST")
         result = handler.handle("/api/v1/billing/portal", {}, http, method="POST")
         assert _status(result) == 404
 
@@ -1160,9 +1162,7 @@ class TestCreatePortal:
         store = MockUserStore()
         store.add_user(MockUser(id="test-user-001", email="t@t.com", org_id=None))
         h = BillingHandler(ctx={"user_store": store})
-        http = MockHTTPHandler(
-            body={"return_url": "https://example.com/billing"}, command="POST"
-        )
+        http = MockHTTPHandler(body={"return_url": "https://example.com/billing"}, command="POST")
         result = h.handle("/api/v1/billing/portal", {}, http, method="POST")
         assert _status(result) == 404
 
@@ -1406,7 +1406,9 @@ class TestAuditLog:
 
     def test_audit_log_with_query_params(self, monkeypatch):
         h = self._make_enterprise_handler(monkeypatch)
-        http = MockHTTPHandler(query_params={"limit": "25", "offset": "10", "action": "subscription.created"})
+        http = MockHTTPHandler(
+            query_params={"limit": "25", "offset": "10", "action": "subscription.created"}
+        )
         result = h.handle("/api/v1/billing/audit-log", {}, http, method="GET")
         body = _body(result)
         assert body["limit"] == 25
@@ -1473,7 +1475,9 @@ class TestUsageForecast:
     def test_forecast_with_high_usage_recommends_upgrade(self):
         """An org using lots of debates should get a tier recommendation."""
         store = MockUserStore()
-        store.add_user(MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_heavy"))
+        store.add_user(
+            MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_heavy")
+        )
         store.add_organization(
             MockOrganization(
                 id="org_heavy",
@@ -1495,7 +1499,9 @@ class TestUsageForecast:
 
     def test_forecast_enterprise_no_recommendation(self):
         store = MockUserStore()
-        store.add_user(MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_ent"))
+        store.add_user(
+            MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_ent")
+        )
         store.add_organization(
             MockOrganization(
                 id="org_ent",
@@ -1577,7 +1583,9 @@ class TestGetInvoices:
 
     def test_invoices_no_billing_account_returns_404(self):
         store = MockUserStore()
-        store.add_user(MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_no_cust"))
+        store.add_user(
+            MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_no_cust")
+        )
         store.add_organization(
             MockOrganization(id="org_no_cust", name="No Cust", stripe_customer_id=None)
         )
@@ -1642,9 +1650,7 @@ class TestStripeWebhook:
         http = MockHTTPHandler(command="POST", signature="invalid_sig")
         http.headers["Content-Length"] = "100"
         http.rfile.read.return_value = b'{"type": "test"}'
-        with patch(
-            "aragora.billing.stripe_client.parse_webhook_event", return_value=None
-        ):
+        with patch("aragora.billing.stripe_client.parse_webhook_event", return_value=None):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 400
 
@@ -1725,9 +1731,7 @@ class TestStripeWebhook:
         http = MockHTTPHandler(command="POST", signature="valid")
         http.headers["Content-Length"] = "200"
         http.rfile.read.return_value = b"{}"
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ):
+        with _webhook_patches(event), patch("aragora.billing.payment_recovery.get_recovery_store"):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
         assert store.get_organization_by_id("org_1").debates_used_this_month == 0
@@ -1758,10 +1762,12 @@ class TestStripeWebhook:
         mock_notifier = MagicMock()
         mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1784,8 +1790,9 @@ class TestStripeWebhook:
         mock_sync = MagicMock()
         mock_sync.flush_period.return_value = [{"id": "rec_1"}]
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1819,18 +1826,19 @@ class TestStripeWebhook:
                 "id": "sub_test_123",
                 "status": "active",
                 "cancel_at_period_end": False,
-                "items": {
-                    "data": [{"price": {"id": "price_professional"}}]
-                },
+                "items": {"data": [{"price": {"id": "price_professional"}}]},
             },
         )
         http = MockHTTPHandler(command="POST", signature="valid")
         http.headers["Content-Length"] = "200"
         http.rfile.read.return_value = b"{}"
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=SubscriptionTier.PROFESSIONAL,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=SubscriptionTier.PROFESSIONAL,
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1998,9 +2006,7 @@ class TestLogAudit:
 
     def test_log_audit_with_no_store(self, handler):
         # Should not raise
-        handler._log_audit(
-            None, action="test.action", resource_type="subscription"
-        )
+        handler._log_audit(None, action="test.action", resource_type="subscription")
 
     def test_log_audit_with_store_missing_method(self, handler):
         store = MagicMock(spec=[])
@@ -2011,9 +2017,7 @@ class TestLogAudit:
         store.log_audit_event = MagicMock()
         http = MockHTTPHandler()
 
-        with patch(
-            "aragora.server.middleware.auth.extract_client_ip", return_value="10.0.0.1"
-        ):
+        with patch("aragora.server.middleware.auth.extract_client_ip", return_value="10.0.0.1"):
             handler._log_audit(
                 store,
                 action="test.action",
@@ -2028,9 +2032,7 @@ class TestLogAudit:
         store = MagicMock()
         store.log_audit_event.side_effect = OSError("disk full")
         # Should not raise, just log a warning
-        handler._log_audit(
-            store, action="test.action", resource_type="subscription"
-        )
+        handler._log_audit(store, action="test.action", resource_type="subscription")
 
 
 # ===========================================================================

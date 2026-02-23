@@ -1123,7 +1123,9 @@ class HL7v2Connector(EnterpriseConnector):
                         for msg in messages:
                             await self._message_queue.put(msg)
                             logger.debug(
-                                "Received HL7 message: %s (control_id=%s)", msg.message_type, msg.message_control_id
+                                "Received HL7 message: %s (control_id=%s)",
+                                msg.message_type,
+                                msg.message_control_id,
                             )
 
                             # Send ACK

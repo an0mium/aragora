@@ -309,9 +309,7 @@ class TestVerifyTokenViaTokeninfo:
     def test_http_error_returns_false(self, mock_urlopen, handler_module):
         import urllib.error
 
-        mock_urlopen.side_effect = urllib.error.HTTPError(
-            "url", 401, "Unauthorized", {}, None
-        )
+        mock_urlopen.side_effect = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
         result = handler_module._verify_token_via_tokeninfo("bad-token")
         assert result is False
 
@@ -396,9 +394,7 @@ class TestVerifyGoogleChatToken:
         "aragora.server.handlers.bots.google_chat._verify_token_via_tokeninfo",
         return_value=True,
     )
-    def test_falls_through_to_tokeninfo(
-        self, mock_tokeninfo, mock_gauth, mock_jwt, handler_module
-    ):
+    def test_falls_through_to_tokeninfo(self, mock_tokeninfo, mock_gauth, mock_jwt, handler_module):
         result = handler_module._verify_google_chat_token("Bearer fallback-tok")
         assert result is True
         mock_tokeninfo.assert_called_once()
@@ -509,80 +505,56 @@ class TestStatusEndpoint:
 
     @pytest.mark.asyncio
     async def test_status_returns_200(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/google-chat/status", method="GET"
-        )
-        result = await handler.handle(
-            "/api/v1/bots/google-chat/status", {}, mock_handler
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/google-chat/status", method="GET")
+        result = await handler.handle("/api/v1/bots/google-chat/status", {}, mock_handler)
         assert result is not None
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_status_contains_platform(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/google-chat/status", method="GET"
-        )
-        result = await handler.handle(
-            "/api/v1/bots/google-chat/status", {}, mock_handler
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/google-chat/status", method="GET")
+        result = await handler.handle("/api/v1/bots/google-chat/status", {}, mock_handler)
         body = _body(result)
         assert body["platform"] == "google_chat"
 
     @pytest.mark.asyncio
     async def test_status_enabled_field(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/google-chat/status", method="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/google-chat/status", method="GET")
         with patch(
             "aragora.server.handlers.bots.google_chat.get_google_chat_connector",
             return_value=MagicMock(),
         ):
-            result = await handler.handle(
-                "/api/v1/bots/google-chat/status", {}, mock_handler
-            )
+            result = await handler.handle("/api/v1/bots/google-chat/status", {}, mock_handler)
         body = _body(result)
         assert body["enabled"] is True
 
     @pytest.mark.asyncio
     async def test_status_disabled_when_no_connector(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/google-chat/status", method="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/google-chat/status", method="GET")
         with patch(
             "aragora.server.handlers.bots.google_chat.get_google_chat_connector",
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/bots/google-chat/status", {}, mock_handler
-            )
+            result = await handler.handle("/api/v1/bots/google-chat/status", {}, mock_handler)
         body = _body(result)
         assert body["enabled"] is False
 
     @pytest.mark.asyncio
     async def test_status_includes_config_fields(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/google-chat/status", method="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/google-chat/status", method="GET")
         with patch(
             "aragora.server.handlers.bots.google_chat.get_google_chat_connector",
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/bots/google-chat/status", {}, mock_handler
-            )
+            result = await handler.handle("/api/v1/bots/google-chat/status", {}, mock_handler)
         body = _body(result)
         assert "credentials_configured" in body
         assert "project_id_configured" in body
 
     @pytest.mark.asyncio
     async def test_handle_returns_none_for_unknown_get(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/google-chat/unknown", method="GET"
-        )
-        result = await handler.handle(
-            "/api/v1/bots/google-chat/unknown", {}, mock_handler
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/google-chat/unknown", method="GET")
+        result = await handler.handle("/api/v1/bots/google-chat/unknown", {}, mock_handler)
         assert result is None
 
 
@@ -600,9 +572,7 @@ class TestWebhookAuth:
     )
     def test_webhook_rejects_when_no_credentials(self, handler):
         mock_h = _make_webhook_handler({"type": "MESSAGE"})
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 503
         body = _body(result)
         assert "not configured" in body.get("error", "").lower()
@@ -617,9 +587,7 @@ class TestWebhookAuth:
     )
     def test_webhook_rejects_invalid_token(self, mock_verify, handler):
         mock_h = _make_webhook_handler({"type": "MESSAGE"}, auth_header="Bearer bad")
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 401
 
     @patch(
@@ -632,16 +600,12 @@ class TestWebhookAuth:
     )
     def test_webhook_missing_auth_header(self, mock_verify, handler):
         mock_h = _make_webhook_handler({"type": "MESSAGE"}, auth_header="")
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 401
 
     def test_handle_post_returns_none_for_unknown_path(self, handler):
         mock_h = MockHTTPHandler()
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/unknown", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/unknown", {}, mock_h)
         assert result is None
 
 
@@ -665,9 +629,7 @@ class TestWebhookMessageEvent:
         """Regular message in group room returns empty JSON."""
         event = _message_event(text="Hello everyone", space_type="ROOM")
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body == {}
@@ -688,9 +650,7 @@ class TestWebhookMessageEvent:
             space_type="DM",
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "cardsV2" in body
@@ -707,9 +667,7 @@ class TestWebhookMessageEvent:
         """DM with very short text returns help hint."""
         event = _message_event(text="hi", space_type="DM")
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         # Short text goes to _start_debate_from_message which asks for more context
@@ -737,9 +695,7 @@ class TestWebhookMessageEvent:
             ],
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "cardsV2" in body
@@ -768,9 +724,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = ""
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert "cardsV2" in body
@@ -794,9 +748,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = "Should we migrate to kubernetes?"
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert "cardsV2" in body
@@ -818,9 +770,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = ""
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "provide a topic" in card_text.lower()
@@ -840,9 +790,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = "hi"
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "too short" in card_text.lower()
@@ -863,9 +811,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = long_topic
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "too long" in card_text.lower()
@@ -886,9 +832,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = "Build a rate limiter service"
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         card_text = json.dumps(body)
@@ -910,9 +854,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = "Add caching to the API layer"
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
 
@@ -932,9 +874,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = "We should migrate to microservices"
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         card_text = json.dumps(body)
@@ -955,9 +895,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = ""
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "provide a statement" in card_text.lower()
@@ -977,9 +915,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = "hi"
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "too short" in card_text.lower()
@@ -1000,9 +936,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = long_stmt
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "too long" in card_text.lower()
@@ -1029,9 +963,7 @@ class TestSlashCommands:
             from aragora.server.handlers.base import json_response
 
             mock_cmd.return_value = json_response({"text": "Status: Online"})
-            result = handler.handle_post(
-                "/api/v1/bots/google-chat/webhook", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
 
     @patch(
@@ -1055,9 +987,7 @@ class TestSlashCommands:
             from aragora.server.handlers.base import json_response
 
             mock_cmd.return_value = json_response({"text": "Top agents"})
-            result = handler.handle_post(
-                "/api/v1/bots/google-chat/webhook", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
 
     @patch(
@@ -1075,9 +1005,7 @@ class TestSlashCommands:
         )
         event["message"]["argumentText"] = ""
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "unknown" in card_text.lower() or "Unknown" in card_text
@@ -1110,9 +1038,7 @@ class TestCardClickEvents:
             params=[{"key": "debate_id", "value": "debate-001"}],
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
 
     @patch(
@@ -1134,9 +1060,7 @@ class TestCardClickEvents:
             params=[{"key": "debate_id", "value": "debate-002"}],
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
 
     @patch(
@@ -1158,9 +1082,7 @@ class TestCardClickEvents:
             params=[],  # No debate_id
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "no debate" in card_text.lower() or "error" in card_text.lower()
@@ -1179,9 +1101,7 @@ class TestCardClickEvents:
             params=[],
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "no debate" in card_text.lower() or "error" in card_text.lower()
@@ -1216,9 +1136,7 @@ class TestCardClickEvents:
             mock_view.return_value = json_response(
                 {"cardsV2": [{"card": {"sections": [{"header": "Debate Details"}]}}]}
             )
-            result = handler.handle_post(
-                "/api/v1/bots/google-chat/webhook", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
 
     @patch(
@@ -1245,9 +1163,7 @@ class TestCardClickEvents:
                 "aragora.server.storage.get_debates_db",
                 return_value=mock_db,
             ):
-                result = handler.handle_post(
-                    "/api/v1/bots/google-chat/webhook", {}, mock_h
-                )
+                result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "not found" in card_text.lower()
@@ -1266,9 +1182,7 @@ class TestCardClickEvents:
             params=[],
         )
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         # Unknown action returns empty JSON
@@ -1298,9 +1212,7 @@ class TestSpaceEvents:
             "user": {"name": "users/12345", "displayName": "Admin"},
         }
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         body = _body(result)
         card_text = json.dumps(body)
         assert "Welcome" in card_text or "welcome" in card_text.lower()
@@ -1320,9 +1232,7 @@ class TestSpaceEvents:
             "user": {"name": "users/12345"},
         }
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body == {}
@@ -1347,9 +1257,7 @@ class TestUnhandledEvents:
     def test_unknown_event_type(self, mock_verify, handler):
         event = {"type": "SOME_FUTURE_EVENT"}
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body == {}
@@ -1365,9 +1273,7 @@ class TestUnhandledEvents:
     def test_missing_event_type(self, mock_verify, handler):
         event = {"message": {"text": "hello"}}
         mock_h = _make_webhook_handler(event)
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body == {}
@@ -1397,40 +1303,26 @@ class TestExtractAttachments:
 
     def test_single_attachment_with_name(self, handler):
         event = {
-            "message": {
-                "attachments": [{"name": "report.pdf", "contentType": "application/pdf"}]
-            }
+            "message": {"attachments": [{"name": "report.pdf", "contentType": "application/pdf"}]}
         }
         result = handler._extract_attachments(event)
         assert len(result) == 1
         assert result[0]["filename"] == "report.pdf"
 
     def test_attachment_with_filename_field(self, handler):
-        event = {
-            "message": {
-                "attachments": [{"filename": "doc.txt", "size": 1024}]
-            }
-        }
+        event = {"message": {"attachments": [{"filename": "doc.txt", "size": 1024}]}}
         result = handler._extract_attachments(event)
         assert len(result) == 1
         assert result[0]["filename"] == "doc.txt"
 
     def test_attachment_with_content_name(self, handler):
-        event = {
-            "message": {
-                "attachments": [{"contentName": "image.png"}]
-            }
-        }
+        event = {"message": {"attachments": [{"contentName": "image.png"}]}}
         result = handler._extract_attachments(event)
         assert len(result) == 1
         assert result[0]["filename"] == "image.png"
 
     def test_attachment_fallback_name(self, handler):
-        event = {
-            "message": {
-                "attachments": [{"contentType": "image/jpeg"}]
-            }
-        }
+        event = {"message": {"attachments": [{"contentType": "image/jpeg"}]}}
         result = handler._extract_attachments(event)
         assert len(result) == 1
         assert result[0]["filename"] == "attachment_1"
@@ -1449,11 +1341,7 @@ class TestExtractAttachments:
         assert len(result) == 3
 
     def test_non_dict_attachment_skipped(self, handler):
-        event = {
-            "message": {
-                "attachments": ["not-a-dict", {"name": "real.txt"}]
-            }
-        }
+        event = {"message": {"attachments": ["not-a-dict", {"name": "real.txt"}]}}
         result = handler._extract_attachments(event)
         assert len(result) == 1
         assert result[0]["filename"] == "real.txt"
@@ -1490,9 +1378,7 @@ class TestCardResponse:
         assert "cardsV2" in body
 
     def test_card_with_fields(self, handler):
-        result = handler._card_response(
-            fields=[("Status", "Online"), ("Agents", "5")]
-        )
+        result = handler._card_response(fields=[("Status", "Online"), ("Agents", "5")])
         body = _body(result)
         assert "cardsV2" in body
         card_text = json.dumps(body)
@@ -1500,9 +1386,7 @@ class TestCardResponse:
         assert "Online" in card_text
 
     def test_card_with_context(self, handler):
-        result = handler._card_response(
-            body="Content", context="Requested by user"
-        )
+        result = handler._card_response(body="Content", context="Requested by user")
         body = _body(result)
         card_text = json.dumps(body)
         assert "Requested by user" in card_text
@@ -1539,18 +1423,14 @@ class TestCmdStatus:
     def test_status_with_elo_system(self, handler):
         mock_elo = MagicMock()
         mock_elo.get_all_ratings.return_value = [MagicMock(), MagicMock()]
-        with patch(
-            "aragora.ranking.elo.EloSystem", return_value=mock_elo
-        ):
+        with patch("aragora.ranking.elo.EloSystem", return_value=mock_elo):
             result = handler._cmd_status("spaces/test")
         body = _body(result)
         card_text = json.dumps(body)
         assert "Online" in card_text
 
     def test_status_without_elo_system(self, handler):
-        with patch.dict(
-            "sys.modules", {"aragora.ranking.elo": None}
-        ):
+        with patch.dict("sys.modules", {"aragora.ranking.elo": None}):
             # When EloSystem import fails, should still return status
             result = handler._cmd_status("spaces/test")
         body = _body(result)
@@ -1572,9 +1452,7 @@ class TestCmdAgents:
         mock_agent.elo = 1650
         mock_elo = MagicMock()
         mock_elo.get_all_ratings.return_value = [mock_agent]
-        with patch(
-            "aragora.ranking.elo.EloSystem", return_value=mock_elo
-        ):
+        with patch("aragora.ranking.elo.EloSystem", return_value=mock_elo):
             result = handler._cmd_agents()
         body = _body(result)
         card_text = json.dumps(body)
@@ -1583,9 +1461,7 @@ class TestCmdAgents:
     def test_agents_with_empty_ratings(self, handler):
         mock_elo = MagicMock()
         mock_elo.get_all_ratings.return_value = []
-        with patch(
-            "aragora.ranking.elo.EloSystem", return_value=mock_elo
-        ):
+        with patch("aragora.ranking.elo.EloSystem", return_value=mock_elo):
             result = handler._cmd_agents()
         body = _body(result)
         card_text = json.dumps(body)
@@ -1693,9 +1569,7 @@ class TestHandleViewDetails:
             "confidence": 0.9,
             "rounds_used": 3,
         }
-        with patch(
-            "aragora.server.storage.get_debates_db", return_value=mock_db
-        ):
+        with patch("aragora.server.storage.get_debates_db", return_value=mock_db):
             result = handler._handle_view_details("debate-123")
         body = _body(result)
         card_text = json.dumps(body)
@@ -1705,18 +1579,14 @@ class TestHandleViewDetails:
     def test_debate_not_found(self, handler):
         mock_db = MagicMock()
         mock_db.get.return_value = None
-        with patch(
-            "aragora.server.storage.get_debates_db", return_value=mock_db
-        ):
+        with patch("aragora.server.storage.get_debates_db", return_value=mock_db):
             result = handler._handle_view_details("nonexistent")
         body = _body(result)
         card_text = json.dumps(body)
         assert "not found" in card_text.lower()
 
     def test_db_unavailable(self, handler):
-        with patch(
-            "aragora.server.storage.get_debates_db", return_value=None
-        ):
+        with patch("aragora.server.storage.get_debates_db", return_value=None):
             result = handler._handle_view_details("debate-123")
         body = _body(result)
         card_text = json.dumps(body)
@@ -1756,9 +1626,7 @@ class TestStartDebateFromMessage:
     def test_short_text_returns_help(self, handler):
         user = {"name": "users/12345", "displayName": "Test"}
         event = _message_event(text="hi")
-        result = handler._start_debate_from_message(
-            "hi", "spaces/test", user, event
-        )
+        result = handler._start_debate_from_message("hi", "spaces/test", user, event)
         body = _body(result)
         card_text = json.dumps(body)
         assert "need more context" in card_text.lower()
@@ -1766,9 +1634,7 @@ class TestStartDebateFromMessage:
     def test_empty_text_returns_help(self, handler):
         user = {"name": "users/12345", "displayName": "Test"}
         event = _message_event(text="")
-        result = handler._start_debate_from_message(
-            "", "spaces/test", user, event
-        )
+        result = handler._start_debate_from_message("", "spaces/test", user, event)
         body = _body(result)
         card_text = json.dumps(body)
         assert "need more context" in card_text.lower()
@@ -1962,9 +1828,7 @@ class TestWebhookErrorHandling:
             }
         )
         mock_h.rfile = io.BytesIO(b"")
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         # Empty body should return an error
         assert result is not None
         status = _status(result)
@@ -1986,9 +1850,7 @@ class TestWebhookErrorHandling:
             }
         )
         mock_h.rfile = io.BytesIO(b"not valid json")
-        result = handler.handle_post(
-            "/api/v1/bots/google-chat/webhook", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_h)
         assert result is not None
         status = _status(result)
         assert status in (200, 400)

@@ -383,7 +383,9 @@ def _invalidate_events(events: tuple[str, ...], func_name: str) -> int:
         cleared = invalidate_on_event(event)
         total_cleared += cleared
     if total_cleared > 0:
-        logger.debug("@invalidates_cache(%s): %s cleared %s entries", events, func_name, total_cleared)
+        logger.debug(
+            "@invalidates_cache(%s): %s cleared %s entries", events, func_name, total_cleared
+        )
     return total_cleared
 
 
@@ -471,7 +473,10 @@ def invalidate_on_event(event_name: str) -> int:
         total_cleared += cleared
         if cleared > 0:
             logger.debug(
-                "Cache invalidation: %s cleared %s entries with prefix '%s'", event_name, cleared, prefix
+                "Cache invalidation: %s cleared %s entries with prefix '%s'",
+                event_name,
+                cleared,
+                prefix,
             )
     if total_cleared > 0:
         logger.info("Cache invalidated: event=%s, entries_cleared=%s", event_name, total_cleared)
@@ -506,7 +511,9 @@ def invalidate_cache(data_source: str) -> int:
     # Fallback: try to clear by prefix directly
     cleared = _cache.clear(data_source)
     if cleared > 0:
-        logger.debug("Cache invalidation: cleared %s entries with prefix '%s'", cleared, data_source)
+        logger.debug(
+            "Cache invalidation: cleared %s entries with prefix '%s'", cleared, data_source
+        )
     return cleared
 
 

@@ -299,7 +299,11 @@ class TestAnalyzeMessages:
 
         bn_instance.nodes = {"n1": True}
         bpa_instance.suggest_evidence_targets.return_value = [
-            "ev1", "ev2", "ev3", "ev4", "ev5",
+            "ev1",
+            "ev2",
+            "ev3",
+            "ev4",
+            "ev5",
         ]
 
         analyzer = DebateBeliefAnalyzer()

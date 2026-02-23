@@ -64,8 +64,12 @@ class ValidationResult:
         }
 
 
-def _add(result: ValidationResult, level: str, code: str, message: str, step_id: str | None = None) -> None:
-    result.messages.append(ValidationMessage(level=level, code=code, message=message, step_id=step_id))
+def _add(
+    result: ValidationResult, level: str, code: str, message: str, step_id: str | None = None
+) -> None:
+    result.messages.append(
+        ValidationMessage(level=level, code=code, message=message, step_id=step_id)
+    )
     if level == "error":
         result.valid = False
 
@@ -98,6 +102,7 @@ def validate_workflow(definition: Any) -> ValidationResult:
     # 2. Step type check
     try:
         from aragora.workflow.step_catalog import get_known_step_types
+
         known_types = get_known_step_types()
     except ImportError:
         known_types = None

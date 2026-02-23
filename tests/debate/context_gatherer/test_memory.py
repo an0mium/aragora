@@ -141,9 +141,7 @@ class TestGlacialInsights:
     def test_glacial_insights_disabled(self):
         obj = ConcreteMemoryMixin()
         cm = _make_cm(memories=[_make_memory()])
-        ctx, ids, tiers = obj.get_continuum_context(
-            cm, "d", "task", include_glacial_insights=False
-        )
+        ctx, ids, tiers = obj.get_continuum_context(cm, "d", "task", include_glacial_insights=False)
         assert not hasattr(cm.get_glacial_insights, "called") or not cm.get_glacial_insights.called
 
     def test_glacial_type_error_fallback(self):
@@ -307,9 +305,13 @@ class TestAccessControl:
         obj = ConcreteMemoryMixin()
         cm = _make_cm(memories=[_make_memory()])
         auth_ctx = MagicMock()
-        with patch("aragora.memory.access.has_memory_read_access", return_value=False) as mock_access, \
-             patch("aragora.memory.access.emit_denial_telemetry") as mock_deny, \
-             patch("aragora.memory.access.filter_entries"):
+        with (
+            patch(
+                "aragora.memory.access.has_memory_read_access", return_value=False
+            ) as mock_access,
+            patch("aragora.memory.access.emit_denial_telemetry") as mock_deny,
+            patch("aragora.memory.access.filter_entries"),
+        ):
             result = obj.get_continuum_context(cm, "d", "task", auth_context=auth_ctx)
         assert result == ("", [], {})
         mock_deny.assert_called_once()

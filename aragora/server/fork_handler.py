@@ -133,7 +133,8 @@ class ForkBridgeHandler:
                         validated.append(msg)
                 if len(validated) < min(len(initial_messages), 1000):
                     logger.debug(
-                        "Filtered %s invalid messages", min(len(initial_messages), 1000) - len(validated)
+                        "Filtered %s invalid messages",
+                        min(len(initial_messages), 1000) - len(validated),
                     )
                 initial_messages = validated
             original_task = fork_data.get("task", "Continue the debate")

@@ -406,7 +406,12 @@ class DelegationManager:
         self._store_delegation(delegation)
 
         logger.info(
-            "Created delegation %s: %s -> %s for %s (expires: %s)", delegation.id, delegator_id, delegatee_id, permission_id, expires_at
+            "Created delegation %s: %s -> %s for %s (expires: %s)",
+            delegation.id,
+            delegator_id,
+            delegatee_id,
+            permission_id,
+            expires_at,
         )
 
         return delegation

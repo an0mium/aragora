@@ -582,7 +582,13 @@ async def handle_add_note(
                         inbox_id=inbox_id,
                         context=content[:100],  # First 100 chars as context
                     )
-                except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as mention_error:
+                except (
+                    KeyError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    RuntimeError,
+                ) as mention_error:
                     logger.warning("Failed to create mention for %s: %s", username, mention_error)
 
         # Persist activity log

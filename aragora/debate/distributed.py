@@ -458,7 +458,10 @@ class DistributedDebateCoordinator:
         )
 
         logger.info(
-            "[DistributedDebate] Debate %s completed: consensus=%s, rounds=%s", debate_id, state.consensus_reached, state.current_round
+            "[DistributedDebate] Debate %s completed: consensus=%s, rounds=%s",
+            debate_id,
+            state.consensus_reached,
+            state.current_round,
         )
 
         return result

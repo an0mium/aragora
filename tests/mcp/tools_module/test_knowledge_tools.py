@@ -15,7 +15,6 @@ from aragora.mcp.tools_module.knowledge import (
 )
 
 
-
 class TestQueryKnowledgeTool:
     """Tests for query_knowledge_tool."""
 

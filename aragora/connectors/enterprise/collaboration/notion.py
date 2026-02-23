@@ -721,7 +721,9 @@ class NotionConnector(EnterpriseConnector):
         # (e.g., pages created inside other pages that aren't explicitly shared)
         if self.recursive_pages and pages_for_recursion:
             logger.debug(
-                "[%s] Discovering child pages from %s parent pages", self.name, len(pages_for_recursion)
+                "[%s] Discovering child pages from %s parent pages",
+                self.name,
+                len(pages_for_recursion),
             )
 
             for parent_id in pages_for_recursion:

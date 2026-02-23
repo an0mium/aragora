@@ -205,7 +205,9 @@ class TestSelectBackend:
 
 class TestCheckConvergenceEarlyReturn:
     def test_returns_none_at_round_1_with_min_rounds_1(self, detector, two_agent_responses):
-        result = detector.check_convergence(two_agent_responses, two_agent_responses, round_number=1)
+        result = detector.check_convergence(
+            two_agent_responses, two_agent_responses, round_number=1
+        )
         assert result is None
 
     def test_returns_none_when_round_equals_min_rounds(self):
@@ -291,7 +293,9 @@ class TestCheckConvergenceStatus:
     def test_diverging_resets_consecutive_stable_count(self):
         # Use a high convergence_threshold so we can first satisfy it (identical text),
         # then use completely unrelated texts that fall below divergence_threshold=0.40.
-        d = _make_detector(convergence_threshold=0.85, divergence_threshold=0.40, consecutive_rounds_needed=3)
+        d = _make_detector(
+            convergence_threshold=0.85, divergence_threshold=0.40, consecutive_rounds_needed=3
+        )
         same = {"alice": "hello world"}
         d.check_convergence(same, same, round_number=2)  # Jaccard=1.0 >= 0.85 → count -> 1
         # Now use totally unrelated texts so Jaccard similarity is ~0 (below divergence_threshold)
@@ -431,9 +435,7 @@ class TestCheckWithinRoundConvergence:
         assert converged_low is True
 
         # With a very high threshold, should not converge
-        converged_high, _, _ = detector.check_within_round_convergence(
-            responses, threshold=0.99
-        )
+        converged_high, _, _ = detector.check_within_round_convergence(responses, threshold=0.99)
         assert converged_high is False
 
     def test_defaults_to_convergence_threshold(self):
@@ -465,9 +467,7 @@ class TestCheckConvergenceFast:
         assert result is None
 
     def test_returns_none_no_common_agents(self, detector):
-        result = detector.check_convergence_fast(
-            {"alice": "hi"}, {"bob": "hi"}, round_number=2
-        )
+        result = detector.check_convergence_fast({"alice": "hi"}, {"bob": "hi"}, round_number=2)
         assert result is None
 
     def test_falls_back_to_check_convergence_without_embeddings(self, detector):
@@ -608,11 +608,10 @@ class TestRecordConvergenceMetrics:
 class TestCleanup:
     def test_cleanup_calls_cache_helpers_when_debate_id_set(self):
         d = _make_detector(debate_id="debate-xyz")
-        with patch(
-            "aragora.debate.convergence.detector.cleanup_embedding_cache"
-        ) as mock_emb, patch(
-            "aragora.debate.convergence.detector.cleanup_similarity_cache"
-        ) as mock_sim:
+        with (
+            patch("aragora.debate.convergence.detector.cleanup_embedding_cache") as mock_emb,
+            patch("aragora.debate.convergence.detector.cleanup_similarity_cache") as mock_sim,
+        ):
             d.cleanup()
 
         mock_emb.assert_called_once_with("debate-xyz")
@@ -620,11 +619,10 @@ class TestCleanup:
 
     def test_cleanup_noop_when_no_debate_id(self):
         d = _make_detector(debate_id=None)
-        with patch(
-            "aragora.debate.convergence.detector.cleanup_embedding_cache"
-        ) as mock_emb, patch(
-            "aragora.debate.convergence.detector.cleanup_similarity_cache"
-        ) as mock_sim:
+        with (
+            patch("aragora.debate.convergence.detector.cleanup_embedding_cache") as mock_emb,
+            patch("aragora.debate.convergence.detector.cleanup_similarity_cache") as mock_sim,
+        ):
             d.cleanup()
 
         mock_emb.assert_not_called()

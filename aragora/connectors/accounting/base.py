@@ -249,7 +249,9 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 if response.status_code == 429:
                     if attempt < config.max_retries:
                         delay = self._get_retry_delay(response, attempt, config)
-                        logger.warning("[%s] Rate limited, retrying in %ss", self.PROVIDER_NAME, delay)
+                        logger.warning(
+                            "[%s] Rate limited, retrying in %ss", self.PROVIDER_NAME, delay
+                        )
                         await asyncio.sleep(delay)
                         continue
                     else:
@@ -262,7 +264,10 @@ class AccountingConnectorBase(ABC, Generic[C]):
                     if attempt < config.max_retries:
                         delay = self._get_retry_delay(response, attempt, config)
                         logger.warning(
-                            "[%s] Server error %s, retrying in %ss", self.PROVIDER_NAME, response.status_code, delay
+                            "[%s] Server error %s, retrying in %ss",
+                            self.PROVIDER_NAME,
+                            response.status_code,
+                            delay,
                         )
                         await asyncio.sleep(delay)
                         continue
@@ -279,7 +284,9 @@ class AccountingConnectorBase(ABC, Generic[C]):
                             logger.warning("[%s] Token refresh failed: %s", self.PROVIDER_NAME, e)
                         except (RuntimeError, ValueError, KeyError) as e:
                             logger.error(
-                                "[%s] Unexpected error during token refresh: %s", self.PROVIDER_NAME, e
+                                "[%s] Unexpected error during token refresh: %s",
+                                self.PROVIDER_NAME,
+                                e,
                             )
                     raise ConnectorAuthError(f"Authentication failed: {response.status_code}")
 
@@ -309,7 +316,9 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 last_error = e
                 if config.retry_on_connection_error and attempt < config.max_retries:
                     delay = self._get_retry_delay(None, attempt, config)
-                    logger.warning("[%s] Connection error, retrying in %ss", self.PROVIDER_NAME, delay)
+                    logger.warning(
+                        "[%s] Connection error, retrying in %ss", self.PROVIDER_NAME, delay
+                    )
                     await asyncio.sleep(delay)
                     continue
                 raise ConnectorAPIError(f"Connection error: {e}") from e
@@ -432,7 +441,11 @@ class AccountingConnectorBase(ABC, Generic[C]):
         for _page_idx in range(_MAX_PAGES):
             if page >= max_iterations:
                 logger.warning(
-                    "[%s] Pagination limit %s reached for %s, stopping with %s results", self.PROVIDER_NAME, max_iterations, entity_type, len(results)
+                    "[%s] Pagination limit %s reached for %s, stopping with %s results",
+                    self.PROVIDER_NAME,
+                    max_iterations,
+                    entity_type,
+                    len(results),
                 )
                 break
             # Build pagination params

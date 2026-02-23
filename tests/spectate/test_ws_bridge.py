@@ -406,10 +406,7 @@ class TestThreadSafety:
 
             stream = SpectatorStream(enabled=True, format="plain")
 
-            threads = [
-                threading.Thread(target=emit_events, args=(stream, 20))
-                for _ in range(5)
-            ]
+            threads = [threading.Thread(target=emit_events, args=(stream, 20)) for _ in range(5)]
             for t in threads:
                 t.start()
             for t in threads:

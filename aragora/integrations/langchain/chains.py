@@ -184,11 +184,15 @@ class AragoraDebateChain(_ChainBase):
                             reasoning_steps.append(f"Found {len(items)} relevant knowledge items")
                 except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                     logger.warning(
-                        "[AragoraDebateChain] Research connection error: %s: %s", type(e).__name__, e
+                        "[AragoraDebateChain] Research connection error: %s: %s",
+                        type(e).__name__,
+                        e,
                     )
                     reasoning_steps.append(f"Research skipped (connection error): {e}")
                 except (RuntimeError, ValueError, TypeError) as e:
-                    logger.warning("[AragoraDebateChain] Research failed: %s: %s", type(e).__name__, e)
+                    logger.warning(
+                        "[AragoraDebateChain] Research failed: %s: %s", type(e).__name__, e
+                    )
                     reasoning_steps.append(f"Research skipped: {e}")
 
             # Phase 2: Run debate
@@ -344,11 +348,17 @@ class AragoraResearchDebateChain(_ChainBase):
                                 )
                 except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                     logger.warning(
-                        "[AragoraResearchDebateChain] %s search connection error: %s: %s", source, type(e).__name__, e
+                        "[AragoraResearchDebateChain] %s search connection error: %s: %s",
+                        source,
+                        type(e).__name__,
+                        e,
                     )
                 except (RuntimeError, ValueError, TypeError) as e:
                     logger.warning(
-                        "[AragoraResearchDebateChain] %s search failed: %s: %s", source, type(e).__name__, e
+                        "[AragoraResearchDebateChain] %s search failed: %s: %s",
+                        source,
+                        type(e).__name__,
+                        e,
                     )
 
             # Debate phase

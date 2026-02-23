@@ -64,11 +64,15 @@ class TestCanvasNodeAdapter:
 
     def test_to_canvas_node(self):
         un = UniversalNode(
-            id="un-1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Restored",
+            id="un-1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Restored",
             description="Full description",
-            position_x=50, position_y=75,
-            width=300, height=120,
+            position_x=50,
+            position_y=75,
+            width=300,
+            height=120,
             confidence=0.6,
             data={"extra": "data"},
             style={"border": "1px"},
@@ -101,7 +105,8 @@ class TestCanvasNodeAdapter:
 
     def test_default_subtype(self):
         cn = CanvasNode(
-            id="d1", node_type=CanvasNodeType.TEXT,
+            id="d1",
+            node_type=CanvasNodeType.TEXT,
             label="Plain text",
         )
         un = from_canvas_node(cn, PipelineStage.IDEAS)
@@ -137,8 +142,10 @@ class TestGoalNodeAdapter:
 
     def test_to_goal_node(self):
         un = UniversalNode(
-            id="ug-1", stage=PipelineStage.GOALS,
-            node_subtype="strategy", label="My Strategy",
+            id="ug-1",
+            stage=PipelineStage.GOALS,
+            node_subtype="strategy",
+            label="My Strategy",
             description="Strategy desc",
             parent_ids=["src-1"],
             confidence=0.7,
@@ -157,7 +164,8 @@ class TestGoalNodeAdapter:
 
     def test_goal_node_roundtrip(self):
         gn = GoalNode(
-            id="rt-g", title="Test Goal",
+            id="rt-g",
+            title="Test Goal",
             description="Test desc",
             goal_type=GoalNodeType.MILESTONE,
             priority="critical",
@@ -176,15 +184,18 @@ class TestGoalNodeAdapter:
 
     def test_invalid_subtype_defaults_to_goal(self):
         un = UniversalNode(
-            id="bad-type", stage=PipelineStage.GOALS,
-            node_subtype="unknown_type", label="Test",
+            id="bad-type",
+            stage=PipelineStage.GOALS,
+            node_subtype="unknown_type",
+            label="Test",
         )
         gn = to_goal_node(un)
         assert gn.goal_type == GoalNodeType.GOAL
 
     def test_no_source_ideas_no_source_stage(self):
         gn = GoalNode(
-            id="no-src", title="Orphan Goal",
+            id="no-src",
+            title="Orphan Goal",
             description="No sources",
             source_idea_ids=[],
         )
@@ -227,20 +238,27 @@ class TestBulkConversions:
     def test_canvas_to_universal_graph(self):
         canvas = Canvas(id="c1", name="Test Canvas", owner_id="user-1")
         n1 = CanvasNode(
-            id="cn1", node_type=CanvasNodeType.KNOWLEDGE,
-            position=Position(x=0, y=0), label="Node 1",
+            id="cn1",
+            node_type=CanvasNodeType.KNOWLEDGE,
+            position=Position(x=0, y=0),
+            label="Node 1",
             data={"idea_type": "concept"},
         )
         n2 = CanvasNode(
-            id="cn2", node_type=CanvasNodeType.KNOWLEDGE,
-            position=Position(x=100, y=100), label="Node 2",
+            id="cn2",
+            node_type=CanvasNodeType.KNOWLEDGE,
+            position=Position(x=100, y=100),
+            label="Node 2",
             data={"idea_type": "insight"},
         )
         canvas.nodes["cn1"] = n1
         canvas.nodes["cn2"] = n2
         edge = CanvasEdge(
-            id="ce1", source_id="cn1", target_id="cn2",
-            edge_type=EdgeType.SUPPORT, label="supports",
+            id="ce1",
+            source_id="cn1",
+            target_id="cn2",
+            edge_type=EdgeType.SUPPORT,
+            label="supports",
         )
         canvas.edges["ce1"] = edge
 
@@ -256,23 +274,32 @@ class TestBulkConversions:
     def test_universal_graph_to_canvas(self):
         graph = UniversalGraph(id="ug1", name="UG Test")
         n1 = UniversalNode(
-            id="un1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Node A",
-            position_x=10, position_y=20,
+            id="un1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Node A",
+            position_x=10,
+            position_y=20,
         )
         n2 = UniversalNode(
-            id="un2", stage=PipelineStage.IDEAS,
-            node_subtype="evidence", label="Node B",
+            id="un2",
+            stage=PipelineStage.IDEAS,
+            node_subtype="evidence",
+            label="Node B",
         )
         n3 = UniversalNode(
-            id="un3", stage=PipelineStage.GOALS,
-            node_subtype="goal", label="Goal C",
+            id="un3",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Goal C",
         )
         graph.add_node(n1)
         graph.add_node(n2)
         graph.add_node(n3)
         edge = UniversalEdge(
-            id="ue1", source_id="un1", target_id="un2",
+            id="ue1",
+            source_id="un1",
+            target_id="un2",
             edge_type=StageEdgeType.SUPPORTS,
         )
         graph.add_edge(edge)
@@ -287,7 +314,8 @@ class TestBulkConversions:
     def test_canvas_roundtrip(self):
         canvas = Canvas(id="rt-c", name="Roundtrip")
         n = CanvasNode(
-            id="rn1", node_type=CanvasNodeType.KNOWLEDGE,
+            id="rn1",
+            node_type=CanvasNodeType.KNOWLEDGE,
             position=Position(x=50, y=75),
             label="Roundtrip Node",
             data={"idea_type": "concept", "extra": "data"},
@@ -310,7 +338,9 @@ class TestBulkConversions:
 
         for etype in [EdgeType.DEPENDENCY, EdgeType.CRITIQUE, EdgeType.SUPPORT]:
             edge = CanvasEdge(
-                id=f"e-{etype.value}", source_id="n1", target_id="n2",
+                id=f"e-{etype.value}",
+                source_id="n1",
+                target_id="n2",
                 edge_type=etype,
             )
             canvas.edges[edge.id] = edge

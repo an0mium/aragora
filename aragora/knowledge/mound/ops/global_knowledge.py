@@ -59,9 +59,7 @@ class GlobalKnowledgeProtocol(Protocol):
         workspace_id: str | None = None,
     ) -> QueryResult: ...
 
-    async def get(
-        self, node_id: str, workspace_id: str | None = None
-    ) -> KnowledgeItem | None: ...
+    async def get(self, node_id: str, workspace_id: str | None = None) -> KnowledgeItem | None: ...
 
     # Mixin methods that call each other
     async def store_verified_fact(

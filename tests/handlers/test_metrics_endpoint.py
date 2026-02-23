@@ -138,8 +138,10 @@ def mock_http():
 @pytest.fixture
 def mock_http_with_body():
     """Factory for mock HTTP handler with body."""
+
     def _create(body: dict[str, Any]) -> MockHTTPHandler:
         return MockHTTPHandler(body=body)
+
     return _create
 
 
@@ -448,13 +450,16 @@ class TestGeneratePrometheusMetrics:
         mock_generate = MagicMock(return_value=b"# metrics\n")
         mock_registry = MagicMock()
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {
-                "prometheus_client": MagicMock(
-                    REGISTRY=mock_registry,
-                    generate_latest=mock_generate,
-                    CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(
+                        REGISTRY=mock_registry,
+                        generate_latest=mock_generate,
+                        CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
+                    ),
+                },
+            ):
                 text, ct = generate_prometheus_metrics()
                 assert text == "# metrics\n"
                 assert ct == "text/plain; version=0.0.4"
@@ -463,6 +468,7 @@ class TestGeneratePrometheusMetrics:
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=False):
             # Remove prometheus_client from sys.modules to trigger ImportError
             import sys
+
             saved = sys.modules.get("prometheus_client")
             sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -480,13 +486,16 @@ class TestGeneratePrometheusMetrics:
     def test_aggregate_param_passed_through(self):
         mock_generate = MagicMock(return_value=b"# agg\n")
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {
-                "prometheus_client": MagicMock(
-                    REGISTRY=MagicMock(),
-                    generate_latest=mock_generate,
-                    CONTENT_TYPE_LATEST="text/plain",
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(
+                        REGISTRY=MagicMock(),
+                        generate_latest=mock_generate,
+                        CONTENT_TYPE_LATEST="text/plain",
+                    ),
+                },
+            ):
                 text, ct = generate_prometheus_metrics(aggregate_high_cardinality=True)
                 assert text == "# agg\n"
 
@@ -544,6 +553,7 @@ class TestGetMetricsSummary:
     def test_returns_dict(self):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys
+
             saved = sys.modules.get("prometheus_client")
             sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -559,6 +569,7 @@ class TestGetMetricsSummary:
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             MetricsRegistry._initialized = True
             import sys
+
             saved = sys.modules.get("prometheus_client")
             sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -575,6 +586,7 @@ class TestGetMetricsSummary:
         MetricsRegistry._initialization_time = 0.42
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys
+
             saved = sys.modules.get("prometheus_client")
             sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -589,6 +601,7 @@ class TestGetMetricsSummary:
     def test_metrics_unavailable_when_prometheus_missing(self):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys
+
             saved = sys.modules.get("prometheus_client")
             sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -614,10 +627,13 @@ class TestGetMetricsSummary:
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             with patch.dict("sys.modules", {"prometheus_client": mock_prom}):
                 # Also need to mock the cardinality tracker import
-                with patch.dict("sys.modules", {
-                    "prometheus_client": mock_prom,
-                    "aragora.observability.metrics.cardinality": None,
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "prometheus_client": mock_prom,
+                        "aragora.observability.metrics.cardinality": None,
+                    },
+                ):
                     result = get_metrics_summary()
                     assert "metrics" in result
                     assert result["metrics"]["counters"] == 1
@@ -712,26 +728,32 @@ class TestHandlerRouteMetrics:
 
     def test_returns_200(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# test metrics\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/metrics", {}, mock_http)
                 assert _status(result) == 200
 
     def test_returns_prometheus_content(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# metrics output\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/metrics", {}, mock_http)
                 raw = _raw_body(result)
@@ -740,45 +762,55 @@ class TestHandlerRouteMetrics:
     def test_no_auth_required_for_bare_metrics(self, handler, mock_http):
         """GET /metrics does NOT require auth."""
         mock_generate = MagicMock(return_value=b"# ok\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/metrics", {}, mock_http)
                 assert _status(result) == 200
 
     def test_aggregate_query_param(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# agg\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/metrics", {"aggregate": ["true"]}, mock_http)
                 assert _status(result) == 200
 
     def test_aggregate_false_default(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# no-agg\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/metrics", {"aggregate": ["false"]}, mock_http)
                 assert _status(result) == 200
 
     def test_fallback_when_prometheus_unavailable(self, handler, mock_http):
         import sys as _sys
+
         saved = _sys.modules.get("prometheus_client")
         _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
         try:
@@ -804,26 +836,32 @@ class TestHandlerRouteApiMetrics:
 
     def test_returns_200(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# api metrics\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain; version=0.0.4",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/api/v1/metrics/prometheus", {}, mock_http)
                 assert _status(result) == 200
 
     def test_returns_same_output_as_metrics(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# same metrics\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 r1 = handler.handle("/metrics", {}, mock_http)
                 r2 = handler.handle("/api/v1/metrics/prometheus", {}, mock_http)
@@ -831,13 +869,16 @@ class TestHandlerRouteApiMetrics:
 
     def test_non_versioned_api_path(self, handler, mock_http):
         mock_generate = MagicMock(return_value=b"# ok\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = handler.handle("/api/metrics/prometheus", {}, mock_http)
                 assert _status(result) == 200
@@ -854,6 +895,7 @@ class TestHandlerRouteSummary:
     def test_returns_200(self, handler, mock_http):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys as _sys
+
             saved = _sys.modules.get("prometheus_client")
             _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -868,6 +910,7 @@ class TestHandlerRouteSummary:
     def test_returns_json(self, handler, mock_http):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys as _sys
+
             saved = _sys.modules.get("prometheus_client")
             _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -883,6 +926,7 @@ class TestHandlerRouteSummary:
         MetricsRegistry._initialized = True
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys as _sys
+
             saved = _sys.modules.get("prometheus_client")
             _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -898,6 +942,7 @@ class TestHandlerRouteSummary:
     def test_contains_metrics_key(self, handler, mock_http):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys as _sys
+
             saved = _sys.modules.get("prometheus_client")
             _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -913,6 +958,7 @@ class TestHandlerRouteSummary:
     def test_non_versioned_summary_path(self, handler, mock_http):
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
             import sys as _sys
+
             saved = _sys.modules.get("prometheus_client")
             _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
             try:
@@ -992,13 +1038,16 @@ class TestHandlerAuthRequired:
             h = UnifiedMetricsHandler(ctx={})
 
         mock_generate = MagicMock(return_value=b"# ok\n")
-        with patch.dict("sys.modules", {
-            "prometheus_client": MagicMock(
-                REGISTRY=MagicMock(),
-                generate_latest=mock_generate,
-                CONTENT_TYPE_LATEST="text/plain",
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "prometheus_client": MagicMock(
+                    REGISTRY=MagicMock(),
+                    generate_latest=mock_generate,
+                    CONTENT_TYPE_LATEST="text/plain",
+                ),
+            },
+        ):
             with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
                 result = h.handle("/metrics", {}, MockHTTPHandler())
                 assert _status(result) == 200
@@ -1111,9 +1160,12 @@ class TestConvenienceFunctions:
         mock_registry._names_to_collectors = {"my_metric": mock_collector}
 
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {
-                "prometheus_client": MagicMock(REGISTRY=mock_registry),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(REGISTRY=mock_registry),
+                },
+            ):
                 result = get_registered_metric_names()
                 assert isinstance(result, list)
                 assert "my_metric" in result
@@ -1128,9 +1180,12 @@ class TestConvenienceFunctions:
         mock_registry._names_to_collectors = {"z": c1, "a": c2}
 
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {
-                "prometheus_client": MagicMock(REGISTRY=mock_registry),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(REGISTRY=mock_registry),
+                },
+            ):
                 result = get_registered_metric_names()
                 assert result == ["a_metric", "z_metric"]
 
@@ -1144,14 +1199,18 @@ class TestConvenienceFunctions:
         mock_registry._names_to_collectors = {"a": c1, "b": c2}
 
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {
-                "prometheus_client": MagicMock(REGISTRY=mock_registry),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(REGISTRY=mock_registry),
+                },
+            ):
                 result = get_registered_metric_names()
                 assert result.count("dup_metric") == 1
 
     def test_get_registered_metric_names_empty_when_no_prometheus(self):
         import sys as _sys
+
         saved = _sys.modules.get("prometheus_client")
         _sys.modules["prometheus_client"] = None  # type: ignore[assignment]
         try:
@@ -1173,9 +1232,12 @@ class TestConvenienceFunctions:
         mock_registry._names_to_collectors = {"a": c1, "b": c2}
 
         with patch.object(MetricsRegistry, "ensure_initialized", return_value=True):
-            with patch.dict("sys.modules", {
-                "prometheus_client": MagicMock(REGISTRY=mock_registry),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "prometheus_client": MagicMock(REGISTRY=mock_registry),
+                },
+            ):
                 result = get_registered_metric_names()
                 assert "real_metric" in result
                 assert len(result) == 1
@@ -1191,34 +1253,42 @@ class TestExports:
 
     def test_handler_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "UnifiedMetricsHandler" in __all__
 
     def test_config_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "CardinalityConfig" in __all__
 
     def test_registry_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "MetricsRegistry" in __all__
 
     def test_generate_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "generate_prometheus_metrics" in __all__
 
     def test_summary_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "get_metrics_summary" in __all__
 
     def test_ensure_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "ensure_all_metrics_registered" in __all__
 
     def test_get_names_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "get_registered_metric_names" in __all__
 
     def test_content_type_exported(self):
         from aragora.server.handlers.metrics_endpoint import __all__
+
         assert "PROMETHEUS_CONTENT_TYPE" in __all__
 
     def test_content_type_value(self):

@@ -100,7 +100,9 @@ class MockMessage:
     to_addresses: list[str] = field(default_factory=lambda: ["recipient@example.com"])
     cc_addresses: list[str] = field(default_factory=list)
     bcc_addresses: list[str] = field(default_factory=list)
-    date: datetime = field(default_factory=lambda: datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc))
+    date: datetime = field(
+        default_factory=lambda: datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc)
+    )
     body_text: str = "Hello, World!"
     body_html: str = "<p>Hello, World!</p>"
     snippet: str = "Hello, World!"
@@ -601,9 +603,7 @@ class TestHandleListFolders:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_folders.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_folders.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is True
         assert result["total"] == 1
         assert result["folders"][0]["display_name"] == "Inbox"
@@ -616,9 +616,7 @@ class TestHandleListFolders:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handle_list_folders.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_folders.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is False
         assert "not available" in result["error"]
 
@@ -636,9 +634,7 @@ class TestHandleListFolders:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_folders.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_folders.__wrapped__(workspace_id="default", user_id="user1")
         assert result["total"] == 3
 
     @pytest.mark.asyncio
@@ -649,9 +645,7 @@ class TestHandleListFolders:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_folders.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_folders.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is False
         assert "Failed to list folders" in result["error"]
 
@@ -669,9 +663,7 @@ class TestHandleListMessages:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_messages.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_messages.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is True
         assert result["next_page_token"] == "next-page-token"
         assert len(result["messages"]) == 2
@@ -683,9 +675,7 @@ class TestHandleListMessages:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handle_list_messages.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_messages.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is False
         assert "not available" in result["error"]
 
@@ -733,9 +723,7 @@ class TestHandleListMessages:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_messages.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_messages.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is True
         assert len(result["messages"]) == 1
         assert result["messages"][0]["id"] == "msg-no-todict"
@@ -761,9 +749,7 @@ class TestHandleListMessages:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_messages.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_messages.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is True
         # msg-1 failed, only msg-2 should be in results
         assert len(result["messages"]) == 1
@@ -776,9 +762,7 @@ class TestHandleListMessages:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_messages.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_messages.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is False
         assert "Failed to list messages" in result["error"]
 
@@ -1384,9 +1368,7 @@ class TestHandleDeleteMessage:
     @pytest.mark.asyncio
     async def test_soft_delete(self, stored_connector):
         deleted_folder = MockFolder(id="deleted-items-id", display_name="Deleted Items")
-        stored_connector.list_folders = AsyncMock(
-            return_value=[MockFolder(), deleted_folder]
-        )
+        stored_connector.list_folders = AsyncMock(return_value=[MockFolder(), deleted_folder])
         result = await handle_delete_message.__wrapped__(
             workspace_id="default",
             user_id="default",
@@ -1405,9 +1387,7 @@ class TestHandleDeleteMessage:
     @pytest.mark.asyncio
     async def test_soft_delete_no_deleted_folder_fallback(self, stored_connector):
         """When no 'Deleted Items' folder, fallback to permanent delete."""
-        stored_connector.list_folders = AsyncMock(
-            return_value=[MockFolder(display_name="Inbox")]
-        )
+        stored_connector.list_folders = AsyncMock(return_value=[MockFolder(display_name="Inbox")])
         result = await handle_delete_message.__wrapped__(
             workspace_id="default",
             user_id="default",
@@ -1415,9 +1395,7 @@ class TestHandleDeleteMessage:
             permanent=False,
         )
         assert result["success"] is True
-        stored_connector._api_request.assert_awaited_once_with(
-            "/messages/msg-1", method="DELETE"
-        )
+        stored_connector._api_request.assert_awaited_once_with("/messages/msg-1", method="DELETE")
 
     @pytest.mark.asyncio
     async def test_permanent_delete(self, stored_connector):
@@ -1429,9 +1407,7 @@ class TestHandleDeleteMessage:
         )
         assert result["success"] is True
         assert result["permanent"] is True
-        stored_connector._api_request.assert_awaited_once_with(
-            "/messages/msg-1", method="DELETE"
-        )
+        stored_connector._api_request.assert_awaited_once_with("/messages/msg-1", method="DELETE")
 
     @pytest.mark.asyncio
     async def test_not_authenticated(self):
@@ -1464,18 +1440,14 @@ class TestHandleDeleteMessage:
 class TestHandleGetStatus:
     @pytest.mark.asyncio
     async def test_not_connected(self):
-        result = await handle_get_status.__wrapped__(
-            workspace_id="default", user_id="default"
-        )
+        result = await handle_get_status.__wrapped__(workspace_id="default", user_id="default")
         assert result["success"] is True
         assert result["connected"] is False
         assert result["email"] is None
 
     @pytest.mark.asyncio
     async def test_connected(self, stored_connector):
-        result = await handle_get_status.__wrapped__(
-            workspace_id="default", user_id="default"
-        )
+        result = await handle_get_status.__wrapped__(workspace_id="default", user_id="default")
         assert result["success"] is True
         assert result["connected"] is True
         assert result["email"] == "user@example.com"
@@ -1483,12 +1455,8 @@ class TestHandleGetStatus:
 
     @pytest.mark.asyncio
     async def test_token_expired(self, stored_connector):
-        stored_connector.get_user_info = AsyncMock(
-            side_effect=PermissionError("token expired")
-        )
-        result = await handle_get_status.__wrapped__(
-            workspace_id="default", user_id="default"
-        )
+        stored_connector.get_user_info = AsyncMock(side_effect=PermissionError("token expired"))
+        result = await handle_get_status.__wrapped__(workspace_id="default", user_id="default")
         assert result["success"] is True
         assert result["connected"] is False
         assert "Token expired" in result["error"]
@@ -1498,9 +1466,7 @@ class TestHandleGetStatus:
         stored_connector.get_user_info = AsyncMock(
             return_value={"userPrincipalName": "upn@example.com", "displayName": "UPN User"}
         )
-        result = await handle_get_status.__wrapped__(
-            workspace_id="default", user_id="default"
-        )
+        result = await handle_get_status.__wrapped__(workspace_id="default", user_id="default")
         assert result["success"] is True
         assert result["email"] == "upn@example.com"
 
@@ -1508,9 +1474,7 @@ class TestHandleGetStatus:
     async def test_outer_exception_returns_error(self, stored_connector):
         """Test that a KeyError in the outer try block is caught."""
         stored_connector.get_user_info = AsyncMock(side_effect=KeyError("missing_key"))
-        result = await handle_get_status.__wrapped__(
-            workspace_id="default", user_id="default"
-        )
+        result = await handle_get_status.__wrapped__(workspace_id="default", user_id="default")
         assert result["success"] is False
         assert "Failed to get connection status" in result["error"]
 
@@ -1551,9 +1515,7 @@ class TestOutlookHandlerMethods:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle_get_oauth_url(
-                {"redirect_uri": "http://localhost/cb"}
-            )
+            result = await handler.handle_get_oauth_url({"redirect_uri": "http://localhost/cb"})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1626,12 +1588,14 @@ class TestOutlookHandlerMethods:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handler.handle_get_messages({
-                "folder_id": "inbox",
-                "max_results": "10",
-                "page_token": "page2",
-                "filter": "isRead eq false",
-            })
+            result = await handler.handle_get_messages(
+                {
+                    "folder_id": "inbox",
+                    "max_results": "10",
+                    "page_token": "page2",
+                    "filter": "isRead eq false",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1736,11 +1700,13 @@ class TestOutlookHandlerMethods:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handler.handle_post_send({
-                "to": ["to@example.com"],
-                "subject": "Test",
-                "body": "Hello",
-            })
+            result = await handler.handle_post_send(
+                {
+                    "to": ["to@example.com"],
+                    "subject": "Test",
+                    "body": "Hello",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1751,11 +1717,13 @@ class TestOutlookHandlerMethods:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            await handler.handle_post_send({
-                "to": "single@example.com",
-                "subject": "Test",
-                "body": "Hello",
-            })
+            await handler.handle_post_send(
+                {
+                    "to": "single@example.com",
+                    "subject": "Test",
+                    "body": "Hello",
+                }
+            )
         mock_connector.send_message.assert_awaited_once()
         call_kwargs = mock_connector.send_message.call_args[1]
         assert call_kwargs["to"] == ["single@example.com"]
@@ -1778,10 +1746,12 @@ class TestOutlookHandlerMethods:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handler.handle_post_reply({
-                "message_id": "msg-1",
-                "body": "Thanks!",
-            })
+            result = await handler.handle_post_reply(
+                {
+                    "message_id": "msg-1",
+                    "body": "Thanks!",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1791,13 +1761,15 @@ class TestOutlookHandlerMethods:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handler.handle_post_reply({
-                "message_id": "msg-1",
-                "body": "<p>Reply</p>",
-                "body_type": "html",
-                "reply_all": True,
-                "cc": ["cc@example.com"],
-            })
+            result = await handler.handle_post_reply(
+                {
+                    "message_id": "msg-1",
+                    "body": "<p>Reply</p>",
+                    "body_type": "html",
+                    "reply_all": True,
+                    "cc": ["cc@example.com"],
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1843,9 +1815,7 @@ class TestOutlookHandlerMethods:
 
     @pytest.mark.asyncio
     async def test_handle_post_mark_read_success(self, handler, stored_connector):
-        result = await handler.handle_post_mark_read(
-            {"is_read": True}, message_id="msg-1"
-        )
+        result = await handler.handle_post_mark_read({"is_read": True}, message_id="msg-1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1874,9 +1844,7 @@ class TestOutlookHandlerMethods:
 
     @pytest.mark.asyncio
     async def test_handle_delete_message_permanent(self, handler, stored_connector):
-        result = await handler.handle_delete_message(
-            {"permanent": "true"}, message_id="msg-1"
-        )
+        result = await handler.handle_delete_message({"permanent": "true"}, message_id="msg-1")
         assert _status(result) == 200
         data = _data(result)
         assert data["permanent"] is True
@@ -1905,9 +1873,7 @@ class TestEdgeCases:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_messages.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_messages.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is True
         assert result["messages"] == []
         assert result["total"] == 0
@@ -1921,9 +1887,7 @@ class TestEdgeCases:
             new_callable=AsyncMock,
             return_value=mock_connector,
         ):
-            result = await handle_list_folders.__wrapped__(
-                workspace_id="default", user_id="user1"
-            )
+            result = await handle_list_folders.__wrapped__(workspace_id="default", user_id="user1")
         assert result["success"] is True
         assert result["folders"] == []
         assert result["total"] == 0

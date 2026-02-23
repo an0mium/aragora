@@ -449,7 +449,10 @@ class MultiPartyValidator:
         await self._notify_validators(request, "validation_requested")
 
         logger.info(
-            "Created validation request %s for item %s with %s validators", request_id, item_id, len(validators)
+            "Created validation request %s for item %s with %s validators",
+            request_id,
+            item_id,
+            len(validators),
         )
 
         return request
@@ -522,7 +525,9 @@ class MultiPartyValidator:
         if request.state == ValidationState.PENDING:
             request.state = ValidationState.IN_REVIEW
 
-        logger.info("Vote %s submitted by %s for request %s", vote_type.value, validator_id, request_id)
+        logger.info(
+            "Vote %s submitted by %s for request %s", vote_type.value, validator_id, request_id
+        )
 
         # Check if consensus reached
         result = await self.check_consensus(request_id)

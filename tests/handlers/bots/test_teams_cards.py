@@ -475,7 +475,9 @@ class TestCreateDebateCard:
         assert "style" not in abstain_action
 
     def test_progress_bar_label_shows_round(self):
-        card = create_debate_card("d1", "T", ["a"], current_round=2, total_rounds=5, status="in_progress")
+        card = create_debate_card(
+            "d1", "T", ["a"], current_round=2, total_rounds=5, status="in_progress"
+        )
         # Find the progress label text block
         texts = [b["text"] for b in card["body"] if b.get("type") == "TextBlock"]
         assert any("Round 2/5" in t for t in texts)
@@ -550,7 +552,8 @@ class TestCreateVotingCard:
     def test_with_deadline(self):
         card = create_voting_card("d1", "T", deadline="2026-03-01 17:00")
         deadline_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Deadline" in b.get("text", "")
         ]
         assert len(deadline_blocks) == 1
@@ -678,7 +681,8 @@ class TestCreateConsensusCard:
     def test_no_key_points(self):
         card = self._make(key_points=None)
         containers_with_key_points = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "Container"
             and any("Key Points" in str(i.get("text", "")) for i in b.get("items", []))
         ]
@@ -687,7 +691,8 @@ class TestCreateConsensusCard:
     def test_with_key_points(self):
         card = self._make(key_points=["Point A", "Point B"])
         containers = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "Container"
             and any("Key Points" in str(i.get("text", "")) for i in b.get("items", []))
         ]
@@ -700,7 +705,8 @@ class TestCreateConsensusCard:
         points = [f"Point {i}" for i in range(10)]
         card = self._make(key_points=points)
         containers = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "Container"
             and any("Key Points" in str(i.get("text", "")) for i in b.get("items", []))
         ]
@@ -711,7 +717,8 @@ class TestCreateConsensusCard:
     def test_no_vote_summary(self):
         card = self._make(vote_summary=None)
         vote_texts = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Votes:" in b.get("text", "")
         ]
         assert len(vote_texts) == 0
@@ -719,7 +726,8 @@ class TestCreateConsensusCard:
     def test_with_vote_summary(self):
         card = self._make(vote_summary={"approve": 3, "reject": 1})
         vote_texts = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Votes:" in b.get("text", "")
         ]
         assert len(vote_texts) == 1
@@ -920,7 +928,8 @@ class TestCreateDebateProgressCard:
         card = create_debate_progress_card("d1", "T", 2, 4, "critique")
         # Progress = 2/4 * 100 = 50
         percentage_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and b.get("text", "").endswith("%")
         ]
         assert any("50%" in b["text"] for b in percentage_blocks)
@@ -928,7 +937,8 @@ class TestCreateDebateProgressCard:
     def test_progress_100_percent(self):
         card = create_debate_progress_card("d1", "T", 3, 3, "done")
         percentage_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and b.get("text", "").endswith("%")
         ]
         assert any("100%" in b["text"] for b in percentage_blocks)
@@ -950,7 +960,8 @@ class TestCreateDebateProgressCard:
     def test_no_agent_messages(self):
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=None)
         containers = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "Container"
             and any("Recent Activity" in str(i.get("text", "")) for i in b.get("items", []))
         ]
@@ -963,8 +974,7 @@ class TestCreateDebateProgressCard:
         ]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
-            if b.get("type") == "TextBlock" and "**" in b.get("text", "")
+            b for b in card["body"] if b.get("type") == "TextBlock" and "**" in b.get("text", "")
         ]
         assert len(msg_blocks) == 2
         assert "**claude**" in msg_blocks[0]["text"]
@@ -973,8 +983,11 @@ class TestCreateDebateProgressCard:
         msgs = [{"agent": f"agent-{i}", "preview": f"Message {i}"} for i in range(5)]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
-            if b.get("type") == "TextBlock" and "**" in b.get("text", "") and "agent-" in b.get("text", "")
+            b
+            for b in card["body"]
+            if b.get("type") == "TextBlock"
+            and "**" in b.get("text", "")
+            and "agent-" in b.get("text", "")
         ]
         assert len(msg_blocks) == 3
 
@@ -983,7 +996,8 @@ class TestCreateDebateProgressCard:
         msgs = [{"agent": "claude", "preview": long_preview}]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "**claude**" in b.get("text", "")
         ]
         assert len(msg_blocks) == 1
@@ -995,7 +1009,8 @@ class TestCreateDebateProgressCard:
         msgs = [{"agent": "claude", "preview": "Short"}]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "**claude**" in b.get("text", "")
         ]
         assert "Short" in msg_blocks[0]["text"]
@@ -1006,8 +1021,7 @@ class TestCreateDebateProgressCard:
         msgs = [{"agent": "a", "preview": preview}]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
-            if b.get("type") == "TextBlock" and "**a**" in b.get("text", "")
+            b for b in card["body"] if b.get("type") == "TextBlock" and "**a**" in b.get("text", "")
         ]
         assert "..." not in msg_blocks[0]["text"]
 
@@ -1015,7 +1029,8 @@ class TestCreateDebateProgressCard:
         msgs = [{"preview": "text"}]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "**Agent**" in b.get("text", "")
         ]
         assert len(msg_blocks) == 1
@@ -1024,7 +1039,8 @@ class TestCreateDebateProgressCard:
         msgs = [{"agent": "claude"}]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "**claude**" in b.get("text", "")
         ]
         assert "..." in msg_blocks[0]["text"]
@@ -1032,7 +1048,8 @@ class TestCreateDebateProgressCard:
     def test_no_timestamp(self):
         card = create_debate_progress_card("d1", "T", 1, 3, "p", timestamp=None)
         updated_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Updated:" in b.get("text", "")
         ]
         assert len(updated_blocks) == 0
@@ -1041,7 +1058,8 @@ class TestCreateDebateProgressCard:
         ts = datetime(2026, 2, 23, 14, 30, 45, tzinfo=timezone.utc)
         card = create_debate_progress_card("d1", "T", 1, 3, "p", timestamp=ts)
         updated_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Updated:" in b.get("text", "")
         ]
         assert len(updated_blocks) == 1
@@ -1059,7 +1077,11 @@ class TestCreateDebateProgressCard:
     def test_json_serializable(self):
         ts = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         card = create_debate_progress_card(
-            "d1", "Topic", 2, 4, "critique",
+            "d1",
+            "Topic",
+            2,
+            4,
+            "critique",
             agent_messages=[{"agent": "claude", "preview": "msg"}],
             timestamp=ts,
         )
@@ -1092,7 +1114,8 @@ class TestCreateErrorCard:
     def test_no_error_code(self):
         card = create_error_card("E", "msg", error_code=None)
         code_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Error Code" in b.get("text", "")
         ]
         assert len(code_blocks) == 0
@@ -1100,7 +1123,8 @@ class TestCreateErrorCard:
     def test_with_error_code(self):
         card = create_error_card("E", "msg", error_code="ERR_429")
         code_blocks = [
-            b for b in card["body"]
+            b
+            for b in card["body"]
             if b.get("type") == "TextBlock" and "Error Code" in b.get("text", "")
         ]
         assert len(code_blocks) == 1

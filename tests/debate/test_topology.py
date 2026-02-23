@@ -330,8 +330,6 @@ class TestSelectCriticsForProposal:
         assert len(critics) == 2
 
     def test_star_with_hub(self, agents):
-        critics = select_critics_for_proposal(
-            "bob", agents, agents, "star", hub_agent="alice"
-        )
+        critics = select_critics_for_proposal("bob", agents, agents, "star", hub_agent="alice")
         assert len(critics) == 1
         assert critics[0].name == "alice"

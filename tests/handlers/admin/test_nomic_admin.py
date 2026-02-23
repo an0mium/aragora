@@ -236,9 +236,10 @@ class TestGetNomicStatus:
     def test_metrics_available(self, handler, http):
         mock_summary = {"total_cycles": 5}
         mock_stuck = {"stuck": False}
-        with patch(
-            "aragora.nomic.metrics.get_nomic_metrics_summary", return_value=mock_summary
-        ), patch("aragora.nomic.metrics.check_stuck_phases", return_value=mock_stuck):
+        with (
+            patch("aragora.nomic.metrics.get_nomic_metrics_summary", return_value=mock_summary),
+            patch("aragora.nomic.metrics.check_stuck_phases", return_value=mock_stuck),
+        ):
             result = handler._get_nomic_status(http())
 
         data = _body(result)
@@ -263,9 +264,7 @@ class TestGetNomicStatus:
 
     def test_circuit_breakers_included(self, handler, http):
         registry = MockRegistry(open_circuits=["verify"])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ):
+        with patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry):
             result = handler._get_nomic_status(http())
         data = _body(result)
         assert data["circuit_breakers"]["open"] == ["verify"]
@@ -332,9 +331,7 @@ class TestGetCircuitBreakers:
 
     def test_success_with_open_circuits(self, handler, http):
         registry = MockRegistry(open_circuits=["a", "b"], breaker_count=3)
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ):
+        with patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry):
             result = handler._get_nomic_circuit_breakers(http())
         assert _status(result) == 200
         data = _body(result)
@@ -343,9 +340,7 @@ class TestGetCircuitBreakers:
 
     def test_success_no_open_circuits(self, handler, http):
         registry = MockRegistry(open_circuits=[], breaker_count=2)
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ):
+        with patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry):
             result = handler._get_nomic_circuit_breakers(http())
         data = _body(result)
         assert data["open_circuits"] == []
@@ -444,9 +439,7 @@ class TestResetNomicPhase:
 
     def test_preserves_errors_by_default(self, handler, http):
         nomic_dir = Path(handler.ctx["nomic_dir"])
-        (nomic_dir / "nomic_state.json").write_text(
-            json.dumps({"phase": "x", "errors": ["e1"]})
-        )
+        (nomic_dir / "nomic_state.json").write_text(json.dumps({"phase": "x", "errors": ["e1"]}))
         h = http(body=json.dumps({"target_phase": "idle"}).encode())
         with patch("aragora.server.handlers.admin.nomic_admin.audit_admin"):
             handler._reset_nomic_phase(h)
@@ -487,13 +480,12 @@ class TestResetNomicPhase:
 
     def test_tracks_metrics(self, handler, http):
         nomic_dir = Path(handler.ctx["nomic_dir"])
-        (nomic_dir / "nomic_state.json").write_text(
-            json.dumps({"phase": "debate"})
-        )
+        (nomic_dir / "nomic_state.json").write_text(json.dumps({"phase": "debate"}))
         h = http(body=json.dumps({"target_phase": "design"}).encode())
-        with patch("aragora.server.handlers.admin.nomic_admin.audit_admin"), patch(
-            "aragora.nomic.metrics.track_phase_transition"
-        ) as mock_track:
+        with (
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+            patch("aragora.nomic.metrics.track_phase_transition") as mock_track,
+        ):
             handler._reset_nomic_phase(h)
             mock_track.assert_called_once()
             kw = mock_track.call_args[1]
@@ -502,8 +494,9 @@ class TestResetNomicPhase:
 
     def test_metrics_import_error_still_succeeds(self, handler, http):
         h = http(body=json.dumps({"target_phase": "idle"}).encode())
-        with patch("aragora.server.handlers.admin.nomic_admin.audit_admin"), patch.dict(
-            "sys.modules", {"aragora.nomic.metrics": None}
+        with (
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+            patch.dict("sys.modules", {"aragora.nomic.metrics": None}),
         ):
             result = handler._reset_nomic_phase(h)
         assert _status(result) == 200
@@ -742,13 +735,15 @@ class TestResumeNomic:
     def test_clears_pause_fields(self, handler, http):
         nomic_dir = Path(handler.ctx["nomic_dir"])
         (nomic_dir / "nomic_state.json").write_text(
-            json.dumps({
-                "phase": "paused",
-                "previous_phase": "context",
-                "paused_at": "2024-01-01T00:00:00Z",
-                "paused_by": "admin-001",
-                "pause_reason": "test",
-            })
+            json.dumps(
+                {
+                    "phase": "paused",
+                    "previous_phase": "context",
+                    "paused_at": "2024-01-01T00:00:00Z",
+                    "paused_by": "admin-001",
+                    "pause_reason": "test",
+                }
+            )
         )
         with patch("aragora.server.handlers.admin.nomic_admin.audit_admin"):
             handler._resume_nomic(http())
@@ -764,11 +759,13 @@ class TestResumeNomic:
         nomic_dir = Path(handler.ctx["nomic_dir"])
         (nomic_dir / "nomic_state.json").write_text(json.dumps({"phase": "paused"}))
         original_open = open
+
         def mock_open_fn(path, *args, **kwargs):
             mode = args[0] if args else kwargs.get("mode", "r")
             if "w" in mode:
                 raise PermissionError("denied")
             return original_open(path, *args, **kwargs)
+
         with patch("builtins.open", side_effect=mock_open_fn):
             result = handler._resume_nomic(http())
         assert _status(result) == 500
@@ -831,9 +828,10 @@ class TestResetCircuitBreakers:
 
     def test_success_with_open_breakers(self, handler, http):
         registry = MockRegistry(open_circuits=["cb1", "cb2"])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ), patch("aragora.server.handlers.admin.nomic_admin.audit_admin"):
+        with (
+            patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry),
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+        ):
             result = handler._reset_nomic_circuit_breakers(http())
         data = _body(result)
         assert data["success"] is True
@@ -842,9 +840,10 @@ class TestResetCircuitBreakers:
 
     def test_success_no_open_breakers(self, handler, http):
         registry = MockRegistry(open_circuits=[])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ), patch("aragora.server.handlers.admin.nomic_admin.audit_admin"):
+        with (
+            patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry),
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+        ):
             result = handler._reset_nomic_circuit_breakers(http())
         data = _body(result)
         assert data["success"] is True
@@ -869,41 +868,46 @@ class TestResetCircuitBreakers:
 
     def test_updates_metrics(self, handler, http):
         registry = MockRegistry(open_circuits=["cb1"])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ), patch("aragora.server.handlers.admin.nomic_admin.audit_admin"), patch(
-            "aragora.nomic.metrics.update_circuit_breaker_count"
-        ) as mock_update:
+        with (
+            patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry),
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+            patch("aragora.nomic.metrics.update_circuit_breaker_count") as mock_update,
+        ):
             handler._reset_nomic_circuit_breakers(http())
             mock_update.assert_called_once_with(0)
 
     def test_metrics_import_error_still_succeeds(self, handler, http):
         registry = MockRegistry(open_circuits=[])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ), patch("aragora.server.handlers.admin.nomic_admin.audit_admin"), patch(
-            "aragora.nomic.metrics.update_circuit_breaker_count",
-            side_effect=ImportError("no metrics"),
+        with (
+            patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry),
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+            patch(
+                "aragora.nomic.metrics.update_circuit_breaker_count",
+                side_effect=ImportError("no metrics"),
+            ),
         ):
             result = handler._reset_nomic_circuit_breakers(http())
         assert _status(result) == 200
 
     def test_metrics_runtime_error_still_succeeds(self, handler, http):
         registry = MockRegistry(open_circuits=[])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ), patch("aragora.server.handlers.admin.nomic_admin.audit_admin"), patch(
-            "aragora.nomic.metrics.update_circuit_breaker_count",
-            side_effect=ValueError("bad"),
+        with (
+            patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry),
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin"),
+            patch(
+                "aragora.nomic.metrics.update_circuit_breaker_count",
+                side_effect=ValueError("bad"),
+            ),
         ):
             result = handler._reset_nomic_circuit_breakers(http())
         assert _status(result) == 200
 
     def test_audit_called(self, handler, http):
         registry = MockRegistry(open_circuits=["x"])
-        with patch(
-            "aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry
-        ), patch("aragora.server.handlers.admin.nomic_admin.audit_admin") as mock_audit:
+        with (
+            patch("aragora.nomic.recovery.CircuitBreakerRegistry", return_value=registry),
+            patch("aragora.server.handlers.admin.nomic_admin.audit_admin") as mock_audit,
+        ):
             handler._reset_nomic_circuit_breakers(http())
             mock_audit.assert_called_once()
             kw = mock_audit.call_args[1]
@@ -959,12 +963,14 @@ class TestIntegrationFlows:
     def test_status_while_paused(self, handler, http):
         nomic_dir = Path(handler.ctx["nomic_dir"])
         (nomic_dir / "nomic_state.json").write_text(
-            json.dumps({
-                "phase": "paused",
-                "previous_phase": "verify",
-                "running": False,
-                "paused_by": "admin-001",
-            })
+            json.dumps(
+                {
+                    "phase": "paused",
+                    "previous_phase": "verify",
+                    "running": False,
+                    "paused_by": "admin-001",
+                }
+            )
         )
         result = handler._get_nomic_status(http())
         data = _body(result)
@@ -989,9 +995,7 @@ class TestIntegrationFlows:
         nomic_dir = Path(handler.ctx["nomic_dir"])
         with patch("aragora.server.handlers.admin.nomic_admin.audit_admin"):
             # Reset to design
-            handler._reset_nomic_phase(
-                http(body=json.dumps({"target_phase": "design"}).encode())
-            )
+            handler._reset_nomic_phase(http(body=json.dumps({"target_phase": "design"}).encode()))
             state = json.loads((nomic_dir / "nomic_state.json").read_text())
             assert state["phase"] == "design"
 

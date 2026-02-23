@@ -312,11 +312,13 @@ def check_production_requirements() -> list[str]:
     if is_production:
         if missing:
             logger.error(
-                "[PRODUCTION CONFIG] %s critical requirement(s) missing. Server startup will fail.", len(missing)
+                "[PRODUCTION CONFIG] %s critical requirement(s) missing. Server startup will fail.",
+                len(missing),
             )
         elif warnings:
             logger.warning(
-                "[PRODUCTION CONFIG] %s recommendation(s) not met. Server will start but may have reduced durability.", len(warnings)
+                "[PRODUCTION CONFIG] %s recommendation(s) not met. Server will start but may have reduced durability.",
+                len(warnings),
             )
         else:
             logger.info("[PRODUCTION CONFIG] All production requirements met.")
@@ -479,7 +481,9 @@ async def validate_database_connectivity_with_retry(
             backoff = min(backoff * backoff_multiplier, max_backoff)
 
     logger.error(
-        "[DB STARTUP] PostgreSQL connectivity failed after %s attempts: %s", max_retries + 1, last_error
+        "[DB STARTUP] PostgreSQL connectivity failed after %s attempts: %s",
+        max_retries + 1,
+        last_error,
     )
     return False, f"Failed after {max_retries + 1} attempts: {last_error}"
 
@@ -514,7 +518,9 @@ async def validate_redis_connectivity_with_retry(
 
         if success:
             if attempt > 0:
-                logger.info("[REDIS STARTUP] Redis connectivity validated after %s retries", attempt)
+                logger.info(
+                    "[REDIS STARTUP] Redis connectivity validated after %s retries", attempt
+                )
             return True, message
 
         last_error = message
@@ -528,7 +534,9 @@ async def validate_redis_connectivity_with_retry(
             backoff = min(backoff * backoff_multiplier, max_backoff)
 
     logger.error(
-        "[REDIS STARTUP] Redis connectivity failed after %s attempts: %s", max_retries + 1, last_error
+        "[REDIS STARTUP] Redis connectivity failed after %s attempts: %s",
+        max_retries + 1,
+        last_error,
     )
     return False, f"Failed after {max_retries + 1} attempts: {last_error}"
 

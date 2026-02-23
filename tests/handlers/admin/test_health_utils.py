@@ -356,7 +356,15 @@ class TestCheckAiProvidersHealth:
     def test_all_providers_checked(self):
         """All 7 providers are checked."""
         result = check_ai_providers_health()
-        expected_providers = {"anthropic", "openai", "gemini", "grok", "xai", "deepseek", "openrouter"}
+        expected_providers = {
+            "anthropic",
+            "openai",
+            "gemini",
+            "grok",
+            "xai",
+            "deepseek",
+            "openrouter",
+        }
         assert set(result["providers"].keys()) == expected_providers
 
     def test_always_returns_healthy(self, monkeypatch):
@@ -458,9 +466,7 @@ class TestCheckSecurityServices:
     def test_encryption_import_error(self):
         """Encryption module not importable -> encryption_available=False."""
         with patch(self._SECRET, return_value="key"):
-            with patch.dict(
-                "sys.modules", {"aragora.security.encryption": None}
-            ):
+            with patch.dict("sys.modules", {"aragora.security.encryption": None}):
                 result = check_security_services(is_production=False)
                 assert result["encryption_available"] is False
                 assert "encryption_warning" in result
@@ -529,9 +535,7 @@ class TestCheckSecurityServices:
     def test_audit_logger_import_error(self):
         """Audit logger module missing -> audit_logger_configured=False."""
         with patch(self._SECRET, return_value="key"), self._patch_encryption():
-            with patch.dict(
-                "sys.modules", {"aragora.server.middleware.audit_logger": None}
-            ):
+            with patch.dict("sys.modules", {"aragora.server.middleware.audit_logger": None}):
                 result = check_security_services(is_production=False)
                 assert result["audit_logger_configured"] is False
                 assert "audit_warning" in result
@@ -541,9 +545,7 @@ class TestCheckSecurityServices:
         mock_mod = MagicMock()
         mock_mod.get_audit_logger.side_effect = RuntimeError("broken")
         with patch(self._SECRET, return_value="key"), self._patch_encryption():
-            with patch.dict(
-                "sys.modules", {"aragora.server.middleware.audit_logger": mock_mod}
-            ):
+            with patch.dict("sys.modules", {"aragora.server.middleware.audit_logger": mock_mod}):
                 result = check_security_services(is_production=False)
                 assert result["audit_logger_configured"] is False
                 assert result["audit_error"] == "Health check failed"
@@ -661,9 +663,7 @@ class TestCheckDatabaseHealth:
         """ConnectionError -> unhealthy."""
         with patch("asyncio.get_running_loop", side_effect=RuntimeError):
             with patch("asyncio.run", side_effect=ConnectionError("refused")):
-                result = check_database_health(
-                    database_url="postgresql://localhost/db"
-                )
+                result = check_database_health(database_url="postgresql://localhost/db")
                 assert result["healthy"] is False
                 assert result["error"] == "Connection failed"
 
@@ -671,9 +671,7 @@ class TestCheckDatabaseHealth:
         """TimeoutError -> unhealthy."""
         with patch("asyncio.get_running_loop", side_effect=RuntimeError):
             with patch("asyncio.run", side_effect=TimeoutError("timed out")):
-                result = check_database_health(
-                    database_url="postgresql://localhost/db"
-                )
+                result = check_database_health(database_url="postgresql://localhost/db")
                 assert result["healthy"] is False
                 assert result["error"] == "Connection failed"
 
@@ -681,9 +679,7 @@ class TestCheckDatabaseHealth:
         """OSError -> unhealthy."""
         with patch("asyncio.get_running_loop", side_effect=RuntimeError):
             with patch("asyncio.run", side_effect=OSError("network error")):
-                result = check_database_health(
-                    database_url="postgresql://localhost/db"
-                )
+                result = check_database_health(database_url="postgresql://localhost/db")
                 assert result["healthy"] is False
                 assert result["error"] == "Connection failed"
 
@@ -691,9 +687,7 @@ class TestCheckDatabaseHealth:
         """RuntimeError from validate -> unhealthy."""
         with patch("asyncio.get_running_loop", side_effect=RuntimeError):
             with patch("asyncio.run", side_effect=RuntimeError("event loop")):
-                result = check_database_health(
-                    database_url="postgresql://localhost/db"
-                )
+                result = check_database_health(database_url="postgresql://localhost/db")
                 assert result["healthy"] is False
                 assert result["error"] == "Connection failed"
 
@@ -701,9 +695,7 @@ class TestCheckDatabaseHealth:
         """ValueError -> unhealthy."""
         with patch("asyncio.get_running_loop", side_effect=RuntimeError):
             with patch("asyncio.run", side_effect=ValueError("bad dsn")):
-                result = check_database_health(
-                    database_url="postgresql://localhost/db"
-                )
+                result = check_database_health(database_url="postgresql://localhost/db")
                 assert result["healthy"] is False
                 assert result["error"] == "Connection failed"
 

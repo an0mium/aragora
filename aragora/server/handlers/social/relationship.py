@@ -331,7 +331,8 @@ class RelationshipHandler(BaseHandler):
 
                 if len(rows) == MAX_RELATIONSHIPS:
                     logger.warning(
-                        "Relationship summary hit limit of %s - results may be incomplete", MAX_RELATIONSHIPS
+                        "Relationship summary hit limit of %s - results may be incomplete",
+                        MAX_RELATIONSHIPS,
                     )
 
             if not rows:
@@ -396,7 +397,10 @@ class RelationshipHandler(BaseHandler):
                 }
 
             logger.info(
-                "Relationship summary: %s relationships, %s rivalries, %s alliances", len(rows), len(rivalry_scores), len(alliance_scores)
+                "Relationship summary: %s relationships, %s rivalries, %s alliances",
+                len(rows),
+                len(rivalry_scores),
+                len(alliance_scores),
             )
             return json_response(
                 {

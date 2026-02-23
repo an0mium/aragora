@@ -481,10 +481,12 @@ class TestCalibrationImpact:
     @pytest.mark.asyncio
     async def test_calibration_included_when_explicit_true(self):
         """Explicit include_calibration=true includes the section."""
-        request = _make_request({
-            "topic": "Explicit calibration",
-            "include_calibration": True,
-        })
+        request = _make_request(
+            {
+                "topic": "Explicit calibration",
+                "include_calibration": True,
+            }
+        )
         response = await handle_adversarial_demo(request)
 
         data = await _parse_json_response(response)
@@ -493,10 +495,12 @@ class TestCalibrationImpact:
     @pytest.mark.asyncio
     async def test_calibration_excluded_when_false(self):
         """include_calibration=false omits calibration_impact."""
-        request = _make_request({
-            "topic": "No calibration",
-            "include_calibration": False,
-        })
+        request = _make_request(
+            {
+                "topic": "No calibration",
+                "include_calibration": False,
+            }
+        )
         response = await handle_adversarial_demo(request)
 
         data = await _parse_json_response(response)

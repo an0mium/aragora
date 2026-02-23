@@ -178,7 +178,7 @@ def mock_elo_system():
         "gpt-4": agent2,
         "gemini": agent3,
         "mistral": agent4,
-    }.get(name, None) or (_ for _ in ()).throw(KeyError(f"Agent not found: {name}"))
+    }.get(name) or (_ for _ in ()).throw(KeyError(f"Agent not found: {name}"))
 
     # ELO history
     now = datetime.now(timezone.utc)

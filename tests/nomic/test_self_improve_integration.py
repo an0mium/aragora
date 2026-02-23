@@ -161,9 +161,7 @@ class TestAssessmentIntegration:
 
     def test_assess_scanner_finds_untested_modules(self) -> None:
         """The scanner signal finds modules and converts to candidates."""
-        scanner_sources = [
-            s for s in self.report.signal_sources if s.name == "scanner"
-        ]
+        scanner_sources = [s for s in self.report.signal_sources if s.name == "scanner"]
         assert len(scanner_sources) == 1
         scanner = scanner_sources[0]
 
@@ -184,9 +182,7 @@ class TestAssessmentIntegration:
 
     def test_assess_metrics_collector_runs(self) -> None:
         """MetricsCollector signal source is present and produces findings."""
-        metrics_sources = [
-            s for s in self.report.signal_sources if s.name == "metrics"
-        ]
+        metrics_sources = [s for s in self.report.signal_sources if s.name == "metrics"]
         assert len(metrics_sources) == 1
         metrics = metrics_sources[0]
 
@@ -352,8 +348,7 @@ class TestDryRunIntegration:
 
         if result.returncode != 0:
             assert "Traceback" not in result.stderr, (
-                f"CLI crashed:\nstdout={result.stdout[-500:]}\n"
-                f"stderr={result.stderr[-500:]}"
+                f"CLI crashed:\nstdout={result.stdout[-500:]}\nstderr={result.stderr[-500:]}"
             )
 
 

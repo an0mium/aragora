@@ -376,7 +376,9 @@ class KnowledgeMound:
                 self._target_links[target_id] = []
             self._target_links[target_id].append(link_id)
 
-            logger.debug("Created link %s: %s -> %s (%s)", link_id, source_id, target_id, relationship)
+            logger.debug(
+                "Created link %s: %s -> %s (%s)", link_id, source_id, target_id, relationship
+            )
 
             return LinkResult(id=link_id, success=True)
 

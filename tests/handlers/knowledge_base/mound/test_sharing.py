@@ -77,9 +77,7 @@ class MockHTTPHandler:
     """Lightweight mock HTTP handler for sharing tests."""
 
     command: str = "GET"
-    headers: dict[str, str] = field(
-        default_factory=lambda: {"Content-Length": "0"}
-    )
+    headers: dict[str, str] = field(default_factory=lambda: {"Content-Length": "0"})
     rfile: Any = field(default_factory=lambda: io.BytesIO(b""))
 
     @classmethod
@@ -234,9 +232,7 @@ def mock_mound():
             MockShareGrant(item_id="item-002", grantee_id="user-target"),
         ]
     )
-    mound.update_share_permissions = AsyncMock(
-        return_value=MockUpdatedGrant()
-    )
+    mound.update_share_permissions = AsyncMock(return_value=MockUpdatedGrant())
     return mound
 
 
@@ -268,13 +264,15 @@ class TestShareItem:
 
     def test_share_with_workspace_success(self, handler, mock_mound):
         """Successfully sharing an item with a workspace returns 201."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-            "permissions": ["read", "write"],
-            "from_workspace_id": "ws-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+                "permissions": ["read", "write"],
+                "from_workspace_id": "ws-source",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -288,11 +286,13 @@ class TestShareItem:
 
     def test_share_with_user_success(self, handler, mock_mound):
         """Successfully sharing an item with a user returns 201."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -303,11 +303,13 @@ class TestShareItem:
 
     def test_share_default_permissions(self, handler, mock_mound):
         """Default permissions are ['read'] when not specified."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -315,23 +317,27 @@ class TestShareItem:
 
     def test_share_default_from_workspace_id(self, handler, mock_mound):
         """Default from_workspace_id is 'default' when not specified."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         handler._handle_share_item(http)
         call_kwargs = mock_mound.share_with_workspace.call_args
         assert call_kwargs.kwargs["from_workspace_id"] == "default"
 
     def test_share_with_expires_at(self, handler, mock_mound):
         """Sharing with expires_at parses ISO format correctly."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-            "expires_at": "2025-12-31T23:59:59Z",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+                "expires_at": "2025-12-31T23:59:59Z",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -340,12 +346,14 @@ class TestShareItem:
 
     def test_share_with_message(self, handler, mock_mound):
         """Sharing with optional message includes it in response."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-            "message": "Check this out!",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+                "message": "Check this out!",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -353,32 +361,38 @@ class TestShareItem:
 
     def test_share_no_message_returns_null(self, handler, mock_mound):
         """When no message is provided, response message is None."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         result = handler._handle_share_item(http)
         body = _body(result)
         assert body["share"]["message"] is None
 
     def test_share_no_expires_returns_null(self, handler, mock_mound):
         """When no expires_at is provided, response expires_at is None."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         result = handler._handle_share_item(http)
         body = _body(result)
         assert body["share"]["expires_at"] is None
 
     def test_share_missing_item_id_returns_400(self, handler):
         """Missing item_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
         body = _body(result)
@@ -386,20 +400,24 @@ class TestShareItem:
 
     def test_share_empty_item_id_returns_400(self, handler):
         """Empty string item_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
 
     def test_share_missing_target_type_returns_400(self, handler):
         """Missing target_type returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_id": "ws-target",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
         body = _body(result)
@@ -407,11 +425,13 @@ class TestShareItem:
 
     def test_share_invalid_target_type_returns_400(self, handler):
         """Invalid target_type (not 'workspace' or 'user') returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "group",
-            "target_id": "grp-001",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "group",
+                "target_id": "grp-001",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
         body = _body(result)
@@ -419,10 +439,12 @@ class TestShareItem:
 
     def test_share_missing_target_id_returns_400(self, handler):
         """Missing target_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
         body = _body(result)
@@ -430,11 +452,13 @@ class TestShareItem:
 
     def test_share_empty_target_id_returns_400(self, handler):
         """Empty string target_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
 
@@ -456,12 +480,14 @@ class TestShareItem:
 
     def test_share_invalid_expires_at_returns_400(self, handler):
         """Invalid expires_at format returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-            "expires_at": "not-a-date",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+                "expires_at": "not-a-date",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 400
         body = _body(result)
@@ -469,11 +495,13 @@ class TestShareItem:
 
     def test_share_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         result = handler_no_mound._handle_share_item(http)
         assert _status(result) == 503
         body = _body(result)
@@ -481,24 +509,26 @@ class TestShareItem:
 
     def test_share_auth_failure_returns_401(self, handler_no_auth):
         """Auth failure returns 401."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         result = handler_no_auth._handle_share_item(http)
         assert _status(result) == 401
 
     def test_share_workspace_value_error_returns_404(self, handler, mock_mound):
         """ValueError from share_with_workspace returns 404."""
-        mock_mound.share_with_workspace = AsyncMock(
-            side_effect=ValueError("Item not found")
+        mock_mound.share_with_workspace = AsyncMock(side_effect=ValueError("Item not found"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "missing-item",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "missing-item",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 404
         body = _body(result)
@@ -506,91 +536,93 @@ class TestShareItem:
 
     def test_share_user_value_error_returns_404(self, handler, mock_mound):
         """ValueError from share_with_user returns 404."""
-        mock_mound.share_with_user = AsyncMock(
-            side_effect=ValueError("Item not found")
+        mock_mound.share_with_user = AsyncMock(side_effect=ValueError("Item not found"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "missing-item",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "missing-item",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 404
 
     def test_share_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.share_with_workspace = AsyncMock(
-            side_effect=OSError("disk fail")
+        mock_mound.share_with_workspace = AsyncMock(side_effect=OSError("disk fail"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 500
 
     def test_share_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.share_with_workspace = AsyncMock(
-            side_effect=KeyError("missing key")
+        mock_mound.share_with_workspace = AsyncMock(side_effect=KeyError("missing key"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 500
 
     def test_share_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.share_with_user = AsyncMock(
-            side_effect=TypeError("wrong type")
+        mock_mound.share_with_user = AsyncMock(side_effect=TypeError("wrong type"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 500
 
     def test_share_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
-        mock_mound.share_with_workspace = AsyncMock(
-            side_effect=RuntimeError("runtime fail")
+        mock_mound.share_with_workspace = AsyncMock(side_effect=RuntimeError("runtime fail"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 500
 
     def test_share_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.share_with_user = AsyncMock(
-            side_effect=AttributeError("no attr")
+        mock_mound.share_with_user = AsyncMock(side_effect=AttributeError("no attr"))
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
         )
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
         result = handler._handle_share_item(http)
         assert _status(result) == 500
 
     def test_share_workspace_forwards_correct_kwargs(self, handler, mock_mound):
         """share_with_workspace is called with correct keyword args."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-abc",
-            "target_type": "workspace",
-            "target_id": "ws-dest",
-            "permissions": ["read", "write"],
-            "from_workspace_id": "ws-src",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-abc",
+                "target_type": "workspace",
+                "target_id": "ws-dest",
+                "permissions": ["read", "write"],
+                "from_workspace_id": "ws-src",
+            }
+        )
         handler._handle_share_item(http)
         call_kwargs = mock_mound.share_with_workspace.call_args.kwargs
         assert call_kwargs["item_id"] == "item-abc"
@@ -601,13 +633,15 @@ class TestShareItem:
 
     def test_share_user_forwards_correct_kwargs(self, handler, mock_mound):
         """share_with_user is called with correct keyword args."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-xyz",
-            "target_type": "user",
-            "target_id": "user-dest",
-            "permissions": ["read"],
-            "from_workspace_id": "ws-src",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-xyz",
+                "target_type": "user",
+                "target_id": "user-dest",
+                "permissions": ["read"],
+                "from_workspace_id": "ws-src",
+            }
+        )
         handler._handle_share_item(http)
         call_kwargs = mock_mound.share_with_user.call_args.kwargs
         assert call_kwargs["item_id"] == "item-xyz"
@@ -619,22 +653,26 @@ class TestShareItem:
     @patch("aragora.server.handlers.knowledge_base.mound.sharing.track_share")
     def test_share_tracks_metrics_for_workspace(self, mock_track, handler, mock_mound):
         """track_share is called with correct action and target_type for workspace."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         handler._handle_share_item(http)
         mock_track.assert_called_once_with(action="share", target_type="workspace")
 
     @patch("aragora.server.handlers.knowledge_base.mound.sharing.track_share")
     def test_share_tracks_metrics_for_user(self, mock_track, handler, mock_mound):
         """track_share is called with correct action and target_type for user."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         handler._handle_share_item(http)
         mock_track.assert_called_once_with(action="share", target_type="user")
 
@@ -643,11 +681,13 @@ class TestShareItem:
         user = MagicMock(spec=[])
         user.user_id = "fallback-user"
         h = SharingTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         result = h._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -655,12 +695,14 @@ class TestShareItem:
 
     def test_share_with_iso_expires_at_plus_offset(self, handler, mock_mound):
         """expires_at with timezone offset is parsed correctly."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-            "expires_at": "2025-06-15T12:00:00+05:00",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+                "expires_at": "2025-06-15T12:00:00+05:00",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         call_kwargs = mock_mound.share_with_workspace.call_args.kwargs
@@ -757,54 +799,42 @@ class TestSharedWithMe:
 
     def test_shared_with_me_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.get_shared_with_me = AsyncMock(
-            side_effect=ValueError("bad data")
-        )
+        mock_mound.get_shared_with_me = AsyncMock(side_effect=ValueError("bad data"))
         http = MockHTTPHandler()
         result = handler._handle_shared_with_me({}, http)
         assert _status(result) == 500
 
     def test_shared_with_me_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.get_shared_with_me = AsyncMock(
-            side_effect=OSError("db fail")
-        )
+        mock_mound.get_shared_with_me = AsyncMock(side_effect=OSError("db fail"))
         http = MockHTTPHandler()
         result = handler._handle_shared_with_me({}, http)
         assert _status(result) == 500
 
     def test_shared_with_me_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.get_shared_with_me = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_shared_with_me = AsyncMock(side_effect=KeyError("missing"))
         http = MockHTTPHandler()
         result = handler._handle_shared_with_me({}, http)
         assert _status(result) == 500
 
     def test_shared_with_me_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.get_shared_with_me = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.get_shared_with_me = AsyncMock(side_effect=TypeError("wrong type"))
         http = MockHTTPHandler()
         result = handler._handle_shared_with_me({}, http)
         assert _status(result) == 500
 
     def test_shared_with_me_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
-        mock_mound.get_shared_with_me = AsyncMock(
-            side_effect=RuntimeError("runtime")
-        )
+        mock_mound.get_shared_with_me = AsyncMock(side_effect=RuntimeError("runtime"))
         http = MockHTTPHandler()
         result = handler._handle_shared_with_me({}, http)
         assert _status(result) == 500
 
     def test_shared_with_me_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.get_shared_with_me = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.get_shared_with_me = AsyncMock(side_effect=AttributeError("attr"))
         http = MockHTTPHandler()
         result = handler._handle_shared_with_me({}, http)
         assert _status(result) == 500
@@ -828,9 +858,7 @@ class TestSharedWithMe:
     def test_shared_with_me_include_expired_param(self, handler, mock_mound):
         """include_expired query param is accepted (though unused)."""
         http = MockHTTPHandler()
-        result = handler._handle_shared_with_me(
-            {"include_expired": ["true"]}, http
-        )
+        result = handler._handle_shared_with_me({"include_expired": ["true"]}, http)
         assert _status(result) == 200
 
 
@@ -870,9 +898,7 @@ class TestRevokeShare:
 
     def test_revoke_share_missing_item_id_returns_400(self, handler):
         """Missing item_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "ws-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "ws-target"}, method="DELETE")
         result = handler._handle_revoke_share(http)
         assert _status(result) == 400
         body = _body(result)
@@ -880,9 +906,7 @@ class TestRevokeShare:
 
     def test_revoke_share_missing_grantee_id_returns_400(self, handler):
         """Missing grantee_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"item_id": "item-001"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"item_id": "item-001"}, method="DELETE")
         result = handler._handle_revoke_share(http)
         assert _status(result) == 400
 
@@ -924,9 +948,7 @@ class TestRevokeShare:
 
     def test_revoke_share_value_error_returns_404(self, handler, mock_mound):
         """ValueError from revoke_share returns 404."""
-        mock_mound.revoke_share = AsyncMock(
-            side_effect=ValueError("Share not found")
-        )
+        mock_mound.revoke_share = AsyncMock(side_effect=ValueError("Share not found"))
         http = MockHTTPHandler.with_body(
             {"item_id": "missing", "grantee_id": "ws-target"},
             method="DELETE",
@@ -968,9 +990,7 @@ class TestRevokeShare:
 
     def test_revoke_share_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
-        mock_mound.revoke_share = AsyncMock(
-            side_effect=RuntimeError("runtime")
-        )
+        mock_mound.revoke_share = AsyncMock(side_effect=RuntimeError("runtime"))
         http = MockHTTPHandler.with_body(
             {"item_id": "item-001", "grantee_id": "ws-target"},
             method="DELETE",
@@ -980,9 +1000,7 @@ class TestRevokeShare:
 
     def test_revoke_share_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.revoke_share = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.revoke_share = AsyncMock(side_effect=AttributeError("attr"))
         http = MockHTTPHandler.with_body(
             {"item_id": "item-001", "grantee_id": "ws-target"},
             method="DELETE",
@@ -1089,54 +1107,42 @@ class TestMyShares:
 
     def test_my_shares_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.get_share_grants = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_share_grants = AsyncMock(side_effect=ValueError("bad"))
         http = MockHTTPHandler()
         result = handler._handle_my_shares({}, http)
         assert _status(result) == 500
 
     def test_my_shares_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.get_share_grants = AsyncMock(
-            side_effect=OSError("db fail")
-        )
+        mock_mound.get_share_grants = AsyncMock(side_effect=OSError("db fail"))
         http = MockHTTPHandler()
         result = handler._handle_my_shares({}, http)
         assert _status(result) == 500
 
     def test_my_shares_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.get_share_grants = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_share_grants = AsyncMock(side_effect=KeyError("missing"))
         http = MockHTTPHandler()
         result = handler._handle_my_shares({}, http)
         assert _status(result) == 500
 
     def test_my_shares_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.get_share_grants = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.get_share_grants = AsyncMock(side_effect=TypeError("wrong"))
         http = MockHTTPHandler()
         result = handler._handle_my_shares({}, http)
         assert _status(result) == 500
 
     def test_my_shares_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
-        mock_mound.get_share_grants = AsyncMock(
-            side_effect=RuntimeError("runtime")
-        )
+        mock_mound.get_share_grants = AsyncMock(side_effect=RuntimeError("runtime"))
         http = MockHTTPHandler()
         result = handler._handle_my_shares({}, http)
         assert _status(result) == 500
 
     def test_my_shares_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.get_share_grants = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.get_share_grants = AsyncMock(side_effect=AttributeError("attr"))
         http = MockHTTPHandler()
         result = handler._handle_my_shares({}, http)
         assert _status(result) == 500
@@ -1192,9 +1198,7 @@ class TestUpdateShare:
 
     def test_update_share_grant_without_to_dict(self, handler, mock_mound):
         """Updated grant without to_dict uses fallback serialization."""
-        mock_mound.update_share_permissions = AsyncMock(
-            return_value="non-dict-result"
-        )
+        mock_mound.update_share_permissions = AsyncMock(return_value="non-dict-result")
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "item-001",
@@ -1274,9 +1278,7 @@ class TestUpdateShare:
 
     def test_update_share_missing_both_ids_returns_400(self, handler):
         """Missing both item_id and grantee_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"permissions": ["read"]}, method="PATCH"
-        )
+        http = MockHTTPHandler.with_body({"permissions": ["read"]}, method="PATCH")
         result = handler._handle_update_share(http)
         assert _status(result) == 400
 
@@ -1346,9 +1348,7 @@ class TestUpdateShare:
 
     def test_update_share_value_error_returns_404(self, handler, mock_mound):
         """ValueError from update_share_permissions returns 404."""
-        mock_mound.update_share_permissions = AsyncMock(
-            side_effect=ValueError("Share not found")
-        )
+        mock_mound.update_share_permissions = AsyncMock(side_effect=ValueError("Share not found"))
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "missing",
@@ -1364,9 +1364,7 @@ class TestUpdateShare:
 
     def test_update_share_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.update_share_permissions = AsyncMock(
-            side_effect=OSError("db fail")
-        )
+        mock_mound.update_share_permissions = AsyncMock(side_effect=OSError("db fail"))
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "item-001",
@@ -1380,9 +1378,7 @@ class TestUpdateShare:
 
     def test_update_share_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.update_share_permissions = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.update_share_permissions = AsyncMock(side_effect=KeyError("missing"))
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "item-001",
@@ -1396,9 +1392,7 @@ class TestUpdateShare:
 
     def test_update_share_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.update_share_permissions = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.update_share_permissions = AsyncMock(side_effect=TypeError("wrong"))
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "item-001",
@@ -1412,9 +1406,7 @@ class TestUpdateShare:
 
     def test_update_share_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
-        mock_mound.update_share_permissions = AsyncMock(
-            side_effect=RuntimeError("runtime")
-        )
+        mock_mound.update_share_permissions = AsyncMock(side_effect=RuntimeError("runtime"))
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "item-001",
@@ -1428,9 +1420,7 @@ class TestUpdateShare:
 
     def test_update_share_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.update_share_permissions = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.update_share_permissions = AsyncMock(side_effect=AttributeError("attr"))
         http = MockHTTPHandler.with_body(
             {
                 "item_id": "item-001",
@@ -1487,11 +1477,13 @@ class TestSharingRouting:
         """POST /share dispatches to _handle_share_item."""
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
 
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+            }
+        )
         http.command = "POST"
         result = RoutingMixin._route_share(handler, "/share", {}, http)
         assert result is not None
@@ -1549,11 +1541,13 @@ class TestSharingEdgeCases:
         """User without id or user_id falls back to 'unknown'."""
         user = MagicMock(spec=[])
         h = SharingTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+            }
+        )
         result = h._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -1639,15 +1633,17 @@ class TestSharingEdgeCases:
 
     def test_share_item_both_permissions_and_expires(self, handler, mock_mound):
         """Share with both custom permissions and expires_at."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "workspace",
-            "target_id": "ws-target",
-            "permissions": ["read", "write", "admin"],
-            "expires_at": "2025-12-31T23:59:59Z",
-            "message": "Full access until year end",
-            "from_workspace_id": "ws-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "workspace",
+                "target_id": "ws-target",
+                "permissions": ["read", "write", "admin"],
+                "expires_at": "2025-12-31T23:59:59Z",
+                "message": "Full access until year end",
+                "from_workspace_id": "ws-source",
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)
@@ -1691,12 +1687,14 @@ class TestSharingEdgeCases:
 
     def test_share_item_empty_permissions_list(self, handler, mock_mound):
         """Empty permissions list is passed through (defaults to ['read'])."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "target_type": "user",
-            "target_id": "user-target",
-            "permissions": [],
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "target_type": "user",
+                "target_id": "user-target",
+                "permissions": [],
+            }
+        )
         result = handler._handle_share_item(http)
         assert _status(result) == 201
         body = _body(result)

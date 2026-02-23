@@ -65,9 +65,9 @@ class FakeReceipt:
     timestamp: str = "2026-01-01T00:00:00"
     input_summary: str = "Test decision"
     input_hash: str = "sha256-deadbeef"
-    risk_summary: dict = field(default_factory=lambda: {
-        "critical": 0, "high": 1, "medium": 2, "low": 3, "total": 6
-    })
+    risk_summary: dict = field(
+        default_factory=lambda: {"critical": 0, "high": 1, "medium": 2, "low": 3, "total": 6}
+    )
     attacks_attempted: int = 10
     attacks_successful: int = 1
     probes_run: int = 5
@@ -203,11 +203,14 @@ def mock_receipt():
 @pytest.fixture(autouse=True)
 def _patch_receipt_webhooks():
     """Prevent webhook calls from leaking."""
-    with patch.dict("sys.modules", {
-        "aragora.integrations.receipt_webhooks": MagicMock(
-            get_receipt_notifier=MagicMock(return_value=MagicMock())
-        ),
-    }):
+    with patch.dict(
+        "sys.modules",
+        {
+            "aragora.integrations.receipt_webhooks": MagicMock(
+                get_receipt_notifier=MagicMock(return_value=MagicMock())
+            ),
+        },
+    ):
         yield
 
 
@@ -301,9 +304,7 @@ class TestGetReceiptJSON:
             result = await mixin._get_receipt("g-002", {})
 
         assert _status(result) == 200
-        MockDR.from_mode_result.assert_called_once_with(
-            fake_result_obj, input_hash="hash456"
-        )
+        MockDR.from_mode_result.assert_called_once_with(fake_result_obj, input_hash="hash456")
 
     @pytest.mark.asyncio
     async def test_not_completed_returns_error(self, mixin):
@@ -750,7 +751,9 @@ class TestVerifyReceipt:
         result = await mixin._verify_receipt("g-001", handler)
         assert _status(result) == 400
         data = _parse(result)
-        assert "invalid" in data.get("error", "").lower() or "missing" in data.get("error", "").lower()
+        assert (
+            "invalid" in data.get("error", "").lower() or "missing" in data.get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_missing_receipt_field_returns_400(self, mixin):
@@ -834,8 +837,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-verify", handler)
@@ -866,8 +871,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-MISMATCH", handler)
@@ -896,8 +903,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=False), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=False),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-badsig", handler)
@@ -925,9 +934,11 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(
-            _VR, side_effect=RuntimeError("crypto error")
-        ), patch(_DR, return_value=mock_receipt_obj):
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, side_effect=RuntimeError("crypto error")),
+            patch(_DR, return_value=mock_receipt_obj),
+        ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-sigex", handler)
 
@@ -954,8 +965,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = False
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-integ", handler)
@@ -985,8 +998,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.side_effect = ValueError("corrupt data")
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-integex", handler)
@@ -1014,8 +1029,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-meta", handler)
@@ -1044,8 +1061,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-time", handler)
@@ -1072,8 +1091,10 @@ class TestVerifyReceipt:
         mock_receipt_obj.verify_integrity.return_value = False
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=False), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=False),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             # Use mismatched gauntlet_id
@@ -1101,12 +1122,18 @@ class TestAutoPersistReceipt:
         fake_result = FakeResult()
         mock_store = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-persist")
 
@@ -1119,12 +1146,18 @@ class TestAutoPersistReceipt:
         # After receipt.sign() is called, signature will be "base64sig" (from FakeReceipt.sign)
         mock_store = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-signed-persist")
 
@@ -1145,12 +1178,18 @@ class TestAutoPersistReceipt:
         mock_receipt.signature = None
         mock_store = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-unsigned-persist")
 
@@ -1165,18 +1204,22 @@ class TestAutoPersistReceipt:
         runs = get_gauntlet_runs()
         runs["g-hash"] = {"input_hash": "custom-hash-123"}
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-hash")
 
-        MockDR.from_mode_result.assert_called_once_with(
-            fake_result, input_hash="custom-hash-123"
-        )
+        MockDR.from_mode_result.assert_called_once_with(fake_result, input_hash="custom-hash-123")
 
     @pytest.mark.asyncio
     async def test_persist_import_error_skips(self, mixin):
@@ -1191,12 +1234,18 @@ class TestAutoPersistReceipt:
         """RuntimeError during persistence is caught and logged."""
         fake_result = FakeResult()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(side_effect=RuntimeError("db error")),
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(side_effect=RuntimeError("db error")),
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-rterr")
 
@@ -1205,12 +1254,18 @@ class TestAutoPersistReceipt:
         """OSError during persistence is caught and logged."""
         fake_result = FakeResult()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(side_effect=OSError("disk full")),
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(side_effect=OSError("disk full")),
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-oserr")
 
@@ -1227,15 +1282,22 @@ class TestAutoPersistReceipt:
         mock_signed.signature_metadata.algorithm = "hmac-sha256"
         mock_signed.signature_metadata.key_id = "auto-key"
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.gauntlet.signing": MagicMock(
+                        sign_receipt=MagicMock(return_value=mock_signed),
+                    ),
+                },
             ),
-            "aragora.gauntlet.signing": MagicMock(
-                sign_receipt=MagicMock(return_value=mock_signed),
-            ),
-        }), patch.dict("os.environ", {"ARAGORA_AUTO_SIGN_RECEIPTS": "true"}):
+            patch.dict("os.environ", {"ARAGORA_AUTO_SIGN_RECEIPTS": "true"}),
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-autosign")
 
@@ -1247,13 +1309,21 @@ class TestAutoPersistReceipt:
         fake_result = FakeResult()
         mock_store = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }), patch.dict("os.environ", {}, clear=False):
+            patch.dict("os.environ", {}, clear=False),
+        ):
             import os
+
             os.environ.pop("ARAGORA_AUTO_SIGN_RECEIPTS", None)
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-noautosign")
@@ -1267,13 +1337,20 @@ class TestAutoPersistReceipt:
         mock_store = MagicMock()
         mock_receipt.signature = "presig"
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.gauntlet.signing": None,
+                },
             ),
-            "aragora.gauntlet.signing": None,
-        }), patch.dict("os.environ", {"ARAGORA_AUTO_SIGN_RECEIPTS": "1"}):
+            patch.dict("os.environ", {"ARAGORA_AUTO_SIGN_RECEIPTS": "1"}),
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-autosign-err")
 
@@ -1291,12 +1368,18 @@ class TestAutoPersistReceipt:
             m.checksum = "abc"
             return m
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=capture_stored,
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=capture_stored,
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-risk")
 
@@ -1316,12 +1399,18 @@ class TestAutoPersistReceipt:
             m.checksum = "abc"
             return m
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=capture_stored,
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=capture_stored,
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-riskscore")
 
@@ -1343,18 +1432,24 @@ class TestAutoPersistReceipt:
 
         mock_mound = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
+                        ReceiptAdapter=MagicMock(return_value=mock_adapter),
+                    ),
+                    "aragora.knowledge.mound": MagicMock(
+                        get_knowledge_mound=MagicMock(return_value=mock_mound),
+                    ),
+                },
             ),
-            "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
-                ReceiptAdapter=MagicMock(return_value=mock_adapter),
-            ),
-            "aragora.knowledge.mound": MagicMock(
-                get_knowledge_mound=MagicMock(return_value=mock_mound),
-            ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-km")
 
@@ -1366,13 +1461,19 @@ class TestAutoPersistReceipt:
         fake_result = FakeResult()
         mock_store = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.knowledge.mound.adapters.receipt_adapter": None,
+                },
             ),
-            "aragora.knowledge.mound.adapters.receipt_adapter": None,
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-km-noimport")
 
@@ -1384,18 +1485,24 @@ class TestAutoPersistReceipt:
 
         mock_adapter_cls = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
+                        ReceiptAdapter=mock_adapter_cls,
+                    ),
+                    "aragora.knowledge.mound": MagicMock(
+                        get_knowledge_mound=MagicMock(return_value=None),
+                    ),
+                },
             ),
-            "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
-                ReceiptAdapter=mock_adapter_cls,
-            ),
-            "aragora.knowledge.mound": MagicMock(
-                get_knowledge_mound=MagicMock(return_value=None),
-            ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-km-nomound")
 
@@ -1408,15 +1515,21 @@ class TestAutoPersistReceipt:
         mock_store = MagicMock()
         mock_notifier = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="hash-xyz")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="hash-xyz")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
-            ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-webhook")
 
@@ -1430,15 +1543,21 @@ class TestAutoPersistReceipt:
         mock_notifier = MagicMock()
         mock_notifier.notify_receipt_generated.side_effect = ConnectionError("timeout")
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
-            ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-webhookerr")
 
@@ -1456,12 +1575,18 @@ class TestAutoPersistReceipt:
             m.checksum = "abc"
             return m
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=capture_stored,
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=capture_stored,
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-debateid")
 
@@ -1483,18 +1608,24 @@ class TestAutoPersistReceipt:
         mock_adapter = MagicMock()
         mock_adapter.ingest_receipt = AsyncMock(return_value=mock_ingest_result)
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
+                        ReceiptAdapter=MagicMock(return_value=mock_adapter),
+                    ),
+                    "aragora.knowledge.mound": MagicMock(
+                        get_knowledge_mound=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-            "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
-                ReceiptAdapter=MagicMock(return_value=mock_adapter),
-            ),
-            "aragora.knowledge.mound": MagicMock(
-                get_knowledge_mound=MagicMock(return_value=MagicMock()),
-            ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-ws")
 
@@ -1517,18 +1648,24 @@ class TestAutoPersistReceipt:
         mock_adapter = MagicMock()
         mock_adapter.ingest_receipt = AsyncMock(return_value=mock_ingest_result)
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
+                        ReceiptAdapter=MagicMock(return_value=mock_adapter),
+                    ),
+                    "aragora.knowledge.mound": MagicMock(
+                        get_knowledge_mound=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-            "aragora.knowledge.mound.adapters.receipt_adapter": MagicMock(
-                ReceiptAdapter=MagicMock(return_value=mock_adapter),
-            ),
-            "aragora.knowledge.mound": MagicMock(
-                get_knowledge_mound=MagicMock(return_value=MagicMock()),
-            ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-tenant")
 
@@ -1550,11 +1687,17 @@ class TestGetReceiptWebhookNotifications:
         runs["g-wh-json"] = _completed_run()
         mock_notifier = MagicMock()
 
-        with patch(_DR, return_value=mock_receipt), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_DR, return_value=mock_receipt),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             result = await mixin._get_receipt("g-wh-json", {"signed": "false"})
 
         assert _status(result) == 200
@@ -1568,11 +1711,17 @@ class TestGetReceiptWebhookNotifications:
         runs["g-wh-html"] = _completed_run()
         mock_notifier = MagicMock()
 
-        with patch(_DR, return_value=mock_receipt), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_DR, return_value=mock_receipt),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             result = await mixin._get_receipt("g-wh-html", {"format": "html", "signed": "false"})
 
         mock_notifier.notify_receipt_exported.assert_called_once()
@@ -1585,9 +1734,15 @@ class TestGetReceiptWebhookNotifications:
         runs = get_gauntlet_runs()
         runs["g-wh-skip"] = _completed_run()
 
-        with patch(_DR, return_value=mock_receipt), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": None,
-        }):
+        with (
+            patch(_DR, return_value=mock_receipt),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": None,
+                },
+            ),
+        ):
             result = await mixin._get_receipt("g-wh-skip", {"signed": "false"})
 
         assert _status(result) == 200
@@ -1598,11 +1753,17 @@ class TestGetReceiptWebhookNotifications:
         runs["g-wh-csv"] = _completed_run()
         mock_notifier = MagicMock()
 
-        with patch(_DR, return_value=mock_receipt), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_DR, return_value=mock_receipt),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             result = await mixin._get_receipt("g-wh-csv", {"format": "csv", "signed": "false"})
 
         mock_notifier.notify_receipt_exported.assert_called_once()
@@ -1615,11 +1776,17 @@ class TestGetReceiptWebhookNotifications:
         runs["g-wh-sarif"] = _completed_run()
         mock_notifier = MagicMock()
 
-        with patch(_DR, return_value=mock_receipt), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_DR, return_value=mock_receipt),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             result = await mixin._get_receipt("g-wh-sarif", {"format": "sarif", "signed": "false"})
 
         mock_notifier.notify_receipt_exported.assert_called_once()
@@ -1632,11 +1799,17 @@ class TestGetReceiptWebhookNotifications:
         runs["g-wh-md"] = _completed_run()
         mock_notifier = MagicMock()
 
-        with patch(_DR, return_value=mock_receipt), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_DR, return_value=mock_receipt),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             result = await mixin._get_receipt("g-wh-md", {"format": "md", "signed": "false"})
 
         mock_notifier.notify_receipt_exported.assert_called_once()
@@ -1678,13 +1851,19 @@ class TestVerifyReceiptWebhooks:
         handler, mock_signed, mock_receipt_obj = self._setup_verify("g-wh-ok")
         mock_notifier = MagicMock()
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
-        ), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-wh-ok", handler)
 
@@ -1696,13 +1875,19 @@ class TestVerifyReceiptWebhooks:
         handler, mock_signed, mock_receipt_obj = self._setup_verify("g-wh-fail")
         mock_notifier = MagicMock()
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=False), patch(
-            _DR, return_value=mock_receipt_obj
-        ), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=False),
+            patch(_DR, return_value=mock_receipt_obj),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-wh-fail", handler)
 
@@ -1715,13 +1900,19 @@ class TestVerifyReceiptWebhooks:
         mock_notifier = MagicMock()
         mock_notifier.notify_receipt_verified.side_effect = ConnectionError("down")
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
-        ), patch.dict("sys.modules", {
-            "aragora.integrations.receipt_webhooks": MagicMock(
-                get_receipt_notifier=MagicMock(return_value=mock_notifier),
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.integrations.receipt_webhooks": MagicMock(
+                        get_receipt_notifier=MagicMock(return_value=mock_notifier),
+                    ),
+                },
             ),
-        }):
+        ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-wh-err", handler)
 
@@ -1886,9 +2077,11 @@ class TestVerifyReceiptEdgeCases:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(
-            _VR, side_effect=ImportError("no crypto backend")
-        ), patch(_DR, return_value=mock_receipt_obj):
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, side_effect=ImportError("no crypto backend")),
+            patch(_DR, return_value=mock_receipt_obj),
+        ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-imerr", handler)
 
@@ -1915,9 +2108,11 @@ class TestVerifyReceiptEdgeCases:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(
-            _VR, side_effect=ValueError("bad key format")
-        ), patch(_DR, return_value=mock_receipt_obj):
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, side_effect=ValueError("bad key format")),
+            patch(_DR, return_value=mock_receipt_obj),
+        ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-valerr", handler)
 
@@ -1944,8 +2139,10 @@ class TestVerifyReceiptEdgeCases:
         mock_receipt_obj.verify_integrity.return_value = True
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=True), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=True),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-none", handler)
@@ -1972,8 +2169,10 @@ class TestVerifyReceiptEdgeCases:
         mock_receipt_obj.verify_integrity.return_value = False
         mock_receipt_obj._calculate_hash.return_value = "arthash"
 
-        with patch(_SR) as MockSR, patch(_VR, return_value=False), patch(
-            _DR, return_value=mock_receipt_obj
+        with (
+            patch(_SR) as MockSR,
+            patch(_VR, return_value=False),
+            patch(_DR, return_value=mock_receipt_obj),
         ):
             MockSR.from_dict.return_value = mock_signed
             result = await mixin._verify_receipt("g-fail200", handler)
@@ -1999,15 +2198,22 @@ class TestAutoPersistEdgeCases:
         mock_signed.signature_metadata.algorithm = "hmac-sha256"
         mock_signed.signature_metadata.key_id = "auto-key"
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                    "aragora.gauntlet.signing": MagicMock(
+                        sign_receipt=MagicMock(return_value=mock_signed),
+                    ),
+                },
             ),
-            "aragora.gauntlet.signing": MagicMock(
-                sign_receipt=MagicMock(return_value=mock_signed),
-            ),
-        }), patch.dict("os.environ", {"ARAGORA_AUTO_SIGN_RECEIPTS": "yes"}):
+            patch.dict("os.environ", {"ARAGORA_AUTO_SIGN_RECEIPTS": "yes"}),
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-autosign-yes")
 
@@ -2019,30 +2225,40 @@ class TestAutoPersistEdgeCases:
         fake_result = FakeResult()
         mock_store = MagicMock()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-norun")
 
-        MockDR.from_mode_result.assert_called_once_with(
-            fake_result, input_hash=None
-        )
+        MockDR.from_mode_result.assert_called_once_with(fake_result, input_hash=None)
 
     @pytest.mark.asyncio
     async def test_key_error_handled(self, mixin, mock_receipt):
         """KeyError during persistence is caught."""
         fake_result = FakeResult()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(side_effect=KeyError("missing field")),
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(side_effect=KeyError("missing field")),
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             # Should not raise
             await mixin._auto_persist_receipt(fake_result, "g-keyerr")
@@ -2052,12 +2268,18 @@ class TestAutoPersistEdgeCases:
         """TypeError during persistence is caught."""
         fake_result = FakeResult()
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=MagicMock(side_effect=TypeError("bad type")),
-                get_receipt_store=MagicMock(return_value=MagicMock()),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(side_effect=TypeError("bad type")),
+                        get_receipt_store=MagicMock(return_value=MagicMock()),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-typeerr")
 
@@ -2075,12 +2297,18 @@ class TestAutoPersistEdgeCases:
             m.checksum = "abc"
             return m
 
-        with patch(_DR) as MockDR, patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": MagicMock(
-                StoredReceipt=capture_stored,
-                get_receipt_store=MagicMock(return_value=mock_store),
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=capture_stored,
+                        get_receipt_store=MagicMock(return_value=mock_store),
+                    ),
+                },
             ),
-        }):
+        ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-nodebateid")
 

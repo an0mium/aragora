@@ -395,16 +395,12 @@ class TestTypedHandlerWithDependencies:
 
     def test_with_user_store(self):
         mock_store = MagicMock()
-        handler = TypedHandler.with_dependencies(
-            server_context={}, user_store=mock_store
-        )
+        handler = TypedHandler.with_dependencies(server_context={}, user_store=mock_store)
         assert handler.get_user_store() is mock_store
 
     def test_with_storage(self):
         mock_storage = MagicMock()
-        handler = TypedHandler.with_dependencies(
-            server_context={}, storage=mock_storage
-        )
+        handler = TypedHandler.with_dependencies(server_context={}, storage=mock_storage)
         assert handler.get_storage() is mock_storage
 
     def test_with_both_dependencies(self):
@@ -528,7 +524,11 @@ class TestTypedHandlerRequireAdmin:
     @pytest.mark.no_auto_auth
     def test_require_admin_unauthenticated(self, typed_handler):
         http = _make_mock_http_handler()
-        with patch.object(typed_handler, "require_auth_or_error", return_value=(None, error_response("Authentication required", 401))):
+        with patch.object(
+            typed_handler,
+            "require_auth_or_error",
+            return_value=(None, error_response("Authentication required", 401)),
+        ):
             user, err = typed_handler.require_admin_or_error(http)
             assert user is None
             assert _status(err) == 401
@@ -592,7 +592,11 @@ class TestTypedHandlerRequirePermission:
     @pytest.mark.no_auto_auth
     def test_unauthenticated(self, typed_handler):
         http = _make_mock_http_handler()
-        with patch.object(typed_handler, "require_auth_or_error", return_value=(None, error_response("Auth required", 401))):
+        with patch.object(
+            typed_handler,
+            "require_auth_or_error",
+            return_value=(None, error_response("Auth required", 401)),
+        ):
             user, err = typed_handler.require_permission_or_error(http, "knowledge.read")
             assert user is None
             assert _status(err) == 401
@@ -707,7 +711,8 @@ class TestAuthenticatedHandler:
     def test_ensure_authenticated_failure(self, auth_handler):
         http = _make_mock_http_handler()
         with patch.object(
-            auth_handler, "require_auth_or_error",
+            auth_handler,
+            "require_auth_or_error",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             user, err = auth_handler._ensure_authenticated(http)
@@ -726,7 +731,8 @@ class TestAuthenticatedHandler:
     def test_ensure_admin_failure(self, auth_handler):
         http = _make_mock_http_handler()
         with patch.object(
-            auth_handler, "require_admin_or_error",
+            auth_handler,
+            "require_admin_or_error",
             return_value=(None, error_response("Admin access required", 403)),
         ):
             user, err = auth_handler._ensure_admin(http)
@@ -738,7 +744,8 @@ class TestAuthenticatedHandler:
     def test_ensure_admin_unauthenticated(self, auth_handler):
         http = _make_mock_http_handler()
         with patch.object(
-            auth_handler, "require_admin_or_error",
+            auth_handler,
+            "require_admin_or_error",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             user, err = auth_handler._ensure_admin(http)
@@ -807,7 +814,8 @@ class TestPermissionHandler:
     def test_ensure_permission_unauthenticated(self, perm_handler):
         http = _make_mock_http_handler()
         with patch.object(
-            perm_handler, "_ensure_authenticated",
+            perm_handler,
+            "_ensure_authenticated",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             user, err = perm_handler._ensure_permission(http, "GET")
@@ -824,7 +832,8 @@ class TestPermissionHandler:
     def test_check_custom_permission_unauthenticated(self, perm_handler):
         http = _make_mock_http_handler()
         with patch.object(
-            perm_handler, "_ensure_authenticated",
+            perm_handler,
+            "_ensure_authenticated",
             return_value=(None, error_response("Auth required", 401)),
         ):
             user, err = perm_handler._check_custom_permission(http, "debates:fork")
@@ -836,11 +845,13 @@ class TestPermissionHandler:
         user_ctx = _make_auth_user(role="viewer", roles=[], permissions=[])
         http = _make_mock_http_handler()
         with patch.object(
-            perm_handler, "_ensure_authenticated",
+            perm_handler,
+            "_ensure_authenticated",
             return_value=(user_ctx, None),
         ):
             with patch.object(
-                perm_handler, "require_permission_or_error",
+                perm_handler,
+                "require_permission_or_error",
                 return_value=(None, error_response("Permission denied", 403)),
             ):
                 user, err = perm_handler._check_custom_permission(http, "admin:manage")
@@ -1067,7 +1078,10 @@ class TestResourceHandlerCRUD:
         mock_http_handler.path = "/api/v1/resources"
         result = resource_handler.handle("/api/v1/resources", {}, mock_http_handler)
         assert _status(result) == 501
-        assert "list" in _body(result).get("error", "").lower() or "not implemented" in _body(result).get("error", "").lower()
+        assert (
+            "list" in _body(result).get("error", "").lower()
+            or "not implemented" in _body(result).get("error", "").lower()
+        )
 
     def test_handle_get_single(self, resource_handler, mock_http_handler):
         """GET on resource with ID returns 501 (not implemented)."""
@@ -1086,7 +1100,10 @@ class TestResourceHandlerCRUD:
         mock_http_handler.path = "/api/v1/resources"
         result = resource_handler.handle_put("/api/v1/resources", {}, mock_http_handler)
         assert _status(result) == 400
-        assert "id required" in _body(result).get("error", "").lower() or "required" in _body(result).get("error", "").lower()
+        assert (
+            "id required" in _body(result).get("error", "").lower()
+            or "required" in _body(result).get("error", "").lower()
+        )
 
     def test_handle_put_with_id(self, resource_handler, mock_http_handler):
         """PUT with resource ID returns 501 (not implemented)."""
@@ -1222,7 +1239,8 @@ class TestResourceHandlerAuth:
         handler = ResourceHandler(server_context={})
         http = _make_mock_http_handler(path="/api/v1/resources/r-001")
         with patch.object(
-            handler, "_ensure_permission",
+            handler,
+            "_ensure_permission",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             result = handler.handle("/api/v1/resources/r-001", {}, http)
@@ -1233,7 +1251,8 @@ class TestResourceHandlerAuth:
         handler = ResourceHandler(server_context={})
         http = _make_mock_http_handler()
         with patch.object(
-            handler, "_ensure_permission",
+            handler,
+            "_ensure_permission",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             result = handler.handle_post("/api/v1/resources", {}, http)
@@ -1244,7 +1263,8 @@ class TestResourceHandlerAuth:
         handler = ResourceHandler(server_context={})
         http = _make_mock_http_handler(path="/api/v1/resources/r-001")
         with patch.object(
-            handler, "_ensure_permission",
+            handler,
+            "_ensure_permission",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             result = handler.handle_put("/api/v1/resources/r-001", {}, http)
@@ -1255,7 +1275,8 @@ class TestResourceHandlerAuth:
         handler = ResourceHandler(server_context={})
         http = _make_mock_http_handler(path="/api/v1/resources/r-001")
         with patch.object(
-            handler, "_ensure_permission",
+            handler,
+            "_ensure_permission",
             return_value=(None, error_response("Authentication required", 401)),
         ):
             result = handler.handle_delete("/api/v1/resources/r-001", {}, http)
@@ -1285,6 +1306,7 @@ class TestInheritanceHierarchy:
 
     def test_typed_handler_is_base_handler(self):
         from aragora.server.handlers.base import BaseHandler
+
         assert issubclass(TypedHandler, BaseHandler)
 
     def test_authenticated_handler_is_typed_handler(self):
@@ -1323,7 +1345,10 @@ class TestEdgeCases:
     def test_error_response_wraps_correctly(self, typed_handler):
         result = typed_handler.error_response("bad request", 400)
         body = _body(result)
-        assert "bad request" in body.get("error", "").lower() or "bad request" in json.dumps(body).lower()
+        assert (
+            "bad request" in body.get("error", "").lower()
+            or "bad request" in json.dumps(body).lower()
+        )
 
     def test_handler_with_full_context(self):
         """Test handler with a more realistic context."""

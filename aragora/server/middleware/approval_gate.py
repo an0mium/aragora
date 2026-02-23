@@ -255,7 +255,11 @@ async def create_approval_request(
     _record_approval_request_created(request)
 
     logger.info(
-        "Approval request created: %s for %s by %s (risk: %s)", request_id, operation, auth_context.user_id, risk_level.value
+        "Approval request created: %s for %s by %s (risk: %s)",
+        request_id,
+        operation,
+        auth_context.user_id,
+        risk_level.value,
     )
 
     return request
@@ -318,7 +322,9 @@ async def resolve_approval(
         for item in request.checklist:
             if item.required and not item.checked:
                 logger.warning(
-                    "Cannot approve %s: required checklist item '%s' not checked", request_id, item.label
+                    "Cannot approve %s: required checklist item '%s' not checked",
+                    request_id,
+                    item.label,
                 )
                 return False
 
@@ -339,7 +345,9 @@ async def resolve_approval(
     # Record metrics and audit
     _record_approval_resolved(request)
 
-    logger.info("Approval request %s resolved: %s by %s", request_id, request.state.value, approver_id)
+    logger.info(
+        "Approval request %s resolved: %s by %s", request_id, request.state.value, approver_id
+    )
 
     return True
 
@@ -430,7 +438,10 @@ def require_approval(
             # Check if user has auto-approve role
             if auto_roles and auth_context.has_any_role(*auto_roles):
                 logger.debug(
-                    "Auto-approved %s for %s (roles: %s)", operation, auth_context.user_id, auth_context.roles
+                    "Auto-approved %s for %s (roles: %s)",
+                    operation,
+                    auth_context.user_id,
+                    auth_context.roles,
                 )
                 result = await func(*args, **kwargs)
                 return result
@@ -752,7 +763,9 @@ async def recover_pending_approvals() -> int:
                 logger.warning("Failed to recover approval %s: %s", record.approval_id, e)
 
         if recovered > 0 or expired > 0:
-            logger.info("Approval gate recovery: %s pending restored, %s expired", recovered, expired)
+            logger.info(
+                "Approval gate recovery: %s pending restored, %s expired", recovered, expired
+            )
 
         return recovered
 

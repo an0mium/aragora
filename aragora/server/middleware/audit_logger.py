@@ -587,7 +587,10 @@ class AuditLogger:
             expected_hash = event.compute_hash()
             if event.event_hash != expected_hash:
                 logger.error(
-                    "Audit chain integrity failure: event %s hash mismatch (expected %s, got %s)", event.event_id, expected_hash, event.event_hash
+                    "Audit chain integrity failure: event %s hash mismatch (expected %s, got %s)",
+                    event.event_id,
+                    expected_hash,
+                    event.event_hash,
                 )
                 return False
 
@@ -595,7 +598,8 @@ class AuditLogger:
             if i > 0:
                 if event.previous_hash != events[i - 1].event_hash:
                     logger.error(
-                        "Audit chain integrity failure: event %s previous_hash does not match preceding event", event.event_id
+                        "Audit chain integrity failure: event %s previous_hash does not match preceding event",
+                        event.event_id,
                     )
                     return False
 

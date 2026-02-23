@@ -580,15 +580,17 @@ class PlanStore:
                     except (TypeError, ValueError, json.JSONDecodeError):
                         exec_error = {"message": str(row["exec_error"])}
 
-                outcomes.append({
-                    "plan_id": row["id"],
-                    "task": row["task"],
-                    "status": row["status"],
-                    "debate_id": row["debate_id"],
-                    "created_at": row["created_at"],
-                    "execution_status": row["exec_status"],
-                    "execution_error": exec_error,
-                })
+                outcomes.append(
+                    {
+                        "plan_id": row["id"],
+                        "task": row["task"],
+                        "status": row["status"],
+                        "debate_id": row["debate_id"],
+                        "created_at": row["created_at"],
+                        "execution_status": row["exec_status"],
+                        "execution_error": exec_error,
+                    }
+                )
 
             return outcomes
         finally:

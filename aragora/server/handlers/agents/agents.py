@@ -201,21 +201,21 @@ class AgentsHandler(  # type: ignore[misc]
         return False
 
     # Public read-only paths (no auth required for GET)
-    _PUBLIC_PATHS: frozenset[str] = frozenset({
-        "/api/agents",
-        "/api/agents/health",
-        "/api/agents/availability",
-        "/api/leaderboard",
-        "/api/rankings",
-        "/api/flips/recent",
-        "/api/flips/summary",
-        "/api/matches/recent",
-    })
+    _PUBLIC_PATHS: frozenset[str] = frozenset(
+        {
+            "/api/agents",
+            "/api/agents/health",
+            "/api/agents/availability",
+            "/api/leaderboard",
+            "/api/rankings",
+            "/api/flips/recent",
+            "/api/flips/summary",
+            "/api/matches/recent",
+        }
+    )
 
     # Public prefixes (no auth required for GET)
-    _PUBLIC_PREFIXES: tuple[str, ...] = (
-        "/api/agent/",
-    )
+    _PUBLIC_PREFIXES: tuple[str, ...] = ("/api/agent/",)
 
     def _is_public_path(self, path: str) -> bool:
         """Check if this is a public read-only path."""

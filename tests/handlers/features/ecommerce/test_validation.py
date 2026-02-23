@@ -543,16 +543,12 @@ class TestValidateFinancialAmount:
         assert val == Decimal("99999999.99")
 
     def test_custom_max_amount(self):
-        valid, err, val = validate_financial_amount(
-            "500", max_amount=Decimal("100")
-        )
+        valid, err, val = validate_financial_amount("500", max_amount=Decimal("100"))
         assert valid is False
         assert "exceeds maximum" in err.lower()
 
     def test_custom_max_amount_within_bound(self):
-        valid, err, val = validate_financial_amount(
-            "50", max_amount=Decimal("100")
-        )
+        valid, err, val = validate_financial_amount("50", max_amount=Decimal("100"))
         assert valid is True
 
     def test_too_many_decimal_places(self):
@@ -597,9 +593,7 @@ class TestValidateFinancialAmount:
         assert "Cost" in err
 
     def test_custom_field_name_zero_not_allowed(self):
-        valid, err, val = validate_financial_amount(
-            0, field_name="Total", allow_zero=False
-        )
+        valid, err, val = validate_financial_amount(0, field_name="Total", allow_zero=False)
         assert "Total" in err
 
     def test_empty_string(self):
@@ -936,7 +930,7 @@ class TestSecurityInputs:
         assert valid is False
 
     def test_resource_id_unicode_exploit(self):
-        valid, err = validate_resource_id("\u202Ereverse-text")
+        valid, err = validate_resource_id("\u202ereverse-text")
         assert valid is False
 
     def test_sku_newline_injection(self):

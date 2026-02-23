@@ -34,6 +34,7 @@ _KM_GET = "aragora.knowledge.mound.get_knowledge_mound"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_knowledge_item(
     receipt_id: str = "rcpt_001",
     task: str = "Design a rate limiter",
@@ -83,6 +84,7 @@ def _make_query_result(items: list[MagicMock] | None = None) -> MagicMock:
 # Test PastDebateKnowledge dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestPastDebateKnowledge:
     def test_defaults(self):
         k = PastDebateKnowledge(
@@ -117,6 +119,7 @@ class TestPastDebateKnowledge:
 # Test KnowledgeInjectionConfig
 # ---------------------------------------------------------------------------
 
+
 class TestKnowledgeInjectionConfig:
     def test_defaults(self):
         config = KnowledgeInjectionConfig()
@@ -141,6 +144,7 @@ class TestKnowledgeInjectionConfig:
 # ---------------------------------------------------------------------------
 # Test query_relevant_knowledge
 # ---------------------------------------------------------------------------
+
 
 class TestQueryRelevantKnowledge:
     """Test 1: Query returns relevant past receipts when KM has matching data."""
@@ -180,8 +184,7 @@ class TestQueryRelevantKnowledge:
     async def test_respects_max_relevant_receipts(self):
         """Test 5: Respects max_relevant_receipts limit."""
         items = [
-            _make_knowledge_item(receipt_id=f"rcpt_{i:03d}", task=f"Task {i}")
-            for i in range(10)
+            _make_knowledge_item(receipt_id=f"rcpt_{i:03d}", task=f"Task {i}") for i in range(10)
         ]
         mock_mound = AsyncMock()
         mock_mound.query = AsyncMock(return_value=_make_query_result(items))
@@ -198,8 +201,7 @@ class TestQueryRelevantKnowledge:
     async def test_filters_by_min_relevance_score(self):
         """Test 6: Filters by min_relevance_score."""
         items = [
-            _make_knowledge_item(receipt_id=f"rcpt_{i:03d}", task=f"Task {i}")
-            for i in range(10)
+            _make_knowledge_item(receipt_id=f"rcpt_{i:03d}", task=f"Task {i}") for i in range(10)
         ]
         mock_mound = AsyncMock()
         mock_mound.query = AsyncMock(return_value=_make_query_result(items))
@@ -226,6 +228,7 @@ class TestQueryRelevantKnowledge:
 
         # Temporarily remove the KM module so the lazy import fails
         import sys
+
         km_modules = {
             k: v for k, v in sys.modules.items() if k.startswith("aragora.knowledge.mound")
         }
@@ -345,6 +348,7 @@ class TestQueryRelevantKnowledge:
 # ---------------------------------------------------------------------------
 # Test format_for_injection
 # ---------------------------------------------------------------------------
+
 
 class TestFormatForInjection:
     """Test 3: format_for_injection produces markdown with past decisions."""
@@ -482,6 +486,7 @@ class TestFormatForInjection:
 # ---------------------------------------------------------------------------
 # Test inject_into_prompt
 # ---------------------------------------------------------------------------
+
 
 class TestInjectIntoPrompt:
     """Test 4: inject_into_prompt appends context to base prompt."""

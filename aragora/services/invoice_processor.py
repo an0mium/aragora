@@ -1021,7 +1021,10 @@ class InvoiceProcessor:
         self._payment_schedule[invoice.id] = schedule
 
         logger.info(
-            "Scheduled payment for invoice %s: $%s on %s", invoice.id, schedule.amount, pay_date.date()
+            "Scheduled payment for invoice %s: $%s on %s",
+            invoice.id,
+            schedule.amount,
+            pay_date.date(),
         )
         return schedule
 

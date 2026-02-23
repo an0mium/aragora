@@ -67,9 +67,7 @@ def create_mock_request(
     request.match_info = match_info or {}
     request.app = {}
     request.headers = headers or {}
-    request.get = MagicMock(
-        side_effect=lambda k, d=None: {"user_id": "test-user"}.get(k, d)
-    )
+    request.get = MagicMock(side_effect=lambda k, d=None: {"user_id": "test-user"}.get(k, d))
 
     # Transport for rate limiting
     transport = MagicMock()
@@ -77,6 +75,7 @@ def create_mock_request(
     request.transport = transport
 
     if body is not None:
+
         async def json_func():
             return body
 
@@ -89,6 +88,7 @@ def create_mock_request(
 
         request.read = read_func
     else:
+
         async def json_error():
             raise json.JSONDecodeError("Invalid JSON", "", 0)
 
@@ -196,15 +196,9 @@ def mock_stripe_connector():
     connector.retrieve_customer = AsyncMock(return_value=MockStripeCustomer())
     connector.update_customer = AsyncMock(return_value=MockStripeCustomer())
     connector.delete_customer = AsyncMock(return_value=MockDeletedCustomer())
-    connector.create_subscription = AsyncMock(
-        return_value=MockStripeSubscription()
-    )
-    connector.retrieve_subscription = AsyncMock(
-        return_value=MockStripeSubscription()
-    )
-    connector.update_subscription = AsyncMock(
-        return_value=MockStripeSubscription()
-    )
+    connector.create_subscription = AsyncMock(return_value=MockStripeSubscription())
+    connector.retrieve_subscription = AsyncMock(return_value=MockStripeSubscription())
+    connector.update_subscription = AsyncMock(return_value=MockStripeSubscription())
     connector.cancel_subscription = AsyncMock(
         return_value=MockStripeSubscription(status="canceled")
     )
@@ -215,20 +209,12 @@ def mock_stripe_connector():
 def mock_authnet_connector():
     """Create a mock Authorize.net connector with customer/subscription methods."""
     connector = AsyncMock()
-    connector.create_customer_profile = AsyncMock(
-        return_value=MockAuthnetProfile()
-    )
-    connector.get_customer_profile = AsyncMock(
-        return_value=MockAuthnetProfile()
-    )
+    connector.create_customer_profile = AsyncMock(return_value=MockAuthnetProfile())
+    connector.get_customer_profile = AsyncMock(return_value=MockAuthnetProfile())
     connector.update_customer_profile = AsyncMock(return_value=True)
     connector.delete_customer_profile = AsyncMock(return_value=True)
-    connector.create_subscription = AsyncMock(
-        return_value=MockAuthnetSubscription()
-    )
-    connector.get_subscription = AsyncMock(
-        return_value=MockAuthnetSubscription()
-    )
+    connector.create_subscription = AsyncMock(return_value=MockAuthnetSubscription())
+    connector.get_subscription = AsyncMock(return_value=MockAuthnetSubscription())
     connector.update_subscription = AsyncMock(return_value=True)
     connector.cancel_subscription = AsyncMock(return_value=True)
     # Support async context manager
@@ -267,9 +253,7 @@ class TestCreateCustomer:
 
     @pytest.mark.asyncio
     async def test_create_stripe_customer_success(self, mock_stripe_connector):
-        request = create_mock_request(
-            body={"email": "test@example.com", "name": "Test User"}
-        )
+        request = create_mock_request(body={"email": "test@example.com", "name": "Test User"})
         with (
             patch(
                 f"{PKG}.get_stripe_connector",
@@ -288,9 +272,7 @@ class TestCreateCustomer:
         assert data["email"] == "test@example.com"
 
     @pytest.mark.asyncio
-    async def test_create_stripe_customer_with_metadata(
-        self, mock_stripe_connector
-    ):
+    async def test_create_stripe_customer_with_metadata(self, mock_stripe_connector):
         request = create_mock_request(
             body={
                 "email": "meta@example.com",
@@ -317,9 +299,7 @@ class TestCreateCustomer:
         )
 
     @pytest.mark.asyncio
-    async def test_create_authnet_customer_success(
-        self, mock_authnet_connector
-    ):
+    async def test_create_authnet_customer_success(self, mock_authnet_connector):
         request = create_mock_request(
             body={
                 "provider": "authorize_net",
@@ -346,9 +326,7 @@ class TestCreateCustomer:
         assert data["merchant_customer_id"] == "merchant_cust_abc"
 
     @pytest.mark.asyncio
-    async def test_create_authnet_customer_auto_merchant_id(
-        self, mock_authnet_connector
-    ):
+    async def test_create_authnet_customer_auto_merchant_id(self, mock_authnet_connector):
         """When merchant_customer_id is not provided, one is auto-generated."""
         request = create_mock_request(
             body={
@@ -376,9 +354,7 @@ class TestCreateCustomer:
 
     @pytest.mark.asyncio
     async def test_create_stripe_connector_unavailable(self):
-        request = create_mock_request(
-            body={"email": "test@example.com", "name": "Test"}
-        )
+        request = create_mock_request(body={"email": "test@example.com", "name": "Test"})
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=None),
             patch(
@@ -413,15 +389,9 @@ class TestCreateCustomer:
         assert _status(resp) == 400
 
     @pytest.mark.asyncio
-    async def test_create_customer_connection_error(
-        self, mock_stripe_connector
-    ):
-        mock_stripe_connector.create_customer.side_effect = ConnectionError(
-            "timeout"
-        )
-        request = create_mock_request(
-            body={"email": "fail@example.com", "name": "Fail"}
-        )
+    async def test_create_customer_connection_error(self, mock_stripe_connector):
+        mock_stripe_connector.create_customer.side_effect = ConnectionError("timeout")
+        request = create_mock_request(body={"email": "fail@example.com", "name": "Fail"})
         with (
             patch(
                 f"{PKG}.get_stripe_connector",
@@ -437,12 +407,8 @@ class TestCreateCustomer:
 
     @pytest.mark.asyncio
     async def test_create_customer_value_error(self, mock_stripe_connector):
-        mock_stripe_connector.create_customer.side_effect = ValueError(
-            "bad data"
-        )
-        request = create_mock_request(
-            body={"email": "bad@example.com", "name": "Bad"}
-        )
+        mock_stripe_connector.create_customer.side_effect = ValueError("bad data")
+        request = create_mock_request(body={"email": "bad@example.com", "name": "Bad"})
         with (
             patch(
                 f"{PKG}.get_stripe_connector",
@@ -459,12 +425,8 @@ class TestCreateCustomer:
     @pytest.mark.asyncio
     async def test_create_customer_rate_limited(self):
         """When rate limit is active, returns 429."""
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
-        request = create_mock_request(
-            body={"email": "x@y.com", "name": "X"}
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
+        request = create_mock_request(body={"email": "x@y.com", "name": "X"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_create_customer(request)
         assert _status(resp) == 429
@@ -496,13 +458,9 @@ class TestGetCustomer:
         assert data["customer"]["name"] == "Test User"
 
     @pytest.mark.asyncio
-    async def test_get_stripe_customer_default_provider(
-        self, mock_stripe_connector
-    ):
+    async def test_get_stripe_customer_default_provider(self, mock_stripe_connector):
         """Default provider is 'stripe' when not specified in query."""
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -530,9 +488,7 @@ class TestGetCustomer:
         assert data["customer"]["payment_profiles"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_authnet_customer_with_payment_profiles(
-        self, mock_authnet_connector
-    ):
+    async def test_get_authnet_customer_with_payment_profiles(self, mock_authnet_connector):
         profile = MockAuthnetProfile(payment_profiles=["pp1", "pp2", "pp3"])
         mock_authnet_connector.get_customer_profile.return_value = profile
         request = create_mock_request(
@@ -570,9 +526,7 @@ class TestGetCustomer:
 
     @pytest.mark.asyncio
     async def test_get_stripe_connector_unavailable(self):
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(f"{PKG}.get_stripe_connector", return_value=None):
             resp = await handle_get_customer(request)
         assert _status(resp) == 503
@@ -589,12 +543,8 @@ class TestGetCustomer:
 
     @pytest.mark.asyncio
     async def test_get_customer_connection_error(self, mock_stripe_connector):
-        mock_stripe_connector.retrieve_customer.side_effect = ConnectionError(
-            "timeout"
-        )
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        mock_stripe_connector.retrieve_customer.side_effect = ConnectionError("timeout")
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -604,24 +554,16 @@ class TestGetCustomer:
 
     @pytest.mark.asyncio
     async def test_get_customer_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_get_customer(request)
         assert _status(resp) == 429
 
     @pytest.mark.asyncio
     async def test_get_customer_key_error(self, mock_stripe_connector):
-        mock_stripe_connector.retrieve_customer.side_effect = KeyError(
-            "no_such_field"
-        )
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        mock_stripe_connector.retrieve_customer.side_effect = KeyError("no_such_field")
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -640,9 +582,7 @@ class TestUpdateCustomer:
 
     @pytest.mark.asyncio
     async def test_update_stripe_customer_success(self, mock_stripe_connector):
-        updated = MockStripeCustomer(
-            email="updated@example.com", name="Updated User"
-        )
+        updated = MockStripeCustomer(email="updated@example.com", name="Updated User")
         mock_stripe_connector.update_customer.return_value = updated
         request = create_mock_request(
             body={"email": "updated@example.com", "name": "Updated User"},
@@ -665,9 +605,7 @@ class TestUpdateCustomer:
         assert data["customer"]["email"] == "updated@example.com"
 
     @pytest.mark.asyncio
-    async def test_update_stripe_customer_email_only(
-        self, mock_stripe_connector
-    ):
+    async def test_update_stripe_customer_email_only(self, mock_stripe_connector):
         updated = MockStripeCustomer(email="newemail@example.com")
         mock_stripe_connector.update_customer.return_value = updated
         request = create_mock_request(
@@ -691,9 +629,7 @@ class TestUpdateCustomer:
         )
 
     @pytest.mark.asyncio
-    async def test_update_stripe_customer_with_metadata(
-        self, mock_stripe_connector
-    ):
+    async def test_update_stripe_customer_with_metadata(self, mock_stripe_connector):
         request = create_mock_request(
             body={"metadata": {"tier": "enterprise"}},
             match_info={"customer_id": "cus_test_123"},
@@ -715,9 +651,7 @@ class TestUpdateCustomer:
         )
 
     @pytest.mark.asyncio
-    async def test_update_stripe_customer_no_params(
-        self, mock_stripe_connector
-    ):
+    async def test_update_stripe_customer_no_params(self, mock_stripe_connector):
         """If no email/name/metadata provided, returns 400."""
         request = create_mock_request(
             body={},
@@ -737,9 +671,7 @@ class TestUpdateCustomer:
         assert _status(resp) == 400
 
     @pytest.mark.asyncio
-    async def test_update_authnet_customer_success(
-        self, mock_authnet_connector
-    ):
+    async def test_update_authnet_customer_success(self, mock_authnet_connector):
         request = create_mock_request(
             body={
                 "provider": "authorize_net",
@@ -774,9 +706,7 @@ class TestUpdateCustomer:
 
     @pytest.mark.asyncio
     async def test_update_customer_missing_body(self):
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         resp = await handle_update_customer(request)
         assert _status(resp) == 400
 
@@ -814,9 +744,7 @@ class TestUpdateCustomer:
 
     @pytest.mark.asyncio
     async def test_update_customer_timeout_error(self, mock_stripe_connector):
-        mock_stripe_connector.update_customer.side_effect = TimeoutError(
-            "timed out"
-        )
+        mock_stripe_connector.update_customer.side_effect = TimeoutError("timed out")
         request = create_mock_request(
             body={"email": "fail@example.com"},
             match_info={"customer_id": "cus_test_123"},
@@ -836,9 +764,7 @@ class TestUpdateCustomer:
 
     @pytest.mark.asyncio
     async def test_update_customer_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(
             body={"email": "x@y.com"},
             match_info={"customer_id": "cus_test_123"},
@@ -858,9 +784,7 @@ class TestDeleteCustomer:
 
     @pytest.mark.asyncio
     async def test_delete_stripe_customer_success(self, mock_stripe_connector):
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -871,15 +795,9 @@ class TestDeleteCustomer:
         assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_delete_stripe_customer_not_deleted(
-        self, mock_stripe_connector
-    ):
-        mock_stripe_connector.delete_customer.return_value = MockDeletedCustomer(
-            deleted=False
-        )
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+    async def test_delete_stripe_customer_not_deleted(self, mock_stripe_connector):
+        mock_stripe_connector.delete_customer.return_value = MockDeletedCustomer(deleted=False)
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -890,9 +808,7 @@ class TestDeleteCustomer:
         assert data["success"] is False
 
     @pytest.mark.asyncio
-    async def test_delete_authnet_customer_success(
-        self, mock_authnet_connector
-    ):
+    async def test_delete_authnet_customer_success(self, mock_authnet_connector):
         request = create_mock_request(
             match_info={"customer_id": "profile_123"},
             query={"provider": "authorize_net"},
@@ -907,9 +823,7 @@ class TestDeleteCustomer:
         assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_delete_authnet_customer_failure(
-        self, mock_authnet_connector
-    ):
+    async def test_delete_authnet_customer_failure(self, mock_authnet_connector):
         mock_authnet_connector.delete_customer_profile.return_value = False
         request = create_mock_request(
             match_info={"customer_id": "profile_123"},
@@ -932,9 +846,7 @@ class TestDeleteCustomer:
 
     @pytest.mark.asyncio
     async def test_delete_stripe_connector_unavailable(self):
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(f"{PKG}.get_stripe_connector", return_value=None):
             resp = await handle_delete_customer(request)
         assert _status(resp) == 503
@@ -951,12 +863,8 @@ class TestDeleteCustomer:
 
     @pytest.mark.asyncio
     async def test_delete_customer_os_error(self, mock_stripe_connector):
-        mock_stripe_connector.delete_customer.side_effect = OSError(
-            "network error"
-        )
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        mock_stripe_connector.delete_customer.side_effect = OSError("network error")
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -966,12 +874,8 @@ class TestDeleteCustomer:
 
     @pytest.mark.asyncio
     async def test_delete_customer_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
-        request = create_mock_request(
-            match_info={"customer_id": "cus_test_123"}
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
+        request = create_mock_request(match_info={"customer_id": "cus_test_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_delete_customer(request)
         assert _status(resp) == 429
@@ -986,9 +890,7 @@ class TestGetSubscription:
     """Tests for GET /api/payments/subscription/{subscription_id}."""
 
     @pytest.mark.asyncio
-    async def test_get_stripe_subscription_success(
-        self, mock_stripe_connector
-    ):
+    async def test_get_stripe_subscription_success(self, mock_stripe_connector):
         request = create_mock_request(
             match_info={"subscription_id": "sub_test_123"},
             query={"provider": "stripe"},
@@ -1006,12 +908,8 @@ class TestGetSubscription:
         assert sub["customer"] == "cus_test_123"
 
     @pytest.mark.asyncio
-    async def test_get_stripe_subscription_with_items(
-        self, mock_stripe_connector
-    ):
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+    async def test_get_stripe_subscription_with_items(self, mock_stripe_connector):
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1024,15 +922,11 @@ class TestGetSubscription:
         assert data["subscription"]["items"][0]["quantity"] == 1
 
     @pytest.mark.asyncio
-    async def test_get_stripe_subscription_no_items(
-        self, mock_stripe_connector
-    ):
+    async def test_get_stripe_subscription_no_items(self, mock_stripe_connector):
         sub_no_items = MockStripeSubscription()
         sub_no_items.items = None
         mock_stripe_connector.retrieve_subscription.return_value = sub_no_items
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1043,9 +937,7 @@ class TestGetSubscription:
         assert data["subscription"]["items"] == []
 
     @pytest.mark.asyncio
-    async def test_get_authnet_subscription_success(
-        self, mock_authnet_connector
-    ):
+    async def test_get_authnet_subscription_success(self, mock_authnet_connector):
         request = create_mock_request(
             match_info={"subscription_id": "sub_authnet_123"},
             query={"provider": "authorize_net"},
@@ -1064,9 +956,7 @@ class TestGetSubscription:
         assert sub["amount"] == "99.99"
 
     @pytest.mark.asyncio
-    async def test_get_authnet_subscription_not_found(
-        self, mock_authnet_connector
-    ):
+    async def test_get_authnet_subscription_not_found(self, mock_authnet_connector):
         mock_authnet_connector.get_subscription.return_value = None
         request = create_mock_request(
             match_info={"subscription_id": "missing"},
@@ -1080,9 +970,7 @@ class TestGetSubscription:
         assert _status(resp) == 404
 
     @pytest.mark.asyncio
-    async def test_get_authnet_subscription_null_status(
-        self, mock_authnet_connector
-    ):
+    async def test_get_authnet_subscription_null_status(self, mock_authnet_connector):
         sub = MockAuthnetSubscription()
         sub.status = None
         mock_authnet_connector.get_subscription.return_value = sub
@@ -1100,9 +988,7 @@ class TestGetSubscription:
         assert data["subscription"]["status"] == "unknown"
 
     @pytest.mark.asyncio
-    async def test_get_authnet_subscription_null_amount(
-        self, mock_authnet_connector
-    ):
+    async def test_get_authnet_subscription_null_amount(self, mock_authnet_connector):
         sub = MockAuthnetSubscription(amount=None)
         mock_authnet_connector.get_subscription.return_value = sub
         request = create_mock_request(
@@ -1126,9 +1012,7 @@ class TestGetSubscription:
 
     @pytest.mark.asyncio
     async def test_get_stripe_subscription_connector_unavailable(self):
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(f"{PKG}.get_stripe_connector", return_value=None):
             resp = await handle_get_subscription(request)
         assert _status(resp) == 503
@@ -1144,15 +1028,9 @@ class TestGetSubscription:
         assert _status(resp) == 503
 
     @pytest.mark.asyncio
-    async def test_get_subscription_timeout_error(
-        self, mock_stripe_connector
-    ):
-        mock_stripe_connector.retrieve_subscription.side_effect = (
-            TimeoutError("timed out")
-        )
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+    async def test_get_subscription_timeout_error(self, mock_stripe_connector):
+        mock_stripe_connector.retrieve_subscription.side_effect = TimeoutError("timed out")
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1162,12 +1040,8 @@ class TestGetSubscription:
 
     @pytest.mark.asyncio
     async def test_get_subscription_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_get_subscription(request)
         assert _status(resp) == 429
@@ -1182,9 +1056,7 @@ class TestCreateSubscription:
     """Tests for POST /api/payments/subscription."""
 
     @pytest.mark.asyncio
-    async def test_create_authnet_subscription_success(
-        self, mock_authnet_connector
-    ):
+    async def test_create_authnet_subscription_success(self, mock_authnet_connector):
         request = create_mock_request(
             body={
                 "provider": "authorize_net",
@@ -1213,9 +1085,7 @@ class TestCreateSubscription:
         assert data["name"] == "Premium Plan"
 
     @pytest.mark.asyncio
-    async def test_create_authnet_subscription_daily_interval(
-        self, mock_authnet_connector
-    ):
+    async def test_create_authnet_subscription_daily_interval(self, mock_authnet_connector):
         """Non-month intervals map to 'days' for Authorize.net."""
         request = create_mock_request(
             body={
@@ -1244,9 +1114,7 @@ class TestCreateSubscription:
         assert call_kwargs.kwargs["interval_length"] == 7
 
     @pytest.mark.asyncio
-    async def test_create_stripe_subscription_success(
-        self, mock_stripe_connector
-    ):
+    async def test_create_stripe_subscription_success(self, mock_stripe_connector):
         request = create_mock_request(
             body={
                 "customer_id": "cus_test_123",
@@ -1272,9 +1140,7 @@ class TestCreateSubscription:
         assert data["status"] == "active"
 
     @pytest.mark.asyncio
-    async def test_create_stripe_subscription_no_price_id(
-        self, mock_stripe_connector
-    ):
+    async def test_create_stripe_subscription_no_price_id(self, mock_stripe_connector):
         """Stripe requires price_id for subscription creation."""
         request = create_mock_request(
             body={
@@ -1299,9 +1165,7 @@ class TestCreateSubscription:
 
     @pytest.mark.asyncio
     async def test_create_subscription_missing_customer_id(self):
-        request = create_mock_request(
-            body={"amount": 49.99, "price_id": "price_test_456"}
-        )
+        request = create_mock_request(body={"amount": 49.99, "price_id": "price_test_456"})
         with patch(
             f"{PKG}._get_provider_from_request",
             return_value=PaymentProvider.STRIPE,
@@ -1441,12 +1305,8 @@ class TestCreateSubscription:
         assert _status(resp) == 503
 
     @pytest.mark.asyncio
-    async def test_create_subscription_connection_error(
-        self, mock_stripe_connector
-    ):
-        mock_stripe_connector.create_subscription.side_effect = (
-            ConnectionError("fail")
-        )
+    async def test_create_subscription_connection_error(self, mock_stripe_connector):
+        mock_stripe_connector.create_subscription.side_effect = ConnectionError("fail")
         request = create_mock_request(
             body={
                 "customer_id": "cus_test_123",
@@ -1469,9 +1329,7 @@ class TestCreateSubscription:
 
     @pytest.mark.asyncio
     async def test_create_subscription_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(
             body={
                 "customer_id": "cus_test_123",
@@ -1484,9 +1342,7 @@ class TestCreateSubscription:
         assert _status(resp) == 429
 
     @pytest.mark.asyncio
-    async def test_create_authnet_subscription_null_status(
-        self, mock_authnet_connector
-    ):
+    async def test_create_authnet_subscription_null_status(self, mock_authnet_connector):
         """When authnet subscription status is None, defaults to 'active'."""
         sub = MockAuthnetSubscription()
         sub.status = None
@@ -1524,9 +1380,7 @@ class TestUpdateSubscription:
     """Tests for PUT /api/payments/subscription/{subscription_id}."""
 
     @pytest.mark.asyncio
-    async def test_update_authnet_subscription_success(
-        self, mock_authnet_connector
-    ):
+    async def test_update_authnet_subscription_success(self, mock_authnet_connector):
         request = create_mock_request(
             body={
                 "provider": "authorize_net",
@@ -1551,9 +1405,7 @@ class TestUpdateSubscription:
         assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_update_authnet_subscription_amount_as_decimal(
-        self, mock_authnet_connector
-    ):
+    async def test_update_authnet_subscription_amount_as_decimal(self, mock_authnet_connector):
         """Amount is converted to Decimal for Authorize.net."""
         request = create_mock_request(
             body={
@@ -1578,9 +1430,7 @@ class TestUpdateSubscription:
         assert call_kwargs.kwargs["amount"] == Decimal("49.5")
 
     @pytest.mark.asyncio
-    async def test_update_authnet_subscription_null_amount(
-        self, mock_authnet_connector
-    ):
+    async def test_update_authnet_subscription_null_amount(self, mock_authnet_connector):
         """When amount not provided, passes None."""
         request = create_mock_request(
             body={"provider": "authorize_net", "name": "Updated"},
@@ -1602,9 +1452,7 @@ class TestUpdateSubscription:
         assert call_kwargs.kwargs["amount"] is None
 
     @pytest.mark.asyncio
-    async def test_update_stripe_subscription_with_metadata(
-        self, mock_stripe_connector
-    ):
+    async def test_update_stripe_subscription_with_metadata(self, mock_stripe_connector):
         request = create_mock_request(
             body={"metadata": {"tier": "enterprise"}},
             match_info={"subscription_id": "sub_test_123"},
@@ -1626,9 +1474,7 @@ class TestUpdateSubscription:
         assert data["subscription"]["id"] == "sub_test_123"
 
     @pytest.mark.asyncio
-    async def test_update_stripe_subscription_with_price_change(
-        self, mock_stripe_connector
-    ):
+    async def test_update_stripe_subscription_with_price_change(self, mock_stripe_connector):
         """Price change fetches current subscription to get item ID."""
         request = create_mock_request(
             body={"price_id": "price_new_789"},
@@ -1647,17 +1493,13 @@ class TestUpdateSubscription:
             resp = await handle_update_subscription(request)
         assert _status(resp) == 200
         # Verify retrieve_subscription was called to get current items
-        mock_stripe_connector.retrieve_subscription.assert_called_once_with(
-            "sub_test_123"
-        )
+        mock_stripe_connector.retrieve_subscription.assert_called_once_with("sub_test_123")
         # Verify update_subscription was called with items
         call_kwargs = mock_stripe_connector.update_subscription.call_args
         assert "items" in call_kwargs.kwargs
 
     @pytest.mark.asyncio
-    async def test_update_stripe_subscription_no_params(
-        self, mock_stripe_connector
-    ):
+    async def test_update_stripe_subscription_no_params(self, mock_stripe_connector):
         """Empty body with no metadata/price_id returns 400."""
         request = create_mock_request(
             body={},
@@ -1687,9 +1529,7 @@ class TestUpdateSubscription:
 
     @pytest.mark.asyncio
     async def test_update_subscription_missing_body(self):
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         resp = await handle_update_subscription(request)
         assert _status(resp) == 400
 
@@ -1726,12 +1566,8 @@ class TestUpdateSubscription:
         assert _status(resp) == 503
 
     @pytest.mark.asyncio
-    async def test_update_subscription_value_error(
-        self, mock_stripe_connector
-    ):
-        mock_stripe_connector.update_subscription.side_effect = ValueError(
-            "invalid"
-        )
+    async def test_update_subscription_value_error(self, mock_stripe_connector):
+        mock_stripe_connector.update_subscription.side_effect = ValueError("invalid")
         request = create_mock_request(
             body={"metadata": {"k": "v"}},
             match_info={"subscription_id": "sub_test_123"},
@@ -1751,9 +1587,7 @@ class TestUpdateSubscription:
 
     @pytest.mark.asyncio
     async def test_update_subscription_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(
             body={"metadata": {"k": "v"}},
             match_info={"subscription_id": "sub_test_123"},
@@ -1772,12 +1606,8 @@ class TestCancelSubscription:
     """Tests for DELETE /api/payments/subscription/{subscription_id}."""
 
     @pytest.mark.asyncio
-    async def test_cancel_stripe_subscription_success(
-        self, mock_stripe_connector
-    ):
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+    async def test_cancel_stripe_subscription_success(self, mock_stripe_connector):
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1790,16 +1620,12 @@ class TestCancelSubscription:
         assert data["status"] == "canceled"
 
     @pytest.mark.asyncio
-    async def test_cancel_stripe_subscription_not_canceled(
-        self, mock_stripe_connector
-    ):
+    async def test_cancel_stripe_subscription_not_canceled(self, mock_stripe_connector):
         """If cancel returns a non-canceled status, success is False."""
-        mock_stripe_connector.cancel_subscription.return_value = (
-            MockStripeSubscription(status="active")
+        mock_stripe_connector.cancel_subscription.return_value = MockStripeSubscription(
+            status="active"
         )
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1811,9 +1637,7 @@ class TestCancelSubscription:
         assert data["status"] == "active"
 
     @pytest.mark.asyncio
-    async def test_cancel_authnet_subscription_success(
-        self, mock_authnet_connector
-    ):
+    async def test_cancel_authnet_subscription_success(self, mock_authnet_connector):
         request = create_mock_request(
             match_info={"subscription_id": "sub_authnet_123"},
             query={"provider": "authorize_net"},
@@ -1828,9 +1652,7 @@ class TestCancelSubscription:
         assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_cancel_authnet_subscription_failure(
-        self, mock_authnet_connector
-    ):
+    async def test_cancel_authnet_subscription_failure(self, mock_authnet_connector):
         mock_authnet_connector.cancel_subscription.return_value = False
         request = create_mock_request(
             match_info={"subscription_id": "sub_authnet_123"},
@@ -1853,9 +1675,7 @@ class TestCancelSubscription:
 
     @pytest.mark.asyncio
     async def test_cancel_stripe_connector_unavailable(self):
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(f"{PKG}.get_stripe_connector", return_value=None):
             resp = await handle_cancel_subscription(request)
         assert _status(resp) == 503
@@ -1871,15 +1691,9 @@ class TestCancelSubscription:
         assert _status(resp) == 503
 
     @pytest.mark.asyncio
-    async def test_cancel_subscription_connection_error(
-        self, mock_stripe_connector
-    ):
-        mock_stripe_connector.cancel_subscription.side_effect = (
-            ConnectionError("fail")
-        )
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+    async def test_cancel_subscription_connection_error(self, mock_stripe_connector):
+        mock_stripe_connector.cancel_subscription.side_effect = ConnectionError("fail")
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1889,12 +1703,8 @@ class TestCancelSubscription:
 
     @pytest.mark.asyncio
     async def test_cancel_subscription_os_error(self, mock_stripe_connector):
-        mock_stripe_connector.cancel_subscription.side_effect = OSError(
-            "network"
-        )
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        mock_stripe_connector.cancel_subscription.side_effect = OSError("network")
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(
             f"{PKG}.get_stripe_connector",
             return_value=mock_stripe_connector,
@@ -1904,12 +1714,8 @@ class TestCancelSubscription:
 
     @pytest.mark.asyncio
     async def test_cancel_subscription_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
-        request = create_mock_request(
-            match_info={"subscription_id": "sub_test_123"}
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
+        request = create_mock_request(match_info={"subscription_id": "sub_test_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_cancel_subscription(request)
         assert _status(resp) == 429
@@ -1924,9 +1730,7 @@ class TestProviderRouting:
     """Tests for provider detection via query parameter."""
 
     @pytest.mark.asyncio
-    async def test_authnet_keyword_triggers_authnet_path(
-        self, mock_authnet_connector
-    ):
+    async def test_authnet_keyword_triggers_authnet_path(self, mock_authnet_connector):
         """'authnet' alias routes to Authorize.net path."""
         request = create_mock_request(
             match_info={"customer_id": "profile_123"},
@@ -1942,9 +1746,7 @@ class TestProviderRouting:
         mock_authnet_connector.get_customer_profile.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_unknown_provider_defaults_to_stripe(
-        self, mock_stripe_connector
-    ):
+    async def test_unknown_provider_defaults_to_stripe(self, mock_stripe_connector):
         """Unknown provider strings fall through to Stripe."""
         request = create_mock_request(
             match_info={"customer_id": "cus_test_123"},

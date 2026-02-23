@@ -172,7 +172,10 @@ class StoresMixin:
                 "error": "Data access error",
                 "error_type": "data_access",
             }, False
-        except (RuntimeError, ValueError) as e:  # broad catch: last-resort handler for debate storage
+        except (
+            RuntimeError,
+            ValueError,
+        ) as e:  # broad catch: last-resort handler for debate storage
             logger.warning("Health check failed for %s: %s", "debate_storage", e)
             return {
                 "healthy": False,

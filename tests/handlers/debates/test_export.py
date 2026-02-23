@@ -429,7 +429,8 @@ class TestGetBatchExportStatus:
 
     def test_completed_item_has_result(self):
         item = BatchExportItem(
-            debate_id="d1", format="json",
+            debate_id="d1",
+            format="json",
             status=BatchExportStatus.COMPLETED,
             result='{"data": "value"}',
         )
@@ -444,7 +445,8 @@ class TestGetBatchExportStatus:
 
     def test_failed_item_shows_error(self):
         item = BatchExportItem(
-            debate_id="d1", format="json",
+            debate_id="d1",
+            format="json",
             status=BatchExportStatus.FAILED,
             error="Debate not found: d1",
         )
@@ -458,8 +460,12 @@ class TestGetBatchExportStatus:
 
     def test_multiple_items_summary(self):
         items = [
-            BatchExportItem(debate_id="d1", format="json", status=BatchExportStatus.COMPLETED, result="{}"),
-            BatchExportItem(debate_id="d2", format="json", status=BatchExportStatus.FAILED, error="not found"),
+            BatchExportItem(
+                debate_id="d1", format="json", status=BatchExportStatus.COMPLETED, result="{}"
+            ),
+            BatchExportItem(
+                debate_id="d2", format="json", status=BatchExportStatus.FAILED, error="not found"
+            ),
             BatchExportItem(debate_id="d3", format="json"),
         ]
         job = BatchExportJob(job_id="j4", items=items)
@@ -515,12 +521,14 @@ class TestGetBatchExportResults:
     def test_completed_job_returns_results(self):
         items = [
             BatchExportItem(
-                debate_id="d1", format="json",
+                debate_id="d1",
+                format="json",
                 status=BatchExportStatus.COMPLETED,
                 result='{"id": "d1"}',
             ),
             BatchExportItem(
-                debate_id="d2", format="json",
+                debate_id="d2",
+                format="json",
                 status=BatchExportStatus.FAILED,
                 error="not found",
             ),
@@ -868,6 +876,7 @@ class TestGenerateExportContent:
     def test_json_handles_non_serializable(self):
         handler = _make_handler()
         from datetime import datetime
+
         debate = _sample_debate()
         debate["timestamp"] = datetime(2026, 1, 1)
         # Should not raise thanks to default=str

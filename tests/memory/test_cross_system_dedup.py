@@ -145,7 +145,11 @@ class TestCrossSystemScan:
     async def test_near_duplicate_detection(self):
         engine = CrossSystemDedupEngine(near_duplicate_threshold=0.5)
         items = [
-            {"id": "cm_1", "source": "continuum", "content": "rate limiting with token bucket algorithm"},
+            {
+                "id": "cm_1",
+                "source": "continuum",
+                "content": "rate limiting with token bucket algorithm",
+            },
             {"id": "km_1", "source": "km", "content": "rate limiting with token bucket strategy"},
         ]
         report = await engine.scan_cross_system_duplicates(items)

@@ -31,7 +31,9 @@ from aragora.nomic.branch_coordinator import (
 from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
-pytestmark = pytest.mark.filterwarnings("ignore:ParallelOrchestrator is deprecated:DeprecationWarning")
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:ParallelOrchestrator is deprecated:DeprecationWarning"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -695,7 +697,9 @@ class TestSemaphoreEnforcement:
 
         original_execute = AsyncMock(
             return_value=MagicMock(
-                success=True, final_output={"status": "ok"}, error=None,
+                success=True,
+                final_output={"status": "ok"},
+                error=None,
             )
         )
 
@@ -713,8 +717,7 @@ class TestSemaphoreEnforcement:
         engine.execute = AsyncMock(side_effect=tracking_execute)
 
         subtasks = [
-            _make_subtask(str(i), f"Task {i}", file_scope=[f"tests/t{i}.py"])
-            for i in range(5)
+            _make_subtask(str(i), f"Task {i}", file_scope=[f"tests/t{i}.py"]) for i in range(5)
         ]
 
         orch = AutonomousOrchestrator(
@@ -836,9 +839,7 @@ class TestParallelOrchestratorIntegration:
         engine = _mock_workflow_engine()
         decomposer = _mock_decomposer()
 
-        with patch(
-            "aragora.nomic.parallel_orchestrator.BranchCoordinator"
-        ) as mock_bc_cls:
+        with patch("aragora.nomic.parallel_orchestrator.BranchCoordinator") as mock_bc_cls:
             mock_bc = MagicMock()
             mock_bc.create_track_branch = AsyncMock(return_value="dev/sme-task-001")
             mock_bc.create_track_branches = AsyncMock(return_value=[])
@@ -887,9 +888,7 @@ class TestParallelOrchestratorIntegration:
         engine = _mock_workflow_engine()
         decomposer = _mock_decomposer()
 
-        with patch(
-            "aragora.nomic.parallel_orchestrator.BranchCoordinator"
-        ) as mock_bc_cls:
+        with patch("aragora.nomic.parallel_orchestrator.BranchCoordinator") as mock_bc_cls:
             mock_bc = MagicMock()
             mock_bc.create_track_branch = AsyncMock(return_value="dev/sme-task-001")
             mock_bc.create_track_branches = AsyncMock(return_value=[])
@@ -938,13 +937,9 @@ class TestParallelOrchestratorIntegration:
     @pytest.mark.asyncio
     async def test_cleanup_handles_worktree_errors_gracefully(self):
         """Cleanup should not raise if worktree removal fails."""
-        with patch(
-            "aragora.nomic.parallel_orchestrator.BranchCoordinator"
-        ) as mock_bc_cls:
+        with patch("aragora.nomic.parallel_orchestrator.BranchCoordinator") as mock_bc_cls:
             mock_bc = MagicMock()
-            mock_bc.cleanup_all_worktrees = MagicMock(
-                side_effect=RuntimeError("worktree locked")
-            )
+            mock_bc.cleanup_all_worktrees = MagicMock(side_effect=RuntimeError("worktree locked"))
             mock_bc._worktree_paths = {}
             mock_bc_cls.return_value = mock_bc
 

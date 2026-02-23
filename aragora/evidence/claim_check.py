@@ -482,7 +482,14 @@ EXPLANATION: [Brief explanation]"""
                 )
                 if match and match.match_score >= self.config.inference_threshold:
                     return match
-            except (ValueError, TypeError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+            except (
+                ValueError,
+                TypeError,
+                RuntimeError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ) as e:
                 logger.warning("inference_check_error: %s", e)
 
         # Strategy 4: Simple word overlap

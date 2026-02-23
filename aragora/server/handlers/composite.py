@@ -49,7 +49,9 @@ _composite_limiter = RateLimiter(requests_per_minute=60)
 # Circuit Breaker for Subsystem Access
 # =============================================================================
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as CompositeCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as CompositeCircuitBreaker,
+)
 
 
 # Per-subsystem circuit breakers
@@ -61,7 +63,9 @@ def _get_circuit_breaker(subsystem: str) -> CompositeCircuitBreaker:
     """Get or create a circuit breaker for a subsystem."""
     with _circuit_breaker_lock:
         if subsystem not in _circuit_breakers:
-            _circuit_breakers[subsystem] = CompositeCircuitBreaker(name=subsystem, failure_threshold=3, half_open_max_calls=2)
+            _circuit_breakers[subsystem] = CompositeCircuitBreaker(
+                name=subsystem, failure_threshold=3, half_open_max_calls=2
+            )
         return _circuit_breakers[subsystem]
 
 

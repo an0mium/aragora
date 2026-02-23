@@ -177,8 +177,17 @@ class TestCommandHelp:
     def test_help_mentions_all_commands(self, slack_handler):
         body = _body(slack_handler._command_help())
         expected = [
-            "debate", "plan", "implement", "ask", "gauntlet",
-            "search", "recent", "leaderboard", "agents", "status", "help",
+            "debate",
+            "plan",
+            "implement",
+            "ask",
+            "gauntlet",
+            "search",
+            "recent",
+            "leaderboard",
+            "agents",
+            "status",
+            "help",
         ]
         for cmd in expected:
             assert cmd in body["text"], f"Help text should mention '{cmd}'"
@@ -203,7 +212,8 @@ class TestCommandStatus:
     def test_status_returns_blocks(self, slack_handler):
         mock_elo_mod = MagicMock()
         mock_elo_mod.EloSystem.return_value.get_all_ratings.return_value = [
-            _make_agent("a1"), _make_agent("a2"),
+            _make_agent("a1"),
+            _make_agent("a2"),
         ]
         with patch.dict("sys.modules", {"aragora.ranking.elo": mock_elo_mod}):
             result = slack_handler._command_status()
@@ -214,7 +224,9 @@ class TestCommandStatus:
     def test_status_shows_agent_count_in_blocks(self, slack_handler):
         mock_elo_mod = MagicMock()
         mock_elo_mod.EloSystem.return_value.get_all_ratings.return_value = [
-            _make_agent("a1"), _make_agent("a2"), _make_agent("a3"),
+            _make_agent("a1"),
+            _make_agent("a2"),
+            _make_agent("a3"),
         ]
         with patch.dict("sys.modules", {"aragora.ranking.elo": mock_elo_mod}):
             result = slack_handler._command_status()
@@ -423,9 +435,7 @@ class TestCommandAsk:
     def test_ask_no_response_url_skips_task(self, slack_handler, commands_module, monkeypatch):
         mock_create = MagicMock()
         monkeypatch.setattr(commands_module, "create_tracked_task", mock_create)
-        slack_handler._command_ask(
-            "What is quantum computing used for?", "U1", "C1", ""
-        )
+        slack_handler._command_ask("What is quantum computing used for?", "U1", "C1", "")
         mock_create.assert_not_called()
 
     def test_ask_response_contains_user_id(self, slack_handler, commands_module, monkeypatch):
@@ -442,12 +452,16 @@ class TestCommandAsk:
 
     def test_ask_response_is_in_channel(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_ask(
-            "Why is the sky blue in the daytime?", "U1", "C1", "https://hooks.slack.com/r"
-        ))
+        body = _body(
+            slack_handler._command_ask(
+                "Why is the sky blue in the daytime?", "U1", "C1", "https://hooks.slack.com/r"
+            )
+        )
         assert body["response_type"] == "in_channel"
 
-    def test_ask_truncates_long_question_in_blocks(self, slack_handler, commands_module, monkeypatch):
+    def test_ask_truncates_long_question_in_blocks(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
         long_q = "W" * 250
         result = slack_handler._command_ask(long_q, "U1", "C1", "https://hooks.slack.com/r")
@@ -482,7 +496,14 @@ class TestCommandSearch:
     def test_search_with_db_search(self, slack_handler, commands_module, monkeypatch):
         mock_db = MagicMock()
         mock_db.search.return_value = (
-            [{"task": "AI regulation", "consensus_reached": True, "id": "abc123", "confidence": 0.85}],
+            [
+                {
+                    "task": "AI regulation",
+                    "consensus_reached": True,
+                    "id": "abc123",
+                    "confidence": 0.85,
+                }
+            ],
             1,
         )
         monkeypatch.setattr(commands_module, "get_debates_db", MagicMock(return_value=mock_db))
@@ -583,7 +604,9 @@ class TestCommandSearch:
         body = _body(slack_handler._command_search("any query"))
         assert "failed" in body["text"].lower()
 
-    def test_search_result_count_in_context_block(self, slack_handler, commands_module, monkeypatch):
+    def test_search_result_count_in_context_block(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         items = [
             {"task": "Alpha", "consensus_reached": True, "id": "a1", "confidence": 0.9},
             {"task": "Beta", "consensus_reached": False, "id": "b2", "confidence": 0.4},
@@ -722,8 +745,11 @@ class TestCommandRecent:
 
     def test_recent_object_format(self, slack_handler, commands_module, monkeypatch):
         obj = SimpleNamespace(
-            task="Object debate", consensus_reached=False, confidence=0.4,
-            id="obj-d1", created_at="2026-02-01T12:00:00",
+            task="Object debate",
+            consensus_reached=False,
+            confidence=0.4,
+            id="obj-d1",
+            created_at="2026-02-01T12:00:00",
         )
         mock_db = MagicMock()
         mock_db.list.return_value = [obj]
@@ -786,7 +812,9 @@ class TestCommandRecent:
         body = _body(slack_handler._command_recent())
         # Find the section with the topic -- should NOT have ...
         for b in body.get("blocks", []):
-            if b.get("type") == "section" and "Short topic here" in b.get("text", {}).get("text", ""):
+            if b.get("type") == "section" and "Short topic here" in b.get("text", {}).get(
+                "text", ""
+            ):
                 assert "..." not in b["text"]["text"]
 
     def test_recent_runtime_error(self, slack_handler, commands_module, monkeypatch):
@@ -798,8 +826,13 @@ class TestCommandRecent:
 
     def test_recent_shows_debate_count(self, slack_handler, commands_module, monkeypatch):
         debates = [
-            {"task": f"Topic {i}", "consensus_reached": True, "confidence": 0.5,
-             "id": f"id{i}", "created_at": "2026-01-01"}
+            {
+                "task": f"Topic {i}",
+                "consensus_reached": True,
+                "confidence": 0.5,
+                "id": f"id{i}",
+                "created_at": "2026-01-01",
+            }
             for i in range(3)
         ]
         mock_db = MagicMock()
@@ -823,28 +856,41 @@ class TestCommandDebate:
         assert "provide a topic" in body["text"].lower()
 
     def test_debate_no_args_uses_mode_label(self, slack_handler):
-        body = _body(slack_handler._command_debate(
-            "", "U1", "C1", "https://hooks.slack.com/x",
-            command_label="implement",
-        ))
+        body = _body(
+            slack_handler._command_debate(
+                "",
+                "U1",
+                "C1",
+                "https://hooks.slack.com/x",
+                command_label="implement",
+            )
+        )
         assert "implement" in body["text"].lower()
 
     def test_debate_topic_too_short_9_chars(self, slack_handler):
-        body = _body(slack_handler._command_debate("123456789", "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_debate("123456789", "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too short" in body["text"].lower()
 
     def test_debate_exactly_10_chars_accepted(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_debate("0123456789", "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_debate("0123456789", "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too short" not in body.get("text", "").lower()
 
     def test_debate_topic_too_long_501_chars(self, slack_handler):
-        body = _body(slack_handler._command_debate("x" * 501, "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_debate("x" * 501, "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too long" in body["text"].lower()
 
     def test_debate_exactly_500_chars_accepted(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_debate("x" * 500, "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_debate("x" * 500, "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too long" not in body.get("text", "").lower()
 
     def test_debate_valid_topic(self, slack_handler, commands_module, monkeypatch):
@@ -867,46 +913,60 @@ class TestCommandDebate:
     def test_debate_no_response_url_skips_task(self, slack_handler, commands_module, monkeypatch):
         mock_create = MagicMock()
         monkeypatch.setattr(commands_module, "create_tracked_task", mock_create)
-        slack_handler._command_debate(
-            "Should AI be regulated by governments?", "U1", "C1", ""
-        )
+        slack_handler._command_debate("Should AI be regulated by governments?", "U1", "C1", "")
         mock_create.assert_not_called()
 
     def test_debate_strips_quotes(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_debate(
-            '"Should we adopt microservices architecture?"',
-            "U1", "C1", "https://hooks.slack.com/x",
-        ))
+        body = _body(
+            slack_handler._command_debate(
+                '"Should we adopt microservices architecture?"',
+                "U1",
+                "C1",
+                "https://hooks.slack.com/x",
+            )
+        )
         blocks_text = json.dumps(body.get("blocks", []))
         assert "microservices" in blocks_text
 
     def test_debate_plan_mode_label(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_debate(
-            "Refactor the entire backend codebase project",
-            "U1", "C1", "https://hooks.slack.com/x",
-            mode_label="plan",
-        ))
+        body = _body(
+            slack_handler._command_debate(
+                "Refactor the entire backend codebase project",
+                "U1",
+                "C1",
+                "https://hooks.slack.com/x",
+                mode_label="plan",
+            )
+        )
         blocks_text = json.dumps(body.get("blocks", []))
         assert "plan" in blocks_text
 
     def test_debate_implement_mode_label(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_debate(
-            "Build a new authentication system from scratch",
-            "U1", "C1", "https://hooks.slack.com/x",
-            mode_label="implementation plan",
-        ))
+        body = _body(
+            slack_handler._command_debate(
+                "Build a new authentication system from scratch",
+                "U1",
+                "C1",
+                "https://hooks.slack.com/x",
+                mode_label="implementation plan",
+            )
+        )
         blocks_text = json.dumps(body.get("blocks", []))
         assert "implementation plan" in blocks_text
 
     def test_debate_includes_user_id_in_blocks(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_debate(
-            "Important topic for discussion today",
-            "UABCDEF", "C1", "https://hooks.slack.com/x",
-        ))
+        body = _body(
+            slack_handler._command_debate(
+                "Important topic for discussion today",
+                "UABCDEF",
+                "C1",
+                "https://hooks.slack.com/x",
+            )
+        )
         blocks_text = json.dumps(body.get("blocks", []))
         assert "UABCDEF" in blocks_text
 
@@ -924,28 +984,40 @@ class TestCommandGauntlet:
         assert "provide a statement" in body["text"].lower()
 
     def test_gauntlet_too_short_9_chars(self, slack_handler):
-        body = _body(slack_handler._command_gauntlet("123456789", "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_gauntlet("123456789", "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too short" in body["text"].lower()
 
     def test_gauntlet_exactly_10_chars_accepted(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_gauntlet("0123456789", "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_gauntlet("0123456789", "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too short" not in body.get("text", "").lower()
 
     def test_gauntlet_too_long_1001_chars(self, slack_handler):
-        body = _body(slack_handler._command_gauntlet("x" * 1001, "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_gauntlet("x" * 1001, "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too long" in body["text"].lower()
 
-    def test_gauntlet_exactly_1000_chars_accepted(self, slack_handler, commands_module, monkeypatch):
+    def test_gauntlet_exactly_1000_chars_accepted(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_gauntlet("x" * 1000, "U1", "C1", "https://hooks.slack.com/x"))
+        body = _body(
+            slack_handler._command_gauntlet("x" * 1000, "U1", "C1", "https://hooks.slack.com/x")
+        )
         assert "too long" not in body.get("text", "").lower()
 
     def test_gauntlet_valid_statement(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
         result = slack_handler._command_gauntlet(
             "We should migrate to microservices architecture",
-            "U1", "C1", "https://hooks.slack.com/x",
+            "U1",
+            "C1",
+            "https://hooks.slack.com/x",
         )
         body = _body(result)
         assert body["response_type"] == "in_channel"
@@ -956,7 +1028,9 @@ class TestCommandGauntlet:
         monkeypatch.setattr(commands_module, "create_tracked_task", mock_create)
         slack_handler._command_gauntlet(
             "We should migrate to microservices architecture",
-            "U1", "C1", "https://hooks.slack.com/resp",
+            "U1",
+            "C1",
+            "https://hooks.slack.com/resp",
         )
         mock_create.assert_called_once()
 
@@ -965,25 +1039,35 @@ class TestCommandGauntlet:
         monkeypatch.setattr(commands_module, "create_tracked_task", mock_create)
         slack_handler._command_gauntlet(
             "We should migrate to microservices architecture",
-            "U1", "C1", "",
+            "U1",
+            "C1",
+            "",
         )
         mock_create.assert_not_called()
 
     def test_gauntlet_strips_quotes(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_gauntlet(
-            '"We should adopt a monorepo strategy for our codebase"',
-            "U1", "C1", "https://hooks.slack.com/x",
-        ))
+        body = _body(
+            slack_handler._command_gauntlet(
+                '"We should adopt a monorepo strategy for our codebase"',
+                "U1",
+                "C1",
+                "https://hooks.slack.com/x",
+            )
+        )
         blocks_text = json.dumps(body.get("blocks", []))
         assert "monorepo" in blocks_text
 
     def test_gauntlet_includes_user_id_in_blocks(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
-        body = _body(slack_handler._command_gauntlet(
-            "This organization should invest in AI safety research",
-            "UTEST88", "C1", "https://hooks.slack.com/x",
-        ))
+        body = _body(
+            slack_handler._command_gauntlet(
+                "This organization should invest in AI safety research",
+                "UTEST88",
+                "C1",
+                "https://hooks.slack.com/x",
+            )
+        )
         blocks_text = json.dumps(body.get("blocks", []))
         assert "UTEST88" in blocks_text
 
@@ -1193,7 +1277,9 @@ class TestRateLimiting:
         body = _body(slack_handler._handle_slash_command(h))
         assert "Aragora Slash Commands" in body["text"]
 
-    def test_no_team_id_skips_workspace_rate_limit(self, slack_handler, commands_module, monkeypatch):
+    def test_no_team_id_skips_workspace_rate_limit(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         ws_limiter = MagicMock()
         monkeypatch.setattr(commands_module, "_get_workspace_rate_limiter", lambda: ws_limiter)
         monkeypatch.setattr(commands_module, "_get_user_rate_limiter", lambda: None)
@@ -1203,7 +1289,9 @@ class TestRateLimiting:
         slack_handler._handle_slash_command(h)
         ws_limiter.allow.assert_not_called()
 
-    def test_workspace_rate_limit_response_is_ephemeral(self, slack_handler, commands_module, monkeypatch):
+    def test_workspace_rate_limit_response_is_ephemeral(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         ws_limiter = MagicMock()
         ws_limiter.allow.return_value = SimpleNamespace(allowed=False, retry_after=5)
         monkeypatch.setattr(commands_module, "_get_workspace_rate_limiter", lambda: ws_limiter)
@@ -1213,7 +1301,9 @@ class TestRateLimiting:
         body = _body(slack_handler._handle_slash_command(h))
         assert body["response_type"] == "ephemeral"
 
-    def test_user_rate_limit_response_is_ephemeral(self, slack_handler, commands_module, monkeypatch):
+    def test_user_rate_limit_response_is_ephemeral(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         user_limiter = MagicMock()
         user_limiter.allow.return_value = SimpleNamespace(allowed=False, retry_after=5)
         monkeypatch.setattr(commands_module, "_get_workspace_rate_limiter", lambda: None)
@@ -1251,8 +1341,7 @@ class TestAuditLogging:
         h = _make_handler_with_body("status")
         slack_handler._handle_slash_command(h)
         error_calls = [
-            c for c in mock_audit.log_command.call_args_list
-            if c.kwargs.get("result") == "error"
+            c for c in mock_audit.log_command.call_args_list if c.kwargs.get("result") == "error"
         ]
         assert len(error_calls) == 1
 
@@ -1293,7 +1382,9 @@ class TestAuditLogging:
         slack_handler._command_status = MagicMock(side_effect=ValueError("boom"))
         h = _make_handler_with_body("status")
         slack_handler._handle_slash_command(h)
-        error_calls = [c for c in mock_audit.log_command.call_args_list if c.kwargs.get("result") == "error"]
+        error_calls = [
+            c for c in mock_audit.log_command.call_args_list if c.kwargs.get("result") == "error"
+        ]
         assert error_calls[0].kwargs["error"] == "Command execution failed"
 
 
@@ -1347,7 +1438,9 @@ class TestPlanAndImplementModes:
         assert captured.get("mode_label") == "implementation plan"
         assert captured.get("command_label") == "implement"
 
-    def test_plan_decision_integrity_requested_by(self, slack_handler, commands_module, monkeypatch):
+    def test_plan_decision_integrity_requested_by(
+        self, slack_handler, commands_module, monkeypatch
+    ):
         _bypass_limiters_and_audit(commands_module, monkeypatch)
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
 
@@ -1376,9 +1469,17 @@ class TestPlanAndImplementModes:
 class TestSlashCommandErrorHandling:
     """Tests for error handling in the top-level slash command dispatcher."""
 
-    @pytest.mark.parametrize("exc_cls", [
-        ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError,
-    ])
+    @pytest.mark.parametrize(
+        "exc_cls",
+        [
+            ValueError,
+            KeyError,
+            TypeError,
+            RuntimeError,
+            OSError,
+            ConnectionError,
+        ],
+    )
     def test_caught_exceptions(self, slack_handler, commands_module, monkeypatch, exc_cls):
         _bypass_limiters_and_audit(commands_module, monkeypatch)
         slack_handler._command_status = MagicMock(side_effect=exc_cls("test"))
@@ -1438,7 +1539,8 @@ class TestAnswerQuestionAsync:
             await slack_handler._answer_question_async(
                 "What is the capital of France?",
                 "https://hooks.slack.com/resp",
-                "U1", "C1",
+                "U1",
+                "C1",
             )
             slack_handler._post_to_response_url.assert_called_once()
             payload = slack_handler._post_to_response_url.call_args[0][1]
@@ -1571,7 +1673,9 @@ class TestRunGauntletAsync:
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._run_gauntlet_async(
                 "Test statement for validation",
-                "https://hooks.slack.com/resp", "U1", "C1",
+                "https://hooks.slack.com/resp",
+                "U1",
+                "C1",
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
             assert "blocks" in payload
@@ -1599,7 +1703,10 @@ class TestRunGauntletAsync:
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._run_gauntlet_async(
-                "Weak statement here!", "https://hooks.slack.com/resp", "U1", "C1",
+                "Weak statement here!",
+                "https://hooks.slack.com/resp",
+                "U1",
+                "C1",
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
             blocks_text = json.dumps(payload.get("blocks", []))
@@ -1628,7 +1735,9 @@ class TestRunGauntletAsync:
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._run_gauntlet_async(
                 "Statement with many issues",
-                "https://hooks.slack.com/resp", "U1", "C1",
+                "https://hooks.slack.com/resp",
+                "U1",
+                "C1",
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
             blocks_text = json.dumps(payload.get("blocks", []))
@@ -1650,7 +1759,9 @@ class TestRunGauntletAsync:
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._run_gauntlet_async(
                 "Some statement here",
-                "https://hooks.slack.com/resp", "U1", "C1",
+                "https://hooks.slack.com/resp",
+                "U1",
+                "C1",
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
             assert "failed" in payload["text"].lower()
@@ -1671,7 +1782,9 @@ class TestRunGauntletAsync:
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._run_gauntlet_async(
                 "Some statement here",
-                "https://hooks.slack.com/resp", "U1", "C1",
+                "https://hooks.slack.com/resp",
+                "U1",
+                "C1",
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
             assert "failed" in payload["text"].lower()
@@ -1697,7 +1810,9 @@ class TestRunGauntletAsync:
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._run_gauntlet_async(
                 "Valid statement for gauntlet run",
-                "https://hooks.slack.com/resp", "U1", "C1",
+                "https://hooks.slack.com/resp",
+                "U1",
+                "C1",
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
             blocks_text = json.dumps(payload.get("blocks", []))
@@ -1721,6 +1836,7 @@ class TestCreateDebateAsync:
 
         try:
             from aragora.server.handlers.social._slack_impl import blocks as blocks_mod
+
             monkeypatch.setattr(blocks_mod, "SLACK_BOT_TOKEN", None)
         except (ImportError, AttributeError):
             pass
@@ -1765,7 +1881,9 @@ class TestCreateDebateAsync:
                                 await slack_handler._create_debate_async(
                                     "Should AI be regulated?",
                                     "https://hooks.slack.com/resp",
-                                    "U1", "C1", "WS1",
+                                    "U1",
+                                    "C1",
+                                    "WS1",
                                 )
 
         assert slack_handler._post_to_response_url.call_count >= 1
@@ -1777,6 +1895,7 @@ class TestCreateDebateAsync:
 
         try:
             from aragora.server.handlers.social._slack_impl import blocks as blocks_mod
+
             monkeypatch.setattr(blocks_mod, "SLACK_BOT_TOKEN", None)
         except (ImportError, AttributeError):
             pass
@@ -1803,7 +1922,9 @@ class TestCreateDebateAsync:
                             await slack_handler._create_debate_async(
                                 "Should AI be regulated?",
                                 "https://hooks.slack.com/resp",
-                                "U1", "C1", "WS1",
+                                "U1",
+                                "C1",
+                                "WS1",
                             )
 
         # Should have posted "No agents available" error
@@ -1822,6 +1943,7 @@ class TestCreateDebateAsync:
 
         try:
             from aragora.server.handlers.social._slack_impl import blocks as blocks_mod
+
             monkeypatch.setattr(blocks_mod, "SLACK_BOT_TOKEN", None)
         except (ImportError, AttributeError):
             pass
@@ -1852,7 +1974,9 @@ class TestCreateDebateAsync:
                             await slack_handler._create_debate_async(
                                 "Should AI be regulated?",
                                 "https://hooks.slack.com/resp",
-                                "U1", "C1", "WS1",
+                                "U1",
+                                "C1",
+                                "WS1",
                             )
 
         # Should have posted error message
@@ -1864,8 +1988,7 @@ class TestCreateDebateAsync:
         assert found_error
         # Should update debate status to failed
         status_calls = [
-            c for c in slack_handler._update_debate_status.call_args_list
-            if c[0][1] == "failed"
+            c for c in slack_handler._update_debate_status.call_args_list if c[0][1] == "failed"
         ]
         assert len(status_calls) >= 1
 
@@ -1948,7 +2071,9 @@ class TestEdgeCases:
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
         result = slack_handler._command_debate(
             "Important decision topic for the team",
-            "U1", "C1", "https://hooks.slack.com/x",
+            "U1",
+            "C1",
+            "https://hooks.slack.com/x",
             decision_integrity={"include_receipt": True, "include_plan": False},
         )
         body = _body(result)
@@ -1958,8 +2083,11 @@ class TestEdgeCases:
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
         result = slack_handler._command_gauntlet(
             "This company should invest heavily in quantum computing",
-            "U1", "C1", "https://hooks.slack.com/x",
-            workspace=MagicMock(), team_id="T001",
+            "U1",
+            "C1",
+            "https://hooks.slack.com/x",
+            workspace=MagicMock(),
+            team_id="T001",
         )
         body = _body(result)
         assert body["response_type"] == "in_channel"
@@ -1968,8 +2096,11 @@ class TestEdgeCases:
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
         result = slack_handler._command_ask(
             "What are best practices for scaling databases?",
-            "U1", "C1", "https://hooks.slack.com/x",
-            workspace=MagicMock(), team_id="T001",
+            "U1",
+            "C1",
+            "https://hooks.slack.com/x",
+            workspace=MagicMock(),
+            team_id="T001",
         )
         body = _body(result)
         assert body["response_type"] == "in_channel"

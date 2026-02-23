@@ -59,7 +59,9 @@ def _reset_storage():
     runs = get_gauntlet_runs()
     runs.clear()
     # Reset broadcast fn
-    set_gauntlet_broadcast_fn.__wrapped__ if hasattr(set_gauntlet_broadcast_fn, "__wrapped__") else None
+    set_gauntlet_broadcast_fn.__wrapped__ if hasattr(
+        set_gauntlet_broadcast_fn, "__wrapped__"
+    ) else None
     storage_module._gauntlet_broadcast_fn = None
     # Reset storage singleton
     storage_module._storage = None
@@ -278,9 +280,7 @@ class TestGetStorage:
     def test_creates_new_when_none(self):
         """Creates new instance when _storage is None."""
         assert storage_module._storage is None
-        with patch(
-            "aragora.gauntlet.storage.GauntletStorage"
-        ) as MockStorage:
+        with patch("aragora.gauntlet.storage.GauntletStorage") as MockStorage:
             mock_instance = MagicMock()
             MockStorage.return_value = mock_instance
             from aragora.server.handlers.gauntlet.storage import _get_storage
@@ -313,7 +313,10 @@ class TestHandleTaskException:
         task.exception.return_value = ValueError("test error")
         with caplog.at_level(logging.ERROR):
             _handle_task_exception(task, "test-task")
-        assert any("failed" in r.message.lower() or "exception" in r.message.lower() for r in caplog.records)
+        assert any(
+            "failed" in r.message.lower() or "exception" in r.message.lower()
+            for r in caplog.records
+        )
 
     def test_successful_task_no_log(self, caplog):
         """Successful tasks (no exception, not cancelled) produce no logs."""
@@ -437,7 +440,9 @@ class TestCleanupGauntletRuns:
     def test_removes_completed_entries_older_than_ttl(self):
         """Completed entries older than COMPLETED_TTL are removed."""
         runs = get_gauntlet_runs()
-        old_completed_time = datetime.now(timezone.utc) - timedelta(seconds=_GAUNTLET_COMPLETED_TTL + 100)
+        old_completed_time = datetime.now(timezone.utc) - timedelta(
+            seconds=_GAUNTLET_COMPLETED_TTL + 100
+        )
         runs["completed-old"] = {
             "created_at": time.time(),  # Within max age
             "status": "completed",
@@ -548,7 +553,11 @@ class TestCleanupGauntletRuns:
         runs["old-1"] = {"created_at": old_time, "status": "running"}
         runs["new-1"] = {"created_at": time.time(), "status": "running"}
         runs["old-2"] = {"created_at": old_time, "status": "running"}
-        runs["new-2"] = {"created_at": time.time(), "status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
+        runs["new-2"] = {
+            "created_at": time.time(),
+            "status": "completed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        }
         _cleanup_gauntlet_runs()
         assert "old-1" not in runs
         assert "old-2" not in runs
@@ -559,7 +568,9 @@ class TestCleanupGauntletRuns:
         """Completed entries within max age but over completed TTL get removed."""
         runs = get_gauntlet_runs()
         # Created recently (within max age) but completed long ago (over TTL)
-        completed_time = datetime.now(timezone.utc) - timedelta(seconds=_GAUNTLET_COMPLETED_TTL + 500)
+        completed_time = datetime.now(timezone.utc) - timedelta(
+            seconds=_GAUNTLET_COMPLETED_TTL + 500
+        )
         runs["old-completed"] = {
             "created_at": time.time(),  # Recent creation
             "status": "completed",
@@ -937,7 +948,9 @@ class TestCleanupEdgeCases:
         runs["running-old"] = {
             "created_at": time.time(),  # Within max age
             "status": "running",
-            "completed_at": (datetime.now(timezone.utc) - timedelta(seconds=_GAUNTLET_COMPLETED_TTL + 500)).isoformat(),
+            "completed_at": (
+                datetime.now(timezone.utc) - timedelta(seconds=_GAUNTLET_COMPLETED_TTL + 500)
+            ).isoformat(),
         }
         _cleanup_gauntlet_runs()
         assert "running-old" in runs
@@ -977,7 +990,11 @@ class TestStorageIntegration:
         # Add some old runs
         old_time = time.time() - _GAUNTLET_MAX_AGE_SECONDS - 200
         runs["old-a"] = {"created_at": old_time, "status": "running"}
-        runs["old-b"] = {"created_at": old_time, "status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
+        runs["old-b"] = {
+            "created_at": old_time,
+            "status": "completed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        }
         # Add a fresh run
         runs["fresh-c"] = {"created_at": time.time(), "status": "running"}
 
@@ -1021,7 +1038,9 @@ class TestStorageIntegration:
         mock_run.agents = []
         mock_run.profile = "quick"
         # Created very long ago
-        mock_run.created_at = datetime.now(timezone.utc) - timedelta(seconds=_GAUNTLET_MAX_AGE_SECONDS + 1000)
+        mock_run.created_at = datetime.now(timezone.utc) - timedelta(
+            seconds=_GAUNTLET_MAX_AGE_SECONDS + 1000
+        )
 
         mock_storage = MagicMock()
         mock_storage.list_stale_inflight.return_value = [mock_run]

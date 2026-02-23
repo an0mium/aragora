@@ -363,8 +363,12 @@ class TestCompare:
         assert delta.test_coverage_delta is None
 
     def test_custom_metric_deltas(self):
-        baseline = MetricSnapshot(tests_passed=10, tests_failed=0, custom={"complexity": 5.0, "debt": 10.0})
-        after = MetricSnapshot(tests_passed=10, tests_failed=0, custom={"complexity": 3.0, "new_metric": 1.0})
+        baseline = MetricSnapshot(
+            tests_passed=10, tests_failed=0, custom={"complexity": 5.0, "debt": 10.0}
+        )
+        after = MetricSnapshot(
+            tests_passed=10, tests_failed=0, custom={"complexity": 3.0, "new_metric": 1.0}
+        )
         delta = self.collector.compare(baseline, after)
 
         assert delta.custom_deltas["complexity"] == pytest.approx(-2.0)

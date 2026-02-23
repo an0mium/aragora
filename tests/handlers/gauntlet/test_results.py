@@ -74,10 +74,12 @@ class FakePersona:
     name: str = "GDPR Auditor"
     description: str = "Tests GDPR compliance"
     regulation: str = "GDPR"
-    attack_prompts: list = field(default_factory=lambda: [
-        type("AP", (), {"category": "data_retention"})(),
-        type("AP", (), {"category": "consent"})(),
-    ])
+    attack_prompts: list = field(
+        default_factory=lambda: [
+            type("AP", (), {"category": "data_retention"})(),
+            type("AP", (), {"category": "consent"})(),
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +89,7 @@ class FakePersona:
 
 class _Stub(GauntletResultsMixin):
     """Minimal concrete class that mixes in GauntletResultsMixin."""
+
     pass
 
 
@@ -141,14 +144,17 @@ class TestListPersonas:
     """Tests for _list_personas endpoint."""
 
     def test_returns_personas_list(self, mixin):
-        with patch(
-            "aragora.server.handlers.gauntlet.results.list_personas",
-            return_value=["gdpr"],
-            create=True,
-        ), patch(
-            "aragora.server.handlers.gauntlet.results.get_persona",
-            return_value=FakePersona(),
-            create=True,
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.results.list_personas",
+                return_value=["gdpr"],
+                create=True,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.results.get_persona",
+                return_value=FakePersona(),
+                create=True,
+            ),
         ):
             # The import is inside the method so we patch at the import site
             with patch.dict(
@@ -349,7 +355,10 @@ class TestListResults:
         assert data["limit"] == 5
         assert data["offset"] == 10
         mock_storage.list_recent.assert_called_once_with(
-            limit=5, offset=10, verdict=None, min_severity=None,
+            limit=5,
+            offset=10,
+            verdict=None,
+            min_severity=None,
         )
 
     def test_limit_clamped_to_max_100(self, mixin, mock_storage):
@@ -374,7 +383,10 @@ class TestListResults:
         mock_storage.list_recent.return_value = []
         mixin._list_results({"verdict": "APPROVED"})
         mock_storage.list_recent.assert_called_once_with(
-            limit=20, offset=0, verdict="APPROVED", min_severity=None,
+            limit=20,
+            offset=0,
+            verdict="APPROVED",
+            min_severity=None,
         )
         mock_storage.count.assert_called_once_with(verdict="APPROVED")
 
@@ -382,7 +394,10 @@ class TestListResults:
         mock_storage.list_recent.return_value = []
         mixin._list_results({"min_severity": "high"})
         mock_storage.list_recent.assert_called_once_with(
-            limit=20, offset=0, verdict=None, min_severity="high",
+            limit=20,
+            offset=0,
+            verdict=None,
+            min_severity="high",
         )
 
     def test_input_summary_truncation(self, mixin, mock_storage):
@@ -455,9 +470,7 @@ class TestCompareResults:
     """Tests for _compare_results endpoint."""
 
     def test_compare_success(self, mixin, mock_storage):
-        mock_storage.compare.return_value = {
-            "id1": "a", "id2": "b", "diff": {"score_delta": 0.1}
-        }
+        mock_storage.compare.return_value = {"id1": "a", "id2": "b", "diff": {"score_delta": 0.1}}
         result = mixin._compare_results("a", "b", {})
         assert result.status_code == 200
         data = _parse(result)
@@ -856,8 +869,7 @@ class TestExportReportHeatmap:
         result = await mixin._export_report("hm-5", {})
         data = _parse(result)
         low_cell = next(
-            c for c in data["heatmap"]["cells"]
-            if c["severity"] == "low" and c["category"] == "net"
+            c for c in data["heatmap"]["cells"] if c["severity"] == "low" and c["category"] == "net"
         )
         assert low_cell["count"] == 1
 
@@ -986,7 +998,12 @@ class TestExportReportHTML:
         runs = get_gauntlet_runs()
         run = self._make_run("many-f")
         run["result"]["findings"] = [
-            {"category": f"cat-{i}", "severity_level": "medium", "title": f"F{i}", "description": "d"}
+            {
+                "category": f"cat-{i}",
+                "severity_level": "medium",
+                "title": f"F{i}",
+                "description": "d",
+            }
             for i in range(30)
         ]
         run["result"]["total_findings"] = 30
@@ -1000,7 +1017,9 @@ class TestExportReportHTML:
     async def test_html_no_findings_section_when_excluded(self, mixin):
         runs = get_gauntlet_runs()
         runs["nfh-1"] = self._make_run("nfh-1")
-        result = await mixin._export_report("nfh-1", {"format": "html", "include_findings": "false"})
+        result = await mixin._export_report(
+            "nfh-1", {"format": "html", "include_findings": "false"}
+        )
         body = result.body.decode("utf-8")
         assert "Findings Detail" not in body
 
@@ -1037,10 +1056,18 @@ class TestExportReportEnhanced:
         runs["enh-1"] = {
             "gauntlet_id": "enh-1",
             "status": "completed",
-            "result": {"verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-                       "risk_score": 0.1, "coverage_score": 0.9,
-                       "total_findings": 0, "critical_count": 0, "high_count": 0,
-                       "medium_count": 0, "low_count": 0},
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.9,
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+            },
             "result_obj": result_obj,
         }
         result = await mixin._export_report("enh-1", {})
@@ -1065,10 +1092,18 @@ class TestExportReportEnhanced:
         runs["enh-2"] = {
             "gauntlet_id": "enh-2",
             "status": "completed",
-            "result": {"verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-                       "risk_score": 0.1, "coverage_score": 0.9,
-                       "total_findings": 0, "critical_count": 0, "high_count": 0,
-                       "medium_count": 0, "low_count": 0},
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.9,
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+            },
             "result_obj": result_obj,
         }
         result = await mixin._export_report("enh-2", {})
@@ -1092,10 +1127,18 @@ class TestExportReportEnhanced:
         runs["enh-3"] = {
             "gauntlet_id": "enh-3",
             "status": "completed",
-            "result": {"verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-                       "risk_score": 0.1, "coverage_score": 0.9,
-                       "total_findings": 0, "critical_count": 0, "high_count": 0,
-                       "medium_count": 0, "low_count": 0},
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.9,
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+            },
             "result_obj": result_obj,
         }
         result = await mixin._export_report("enh-3", {})
@@ -1106,10 +1149,16 @@ class TestExportReportEnhanced:
     async def test_no_enhanced_when_no_result_obj(self, mixin, mock_storage):
         """When loading from storage, no result_obj exists so no enhanced data."""
         mock_storage.get.return_value = {
-            "verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-            "risk_score": 0.1, "coverage_score": 0.9,
-            "total_findings": 0, "critical_count": 0, "high_count": 0,
-            "medium_count": 0, "low_count": 0,
+            "verdict": "APPROVED",
+            "confidence": 0.9,
+            "robustness_score": 0.9,
+            "risk_score": 0.1,
+            "coverage_score": 0.9,
+            "total_findings": 0,
+            "critical_count": 0,
+            "high_count": 0,
+            "medium_count": 0,
+            "low_count": 0,
         }
         result = await mixin._export_report("no-enh", {"format": "json"})
         data = _parse(result)
@@ -1124,10 +1173,18 @@ class TestExportReportEnhanced:
         runs["enh-4"] = {
             "gauntlet_id": "enh-4",
             "status": "completed",
-            "result": {"verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-                       "risk_score": 0.1, "coverage_score": 0.9,
-                       "total_findings": 0, "critical_count": 0, "high_count": 0,
-                       "medium_count": 0, "low_count": 0},
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.9,
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+            },
             "result_obj": result_obj,
         }
         result = await mixin._export_report("enh-4", {})
@@ -1149,10 +1206,18 @@ class TestExportReportMetadata:
         runs["meta-1"] = {
             "gauntlet_id": "meta-1",
             "status": "completed",
-            "result": {"verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-                       "risk_score": 0.1, "coverage_score": 0.9,
-                       "total_findings": 0, "critical_count": 0, "high_count": 0,
-                       "medium_count": 0, "low_count": 0},
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.9,
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+            },
             "input_summary": "my input",
             "input_type": "code",
             "input_hash": "abc",
@@ -1170,10 +1235,16 @@ class TestExportReportMetadata:
     @pytest.mark.asyncio
     async def test_input_from_storage(self, mixin, mock_storage):
         mock_storage.get.return_value = {
-            "verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-            "risk_score": 0.1, "coverage_score": 0.9,
-            "total_findings": 0, "critical_count": 0, "high_count": 0,
-            "medium_count": 0, "low_count": 0,
+            "verdict": "APPROVED",
+            "confidence": 0.9,
+            "robustness_score": 0.9,
+            "risk_score": 0.1,
+            "coverage_score": 0.9,
+            "total_findings": 0,
+            "critical_count": 0,
+            "high_count": 0,
+            "medium_count": 0,
+            "low_count": 0,
             "input_summary": "stored summary",
             "input_type": "text",
             "input_hash": "def",
@@ -1190,10 +1261,18 @@ class TestExportReportMetadata:
         runs["gen-1"] = {
             "gauntlet_id": "gen-1",
             "status": "completed",
-            "result": {"verdict": "APPROVED", "confidence": 0.9, "robustness_score": 0.9,
-                       "risk_score": 0.1, "coverage_score": 0.9,
-                       "total_findings": 0, "critical_count": 0, "high_count": 0,
-                       "medium_count": 0, "low_count": 0},
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.9,
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+            },
         }
         result = await mixin._export_report("gen-1", {})
         data = _parse(result)

@@ -581,9 +581,7 @@ class TestGetGenesisEvents:
     def test_db_error_returns_500(self, handler, http_handler):
         with (
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
-            patch(
-                "aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("DB down")
-            ),
+            patch("aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("DB down")),
         ):
             result = handler.handle("/api/genesis/events", {}, http_handler)
         assert result.status_code == 500
@@ -677,9 +675,7 @@ class TestGetGenomes:
     def test_db_error_returns_500(self, handler, http_handler):
         with (
             patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True),
-            patch(
-                "aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("disk full")
-            ),
+            patch("aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("disk full")),
         ):
             result = handler.handle("/api/genesis/genomes", {}, http_handler)
         assert result.status_code == 500
@@ -797,9 +793,7 @@ class TestGetGenomeById:
     def test_db_error_returns_500(self, handler, http_handler):
         with (
             patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True),
-            patch(
-                "aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("corrupted")
-            ),
+            patch("aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("corrupted")),
         ):
             result = handler.handle("/api/genesis/genomes/valid_id", {}, http_handler)
         assert result.status_code == 500
@@ -986,9 +980,7 @@ class TestGetGenomeLineage:
     def test_db_error_returns_500(self, handler, http_handler):
         with (
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
-            patch(
-                "aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("corrupt")
-            ),
+            patch("aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("corrupt")),
         ):
             result = handler.handle("/api/genesis/lineage/valid_id", {}, http_handler)
         assert result.status_code == 500

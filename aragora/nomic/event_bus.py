@@ -50,15 +50,17 @@ class WorktreeEvent:
 
 
 # Valid event types
-VALID_EVENT_TYPES = frozenset({
-    "task_claimed",
-    "task_completed",
-    "conflict_detected",
-    "sync_requested",
-    "merge_ready",
-    "merge_completed",
-    "error",
-})
+VALID_EVENT_TYPES = frozenset(
+    {
+        "task_claimed",
+        "task_completed",
+        "conflict_detected",
+        "sync_requested",
+        "merge_ready",
+        "merge_completed",
+        "error",
+    }
+)
 
 
 class EventBus:
@@ -122,7 +124,9 @@ class EventBus:
 
         logger.info(
             "event_published type=%s track=%s id=%s",
-            event_type, track, event.event_id,
+            event_type,
+            track,
+            event.event_id,
         )
         return event
 

@@ -155,7 +155,10 @@ def cmd_worktree(args: argparse.Namespace) -> None:
             wt_path = coordinator.get_worktree_path(branch) or repo_path
             result = subprocess.run(
                 ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
-                cwd=wt_path, capture_output=True, text=True, check=False,
+                cwd=wt_path,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.returncode != 0:
                 print("Tests FAILED. Aborting merge.")
@@ -178,8 +181,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     elif action == "merge-all":
         worktrees = coordinator.list_worktrees()
         branches = [
-            wt.branch_name for wt in worktrees
-            if wt.branch_name not in (base_branch, "main")
+            wt.branch_name for wt in worktrees if wt.branch_name not in (base_branch, "main")
         ]
         if not branches:
             print("No branches to merge.")
@@ -192,7 +194,10 @@ def cmd_worktree(args: argparse.Namespace) -> None:
                 wt_path = coordinator.get_worktree_path(branch) or repo_path
                 result = subprocess.run(
                     ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
-                    cwd=wt_path, capture_output=True, text=True, check=False,
+                    cwd=wt_path,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 if result.returncode != 0:
                     print("  Tests FAILED, skipping.")
@@ -212,8 +217,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     elif action == "conflicts":
         worktrees = coordinator.list_worktrees()
         branches = [
-            wt.branch_name for wt in worktrees
-            if wt.branch_name not in (base_branch, "main")
+            wt.branch_name for wt in worktrees if wt.branch_name not in (base_branch, "main")
         ]
         if not branches:
             print("No active branches.")

@@ -227,11 +227,15 @@ class TestTrackerProperty:
         ) as mock_cls:
             # We need to patch the import inside the property
             import importlib
-            with patch.dict("sys.modules", {
-                "aragora.memory.tier_analytics": MagicMock(
-                    TierAnalyticsTracker=lambda db_path: mock_tracker
-                )
-            }):
+
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.memory.tier_analytics": MagicMock(
+                        TierAnalyticsTracker=lambda db_path: mock_tracker
+                    )
+                },
+            ):
                 handler._tracker = None
                 result = handler.tracker
                 assert result is mock_tracker
@@ -253,11 +257,14 @@ class TestTrackerProperty:
         """Tracker uses analytics_db path from context."""
         mock_tracker = MagicMock()
         h = MemoryAnalyticsHandler(ctx={"analytics_db": "/custom/path.db"})
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_analytics": MagicMock(
-                TierAnalyticsTracker=MagicMock(return_value=mock_tracker)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.memory.tier_analytics": MagicMock(
+                    TierAnalyticsTracker=MagicMock(return_value=mock_tracker)
+                )
+            },
+        ):
             result = h.tracker
             assert result is mock_tracker
 
@@ -265,11 +272,10 @@ class TestTrackerProperty:
         """When analytics_db not in ctx, defaults to memory_analytics.db."""
         mock_cls = MagicMock()
         h = MemoryAnalyticsHandler(ctx={})
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_analytics": MagicMock(
-                TierAnalyticsTracker=mock_cls
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {"aragora.memory.tier_analytics": MagicMock(TierAnalyticsTracker=mock_cls)},
+        ):
             h.tracker
             mock_cls.assert_called_once_with(db_path="memory_analytics.db")
 
@@ -312,15 +318,16 @@ class TestGetAnalytics:
             assert _status(result) == 503
             assert "not available" in _body(result).get("error", "")
 
-    def test_get_analytics_via_handle(self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler):
+    def test_get_analytics_via_handle(
+        self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
+    ):
         mock_tracker = MagicMock()
         mock_tracker.get_analytics.return_value = _mock_analytics()
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {}, mock_http)
-        )
+
+        result = asyncio.run(handler.handle("/api/v1/memory/analytics", {}, mock_http))
 
         assert _status(result) == 200
         body = _body(result)
@@ -334,9 +341,8 @@ class TestGetAnalytics:
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {"days": "7"}, mock_http)
-        )
+
+        result = asyncio.run(handler.handle("/api/v1/memory/analytics", {"days": "7"}, mock_http))
 
         assert _status(result) == 200
         mock_tracker.get_analytics.assert_called_once_with(days=7)
@@ -355,9 +361,9 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             result = handler._get_tier_stats("fast", 30)
 
         assert _status(result) == 200
@@ -371,9 +377,9 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             result = handler._get_tier_stats("FAST", 30)
 
         assert _status(result) == 200
@@ -383,9 +389,9 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             result = handler._get_tier_stats("medium", 30)
 
         assert _status(result) == 200
@@ -395,9 +401,9 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             result = handler._get_tier_stats("slow", 30)
 
         assert _status(result) == 200
@@ -407,9 +413,9 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             result = handler._get_tier_stats("glacial", 30)
 
         assert _status(result) == 200
@@ -418,9 +424,9 @@ class TestGetTierStats:
         mock_tracker = MagicMock()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             result = handler._get_tier_stats("nonexistent", 30)
 
         assert _status(result) == 400
@@ -449,14 +455,12 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             handler._get_tier_stats("fast", 90)
 
-        mock_tracker.get_tier_stats.assert_called_once_with(
-            _MockMemoryTier.FAST, days=90
-        )
+        mock_tracker.get_tier_stats.assert_called_once_with(_MockMemoryTier.FAST, days=90)
 
     def test_get_tier_stats_via_handle(
         self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
@@ -465,14 +469,13 @@ class TestGetTierStats:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             import asyncio
+
             result = asyncio.run(
-                handler.handle(
-                    "/api/v1/memory/analytics/tier/fast", {}, mock_http
-                )
+                handler.handle("/api/v1/memory/analytics/tier/fast", {}, mock_http)
             )
 
         assert _status(result) == 200
@@ -512,10 +515,9 @@ class TestTakeSnapshot:
         handler._tracker = mock_tracker
 
         import asyncio
+
         result = asyncio.run(
-            handler.handle_post(
-                "/api/v1/memory/analytics/snapshot", {}, mock_http
-            )
+            handler.handle_post("/api/v1/memory/analytics/snapshot", {}, mock_http)
         )
 
         assert _status(result) == 200
@@ -526,11 +528,8 @@ class TestTakeSnapshot:
         self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
     ):
         import asyncio
-        result = asyncio.run(
-            handler.handle_post(
-                "/api/v1/memory/analytics/unknown", {}, mock_http
-            )
-        )
+
+        result = asyncio.run(handler.handle_post("/api/v1/memory/analytics/unknown", {}, mock_http))
         assert result is None
 
 
@@ -543,15 +542,14 @@ class TestRateLimiting:
     """Test rate limiting on the handle() method."""
 
     @pytest.mark.no_auto_auth
-    def test_rate_limit_exceeded_returns_429(self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler):
+    def test_rate_limit_exceeded_returns_429(
+        self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
+    ):
         """When rate limiter denies request, returns 429."""
-        with patch.object(
-            _memory_analytics_limiter, "is_allowed", return_value=False
-        ):
+        with patch.object(_memory_analytics_limiter, "is_allowed", return_value=False):
             import asyncio
-            result = asyncio.run(
-                handler.handle("/api/v1/memory/analytics", {}, mock_http)
-            )
+
+            result = asyncio.run(handler.handle("/api/v1/memory/analytics", {}, mock_http))
             assert _status(result) == 429
             assert "Rate limit" in _body(result).get("error", "")
 
@@ -563,13 +561,10 @@ class TestRateLimiting:
         mock_tracker.get_analytics.return_value = _mock_analytics()
         handler._tracker = mock_tracker
 
-        with patch.object(
-            _memory_analytics_limiter, "is_allowed", return_value=True
-        ):
+        with patch.object(_memory_analytics_limiter, "is_allowed", return_value=True):
             import asyncio
-            result = asyncio.run(
-                handler.handle("/api/v1/memory/analytics", {}, mock_http)
-            )
+
+            result = asyncio.run(handler.handle("/api/v1/memory/analytics", {}, mock_http))
             assert _status(result) == 200
 
 
@@ -592,9 +587,8 @@ class TestRBAC:
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
             import asyncio
-            result = asyncio.run(
-                h.handle("/api/v1/memory/analytics", {}, mock_http)
-            )
+
+            result = asyncio.run(h.handle("/api/v1/memory/analytics", {}, mock_http))
             assert _status(result) == 401
             assert "Authentication required" in _body(result).get("error", "")
 
@@ -610,12 +604,13 @@ class TestRBAC:
         def raise_forbidden(self, auth_ctx, perm, resource_id=None):
             raise ForbiddenError("No permission")
 
-        with patch.object(SecureHandler, "get_auth_context", mock_auth), \
-             patch.object(SecureHandler, "check_permission", raise_forbidden):
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_auth),
+            patch.object(SecureHandler, "check_permission", raise_forbidden),
+        ):
             import asyncio
-            result = asyncio.run(
-                h.handle("/api/v1/memory/analytics", {}, mock_http)
-            )
+
+            result = asyncio.run(h.handle("/api/v1/memory/analytics", {}, mock_http))
             assert _status(result) == 403
             assert "Permission denied" in _body(result).get("error", "")
 
@@ -630,11 +625,8 @@ class TestRBAC:
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
             import asyncio
-            result = asyncio.run(
-                h.handle_post(
-                    "/api/v1/memory/analytics/snapshot", {}, mock_http
-                )
-            )
+
+            result = asyncio.run(h.handle_post("/api/v1/memory/analytics/snapshot", {}, mock_http))
             assert _status(result) == 401
 
     @pytest.mark.no_auto_auth
@@ -649,14 +641,13 @@ class TestRBAC:
         def raise_forbidden(self, auth_ctx, perm, resource_id=None):
             raise ForbiddenError("No permission")
 
-        with patch.object(SecureHandler, "get_auth_context", mock_auth), \
-             patch.object(SecureHandler, "check_permission", raise_forbidden):
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_auth),
+            patch.object(SecureHandler, "check_permission", raise_forbidden),
+        ):
             import asyncio
-            result = asyncio.run(
-                h.handle_post(
-                    "/api/v1/memory/analytics/snapshot", {}, mock_http
-                )
-            )
+
+            result = asyncio.run(h.handle_post("/api/v1/memory/analytics/snapshot", {}, mock_http))
             assert _status(result) == 403
 
 
@@ -672,9 +663,8 @@ class TestHandleRouting:
         self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
     ):
         import asyncio
-        result = asyncio.run(
-            handler.handle("/api/v1/memory/analytics/unknown", {}, mock_http)
-        )
+
+        result = asyncio.run(handler.handle("/api/v1/memory/analytics/unknown", {}, mock_http))
         assert result is None
 
     def test_handle_tier_path_extracts_tier_name(
@@ -685,20 +675,17 @@ class TestHandleRouting:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             import asyncio
+
             result = asyncio.run(
-                handler.handle(
-                    "/api/v1/memory/analytics/tier/glacial", {"days": "14"}, mock_http
-                )
+                handler.handle("/api/v1/memory/analytics/tier/glacial", {"days": "14"}, mock_http)
             )
 
         assert _status(result) == 200
-        mock_tracker.get_tier_stats.assert_called_once_with(
-            _MockMemoryTier.GLACIAL, days=14
-        )
+        mock_tracker.get_tier_stats.assert_called_once_with(_MockMemoryTier.GLACIAL, days=14)
 
     def test_handle_null_handler_rate_limit(self, handler: MemoryAnalyticsHandler):
         """When handler is None, get_client_ip returns 'unknown'."""
@@ -707,9 +694,8 @@ class TestHandleRouting:
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {}, None)
-        )
+
+        result = asyncio.run(handler.handle("/api/v1/memory/analytics", {}, None))
         assert _status(result) == 200
 
 
@@ -721,17 +707,14 @@ class TestHandleRouting:
 class TestDaysClamping:
     """Test days parameter is clamped to [1, 365]."""
 
-    def test_days_defaults_to_30(
-        self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
-    ):
+    def test_days_defaults_to_30(self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler):
         mock_tracker = MagicMock()
         mock_tracker.get_analytics.return_value = _mock_analytics()
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {}, mock_http)
-        )
+
+        asyncio.run(handler.handle("/api/v1/memory/analytics", {}, mock_http))
         mock_tracker.get_analytics.assert_called_once_with(days=30)
 
     def test_days_clamped_to_min_1(
@@ -742,9 +725,8 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {"days": "0"}, mock_http)
-        )
+
+        asyncio.run(handler.handle("/api/v1/memory/analytics", {"days": "0"}, mock_http))
         mock_tracker.get_analytics.assert_called_once_with(days=1)
 
     def test_days_clamped_to_max_365(
@@ -755,9 +737,8 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {"days": "999"}, mock_http)
-        )
+
+        asyncio.run(handler.handle("/api/v1/memory/analytics", {"days": "999"}, mock_http))
         mock_tracker.get_analytics.assert_called_once_with(days=365)
 
     def test_days_negative_clamped_to_1(
@@ -768,9 +749,8 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.run(
-            handler.handle("/api/v1/memory/analytics", {"days": "-5"}, mock_http)
-        )
+
+        asyncio.run(handler.handle("/api/v1/memory/analytics", {"days": "-5"}, mock_http))
         mock_tracker.get_analytics.assert_called_once_with(days=1)
 
     def test_days_clamped_for_tier_route(
@@ -780,19 +760,16 @@ class TestDaysClamping:
         mock_tracker.get_tier_stats.return_value = _mock_tier_stats()
         handler._tracker = mock_tracker
 
-        with patch.dict("sys.modules", {
-            "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
-        }):
+        with patch.dict(
+            "sys.modules", {"aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)}
+        ):
             import asyncio
+
             asyncio.run(
-                handler.handle(
-                    "/api/v1/memory/analytics/tier/fast", {"days": "500"}, mock_http
-                )
+                handler.handle("/api/v1/memory/analytics/tier/fast", {"days": "500"}, mock_http)
             )
 
-        mock_tracker.get_tier_stats.assert_called_once_with(
-            _MockMemoryTier.FAST, days=365
-        )
+        mock_tracker.get_tier_stats.assert_called_once_with(_MockMemoryTier.FAST, days=365)
 
 
 # ---------------------------------------------------------------------------

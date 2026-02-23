@@ -472,25 +472,19 @@ class TestGdprRTBF:
     @pytest.mark.asyncio
     async def test_rtbf_returns_200(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_rtbf_missing_user_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_rtbf_response_fields(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         assert body["user_id"] == "user-1"
         assert body["status"] == "scheduled"
@@ -499,23 +493,15 @@ class TestGdprRTBF:
 
     @pytest.mark.asyncio
     async def test_rtbf_custom_grace_period(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "grace_period_days": 60}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "grace_period_days": 60})
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         assert body["grace_period_days"] == 60
 
     @pytest.mark.asyncio
     async def test_rtbf_no_export(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "include_export": False}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "include_export": False})
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         assert "export_url" not in body
 
@@ -531,17 +517,13 @@ class TestGdprListDeletions:
     @pytest.mark.asyncio
     async def test_list_deletions_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_list_deletions_response_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         body = _body(result)
         assert "deletions" in body
         assert "count" in body
@@ -559,9 +541,7 @@ class TestGdprGetDeletion:
     @pytest.mark.asyncio
     async def test_get_deletion_not_found(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/del-999", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/del-999", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -577,9 +557,7 @@ class TestGdprGetDeletion:
         )
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "deletion" in body
@@ -643,17 +621,13 @@ class TestLegalHolds:
     @pytest.mark.asyncio
     async def test_list_legal_holds_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_list_legal_holds_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         body = _body(result)
         assert "legal_holds" in body
         assert "count" in body
@@ -661,17 +635,13 @@ class TestLegalHolds:
     @pytest.mark.asyncio
     async def test_create_legal_hold_missing_user_ids(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"reason": "test"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_create_legal_hold_missing_reason(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"]})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -695,12 +665,8 @@ class TestLegalHolds:
             lambda: mock_audit,
         )
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1", "u2"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1", "u2"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         body = _body(result)
         assert body["message"] == "Legal hold created successfully"
@@ -716,9 +682,7 @@ class TestLegalHolds:
 
         mock_h = _MockHTTPHandler("DELETE")
         mock_h.command = "DELETE"
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-999", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-999", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -745,9 +709,7 @@ class TestLegalHolds:
 
         mock_h = _MockHTTPHandler("DELETE")
         mock_h.command = "DELETE"
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["message"] == "Legal hold released successfully"
@@ -764,27 +726,19 @@ class TestCoordinatedDeletion:
     @pytest.mark.asyncio
     async def test_coordinated_deletion_missing_user_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"reason": "GDPR"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_coordinated_deletion_missing_reason(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_coordinated_deletion_success(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "report" in body
@@ -803,12 +757,8 @@ class TestCoordinatedDeletion:
             lambda: mock_mgr,
         )
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 409
 
 
@@ -823,17 +773,13 @@ class TestExecutePending:
     @pytest.mark.asyncio
     async def test_execute_pending_returns_200(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_execute_pending_response_structure(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         body = _body(result)
         assert "summary" in body
         assert "results" in body
@@ -850,17 +796,13 @@ class TestBackupExclusions:
     @pytest.mark.asyncio
     async def test_list_backup_exclusions_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_list_backup_exclusions_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         body = _body(result)
         assert "exclusions" in body
         assert "count" in body
@@ -868,27 +810,19 @@ class TestBackupExclusions:
     @pytest.mark.asyncio
     async def test_add_backup_exclusion_missing_user_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"reason": "GDPR"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_add_backup_exclusion_missing_reason(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_add_backup_exclusion_success(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "reason": "GDPR deletion"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "reason": "GDPR deletion"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 201
         body = _body(result)
         assert body["user_id"] == "user-1"
@@ -905,9 +839,7 @@ class TestAuditVerify:
     @pytest.mark.asyncio
     async def test_audit_verify_empty_body(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/audit-verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-verify", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["verified"] is True
@@ -915,9 +847,7 @@ class TestAuditVerify:
     @pytest.mark.asyncio
     async def test_audit_verify_with_trail_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"trail_id": "trail-001"})
-        result = await handler.handle(
-            "/api/v2/compliance/audit-verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-verify", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "checks" in body
@@ -925,9 +855,7 @@ class TestAuditVerify:
     @pytest.mark.asyncio
     async def test_audit_verify_with_receipt_ids(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"receipt_ids": ["r1", "r2"]})
-        result = await handler.handle(
-            "/api/v2/compliance/audit-verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-verify", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -936,9 +864,7 @@ class TestAuditVerify:
             "POST",
             body={"date_range": {"from": "2025-01-01T00:00:00Z", "to": "2025-12-31T23:59:59Z"}},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/audit-verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-verify", {}, mock_h)
         assert _status(result) == 200
 
 
@@ -953,17 +879,13 @@ class TestAuditEvents:
     @pytest.mark.asyncio
     async def test_audit_events_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_audit_events_json_format(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"format": "json"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"format": "json"}, mock_h)
         body = _body(result)
         assert "events" in body
         assert "count" in body
@@ -1008,9 +930,7 @@ class TestCCPADisclosure:
     @pytest.mark.asyncio
     async def test_disclosure_missing_user_id(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/disclosure", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/disclosure", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1054,18 +974,16 @@ class TestCCPADelete:
 
     @pytest.mark.asyncio
     async def test_delete_missing_user_id(self, handler):
-        mock_h = _MockHTTPHandler("POST", body={"verification_method": "email", "verification_code": "123"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
+        mock_h = _MockHTTPHandler(
+            "POST", body={"verification_method": "email", "verification_code": "123"}
         )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_delete_missing_verification(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1078,9 +996,7 @@ class TestCCPADelete:
                 "verification_code": "123456",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "scheduled"
@@ -1096,9 +1012,7 @@ class TestCCPADelete:
                 "retain_for_exceptions": ["legal_obligations"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/delete", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/delete", {}, mock_h)
         body = _body(result)
         assert body["retained_categories"] == ["legal_obligations"]
 
@@ -1109,40 +1023,28 @@ class TestCCPAOptOut:
     @pytest.mark.asyncio
     async def test_opt_out_missing_user_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_opt_out_success(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "confirmed"
 
     @pytest.mark.asyncio
     async def test_opt_out_both_type(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "opt_out_type": "both"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "opt_out_type": "both"})
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["opt_out_type"] == "both"
 
     @pytest.mark.asyncio
     async def test_opt_out_with_sensitive_pi_limit(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-1", "sensitive_pi_limit": True}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/opt-out", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1", "sensitive_pi_limit": True})
+        result = await handler.handle("/api/v2/compliance/ccpa/opt-out", {}, mock_h)
         body = _body(result)
         assert body["sensitive_pi_limit"] is True
         assert "sensitive personal information" in body["message"]
@@ -1153,20 +1055,14 @@ class TestCCPACorrect:
 
     @pytest.mark.asyncio
     async def test_correct_missing_user_id(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"corrections": [{"field": "name"}]}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"corrections": [{"field": "name"}]})
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_correct_missing_corrections(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1180,9 +1076,7 @@ class TestCCPACorrect:
                 ],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "pending_review"
@@ -1197,9 +1091,7 @@ class TestCCPACorrect:
                 "corrections": [{"field": "ssn", "current_value": "123-45-6789"}],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/correct", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/correct", {}, mock_h)
         body = _body(result)
         assert body["corrections"][0]["current_value"] == "[REDACTED]"
 
@@ -1210,9 +1102,7 @@ class TestCCPAStatus:
     @pytest.mark.asyncio
     async def test_status_missing_user_id(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/ccpa/status", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/ccpa/status", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1246,17 +1136,13 @@ class TestHIPAAStatus:
     @pytest.mark.asyncio
     async def test_hipaa_status_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/status", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/status", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_hipaa_status_contains_framework(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/status", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/status", {}, mock_h)
         body = _body(result)
         assert body["compliance_framework"] == "HIPAA"
         assert "compliance_score" in body
@@ -1265,9 +1151,7 @@ class TestHIPAAStatus:
     @pytest.mark.asyncio
     async def test_hipaa_status_full_scope(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/status", {"scope": "full"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/status", {"scope": "full"}, mock_h)
         body = _body(result)
         assert "safeguard_details" in body
         assert "phi_controls" in body
@@ -1290,17 +1174,13 @@ class TestHIPAAPhiAccess:
     @pytest.mark.asyncio
     async def test_phi_access_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_phi_access_response_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         assert "phi_access_log" in body
         assert "count" in body
@@ -1313,17 +1193,13 @@ class TestHIPAABreachAssessment:
     @pytest.mark.asyncio
     async def test_breach_assessment_missing_incident_id(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"incident_type": "data_leak"})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_breach_assessment_missing_incident_type(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"incident_id": "inc-001"})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1336,9 +1212,7 @@ class TestHIPAABreachAssessment:
                 "phi_involved": False,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["breach_determination"] == "not_applicable"
@@ -1357,9 +1231,7 @@ class TestHIPAABreachAssessment:
                 "affected_individuals": 600,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["breach_determination"] == "presumed_breach"
@@ -1379,9 +1251,7 @@ class TestHIPAABreachAssessment:
                 "mitigation_actions": ["action1", "action2", "action3"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert body["breach_determination"] == "low_probability"
         assert body["notification_required"] is False
@@ -1393,9 +1263,7 @@ class TestHIPAABaa:
     @pytest.mark.asyncio
     async def test_list_baas_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "business_associates" in body
@@ -1405,9 +1273,7 @@ class TestHIPAABaa:
         mock_h = _MockHTTPHandler(
             "POST", body={"ba_type": "vendor", "services_provided": "hosting"}
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1420,19 +1286,13 @@ class TestHIPAABaa:
                 "services_provided": "hosting",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_create_baa_missing_services(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"business_associate": "Acme", "ba_type": "vendor"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"business_associate": "Acme", "ba_type": "vendor"})
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1445,9 +1305,7 @@ class TestHIPAABaa:
                 "services_provided": "Cloud hosting",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 201
         body = _body(result)
         assert body["message"] == "Business Associate Agreement registered"
@@ -1460,17 +1318,13 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_security_report_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_security_report_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert body["report_type"] == "HIPAA Security Rule Compliance"
         assert "safeguards" in body
@@ -1503,26 +1357,20 @@ class TestHIPAADeidentify:
     @pytest.mark.asyncio
     async def test_deidentify_missing_content(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_deidentify_empty_content_and_no_data(self, handler):
         """An empty string is falsy, so both content and data are falsy => 400."""
         mock_h = _MockHTTPHandler("POST", body={"content": ""})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_deidentify_no_content_or_data_keys(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"method": "redact"})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
         assert _status(result) == 400
 
 
@@ -1532,9 +1380,7 @@ class TestHIPAASafeHarborVerify:
     @pytest.mark.asyncio
     async def test_safe_harbor_missing_content(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
         assert _status(result) == 400
 
 
@@ -1544,9 +1390,7 @@ class TestHIPAADetectPhi:
     @pytest.mark.asyncio
     async def test_detect_phi_missing_content(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
         assert _status(result) == 400
 
 
@@ -1561,27 +1405,19 @@ class TestEUAIActClassify:
     @pytest.mark.asyncio
     async def test_classify_missing_description(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/classify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/classify", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_classify_empty_description(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"description": "  "})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/classify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/classify", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_classify_success(self, handler):
-        mock_h = _MockHTTPHandler(
-            "POST", body={"description": "AI for customer service chatbot"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/classify", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"description": "AI for customer service chatbot"})
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/classify", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "classification" in body
@@ -1593,17 +1429,13 @@ class TestEUAIActAudit:
     @pytest.mark.asyncio
     async def test_audit_missing_receipt(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/audit", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/audit", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_audit_receipt_not_dict(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"receipt": "not-a-dict"})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/audit", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/audit", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1612,9 +1444,7 @@ class TestEUAIActAudit:
             "POST",
             body={"receipt": {"receipt_id": "rcpt-001", "verdict": "approve"}},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/audit", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/audit", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "conformity_report" in body
@@ -1626,17 +1456,13 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_generate_bundle_missing_receipt(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_generate_bundle_receipt_not_dict(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"receipt": 42})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1645,9 +1471,7 @@ class TestEUAIActGenerateBundle:
             "POST",
             body={"receipt": {"receipt_id": "rcpt-001", "verdict": "approve"}},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "bundle" in body
@@ -1662,9 +1486,7 @@ class TestEUAIActGenerateBundle:
                 "system_name": "My AI System",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_h)
         assert _status(result) == 200
 
 
@@ -1679,6 +1501,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_value_error_returns_500(self, handler, monkeypatch):
         """A ValueError in a sub-handler should be caught and return 500."""
+
         async def _boom(*args, **kwargs):
             raise ValueError("test error")
 
@@ -1779,9 +1602,7 @@ class TestNullHandler:
     @pytest.mark.asyncio
     async def test_handle_none_defaults_to_get(self, handler):
         # POST-only endpoint with None handler defaults to GET, so 404
-        result = await handler.handle(
-            "/api/v2/compliance/audit-verify", {}, None
-        )
+        result = await handler.handle("/api/v2/compliance/audit-verify", {}, None)
         assert _status(result) == 404
 
 

@@ -100,7 +100,8 @@ class MetricsHandler(BaseHandler):
                 # Security: Reject query parameter authentication to prevent token exposure in logs
                 if query_params.get("token"):
                     logger.warning(
-                        "Rejected query parameter authentication for /metrics from %s. Tokens in query parameters are logged and insecure.", client_ip
+                        "Rejected query parameter authentication for /metrics from %s. Tokens in query parameters are logged and insecure.",
+                        client_ip,
                     )
                     return error_response(
                         "Query parameter authentication is not supported for security reasons. "

@@ -214,9 +214,7 @@ class TestMaintenance:
     def test_maintenance_default_task_is_status(self, handler, mock_http):
         """When no task param given, defaults to 'status'."""
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/test_nomic")):
-            with patch(
-                "aragora.maintenance.DatabaseMaintenance"
-            ) as mock_maint:
+            with patch("aragora.maintenance.DatabaseMaintenance") as mock_maint:
                 instance = MagicMock()
                 instance.get_stats.return_value = {"db_count": 2}
                 mock_maint.return_value = instance
@@ -228,30 +226,22 @@ class TestMaintenance:
 
     def test_maintenance_status_task(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
-            with patch(
-                "aragora.maintenance.DatabaseMaintenance"
-            ) as mock_cls:
+            with patch("aragora.maintenance.DatabaseMaintenance") as mock_cls:
                 inst = MagicMock()
                 inst.get_stats.return_value = {"total": 5}
                 mock_cls.return_value = inst
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 200
                 assert _body(result)["task"] == "status"
 
     def test_maintenance_vacuum_task(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
-            with patch(
-                "aragora.maintenance.DatabaseMaintenance"
-            ) as mock_cls:
+            with patch("aragora.maintenance.DatabaseMaintenance") as mock_cls:
                 inst = MagicMock()
                 inst.vacuum_all.return_value = {"freed": 100}
                 inst.get_stats.return_value = {"total": 3}
                 mock_cls.return_value = inst
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "vacuum"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "vacuum"}, mock_http)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["task"] == "vacuum"
@@ -260,16 +250,12 @@ class TestMaintenance:
 
     def test_maintenance_analyze_task(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
-            with patch(
-                "aragora.maintenance.DatabaseMaintenance"
-            ) as mock_cls:
+            with patch("aragora.maintenance.DatabaseMaintenance") as mock_cls:
                 inst = MagicMock()
                 inst.analyze_all.return_value = {"tables": 5}
                 inst.get_stats.return_value = {}
                 mock_cls.return_value = inst
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "analyze"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "analyze"}, mock_http)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["task"] == "analyze"
@@ -277,9 +263,7 @@ class TestMaintenance:
 
     def test_maintenance_checkpoint_task(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
-            with patch(
-                "aragora.maintenance.DatabaseMaintenance"
-            ) as mock_cls:
+            with patch("aragora.maintenance.DatabaseMaintenance") as mock_cls:
                 inst = MagicMock()
                 inst.checkpoint_all_wal.return_value = {"wal_size": 0}
                 inst.get_stats.return_value = {}
@@ -294,18 +278,14 @@ class TestMaintenance:
 
     def test_maintenance_full_task(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
-            with patch(
-                "aragora.maintenance.DatabaseMaintenance"
-            ) as mock_cls:
+            with patch("aragora.maintenance.DatabaseMaintenance") as mock_cls:
                 inst = MagicMock()
                 inst.checkpoint_all_wal.return_value = {"wal": True}
                 inst.analyze_all.return_value = {"analyze": True}
                 inst.vacuum_all.return_value = {"vacuum": True}
                 inst.get_stats.return_value = {"all": True}
                 mock_cls.return_value = inst
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "full"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "full"}, mock_http)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["task"] == "full"
@@ -316,20 +296,14 @@ class TestMaintenance:
 
     def test_maintenance_no_nomic_dir(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = handler.handle(
-                "/api/system/maintenance", {"task": "status"}, mock_http
-            )
+            result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
             assert _status(result) == 503
             assert "not configured" in _body(result)["error"]
 
     def test_maintenance_import_error(self, handler, mock_http):
         with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nomic")):
-            with patch.dict(
-                "sys.modules", {"aragora.maintenance": None}
-            ):
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+            with patch.dict("sys.modules", {"aragora.maintenance": None}):
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 503
                 assert "not available" in _body(result)["error"]
 
@@ -339,9 +313,7 @@ class TestMaintenance:
                 "aragora.maintenance.DatabaseMaintenance",
                 side_effect=OSError("disk full"),
             ):
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 500
 
     def test_maintenance_storage_error(self, handler, mock_http):
@@ -352,9 +324,7 @@ class TestMaintenance:
                 "aragora.maintenance.DatabaseMaintenance",
                 side_effect=StorageError("corrupt"),
             ):
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 500
                 assert "Database error" in _body(result)["error"]
 
@@ -366,9 +336,7 @@ class TestMaintenance:
                 "aragora.maintenance.DatabaseMaintenance",
                 side_effect=DatabaseError("lock"),
             ):
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 500
                 assert "Database error" in _body(result)["error"]
 
@@ -378,16 +346,12 @@ class TestMaintenance:
                 "aragora.maintenance.DatabaseMaintenance",
                 side_effect=ValueError("bad value"),
             ):
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 500
 
     def test_maintenance_valid_tasks_enumerated(self, handler, mock_http):
         """Error message for invalid task includes all valid options."""
-        result = handler.handle(
-            "/api/system/maintenance", {"task": "drop_tables"}, mock_http
-        )
+        result = handler.handle("/api/system/maintenance", {"task": "drop_tables"}, mock_http)
         body = _body(result)
         for task_name in ("status", "vacuum", "analyze", "checkpoint", "full"):
             assert task_name in body["error"]
@@ -399,9 +363,7 @@ class TestMaintenance:
                 "aragora.maintenance.DatabaseMaintenance",
                 side_effect=RuntimeError("unexpected"),
             ):
-                result = handler.handle(
-                    "/api/system/maintenance", {"task": "status"}, mock_http
-                )
+                result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http)
                 assert _status(result) == 500
 
 
@@ -451,9 +413,7 @@ class TestHistoryCycles:
         ]
         (tmp_path / "cycles.json").write_text(json.dumps(cycles))
         with patch.object(handler, "get_nomic_dir", return_value=tmp_path):
-            result = handler.handle(
-                "/api/history/cycles", {"loop_id": "target"}, mock_http
-            )
+            result = handler.handle("/api/history/cycles", {"loop_id": "target"}, mock_http)
             assert _status(result) == 200
             body = _body(result)
             assert len(body["cycles"]) == 2
@@ -461,9 +421,7 @@ class TestHistoryCycles:
 
     def test_cycles_invalid_loop_id(self, handler, mock_http):
         """loop_id with special characters is rejected."""
-        result = handler.handle(
-            "/api/history/cycles", {"loop_id": "../../etc/passwd"}, mock_http
-        )
+        result = handler.handle("/api/history/cycles", {"loop_id": "../../etc/passwd"}, mock_http)
         assert _status(result) == 400
 
     def test_cycles_default_limit_is_50(self, handler, mock_http, tmp_path):
@@ -478,9 +436,7 @@ class TestHistoryCycles:
         cycles = [{"loop_id": f"l{i}"} for i in range(300)]
         (tmp_path / "cycles.json").write_text(json.dumps(cycles))
         with patch.object(handler, "get_nomic_dir", return_value=tmp_path):
-            result = handler.handle(
-                "/api/history/cycles", {"limit": "999"}, mock_http
-            )
+            result = handler.handle("/api/history/cycles", {"limit": "999"}, mock_http)
             body = _body(result)
             # Clamped to max 200
             assert len(body["cycles"]) == 200
@@ -523,9 +479,7 @@ class TestHistoryEvents:
         events = [{"type": f"e{i}"} for i in range(600)]
         (tmp_path / "events.json").write_text(json.dumps(events))
         with patch.object(handler, "get_nomic_dir", return_value=tmp_path):
-            result = handler.handle(
-                "/api/history/events", {"limit": "9999"}, mock_http
-            )
+            result = handler.handle("/api/history/events", {"limit": "9999"}, mock_http)
             assert len(_body(result)["events"]) == 500
 
     def test_events_with_loop_id_filter(self, handler, mock_http, tmp_path):
@@ -536,9 +490,7 @@ class TestHistoryEvents:
         ]
         (tmp_path / "events.json").write_text(json.dumps(events))
         with patch.object(handler, "get_nomic_dir", return_value=tmp_path):
-            result = handler.handle(
-                "/api/history/events", {"loop_id": "a"}, mock_http
-            )
+            result = handler.handle("/api/history/events", {"loop_id": "a"}, mock_http)
             body = _body(result)
             assert len(body["events"]) == 2
 
@@ -575,9 +527,7 @@ class TestHistoryDebates:
         mock_storage = MagicMock()
         mock_storage.list_recent.return_value = items
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler.handle(
-                "/api/history/debates", {"loop_id": "target"}, mock_http
-            )
+            result = handler.handle("/api/history/debates", {"loop_id": "target"}, mock_http)
             body = _body(result)
             assert _status(result) == 200
             assert all(d["loop_id"] == "target" for d in body["debates"])
@@ -600,9 +550,7 @@ class TestHistoryDebates:
         mock_storage = MagicMock()
         mock_storage.list_recent.return_value = []
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            handler.handle(
-                "/api/history/debates", {"loop_id": "test", "limit": "10"}, mock_http
-            )
+            handler.handle("/api/history/debates", {"loop_id": "test", "limit": "10"}, mock_http)
             # Should call list_recent with limit=30 (10*3)
             mock_storage.list_recent.assert_called_once()
             call_kwargs = mock_storage.list_recent.call_args
@@ -938,7 +886,10 @@ class TestHandlerDiagnostics:
 
     def test_diagnostics_success(self, handler, mock_http):
         mock_registry = [
-            ("handler_a", type("HandlerA", (), {"ROUTES": ["/api/a", "/api/b"], "__name__": "HandlerA"})),
+            (
+                "handler_a",
+                type("HandlerA", (), {"ROUTES": ["/api/a", "/api/b"], "__name__": "HandlerA"}),
+            ),
             ("handler_b", None),
         ]
         with patch(
@@ -1341,25 +1292,19 @@ class TestEdgeCases:
 
     def test_loop_id_with_spaces_rejected(self, handler, mock_http):
         """loop_id with spaces is rejected by validation."""
-        result = handler.handle(
-            "/api/history/cycles", {"loop_id": "has spaces"}, mock_http
-        )
+        result = handler.handle("/api/history/cycles", {"loop_id": "has spaces"}, mock_http)
         assert _status(result) == 400
 
     def test_loop_id_valid_format(self, handler, mock_http, tmp_path):
         """Valid loop_id (alphanumeric with dashes) is accepted."""
         (tmp_path / "cycles.json").write_text("[]")
         with patch.object(handler, "get_nomic_dir", return_value=tmp_path):
-            result = handler.handle(
-                "/api/history/cycles", {"loop_id": "valid-loop-id"}, mock_http
-            )
+            result = handler.handle("/api/history/cycles", {"loop_id": "valid-loop-id"}, mock_http)
             assert _status(result) == 200
 
     def test_maintenance_with_version_prefix(self, handler, mock_http):
         """Maintenance route works via /api/v1/system/maintenance."""
-        result = handler.handle(
-            "/api/v1/system/maintenance", {"task": "invalid"}, mock_http
-        )
+        result = handler.handle("/api/v1/system/maintenance", {"task": "invalid"}, mock_http)
         assert _status(result) == 400
 
     def test_auth_stats_with_version_prefix(self, handler, mock_http):

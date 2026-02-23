@@ -155,11 +155,13 @@ class TestReadinessProbeFast:
         old_ready = usrv._server_ready
         usrv._server_ready = True
         try:
-            with patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}), \
-                 patch(
-                     "aragora.server.handler_registry.core.get_route_index",
-                     return_value=route_index_mock,
-                 ):
+            with (
+                patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}),
+                patch(
+                    "aragora.server.handler_registry.core.get_route_index",
+                    return_value=route_index_mock,
+                ),
+            ):
                 result = readiness_probe_fast(handler)
         finally:
             usrv._server_ready = old_ready

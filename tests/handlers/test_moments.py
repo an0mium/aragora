@@ -342,7 +342,9 @@ class TestSummary:
         det = MagicMock()
         # _moment_cache contains a broken moment that raises AttributeError
         bad_moment = MagicMock()
-        bad_moment.moment_type = property(lambda self: (_ for _ in ()).throw(AttributeError("no type")))
+        bad_moment.moment_type = property(
+            lambda self: (_ for _ in ()).throw(AttributeError("no type"))
+        )
         del bad_moment.moment_type
         det._moment_cache = {"agent": [bad_moment]}
         h_obj = MomentsHandler(ctx={"moment_detector": det})
@@ -446,9 +448,7 @@ class TestTimeline:
         """Limit of 0 or negative is clamped to 1."""
         h = mock_http()
         with patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True):
-            result = await handler_with_detector.handle(
-                "/api/moments/timeline", {"limit": "0"}, h
-            )
+            result = await handler_with_detector.handle("/api/moments/timeline", {"limit": "0"}, h)
         body = _body(result)
         assert body["limit"] == 1
 
@@ -503,9 +503,7 @@ class TestRecent:
         """Custom limit is respected."""
         h = mock_http()
         with patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True):
-            result = await handler_with_detector.handle(
-                "/api/moments/recent", {"limit": "3"}, h
-            )
+            result = await handler_with_detector.handle("/api/moments/recent", {"limit": "3"}, h)
         body = _body(result)
         assert body["limit"] == 3
         assert len(body["moments"]) == 3
@@ -571,9 +569,7 @@ class TestTrending:
     async def test_trending_custom_limit(self, handler_with_detector, mock_http):
         h = mock_http()
         with patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True):
-            result = await handler_with_detector.handle(
-                "/api/moments/trending", {"limit": "2"}, h
-            )
+            result = await handler_with_detector.handle("/api/moments/trending", {"limit": "2"}, h)
         body = _body(result)
         assert len(body["trending"]) == 2
         assert body["count"] == 2
@@ -696,9 +692,7 @@ class TestByType:
         for mtype in VALID_MOMENT_TYPES:
             h = mock_http()
             with patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True):
-                result = await handler_with_detector.handle(
-                    f"/api/moments/by-type/{mtype}", {}, h
-                )
+                result = await handler_with_detector.handle(f"/api/moments/by-type/{mtype}", {}, h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -712,9 +706,7 @@ class TestByType:
         h_obj = MomentsHandler(ctx={"moment_detector": det})
         h = mock_http()
         with patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True):
-            result = await h_obj.handle(
-                "/api/moments/by-type/upset_victory", {"limit": "3"}, h
-            )
+            result = await h_obj.handle("/api/moments/by-type/upset_victory", {"limit": "3"}, h)
         body = _body(result)
         assert len(body["moments"]) == 3
         assert body["total"] == 10
@@ -754,9 +746,7 @@ class TestRateLimiting:
     async def test_rate_limit_exceeded(self, handler, mock_http):
         """When rate limiter denies, return 429."""
         h = mock_http()
-        with patch(
-            "aragora.server.handlers.moments._moments_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = await handler.handle("/api/moments/summary", {}, h)
         assert _status(result) == 429
@@ -784,9 +774,7 @@ class TestAuthEnforcement:
     async def test_non_get_requires_auth(self, handler, mock_http):
         """POST requests require authentication."""
         h = mock_http(method="POST")
-        with patch(
-            "aragora.server.handlers.moments._moments_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             result = await handler.handle("/api/moments/summary", {}, h)
         assert _status(result) == 401

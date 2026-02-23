@@ -161,7 +161,9 @@ class ByzantineConsensus:
         """Validate configuration."""
         if len(self.agents) < self.config.min_agents:
             logger.warning(
-                "Byzantine consensus requires at least %s agents, got %s. Consensus may be unreliable.", self.config.min_agents, len(self.agents)
+                "Byzantine consensus requires at least %s agents, got %s. Consensus may be unreliable.",
+                self.config.min_agents,
+                len(self.agents),
             )
 
     @property
@@ -208,7 +210,12 @@ class ByzantineConsensus:
         leader = proposer or self.leader
 
         logger.info(
-            "byzantine_consensus_start view=%s sequence=%s leader=%s n=%s f=%s", self._current_view, self._sequence, leader.name, self.n, self.f
+            "byzantine_consensus_start view=%s sequence=%s leader=%s n=%s f=%s",
+            self._current_view,
+            self._sequence,
+            leader.name,
+            self.n,
+            self.f,
         )
 
         view_changes = 0
@@ -228,13 +235,17 @@ class ByzantineConsensus:
                 # Phase 2: PREPARE
                 prepare_votes = await self._collect_prepare_votes(pre_prepare, task)
                 if len(prepare_votes) < self.quorum_size:
-                    logger.warning("Prepare phase failed: %s/%s", len(prepare_votes), self.quorum_size)
+                    logger.warning(
+                        "Prepare phase failed: %s/%s", len(prepare_votes), self.quorum_size
+                    )
                     raise ConsensusFailure("Prepare phase did not reach quorum")
 
                 # Phase 3: COMMIT
                 commit_votes = await self._collect_commit_votes(pre_prepare, prepare_votes, task)
                 if len(commit_votes) < self.quorum_size:
-                    logger.warning("Commit phase failed: %s/%s", len(commit_votes), self.quorum_size)
+                    logger.warning(
+                        "Commit phase failed: %s/%s", len(commit_votes), self.quorum_size
+                    )
                     raise ConsensusFailure("Commit phase did not reach quorum")
 
                 # Success!

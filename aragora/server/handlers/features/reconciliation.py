@@ -59,7 +59,9 @@ logger = logging.getLogger(__name__)
 # Circuit Breaker for Reconciliation Operations
 # =============================================================================
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as ReconciliationCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as ReconciliationCircuitBreaker,
+)
 
 
 # Global circuit breaker for reconciliation operations

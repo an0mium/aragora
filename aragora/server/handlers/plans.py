@@ -66,7 +66,8 @@ def _fire_plan_notification(event: str, plan: Any, **kwargs: Any) -> None:
         task = loop.create_task(_send())
         task.add_done_callback(
             lambda t: logger.warning("Plan notification failed: %s", t.exception())
-            if not t.cancelled() and t.exception() else None
+            if not t.cancelled() and t.exception()
+            else None
         )
     except RuntimeError:
         # No running loop (sync handler context) -- skip notification

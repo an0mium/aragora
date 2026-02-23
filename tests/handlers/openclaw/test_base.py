@@ -285,7 +285,9 @@ class TestHasPermissionExceptionHandling:
                 "aragora.server.handlers.openclaw._base.has_permission",
                 return_value=True,
             ):
-                with caplog.at_level(logging.DEBUG, logger="aragora.server.handlers.openclaw._base"):
+                with caplog.at_level(
+                    logging.DEBUG, logger="aragora.server.handlers.openclaw._base"
+                ):
                     _has_permission("admin", "perm")
                     assert any("Permission shim lookup failed" in r.message for r in caplog.records)
         finally:

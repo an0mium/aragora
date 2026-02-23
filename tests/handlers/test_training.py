@@ -172,9 +172,7 @@ class MockPipeline:
         model.status = MockTrainingStatus.TRAINING
         return f"training-{job_id}"
 
-    async def complete_training(
-        self, job_id: str, final_loss: float, checkpoint_path: str
-    ) -> None:
+    async def complete_training(self, job_id: str, final_loss: float, checkpoint_path: str) -> None:
         model = self._registry.get(job_id)
         if model is None:
             raise ValueError(f"Job {job_id} not found")
@@ -312,9 +310,7 @@ class TestHandlerInit:
 
     def test_init_with_custom_export_dir(self, tmp_path):
         custom = tmp_path / "custom_exports"
-        with patch.dict(
-            "os.environ", {"ARAGORA_TRAINING_EXPORT_DIR": str(custom)}
-        ):
+        with patch.dict("os.environ", {"ARAGORA_TRAINING_EXPORT_DIR": str(custom)}):
             with patch(
                 "aragora.persistence.db_config.get_nomic_dir",
                 return_value=tmp_path,
@@ -360,25 +356,19 @@ class TestHandleRouting:
 
     def test_handle_routes_to_sft_export(self, handler):
         handler._exporters["sft"] = _make_mock_exporter([{"record": 1}])
-        result = handler.handle(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert result is not None
         assert _status(result) == 200
 
     def test_handle_routes_to_dpo_export(self, handler):
         handler._exporters["dpo"] = _make_mock_exporter([{"pair": 1}])
-        result = handler.handle(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert result is not None
         assert _status(result) == 200
 
     def test_handle_routes_to_gauntlet_export(self, handler):
         handler._exporters["gauntlet"] = _make_mock_exporter([{"vuln": 1}])
-        result = handler.handle(
-            "/api/v1/training/export/gauntlet", {}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/training/export/gauntlet", {}, MockHTTPHandler())
         assert result is not None
         assert _status(result) == 200
 
@@ -402,9 +392,7 @@ class TestFormats:
     """Test supported training data formats endpoint."""
 
     def test_returns_all_formats(self, handler):
-        result = handler.handle_formats(
-            "/api/v1/training/formats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_formats("/api/v1/training/formats", {}, MockHTTPHandler())
         body = _body(result)
         assert "formats" in body
         assert "sft" in body["formats"]
@@ -412,9 +400,7 @@ class TestFormats:
         assert "gauntlet" in body["formats"]
 
     def test_sft_format_has_schema(self, handler):
-        result = handler.handle_formats(
-            "/api/v1/training/formats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_formats("/api/v1/training/formats", {}, MockHTTPHandler())
         body = _body(result)
         sft = body["formats"]["sft"]
         assert "schema" in sft
@@ -422,9 +408,7 @@ class TestFormats:
         assert "use_case" in sft
 
     def test_dpo_format_has_schema(self, handler):
-        result = handler.handle_formats(
-            "/api/v1/training/formats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_formats("/api/v1/training/formats", {}, MockHTTPHandler())
         body = _body(result)
         dpo = body["formats"]["dpo"]
         assert "prompt" in dpo["schema"]
@@ -432,26 +416,20 @@ class TestFormats:
         assert "rejected" in dpo["schema"]
 
     def test_gauntlet_format_has_schema(self, handler):
-        result = handler.handle_formats(
-            "/api/v1/training/formats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_formats("/api/v1/training/formats", {}, MockHTTPHandler())
         body = _body(result)
         gauntlet = body["formats"]["gauntlet"]
         assert "instruction" in gauntlet["schema"]
         assert "response" in gauntlet["schema"]
 
     def test_output_formats_listed(self, handler):
-        result = handler.handle_formats(
-            "/api/v1/training/formats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_formats("/api/v1/training/formats", {}, MockHTTPHandler())
         body = _body(result)
         assert "json" in body["output_formats"]
         assert "jsonl" in body["output_formats"]
 
     def test_endpoints_listed(self, handler):
-        result = handler.handle_formats(
-            "/api/v1/training/formats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_formats("/api/v1/training/formats", {}, MockHTTPHandler())
         body = _body(result)
         assert body["endpoints"]["sft"] == "/api/v1/training/export/sft"
         assert body["endpoints"]["dpo"] == "/api/v1/training/export/dpo"
@@ -467,9 +445,7 @@ class TestStats:
     """Test training data statistics endpoint."""
 
     def test_stats_with_no_exporters(self, handler):
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert "available_exporters" in body
         assert "export_directory" in body
@@ -478,9 +454,7 @@ class TestStats:
     def test_stats_with_sft_exporter(self, handler):
         mock_sft = _make_mock_exporter([{"record": 1}])
         handler._exporters["sft"] = mock_sft
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert "sft" in body["available_exporters"]
         assert body["sft_available"] is True
@@ -489,9 +463,7 @@ class TestStats:
         mock_sft = MagicMock()
         mock_sft.export.side_effect = RuntimeError("DB error")
         handler._exporters["sft"] = mock_sft
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert "sft" in body["available_exporters"]
         assert body["sft_available"] is False
@@ -501,9 +473,7 @@ class TestStats:
         test_file = handler._export_dir / "test_export.jsonl"
         test_file.write_text('{"record": 1}\n')
 
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert len(body["exported_files"]) == 1
         assert body["exported_files"][0]["name"] == "test_export.jsonl"
@@ -513,9 +483,7 @@ class TestStats:
 
     def test_stats_no_export_dir(self, handler, tmp_path):
         handler._export_dir = tmp_path / "nonexistent"
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert body["exported_files"] == []
 
@@ -524,9 +492,7 @@ class TestStats:
         handler._exporters["dpo"] = _make_mock_exporter([{"r": 1}])
         handler._exporters["gauntlet"] = _make_mock_exporter([{"r": 1}])
 
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         body = _body(result)
         assert "sft" in body["available_exporters"]
         assert "dpo" in body["available_exporters"]
@@ -548,9 +514,7 @@ class TestExportSFT:
         ]
         handler._exporters["sft"] = _make_mock_exporter(records)
 
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["export_type"] == "sft"
@@ -577,9 +541,7 @@ class TestExportSFT:
         mock = _make_mock_exporter([])
         handler._exporters["sft"] = mock
 
-        handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         mock.export.assert_called_once_with(
             min_confidence=0.7,
             min_success_rate=0.6,
@@ -658,9 +620,7 @@ class TestExportSFT:
         handler._exporters.pop("sft", None)
         # Patch _get_sft_exporter to return None (simulating ImportError)
         with patch.object(handler, "_get_sft_exporter", return_value=None):
-            result = handler.handle_export_sft(
-                "/api/v1/training/export/sft", {}, MockHTTPHandler()
-            )
+            result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 500
         body = _body(result)
         err = body.get("error", body.get("message", ""))
@@ -672,9 +632,7 @@ class TestExportSFT:
         mock.export.side_effect = ValueError("bad param")
         handler._exporters["sft"] = mock
 
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 400
 
     def test_sft_export_runtime_error(self, handler):
@@ -682,24 +640,18 @@ class TestExportSFT:
         mock.export.side_effect = RuntimeError("pipeline broken")
         handler._exporters["sft"] = mock
 
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 500
 
     def test_sft_export_includes_timestamp(self, handler):
         handler._exporters["sft"] = _make_mock_exporter([])
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         body = _body(result)
         assert "exported_at" in body
 
     def test_sft_export_includes_parameters(self, handler):
         handler._exporters["sft"] = _make_mock_exporter([])
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         body = _body(result)
         assert "parameters" in body
         params = body["parameters"]
@@ -721,9 +673,7 @@ class TestExportDPO:
         records = [{"prompt": "Q1", "chosen": "A1", "rejected": "A2"}]
         handler._exporters["dpo"] = _make_mock_exporter(records)
 
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["export_type"] == "dpo"
@@ -749,9 +699,7 @@ class TestExportDPO:
         mock = _make_mock_exporter([])
         handler._exporters["dpo"] = mock
 
-        handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         mock.export.assert_called_once_with(
             min_confidence_diff=0.1,
             limit=500,
@@ -798,9 +746,7 @@ class TestExportDPO:
     def test_dpo_exporter_not_available(self, handler):
         handler._exporters.pop("dpo", None)
         with patch.object(handler, "_get_dpo_exporter", return_value=None):
-            result = handler.handle_export_dpo(
-                "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-            )
+            result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 500
         body = _body(result)
         err = body.get("error", body.get("message", ""))
@@ -812,9 +758,7 @@ class TestExportDPO:
         mock.export.side_effect = ValueError("bad param")
         handler._exporters["dpo"] = mock
 
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 400
 
     def test_dpo_export_runtime_error(self, handler):
@@ -822,24 +766,18 @@ class TestExportDPO:
         mock.export.side_effect = RuntimeError("crash")
         handler._exporters["dpo"] = mock
 
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 500
 
     def test_dpo_export_includes_timestamp(self, handler):
         handler._exporters["dpo"] = _make_mock_exporter([])
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         body = _body(result)
         assert "exported_at" in body
 
     def test_dpo_export_includes_parameters(self, handler):
         handler._exporters["dpo"] = _make_mock_exporter([])
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         body = _body(result)
         assert "parameters" in body
         params = body["parameters"]
@@ -886,9 +824,7 @@ class TestExportGauntlet:
         mock = _make_mock_exporter([])
         handler._exporters["gauntlet"] = mock
 
-        handler.handle_export_gauntlet(
-            "/api/v1/training/export/gauntlet", {}, MockHTTPHandler()
-        )
+        handler.handle_export_gauntlet("/api/v1/training/export/gauntlet", {}, MockHTTPHandler())
         # When persona is "all", it should not pass persona kwarg
         call_kwargs = mock.export.call_args.kwargs
         assert "persona" not in call_kwargs
@@ -1010,9 +946,7 @@ class TestJobRouteValidation:
 
     def test_invalid_job_id_too_long(self, handler):
         long_id = "a" * 100
-        result = handler._handle_job_route(
-            f"/api/training/jobs/{long_id}", {}, MockHTTPHandler()
-        )
+        result = handler._handle_job_route(f"/api/training/jobs/{long_id}", {}, MockHTTPHandler())
         assert _status(result) == 400
 
     def test_valid_job_id_format(self, handler):
@@ -1079,9 +1013,7 @@ class TestListJobs:
 
     def test_pipeline_not_available(self, handler):
         with patch.object(handler, "_get_training_pipeline", return_value=None):
-            result = handler.handle_list_jobs(
-                "/api/v1/training/jobs", {}, MockHTTPHandler()
-            )
+            result = handler.handle_list_jobs("/api/v1/training/jobs", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_list_empty_jobs(self, handler):
@@ -1089,9 +1021,7 @@ class TestListJobs:
         pipeline = MockPipeline(registry)
         handler._exporters["pipeline"] = pipeline
 
-        result = handler.handle_list_jobs(
-            "/api/v1/training/jobs", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_jobs("/api/v1/training/jobs", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["jobs"] == []
@@ -1106,9 +1036,7 @@ class TestListJobs:
         pipeline = MockPipeline(registry)
         handler._exporters["pipeline"] = pipeline
 
-        result = handler.handle_list_jobs(
-            "/api/v1/training/jobs", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_jobs("/api/v1/training/jobs", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 2
@@ -1119,12 +1047,8 @@ class TestListJobs:
 
     def test_list_jobs_filter_by_status(self, handler):
         models = [
-            MockSpecialistModel(
-                id="m1", status=MockTrainingStatus.PENDING
-            ),
-            MockSpecialistModel(
-                id="m2", status=MockTrainingStatus.COMPLETED
-            ),
+            MockSpecialistModel(id="m1", status=MockTrainingStatus.PENDING),
+            MockSpecialistModel(id="m2", status=MockTrainingStatus.COMPLETED),
         ]
         registry = MockRegistry(models)
         pipeline = MockPipeline(registry)
@@ -1142,12 +1066,8 @@ class TestListJobs:
 
     def test_list_jobs_filter_by_vertical(self, handler):
         models = [
-            MockSpecialistModel(
-                id="m1", vertical=MockVertical.HEALTHCARE
-            ),
-            MockSpecialistModel(
-                id="m2", vertical=MockVertical.LEGAL
-            ),
+            MockSpecialistModel(id="m1", vertical=MockVertical.HEALTHCARE),
+            MockSpecialistModel(id="m2", vertical=MockVertical.LEGAL),
         ]
         registry = MockRegistry(models)
         pipeline = MockPipeline(registry)
@@ -1164,9 +1084,7 @@ class TestListJobs:
         assert body["jobs"][0]["vertical"] == "legal"
 
     def test_list_jobs_pagination(self, handler):
-        models = [
-            MockSpecialistModel(id=f"m{i}") for i in range(10)
-        ]
+        models = [MockSpecialistModel(id=f"m{i}") for i in range(10)]
         registry = MockRegistry(models)
         pipeline = MockPipeline(registry)
         handler._exporters["pipeline"] = pipeline
@@ -1186,14 +1104,10 @@ class TestListJobs:
     def test_list_jobs_attribute_error(self, handler):
         # Create a pipeline whose registry._models.values() raises AttributeError
         mock_pipeline = MagicMock()
-        mock_pipeline._registry._models.values.side_effect = AttributeError(
-            "no _models"
-        )
+        mock_pipeline._registry._models.values.side_effect = AttributeError("no _models")
         handler._exporters["pipeline"] = mock_pipeline
 
-        result = handler.handle_list_jobs(
-            "/api/v1/training/jobs", {}, MockHTTPHandler()
-        )
+        result = handler.handle_list_jobs("/api/v1/training/jobs", {}, MockHTTPHandler())
         assert _status(result) == 500
 
 
@@ -1231,9 +1145,7 @@ class TestGetJob:
 
     def test_get_job_key_error(self, handler):
         mock_pipeline = MagicMock()
-        mock_pipeline.get_training_status = MagicMock(
-            side_effect=KeyError("missing key")
-        )
+        mock_pipeline.get_training_status = MagicMock(side_effect=KeyError("missing key"))
         handler._exporters["pipeline"] = mock_pipeline
 
         with patch(
@@ -1298,9 +1210,7 @@ class TestCancelJob:
     def test_cancel_runtime_error(self, handler):
         handler._exporters["pipeline"] = MagicMock()
         handler._exporters["pipeline"]._registry = MagicMock()
-        handler._exporters["pipeline"]._registry.update_status.side_effect = (
-            RuntimeError("fail")
-        )
+        handler._exporters["pipeline"]._registry.update_status.side_effect = RuntimeError("fail")
 
         with patch(
             "aragora.training.specialist_models.TrainingStatus",
@@ -1471,9 +1381,7 @@ class TestCompleteJob:
             "aragora.server.handlers.training.run_async",
             side_effect=RuntimeError("fail"),
         ):
-            result = handler._complete_job(
-                "job-123", {}, MockHTTPHandler(method="POST")
-            )
+            result = handler._complete_job("job-123", {}, MockHTTPHandler(method="POST"))
         assert _status(result) == 500
 
     def test_complete_with_null_handler(self, handler):
@@ -1590,15 +1498,13 @@ class TestGetJobArtifacts:
         handler._exporters["pipeline"] = pipeline
 
         # Create a data directory
-        data_dir = Path(f"data/training/healthcare/job-123")
+        data_dir = Path("data/training/healthcare/job-123")
         data_dir.mkdir(parents=True, exist_ok=True)
         try:
             (data_dir / "sft_data.jsonl").write_text('{"r": 1}\n')
             (data_dir / "dpo_data.jsonl").write_text('{"r": 2}\n')
 
-            result = handler._get_job_artifacts(
-                "job-123", {}, MockHTTPHandler()
-            )
+            result = handler._get_job_artifacts("job-123", {}, MockHTTPHandler())
             assert _status(result) == 200
             body = _body(result)
             assert body["data_directory"] is not None
@@ -1608,6 +1514,7 @@ class TestGetJobArtifacts:
             assert "dpo" in types
         finally:
             import shutil
+
             if data_dir.exists():
                 shutil.rmtree("data/training", ignore_errors=True)
 
@@ -1634,9 +1541,7 @@ class TestGetJobArtifacts:
 
         with patch("aragora.server.handlers.training.Path") as mock_path_cls:
             mock_path_cls.side_effect = OSError("disk error")
-            result = handler._get_job_artifacts(
-                "job-123", {}, MockHTTPHandler()
-            )
+            result = handler._get_job_artifacts("job-123", {}, MockHTTPHandler())
         assert _status(result) == 500
 
 
@@ -1653,9 +1558,7 @@ class TestExporterLoading:
             "aragora.server.handlers.training.TrainingHandler._get_sft_exporter",
             return_value=None,
         ):
-            result = handler.handle_export_sft(
-                "/api/v1/training/export/sft", {}, MockHTTPHandler()
-            )
+            result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 500
 
     def test_dpo_exporter_import_error(self, handler):
@@ -1663,9 +1566,7 @@ class TestExporterLoading:
             "aragora.server.handlers.training.TrainingHandler._get_dpo_exporter",
             return_value=None,
         ):
-            result = handler.handle_export_dpo(
-                "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-            )
+            result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 500
 
     def test_gauntlet_exporter_import_error(self, handler):
@@ -1779,9 +1680,7 @@ class TestEdgeCases:
 
     def test_sft_export_empty_records(self, handler):
         handler._exporters["sft"] = _make_mock_exporter([])
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["total_records"] == 0
@@ -1789,9 +1688,7 @@ class TestEdgeCases:
 
     def test_dpo_export_empty_records(self, handler):
         handler._exporters["dpo"] = _make_mock_exporter([])
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["total_records"] == 0
@@ -1867,9 +1764,7 @@ class TestEdgeCases:
         assert body["status"] == "cancelled"
 
     def test_stats_returns_200(self, handler):
-        result = handler.handle_stats(
-            "/api/v1/training/stats", {}, MockHTTPHandler()
-        )
+        result = handler.handle_stats("/api/v1/training/stats", {}, MockHTTPHandler())
         assert _status(result) == 200
 
     def test_sft_export_attribute_error(self, handler):
@@ -1877,9 +1772,7 @@ class TestEdgeCases:
         mock.export.side_effect = AttributeError("missing attr")
         handler._exporters["sft"] = mock
 
-        result = handler.handle_export_sft(
-            "/api/v1/training/export/sft", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_sft("/api/v1/training/export/sft", {}, MockHTTPHandler())
         assert _status(result) == 500
 
     def test_dpo_export_type_error(self, handler):
@@ -1887,9 +1780,7 @@ class TestEdgeCases:
         mock.export.side_effect = TypeError("wrong type")
         handler._exporters["dpo"] = mock
 
-        result = handler.handle_export_dpo(
-            "/api/v1/training/export/dpo", {}, MockHTTPHandler()
-        )
+        result = handler.handle_export_dpo("/api/v1/training/export/dpo", {}, MockHTTPHandler())
         assert _status(result) == 400
 
     def test_gauntlet_export_clamps_negative_severity(self, handler):

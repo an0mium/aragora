@@ -196,14 +196,19 @@ def require_distributed_store(
     # Allow fallback during pytest runs regardless of environment.
     if os.environ.get("PYTEST_CURRENT_TEST"):
         logger.info(
-            "Store '%s' using %s backend during tests (pytest override)", store_name, current_mode.value
+            "Store '%s' using %s backend during tests (pytest override)",
+            store_name,
+            current_mode.value,
         )
         return
 
     # Allow fallback in development/test
     if env in config.allowed_fallback_envs:
         logger.info(
-            "Store '%s' using %s backend (allowed in %s environment)", store_name, current_mode.value, env.value
+            "Store '%s' using %s backend (allowed in %s environment)",
+            store_name,
+            current_mode.value,
+            env.value,
         )
         return
 
@@ -215,7 +220,10 @@ def require_distributed_store(
     # Allow fallback if explicitly disabled
     if not config.require_distributed:
         logger.warning(
-            "Store '%s' using %s backend in %s environment. Distributed state enforcement is DISABLED. This is NOT recommended for multi-instance deployments.", store_name, current_mode.value, env.value
+            "Store '%s' using %s backend in %s environment. Distributed state enforcement is DISABLED. This is NOT recommended for multi-instance deployments.",
+            store_name,
+            current_mode.value,
+            env.value,
         )
         return
 

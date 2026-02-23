@@ -333,15 +333,29 @@ class TestGetConfig:
         assert "audio_formats" in body
         assert "video_formats" in body
 
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     @patch("aragora.server.handlers.transcription.get_available_backends", create=True)
-    @patch("aragora.server.handlers.transcription.WHISPER_MODELS", {"base": {}, "large": {}}, create=True)
+    @patch(
+        "aragora.server.handlers.transcription.WHISPER_MODELS",
+        {"base": {}, "large": {}},
+        create=True,
+    )
     def test_config_when_available(self, mock_backends, mock_check):
         # Need to patch the lazy imports inside _get_config
-        with patch.dict("sys.modules", {
-            "aragora.transcription": MagicMock(get_available_backends=lambda: ["whisper", "openai"]),
-            "aragora.transcription.whisper_backend": MagicMock(WHISPER_MODELS={"base": {}, "large": {}}),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.transcription": MagicMock(
+                    get_available_backends=lambda: ["whisper", "openai"]
+                ),
+                "aragora.transcription.whisper_backend": MagicMock(
+                    WHISPER_MODELS={"base": {}, "large": {}}
+                ),
+            },
+        ):
             result = self.handler._get_config()
             assert result.status_code == 200
             body = _body(result)
@@ -459,7 +473,10 @@ class TestAudioTranscription:
             assert "temporarily unavailable" in _body(result)["error"]
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_not_multipart_rejected(self, mock_check):
         mock = _make_mock_handler(content_type="application/json")
         result = await self.handler._handle_audio_transcription(mock)
@@ -467,7 +484,10 @@ class TestAudioTranscription:
         assert "multipart" in _body(result)["error"]
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_content_length_too_large(self, mock_check):
         huge_size = str(MAX_AUDIO_SIZE_MB * 1024 * 1024 + 1)
         mock = _make_mock_handler(content_length=huge_size)
@@ -475,7 +495,10 @@ class TestAudioTranscription:
         assert result.status_code == 413
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(False, "No backend"))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(False, "No backend"),
+    )
     async def test_backend_unavailable(self, mock_check):
         result = await self.handler._handle_audio_transcription(_make_mock_handler())
         assert result.status_code == 503
@@ -505,14 +528,20 @@ class TestVideoTranscription:
             assert result.status_code == 503
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_not_multipart_rejected(self, mock_check):
         mock = _make_mock_handler(content_type="application/json")
         result = await self.handler._handle_video_transcription(mock)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_video_content_length_too_large(self, mock_check):
         huge_size = str(MAX_VIDEO_SIZE_MB * 1024 * 1024 + 1)
         mock = _make_mock_handler(content_length=huge_size)
@@ -544,13 +573,19 @@ class TestYouTubeTranscription:
             assert result.status_code == 503
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(False, "No backend"))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(False, "No backend"),
+    )
     async def test_youtube_backend_unavailable(self, mock_check):
         result = await self.handler._handle_youtube_transcription(MagicMock())
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_youtube_missing_url(self, mock_check):
         self.handler.read_json_body_validated = MagicMock(return_value=({}, None))
         result = await self.handler._handle_youtube_transcription(MagicMock())
@@ -558,22 +593,31 @@ class TestYouTubeTranscription:
         assert "url" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_youtube_invalid_url(self, mock_check):
         self.handler.read_json_body_validated = MagicMock(
             return_value=({"url": "https://notyoutube.com/video"}, None)
         )
         mock_fetcher_cls = MagicMock()
         mock_fetcher_cls.is_youtube_url.return_value = False
-        with patch.dict("sys.modules", {
-            "aragora.transcription.youtube": MagicMock(YouTubeFetcher=mock_fetcher_cls),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.transcription.youtube": MagicMock(YouTubeFetcher=mock_fetcher_cls),
+            },
+        ):
             result = await self.handler._handle_youtube_transcription(MagicMock())
             assert result.status_code == 400
             assert "YouTube" in _body(result)["error"]
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     @patch("aragora.server.handlers.transcription._save_job")
     async def test_youtube_success(self, mock_save, mock_check):
         self.handler.read_json_body_validated = MagicMock(
@@ -583,10 +627,15 @@ class TestYouTubeTranscription:
         mock_fetcher_cls = MagicMock()
         mock_fetcher_cls.is_youtube_url.return_value = True
 
-        with patch.dict("sys.modules", {
-            "aragora.transcription.youtube": MagicMock(YouTubeFetcher=mock_fetcher_cls),
-            "aragora.transcription": MagicMock(transcribe_youtube=AsyncMock(return_value=mock_result)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.transcription.youtube": MagicMock(YouTubeFetcher=mock_fetcher_cls),
+                "aragora.transcription": MagicMock(
+                    transcribe_youtube=AsyncMock(return_value=mock_result)
+                ),
+            },
+        ):
             result = await self.handler._handle_youtube_transcription(MagicMock())
             assert result.status_code == 200
             body = _body(result)
@@ -618,9 +667,12 @@ class TestYouTubeInfo:
         )
         mock_fetcher_cls = MagicMock()
         mock_fetcher_cls.is_youtube_url.return_value = False
-        with patch.dict("sys.modules", {
-            "aragora.transcription.youtube": MagicMock(YouTubeFetcher=mock_fetcher_cls),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.transcription.youtube": MagicMock(YouTubeFetcher=mock_fetcher_cls),
+            },
+        ):
             result = await self.handler._handle_youtube_info(MagicMock())
             assert result.status_code == 400
 
@@ -702,9 +754,7 @@ class TestHandlePost:
         mock = _make_mock_handler()
         limiter = MagicMock(is_allowed=MagicMock(return_value=False))
         with patch("aragora.server.handlers.transcription._audio_limiter", limiter):
-            result = await self.handler.handle_post(
-                "/api/v1/transcription/audio", {}, mock
-            )
+            result = await self.handler.handle_post("/api/v1/transcription/audio", {}, mock)
             assert result.status_code == 429
 
     @pytest.mark.asyncio
@@ -712,21 +762,20 @@ class TestHandlePost:
         mock = _make_mock_handler()
         limiter = MagicMock(is_allowed=MagicMock(return_value=False))
         with patch("aragora.server.handlers.transcription._youtube_limiter", limiter):
-            result = await self.handler.handle_post(
-                "/api/v1/transcription/youtube", {}, mock
-            )
+            result = await self.handler.handle_post("/api/v1/transcription/youtube", {}, mock)
             assert result.status_code == 429
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.transcription._check_transcription_available", return_value=(True, None))
+    @patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    )
     async def test_alias_route_audio(self, mock_check):
         """Test that /api/v1/transcribe/audio is routed to audio handler."""
         mock = _make_mock_handler(content_type="application/json")
         limiter = MagicMock(is_allowed=MagicMock(return_value=True))
         with patch("aragora.server.handlers.transcription._audio_limiter", limiter):
-            result = await self.handler.handle_post(
-                "/api/v1/transcribe/audio", {}, mock
-            )
+            result = await self.handler.handle_post("/api/v1/transcribe/audio", {}, mock)
             # Should reach the audio handler (which rejects non-multipart with 400)
             assert result is not None
             assert result.status_code == 400

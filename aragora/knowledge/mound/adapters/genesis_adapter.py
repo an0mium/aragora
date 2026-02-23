@@ -239,9 +239,7 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
                 return False
 
             evolution_item.metadata["km_sync_pending"] = True
-            evolution_item.metadata["km_sync_requested_at"] = (
-                datetime.now(timezone.utc).isoformat()
-            )
+            evolution_item.metadata["km_sync_requested_at"] = datetime.now(timezone.utc).isoformat()
             self._pending_genomes.append(evolution_item)
 
             self._emit_event(
@@ -507,9 +505,7 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
                 item.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
 
         synced_ids = {i.genome_id for i in pending if i.metadata.get("km_sync_pending") is False}
-        self._pending_genomes = [
-            i for i in self._pending_genomes if i.genome_id not in synced_ids
-        ]
+        self._pending_genomes = [i for i in self._pending_genomes if i.genome_id not in synced_ids]
 
         duration_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
 

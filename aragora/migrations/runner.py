@@ -344,7 +344,9 @@ class MigrationRunner:
                     "Ensure no other migration is running and try again."
                 )
 
-            logger.debug("Migration lock held by another process, retrying in %ss...", poll_interval)
+            logger.debug(
+                "Migration lock held by another process, retrying in %ss...", poll_interval
+            )
             time.sleep(poll_interval)
 
     def _release_migration_lock(self) -> None:
@@ -585,7 +587,9 @@ class MigrationRunner:
 
                 if not rollback_sql and not has_down_fn and not has_stored:
                     logger.info(
-                        "[DRY RUN] Would SKIP migration %s: %s (no rollback defined)", migration.version, migration.name
+                        "[DRY RUN] Would SKIP migration %s: %s (no rollback defined)",
+                        migration.version,
+                        migration.name,
                     )
                     break
                 logger.info(
@@ -604,7 +608,9 @@ class MigrationRunner:
                 if use_stored_rollback:
                     rollback_sql = self.get_stored_rollback_sql(migration.version)
                     if rollback_sql:
-                        logger.debug("Using stored rollback SQL for migration %s", migration.version)
+                        logger.debug(
+                            "Using stored rollback SQL for migration %s", migration.version
+                        )
                 if not rollback_sql:
                     rollback_sql = migration.down_sql
 

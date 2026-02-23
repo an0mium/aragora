@@ -405,6 +405,7 @@ class TestTTLCacheDecorator:
 
     def test_default_ttl(self):
         """Default TTL is 60 seconds."""
+
         @ttl_cache(key_prefix="defaults", skip_first=False)
         def func():
             return "result"
@@ -421,6 +422,7 @@ class TestTTLCacheDecorator:
 
     def test_key_prefix_used_for_metrics(self):
         """When key_prefix is provided, it's used for metrics recording."""
+
         @ttl_cache(ttl_seconds=60.0, key_prefix="my_prefix", skip_first=False)
         def func():
             return 42
@@ -852,9 +854,15 @@ class TestCacheInvalidationMap:
                 assert isinstance(prefix, str), f"{key} has non-string prefix: {prefix}"
 
     def test_expected_events_exist(self):
-        expected = {"elo_updated", "match_recorded", "debate_completed",
-                    "debate_started", "agent_updated", "memory_updated",
-                    "consensus_reached"}
+        expected = {
+            "elo_updated",
+            "match_recorded",
+            "debate_completed",
+            "debate_started",
+            "agent_updated",
+            "memory_updated",
+            "consensus_reached",
+        }
         assert expected == set(CACHE_INVALIDATION_MAP.keys())
 
     def test_elo_updated_prefixes(self):
@@ -887,6 +895,7 @@ class TestGetHandlerCache:
     def test_register_does_not_fail_without_services(self):
         """Even if ServiceRegistry is unavailable, get_handler_cache works."""
         import aragora.server.handlers.admin.cache as cache_mod
+
         # Reset registration state
         original = cache_mod._handler_cache_registered
         cache_mod._handler_cache_registered = False
@@ -938,6 +947,7 @@ class TestCacheConfiguration:
     def test_default_max_entries(self):
         """Default max entries is 1000."""
         from aragora.server.handlers.admin.cache import CACHE_MAX_ENTRIES
+
         assert CACHE_MAX_ENTRIES == int(
             __import__("os").environ.get("ARAGORA_CACHE_MAX_ENTRIES", "1000")
         )
@@ -945,6 +955,7 @@ class TestCacheConfiguration:
     def test_default_evict_percent(self):
         """Default evict percent is 0.1."""
         from aragora.server.handlers.admin.cache import CACHE_EVICT_PERCENT
+
         assert CACHE_EVICT_PERCENT == float(
             __import__("os").environ.get("ARAGORA_CACHE_EVICT_PERCENT", "0.1")
         )
@@ -1021,6 +1032,7 @@ class TestEdgeCases:
     def test_concurrent_set_and_get(self):
         """Basic thread safety test: concurrent access doesn't crash."""
         import threading
+
         cache = BoundedTTLCache(max_entries=100)
         errors = []
 
@@ -1061,6 +1073,7 @@ class TestEdgeCases:
 
     def test_ttl_cache_skip_first_with_no_args(self):
         """ttl_cache with skip_first=True on a no-arg function."""
+
         @ttl_cache(ttl_seconds=60.0, key_prefix="noargs_skip", skip_first=True)
         def func():
             return "ok"

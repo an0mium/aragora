@@ -273,7 +273,9 @@ class ReceiptDeliveryHandler(SecureHandler):
                     )
                     created_subscriptions.append(subscription.to_dict())
                 except (KeyError, ValueError, OSError) as e:
-                    logger.warning("Subscription creation failed for %s/%s: %s", channel_type, channel_id, e)
+                    logger.warning(
+                        "Subscription creation failed for %s/%s: %s", channel_type, channel_id, e
+                    )
                     errors.append(
                         {
                             "channel_type": channel_type,
@@ -283,7 +285,10 @@ class ReceiptDeliveryHandler(SecureHandler):
                     )
 
         logger.info(
-            "Updated delivery config for org %s: %s subscriptions, %s errors", org.id, len(created_subscriptions), len(errors)
+            "Updated delivery config for org %s: %s subscriptions, %s errors",
+            org.id,
+            len(created_subscriptions),
+            len(errors),
         )
 
         return json_response(

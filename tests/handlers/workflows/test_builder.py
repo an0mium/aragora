@@ -90,8 +90,10 @@ def handler():
 @pytest.fixture
 def mock_http():
     """Factory for creating mock HTTP handlers."""
+
     def _create(method="GET", body=None, content_type="application/json"):
         return _MockHTTPHandler(method=method, body=body, content_type=content_type)
+
     return _create
 
 
@@ -167,14 +169,20 @@ class TestGetStepTypes:
             original.side_effect = None  # undo
         # Actually test by patching the inner imports
         with (
-            patch(f"{PATCH_MOD}.WorkflowBuilderHandler._get_step_catalog", wraps=handler._get_step_catalog),
+            patch(
+                f"{PATCH_MOD}.WorkflowBuilderHandler._get_step_catalog",
+                wraps=handler._get_step_catalog,
+            ),
         ):
-            with patch.dict("sys.modules", {
-                "aragora.workflow.step_catalog": MagicMock(
-                    get_step_catalog=MagicMock(return_value=catalog),
-                    list_step_categories=MagicMock(return_value=categories),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.workflow.step_catalog": MagicMock(
+                        get_step_catalog=MagicMock(return_value=catalog),
+                        list_step_categories=MagicMock(return_value=categories),
+                    ),
+                },
+            ):
                 result = handler._get_step_catalog({})
 
         body = _body(result)
@@ -193,12 +201,15 @@ class TestGetStepTypes:
         catalog = {"llm_call": mock_info_a, "http_request": mock_info_b}
         categories = ["ai", "io"]
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.step_catalog": MagicMock(
-                get_step_catalog=MagicMock(return_value=catalog),
-                list_step_categories=MagicMock(return_value=categories),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.step_catalog": MagicMock(
+                    get_step_catalog=MagicMock(return_value=catalog),
+                    list_step_categories=MagicMock(return_value=categories),
+                ),
+            },
+        ):
             result = handler._get_step_catalog({"category": "ai"})
 
         body = _body(result)
@@ -211,12 +222,15 @@ class TestGetStepTypes:
         mock_info = MagicMock()
         mock_info.to_dict.return_value = {"name": "llm_call", "category": "ai"}
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.step_catalog": MagicMock(
-                get_step_catalog=MagicMock(return_value={"llm_call": mock_info}),
-                list_step_categories=MagicMock(return_value=["ai"]),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.step_catalog": MagicMock(
+                    get_step_catalog=MagicMock(return_value={"llm_call": mock_info}),
+                    list_step_categories=MagicMock(return_value=["ai"]),
+                ),
+            },
+        ):
             result = handler._get_step_catalog({"category": "nonexistent"})
 
         body = _body(result)
@@ -236,12 +250,15 @@ class TestGetStepTypes:
         """The handle() GET dispatch should route step-types correctly."""
         mock_info = MagicMock()
         mock_info.to_dict.return_value = {"name": "test", "category": "test"}
-        with patch.dict("sys.modules", {
-            "aragora.workflow.step_catalog": MagicMock(
-                get_step_catalog=MagicMock(return_value={"test": mock_info}),
-                list_step_categories=MagicMock(return_value=["test"]),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.step_catalog": MagicMock(
+                    get_step_catalog=MagicMock(return_value={"test": mock_info}),
+                    list_step_categories=MagicMock(return_value=["test"]),
+                ),
+            },
+        ):
             result = handler.handle("/api/v1/workflows/step-types", {}, mock_http())
 
         assert _status(result) == 200
@@ -253,12 +270,15 @@ class TestGetStepTypes:
 
     def test_empty_catalog(self, handler):
         """Empty catalog returns zero items."""
-        with patch.dict("sys.modules", {
-            "aragora.workflow.step_catalog": MagicMock(
-                get_step_catalog=MagicMock(return_value={}),
-                list_step_categories=MagicMock(return_value=[]),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.step_catalog": MagicMock(
+                    get_step_catalog=MagicMock(return_value={}),
+                    list_step_categories=MagicMock(return_value=[]),
+                ),
+            },
+        ):
             result = handler._get_step_catalog({})
 
         body = _body(result)
@@ -287,19 +307,23 @@ class TestGenerateWorkflow:
 
         mock_config_class = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder_class,
-                NLBuildConfig=mock_config_class,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder_class,
+                    NLBuildConfig=mock_config_class,
+                ),
+            },
+        ):
             result = handler._generate_workflow({"description": "Send email on new lead"})
 
         assert _status(result) == 200
         body = _body(result)
         assert body["workflow_id"] == "wf_1"
         mock_builder_instance.build_quick.assert_called_once_with(
-            "Send email on new lead", category=None,
+            "Send email on new lead",
+            category=None,
         )
 
     def test_quick_mode_with_category(self, handler):
@@ -310,20 +334,26 @@ class TestGenerateWorkflow:
         mock_builder = MagicMock()
         mock_builder.return_value.build_quick.return_value = mock_result
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
-            result = handler._generate_workflow({
-                "description": "classify documents",
-                "category": "data_processing",
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
+            result = handler._generate_workflow(
+                {
+                    "description": "classify documents",
+                    "category": "data_processing",
+                }
+            )
 
         assert _status(result) == 200
         mock_builder.return_value.build_quick.assert_called_once_with(
-            "classify documents", category="data_processing",
+            "classify documents",
+            category="data_processing",
         )
 
     def test_async_mode_calls_build(self, handler):
@@ -335,24 +365,31 @@ class TestGenerateWorkflow:
         mock_coro = MagicMock()
         mock_builder.return_value.build.return_value = mock_coro
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
             with patch(f"{PATCH_MOD}._run_async", return_value=mock_result) as mock_run:
-                result = handler._generate_workflow({
-                    "description": "complex workflow",
-                    "mode": "full",
-                    "category": "ops",
-                    "agents": ["agent1", "agent2"],
-                })
+                result = handler._generate_workflow(
+                    {
+                        "description": "complex workflow",
+                        "mode": "full",
+                        "category": "ops",
+                        "agents": ["agent1", "agent2"],
+                    }
+                )
 
         assert _status(result) == 200
         mock_run.assert_called_once_with(mock_coro)
         mock_builder.return_value.build.assert_called_once_with(
-            "complex workflow", category="ops", agents=["agent1", "agent2"],
+            "complex workflow",
+            category="ops",
+            agents=["agent1", "agent2"],
         )
 
     def test_empty_description_returns_400(self, handler):
@@ -379,12 +416,15 @@ class TestGenerateWorkflow:
         mock_builder = MagicMock()
         mock_builder.return_value.build_quick.side_effect = TypeError("bad arg")
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
             result = handler._generate_workflow({"description": "a workflow"})
 
         assert _status(result) == 400
@@ -395,12 +435,15 @@ class TestGenerateWorkflow:
         mock_builder = MagicMock()
         mock_builder.return_value.build_quick.side_effect = ValueError("invalid mode")
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
             result = handler._generate_workflow({"description": "a workflow"})
 
         assert _status(result) == 400
@@ -414,12 +457,15 @@ class TestGenerateWorkflow:
         mock_builder = MagicMock()
         mock_builder.return_value.build_quick.return_value = mock_result
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=mock_config,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=mock_config,
+                ),
+            },
+        ):
             handler._generate_workflow({"description": "test"})
 
         mock_config.assert_called_once_with(mode="quick")
@@ -441,16 +487,21 @@ class TestAutoLayout:
         steps = [{"id": "s1", "name": "Start"}]
         transitions = [{"from": "s1", "to": "s2"}]
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=MagicMock(return_value=[mock_pos]),
-                grid_layout=MagicMock(),
-            ),
-        }):
-            result = handler._auto_layout({
-                "steps": steps,
-                "transitions": transitions,
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=MagicMock(return_value=[mock_pos]),
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
+            result = handler._auto_layout(
+                {
+                    "steps": steps,
+                    "transitions": transitions,
+                }
+            )
 
         body = _body(result)
         assert _status(result) == 200
@@ -470,17 +521,22 @@ class TestAutoLayout:
         mock_layout = MagicMock()
         mock_grid_fn = MagicMock(return_value=[mock_pos_a, mock_pos_b])
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=MagicMock(),
-                grid_layout=mock_grid_fn,
-            ),
-        }):
-            result = handler._auto_layout({
-                "steps": steps,
-                "layout": "grid",
-                "columns": 4,
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=MagicMock(),
+                    grid_layout=mock_grid_fn,
+                ),
+            },
+        ):
+            result = handler._auto_layout(
+                {
+                    "steps": steps,
+                    "layout": "grid",
+                    "columns": 4,
+                }
+            )
 
         body = _body(result)
         assert _status(result) == 200
@@ -492,16 +548,21 @@ class TestAutoLayout:
         """Grid layout defaults to 3 columns."""
         mock_grid_fn = MagicMock(return_value=[])
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=MagicMock(),
-                grid_layout=mock_grid_fn,
-            ),
-        }):
-            handler._auto_layout({
-                "steps": [{"id": "s1"}],
-                "layout": "grid",
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=MagicMock(),
+                    grid_layout=mock_grid_fn,
+                ),
+            },
+        ):
+            handler._auto_layout(
+                {
+                    "steps": [{"id": "s1"}],
+                    "layout": "grid",
+                }
+            )
 
         mock_grid_fn.assert_called_once_with([{"id": "s1"}], columns=3)
 
@@ -528,16 +589,21 @@ class TestAutoLayout:
         """KeyError during layout should return 400."""
         mock_flow_fn = MagicMock(side_effect=KeyError("missing_key"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=mock_flow_fn,
-                grid_layout=MagicMock(),
-            ),
-        }):
-            result = handler._auto_layout({
-                "steps": [{"id": "s1"}],
-                "transitions": [],
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=mock_flow_fn,
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
+            result = handler._auto_layout(
+                {
+                    "steps": [{"id": "s1"}],
+                    "transitions": [],
+                }
+            )
 
         assert _status(result) == 400
         assert "failed" in _body(result).get("error", "").lower()
@@ -546,16 +612,21 @@ class TestAutoLayout:
         """TypeError during layout should return 400."""
         mock_flow_fn = MagicMock(side_effect=TypeError("bad type"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=mock_flow_fn,
-                grid_layout=MagicMock(),
-            ),
-        }):
-            result = handler._auto_layout({
-                "steps": [{"id": "s1"}],
-                "transitions": [],
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=mock_flow_fn,
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
+            result = handler._auto_layout(
+                {
+                    "steps": [{"id": "s1"}],
+                    "transitions": [],
+                }
+            )
 
         assert _status(result) == 400
 
@@ -563,12 +634,15 @@ class TestAutoLayout:
         """Missing transitions defaults to empty list."""
         mock_flow_fn = MagicMock(return_value=[])
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=mock_flow_fn,
-                grid_layout=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=mock_flow_fn,
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
             handler._auto_layout({"steps": [{"id": "s1"}]})
 
         mock_flow_fn.assert_called_once_with([{"id": "s1"}], [])
@@ -577,12 +651,15 @@ class TestAutoLayout:
         """Default layout type should be 'flow'."""
         mock_flow_fn = MagicMock(return_value=[])
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=mock_flow_fn,
-                grid_layout=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=mock_flow_fn,
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
             result = handler._auto_layout({"steps": [{"id": "s1"}]})
 
         body = _body(result)
@@ -609,10 +686,13 @@ class TestCreateFromPattern:
         mock_create_fn = MagicMock(return_value=mock_pattern)
         mock_pattern_type = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
-            "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
+                "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
+            },
+        ):
             result = handler._create_from_pattern({"pattern": "sequential"})
 
         assert _status(result) == 201
@@ -630,16 +710,21 @@ class TestCreateFromPattern:
         mock_create_fn = MagicMock(return_value=mock_pattern)
         mock_pattern_type = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
-            "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
-        }):
-            result = handler._create_from_pattern({
-                "pattern": "fan_out",
-                "name": "My Workflow",
-                "agents": ["agent1"],
-                "task": "Analyze data",
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
+                "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
+            },
+        ):
+            result = handler._create_from_pattern(
+                {
+                    "pattern": "fan_out",
+                    "name": "My Workflow",
+                    "agents": ["agent1"],
+                    "task": "Analyze data",
+                }
+            )
 
         assert _status(result) == 201
         # Verify kwargs passed to create_pattern
@@ -663,10 +748,13 @@ class TestCreateFromPattern:
         """Unknown pattern type should return 400 with pattern name."""
         mock_pattern_type = MagicMock(side_effect=ValueError("not a valid pattern"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
-            "aragora.workflow.patterns": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
+                "aragora.workflow.patterns": MagicMock(),
+            },
+        ):
             result = handler._create_from_pattern({"pattern": "nonexistent"})
 
         assert _status(result) == 400
@@ -674,9 +762,12 @@ class TestCreateFromPattern:
 
     def test_import_error_returns_503(self, handler):
         """Should return 503 when patterns module is not available."""
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": None,
+            },
+        ):
             result = handler._create_from_pattern({"pattern": "sequential"})
 
         assert _status(result) == 503
@@ -686,10 +777,13 @@ class TestCreateFromPattern:
         mock_pattern_type = MagicMock()
         mock_create_fn = MagicMock(side_effect=TypeError("bad type"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
-            "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
+                "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
+            },
+        ):
             result = handler._create_from_pattern({"pattern": "sequential"})
 
         assert _status(result) == 400
@@ -700,10 +794,13 @@ class TestCreateFromPattern:
         mock_pattern_type = MagicMock()
         mock_create_fn = MagicMock(side_effect=AttributeError("no attribute"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
-            "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
+                "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
+            },
+        ):
             result = handler._create_from_pattern({"pattern": "sequential"})
 
         assert _status(result) == 400
@@ -719,10 +816,13 @@ class TestCreateFromPattern:
         mock_create_fn = MagicMock(return_value=mock_pattern)
         mock_pattern_type = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
-            "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=mock_pattern_type),
+                "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
+            },
+        ):
             result = handler._create_from_pattern({"pattern": "sequential"})
 
         assert _status(result) == 201
@@ -754,14 +854,17 @@ class TestValidateWorkflow:
         }
         mock_validate_fn = MagicMock(return_value=mock_validation_result)
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.types": MagicMock(
-                WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
-            ),
-            "aragora.workflow.validation": MagicMock(
-                validate_workflow=mock_validate_fn,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.types": MagicMock(
+                    WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
+                ),
+                "aragora.workflow.validation": MagicMock(
+                    validate_workflow=mock_validate_fn,
+                ),
+            },
+        ):
             result = handler._validate_workflow({"name": "test", "steps": []})
 
         assert _status(result) == 200
@@ -780,12 +883,15 @@ class TestValidateWorkflow:
         """KeyError during validation should return 400."""
         mock_from_dict = MagicMock(side_effect=KeyError("missing field"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.types": MagicMock(
-                WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
-            ),
-            "aragora.workflow.validation": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.types": MagicMock(
+                    WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
+                ),
+                "aragora.workflow.validation": MagicMock(),
+            },
+        ):
             result = handler._validate_workflow({})
 
         assert _status(result) == 400
@@ -795,12 +901,15 @@ class TestValidateWorkflow:
         """TypeError during validation should return 400."""
         mock_from_dict = MagicMock(side_effect=TypeError("wrong type"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.types": MagicMock(
-                WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
-            ),
-            "aragora.workflow.validation": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.types": MagicMock(
+                    WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
+                ),
+                "aragora.workflow.validation": MagicMock(),
+            },
+        ):
             result = handler._validate_workflow({"name": "test"})
 
         assert _status(result) == 400
@@ -809,12 +918,15 @@ class TestValidateWorkflow:
         """ValueError during validation should return 400."""
         mock_from_dict = MagicMock(side_effect=ValueError("bad value"))
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.types": MagicMock(
-                WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
-            ),
-            "aragora.workflow.validation": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.types": MagicMock(
+                    WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
+                ),
+                "aragora.workflow.validation": MagicMock(),
+            },
+        ):
             result = handler._validate_workflow({"name": "test"})
 
         assert _status(result) == 400
@@ -832,14 +944,17 @@ class TestValidateWorkflow:
         }
         mock_validate_fn = MagicMock(return_value=mock_validation_result)
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.types": MagicMock(
-                WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
-            ),
-            "aragora.workflow.validation": MagicMock(
-                validate_workflow=mock_validate_fn,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.types": MagicMock(
+                    WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
+                ),
+                "aragora.workflow.validation": MagicMock(
+                    validate_workflow=mock_validate_fn,
+                ),
+            },
+        ):
             result = handler._validate_workflow({"name": "test", "steps": []})
 
         assert _status(result) == 200
@@ -871,14 +986,17 @@ class TestReplayWorkflow:
             mock_get_wf = MagicMock()
             mock_execute_wf = MagicMock()
 
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(
-                    execute_workflow=mock_execute_wf,
-                ),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(
+                        execute_workflow=mock_execute_wf,
+                    ),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_123/replay",
                     {"inputs": {"key": "value"}},
@@ -894,12 +1012,15 @@ class TestReplayWorkflow:
             mock_run_async.return_value = None
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_999/replay",
                     {},
@@ -932,14 +1053,17 @@ class TestReplayWorkflow:
             mock_get_wf = MagicMock()
             mock_execute_wf = MagicMock()
 
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(
-                    execute_workflow=mock_execute_wf,
-                ),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(
+                        execute_workflow=mock_execute_wf,
+                    ),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 handler._replay_workflow(
                     "/api/v1/workflows/my-uuid-id/replay",
                     {"inputs": {}},
@@ -958,14 +1082,17 @@ class TestReplayWorkflow:
             mock_execute_wf = MagicMock()
             mock_get_wf = MagicMock()
 
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(
-                    execute_workflow=mock_execute_wf,
-                ),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(
+                        execute_workflow=mock_execute_wf,
+                    ),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -980,12 +1107,15 @@ class TestReplayWorkflow:
             mock_run_async.side_effect = ValueError("workflow not found")
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -1000,12 +1130,15 @@ class TestReplayWorkflow:
             mock_run_async.side_effect = ConnectionError("service down")
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -1020,12 +1153,15 @@ class TestReplayWorkflow:
             mock_run_async.side_effect = TimeoutError("timed out")
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -1039,12 +1175,15 @@ class TestReplayWorkflow:
             mock_run_async.side_effect = KeyError("bad_key")
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -1059,12 +1198,15 @@ class TestReplayWorkflow:
             mock_run_async.side_effect = TypeError("bad type")
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -1078,12 +1220,15 @@ class TestReplayWorkflow:
             mock_run_async.side_effect = AttributeError("no attr")
 
             mock_get_wf = MagicMock()
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(
-                    get_workflow=mock_get_wf,
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(
+                        get_workflow=mock_get_wf,
+                    ),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay",
                     {},
@@ -1095,9 +1240,12 @@ class TestReplayWorkflow:
         """Should handle ImportError when execution module is missing."""
         # When the local import fails, it raises ImportError which is not caught
         # by any handler, but get dispatched through handle_post's @handle_errors
-        with patch.dict("sys.modules", {
-            "aragora.server.handlers.workflows.execution": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.handlers.workflows.execution": None,
+            },
+        ):
             # ImportError from the import inside _replay_workflow won't be caught
             # because the except clauses only catch ValueError, ConnectionError, etc.
             # It will propagate up. Let's verify that.
@@ -1120,11 +1268,19 @@ class TestHandlePost:
         """POST to /generate should invoke _generate_workflow."""
         http = mock_http(method="POST", body={"description": "test"})
 
-        with patch.object(handler, "_generate_workflow", return_value=MagicMock(
-            status_code=200, body=b'{}', content_type="application/json",
-        )) as mock_gen:
+        with patch.object(
+            handler,
+            "_generate_workflow",
+            return_value=MagicMock(
+                status_code=200,
+                body=b"{}",
+                content_type="application/json",
+            ),
+        ) as mock_gen:
             result = handler.handle_post(
-                "/api/v1/workflows/generate", {}, http,
+                "/api/v1/workflows/generate",
+                {},
+                http,
             )
 
         mock_gen.assert_called_once()
@@ -1134,11 +1290,19 @@ class TestHandlePost:
         """POST to /auto-layout should invoke _auto_layout."""
         http = mock_http(method="POST", body={"steps": [{"id": "s1"}]})
 
-        with patch.object(handler, "_auto_layout", return_value=MagicMock(
-            status_code=200, body=b'{}', content_type="application/json",
-        )) as mock_layout:
+        with patch.object(
+            handler,
+            "_auto_layout",
+            return_value=MagicMock(
+                status_code=200,
+                body=b"{}",
+                content_type="application/json",
+            ),
+        ) as mock_layout:
             result = handler.handle_post(
-                "/api/v1/workflows/auto-layout", {}, http,
+                "/api/v1/workflows/auto-layout",
+                {},
+                http,
             )
 
         mock_layout.assert_called_once()
@@ -1147,11 +1311,19 @@ class TestHandlePost:
         """POST to /from-pattern should invoke _create_from_pattern."""
         http = mock_http(method="POST", body={"pattern": "sequential"})
 
-        with patch.object(handler, "_create_from_pattern", return_value=MagicMock(
-            status_code=201, body=b'{}', content_type="application/json",
-        )) as mock_pattern:
+        with patch.object(
+            handler,
+            "_create_from_pattern",
+            return_value=MagicMock(
+                status_code=201,
+                body=b"{}",
+                content_type="application/json",
+            ),
+        ) as mock_pattern:
             result = handler.handle_post(
-                "/api/v1/workflows/from-pattern", {}, http,
+                "/api/v1/workflows/from-pattern",
+                {},
+                http,
             )
 
         mock_pattern.assert_called_once()
@@ -1160,11 +1332,19 @@ class TestHandlePost:
         """POST to /validate should invoke _validate_workflow."""
         http = mock_http(method="POST", body={"name": "test"})
 
-        with patch.object(handler, "_validate_workflow", return_value=MagicMock(
-            status_code=200, body=b'{}', content_type="application/json",
-        )) as mock_validate:
+        with patch.object(
+            handler,
+            "_validate_workflow",
+            return_value=MagicMock(
+                status_code=200,
+                body=b"{}",
+                content_type="application/json",
+            ),
+        ) as mock_validate:
             result = handler.handle_post(
-                "/api/v1/workflows/validate", {}, http,
+                "/api/v1/workflows/validate",
+                {},
+                http,
             )
 
         mock_validate.assert_called_once()
@@ -1173,11 +1353,19 @@ class TestHandlePost:
         """POST to /workflows/{id}/replay should invoke _replay_workflow."""
         http = mock_http(method="POST", body={"inputs": {}})
 
-        with patch.object(handler, "_replay_workflow", return_value=MagicMock(
-            status_code=200, body=b'{}', content_type="application/json",
-        )) as mock_replay:
+        with patch.object(
+            handler,
+            "_replay_workflow",
+            return_value=MagicMock(
+                status_code=200,
+                body=b"{}",
+                content_type="application/json",
+            ),
+        ) as mock_replay:
             result = handler.handle_post(
-                "/api/v1/workflows/wf_123/replay", {}, http,
+                "/api/v1/workflows/wf_123/replay",
+                {},
+                http,
             )
 
         mock_replay.assert_called_once()
@@ -1186,7 +1374,9 @@ class TestHandlePost:
         """POST to unrecognized path should return None."""
         http = mock_http(method="POST", body={})
         result = handler.handle_post(
-            "/api/v1/workflows/unknown", {}, http,
+            "/api/v1/workflows/unknown",
+            {},
+            http,
         )
         assert result is None
 
@@ -1200,7 +1390,9 @@ class TestHandlePost:
             "Content-Type": "application/json",
         }
         result = handler.handle_post(
-            "/api/v1/workflows/generate", {}, http,
+            "/api/v1/workflows/generate",
+            {},
+            http,
         )
         # Should get an error response (either 400 from body parse or from handler)
         assert result is not None
@@ -1213,7 +1405,9 @@ class TestHandlePost:
         http.headers = {"Content-Length": "30"}
 
         result = handler.handle_post(
-            "/api/v1/workflows/generate", {}, http,
+            "/api/v1/workflows/generate",
+            {},
+            http,
         )
         assert result is not None
         assert _status(result) == 415
@@ -1285,14 +1479,19 @@ class TestIntegrationPostGenerate:
 
         http = mock_http(method="POST", body={"description": "send weekly email"})
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
             result = handler.handle_post(
-                "/api/v1/workflows/generate", {}, http,
+                "/api/v1/workflows/generate",
+                {},
+                http,
             )
 
         assert _status(result) == 200
@@ -1309,16 +1508,21 @@ class TestIntegrationPostGenerate:
 
         http = mock_http(method="POST", body={"name": "test", "steps": []})
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.types": MagicMock(
-                WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
-            ),
-            "aragora.workflow.validation": MagicMock(
-                validate_workflow=MagicMock(return_value=mock_validation),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.types": MagicMock(
+                    WorkflowDefinition=MagicMock(from_dict=mock_from_dict),
+                ),
+                "aragora.workflow.validation": MagicMock(
+                    validate_workflow=MagicMock(return_value=mock_validation),
+                ),
+            },
+        ):
             result = handler.handle_post(
-                "/api/v1/workflows/validate", {}, http,
+                "/api/v1/workflows/validate",
+                {},
+                http,
             )
 
         assert _status(result) == 200
@@ -1334,14 +1538,19 @@ class TestIntegrationPostGenerate:
             body={"steps": [{"id": "s1"}], "transitions": []},
         )
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=MagicMock(return_value=[mock_pos]),
-                grid_layout=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=MagicMock(return_value=[mock_pos]),
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
             result = handler.handle_post(
-                "/api/v1/workflows/auto-layout", {}, http,
+                "/api/v1/workflows/auto-layout",
+                {},
+                http,
             )
 
         assert _status(result) == 200
@@ -1359,14 +1568,19 @@ class TestIntegrationPostGenerate:
 
         http = mock_http(method="POST", body={"pattern": "sequential"})
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=MagicMock()),
-            "aragora.workflow.patterns": MagicMock(
-                create_pattern=MagicMock(return_value=mock_pattern),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=MagicMock()),
+                "aragora.workflow.patterns": MagicMock(
+                    create_pattern=MagicMock(return_value=mock_pattern),
+                ),
+            },
+        ):
             result = handler.handle_post(
-                "/api/v1/workflows/from-pattern", {}, http,
+                "/api/v1/workflows/from-pattern",
+                {},
+                http,
             )
 
         assert _status(result) == 201
@@ -1386,10 +1600,13 @@ class TestEdgeCases:
         with patch(f"{PATCH_MOD}._run_async") as mock_run_async:
             mock_run_async.side_effect = [{"id": "wf_1"}, {"ok": True}]
 
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf_1/replay/",
                     {},
@@ -1405,10 +1622,13 @@ class TestEdgeCases:
         with patch(f"{PATCH_MOD}._run_async") as mock_run_async:
             mock_run_async.side_effect = [{"id": "wf-abc_123"}, {"status": "done"}]
 
-            with patch.dict("sys.modules", {
-                "aragora.server.handlers.workflows.execution": MagicMock(),
-                "aragora.server.handlers.workflows.crud": MagicMock(),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.handlers.workflows.execution": MagicMock(),
+                    "aragora.server.handlers.workflows.crud": MagicMock(),
+                },
+            ):
                 result = handler._replay_workflow(
                     "/api/v1/workflows/wf-abc_123/replay",
                     {},
@@ -1425,12 +1645,15 @@ class TestEdgeCases:
         mock_builder = MagicMock()
         mock_builder.return_value.build_quick.return_value = mock_result
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=mock_builder,
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=mock_builder,
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
             result = handler._generate_workflow({"description": "   "})
 
         # Whitespace is truthy, so it proceeds
@@ -1446,12 +1669,15 @@ class TestEdgeCases:
 
         steps = [{"id": f"s{i}"} for i in range(100)]
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.layout": MagicMock(
-                flow_layout=MagicMock(return_value=positions),
-                grid_layout=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.layout": MagicMock(
+                    flow_layout=MagicMock(return_value=positions),
+                    grid_layout=MagicMock(),
+                ),
+            },
+        ):
             result = handler._auto_layout({"steps": steps})
 
         body = _body(result)
@@ -1467,14 +1693,19 @@ class TestEdgeCases:
 
         mock_create_fn = MagicMock(return_value=mock_pattern)
 
-        with patch.dict("sys.modules", {
-            "aragora.workflow.patterns.base": MagicMock(PatternType=MagicMock()),
-            "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
-        }):
-            handler._create_from_pattern({
-                "pattern": "sequential",
-                "name": "My Flow",
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.patterns.base": MagicMock(PatternType=MagicMock()),
+                "aragora.workflow.patterns": MagicMock(create_pattern=mock_create_fn),
+            },
+        ):
+            handler._create_from_pattern(
+                {
+                    "pattern": "sequential",
+                    "name": "My Flow",
+                }
+            )
 
         call_kwargs = mock_create_fn.call_args[1]
         assert call_kwargs["name"] == "My Flow"
@@ -1485,14 +1716,19 @@ class TestEdgeCases:
         """POST with empty body {} should still route correctly."""
         http = _MockHTTPHandler(method="POST", body={})
         # generate expects description, so should get 400
-        with patch.dict("sys.modules", {
-            "aragora.workflow.nl_builder": MagicMock(
-                NLWorkflowBuilder=MagicMock(),
-                NLBuildConfig=MagicMock(),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.nl_builder": MagicMock(
+                    NLWorkflowBuilder=MagicMock(),
+                    NLBuildConfig=MagicMock(),
+                ),
+            },
+        ):
             result = handler.handle_post(
-                "/api/v1/workflows/generate", {}, http,
+                "/api/v1/workflows/generate",
+                {},
+                http,
             )
 
         assert _status(result) == 400

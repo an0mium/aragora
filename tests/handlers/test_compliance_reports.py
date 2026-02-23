@@ -459,7 +459,7 @@ class TestDownloadReport:
         mock_h = _MockHTTPHandler("GET")
         with patch(_PATCH_GENERATOR) as MockGen:
             gen_instance = MagicMock()
-            gen_instance.export_json.return_value = '{}'
+            gen_instance.export_json.return_value = "{}"
             MockGen.return_value = gen_instance
 
             result = handler.handle(
@@ -508,18 +508,16 @@ class TestGenerateReport:
         )
 
         mock_report = _make_mock_report()
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 201
             body = _body(result)
             assert body["report_id"] == "CR-GENERATED001"
@@ -533,12 +531,8 @@ class TestGenerateReport:
 
     def test_generate_missing_debate_id(self, handler):
         """Missing debate_id should return 400."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"framework": "soc2"}
-        )
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"framework": "soc2"})
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
         body = _body(result)
         assert "debate_id" in body.get("error", "").lower()
@@ -549,9 +543,7 @@ class TestGenerateReport:
             "POST",
             body={"debate_id": "debate-001", "framework": "invalid_fw"},
         )
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
         body = _body(result)
         error_msg = body.get("error", "").lower()
@@ -568,9 +560,7 @@ class TestGenerateReport:
         )
 
         with patch(_PATCH_GENERATOR), patch(_PATCH_FRAMEWORK):
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 404
             body = _body(result)
             assert "not found" in body.get("error", "").lower()
@@ -584,9 +574,7 @@ class TestGenerateReport:
         )
 
         with patch(_PATCH_GENERATOR), patch(_PATCH_FRAMEWORK):
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 404
 
     def test_generate_import_error(self, handler):
@@ -606,19 +594,13 @@ class TestGenerateReport:
             return original_import(name, *args, **kwargs)
 
         with patch.object(builtins, "__import__", side_effect=mock_import):
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 503
 
     def test_generate_wrong_path_returns_none(self, handler):
         """POST to a non-generate path should return None."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"debate_id": "d1"}
-        )
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/something-else", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"debate_id": "d1"})
+        result = handler.handle_post("/api/v1/compliance/reports/something-else", {}, mock_h)
         assert result is None
 
     def test_generate_all_valid_frameworks(self, handler, mock_storage):
@@ -638,18 +620,16 @@ class TestGenerateReport:
                 framework_value=fw,
                 summary=f"{fw} summary",
             )
-            with patch(_PATCH_GENERATOR) as MockGen, patch(
-                _PATCH_FRAMEWORK
-            ), patch(
-                _PATCH_DEBATE_RESULT
+            with (
+                patch(_PATCH_GENERATOR) as MockGen,
+                patch(_PATCH_FRAMEWORK),
+                patch(_PATCH_DEBATE_RESULT),
             ):
                 gen_instance = MagicMock()
                 gen_instance.generate.return_value = mock_report
                 MockGen.return_value = gen_instance
 
-                result = handler.handle_post(
-                    "/api/v1/compliance/reports/generate", {}, mock_h
-                )
+                result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
                 assert _status(result) == 201, f"Framework '{fw}' should succeed"
 
     def test_generate_defaults_framework_to_general(self, handler, mock_storage):
@@ -667,18 +647,16 @@ class TestGenerateReport:
             framework_value="general",
             summary="Default framework",
         )
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 201
             body = _body(result)
             assert body["framework"] == "general"
@@ -693,18 +671,16 @@ class TestGenerateReport:
         )
 
         mock_report = _make_mock_report(report_id="CR-SCOPE")
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 201
 
             # Verify generate was called with correct defaults
@@ -731,18 +707,16 @@ class TestGenerateReport:
         )
 
         mock_report = _make_mock_report(report_id="CR-CUSTOM")
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 201
 
             call_kwargs = gen_instance.generate.call_args
@@ -753,9 +727,7 @@ class TestGenerateReport:
     def test_generate_empty_body(self, handler):
         """Empty body means no debate_id -> 400."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
 
     def test_generate_caches_report(self, handler, mock_storage):
@@ -768,40 +740,30 @@ class TestGenerateReport:
         )
 
         mock_report = _make_mock_report(report_id="CR-CACHED")
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
 
         assert "CR-CACHED" in _report_cache
         assert _report_cache["CR-CACHED"] is mock_report
 
     def test_generate_null_debate_id(self, handler):
         """Explicit null debate_id should return 400."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"debate_id": None, "framework": "general"}
-        )
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"debate_id": None, "framework": "general"})
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
 
     def test_generate_empty_string_debate_id(self, handler):
         """Empty string debate_id should return 400."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"debate_id": "", "framework": "general"}
-        )
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"debate_id": "", "framework": "general"})
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
 
 
@@ -849,9 +811,7 @@ class TestHandleRouting:
     def test_too_many_segments_returns_none(self, handler):
         """6+ segments that don't end in /download return None."""
         mock_h = _MockHTTPHandler("GET")
-        result = handler.handle(
-            "/api/v1/compliance/reports/CR-ABC/extra/segment", {}, mock_h
-        )
+        result = handler.handle("/api/v1/compliance/reports/CR-ABC/extra/segment", {}, mock_h)
         assert result is None
 
     def test_download_takes_priority_over_id(self, handler, cached_report):
@@ -888,32 +848,24 @@ class TestHandlePostRouting:
 
     def test_wrong_path_returns_none(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"debate_id": "d1"})
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/CR-123", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/compliance/reports/CR-123", {}, mock_h)
         assert result is None
 
     def test_similar_but_wrong_path(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"debate_id": "d1"})
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate/extra", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/compliance/reports/generate/extra", {}, mock_h)
         assert result is None
 
     def test_correct_path_but_empty_body(self, handler):
         """Correct path but empty body (no debate_id) returns 400."""
         mock_h = _MockHTTPHandler("POST")
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/generate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
 
     def test_case_sensitive_path(self, handler):
         """Path matching is case-sensitive."""
         mock_h = _MockHTTPHandler("POST", body={"debate_id": "d1"})
-        result = handler.handle_post(
-            "/api/v1/compliance/reports/Generate", {}, mock_h
-        )
+        result = handler.handle_post("/api/v1/compliance/reports/Generate", {}, mock_h)
         assert result is None
 
 
@@ -968,9 +920,7 @@ class TestEdgeCases:
             _PATCH_FRAMEWORK,
             side_effect=ValueError("bad framework"),
         ):
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 400
 
     def test_generate_type_error_returns_400(self, handler, mock_storage):
@@ -986,9 +936,7 @@ class TestEdgeCases:
             _PATCH_FRAMEWORK,
             side_effect=TypeError("bad type"),
         ):
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 400
 
     def test_report_id_with_special_chars(self, handler):
@@ -1049,18 +997,16 @@ class TestEdgeCases:
         )
 
         mock_report = _make_mock_report(report_id="CR-SPARSE")
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
-        ) as MockDR:
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT) as MockDR,
+        ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
             assert _status(result) == 201
 
             # DebateResult was called with defaults from empty debate_data
@@ -1089,18 +1035,16 @@ class TestEdgeCases:
             body={"debate_id": "debate-001", "framework": "general"},
         )
 
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h_post
-            )
+            handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h_post)
 
         # Now retrieve it
         mock_h_get = _MockHTTPHandler("GET")
@@ -1120,18 +1064,16 @@ class TestEdgeCases:
             body={"debate_id": "debate-001", "framework": "general"},
         )
 
-        with patch(_PATCH_GENERATOR) as MockGen, patch(
-            _PATCH_FRAMEWORK
-        ), patch(
-            _PATCH_DEBATE_RESULT
+        with (
+            patch(_PATCH_GENERATOR) as MockGen,
+            patch(_PATCH_FRAMEWORK),
+            patch(_PATCH_DEBATE_RESULT),
         ):
             gen_instance = MagicMock()
             gen_instance.generate.return_value = mock_report
             MockGen.return_value = gen_instance
 
-            handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_h_post
-            )
+            handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h_post)
 
         # Now download it
         mock_h_dl = _MockHTTPHandler("GET")

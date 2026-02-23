@@ -108,7 +108,11 @@ class MockFollowUp:
         self.subject = subject
         self.recipient = recipient
         self.sent_at = sent_at or datetime.now()
-        self.expected_by = expected_by if expected_by is not MockFollowUp._SENTINEL else (datetime.now() + timedelta(days=3))
+        self.expected_by = (
+            expected_by
+            if expected_by is not MockFollowUp._SENTINEL
+            else (datetime.now() + timedelta(days=3))
+        )
         self.status = status or MockFollowUpStatus.PENDING
         self.days_waiting = days_waiting
         self.urgency_score = urgency_score
@@ -176,7 +180,9 @@ def mock_tracker():
     tracker = AsyncMock()
     tracker.mark_awaiting_reply = AsyncMock(return_value=MockFollowUp())
     tracker.get_pending_followups = AsyncMock(return_value=[])
-    tracker.resolve_followup = AsyncMock(return_value=MockFollowUp(status=MockFollowUpStatus.RESOLVED))
+    tracker.resolve_followup = AsyncMock(
+        return_value=MockFollowUp(status=MockFollowUpStatus.RESOLVED)
+    )
     tracker.check_for_replies = AsyncMock(return_value=[])
     tracker.auto_detect_sent_emails = AsyncMock(return_value=[])
     email_mod._followup_tracker = tracker
@@ -270,7 +276,11 @@ class TestCheckEmailPermission:
         assert result is None
 
     @patch.object(email_mod, "RBAC_AVAILABLE", True)
-    @patch.object(email_mod, "check_permission", return_value=MockRBACDecision(allowed=False, reason="no perm"))
+    @patch.object(
+        email_mod,
+        "check_permission",
+        return_value=MockRBACDecision(allowed=False, reason="no perm"),
+    )
     def test_rbac_denied_returns_403(self, _mock_check):
         result = _check_email_permission(MagicMock(), "email:read")
         assert _status(result) == 403
@@ -425,18 +435,14 @@ class TestGetPendingFollowups:
 
     @pytest.mark.asyncio
     async def test_get_pending_include_resolved(self, mock_tracker, mock_auth):
-        result = await handle_get_pending_followups(
-            include_resolved=True, auth_context=mock_auth
-        )
+        result = await handle_get_pending_followups(include_resolved=True, auth_context=mock_auth)
         assert _status(result) == 200
         call_kwargs = mock_tracker.get_pending_followups.call_args.kwargs
         assert call_kwargs["include_resolved"] is True
 
     @pytest.mark.asyncio
     async def test_get_pending_sort_by_date(self, mock_tracker, mock_auth):
-        result = await handle_get_pending_followups(
-            sort_by="date", auth_context=mock_auth
-        )
+        result = await handle_get_pending_followups(sort_by="date", auth_context=mock_auth)
         assert _status(result) == 200
         call_kwargs = mock_tracker.get_pending_followups.call_args.kwargs
         assert call_kwargs["sort_by"] == "date"
@@ -500,9 +506,7 @@ class TestResolveFollowup:
     @pytest.mark.asyncio
     async def test_resolve_not_found(self, mock_tracker, mock_auth):
         mock_tracker.resolve_followup.return_value = None
-        result = await handle_resolve_followup(
-            "fu-999", {}, auth_context=mock_auth
-        )
+        result = await handle_resolve_followup("fu-999", {}, auth_context=mock_auth)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -639,9 +643,7 @@ class TestGetSnoozeSuggestions:
     @pytest.mark.asyncio
     async def test_get_suggestions_success(self, mock_recommender, mock_auth):
         data = {"subject": "Test", "sender": "alice@test.com"}
-        result = await handle_get_snooze_suggestions(
-            "email-001", data, auth_context=mock_auth
-        )
+        result = await handle_get_snooze_suggestions("email-001", data, auth_context=mock_auth)
         assert _status(result) == 200
         resp = _data(result)
         assert resp["email_id"] == "email-001"
@@ -651,9 +653,7 @@ class TestGetSnoozeSuggestions:
     @pytest.mark.asyncio
     async def test_get_suggestions_with_priority(self, mock_recommender, mock_auth):
         data = {"subject": "Urgent", "sender": "boss@test.com", "priority": 0.9}
-        result = await handle_get_snooze_suggestions(
-            "email-002", data, auth_context=mock_auth
-        )
+        result = await handle_get_snooze_suggestions("email-002", data, auth_context=mock_auth)
         assert _status(result) == 200
         # Verify priority_result was constructed and passed
         mock_recommender.recommend_snooze.assert_awaited_once()
@@ -730,7 +730,9 @@ class TestApplySnooze:
     @pytest.mark.asyncio
     async def test_apply_snooze_success(self, mock_auth):
         data = {"snooze_until": "2026-03-01T10:00:00Z", "label": "Monday morning"}
-        result = await handle_apply_snooze("email-001", data, user_id="user1", auth_context=mock_auth)
+        result = await handle_apply_snooze(
+            "email-001", data, user_id="user1", auth_context=mock_auth
+        )
         assert _status(result) == 200
         resp = _data(result)
         assert resp["email_id"] == "email-001"
@@ -1138,8 +1140,16 @@ class TestGetCategoryDescription:
 
     def test_all_known_categories(self):
         for name in (
-            "invoices", "hr", "newsletters", "projects", "meetings",
-            "support", "security", "receipts", "social", "personal",
+            "invoices",
+            "hr",
+            "newsletters",
+            "projects",
+            "meetings",
+            "support",
+            "security",
+            "receipts",
+            "social",
+            "personal",
             "uncategorized",
         ):
             cat = MagicMock()
@@ -1310,9 +1320,7 @@ class TestEmailServicesHandlerPost:
             "Content-Length": str(len(body)),
             "Content-Type": "application/json",
         }
-        result = await handler.handle_post(
-            "/api/v1/email/followups/mark", {}, mock_http_handler
-        )
+        result = await handler.handle_post("/api/v1/email/followups/mark", {}, mock_http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1346,9 +1354,7 @@ class TestEmailServicesHandlerPost:
             "Content-Length": str(len(body)),
             "Content-Type": "application/json",
         }
-        result = await handler.handle_post(
-            "/api/v1/email/email-001/snooze", {}, mock_http_handler
-        )
+        result = await handler.handle_post("/api/v1/email/email-001/snooze", {}, mock_http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1360,26 +1366,24 @@ class TestEmailServicesHandlerPost:
 
     @pytest.mark.asyncio
     async def test_post_category_feedback(self, handler, mock_http_handler, mock_categorizer):
-        body = json.dumps({
-            "email_id": "e-1",
-            "predicted_category": "a",
-            "correct_category": "b",
-        }).encode()
+        body = json.dumps(
+            {
+                "email_id": "e-1",
+                "predicted_category": "a",
+                "correct_category": "b",
+            }
+        ).encode()
         mock_http_handler.rfile.read.return_value = body
         mock_http_handler.headers = {
             "Content-Length": str(len(body)),
             "Content-Type": "application/json",
         }
-        result = await handler.handle_post(
-            "/api/v1/email/categories/learn", {}, mock_http_handler
-        )
+        result = await handler.handle_post("/api/v1/email/categories/learn", {}, mock_http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_post_unknown_path(self, handler, mock_http_handler):
-        result = await handler.handle_post(
-            "/api/v1/email/unknown-endpoint", {}, mock_http_handler
-        )
+        result = await handler.handle_post("/api/v1/email/unknown-endpoint", {}, mock_http_handler)
         assert _status(result) == 404
 
 
@@ -1412,9 +1416,7 @@ class TestEmailServicesHandlerGet:
             "sys.modules",
             {"aragora.services.email_categorizer": MagicMock(EmailCategory=MockEmailCategory)},
         ):
-            result = await handler.handle_get(
-                "/api/v1/email/categories", {}, mock_http_handler
-            )
+            result = await handler.handle_get("/api/v1/email/categories", {}, mock_http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1437,9 +1439,7 @@ class TestEmailServicesHandlerGet:
 
     @pytest.mark.asyncio
     async def test_get_snoozed(self, handler, mock_http_handler):
-        result = await handler.handle_get(
-            "/api/v1/email/snoozed", {}, mock_http_handler
-        )
+        result = await handler.handle_get("/api/v1/email/snoozed", {}, mock_http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1453,9 +1453,7 @@ class TestEmailServicesHandlerGet:
 
     @pytest.mark.asyncio
     async def test_get_unknown_path(self, handler, mock_http_handler):
-        result = await handler.handle_get(
-            "/api/v1/email/unknown", {}, mock_http_handler
-        )
+        result = await handler.handle_get("/api/v1/email/unknown", {}, mock_http_handler)
         assert _status(result) == 404
 
 
@@ -1488,9 +1486,7 @@ class TestEmailServicesHandlerDelete:
 
     @pytest.mark.asyncio
     async def test_delete_unknown_path(self, handler, mock_http_handler):
-        result = await handler.handle_delete(
-            "/api/v1/email/unknown-action", {}, mock_http_handler
-        )
+        result = await handler.handle_delete("/api/v1/email/unknown-action", {}, mock_http_handler)
         assert _status(result) == 404
 
 
@@ -1562,8 +1558,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_multiple_snooze_different_emails(self, mock_auth):
         for i in range(5):
-            data = {"snooze_until": f"2026-03-0{i+1}T10:00:00Z"}
-            result = await handle_apply_snooze(f"e-{i}", data, user_id="user1", auth_context=mock_auth)
+            data = {"snooze_until": f"2026-03-0{i + 1}T10:00:00Z"}
+            result = await handle_apply_snooze(
+                f"e-{i}", data, user_id="user1", auth_context=mock_auth
+            )
             assert _status(result) == 200
         assert len(_snoozed_emails) == 5
 

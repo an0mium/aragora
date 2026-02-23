@@ -687,7 +687,7 @@ class TestGetReviewHistory:
             for i in range(10):
                 _review_results[f"r{i}"] = {
                     "id": f"r{i}",
-                    "stored_at": f"2026-01-{i+1:02d}T00:00:00",
+                    "stored_at": f"2026-01-{i + 1:02d}T00:00:00",
                 }
 
         result = await handle_get_review_history({"limit": 3})
@@ -702,7 +702,7 @@ class TestGetReviewHistory:
             for i in range(10):
                 _review_results[f"r{i}"] = {
                     "id": f"r{i}",
-                    "stored_at": f"2026-01-{i+1:02d}T00:00:00",
+                    "stored_at": f"2026-01-{i + 1:02d}T00:00:00",
                 }
 
         result = await handle_get_review_history({"limit": 3, "offset": 5})
@@ -832,9 +832,7 @@ class TestQuickSecurityScan:
 
     @pytest.mark.asyncio
     async def test_security_scan_with_language(self, mock_reviewer):
-        mock_reviewer.review_code = AsyncMock(
-            return_value=MockReviewResult("sec_004", findings=[])
-        )
+        mock_reviewer.review_code = AsyncMock(return_value=MockReviewResult("sec_004", findings=[]))
         data = {"code": "print('hi')", "language": "python"}
         result = await handle_quick_security_scan(data)
         assert _status(result) == 200
@@ -844,9 +842,7 @@ class TestQuickSecurityScan:
 
     @pytest.mark.asyncio
     async def test_security_scan_forces_security_review_type(self, mock_reviewer):
-        mock_reviewer.review_code = AsyncMock(
-            return_value=MockReviewResult("sec_005", findings=[])
-        )
+        mock_reviewer.review_code = AsyncMock(return_value=MockReviewResult("sec_005", findings=[]))
         data = {"code": "print('hi')"}
         await handle_quick_security_scan(data)
         call_kwargs = mock_reviewer.review_code.call_args.kwargs

@@ -51,15 +51,17 @@ def _reset_tracking_state():
     # Clear state
     tracking_mod._request_counts.clear()
     tracking_mod._error_counts.clear()
-    tracking_mod._verification_stats.update({
-        "total_claims_processed": 0,
-        "z3_verified": 0,
-        "z3_disproved": 0,
-        "z3_timeout": 0,
-        "z3_translation_failed": 0,
-        "confidence_fallback": 0,
-        "total_verification_time_ms": 0.0,
-    })
+    tracking_mod._verification_stats.update(
+        {
+            "total_claims_processed": 0,
+            "z3_verified": 0,
+            "z3_disproved": 0,
+            "z3_timeout": 0,
+            "z3_translation_failed": 0,
+            "confidence_fallback": 0,
+            "total_verification_time_ms": 0.0,
+        }
+    )
 
     yield
 

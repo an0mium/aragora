@@ -102,7 +102,9 @@ def ideas_to_goals(
             continue
 
         goal_subtype = _idea_to_goal_subtype(source.node_subtype)
-        goal_label = f"Achieve: {source.label}" if not source.label.startswith("Achieve") else source.label
+        goal_label = (
+            f"Achieve: {source.label}" if not source.label.startswith("Achieve") else source.label
+        )
 
         goal_node = UniversalNode(
             id=f"goal-{uuid.uuid4().hex[:8]}",
@@ -131,14 +133,16 @@ def ideas_to_goals(
         )
         graph.add_edge(edge)
 
-        provenance_links.append(ProvenanceLink(
-            source_node_id=source.id,
-            source_stage=PipelineStage.IDEAS,
-            target_node_id=goal_node.id,
-            target_stage=PipelineStage.GOALS,
-            content_hash=source.content_hash,
-            method="structural_promotion",
-        ))
+        provenance_links.append(
+            ProvenanceLink(
+                source_node_id=source.id,
+                source_stage=PipelineStage.IDEAS,
+                target_node_id=goal_node.id,
+                target_stage=PipelineStage.GOALS,
+                content_hash=source.content_hash,
+                method="structural_promotion",
+            )
+        )
 
     # Record transition
     if created:
@@ -167,15 +171,17 @@ def _ideas_to_goals_with_extractor(
     for nid in idea_node_ids:
         node = graph.nodes.get(nid)
         if node and node.stage == PipelineStage.IDEAS:
-            nodes_data.append({
-                "id": node.id,
-                "label": node.label,
-                "data": {
-                    "idea_type": node.node_subtype,
-                    "full_content": node.description or node.label,
-                    **node.data,
-                },
-            })
+            nodes_data.append(
+                {
+                    "id": node.id,
+                    "label": node.label,
+                    "data": {
+                        "idea_type": node.node_subtype,
+                        "full_content": node.description or node.label,
+                        **node.data,
+                    },
+                }
+            )
 
     if not nodes_data:
         return []
@@ -259,6 +265,7 @@ def _goals_to_actions_with_planner(
 
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             prioritized = pool.submit(
                 asyncio.run, meta_planner.prioritize_work(objective=objective)
@@ -326,14 +333,16 @@ def _goals_to_actions_with_planner(
         )
         graph.add_edge(edge)
 
-        provenance_links.append(ProvenanceLink(
-            source_node_id=source.id,
-            source_stage=PipelineStage.GOALS,
-            target_node_id=action_node.id,
-            target_stage=PipelineStage.ACTIONS,
-            content_hash=source.content_hash,
-            method="meta_planner_decomposition",
-        ))
+        provenance_links.append(
+            ProvenanceLink(
+                source_node_id=source.id,
+                source_stage=PipelineStage.GOALS,
+                target_node_id=action_node.id,
+                target_stage=PipelineStage.ACTIONS,
+                content_hash=source.content_hash,
+                method="meta_planner_decomposition",
+            )
+        )
 
     # Sort created nodes by MetaPlanner priority when available
     created.sort(
@@ -348,9 +357,7 @@ def _goals_to_actions_with_planner(
             provenance=provenance_links,
             status="pending",
             confidence=sum(n.confidence for n in created) / len(created),
-            ai_rationale=(
-                f"MetaPlanner-prioritized decomposition of {len(created)} goals"
-            ),
+            ai_rationale=(f"MetaPlanner-prioritized decomposition of {len(created)} goals"),
         )
         graph.transitions.append(transition)
 
@@ -418,14 +425,16 @@ def _goals_to_actions_structural(
         )
         graph.add_edge(edge)
 
-        provenance_links.append(ProvenanceLink(
-            source_node_id=source.id,
-            source_stage=PipelineStage.GOALS,
-            target_node_id=action_node.id,
-            target_stage=PipelineStage.ACTIONS,
-            content_hash=source.content_hash,
-            method="goal_decomposition",
-        ))
+        provenance_links.append(
+            ProvenanceLink(
+                source_node_id=source.id,
+                source_stage=PipelineStage.GOALS,
+                target_node_id=action_node.id,
+                target_stage=PipelineStage.ACTIONS,
+                content_hash=source.content_hash,
+                method="goal_decomposition",
+            )
+        )
 
     if created:
         transition = StageTransition(
@@ -488,14 +497,16 @@ def actions_to_orchestration(
         )
         graph.add_edge(edge)
 
-        provenance_links.append(ProvenanceLink(
-            source_node_id=source.id,
-            source_stage=PipelineStage.ACTIONS,
-            target_node_id=orch_node.id,
-            target_stage=PipelineStage.ORCHESTRATION,
-            content_hash=source.content_hash,
-            method="agent_assignment",
-        ))
+        provenance_links.append(
+            ProvenanceLink(
+                source_node_id=source.id,
+                source_stage=PipelineStage.ACTIONS,
+                target_node_id=orch_node.id,
+                target_stage=PipelineStage.ORCHESTRATION,
+                content_hash=source.content_hash,
+                method="agent_assignment",
+            )
+        )
 
     if created:
         transition = StageTransition(
@@ -505,9 +516,7 @@ def actions_to_orchestration(
             provenance=provenance_links,
             status="pending",
             confidence=sum(n.confidence for n in created) / len(created) if created else 0,
-            ai_rationale=(
-                f"Assigned {len(created)} action tasks to orchestration agents"
-            ),
+            ai_rationale=(f"Assigned {len(created)} action tasks to orchestration agents"),
         )
         graph.transitions.append(transition)
 
@@ -516,9 +525,8 @@ def actions_to_orchestration(
 
 # ── Mapping helpers ─────────────────────────────────────────────────────
 
-def _promotion_edge_type(
-    from_stage: PipelineStage, to_stage: PipelineStage
-) -> StageEdgeType:
+
+def _promotion_edge_type(from_stage: PipelineStage, to_stage: PipelineStage) -> StageEdgeType:
     if from_stage == PipelineStage.IDEAS and to_stage == PipelineStage.GOALS:
         return StageEdgeType.DERIVED_FROM
     if from_stage == PipelineStage.GOALS and to_stage == PipelineStage.ACTIONS:
@@ -621,14 +629,16 @@ def suggest_transitions(
         if confidence < 0.1:
             continue
 
-        suggestions.append({
-            "node_id": node.id,
-            "node_label": node.label,
-            "from_stage": stage.value,
-            "to_stage": next_stage.value,
-            "confidence": round(confidence, 2),
-            "reason": _transition_reason(node, stage, confidence),
-        })
+        suggestions.append(
+            {
+                "node_id": node.id,
+                "node_label": node.label,
+                "from_stage": stage.value,
+                "to_stage": next_stage.value,
+                "confidence": round(confidence, 2),
+                "reason": _transition_reason(node, stage, confidence),
+            }
+        )
 
     suggestions.sort(key=lambda s: s["confidence"], reverse=True)
     return suggestions
@@ -668,9 +678,7 @@ def _transition_confidence(
         score += 0.1
 
     # Nodes with inbound edges (i.e. connected to other nodes) are more mature
-    inbound = sum(
-        1 for e in graph.edges.values() if e.target_id == node.id
-    )
+    inbound = sum(1 for e in graph.edges.values() if e.target_id == node.id)
     if inbound > 0:
         score += min(0.15, inbound * 0.05)
 
@@ -725,13 +733,47 @@ def _cluster_ideas_by_similarity(
     # Tokenize each idea
     import re as _re
 
-    stop_words = frozenset({
-        "the", "a", "an", "is", "are", "was", "were", "be", "been",
-        "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "to", "of", "in", "for", "on", "with",
-        "at", "by", "from", "as", "and", "but", "or", "not", "this",
-        "that", "it", "its",
-    })
+    stop_words = frozenset(
+        {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "and",
+            "but",
+            "or",
+            "not",
+            "this",
+            "that",
+            "it",
+            "its",
+        }
+    )
 
     def _tokens(idea: dict[str, Any]) -> set[str]:
         text = f"{idea.get('label', '')} {idea.get('description', '')}"
@@ -797,24 +839,19 @@ def _simple_goal_from_cluster(
     combined_label = labels[0] if labels else "Untitled goal"
 
     # Synthesize a description from all cluster members
-    descriptions = [
-        idea.get("description") or idea.get("label", "")
-        for idea in cluster
-    ]
+    descriptions = [idea.get("description") or idea.get("label", "") for idea in cluster]
     combined_desc = "; ".join(d for d in descriptions if d)
 
     parent_ids = [idea.get("id", "") for idea in cluster if idea.get("id")]
 
     # Priority heuristic: larger clusters are higher priority
-    priority = (
-        "high" if len(cluster) >= 4
-        else "medium" if len(cluster) >= 2
-        else "low"
-    )
+    priority = "high" if len(cluster) >= 4 else "medium" if len(cluster) >= 2 else "low"
 
     return {
         "id": f"goal-{uuid.uuid4().hex[:8]}",
-        "label": f"Achieve: {combined_label}" if not combined_label.startswith("Achieve") else combined_label,
+        "label": f"Achieve: {combined_label}"
+        if not combined_label.startswith("Achieve")
+        else combined_label,
         "description": combined_desc,
         "parent_idea_ids": parent_ids,
         "confidence": min(1.0, 0.3 + len(cluster) * 0.1),
@@ -857,6 +894,7 @@ async def ai_promote_ideas_to_goals(
     if agent is not None:
         try:
             from aragora.goals.extractor import GoalExtractor
+
             extractor = GoalExtractor(agent=agent)
         except (ImportError, RuntimeError, TypeError) as exc:
             logger.warning(
@@ -884,14 +922,16 @@ async def ai_promote_ideas_to_goals(
                 }
                 goal_graph = extractor.extract_from_ideas(canvas_data)
                 for goal_node in goal_graph.goals:
-                    goals.append({
-                        "id": goal_node.id,
-                        "label": goal_node.title,
-                        "description": goal_node.description,
-                        "parent_idea_ids": goal_node.source_idea_ids,
-                        "confidence": goal_node.confidence,
-                        "priority": goal_node.priority,
-                    })
+                    goals.append(
+                        {
+                            "id": goal_node.id,
+                            "label": goal_node.title,
+                            "description": goal_node.description,
+                            "parent_idea_ids": goal_node.source_idea_ids,
+                            "confidence": goal_node.confidence,
+                            "priority": goal_node.priority,
+                        }
+                    )
                 continue
             except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
                 logger.warning(
@@ -940,7 +980,7 @@ async def ai_promote_goals_to_actions(
         action_label = goal_label
         for prefix in ("Achieve: ", "Maintain: ", "Implement: ", "Complete: "):
             if action_label.startswith(prefix):
-                action_label = action_label[len(prefix):]
+                action_label = action_label[len(prefix) :]
                 break
 
         # Estimate effort based on description length and priority
@@ -952,13 +992,15 @@ async def ai_promote_goals_to_actions(
         else:
             estimated_effort = "small"
 
-        actions.append({
-            "id": f"action-{uuid.uuid4().hex[:8]}",
-            "description": action_label,
-            "estimated_effort": estimated_effort,
-            "parent_goal": goal_id,
-            "priority": goal_priority,
-        })
+        actions.append(
+            {
+                "id": f"action-{uuid.uuid4().hex[:8]}",
+                "description": action_label,
+                "estimated_effort": estimated_effort,
+                "parent_goal": goal_id,
+                "priority": goal_priority,
+            }
+        )
 
     logger.info("Created %d actions from %d goals", len(actions), len(goals))
     return actions

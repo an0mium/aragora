@@ -200,9 +200,7 @@ class TestUpdateGenomeFitnessWithElo:
             1700.0 if name == "claude" else 1300.0
         )
 
-        fb = EvolutionFeedback(
-            population_manager=mock_pm, elo_system=mock_elo
-        )
+        fb = EvolutionFeedback(population_manager=mock_pm, elo_system=mock_elo)
         ctx = _make_ctx()
         fb.update_genome_fitness(ctx)
 
@@ -253,9 +251,7 @@ class TestUpdateGenomeFitnessWithElo:
         mock_elo = MagicMock()
         mock_elo.get_rating.side_effect = RuntimeError("db down")
 
-        fb = EvolutionFeedback(
-            population_manager=mock_pm, elo_system=mock_elo
-        )
+        fb = EvolutionFeedback(population_manager=mock_pm, elo_system=mock_elo)
         ctx = _make_ctx()
         fb.update_genome_fitness(ctx)
 
@@ -275,9 +271,7 @@ class TestUpdateGenomeFitnessWithElo:
         agent.name = "plain-agent"
         agent.genome_id = None  # No genome
 
-        fb = EvolutionFeedback(
-            population_manager=mock_pm, elo_system=mock_elo
-        )
+        fb = EvolutionFeedback(population_manager=mock_pm, elo_system=mock_elo)
         ctx = _make_ctx(agents=[agent])
         fb.update_genome_fitness(ctx)
 

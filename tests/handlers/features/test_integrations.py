@@ -410,9 +410,7 @@ class TestGetIntegration:
     @pytest.mark.asyncio
     async def test_get_via_config_subpath(self, handler, http_handler, mem_store):
         """GET /api/v1/integrations/config/slack should also work."""
-        config = IntegrationConfig(
-            type="slack", enabled=True, settings={}, user_id="test-user-001"
-        )
+        config = IntegrationConfig(type="slack", enabled=True, settings={}, user_id="test-user-001")
         await mem_store.save(config)
 
         result = await handler.handle("/api/v1/integrations/config/slack", {}, http_handler)
@@ -587,9 +585,7 @@ class TestPostTest:
             "aragora.server.handlers.features.integrations.IntegrationsHandler._test_connection",
             side_effect=ConnectionError("Connection refused"),
         ):
-            result = await handler.handle_post(
-                "/api/v1/integrations/slack/test", {}, mock_handler
-            )
+            result = await handler.handle_post("/api/v1/integrations/slack/test", {}, mock_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["success"] is False
@@ -628,9 +624,7 @@ class TestPostSync:
 
         mock_handler = MockHTTPHandler(method="POST")
         with patch.object(handler, "_test_connection", return_value=False):
-            result = await handler.handle_post(
-                "/api/v1/integrations/slack/sync", {}, mock_handler
-            )
+            result = await handler.handle_post("/api/v1/integrations/slack/sync", {}, mock_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["success"] is False
@@ -648,8 +642,9 @@ class TestPostSync:
         await mem_store.save(config)
 
         mock_handler = MockHTTPHandler(method="POST")
-        with patch.object(handler, "_test_connection", return_value=True), patch.object(
-            handler, "_sync_provider", return_value=[]
+        with (
+            patch.object(handler, "_test_connection", return_value=True),
+            patch.object(handler, "_sync_provider", return_value=[]),
         ):
             result = await handler.handle_post(
                 "/api/v1/integrations/discord/sync", {}, mock_handler
@@ -673,8 +668,9 @@ class TestPostSync:
         # Sync should change it to "connected"
 
         mock_handler = MockHTTPHandler(method="POST")
-        with patch.object(handler, "_test_connection", return_value=True), patch.object(
-            handler, "_sync_provider", return_value=[]
+        with (
+            patch.object(handler, "_test_connection", return_value=True),
+            patch.object(handler, "_sync_provider", return_value=[]),
         ):
             result = await handler.handle_post(
                 "/api/v1/integrations/telegram/sync", {}, mock_handler
@@ -697,12 +693,8 @@ class TestPostSync:
         await mem_store.save(config)
 
         mock_handler = MockHTTPHandler(method="POST")
-        with patch.object(
-            handler, "_test_connection", side_effect=ConnectionError("fail")
-        ):
-            result = await handler.handle_post(
-                "/api/v1/integrations/slack/sync", {}, mock_handler
-            )
+        with patch.object(handler, "_test_connection", side_effect=ConnectionError("fail")):
+            result = await handler.handle_post("/api/v1/integrations/slack/sync", {}, mock_handler)
         body = _body(result)
         assert body["success"] is False
 
@@ -722,9 +714,7 @@ class TestPostSync:
         # _sync_provider resets errors_24h if > 0 and returns a change entry
         with patch.object(handler, "_test_connection", return_value=True):
             # Use real _sync_provider - it should reset errors
-            result = await handler.handle_post(
-                "/api/v1/integrations/teams/sync", {}, mock_handler
-            )
+            result = await handler.handle_post("/api/v1/integrations/teams/sync", {}, mock_handler)
         body = _body(result)
         assert body["success"] is True
         error_changes = [c for c in body["changes"] if c["field"] == "errors_24h"]
@@ -828,9 +818,7 @@ class TestPatchUpdate:
 
     @pytest.mark.asyncio
     async def test_patch_enable_disable(self, handler, mem_store):
-        config = IntegrationConfig(
-            type="slack", enabled=True, settings={}, user_id="test-user-001"
-        )
+        config = IntegrationConfig(type="slack", enabled=True, settings={}, user_id="test-user-001")
         await mem_store.save(config)
 
         body = {"enabled": False}
@@ -916,9 +904,7 @@ class TestDelete:
 
     @pytest.mark.asyncio
     async def test_delete_existing(self, handler, mem_store):
-        config = IntegrationConfig(
-            type="slack", enabled=True, settings={}, user_id="test-user-001"
-        )
+        config = IntegrationConfig(type="slack", enabled=True, settings={}, user_id="test-user-001")
         await mem_store.save(config)
 
         mock_handler = MockHTTPHandler(method="DELETE")
@@ -1180,9 +1166,7 @@ class TestConfigureIntegration:
     async def test_update_existing_returns_200(self, handler, mem_store):
         config = IntegrationConfig(type="slack", enabled=True, settings={}, user_id="u1")
         await mem_store.save(config)
-        result = await handler.configure_integration(
-            "slack", {"channel": "#general"}, user_id="u1"
-        )
+        result = await handler.configure_integration("slack", {"channel": "#general"}, user_id="u1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1428,9 +1412,7 @@ class TestEdgeCases:
         """PUT should work for all valid integration types."""
         for itype in VALID_INTEGRATION_TYPES:
             mock_handler = MockHTTPHandler(body={"enabled": True}, method="PUT")
-            result = await handler.handle_put(
-                f"/api/v1/integrations/{itype}", {}, mock_handler
-            )
+            result = await handler.handle_put(f"/api/v1/integrations/{itype}", {}, mock_handler)
             assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -1438,9 +1420,7 @@ class TestEdgeCases:
         """DELETE should return 404 for all types when nothing is configured."""
         for itype in VALID_INTEGRATION_TYPES:
             mock_handler = MockHTTPHandler(method="DELETE")
-            result = await handler.handle_delete(
-                f"/api/v1/integrations/{itype}", {}, mock_handler
-            )
+            result = await handler.handle_delete(f"/api/v1/integrations/{itype}", {}, mock_handler)
             assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1560,8 +1540,9 @@ class TestEdgeCases:
         await mem_store.save(config)
 
         mock_handler = MockHTTPHandler(method="POST")
-        with patch.object(handler, "_test_connection", return_value=True), patch.object(
-            handler, "_sync_provider", return_value=[]
+        with (
+            patch.object(handler, "_test_connection", return_value=True),
+            patch.object(handler, "_sync_provider", return_value=[]),
         ):
             result = await handler.handle_post(
                 "/api/v1/integrations/telegram/sync", {}, mock_handler
@@ -1577,9 +1558,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_unversioned_get_integration(self, handler, http_handler, mem_store):
-        config = IntegrationConfig(
-            type="email", enabled=True, settings={}, user_id="test-user-001"
-        )
+        config = IntegrationConfig(type="email", enabled=True, settings={}, user_id="test-user-001")
         await mem_store.save(config)
         result = await handler.handle("/api/integrations/email", {}, http_handler)
         assert _status(result) == 200

@@ -353,7 +353,9 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
+                        logger.debug(
+                            "Error handler failed for hook %s: %s", hook.name, handler_error
+                        )
             except Exception as e:  # noqa: BLE001 - hook isolation boundary: user-provided callbacks can raise any exception
                 # Unexpected errors from hook callback
                 logger.exception("Hook %s failed with unexpected error: %s", hook.name, e)
@@ -364,7 +366,9 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
+                        logger.debug(
+                            "Error handler failed for hook %s: %s", hook.name, handler_error
+                        )
 
         # Remove one-time hooks
         for hook in to_remove:
@@ -426,7 +430,9 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
+                        logger.debug(
+                            "Error handler failed for hook %s: %s", hook.name, handler_error
+                        )
             except Exception as e:  # noqa: BLE001 - hook isolation boundary: user-provided callbacks can raise any exception
                 # Unexpected errors from hook callback
                 logger.exception("Hook %s failed with unexpected error: %s", hook.name, e)
@@ -437,7 +443,9 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
+                        logger.debug(
+                            "Error handler failed for hook %s: %s", hook.name, handler_error
+                        )
 
         # Remove one-time hooks
         for hook in to_remove:

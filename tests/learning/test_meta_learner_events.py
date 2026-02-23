@@ -60,9 +60,7 @@ class TestMetaLearnerEvents:
             side_effect=ImportError("no module"),
         ):
             # Should not raise
-            meta_learner._emit_adjustment_event(
-                {"test": "value"}, metrics
-            )
+            meta_learner._emit_adjustment_event({"test": "value"}, metrics)
 
     def test_event_type_is_meta_learning_adjusted(self, meta_learner) -> None:
         metrics = LearningMetrics(consensus_rate=0.8)

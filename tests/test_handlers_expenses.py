@@ -166,7 +166,9 @@ class TestExpenseHandler:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle_get("/api/v1/accounting/expenses/exp-123", query_params={})
+            result = await handler.handle_get(
+                "/api/v1/accounting/expenses/exp-123", query_params={}
+            )
             assert result.status_code == 200
 
     @pytest.mark.asyncio
@@ -217,7 +219,9 @@ class TestExpenseHandler:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle_post("/api/v1/accounting/expenses/exp-123/approve", query_params={})
+            result = await handler.handle_post(
+                "/api/v1/accounting/expenses/exp-123/approve", query_params={}
+            )
             assert result.status_code == 200
 
     @pytest.mark.asyncio

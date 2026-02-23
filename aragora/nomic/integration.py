@@ -417,7 +417,9 @@ class NomicIntegration:
             except (RuntimeError, OSError, ValueError) as e:
                 # If probing fails, assume moderate reliability
                 logger.debug(
-                    "Agent probing failed for %s, using default weight: %s", agent.name, type(e).__name__
+                    "Agent probing failed for %s, using default weight: %s",
+                    agent.name,
+                    type(e).__name__,
                 )
                 weights[agent.name] = 0.75
 

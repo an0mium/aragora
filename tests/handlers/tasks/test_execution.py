@@ -519,9 +519,7 @@ class TestExecuteFailures:
     def test_start_execution_raises_value_error(self, handler):
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch.object(
-            handler, "_start_execution", side_effect=ValueError("bad config")
-        ):
+        with patch.object(handler, "_start_execution", side_effect=ValueError("bad config")):
             result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         assert _status(result) == 201
         task_id = _body(result)["task_id"]
@@ -531,9 +529,7 @@ class TestExecuteFailures:
     def test_start_execution_raises_runtime_error(self, handler):
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch.object(
-            handler, "_start_execution", side_effect=RuntimeError("engine crash")
-        ):
+        with patch.object(handler, "_start_execution", side_effect=RuntimeError("engine crash")):
             result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         assert _status(result) == 201
         task_id = _body(result)["task_id"]
@@ -542,9 +538,7 @@ class TestExecuteFailures:
     def test_start_execution_raises_os_error(self, handler):
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch.object(
-            handler, "_start_execution", side_effect=OSError("disk full")
-        ):
+        with patch.object(handler, "_start_execution", side_effect=OSError("disk full")):
             result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         assert _status(result) == 201
         assert _tasks[_body(result)["task_id"]].status == "failed"
@@ -552,9 +546,7 @@ class TestExecuteFailures:
     def test_start_execution_raises_attribute_error(self, handler):
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch.object(
-            handler, "_start_execution", side_effect=AttributeError("no attr")
-        ):
+        with patch.object(handler, "_start_execution", side_effect=AttributeError("no attr")):
             result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         assert _status(result) == 201
         assert _tasks[_body(result)["task_id"]].status == "failed"
@@ -563,10 +555,9 @@ class TestExecuteFailures:
         """Scheduler failure should not prevent task creation."""
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch.object(
-            handler, "_schedule_task", side_effect=RuntimeError("scheduler down")
-        ), patch(
-            "aragora.server.handlers.tasks.execution._HAS_SCHEDULER", True
+        with (
+            patch.object(handler, "_schedule_task", side_effect=RuntimeError("scheduler down")),
+            patch("aragora.server.handlers.tasks.execution._HAS_SCHEDULER", True),
         ):
             result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         assert _status(result) == 201
@@ -583,9 +574,7 @@ class TestExecuteEvents:
     def test_created_event_emitted(self, handler):
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit:
             handler.handle_post("/api/v2/tasks/execute", {}, h)
         # At least the CREATED event should be emitted
         calls = [c for c in mock_emit.call_args_list if c[0][1] == "created"]
@@ -594,9 +583,7 @@ class TestExecuteEvents:
     def test_started_event_emitted_for_non_checkpoint(self, handler):
         body = _valid_body(human_checkpoints=False)
         h = _make_http_handler(body)
-        with patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit:
             handler.handle_post("/api/v2/tasks/execute", {}, h)
         actions = [c[0][1] for c in mock_emit.call_args_list]
         assert "started" in actions
@@ -604,9 +591,7 @@ class TestExecuteEvents:
     def test_completed_event_emitted(self, handler):
         body = _valid_body(human_checkpoints=False)
         h = _make_http_handler(body)
-        with patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit:
             handler.handle_post("/api/v2/tasks/execute", {}, h)
         actions = [c[0][1] for c in mock_emit.call_args_list]
         assert "completed" in actions
@@ -614,9 +599,7 @@ class TestExecuteEvents:
     def test_no_started_event_for_checkpoint_task(self, handler):
         body = _valid_body(human_checkpoints=True)
         h = _make_http_handler(body)
-        with patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit:
             handler.handle_post("/api/v2/tasks/execute", {}, h)
         actions = [c[0][1] for c in mock_emit.call_args_list]
         assert "started" not in actions
@@ -625,11 +608,10 @@ class TestExecuteEvents:
     def test_failed_event_on_execution_error(self, handler):
         body = _valid_body()
         h = _make_http_handler(body)
-        with patch.object(
-            handler, "_start_execution", side_effect=RuntimeError("boom")
-        ), patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
+        with (
+            patch.object(handler, "_start_execution", side_effect=RuntimeError("boom")),
+            patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit,
+        ):
             handler.handle_post("/api/v2/tasks/execute", {}, h)
         actions = [c[0][1] for c in mock_emit.call_args_list]
         assert "failed" in actions
@@ -655,9 +637,7 @@ class TestGetTask:
         assert data["status"] == "pending"
 
     def test_get_nonexistent_task(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks/nonexistent-id", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks/nonexistent-id", {}, mock_http_handler)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -740,9 +720,7 @@ class TestListTasks:
         running = TaskRecord(goal="r", type="debate", status="running")
         _tasks[pending.id] = pending
         _tasks[running.id] = running
-        result = handler.handle(
-            "/api/v2/tasks", {"status": "pending"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"status": "pending"}, mock_http_handler)
         data = _body(result)
         assert data["total"] == 1
         assert data["tasks"][0]["status"] == "pending"
@@ -750,16 +728,12 @@ class TestListTasks:
     def test_list_filter_by_running_status(self, handler, mock_http_handler):
         running = TaskRecord(goal="r", type="debate", status="running")
         _tasks[running.id] = running
-        result = handler.handle(
-            "/api/v2/tasks", {"status": "running"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"status": "running"}, mock_http_handler)
         data = _body(result)
         assert data["total"] == 1
 
     def test_list_invalid_status_filter(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks", {"status": "bogus"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"status": "bogus"}, mock_http_handler)
         assert _status(result) == 400
         assert "invalid status" in _body(result).get("error", "").lower()
 
@@ -767,9 +741,7 @@ class TestListTasks:
         for i in range(5):
             t = TaskRecord(goal=f"task {i}", type="debate")
             _tasks[t.id] = t
-        result = handler.handle(
-            "/api/v2/tasks", {"limit": "2"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"limit": "2"}, mock_http_handler)
         data = _body(result)
         assert data["total"] == 5
         assert len(data["tasks"]) == 2
@@ -780,54 +752,40 @@ class TestListTasks:
             t = TaskRecord(goal=f"task {i}", type="debate")
             t.created_at = float(1000 + i)
             _tasks[t.id] = t
-        result = handler.handle(
-            "/api/v2/tasks", {"offset": "3"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"offset": "3"}, mock_http_handler)
         data = _body(result)
         assert data["total"] == 5
         assert len(data["tasks"]) == 2  # 5 total, offset=3, so 2 remaining
         assert data["offset"] == 3
 
     def test_list_limit_clamped_to_max(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks", {"limit": "999"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"limit": "999"}, mock_http_handler)
         data = _body(result)
         assert data["limit"] == MAX_LIST_LIMIT
 
     def test_list_limit_clamped_to_min_1(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks", {"limit": "0"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"limit": "0"}, mock_http_handler)
         data = _body(result)
         assert data["limit"] == 1
 
     def test_list_invalid_limit_uses_default(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks", {"limit": "abc"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"limit": "abc"}, mock_http_handler)
         data = _body(result)
         assert data["limit"] == DEFAULT_LIST_LIMIT
 
     def test_list_negative_offset_clamped_to_zero(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks", {"offset": "-5"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"offset": "-5"}, mock_http_handler)
         data = _body(result)
         assert data["offset"] == 0
 
     def test_list_invalid_offset_defaults_to_zero(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks", {"offset": "abc"}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks", {"offset": "abc"}, mock_http_handler)
         data = _body(result)
         assert data["offset"] == 0
 
     def test_list_all_valid_statuses_accepted(self, handler, mock_http_handler):
         for status in VALID_STATUSES:
-            result = handler.handle(
-                "/api/v2/tasks", {"status": status}, mock_http_handler
-            )
+            result = handler.handle("/api/v2/tasks", {"status": status}, mock_http_handler)
             assert _status(result) == 200
 
     def test_list_with_trailing_slash(self, handler, mock_http_handler):
@@ -844,14 +802,10 @@ class TestApproveTask:
     """Tests for approving a task at a human checkpoint."""
 
     def test_approve_waiting_task(self, handler, mock_http_handler):
-        task = TaskRecord(
-            goal="needs approval", type="debate", human_checkpoints=True
-        )
+        task = TaskRecord(goal="needs approval", type="debate", human_checkpoints=True)
         task.status = "waiting_approval"
         _tasks[task.id] = task
-        result = handler.handle_post(
-            f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-        )
+        result = handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         assert _status(result) == 200
         data = _body(result)
         assert data["task_id"] == task.id
@@ -859,105 +813,72 @@ class TestApproveTask:
         assert "approved" in data["message"].lower()
 
     def test_approve_transitions_and_completes(self, handler, mock_http_handler):
-        task = TaskRecord(
-            goal="approve me", type="analysis", human_checkpoints=True
-        )
+        task = TaskRecord(goal="approve me", type="analysis", human_checkpoints=True)
         task.status = "waiting_approval"
         _tasks[task.id] = task
-        handler.handle_post(
-            f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-        )
+        handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         # After approval, execution runs and completes synchronously
         assert task.status == "completed"
         assert task.result is not None
 
     def test_approve_nonexistent_task(self, handler, mock_http_handler):
-        result = handler.handle_post(
-            "/api/v2/tasks/does-not-exist/approve", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/v2/tasks/does-not-exist/approve", {}, mock_http_handler)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
     def test_approve_task_not_waiting_approval(self, handler, mock_http_handler):
         task = TaskRecord(goal="running task", type="debate", status="running")
         _tasks[task.id] = task
-        result = handler.handle_post(
-            f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-        )
+        result = handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         assert _status(result) == 409
         assert "waiting_approval" in _body(result).get("error", "").lower()
 
     def test_approve_completed_task_returns_409(self, handler, mock_http_handler):
         task = TaskRecord(goal="done", type="debate", status="completed")
         _tasks[task.id] = task
-        result = handler.handle_post(
-            f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-        )
+        result = handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         assert _status(result) == 409
 
     def test_approve_failed_task_returns_409(self, handler, mock_http_handler):
         task = TaskRecord(goal="failed", type="debate", status="failed")
         _tasks[task.id] = task
-        result = handler.handle_post(
-            f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-        )
+        result = handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         assert _status(result) == 409
 
     def test_approve_pending_task_returns_409(self, handler, mock_http_handler):
         task = TaskRecord(goal="pending", type="debate", status="pending")
         _tasks[task.id] = task
-        result = handler.handle_post(
-            f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-        )
+        result = handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         assert _status(result) == 409
 
     def test_approve_emits_approved_event(self, handler, mock_http_handler):
-        task = TaskRecord(
-            goal="approve event", type="debate", human_checkpoints=True
-        )
+        task = TaskRecord(goal="approve event", type="debate", human_checkpoints=True)
         task.status = "waiting_approval"
         _tasks[task.id] = task
-        with patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
-            handler.handle_post(
-                f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-            )
+        with patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit:
+            handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         actions = [c[0][1] for c in mock_emit.call_args_list]
         assert "approved" in actions
 
     def test_approve_then_execution_failure(self, handler, mock_http_handler):
-        task = TaskRecord(
-            goal="will fail after approval", type="debate", human_checkpoints=True
-        )
+        task = TaskRecord(goal="will fail after approval", type="debate", human_checkpoints=True)
         task.status = "waiting_approval"
         _tasks[task.id] = task
-        with patch.object(
-            handler, "_start_execution", side_effect=RuntimeError("engine down")
-        ):
-            result = handler.handle_post(
-                f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-            )
+        with patch.object(handler, "_start_execution", side_effect=RuntimeError("engine down")):
+            result = handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         assert _status(result) == 200  # Still returns 200 with status
         assert task.status == "failed"
         assert task.error == "engine down"
 
-    def test_approve_emits_failed_event_on_execution_error(
-        self, handler, mock_http_handler
-    ):
-        task = TaskRecord(
-            goal="fail after approve", type="debate", human_checkpoints=True
-        )
+    def test_approve_emits_failed_event_on_execution_error(self, handler, mock_http_handler):
+        task = TaskRecord(goal="fail after approve", type="debate", human_checkpoints=True)
         task.status = "waiting_approval"
         _tasks[task.id] = task
-        with patch.object(
-            handler, "_start_execution", side_effect=OSError("disk error")
-        ), patch(
-            "aragora.server.handlers.tasks.execution.emit_handler_event"
-        ) as mock_emit:
-            handler.handle_post(
-                f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_start_execution", side_effect=OSError("disk error")),
+            patch("aragora.server.handlers.tasks.execution.emit_handler_event") as mock_emit,
+        ):
+            handler.handle_post(f"/api/v2/tasks/{task.id}/approve", {}, mock_http_handler)
         actions = [c[0][1] for c in mock_emit.call_args_list]
         assert "failed" in actions
 
@@ -971,15 +892,11 @@ class TestGetRouting:
     """Tests for GET request routing."""
 
     def test_get_unknown_path_returns_404(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks/some-id/unknown", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks/some-id/unknown", {}, mock_http_handler)
         assert _status(result) == 404
 
     def test_get_deeply_nested_returns_404(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v2/tasks/a/b/c/d", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v2/tasks/a/b/c/d", {}, mock_http_handler)
         assert _status(result) == 404
 
     def test_get_non_matching_path_returns_none(self, handler, mock_http_handler):
@@ -996,9 +913,7 @@ class TestPostRouting:
     """Tests for POST request routing."""
 
     def test_post_unknown_path_returns_404(self, handler, mock_http_handler):
-        result = handler.handle_post(
-            "/api/v2/tasks/some-id/unknown-action", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/v2/tasks/some-id/unknown-action", {}, mock_http_handler)
         assert _status(result) == 404
 
     def test_post_non_matching_path_returns_none(self, handler, mock_http_handler):
@@ -1055,11 +970,12 @@ class TestStartExecution:
         router = TaskRouter()
         route = router.route("debate", "test", {})
         task = TaskRecord(goal="test", type="debate", status="pending")
-        with patch(
-            "aragora.server.handlers.tasks.execution._HAS_WORKFLOW_ENGINE", True
-        ), patch(
-            "aragora.server.handlers.tasks.execution._get_workflow_engine",
-            return_value=MagicMock(),
+        with (
+            patch("aragora.server.handlers.tasks.execution._HAS_WORKFLOW_ENGINE", True),
+            patch(
+                "aragora.server.handlers.tasks.execution._get_workflow_engine",
+                return_value=MagicMock(),
+            ),
         ):
             handler._start_execution(task, route)
         assert task.workflow_id is not None
@@ -1071,11 +987,12 @@ class TestStartExecution:
         router = TaskRouter()
         route = router.route("debate", "test", {})
         task = TaskRecord(goal="test", type="debate", status="pending")
-        with patch(
-            "aragora.server.handlers.tasks.execution._HAS_WORKFLOW_ENGINE", True
-        ), patch(
-            "aragora.server.handlers.tasks.execution._get_workflow_engine",
-            side_effect=RuntimeError("engine unavailable"),
+        with (
+            patch("aragora.server.handlers.tasks.execution._HAS_WORKFLOW_ENGINE", True),
+            patch(
+                "aragora.server.handlers.tasks.execution._get_workflow_engine",
+                side_effect=RuntimeError("engine unavailable"),
+            ),
         ):
             handler._start_execution(task, route)
         assert task.status == "completed"
@@ -1159,9 +1076,7 @@ class TestIntegrationFlow:
         exec_result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         task_id = _body(exec_result)["task_id"]
 
-        get_result = handler.handle(
-            f"/api/v2/tasks/{task_id}", {}, mock_http_handler
-        )
+        get_result = handler.handle(f"/api/v2/tasks/{task_id}", {}, mock_http_handler)
         assert _status(get_result) == 200
         assert _body(get_result)["id"] == task_id
 
@@ -1197,16 +1112,12 @@ class TestIntegrationFlow:
         handler.handle_post("/api/v2/tasks/execute", {}, h2)
 
         # Filter completed
-        completed = handler.handle(
-            "/api/v2/tasks", {"status": "completed"}, mock_http_handler
-        )
+        completed = handler.handle("/api/v2/tasks", {"status": "completed"}, mock_http_handler)
         assert _body(completed)["total"] == 1
         assert _body(completed)["tasks"][0]["status"] == "completed"
 
         # Filter waiting_approval
-        waiting = handler.handle(
-            "/api/v2/tasks", {"status": "waiting_approval"}, mock_http_handler
-        )
+        waiting = handler.handle("/api/v2/tasks", {"status": "waiting_approval"}, mock_http_handler)
         assert _body(waiting)["total"] == 1
         assert _body(waiting)["tasks"][0]["status"] == "waiting_approval"
 
@@ -1216,23 +1127,17 @@ class TestIntegrationFlow:
             handler.handle_post("/api/v2/tasks/execute", {}, h)
 
         # Page 1
-        r1 = handler.handle(
-            "/api/v2/tasks", {"limit": "2", "offset": "0"}, mock_http_handler
-        )
+        r1 = handler.handle("/api/v2/tasks", {"limit": "2", "offset": "0"}, mock_http_handler)
         d1 = _body(r1)
         assert d1["total"] == 5
         assert len(d1["tasks"]) == 2
 
         # Page 2
-        r2 = handler.handle(
-            "/api/v2/tasks", {"limit": "2", "offset": "2"}, mock_http_handler
-        )
+        r2 = handler.handle("/api/v2/tasks", {"limit": "2", "offset": "2"}, mock_http_handler)
         d2 = _body(r2)
         assert len(d2["tasks"]) == 2
 
         # Page 3 (partial)
-        r3 = handler.handle(
-            "/api/v2/tasks", {"limit": "2", "offset": "4"}, mock_http_handler
-        )
+        r3 = handler.handle("/api/v2/tasks", {"limit": "2", "offset": "4"}, mock_http_handler)
         d3 = _body(r3)
         assert len(d3["tasks"]) == 1

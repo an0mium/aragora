@@ -57,9 +57,11 @@ from aragora.server.handlers.utils.responses import HandlerResult
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeUserCtx:
     """Minimal stand-in for UserAuthContext."""
+
     authenticated: bool = True
     user_id: str | None = "u-1"
     email: str | None = "u@example.com"
@@ -90,6 +92,7 @@ def _body_json(result: HandlerResult) -> dict:
 # generate_trace_id
 # ============================================================================
 
+
 class TestGenerateTraceId:
     def test_returns_string(self):
         tid = generate_trace_id()
@@ -107,6 +110,7 @@ class TestGenerateTraceId:
 # ============================================================================
 # map_exception_to_status
 # ============================================================================
+
 
 class TestMapExceptionToStatus:
     def test_file_not_found(self):
@@ -146,6 +150,7 @@ class TestMapExceptionToStatus:
 # ============================================================================
 # validate_params
 # ============================================================================
+
 
 class TestValidateParams:
     def test_int_param_extracted(self):
@@ -246,6 +251,7 @@ class TestValidateParams:
 
     def test_int_no_bounds(self):
         """Int param with None min/max should not clamp."""
+
         @validate_params({"x": (int, 0, None, None)})
         def handler(query_params=None, **kw):
             return kw
@@ -254,6 +260,7 @@ class TestValidateParams:
 
     def test_float_no_bounds(self):
         """Float param with None min/max should not clamp."""
+
         @validate_params({"x": (float, 0.0, None, None)})
         def handler(query_params=None, **kw):
             return kw
@@ -262,6 +269,7 @@ class TestValidateParams:
 
     def test_str_param_none_max(self):
         """String param with no max should not truncate."""
+
         @validate_params({"s": (str, "", None, None)})
         def handler(query_params=None, **kw):
             return kw
@@ -270,11 +278,13 @@ class TestValidateParams:
         assert handler(query_params={"s": long_str})["s"] == long_str
 
     def test_multiple_params(self):
-        @validate_params({
-            "page": (int, 1, 1, 50),
-            "q": (str, "", None, 100),
-            "verbose": (bool, False, None, None),
-        })
+        @validate_params(
+            {
+                "page": (int, 1, 1, 50),
+                "q": (str, "", None, 100),
+                "verbose": (bool, False, None, None),
+            }
+        )
         def handler(query_params=None, **kw):
             return kw
 
@@ -287,6 +297,7 @@ class TestValidateParams:
 # ============================================================================
 # handle_errors (sync)
 # ============================================================================
+
 
 class TestHandleErrorsSync:
     def test_success_passes_through(self):
@@ -358,6 +369,7 @@ class TestHandleErrorsSync:
 # handle_errors (async)
 # ============================================================================
 
+
 class TestHandleErrorsAsync:
     def test_async_success(self):
         @handle_errors("async op")
@@ -395,6 +407,7 @@ class TestHandleErrorsAsync:
 # ============================================================================
 # auto_error_response
 # ============================================================================
+
 
 class TestAutoErrorResponse:
     def test_success(self):
@@ -469,6 +482,7 @@ class TestAutoErrorResponse:
 # log_request
 # ============================================================================
 
+
 class TestLogRequest:
     def test_success_logged(self, caplog):
         @log_request("create debate")
@@ -528,6 +542,7 @@ class TestLogRequest:
 # has_permission
 # ============================================================================
 
+
 @pytest.mark.no_auto_auth
 class TestHasPermission:
     """Tests for has_permission use the real function (no conftest override)."""
@@ -575,6 +590,7 @@ class TestHasPermission:
 # require_permission
 # ============================================================================
 
+
 @pytest.mark.no_auto_auth
 class TestRequirePermission:
     """Tests for require_permission use real auth checks (no conftest override)."""
@@ -595,9 +611,7 @@ class TestRequirePermission:
     @patch("aragora.server.handlers.utils.decorators._test_user_context_override", None)
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_unauthenticated_returns_401(self, mock_extract):
-        mock_extract.return_value = FakeUserCtx(
-            authenticated=False, error_reason="Token expired"
-        )
+        mock_extract.return_value = FakeUserCtx(authenticated=False, error_reason="Token expired")
 
         @require_permission("debates:create")
         def handler(handler=None, user=None):
@@ -725,7 +739,8 @@ class TestRequirePermission:
     def test_unauthenticated_no_error_reason(self, mock_extract):
         """When error_reason is None, should use default message."""
         mock_extract.return_value = FakeUserCtx(
-            authenticated=False, error_reason=None,
+            authenticated=False,
+            error_reason=None,
         )
 
         @require_permission("debates:read")
@@ -742,6 +757,7 @@ class TestRequirePermission:
 # ============================================================================
 # require_permission with test override
 # ============================================================================
+
 
 @pytest.mark.no_auto_auth
 class TestRequirePermissionTestOverride:
@@ -787,6 +803,7 @@ class TestRequirePermissionTestOverride:
 # require_user_auth
 # ============================================================================
 
+
 @pytest.mark.no_auto_auth
 class TestRequireUserAuth:
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
@@ -803,9 +820,7 @@ class TestRequireUserAuth:
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_unauthenticated_returns_401(self, mock_extract):
-        mock_extract.return_value = FakeUserCtx(
-            authenticated=False, error_reason="Expired"
-        )
+        mock_extract.return_value = FakeUserCtx(authenticated=False, error_reason="Expired")
 
         @require_user_auth
         def handler(handler=None, user=None):
@@ -842,7 +857,8 @@ class TestRequireUserAuth:
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_unauthenticated_no_error_reason(self, mock_extract):
         mock_extract.return_value = FakeUserCtx(
-            authenticated=False, error_reason=None,
+            authenticated=False,
+            error_reason=None,
         )
 
         @require_user_auth
@@ -859,6 +875,7 @@ class TestRequireUserAuth:
 # ============================================================================
 # require_auth (ARAGORA_API_TOKEN)
 # ============================================================================
+
 
 @pytest.mark.no_auto_auth
 class TestRequireAuth:
@@ -955,6 +972,7 @@ class TestRequireAuth:
 # require_storage
 # ============================================================================
 
+
 class TestRequireStorage:
     def test_storage_available(self):
         class MyHandler:
@@ -998,6 +1016,7 @@ class TestRequireStorage:
 # require_feature
 # ============================================================================
 
+
 class TestRequireFeature:
     def test_feature_available(self):
         @require_feature(lambda: True, "Redis")
@@ -1036,6 +1055,7 @@ class TestRequireFeature:
 # ============================================================================
 # safe_fetch
 # ============================================================================
+
 
 class TestSafeFetch:
     def test_success(self):
@@ -1079,6 +1099,7 @@ class TestSafeFetch:
 # ============================================================================
 # with_error_recovery
 # ============================================================================
+
 
 class TestWithErrorRecovery:
     def test_success(self):
@@ -1131,6 +1152,7 @@ class TestWithErrorRecovery:
 # ============================================================================
 # deprecated_endpoint
 # ============================================================================
+
 
 class TestDeprecatedEndpoint:
     def test_adds_deprecation_header(self):
@@ -1228,6 +1250,7 @@ class TestDeprecatedEndpoint:
 # Edge case / integration tests
 # ============================================================================
 
+
 class TestEdgeCases:
     def test_handle_errors_with_key_error(self):
         @handle_errors("key lookup")
@@ -1254,6 +1277,7 @@ class TestEdgeCases:
 
     def test_stacking_decorators(self):
         """Verify that handle_errors + validate_params stack correctly."""
+
         @handle_errors("stacked")
         @validate_params({"page": (int, 1, 1, 10)})
         def handler(query_params=None, **kw):

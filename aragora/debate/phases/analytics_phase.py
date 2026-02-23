@@ -397,11 +397,13 @@ class AnalyticsPhase:
         if result.disagreement_report:
             if result.disagreement_report.unanimous_critiques:
                 logger.debug(
-                    "disagreement_unanimous_critiques count=%s", len(result.disagreement_report.unanimous_critiques)
+                    "disagreement_unanimous_critiques count=%s",
+                    len(result.disagreement_report.unanimous_critiques),
                 )
             if result.disagreement_report.split_opinions:
                 logger.debug(
-                    "disagreement_split_opinions count=%s", len(result.disagreement_report.split_opinions)
+                    "disagreement_split_opinions count=%s",
+                    len(result.disagreement_report.split_opinions),
                 )
 
     async def _generate_verdict(self, ctx: DebateContext) -> None:

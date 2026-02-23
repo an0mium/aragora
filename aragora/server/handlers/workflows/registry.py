@@ -58,9 +58,7 @@ class TemplateRegistryHandler(BaseHandler):
     # GET
     # =====================================================================
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if not self.can_handle(path):
             return None
 
@@ -100,10 +98,12 @@ class TemplateRegistryHandler(BaseHandler):
             limit=limit,
             offset=offset,
         )
-        return json_response({
-            "templates": [r.to_dict() for r in results],
-            "count": len(results),
-        })
+        return json_response(
+            {
+                "templates": [r.to_dict() for r in results],
+                "count": len(results),
+            }
+        )
 
     def _handle_get(self, listing_id: str) -> HandlerResult:
         registry = self._get_registry()
@@ -160,9 +160,7 @@ class TemplateRegistryHandler(BaseHandler):
 
         return None
 
-    def _handle_submit(
-        self, body: dict[str, Any], query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_submit(self, body: dict[str, Any], query_params: dict[str, Any]) -> HandlerResult:
         name = body.get("name")
         if not name:
             return error_response("Missing required field: name", 400)

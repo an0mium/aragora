@@ -392,7 +392,9 @@ class VerticalFineTuningPipeline:
             split = dataset.train_test_split(test_size=1 - train_split, seed=42)
 
             logger.info(
-                "Dataset prepared: %s train, %s eval examples", len(split['train']), len(split['test'])
+                "Dataset prepared: %s train, %s eval examples",
+                len(split["train"]),
+                len(split["test"]),
             )
 
             return split

@@ -554,7 +554,10 @@ class MemoryMigrator:
                         stats.rows_skipped += len(batch)
 
             logger.info(
-                "Migrated %s rows to %s (%s skipped)", stats.rows_migrated, table, stats.rows_skipped
+                "Migrated %s rows to %s (%s skipped)",
+                stats.rows_migrated,
+                table,
+                stats.rows_skipped,
             )
 
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:

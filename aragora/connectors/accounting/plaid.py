@@ -597,7 +597,9 @@ class PlaidConnector:
         total = response.get("total_transactions", len(transactions))
 
         logger.info(
-            "[Plaid] Fetched %s transactions for %s", len(transactions), credentials.institution_name
+            "[Plaid] Fetched %s transactions for %s",
+            len(transactions),
+            credentials.institution_name,
         )
 
         return transactions, total

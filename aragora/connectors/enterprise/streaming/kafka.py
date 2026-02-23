@@ -354,7 +354,10 @@ class KafkaConnector(EnterpriseConnector):
         consumer = self._consumer
         await consumer.start()
         logger.info(
-            "[Kafka] Connected to %s, topics=%s, group=%s", self.config.bootstrap_servers, self.config.topics, self.config.group_id
+            "[Kafka] Connected to %s, topics=%s, group=%s",
+            self.config.bootstrap_servers,
+            self.config.topics,
+            self.config.group_id,
         )
         return True
 

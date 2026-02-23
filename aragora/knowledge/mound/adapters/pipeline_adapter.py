@@ -226,9 +226,7 @@ class PipelineAdapter(KnowledgeMoundAdapter):
             # 1. Ingest pipeline summary
             summary = self._build_pipeline_summary(pipeline_data)
             stages_completed = sum(
-                1
-                for s in pipeline_data.get("stage_status", {}).values()
-                if s == "complete"
+                1 for s in pipeline_data.get("stage_status", {}).values() if s == "complete"
             )
             summary_request = IngestionRequest(
                 content=summary,
@@ -398,9 +396,7 @@ class PipelineAdapter(KnowledgeMoundAdapter):
         orch = pipeline_data.get("orchestration_result", {})
         if orch and isinstance(orch, dict):
             lines.append(f"Orchestration: {orch.get('status', 'unknown')}")
-            lines.append(
-                f"Tasks: {orch.get('tasks_completed', 0)}/{orch.get('tasks_total', 0)}"
-            )
+            lines.append(f"Tasks: {orch.get('tasks_completed', 0)}/{orch.get('tasks_total', 0)}")
 
         lines.append(f"Integrity: {pipeline_data.get('integrity_hash', 'none')}")
         return "\n".join(lines)
@@ -427,9 +423,7 @@ class PipelineAdapter(KnowledgeMoundAdapter):
             List of SimilarPipeline objects ordered by relevance
         """
         async with self._resilient_call("find_similar_pipelines"):
-            return await self._do_find_similar(
-                query, limit, min_similarity, workspace_id
-            )
+            return await self._do_find_similar(query, limit, min_similarity, workspace_id)
 
     async def _do_find_similar(
         self,
@@ -530,9 +524,7 @@ class PipelineAdapter(KnowledgeMoundAdapter):
                 if len(entry["examples"]) < 3:
                     entry["examples"].append(content[:100])
 
-            ranked = sorted(
-                pattern_data.values(), key=lambda x: x["count"], reverse=True
-            )
+            ranked = sorted(pattern_data.values(), key=lambda x: x["count"], reverse=True)
             return ranked[:limit]
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to find high-ROI patterns: %s", e)

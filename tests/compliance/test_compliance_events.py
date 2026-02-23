@@ -18,6 +18,7 @@ def monitor():
     except TypeError:
         # Try with a config object
         from aragora.compliance.monitor import ComplianceMonitorConfig
+
         return ComplianceMonitor(config=ComplianceMonitorConfig())
 
 

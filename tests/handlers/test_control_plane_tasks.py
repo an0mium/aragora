@@ -78,8 +78,8 @@ class MockTask:
         return {
             "id": self.id,
             "task_type": self.task_type,
-            "status": self.status.value if hasattr(self.status, 'value') else self.status,
-            "priority": self.priority.value if hasattr(self.priority, 'value') else self.priority,
+            "status": self.status.value if hasattr(self.status, "value") else self.status,
+            "priority": self.priority.value if hasattr(self.priority, "value") else self.priority,
             "payload": self.payload,
             "metadata": self.metadata,
             "assigned_agent": self.assigned_agent,
@@ -393,14 +393,16 @@ class TestQueueMetrics:
 
     def test_metrics_success(self):
         coordinator = MagicMock()
-        coordinator.get_stats = AsyncMock(return_value={
-            "tasks": {
-                "pending": 5,
-                "running": 2,
-                "completed": 100,
-                "failed": 3,
+        coordinator.get_stats = AsyncMock(
+            return_value={
+                "tasks": {
+                    "pending": 5,
+                    "running": 2,
+                    "completed": 100,
+                    "failed": 3,
+                }
             }
-        })
+        )
         handler = TestableTaskHandler(coordinator=coordinator)
 
         result = handler._handle_queue_metrics()
@@ -505,11 +507,14 @@ class TestDeliberation:
     def test_get_deliberation_not_found(self):
         handler = TestableTaskHandler(coordinator=MagicMock())
 
-        with patch.dict("sys.modules", {
-            "aragora.core.decision_results": MagicMock(
-                get_decision_result=MagicMock(return_value=None),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision_results": MagicMock(
+                    get_decision_result=MagicMock(return_value=None),
+                ),
+            },
+        ):
             result = handler._handle_get_deliberation("req_nonexistent", MagicMock())
             assert result.status_code == 404
 
@@ -517,10 +522,13 @@ class TestDeliberation:
         handler = TestableTaskHandler(coordinator=MagicMock())
 
         mock_status = {"status": "completed", "progress": 100}
-        with patch.dict("sys.modules", {
-            "aragora.core.decision_results": MagicMock(
-                get_decision_status=MagicMock(return_value=mock_status),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.core.decision_results": MagicMock(
+                    get_decision_status=MagicMock(return_value=mock_status),
+                ),
+            },
+        ):
             result = handler._handle_get_deliberation_status("req_001", MagicMock())
             assert result.status_code == 200

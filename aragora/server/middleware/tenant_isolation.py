@@ -387,10 +387,13 @@ class TenantIsolationMiddleware:
                 tenant_id=tenant_id,
                 allowed=False,
                 reason=f"Membership check failed: {type(e).__name__}",
-                metadata={"error": str(e)},
+                metadata={"error": type(e).__name__},
             )
             security_logger.warning(
-                "Tenant membership check failed (access denied): user=%s tenant=%s error=%s", user_id, tenant_id, e
+                "Tenant membership check failed (access denied): user=%s tenant=%s error=%s",
+                user_id,
+                tenant_id,
+                e,
             )
             raise TenantMembershipCheckError(
                 "Unable to verify tenant membership. Access denied.",
@@ -687,7 +690,10 @@ async def verify_tenant_access(
         return await store.is_member(user_id, tenant_id)
     except Exception as e:  # noqa: BLE001 - Security fail-closed: membership store may raise DB driver exceptions not in builtins
         security_logger.warning(
-            "Tenant access verification failed (denied): user=%s tenant=%s error=%s", user_id, tenant_id, e
+            "Tenant access verification failed (denied): user=%s tenant=%s error=%s",
+            user_id,
+            tenant_id,
+            e,
         )
         return False
 

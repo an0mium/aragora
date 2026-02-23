@@ -99,8 +99,13 @@ class IdeaCanvasHandler(SecureHandler):
 
         try:
             return self._route_request(
-                path, method, query_params, body,
-                user_id, workspace_id, auth_context,
+                path,
+                method,
+                query_params,
+                body,
+                user_id,
+                workspace_id,
+                auth_context,
             )
         except PermissionDeniedError as e:
             perm = e.permission_key if hasattr(e, "permission_key") else "unknown"
@@ -201,10 +206,12 @@ class IdeaCanvasHandler(SecureHandler):
 
     def _get_store(self):
         from aragora.canvas.idea_store import get_idea_canvas_store
+
         return get_idea_canvas_store()
 
     def _get_canvas_manager(self):
         from aragora.canvas import get_canvas_manager
+
         return get_canvas_manager()
 
     def _run_async(self, coro):
@@ -224,7 +231,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:read")
     def _list_canvases(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         query_params: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
@@ -244,7 +252,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:create")
     def _create_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         body: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
@@ -267,7 +276,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:read")
     def _get_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -294,7 +304,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:update")
     def _update_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -316,7 +327,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:delete")
     def _delete_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -336,7 +348,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:create")
     def _add_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -383,7 +396,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:update")
     def _update_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         body: dict[str, Any],
@@ -419,7 +433,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:delete")
     def _delete_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         user_id: str | None,
@@ -440,7 +455,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:create")
     def _add_edge(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -480,7 +496,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:delete")
     def _delete_edge(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         edge_id: str,
         user_id: str | None,
@@ -501,7 +518,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:read")
     def _export_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -519,7 +537,8 @@ class IdeaCanvasHandler(SecureHandler):
 
     @require_permission("ideas:promote")
     def _promote_nodes(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -537,14 +556,19 @@ class IdeaCanvasHandler(SecureHandler):
                 return error_response("node_ids is required", 400)
 
             goals_canvas, provenance = promote_ideas_to_goals(
-                canvas, node_ids, user_id or "anonymous",
+                canvas,
+                node_ids,
+                user_id or "anonymous",
             )
 
-            return json_response({
-                "goals_canvas": goals_canvas.to_dict(),
-                "provenance": [p.to_dict() for p in provenance],
-                "promoted_count": len(provenance),
-            }, status=201)
+            return json_response(
+                {
+                    "goals_canvas": goals_canvas.to_dict(),
+                    "provenance": [p.to_dict() for p in provenance],
+                    "promoted_count": len(provenance),
+                },
+                status=201,
+            )
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to promote idea nodes: %s", e)
             return error_response("Promotion failed", 500)

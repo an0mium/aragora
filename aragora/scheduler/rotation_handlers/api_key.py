@@ -327,9 +327,7 @@ class APIKeyRotationHandler(RotationHandler):
             if not new_key:
                 raise RotationError("No key in Stripe roll response", secret_id)
 
-            logger.info(
-                "Rolled Stripe API key for %s. Old key valid for 24 hours.", secret_id
-            )
+            logger.info("Rolled Stripe API key for %s. Old key valid for 24 hours.", secret_id)
 
             return new_key, {
                 **metadata,
@@ -347,8 +345,7 @@ class APIKeyRotationHandler(RotationHandler):
             logger.error("Stripe key rotation failed: %s", e)
             await self._notify_manual_rotation(secret_id, "stripe", metadata)
             raise RotationError(
-                f"Stripe programmatic rotation failed: {e}. "
-                f"Notification sent for manual rotation.",
+                f"Stripe programmatic rotation failed: {e}. Notification sent for manual rotation.",
                 secret_id,
             )
 
@@ -474,7 +471,9 @@ class APIKeyRotationHandler(RotationHandler):
                 logger.error("Failed to send notification for %s: %s", secret_id, e)
         else:
             logger.warning(
-                "Manual rotation required for %s (%s) but no notification callback configured", secret_id, provider
+                "Manual rotation required for %s (%s) but no notification callback configured",
+                secret_id,
+                provider,
             )
 
     async def validate_credentials(
@@ -708,7 +707,9 @@ class APIKeyRotationHandler(RotationHandler):
 
         # Most providers don't support programmatic revocation
         logger.info(
-            "Provider %s doesn't support programmatic key revocation. Old key for %s should be manually revoked.", provider, secret_id
+            "Provider %s doesn't support programmatic key revocation. Old key for %s should be manually revoked.",
+            provider,
+            secret_id,
         )
         return True
 

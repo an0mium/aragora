@@ -606,7 +606,11 @@ class ThreeTierWatchdog:
                 self._escalation_counts[tier] = 0
 
         logger.info(
-            "Watchdog issue detected [%s]: %s - %s: %s", tier.value, issue.severity.name, issue.category.value, issue.message
+            "Watchdog issue detected [%s]: %s - %s: %s",
+            tier.value,
+            issue.severity.name,
+            issue.category.value,
+            issue.message,
         )
 
     async def escalate(
@@ -641,7 +645,9 @@ class ThreeTierWatchdog:
         target_tier = tier_order[current_index + 1]
         self._stats["escalations"] += 1
 
-        logger.info("Escalating issue %s from %s to %s", issue.id, source_tier.value, target_tier.value)
+        logger.info(
+            "Escalating issue %s from %s to %s", issue.id, source_tier.value, target_tier.value
+        )
 
         # Call target tier handlers
         for handler in self._handlers[target_tier]:

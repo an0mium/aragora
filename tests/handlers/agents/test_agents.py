@@ -32,6 +32,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result: object) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -54,11 +55,13 @@ def _status(result: object) -> int:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
     """Reset rate limiters before and after each test so quota is fresh."""
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -66,6 +69,7 @@ def _reset_rate_limiters():
     # Reset module-level rate limiter inside agents.py
     try:
         from aragora.server.handlers.agents import agents as agents_mod
+
         agents_mod._agent_limiter = agents_mod.RateLimiter(requests_per_minute=60)
     except (ImportError, AttributeError):
         pass
@@ -73,6 +77,7 @@ def _reset_rate_limiters():
     # Reset named rate limiters used by decorators
     try:
         from aragora.server.handlers.utils import rate_limit as rl_mod
+
         with rl_mod._limiters_lock:
             rl_mod._limiters.clear()
     except (ImportError, AttributeError):
@@ -82,6 +87,7 @@ def _reset_rate_limiters():
 
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -91,6 +97,7 @@ def _reset_rate_limiters():
 def handler():
     """Create an AgentsHandler with empty server context."""
     from aragora.server.handlers.agents.agents import AgentsHandler
+
     return AgentsHandler(server_context={})
 
 
@@ -107,23 +114,27 @@ def mock_http_handler():
 # Initialization and Routing
 # ---------------------------------------------------------------------------
 
+
 class TestAgentsHandlerInit:
     """Tests for handler construction."""
 
     def test_init_with_server_context(self):
         from aragora.server.handlers.agents.agents import AgentsHandler
+
         ctx = {"elo_system": "mock"}
         h = AgentsHandler(server_context=ctx)
         assert h.ctx is ctx
 
     def test_init_with_ctx_kwarg(self):
         from aragora.server.handlers.agents.agents import AgentsHandler
+
         ctx = {"key": "val"}
         h = AgentsHandler(ctx=ctx)
         assert h.ctx is ctx
 
     def test_init_defaults_to_empty_dict(self):
         from aragora.server.handlers.agents.agents import AgentsHandler
+
         h = AgentsHandler()
         assert h.ctx == {}
 
@@ -211,6 +222,7 @@ class TestCanHandle:
 # Public path detection
 # ---------------------------------------------------------------------------
 
+
 class TestIsPublicPath:
     """Tests for _is_public_path logic."""
 
@@ -243,14 +255,12 @@ class TestIsPublicPath:
 # Rate Limiting
 # ---------------------------------------------------------------------------
 
-class TestRateLimiting:
 
+class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_returns_429(self, handler, mock_http_handler):
         """After exhausting the rate limiter budget, handler returns 429."""
-        with patch(
-            "aragora.server.handlers.agents.agents._agent_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.agents.agents._agent_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = await handler.handle("/api/agents", {}, mock_http_handler)
             assert _status(result) == 429
@@ -261,8 +271,8 @@ class TestRateLimiting:
 # /api/agents  (list agents)
 # ---------------------------------------------------------------------------
 
-class TestListAgents:
 
+class TestListAgents:
     @pytest.mark.asyncio
     async def test_list_agents_with_elo(self, handler, mock_http_handler):
         mock_elo = MagicMock()
@@ -350,8 +360,8 @@ class TestListAgents:
 # /api/leaderboard and /api/rankings
 # ---------------------------------------------------------------------------
 
-class TestLeaderboard:
 
+class TestLeaderboard:
     @pytest.mark.asyncio
     async def test_leaderboard_no_elo(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
@@ -418,8 +428,8 @@ class TestLeaderboard:
 # /api/matches/recent
 # ---------------------------------------------------------------------------
 
-class TestRecentMatches:
 
+class TestRecentMatches:
     @pytest.mark.asyncio
     async def test_no_elo(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
@@ -458,11 +468,13 @@ class TestRecentMatches:
 # /api/agent/compare
 # ---------------------------------------------------------------------------
 
-class TestCompareAgents:
 
+class TestCompareAgents:
     @pytest.mark.asyncio
     async def test_compare_too_few_agents(self, handler, mock_http_handler):
-        result = await handler.handle("/api/agent/compare", {"agents": ["claude"]}, mock_http_handler)
+        result = await handler.handle(
+            "/api/agent/compare", {"agents": ["claude"]}, mock_http_handler
+        )
         assert _status(result) == 400
         assert "2 agents" in _body(result).get("error", "").lower()
 
@@ -517,9 +529,7 @@ class TestCompareAgents:
 
     @pytest.mark.asyncio
     async def test_compare_empty_agents_list(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/agent/compare", {"agents": []}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/compare", {"agents": []}, mock_http_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -540,13 +550,11 @@ class TestCompareAgents:
 # /api/agents/local and /api/agents/local/status
 # ---------------------------------------------------------------------------
 
-class TestLocalAgents:
 
+class TestLocalAgents:
     @pytest.mark.asyncio
     async def test_list_local_agents_success(self, handler, mock_http_handler):
-        with patch(
-            "aragora.agents.registry.AgentRegistry"
-        ) as mock_registry:
+        with patch("aragora.agents.registry.AgentRegistry") as mock_registry:
             mock_registry.detect_local_agents.return_value = [
                 {"name": "ollama", "available": True},
                 {"name": "lmstudio", "available": False},
@@ -559,9 +567,7 @@ class TestLocalAgents:
 
     @pytest.mark.asyncio
     async def test_list_local_agents_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.agents.registry.AgentRegistry"
-        ) as mock_registry:
+        with patch("aragora.agents.registry.AgentRegistry") as mock_registry:
             mock_registry.detect_local_agents.side_effect = ConnectionError("timeout")
             result = await handler.handle("/api/agents/local", {}, mock_http_handler)
             assert _status(result) == 200
@@ -571,9 +577,7 @@ class TestLocalAgents:
 
     @pytest.mark.asyncio
     async def test_local_status_success(self, handler, mock_http_handler):
-        with patch(
-            "aragora.agents.registry.AgentRegistry"
-        ) as mock_registry:
+        with patch("aragora.agents.registry.AgentRegistry") as mock_registry:
             mock_registry.get_local_status.return_value = {
                 "any_available": True,
                 "total_models": 3,
@@ -591,9 +595,7 @@ class TestLocalAgents:
 
     @pytest.mark.asyncio
     async def test_local_status_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.agents.registry.AgentRegistry"
-        ) as mock_registry:
+        with patch("aragora.agents.registry.AgentRegistry") as mock_registry:
             mock_registry.get_local_status.side_effect = OSError("fail")
             result = await handler.handle("/api/agents/local/status", {}, mock_http_handler)
             assert _status(result) == 200
@@ -605,8 +607,8 @@ class TestLocalAgents:
 # /api/agents/health
 # ---------------------------------------------------------------------------
 
-class TestAgentHealth:
 
+class TestAgentHealth:
     @pytest.mark.asyncio
     async def test_health_basic_structure(self, handler, mock_http_handler):
         """Health endpoint returns expected top-level keys."""
@@ -722,8 +724,8 @@ class TestAgentHealth:
 # /api/agents/availability
 # ---------------------------------------------------------------------------
 
-class TestAgentAvailability:
 
+class TestAgentAvailability:
     @pytest.mark.asyncio
     async def test_availability_all_configured(self, handler, mock_http_handler):
         with patch("aragora.agents.registry.register_all_agents"):
@@ -800,19 +802,20 @@ class TestAgentAvailability:
 # Per-agent endpoints via _handle_agent_endpoint / _dispatch_agent_endpoint
 # ---------------------------------------------------------------------------
 
-class TestPerAgentEndpoints:
 
+class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_profile(self, handler, mock_http_handler):
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {
-            "rank": 1, "wins": 10, "losses": 2, "win_rate": 0.833,
+            "rank": 1,
+            "wins": 10,
+            "losses": 2,
+            "win_rate": 0.833,
         }
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["name"] == "claude"
@@ -835,9 +838,7 @@ class TestPerAgentEndpoints:
         mock_elo = MagicMock()
         mock_elo.get_calibration.return_value = {"agent": "claude", "score": 0.75}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/calibration", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -853,9 +854,7 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_consistency(self, handler, mock_http_handler):
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/consistency", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/consistency", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -864,9 +863,7 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_flips(self, handler, mock_http_handler):
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/flips", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/flips", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -878,9 +875,7 @@ class TestPerAgentEndpoints:
         mock_elo.get_rivals.return_value = [{"name": "gpt4"}]
         mock_elo.get_allies.return_value = [{"name": "gemini"}]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -933,9 +928,7 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_positions(self, handler, mock_http_handler):
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/positions", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/positions", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["positions"] == []
@@ -948,9 +941,7 @@ class TestPerAgentEndpoints:
         mock_rating.elo = 1600
         mock_elo.get_rating.return_value = mock_rating
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -961,9 +952,7 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_domains_no_elo(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -984,9 +973,7 @@ class TestPerAgentEndpoints:
         mock_elo.get_agent_history.return_value = []
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -996,17 +983,13 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_performance_no_elo(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_metadata_no_nomic_dir(self, handler, mock_http_handler):
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/metadata", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["metadata"] is None
@@ -1015,9 +998,7 @@ class TestPerAgentEndpoints:
     async def test_introspect(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                result = await handler.handle(
-                    "/api/agent/claude/introspect", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/agent/claude/introspect", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["agent_id"] == "claude"
@@ -1035,41 +1016,31 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_no_elo_returns_503_for_profile(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_no_elo_returns_503_for_history(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/history", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/history", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_no_elo_returns_503_for_network(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_no_elo_returns_503_for_rivals(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/rivals", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/rivals", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_no_elo_returns_503_for_allies(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/allies", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/allies", {}, mock_http_handler)
             assert _status(result) == 503
 
 
@@ -1077,8 +1048,8 @@ class TestPerAgentEndpoints:
 # Head-to-head and opponent briefing
 # ---------------------------------------------------------------------------
 
-class TestHeadToHead:
 
+class TestHeadToHead:
     @pytest.mark.asyncio
     async def test_head_to_head(self, handler, mock_http_handler):
         mock_elo = MagicMock()
@@ -1118,9 +1089,7 @@ class TestHeadToHead:
     async def test_opponent_briefing(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                with patch(
-                    "aragora.agents.grounded.PersonaSynthesizer"
-                ) as mock_ps:
+                with patch("aragora.agents.grounded.PersonaSynthesizer") as mock_ps:
                     mock_ps.return_value.get_opponent_briefing.return_value = {
                         "strategy": "aggressive"
                     }
@@ -1137,9 +1106,7 @@ class TestHeadToHead:
     async def test_opponent_briefing_no_data(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
             with patch.object(handler, "get_nomic_dir", return_value=None):
-                with patch(
-                    "aragora.agents.grounded.PersonaSynthesizer"
-                ) as mock_ps:
+                with patch("aragora.agents.grounded.PersonaSynthesizer") as mock_ps:
                     mock_ps.return_value.get_opponent_briefing.return_value = None
                     result = await handler.handle(
                         "/api/agent/claude/opponent-briefing/gpt4", {}, mock_http_handler
@@ -1161,8 +1128,8 @@ class TestHeadToHead:
 # /api/flips/recent and /api/flips/summary
 # ---------------------------------------------------------------------------
 
-class TestFlipEndpoints:
 
+class TestFlipEndpoints:
     @pytest.mark.asyncio
     async def test_recent_flips_no_nomic_dir(self, handler, mock_http_handler):
         with patch.object(handler, "get_nomic_dir", return_value=None):
@@ -1183,9 +1150,7 @@ class TestFlipEndpoints:
     @pytest.mark.asyncio
     async def test_recent_flips_with_limit(self, handler, mock_http_handler):
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/flips/recent", {"limit": "5"}, mock_http_handler
-            )
+            result = await handler.handle("/api/flips/recent", {"limit": "5"}, mock_http_handler)
             assert _status(result) == 200
 
 
@@ -1193,31 +1158,25 @@ class TestFlipEndpoints:
 # Path validation
 # ---------------------------------------------------------------------------
 
-class TestPathValidation:
 
+class TestPathValidation:
     @pytest.mark.asyncio
     async def test_invalid_agent_name_rejected(self, handler, mock_http_handler):
         """Agent names with special chars are rejected."""
-        result = await handler.handle(
-            "/api/agent/<script>/profile", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/<script>/profile", {}, mock_http_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_short_agent_path_rejected(self, handler, mock_http_handler):
         """Path with fewer than 5 segments returns 400."""
-        result = await handler.handle(
-            "/api/agent/claude", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/claude", {}, mock_http_handler)
         # < 5 parts means error_response("Invalid agent path", 400)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_unknown_agent_endpoint_returns_none(self, handler, mock_http_handler):
         """Unknown sub-endpoint dispatches to None."""
-        result = await handler.handle(
-            "/api/agent/claude/nonexistent", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/claude/nonexistent", {}, mock_http_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1227,9 +1186,7 @@ class TestPathValidation:
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {"rank": 1, "wins": 5, "losses": 2, "win_rate": 0.7}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agents/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agents/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1239,9 +1196,7 @@ class TestPathValidation:
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {"rank": 1, "wins": 5, "losses": 2, "win_rate": 0.7}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1251,9 +1206,7 @@ class TestPathValidation:
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/anthropic-api/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/anthropic-api/profile", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1263,9 +1216,7 @@ class TestPathValidation:
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/gpt_4o/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/gpt_4o/profile", {}, mock_http_handler)
             assert _status(result) == 200
 
 
@@ -1273,8 +1224,8 @@ class TestPathValidation:
 # Unmatched path returns None
 # ---------------------------------------------------------------------------
 
-class TestUnmatchedPaths:
 
+class TestUnmatchedPaths:
     @pytest.mark.asyncio
     async def test_returns_none_for_unhandled_path(self, handler, mock_http_handler):
         result = await handler.handle("/api/unknown", {}, mock_http_handler)
@@ -1291,62 +1242,72 @@ class TestUnmatchedPaths:
 # Helper functions (_secret_configured, _missing_required_env_vars)
 # ---------------------------------------------------------------------------
 
-class TestSecretConfigured:
 
+class TestSecretConfigured:
     def test_secret_from_get_secret(self):
         from aragora.server.handlers.agents.agents import _secret_configured
+
         with patch("aragora.config.secrets.get_secret", return_value="abc123"):
             assert _secret_configured("MY_KEY") is True
 
     def test_secret_from_env_var(self):
         from aragora.server.handlers.agents.agents import _secret_configured
+
         with patch("aragora.config.secrets.get_secret", side_effect=ImportError):
             with patch.dict("os.environ", {"MY_KEY": "value123"}):
                 assert _secret_configured("MY_KEY") is True
 
     def test_no_secret_available(self):
         from aragora.server.handlers.agents.agents import _secret_configured
+
         with patch("aragora.config.secrets.get_secret", side_effect=ImportError):
             with patch.dict("os.environ", {}, clear=True):
                 assert _secret_configured("MY_KEY") is False
 
     def test_empty_secret_is_false(self):
         from aragora.server.handlers.agents.agents import _secret_configured
+
         with patch("aragora.config.secrets.get_secret", return_value="  "):
             with patch.dict("os.environ", {}, clear=True):
                 assert _secret_configured("MY_KEY") is False
 
     def test_whitespace_env_var_is_false(self):
         from aragora.server.handlers.agents.agents import _secret_configured
+
         with patch("aragora.config.secrets.get_secret", side_effect=ImportError):
             with patch.dict("os.environ", {"MY_KEY": "  "}):
                 assert _secret_configured("MY_KEY") is False
 
 
 class TestMissingRequiredEnvVars:
-
     def test_none_input(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         assert _missing_required_env_vars(None) == []
 
     def test_empty_string(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         assert _missing_required_env_vars("") == []
 
     def test_optional_keyword_returns_empty(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         assert _missing_required_env_vars("optional: SOME_KEY") == []
 
     def test_optional_case_insensitive(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         assert _missing_required_env_vars("Optional SOME_KEY") == []
 
     def test_no_matches(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         assert _missing_required_env_vars("no uppercase vars here") == []
 
     def test_all_configured(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         with patch(
             "aragora.server.handlers.agents.agents._secret_configured",
             return_value=True,
@@ -1355,6 +1316,7 @@ class TestMissingRequiredEnvVars:
 
     def test_missing_vars_returned(self):
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         with patch(
             "aragora.server.handlers.agents.agents._secret_configured",
             return_value=False,
@@ -1365,13 +1327,16 @@ class TestMissingRequiredEnvVars:
     def test_any_configured_means_all_ok(self):
         """If any one of the env vars is configured, all are considered OK."""
         from aragora.server.handlers.agents.agents import _missing_required_env_vars
+
         # The function uses `any(_secret_configured(var) for var in candidates)`
         # So if one is configured, returns []
         call_count = 0
+
         def _mock_secret(name):
             nonlocal call_count
             call_count += 1
             return name == "OPENAI_API_KEY"
+
         with patch(
             "aragora.server.handlers.agents.agents._secret_configured",
             side_effect=_mock_secret,
@@ -1384,8 +1349,8 @@ class TestMissingRequiredEnvVars:
 # Auth enforcement on non-public paths (opt-out of auto-auth)
 # ---------------------------------------------------------------------------
 
-class TestAuthEnforcement:
 
+class TestAuthEnforcement:
     @pytest.mark.no_auto_auth
     @pytest.mark.asyncio
     async def test_non_public_path_requires_auth(self, mock_http_handler):
@@ -1438,10 +1403,11 @@ class TestAuthEnforcement:
 # OpenRouter fallback model map
 # ---------------------------------------------------------------------------
 
-class TestOpenRouterFallbackMap:
 
+class TestOpenRouterFallbackMap:
     def test_known_models(self):
         from aragora.server.handlers.agents.agents import _OPENROUTER_FALLBACK_MODELS
+
         assert "anthropic-api" in _OPENROUTER_FALLBACK_MODELS
         assert "openai-api" in _OPENROUTER_FALLBACK_MODELS
         assert "gemini" in _OPENROUTER_FALLBACK_MODELS
@@ -1450,10 +1416,12 @@ class TestOpenRouterFallbackMap:
 
     def test_unknown_agent_has_no_fallback(self):
         from aragora.server.handlers.agents.agents import _OPENROUTER_FALLBACK_MODELS
+
         assert _OPENROUTER_FALLBACK_MODELS.get("totally-fake") is None
 
     def test_fallback_model_values_are_strings(self):
         from aragora.server.handlers.agents.agents import _OPENROUTER_FALLBACK_MODELS
+
         for agent, model in _OPENROUTER_FALLBACK_MODELS.items():
             assert isinstance(model, str), f"{agent} fallback should be a string"
             assert "/" in model, f"{agent} fallback should be provider/model format"
@@ -1463,20 +1431,22 @@ class TestOpenRouterFallbackMap:
 # Constants and module-level attributes
 # ---------------------------------------------------------------------------
 
-class TestConstants:
 
+class TestConstants:
     def test_permission_constants(self):
         from aragora.server.handlers.agents.agents import (
             AGENT_PERMISSION,
             AGENTS_READ_PERMISSION,
             AGENTS_WRITE_PERMISSION,
         )
+
         assert AGENTS_READ_PERMISSION == "agents:read"
         assert AGENTS_WRITE_PERMISSION == "agents:write"
         assert AGENT_PERMISSION == AGENTS_READ_PERMISSION
 
     def test_env_var_regex(self):
         from aragora.server.handlers.agents.agents import _ENV_VAR_RE
+
         assert _ENV_VAR_RE.findall("ANTHROPIC_API_KEY") == ["ANTHROPIC_API_KEY"]
         assert _ENV_VAR_RE.findall("lowercase_var") == []
         assert _ENV_VAR_RE.findall("OPENAI_API_KEY or OPENROUTER_API_KEY") == [
@@ -1486,6 +1456,7 @@ class TestConstants:
 
     def test_env_var_regex_edge_cases(self):
         from aragora.server.handlers.agents.agents import _ENV_VAR_RE
+
         # Must start with uppercase
         assert _ENV_VAR_RE.findall("1ABC") == ["ABC"]
         # Numbers after first letter OK
@@ -1496,14 +1467,25 @@ class TestConstants:
 # _handle_agent_endpoint edge cases
 # ---------------------------------------------------------------------------
 
-class TestHandleAgentEndpoint:
 
+class TestHandleAgentEndpoint:
     def test_dispatch_all_known_endpoints(self, handler):
         """All 14 known endpoints are in the dispatch map."""
         known = [
-            "profile", "history", "calibration", "consistency", "flips",
-            "network", "rivals", "allies", "moments", "positions",
-            "domains", "performance", "metadata", "introspect",
+            "profile",
+            "history",
+            "calibration",
+            "consistency",
+            "flips",
+            "network",
+            "rivals",
+            "allies",
+            "moments",
+            "positions",
+            "domains",
+            "performance",
+            "metadata",
+            "introspect",
         ]
         for endpoint in known:
             # Just verify the dispatch map contains these (no errors)

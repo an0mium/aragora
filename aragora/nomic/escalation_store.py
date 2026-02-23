@@ -416,7 +416,9 @@ class EscalationChain:
         if self._store:
             await self._store._save_chain(self)
 
-        logger.info("De-escalated chain %s: %s -> %s", self.id, old_level.value, previous_level.value)
+        logger.info(
+            "De-escalated chain %s: %s -> %s", self.id, old_level.value, previous_level.value
+        )
         return event
 
     async def suppress(
@@ -666,7 +668,11 @@ class EscalationStore:
             await self._save_all_chains()
 
             logger.info(
-                "Created escalation chain %s: source=%s target=%s level=%s", chain.id, source, target, start_level.value
+                "Created escalation chain %s: source=%s target=%s level=%s",
+                chain.id,
+                source,
+                target,
+                start_level.value,
             )
 
             # Execute handler if registered

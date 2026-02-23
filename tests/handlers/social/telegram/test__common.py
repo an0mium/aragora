@@ -487,9 +487,7 @@ class TestGetAuthContext:
     def test_returns_none_when_rbac_unavailable(self):
         mixin = self._make_mixin()
         handler = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
             result = mixin._get_auth_context(handler)
         assert result is None
@@ -497,11 +495,12 @@ class TestGetAuthContext:
     def test_returns_none_when_extract_user_is_none(self):
         mixin = self._make_mixin()
         handler = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            None,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                None,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -511,11 +510,12 @@ class TestGetAuthContext:
         mixin = self._make_mixin()
         handler = MagicMock()
         mock_extract = MagicMock(return_value=None)
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -532,11 +532,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(return_value=mock_user)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -557,11 +558,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(return_value=mock_user)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -580,11 +582,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(return_value=mock_user)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -598,11 +601,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(side_effect=ValueError("bad value"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -614,11 +618,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(side_effect=TypeError("bad type"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -630,11 +635,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(side_effect=AttributeError("no attr"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -646,11 +652,12 @@ class TestGetAuthContext:
 
         mock_extract = MagicMock(side_effect=KeyError("missing key"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.extract_user_from_request",
-            mock_extract,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.extract_user_from_request",
+                mock_extract,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_auth_context(handler)
@@ -675,20 +682,19 @@ class TestGetTelegramUserContext:
 
     def test_returns_none_when_rbac_unavailable(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
             result = mixin._get_telegram_user_context(123, "testuser", 456)
         assert result is None
 
     def test_returns_none_when_auth_context_class_is_none(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.AuthorizationContext",
-            None,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.AuthorizationContext",
+                None,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_telegram_user_context(123, "testuser", 456)
@@ -696,9 +702,7 @@ class TestGetTelegramUserContext:
 
     def test_returns_context_with_telegram_prefix(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_telegram_user_context(67890, "alice", 12345)
 
@@ -709,9 +713,7 @@ class TestGetTelegramUserContext:
 
     def test_user_id_is_string_with_telegram_prefix(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_telegram_user_context(999, "bob", 111)
 
@@ -720,11 +722,12 @@ class TestGetTelegramUserContext:
 
     def test_catches_value_error(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.AuthorizationContext",
-            side_effect=ValueError("bad"),
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.AuthorizationContext",
+                side_effect=ValueError("bad"),
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_telegram_user_context(123, "user", 456)
@@ -732,11 +735,12 @@ class TestGetTelegramUserContext:
 
     def test_catches_type_error(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.AuthorizationContext",
-            side_effect=TypeError("bad type"),
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.AuthorizationContext",
+                side_effect=TypeError("bad type"),
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_telegram_user_context(123, "user", 456)
@@ -744,11 +748,12 @@ class TestGetTelegramUserContext:
 
     def test_catches_attribute_error(self):
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.AuthorizationContext",
-            side_effect=AttributeError("no attr"),
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.AuthorizationContext",
+                side_effect=AttributeError("no attr"),
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._get_telegram_user_context(123, "user", 456)
@@ -771,20 +776,20 @@ class TestCheckPermission:
 
         return TestMixin()
 
-    def test_returns_none_when_rbac_unavailable_non_production(
-        self, _ensure_no_production_env
-    ):
+    def test_returns_none_when_rbac_unavailable_non_production(self, _ensure_no_production_env):
         """RBAC unavailable in non-production: returns None (fail open)."""
         mixin = self._make_mixin()
         handler = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            None,
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
-            return_value=False,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                None,
+            ),
+            patch(
+                "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
+                return_value=False,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
             result = mixin._check_permission(handler, "telegram:read")
@@ -794,14 +799,16 @@ class TestCheckPermission:
         """RBAC unavailable in production: returns 503 (fail closed)."""
         mixin = self._make_mixin()
         handler = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            None,
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
-            return_value=True,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                None,
+            ),
+            patch(
+                "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
+                return_value=True,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
             result = mixin._check_permission(handler, "telegram:read")
@@ -814,10 +821,9 @@ class TestCheckPermission:
         """When _get_auth_context returns None, returns None (skip check)."""
         mixin = self._make_mixin()
         handler = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=None
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=None),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:read")
@@ -835,13 +841,13 @@ class TestCheckPermission:
 
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:read")
@@ -861,13 +867,13 @@ class TestCheckPermission:
 
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:admin")
@@ -884,13 +890,13 @@ class TestCheckPermission:
         mock_ctx = MagicMock()
         mock_check = MagicMock(side_effect=ValueError("bad"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:read")
@@ -903,13 +909,13 @@ class TestCheckPermission:
         mock_ctx = MagicMock()
         mock_check = MagicMock(side_effect=TypeError("bad type"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:read")
@@ -921,13 +927,13 @@ class TestCheckPermission:
         mock_ctx = MagicMock()
         mock_check = MagicMock(side_effect=AttributeError("attr"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:read")
@@ -939,13 +945,13 @@ class TestCheckPermission:
         mock_ctx = MagicMock()
         mock_check = MagicMock(side_effect=RuntimeError("runtime"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_permission(handler, "telegram:read")
@@ -963,13 +969,14 @@ class TestCheckPermission:
 
         mock_check = MagicMock(return_value=mock_decision)
 
-        with caplog.at_level(logging.WARNING), patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            caplog.at_level(logging.WARNING),
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             mixin._check_permission(handler, "telegram:admin")
@@ -994,68 +1001,58 @@ class TestCheckTelegramUserPermission:
 
         return TestMixin()
 
-    def test_returns_true_when_rbac_unavailable_non_production(
-        self, _ensure_no_production_env
-    ):
+    def test_returns_true_when_rbac_unavailable_non_production(self, _ensure_no_production_env):
         """RBAC unavailable in dev: returns True (fail open)."""
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            None,
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
-            return_value=False,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                None,
+            ),
+            patch(
+                "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
+                return_value=False,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is True
 
     def test_returns_false_when_rbac_unavailable_production(self):
         """RBAC unavailable in production: returns False (fail closed)."""
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            None,
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
-            return_value=True,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                None,
+            ),
+            patch(
+                "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
+                return_value=True,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is False
 
     def test_returns_true_when_telegram_rbac_not_enabled(self, monkeypatch):
         """When TELEGRAM_RBAC_ENABLED is not set, returns True (skip check)."""
         monkeypatch.delenv("TELEGRAM_RBAC_ENABLED", raising=False)
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is True
 
     def test_returns_true_when_telegram_rbac_false(self, monkeypatch):
         """When TELEGRAM_RBAC_ENABLED=false, returns True."""
         monkeypatch.setenv("TELEGRAM_RBAC_ENABLED", "false")
         mixin = self._make_mixin()
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is True
 
     def test_checks_permission_when_telegram_rbac_enabled(self, monkeypatch):
@@ -1067,11 +1064,12 @@ class TestCheckTelegramUserPermission:
         mock_decision.allowed = True
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
             result = mixin._check_telegram_user_permission(
@@ -1091,16 +1089,15 @@ class TestCheckTelegramUserPermission:
         mock_decision.reason = "insufficient privileges"
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                67890, "alice", 12345, "telegram:admin"
-            )
+            result = mixin._check_telegram_user_permission(67890, "alice", 12345, "telegram:admin")
 
         assert result is False
 
@@ -1109,15 +1106,12 @@ class TestCheckTelegramUserPermission:
         monkeypatch.setenv("TELEGRAM_RBAC_ENABLED", "true")
         mixin = self._make_mixin()
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch.object(
-            mixin, "_get_telegram_user_context", return_value=None
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch.object(mixin, "_get_telegram_user_context", return_value=None),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
 
         assert result is True
 
@@ -1128,16 +1122,15 @@ class TestCheckTelegramUserPermission:
 
         mock_check = MagicMock(side_effect=ValueError("bad"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
 
         assert result is True
 
@@ -1145,48 +1138,45 @@ class TestCheckTelegramUserPermission:
         monkeypatch.setenv("TELEGRAM_RBAC_ENABLED", "true")
         mixin = self._make_mixin()
         mock_check = MagicMock(side_effect=TypeError("bad"))
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is True
 
     def test_catches_attribute_error_returns_true(self, monkeypatch):
         monkeypatch.setenv("TELEGRAM_RBAC_ENABLED", "true")
         mixin = self._make_mixin()
         mock_check = MagicMock(side_effect=AttributeError("attr"))
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is True
 
     def test_catches_runtime_error_returns_true(self, monkeypatch):
         monkeypatch.setenv("TELEGRAM_RBAC_ENABLED", "true")
         mixin = self._make_mixin()
         mock_check = MagicMock(side_effect=RuntimeError("runtime"))
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
         assert result is True
 
     def test_logs_warning_when_denied(self, monkeypatch, caplog):
@@ -1199,16 +1189,16 @@ class TestCheckTelegramUserPermission:
         mock_decision.reason = "no access"
         mock_check = MagicMock(return_value=mock_decision)
 
-        with caplog.at_level(logging.WARNING), patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            caplog.at_level(logging.WARNING),
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            mixin._check_telegram_user_permission(
-                99999, "denied_user", 55555, "telegram:admin"
-            )
+            mixin._check_telegram_user_permission(99999, "denied_user", 55555, "telegram:admin")
 
         assert any("99999" in r.message for r in caplog.records)
         assert any("denied_user" in r.message for r in caplog.records)
@@ -1219,13 +1209,12 @@ class TestCheckTelegramUserPermission:
         monkeypatch.delenv("TELEGRAM_RBAC_ENABLED", raising=False)
         mixin = self._make_mixin()
 
-        with caplog.at_level(logging.DEBUG), patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with (
+            caplog.at_level(logging.DEBUG),
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+        ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
 
         assert any("not enabled" in r.message.lower() for r in caplog.records)
 
@@ -1238,16 +1227,15 @@ class TestCheckTelegramUserPermission:
         mock_decision.allowed = True
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
 
         assert result is True
         mock_check.assert_called_once()
@@ -1261,16 +1249,15 @@ class TestCheckTelegramUserPermission:
         mock_decision.allowed = True
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            mock_check,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                mock_check,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = mixin._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = mixin._check_telegram_user_permission(123, "user", 456, "telegram:read")
 
         assert result is True
         mock_check.assert_called_once()
@@ -1297,13 +1284,16 @@ class TestDenyTelegramPermission:
         mock_tg = MagicMock()
         mock_tg.create_tracked_task = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common.telegram_module",
-            mock_tg,
-            create=True,
-        ), patch(
-            "aragora.server.handlers.social.telegram.handler.TelegramHandler",
-            create=True,
+        with (
+            patch(
+                "aragora.server.handlers.social.telegram._common.telegram_module",
+                mock_tg,
+                create=True,
+            ),
+            patch(
+                "aragora.server.handlers.social.telegram.handler.TelegramHandler",
+                create=True,
+            ),
         ):
             # Patch the import inside _deny_telegram_permission
             with patch(
@@ -1414,9 +1404,7 @@ class TestDenyTelegramPermission:
             return mock_task
 
         with patch.object(tg_pkg, "create_tracked_task", side_effect=capture_task):
-            mixin._deny_telegram_permission(
-                99999, "telegram:admin", "configure webhook"
-            )
+            mixin._deny_telegram_permission(99999, "telegram:admin", "configure webhook")
 
         # The coroutine was captured; run it to extract the message
         loop = asyncio.new_event_loop()
@@ -1454,9 +1442,7 @@ class TestDenyTelegramPermission:
             return mock_task
 
         with patch.object(tg_pkg, "create_tracked_task", side_effect=capture_task):
-            mixin._deny_telegram_permission(
-                12345, "telegram:read", "view status"
-            )
+            mixin._deny_telegram_permission(12345, "telegram:read", "view status")
 
         loop = asyncio.new_event_loop()
         try:
@@ -1489,9 +1475,7 @@ class TestDenyTelegramPermission:
             return mock_task
 
         with patch.object(tg_pkg, "create_tracked_task", side_effect=capture_task):
-            mixin._deny_telegram_permission(
-                77777, "telegram:admin", "admin action"
-            )
+            mixin._deny_telegram_permission(77777, "telegram:admin", "admin action")
 
         assert len(task_names) == 1
         assert "77777" in task_names[0]
@@ -1520,9 +1504,7 @@ class TestDenyTelegramPermission:
             return mock_task
 
         with patch.object(tg_pkg, "create_tracked_task", side_effect=capture_task):
-            mixin._deny_telegram_permission(
-                12345, "telegram:admin", "manage settings"
-            )
+            mixin._deny_telegram_permission(12345, "telegram:admin", "manage settings")
 
         loop = asyncio.new_event_loop()
         try:
@@ -1585,14 +1567,16 @@ class TestMixinIntegration:
         handler = TelegramHandler(ctx={})
         mock_http = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram._common.check_permission",
-            None,
-        ), patch(
-            "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
-            return_value=False,
+        with (
+            patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn,
+            patch(
+                "aragora.server.handlers.social.telegram._common.check_permission",
+                None,
+            ),
+            patch(
+                "aragora.server.handlers.social.telegram._common.rbac_fail_closed",
+                return_value=False,
+            ),
         ):
             mock_tg_fn.return_value.RBAC_AVAILABLE = False
             result = handler._check_permission(mock_http, "telegram:read")
@@ -1608,13 +1592,9 @@ class TestMixinIntegration:
         handler = TelegramHandler(ctx={})
         monkeypatch.delenv("TELEGRAM_RBAC_ENABLED", raising=False)
 
-        with patch(
-            "aragora.server.handlers.social.telegram._common._tg"
-        ) as mock_tg_fn:
+        with patch("aragora.server.handlers.social.telegram._common._tg") as mock_tg_fn:
             mock_tg_fn.return_value.RBAC_AVAILABLE = True
-            result = handler._check_telegram_user_permission(
-                123, "user", 456, "telegram:read"
-            )
+            result = handler._check_telegram_user_permission(123, "user", 456, "telegram:read")
 
         assert result is True
 

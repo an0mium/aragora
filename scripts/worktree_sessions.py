@@ -164,7 +164,10 @@ def cmd_merge(args: argparse.Namespace) -> int:
             # Get changed files in the branch
             changed_result = subprocess.run(
                 ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
-                cwd=wt_path, capture_output=True, text=True, check=False,
+                cwd=wt_path,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             changed = [f for f in changed_result.stdout.strip().split("\n") if f]
             if changed:
@@ -195,8 +198,10 @@ def cmd_merge(args: argparse.Namespace) -> int:
             check=False,
         )
         if test_result.returncode != 0:
-            print(f"Tests FAILED. Aborting merge.\n")
-            print(test_result.stdout[-500:] if len(test_result.stdout) > 500 else test_result.stdout)
+            print("Tests FAILED. Aborting merge.\n")
+            print(
+                test_result.stdout[-500:] if len(test_result.stdout) > 500 else test_result.stdout
+            )
             return 1
         print("Tests passed.\n")
 
@@ -292,10 +297,10 @@ def cmd_merge_all(args: argparse.Namespace) -> int:
                 check=False,
             )
             if test_result.returncode != 0:
-                print(f"  Tests FAILED, skipping merge.")
+                print("  Tests FAILED, skipping merge.")
                 failed += 1
                 continue
-            print(f"  Tests passed.")
+            print("  Tests passed.")
 
         result = asyncio.run(coordinator.safe_merge(branch))
         if result.success:

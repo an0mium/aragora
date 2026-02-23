@@ -165,9 +165,7 @@ class MockRouteResult:
 @pytest.fixture(autouse=True)
 def _patch_gateway_available():
     """Ensure GATEWAY_AVAILABLE is True by default for most tests."""
-    with patch(
-        "aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", True
-    ):
+    with patch("aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", True):
         yield
 
 
@@ -281,9 +279,7 @@ class TestListDevices:
     def test_list_devices_empty(self, handler_with_registry):
         http = MockHTTPHandler()
         with patch("aragora.server.handlers.gateway_handler.run_async", side_effect=lambda c: []):
-            result = handler_with_registry.handle(
-                "/api/v1/gateway/devices", {}, http
-            )
+            result = handler_with_registry.handle("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["devices"] == []
@@ -304,9 +300,7 @@ class TestListDevices:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: [device],
         ):
-            result = handler_with_registry.handle(
-                "/api/v1/gateway/devices", {}, http
-            )
+            result = handler_with_registry.handle("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -318,12 +312,15 @@ class TestListDevices:
 
     def test_list_devices_with_status_filter(self, handler_with_registry):
         http = MockHTTPHandler()
-        with patch(
-            "aragora.server.handlers.gateway_handler.run_async",
-            side_effect=lambda c: [],
-        ), patch(
-            "aragora.server.handlers.gateway_handler.DeviceStatus",
-            MockDeviceStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.run_async",
+                side_effect=lambda c: [],
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.DeviceStatus",
+                MockDeviceStatus,
+            ),
         ):
             result = handler_with_registry.handle(
                 "/api/v1/gateway/devices", {"status": "online"}, http
@@ -344,12 +341,15 @@ class TestListDevices:
     def test_list_devices_with_invalid_status_filter(self, handler_with_registry):
         """Invalid status value should be silently ignored (no crash)."""
         http = MockHTTPHandler()
-        with patch(
-            "aragora.server.handlers.gateway_handler.run_async",
-            side_effect=lambda c: [],
-        ), patch(
-            "aragora.server.handlers.gateway_handler.DeviceStatus",
-            MockDeviceStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.run_async",
+                side_effect=lambda c: [],
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.DeviceStatus",
+                MockDeviceStatus,
+            ),
         ):
             result = handler_with_registry.handle(
                 "/api/v1/gateway/devices", {"status": "invalid_status"}, http
@@ -389,9 +389,7 @@ class TestGetDevice:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: device,
         ):
-            result = handler_with_registry.handle(
-                "/api/v1/gateway/devices/dev-1", {}, http
-            )
+            result = handler_with_registry.handle("/api/v1/gateway/devices/dev-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["device"]["device_id"] == "dev-1"
@@ -405,9 +403,7 @@ class TestGetDevice:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: None,
         ):
-            result = handler_with_registry.handle(
-                "/api/v1/gateway/devices/dev-nonexist", {}, http
-            )
+            result = handler_with_registry.handle("/api/v1/gateway/devices/dev-nonexist", {}, http)
         assert _status(result) == 404
 
     def test_get_device_registry_unavailable(self, handler):
@@ -423,9 +419,7 @@ class TestGetDevice:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: [],
         ):
-            result = handler_with_registry.handle(
-                "/api/v1/gateway/devices", {}, http
-            )
+            result = handler_with_registry.handle("/api/v1/gateway/devices", {}, http)
         # Should return list response (200), not a get-device response
         assert _status(result) == 200
 
@@ -440,16 +434,17 @@ class TestRegisterDevice:
 
     def test_register_device_success(self, handler_with_registry):
         http = MockHTTPHandler(body={"name": "My Laptop", "device_type": "laptop"})
-        with patch(
-            "aragora.server.handlers.gateway_handler.run_async",
-            side_effect=lambda c: "dev-abc123",
-        ), patch(
-            "aragora.server.handlers.gateway_handler.DeviceNode",
-        ) as mock_dn:
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.run_async",
+                side_effect=lambda c: "dev-abc123",
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.DeviceNode",
+            ) as mock_dn,
+        ):
             mock_dn.return_value = MagicMock()
-            result = handler_with_registry.handle_post(
-                "/api/v1/gateway/devices", {}, http
-            )
+            result = handler_with_registry.handle_post("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 201
         body = _body(result)
         assert body["device_id"] == "dev-abc123"
@@ -457,46 +452,43 @@ class TestRegisterDevice:
 
     def test_register_device_missing_name(self, handler_with_registry):
         http = MockHTTPHandler(body={"device_type": "laptop"})
-        result = handler_with_registry.handle_post(
-            "/api/v1/gateway/devices", {}, http
-        )
+        result = handler_with_registry.handle_post("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 400
         assert "name" in _body(result).get("error", "").lower()
 
     def test_register_device_invalid_json(self, handler_with_registry):
         http = MockHTTPHandlerInvalidJSON()
-        result = handler_with_registry.handle_post(
-            "/api/v1/gateway/devices", {}, http
-        )
+        result = handler_with_registry.handle_post("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 400
 
     def test_register_device_empty_body(self, handler_with_registry):
         http = MockHTTPHandlerNoBody()
-        result = handler_with_registry.handle_post(
-            "/api/v1/gateway/devices", {}, http
-        )
+        result = handler_with_registry.handle_post("/api/v1/gateway/devices", {}, http)
         # Empty body => name is missing
         assert _status(result) == 400
 
     def test_register_device_with_optional_fields(self, handler_with_registry):
-        http = MockHTTPHandler(body={
-            "name": "Server",
-            "device_type": "server",
-            "device_id": "custom-id",
-            "capabilities": ["shell"],
-            "allowed_channels": ["slack"],
-            "metadata": {"region": "us-east-1"},
-        })
-        with patch(
-            "aragora.server.handlers.gateway_handler.run_async",
-            side_effect=lambda c: "custom-id",
-        ), patch(
-            "aragora.server.handlers.gateway_handler.DeviceNode",
-        ) as mock_dn:
+        http = MockHTTPHandler(
+            body={
+                "name": "Server",
+                "device_type": "server",
+                "device_id": "custom-id",
+                "capabilities": ["shell"],
+                "allowed_channels": ["slack"],
+                "metadata": {"region": "us-east-1"},
+            }
+        )
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.run_async",
+                side_effect=lambda c: "custom-id",
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.DeviceNode",
+            ) as mock_dn,
+        ):
             mock_dn.return_value = MagicMock()
-            result = handler_with_registry.handle_post(
-                "/api/v1/gateway/devices", {}, http
-            )
+            result = handler_with_registry.handle_post("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 201
 
     def test_register_device_registry_unavailable(self, handler):
@@ -508,9 +500,7 @@ class TestRegisterDevice:
     def test_register_device_name_is_empty_string(self, handler_with_registry):
         """Empty name string should be rejected."""
         http = MockHTTPHandler(body={"name": "", "device_type": "laptop"})
-        result = handler_with_registry.handle_post(
-            "/api/v1/gateway/devices", {}, http
-        )
+        result = handler_with_registry.handle_post("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 400
 
 
@@ -528,9 +518,7 @@ class TestUnregisterDevice:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: True,
         ):
-            result = handler_with_registry.handle_delete(
-                "/api/v1/gateway/devices/dev-1", {}, http
-            )
+            result = handler_with_registry.handle_delete("/api/v1/gateway/devices/dev-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert "unregistered" in body.get("message", "").lower()
@@ -555,9 +543,7 @@ class TestUnregisterDevice:
     def test_unregister_path_without_id_returns_none(self, handler_with_registry):
         """DELETE on /api/v1/gateway/devices (no id) returns None (not handled)."""
         http = MockHTTPHandler()
-        result = handler_with_registry.handle_delete(
-            "/api/v1/gateway/devices", {}, http
-        )
+        result = handler_with_registry.handle_delete("/api/v1/gateway/devices", {}, http)
         # Path doesn't start with /api/v1/gateway/devices/ so handle_delete
         # returns None (no match for delete)
         assert result is None
@@ -598,9 +584,7 @@ class TestHeartbeat:
     def test_heartbeat_registry_unavailable(self, handler):
         http = MockHTTPHandler()
         with patch.object(handler, "_get_device_registry", return_value=None):
-            result = handler.handle_post(
-                "/api/v1/gateway/devices/dev-1/heartbeat", {}, http
-            )
+            result = handler.handle_post("/api/v1/gateway/devices/dev-1/heartbeat", {}, http)
         assert _status(result) == 503
 
 
@@ -643,9 +627,7 @@ class TestRoutingStats:
 
     def test_routing_stats_success(self, handler_with_router):
         http = MockHTTPHandler()
-        result = handler_with_router.handle(
-            "/api/v1/gateway/routing/stats", {}, http
-        )
+        result = handler_with_router.handle("/api/v1/gateway/routing/stats", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert "stats" in body
@@ -675,9 +657,7 @@ class TestListRules:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: [],
         ):
-            result = handler_with_router.handle(
-                "/api/v1/gateway/routing/rules", {}, http
-            )
+            result = handler_with_router.handle("/api/v1/gateway/routing/rules", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["rules"] == []
@@ -694,9 +674,7 @@ class TestListRules:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: rules,
         ):
-            result = handler_with_router.handle(
-                "/api/v1/gateway/routing/rules", {}, http
-            )
+            result = handler_with_router.handle("/api/v1/gateway/routing/rules", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 2
@@ -713,9 +691,7 @@ class TestListRules:
         """If router does not have list_rules, return empty list."""
         del mock_router.list_rules
         http = MockHTTPHandler()
-        result = handler_with_router.handle(
-            "/api/v1/gateway/routing/rules", {}, http
-        )
+        result = handler_with_router.handle("/api/v1/gateway/routing/rules", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 0
@@ -725,9 +701,7 @@ class TestListRules:
         rules = [MockRoutingRule(id="sync-1")]
         mock_router.list_rules = MagicMock(return_value=rules)
         http = MockHTTPHandler()
-        result = handler_with_router.handle(
-            "/api/v1/gateway/routing/rules", {}, http
-        )
+        result = handler_with_router.handle("/api/v1/gateway/routing/rules", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -737,9 +711,7 @@ class TestListRules:
         bare_rule = MagicMock(spec=[])  # no attributes at all
         mock_router.list_rules = MagicMock(return_value=[bare_rule])
         http = MockHTTPHandler()
-        result = handler_with_router.handle(
-            "/api/v1/gateway/routing/rules", {}, http
-        )
+        result = handler_with_router.handle("/api/v1/gateway/routing/rules", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -762,9 +734,7 @@ class TestRouteMessage:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: route_result,
         ):
-            result = handler_with_router.handle_post(
-                "/api/v1/gateway/messages/route", {}, http
-            )
+            result = handler_with_router.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["routed"] is True
@@ -773,40 +743,30 @@ class TestRouteMessage:
 
     def test_route_message_missing_channel(self, handler_with_router):
         http = MockHTTPHandler(body={"content": "Hello"})
-        result = handler_with_router.handle_post(
-            "/api/v1/gateway/messages/route", {}, http
-        )
+        result = handler_with_router.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 400
         assert "channel" in _body(result).get("error", "").lower()
 
     def test_route_message_missing_content(self, handler_with_router):
         http = MockHTTPHandler(body={"channel": "slack"})
-        result = handler_with_router.handle_post(
-            "/api/v1/gateway/messages/route", {}, http
-        )
+        result = handler_with_router.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 400
         assert "content" in _body(result).get("error", "").lower()
 
     def test_route_message_missing_both(self, handler_with_router):
         http = MockHTTPHandler(body={})
-        result = handler_with_router.handle_post(
-            "/api/v1/gateway/messages/route", {}, http
-        )
+        result = handler_with_router.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 400
 
     def test_route_message_invalid_json(self, handler_with_router):
         http = MockHTTPHandlerInvalidJSON()
-        result = handler_with_router.handle_post(
-            "/api/v1/gateway/messages/route", {}, http
-        )
+        result = handler_with_router.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 400
 
     def test_route_message_router_unavailable(self, handler):
         http = MockHTTPHandler(body={"channel": "slack", "content": "test"})
         with patch.object(handler, "_get_agent_router", return_value=None):
-            result = handler.handle_post(
-                "/api/v1/gateway/messages/route", {}, http
-            )
+            result = handler.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 503
 
     def test_route_message_result_without_attributes(self, handler_with_router):
@@ -817,9 +777,7 @@ class TestRouteMessage:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: bare_result,
         ):
-            result = handler_with_router.handle_post(
-                "/api/v1/gateway/messages/route", {}, http
-            )
+            result = handler_with_router.handle_post("/api/v1/gateway/messages/route", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["routed"] is True
@@ -837,9 +795,7 @@ class TestGatewayUnavailable:
 
     @pytest.fixture(autouse=True)
     def _disable_gateway(self):
-        with patch(
-            "aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False):
             yield
 
     def test_handle_get_503(self, handler):
@@ -884,9 +840,7 @@ class TestUnknownRoutes:
     def test_handle_post_unmatched_gateway_path(self, handler_full):
         """POST to a gateway path that doesn't match any specific endpoint."""
         http = MockHTTPHandler(body={})
-        result = handler_full.handle_post(
-            "/api/v1/gateway/unknown/thing", {}, http
-        )
+        result = handler_full.handle_post("/api/v1/gateway/unknown/thing", {}, http)
         assert result is None
 
     def test_handle_get_routing_base(self, handler_full):
@@ -949,11 +903,12 @@ class TestRBACPermissionChecks:
     def test_rbac_not_available_dev_mode(self):
         """When RBAC is not available in dev mode, _check_rbac_permission returns None."""
         handler = GatewayHandler(server_context={})
-        with patch(
-            "aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.gateway_handler.rbac_fail_closed",
-            return_value=False,
+        with (
+            patch("aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.gateway_handler.rbac_fail_closed",
+                return_value=False,
+            ),
         ):
             result = self._call_real_check(handler, MagicMock(), "gateway:read")
         assert result is None
@@ -961,11 +916,12 @@ class TestRBACPermissionChecks:
     def test_rbac_not_available_production_mode(self):
         """When RBAC is not available in production, return 503."""
         handler = GatewayHandler(server_context={})
-        with patch(
-            "aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.gateway_handler.rbac_fail_closed",
-            return_value=True,
+        with (
+            patch("aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.gateway_handler.rbac_fail_closed",
+                return_value=True,
+            ),
         ):
             result = self._call_real_check(handler, MagicMock(), "gateway:read")
         assert _status(result) == 503
@@ -973,9 +929,10 @@ class TestRBACPermissionChecks:
     def test_rbac_no_auth_context(self):
         """When user is not authenticated, return 401."""
         handler = GatewayHandler(server_context={})
-        with patch(
-            "aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", True
-        ), patch.object(handler, "_get_auth_context", return_value=None):
+        with (
+            patch("aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", True),
+            patch.object(handler, "_get_auth_context", return_value=None),
+        ):
             result = self._call_real_check(handler, MagicMock(), "gateway:read")
         assert _status(result) == 401
 
@@ -985,13 +942,13 @@ class TestRBACPermissionChecks:
         mock_ctx = MagicMock()
         mock_decision = MagicMock()
         mock_decision.allowed = False
-        with patch(
-            "aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", True
-        ), patch.object(
-            handler, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.gateway_handler.check_permission",
-            return_value=mock_decision,
+        with (
+            patch("aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", True),
+            patch.object(handler, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.gateway_handler.check_permission",
+                return_value=mock_decision,
+            ),
         ):
             result = self._call_real_check(handler, MagicMock(), "gateway:write")
         assert _status(result) == 403
@@ -1002,13 +959,13 @@ class TestRBACPermissionChecks:
         mock_ctx = MagicMock()
         mock_decision = MagicMock()
         mock_decision.allowed = True
-        with patch(
-            "aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", True
-        ), patch.object(
-            handler, "_get_auth_context", return_value=mock_ctx
-        ), patch(
-            "aragora.server.handlers.gateway_handler.check_permission",
-            return_value=mock_decision,
+        with (
+            patch("aragora.server.handlers.gateway_handler.RBAC_AVAILABLE", True),
+            patch.object(handler, "_get_auth_context", return_value=mock_ctx),
+            patch(
+                "aragora.server.handlers.gateway_handler.check_permission",
+                return_value=mock_decision,
+            ),
         ):
             result = self._call_real_check(handler, MagicMock(), "gateway:read")
         assert result is None
@@ -1024,9 +981,7 @@ class TestGatewayStores:
 
     def test_get_gateway_stores_not_available(self, handler):
         """Returns None when GATEWAY_AVAILABLE is False."""
-        with patch(
-            "aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False):
             assert handler._get_gateway_stores() is None
 
     def test_get_gateway_stores_no_function(self, handler):
@@ -1050,21 +1005,22 @@ class TestGatewayStores:
         assert result1 is mock_stores
 
     def test_get_device_registry_not_available(self, handler):
-        with patch(
-            "aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False):
             assert handler._get_device_registry() is None
 
     def test_get_device_registry_creates_registry(self, handler):
         mock_stores = MagicMock()
         mock_store = MagicMock()
         mock_stores.gateway_store.return_value = mock_store
-        with patch(
-            "aragora.server.handlers.gateway_handler.get_canonical_gateway_stores",
-            return_value=mock_stores,
-        ), patch(
-            "aragora.server.handlers.gateway_handler.DeviceRegistry",
-        ) as mock_cls:
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.get_canonical_gateway_stores",
+                return_value=mock_stores,
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.DeviceRegistry",
+            ) as mock_cls,
+        ):
             mock_cls.return_value = MagicMock()
             result = handler._get_device_registry()
         assert result is not None
@@ -1076,21 +1032,22 @@ class TestGatewayStores:
         assert result is handler._device_registry
 
     def test_get_agent_router_not_available(self, handler):
-        with patch(
-            "aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.gateway_handler.GATEWAY_AVAILABLE", False):
             assert handler._get_agent_router() is None
 
     def test_get_agent_router_creates_router(self, handler):
         mock_stores = MagicMock()
         mock_store = MagicMock()
         mock_stores.gateway_store.return_value = mock_store
-        with patch(
-            "aragora.server.handlers.gateway_handler.get_canonical_gateway_stores",
-            return_value=mock_stores,
-        ), patch(
-            "aragora.server.handlers.gateway_handler.AgentRouter",
-        ) as mock_cls:
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.get_canonical_gateway_stores",
+                return_value=mock_stores,
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.AgentRouter",
+            ) as mock_cls,
+        ):
             mock_cls.return_value = MagicMock()
             result = handler._get_agent_router()
         assert result is not None
@@ -1111,12 +1068,15 @@ class TestGatewayStores:
 
     def test_get_gateway_stores_no_stores_returns_none_store(self, handler):
         """When stores return None, registry gets store=None."""
-        with patch(
-            "aragora.server.handlers.gateway_handler.get_canonical_gateway_stores",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gateway_handler.DeviceRegistry",
-        ) as mock_cls:
+        with (
+            patch(
+                "aragora.server.handlers.gateway_handler.get_canonical_gateway_stores",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gateway_handler.DeviceRegistry",
+            ) as mock_cls,
+        ):
             mock_cls.return_value = MagicMock()
             result = handler._get_device_registry()
         mock_cls.assert_called_once_with(store=None)
@@ -1146,9 +1106,7 @@ class TestHeartbeatPathParsing:
         """A path with 'heartbeat' but too few segments returns None."""
         http = MockHTTPHandler()
         # Path: /api/v1/gateway/heartbeat -> 4 parts, not 6
-        result = handler_with_registry.handle_post(
-            "/api/v1/gateway/heartbeat", {}, http
-        )
+        result = handler_with_registry.handle_post("/api/v1/gateway/heartbeat", {}, http)
         assert result is None
 
 
@@ -1208,9 +1166,7 @@ class TestListDevicesMultiple:
             "aragora.server.handlers.gateway_handler.run_async",
             side_effect=lambda c: devices,
         ):
-            result = handler_with_registry.handle(
-                "/api/v1/gateway/devices", {}, http
-            )
+            result = handler_with_registry.handle("/api/v1/gateway/devices", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 5

@@ -85,8 +85,10 @@ class TestCheckEmailPermissionRBACAvailable:
         """Returns None when RBAC check says allowed."""
         auth_ctx = _make_auth_context()
         decision = _make_decision(allowed=True)
-        with patch.object(storage_module, "RBAC_AVAILABLE", True), \
-             patch.object(storage_module, "check_permission", return_value=decision):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", True),
+            patch.object(storage_module, "check_permission", return_value=decision),
+        ):
             result = storage_module._check_email_permission(auth_ctx, "email:read")
         assert result is None
 
@@ -94,8 +96,10 @@ class TestCheckEmailPermissionRBACAvailable:
         """Returns error dict when RBAC check says denied."""
         auth_ctx = _make_auth_context()
         decision = _make_decision(allowed=False, reason="Insufficient permissions")
-        with patch.object(storage_module, "RBAC_AVAILABLE", True), \
-             patch.object(storage_module, "check_permission", return_value=decision):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", True),
+            patch.object(storage_module, "check_permission", return_value=decision),
+        ):
             result = storage_module._check_email_permission(auth_ctx, "email:write")
         assert result is not None
         assert result["success"] is False
@@ -105,9 +109,11 @@ class TestCheckEmailPermissionRBACAvailable:
         """Denied permission logs a warning with user_id and reason."""
         auth_ctx = _make_auth_context(user_id="user-42")
         decision = _make_decision(allowed=False, reason="no role")
-        with patch.object(storage_module, "RBAC_AVAILABLE", True), \
-             patch.object(storage_module, "check_permission", return_value=decision), \
-             patch.object(storage_module.logger, "warning") as mock_warn:
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", True),
+            patch.object(storage_module, "check_permission", return_value=decision),
+            patch.object(storage_module.logger, "warning") as mock_warn,
+        ):
             storage_module._check_email_permission(auth_ctx, "email:write")
         mock_warn.assert_called_once()
         assert "email:write" in str(mock_warn.call_args)
@@ -117,17 +123,21 @@ class TestCheckEmailPermissionRBACAvailable:
     def test_rbac_check_exception_fails_open(self, exc_type):
         """When check_permission raises a handled exception, fail open (return None)."""
         auth_ctx = _make_auth_context()
-        with patch.object(storage_module, "RBAC_AVAILABLE", True), \
-             patch.object(storage_module, "check_permission", side_effect=exc_type("test error")):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", True),
+            patch.object(storage_module, "check_permission", side_effect=exc_type("test error")),
+        ):
             result = storage_module._check_email_permission(auth_ctx, "email:read")
         assert result is None
 
     def test_rbac_check_exception_logs_warning(self):
         """When check_permission raises, a warning is logged."""
         auth_ctx = _make_auth_context()
-        with patch.object(storage_module, "RBAC_AVAILABLE", True), \
-             patch.object(storage_module, "check_permission", side_effect=TypeError("oops")), \
-             patch.object(storage_module.logger, "warning") as mock_warn:
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", True),
+            patch.object(storage_module, "check_permission", side_effect=TypeError("oops")),
+            patch.object(storage_module.logger, "warning") as mock_warn,
+        ):
             storage_module._check_email_permission(auth_ctx, "email:read")
         mock_warn.assert_called_once()
         assert "email:read" in str(mock_warn.call_args)
@@ -143,8 +153,10 @@ class TestCheckEmailPermissionRBACUnavailable:
 
     def test_fail_closed_in_production(self):
         """In production, returns error dict when RBAC unavailable."""
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=True):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=True),
+        ):
             result = storage_module._check_email_permission(None, "email:read")
         assert result is not None
         assert result["success"] is False
@@ -152,8 +164,10 @@ class TestCheckEmailPermissionRBACUnavailable:
 
     def test_fail_closed_write_permission_in_production(self):
         """In production, write permissions also fail closed."""
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=True):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=True),
+        ):
             result = storage_module._check_email_permission(None, "email:write")
         assert result is not None
         assert result["success"] is False
@@ -161,8 +175,10 @@ class TestCheckEmailPermissionRBACUnavailable:
 
     def test_dev_write_permission_denied(self):
         """In dev/test mode, write-sensitive ops are denied without RBAC."""
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=False):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=False),
+        ):
             result = storage_module._check_email_permission(None, "email:write")
         assert result is not None
         assert result["success"] is False
@@ -170,32 +186,40 @@ class TestCheckEmailPermissionRBACUnavailable:
 
     def test_dev_update_permission_denied(self):
         """In dev/test mode, update ops are denied without RBAC."""
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=False):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=False),
+        ):
             result = storage_module._check_email_permission(None, "email:update")
         assert result is not None
         assert result["success"] is False
 
     def test_dev_oauth_permission_denied(self):
         """In dev/test mode, oauth ops are denied without RBAC."""
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=False):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=False),
+        ):
             result = storage_module._check_email_permission(None, "email:oauth")
         assert result is not None
         assert result["success"] is False
 
     def test_dev_read_permission_degrades_gracefully(self):
         """In dev/test mode, read-only paths return None (fail open)."""
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=False):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=False),
+        ):
             result = storage_module._check_email_permission(None, "email:read")
         assert result is None
 
     def test_dev_read_with_auth_context_degrades_gracefully(self):
         """In dev/test mode with auth_context, read-only paths still degrade gracefully."""
         auth_ctx = _make_auth_context()
-        with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-             patch.object(storage_module, "rbac_fail_closed", return_value=False):
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", False),
+            patch.object(storage_module, "rbac_fail_closed", return_value=False),
+        ):
             result = storage_module._check_email_permission(auth_ctx, "email:read")
         assert result is None
 
@@ -304,8 +328,10 @@ class TestLoadConfigFromStore:
         """Logs a warning when loading config fails."""
         mock_store = MagicMock()
         mock_store.get_user_config.side_effect = OSError("disk failure")
-        with patch.object(storage_module._email_store, "get", return_value=mock_store), \
-             patch.object(storage_module.logger, "warning") as mock_warn:
+        with (
+            patch.object(storage_module._email_store, "get", return_value=mock_store),
+            patch.object(storage_module.logger, "warning") as mock_warn,
+        ):
             storage_module._load_config_from_store("user-1")
         mock_warn.assert_called_once()
         assert "Failed to load config" in str(mock_warn.call_args)
@@ -354,8 +380,10 @@ class TestSaveConfigToStore:
         """Logs a warning when saving config fails."""
         mock_store = MagicMock()
         mock_store.save_user_config.side_effect = OSError("disk full")
-        with patch.object(storage_module._email_store, "get", return_value=mock_store), \
-             patch.object(storage_module.logger, "warning") as mock_warn:
+        with (
+            patch.object(storage_module._email_store, "get", return_value=mock_store),
+            patch.object(storage_module.logger, "warning") as mock_warn,
+        ):
             storage_module._save_config_to_store("user-1", {"key": "val"})
         mock_warn.assert_called_once()
         assert "Failed to save config" in str(mock_warn.call_args)
@@ -416,11 +444,14 @@ class TestGetGmailConnector:
             create=True,
         ) as mock_cls:
             # Patch the import inside the function
-            with patch.dict("sys.modules", {
-                "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                    GmailConnector=mock_cls
-                )
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                        GmailConnector=mock_cls
+                    )
+                },
+            ):
                 result = storage_module.get_gmail_connector()
         assert result is not None
 
@@ -487,12 +518,15 @@ class TestGetPrioritizer:
         mock_config_cls = MagicMock(name="EmailPrioritizationConfig")
         mock_prioritizer_cls = MagicMock(return_value=mock_prioritizer)
 
-        with patch.dict("sys.modules", {
-            "aragora.services.email_prioritization": MagicMock(
-                EmailPrioritizer=mock_prioritizer_cls,
-                EmailPrioritizationConfig=mock_config_cls,
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.services.email_prioritization": MagicMock(
+                    EmailPrioritizer=mock_prioritizer_cls,
+                    EmailPrioritizationConfig=mock_config_cls,
+                )
+            },
+        ):
             result = storage_module.get_prioritizer(user_id="user-10")
 
         assert result is not None
@@ -506,12 +540,15 @@ class TestGetPrioritizer:
         mock_config_cls = MagicMock(name="EmailPrioritizationConfig")
         mock_prioritizer_cls = MagicMock(return_value=mock_prioritizer)
 
-        with patch.dict("sys.modules", {
-            "aragora.services.email_prioritization": MagicMock(
-                EmailPrioritizer=mock_prioritizer_cls,
-                EmailPrioritizationConfig=mock_config_cls,
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.services.email_prioritization": MagicMock(
+                    EmailPrioritizer=mock_prioritizer_cls,
+                    EmailPrioritizationConfig=mock_config_cls,
+                )
+            },
+        ):
             result = storage_module.get_prioritizer(user_id="nonexistent")
 
         # Config should be created with empty sets as defaults
@@ -543,11 +580,14 @@ class TestGetContextService:
         storage_module._context_service = None
         mock_service = MagicMock(name="new_service")
 
-        with patch.dict("sys.modules", {
-            "aragora.services.cross_channel_context": MagicMock(
-                CrossChannelContextService=MagicMock(return_value=mock_service)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.services.cross_channel_context": MagicMock(
+                    CrossChannelContextService=MagicMock(return_value=mock_service)
+                )
+            },
+        ):
             result = storage_module.get_context_service()
 
         assert result is not None
@@ -641,10 +681,7 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=write_config, args=(f"user-{i}", i))
-            for i in range(20)
-        ]
+        threads = [threading.Thread(target=write_config, args=(f"user-{i}", i)) for i in range(20)]
         for t in threads:
             t.start()
         for t in threads:
@@ -745,9 +782,11 @@ class TestEdgeCases:
         """When auth_context has no user_id, getattr fallback to 'unknown' is used in log."""
         auth_ctx = object()  # No user_id attribute
         decision = _make_decision(allowed=False, reason="no role")
-        with patch.object(storage_module, "RBAC_AVAILABLE", True), \
-             patch.object(storage_module, "check_permission", return_value=decision), \
-             patch.object(storage_module.logger, "warning") as mock_warn:
+        with (
+            patch.object(storage_module, "RBAC_AVAILABLE", True),
+            patch.object(storage_module, "check_permission", return_value=decision),
+            patch.object(storage_module.logger, "warning") as mock_warn,
+        ):
             result = storage_module._check_email_permission(auth_ctx, "email:read")
         assert result is not None
         assert result["success"] is False
@@ -778,8 +817,10 @@ class TestEdgeCases:
         # These are the keys that should be denied even in dev/test when RBAC unavailable
         write_keys = {"email:write", "email:update", "email:oauth"}
         for key in write_keys:
-            with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-                 patch.object(storage_module, "rbac_fail_closed", return_value=False):
+            with (
+                patch.object(storage_module, "RBAC_AVAILABLE", False),
+                patch.object(storage_module, "rbac_fail_closed", return_value=False),
+            ):
                 result = storage_module._check_email_permission(None, key)
             assert result is not None, f"Expected denial for {key}"
             assert result["success"] is False
@@ -788,7 +829,9 @@ class TestEdgeCases:
         """Permissions outside the write-sensitive set are allowed in dev/test."""
         non_write_keys = ["email:read", "email:list", "email:search", "email:stats"]
         for key in non_write_keys:
-            with patch.object(storage_module, "RBAC_AVAILABLE", False), \
-                 patch.object(storage_module, "rbac_fail_closed", return_value=False):
+            with (
+                patch.object(storage_module, "RBAC_AVAILABLE", False),
+                patch.object(storage_module, "rbac_fail_closed", return_value=False),
+            ):
                 result = storage_module._check_email_permission(None, key)
             assert result is None, f"Expected None (allowed) for {key}"

@@ -134,6 +134,7 @@ def _mention_entities() -> list[dict[str, Any]]:
 def events_module():
     """Import the events module lazily (after conftest patches)."""
     import aragora.server.handlers.bots.teams.events as mod
+
     return mod
 
 
@@ -508,8 +509,12 @@ class TestHandleCommand:
     async def test_debate_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="debate", args="topic", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="debate",
+            args="topic",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"debate": True}
 
@@ -517,8 +522,12 @@ class TestHandleCommand:
     async def test_ask_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="ask", args="question", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="ask",
+            args="question",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"debate": True}
 
@@ -527,12 +536,18 @@ class TestHandleCommand:
         """'plan' sets decision_integrity with include_receipt/include_plan."""
         activity = _make_activity()
         await processor._handle_command(
-            command="plan", args="build API", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="plan",
+            args="build API",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         call_kwargs = processor._cmd_debate.call_args
         # decision_integrity should be passed as keyword arg
-        di = call_kwargs.kwargs.get("decision_integrity") or call_kwargs[1].get("decision_integrity")
+        di = call_kwargs.kwargs.get("decision_integrity") or call_kwargs[1].get(
+            "decision_integrity"
+        )
         assert di is not None
         assert di["include_receipt"] is True
         assert di["include_plan"] is True
@@ -544,11 +559,17 @@ class TestHandleCommand:
         """'implement' includes execution_mode and include_context."""
         activity = _make_activity()
         await processor._handle_command(
-            command="implement", args="rate limiter", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="implement",
+            args="rate limiter",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         call_kwargs = processor._cmd_debate.call_args
-        di = call_kwargs.kwargs.get("decision_integrity") or call_kwargs[1].get("decision_integrity")
+        di = call_kwargs.kwargs.get("decision_integrity") or call_kwargs[1].get(
+            "decision_integrity"
+        )
         assert di is not None
         assert di["include_context"] is True
         assert di["execution_mode"] == "execute"
@@ -558,8 +579,12 @@ class TestHandleCommand:
     async def test_status_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="status", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="status",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"status": True}
 
@@ -567,8 +592,12 @@ class TestHandleCommand:
     async def test_help_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="help", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="help",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"help": True}
 
@@ -576,8 +605,12 @@ class TestHandleCommand:
     async def test_leaderboard_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="leaderboard", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="leaderboard",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"leaderboard": True}
 
@@ -585,8 +618,12 @@ class TestHandleCommand:
     async def test_agents_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="agents", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="agents",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"agents": True}
 
@@ -594,8 +631,12 @@ class TestHandleCommand:
     async def test_vote_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="vote", args="claude", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="vote",
+            args="claude",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"vote": True}
         processor._cmd_vote.assert_awaited_once_with("claude", activity)
@@ -604,8 +645,12 @@ class TestHandleCommand:
     async def test_unknown_command(self, processor):
         activity = _make_activity()
         result = await processor._handle_command(
-            command="xyzzy", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="xyzzy",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"unknown": True}
         processor._cmd_unknown.assert_awaited_once_with("xyzzy", activity)
@@ -615,8 +660,12 @@ class TestHandleCommand:
         """Plain 'debate' passes no decision_integrity."""
         activity = _make_activity()
         await processor._handle_command(
-            command="debate", args="topic", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="debate",
+            args="topic",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         call_kwargs = processor._cmd_debate.call_args
         di = call_kwargs.kwargs.get("decision_integrity")
@@ -636,7 +685,12 @@ class TestCmdDebate:
         mock_bot._check_permission.return_value = {"error": "permission_denied"}
         activity = _make_activity()
         result = await processor._cmd_debate(
-            "test topic", "conv-1", "user-1", "https://svc", None, activity,
+            "test topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         mock_bot.send_reply.assert_awaited()
         reply_text = mock_bot.send_reply.call_args[0][1]
@@ -647,7 +701,12 @@ class TestCmdDebate:
     async def test_empty_topic(self, processor, mock_bot):
         activity = _make_activity()
         result = await processor._cmd_debate(
-            "   ", "conv-1", "user-1", "https://svc", None, activity,
+            "   ",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         mock_bot.send_reply.assert_awaited()
         reply_text = mock_bot.send_reply.call_args[0][1]
@@ -658,13 +717,20 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_success(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_success(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         mock_start.return_value = "debate-id-123"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         result = await processor._cmd_debate(
-            "AI safety", "conv-1", "user-1", "https://svc", None, activity,
+            "AI safety",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         assert result == {}
         mock_start.assert_awaited_once()
@@ -675,13 +741,20 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_audit_fields(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_audit_fields(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         mock_start.return_value = "debate-abc"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         await processor._cmd_debate(
-            "Test Topic", "conv-1", "user-1", "https://svc", None, activity,
+            "Test Topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         mock_audit.assert_called_once_with(
             user_id="teams:user-1",
@@ -696,14 +769,21 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_with_decision_integrity_label(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_with_decision_integrity_label(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """When decision_integrity is set, card fallback says 'implementation plan'."""
         mock_start.return_value = "debate-plan"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         await processor._cmd_debate(
-            "build API", "conv-1", "user-1", "https://svc", None, activity,
+            "build API",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
             decision_integrity={"include_receipt": True, "include_plan": True},
         )
         send_card_args = mock_bot.send_card.call_args[0]
@@ -713,14 +793,21 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_without_decision_integrity_label(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_without_decision_integrity_label(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Without decision_integrity, card fallback says 'debate'."""
         mock_start.return_value = "debate-plain"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         await processor._cmd_debate(
-            "topic", "conv-1", "user-1", "https://svc", None, activity,
+            "topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         send_card_args = mock_bot.send_card.call_args[0]
         assert "debate" in send_card_args[2].lower()
@@ -730,7 +817,9 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_non_list_attachments(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_non_list_attachments(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Non-list attachments are replaced with empty list."""
         mock_start.return_value = "debate-att"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
@@ -738,7 +827,12 @@ class TestCmdDebate:
         activity["attachments"] = "not-a-list"
 
         await processor._cmd_debate(
-            "topic", "conv-1", "user-1", "https://svc", None, activity,
+            "topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         assert mock_start.call_args.kwargs["attachments"] == []
 
@@ -746,7 +840,9 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_list_attachments_passed(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_list_attachments_passed(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Valid list attachments are passed through."""
         mock_start.return_value = "debate-la"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
@@ -754,7 +850,12 @@ class TestCmdDebate:
         activity = _make_activity(attachments=attachments)
 
         await processor._cmd_debate(
-            "topic", "conv-1", "user-1", "https://svc", None, activity,
+            "topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         assert mock_start.call_args.kwargs["attachments"] == attachments
 
@@ -762,14 +863,21 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_passes_thread_id(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_passes_thread_id(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Thread ID is passed to _start_teams_debate."""
         mock_start.return_value = "d-thread"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         await processor._cmd_debate(
-            "topic", "conv-1", "user-1", "https://svc", "thread-42", activity,
+            "topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            "thread-42",
+            activity,
         )
         assert mock_start.call_args.kwargs["thread_id"] == "thread-42"
 
@@ -777,7 +885,9 @@ class TestCmdDebate:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_topic_preview_truncated(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_topic_preview_truncated(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Audit task_preview is truncated to 100 chars."""
         mock_start.return_value = "d-long"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
@@ -785,7 +895,12 @@ class TestCmdDebate:
         activity = _make_activity()
 
         await processor._cmd_debate(
-            long_topic, "conv-1", "user-1", "https://svc", None, activity,
+            long_topic,
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         audit_kwargs = mock_audit.call_args.kwargs
         assert len(audit_kwargs["task_preview"]) == 100
@@ -886,6 +1001,7 @@ class TestCmdHelp:
     async def test_help_with_import_error_fallback(self, processor, mock_bot):
         """When help card module fails to import, sends text."""
         import sys
+
         saved = sys.modules.get("aragora.server.handlers.bots.teams_cards")
         sys.modules["aragora.server.handlers.bots.teams_cards"] = None  # type: ignore
         try:
@@ -1356,6 +1472,7 @@ class TestSendWelcome:
     async def test_welcome_with_import_error_fallback(self, processor, mock_bot):
         """When help card import fails, sends text welcome."""
         import sys
+
         saved = sys.modules.get("aragora.server.handlers.bots.teams_cards")
         sys.modules["aragora.server.handlers.bots.teams_cards"] = None  # type: ignore
         try:
@@ -1545,14 +1662,21 @@ class TestEdgeCases:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_card_has_no_vote_buttons(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_card_has_no_vote_buttons(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Debate card is built with include_vote_buttons=False."""
         mock_start.return_value = "d-novote"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         await processor._cmd_debate(
-            "topic", "conv-1", "user-1", "https://svc", None, activity,
+            "topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         assert mock_build_card.call_args.kwargs["include_vote_buttons"] is False
 
@@ -1560,14 +1684,21 @@ class TestEdgeCases:
     @patch("aragora.server.handlers.bots.teams.events.audit_data")
     @patch("aragora.server.handlers.bots.teams.events.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.events._start_teams_debate", new_callable=AsyncMock)
-    async def test_debate_card_sends_first_5_agents(self, mock_start, mock_build_card, mock_audit, processor, mock_bot):
+    async def test_debate_card_sends_first_5_agents(
+        self, mock_start, mock_build_card, mock_audit, processor, mock_bot
+    ):
         """Debate card agent list is limited to first 5 from DEFAULT_AGENT_LIST."""
         mock_start.return_value = "d-agents"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity()
 
         await processor._cmd_debate(
-            "topic", "conv-1", "user-1", "https://svc", None, activity,
+            "topic",
+            "conv-1",
+            "user-1",
+            "https://svc",
+            None,
+            activity,
         )
         agents_arg = mock_build_card.call_args.kwargs["agents"]
         assert len(agents_arg) <= 5

@@ -444,8 +444,10 @@ class TestOnDebateCompleteIntegration:
         result = _FakeResult()
 
         # Patch internal methods to track they're still called
-        with patch.object(ext, "_record_token_usage") as mock_record, \
-             patch.object(ext, "_sync_usage_to_stripe") as mock_sync:
+        with (
+            patch.object(ext, "_record_token_usage") as mock_record,
+            patch.object(ext, "_sync_usage_to_stripe") as mock_sync,
+        ):
             ext.on_debate_complete(ctx, result, [])
             mock_record.assert_called_once()
             mock_sync.assert_called_once()

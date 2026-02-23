@@ -97,12 +97,14 @@ class TestRecordOutcome:
         mock_get_adapter.return_value = mock_adapter
 
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_123",
-            "outcome_type": "success",
-            "outcome_description": "It worked",
-            "impact_score": 0.8,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_123",
+                "outcome_type": "success",
+                "outcome_description": "It worked",
+                "impact_score": 0.8,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 201
@@ -113,58 +115,68 @@ class TestRecordOutcome:
 
     def test_record_missing_debate_id(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "outcome_type": "success",
-            "outcome_description": "test",
-            "impact_score": 0.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "outcome_type": "success",
+                "outcome_description": "test",
+                "impact_score": 0.5,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 400
 
     def test_record_invalid_outcome_type(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "invalid_type",
-            "outcome_description": "test",
-            "impact_score": 0.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "invalid_type",
+                "outcome_description": "test",
+                "impact_score": 0.5,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 400
 
     def test_record_missing_description(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "impact_score": 0.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "impact_score": 0.5,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 400
 
     def test_record_impact_out_of_range(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "outcome_description": "test",
-            "impact_score": 1.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "outcome_description": "test",
+                "impact_score": 1.5,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 400
 
     def test_record_stores_in_memory(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "outcome_description": "Worked",
-            "impact_score": 0.7,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "outcome_description": "Worked",
+                "impact_score": 0.7,
+            }
+        )
 
         with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
@@ -366,36 +378,42 @@ class TestRecordOutcomeEdgeCases:
 
     def test_record_missing_decision_id_in_path(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "outcome_description": "test",
-            "impact_score": 0.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "outcome_description": "test",
+                "impact_score": 0.5,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/outcomes/search", handler)
         assert result["status"] == 400
 
     def test_record_negative_impact_score(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "outcome_description": "test",
-            "impact_score": -0.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "outcome_description": "test",
+                "impact_score": -0.5,
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 400
 
     def test_record_impact_score_string(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "outcome_description": "test",
-            "impact_score": "not_a_number",
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "outcome_description": "test",
+                "impact_score": "not_a_number",
+            }
+        )
 
         result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
         assert result["status"] == 400
@@ -403,16 +421,18 @@ class TestRecordOutcomeEdgeCases:
     def test_record_with_optional_fields(self):
         """Recording with all optional fields should succeed."""
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "partial",
-            "outcome_description": "Partially met goals",
-            "impact_score": 0.6,
-            "kpis_before": {"revenue": 100000},
-            "kpis_after": {"revenue": 120000},
-            "lessons_learned": "Set clearer milestones",
-            "tags": ["strategy", "q4"],
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "partial",
+                "outcome_description": "Partially met goals",
+                "impact_score": 0.6,
+                "kpis_before": {"revenue": 100000},
+                "kpis_after": {"revenue": 120000},
+                "lessons_learned": "Set clearer milestones",
+                "tags": ["strategy", "q4"],
+            }
+        )
 
         with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
@@ -426,12 +446,14 @@ class TestRecordOutcomeEdgeCases:
     def test_record_km_adapter_failure_still_stores(self):
         """Even if KM ingestion fails, the outcome should still be stored."""
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_1",
-            "outcome_type": "success",
-            "outcome_description": "test",
-            "impact_score": 0.5,
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_1",
+                "outcome_type": "success",
+                "outcome_description": "test",
+                "impact_score": 0.5,
+            }
+        )
 
         with patch(
             "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter",
@@ -445,14 +467,16 @@ class TestRecordOutcomeEdgeCases:
     def test_record_builds_outcome_record_type(self):
         """Verify the handler creates an OutcomeRecord and stores its dict form."""
         h = OutcomeHandler()
-        handler = _make_handler_with_body({
-            "debate_id": "dbt_typed",
-            "outcome_type": "failure",
-            "outcome_description": "Deployment failed",
-            "impact_score": 0.9,
-            "kpis_before": {"errors": 0},
-            "kpis_after": {"errors": 42},
-        })
+        handler = _make_handler_with_body(
+            {
+                "debate_id": "dbt_typed",
+                "outcome_type": "failure",
+                "outcome_description": "Deployment failed",
+                "impact_score": 0.9,
+                "kpis_before": {"errors": 0},
+                "kpis_after": {"errors": 42},
+            }
+        )
 
         with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))

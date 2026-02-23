@@ -64,8 +64,10 @@ def mixin():
 @pytest.fixture
 def mixin_factory():
     """Factory to create mixin with custom body."""
+
     def _make(body):
         return _Mixin(body=body)
+
     return _make
 
 
@@ -74,12 +76,8 @@ def _bypass_rate_limits(monkeypatch):
     """Bypass rate limiting decorators for all tests in this module."""
     # Patch the decorator factories to be transparent pass-throughs
     _noop_decorator = lambda **kw: (lambda fn: fn)
-    monkeypatch.setattr(
-        "aragora.server.handlers.debates.create.rate_limit", _noop_decorator
-    )
-    monkeypatch.setattr(
-        "aragora.server.handlers.debates.create.user_rate_limit", _noop_decorator
-    )
+    monkeypatch.setattr("aragora.server.handlers.debates.create.rate_limit", _noop_decorator)
+    monkeypatch.setattr("aragora.server.handlers.debates.create.user_rate_limit", _noop_decorator)
     monkeypatch.setattr(
         "aragora.server.handlers.debates.create.require_quota",
         lambda *a, **kw: (lambda fn: fn),
@@ -145,6 +143,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,
@@ -162,6 +161,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,
@@ -180,6 +180,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,
@@ -197,6 +198,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,
@@ -214,6 +216,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,
@@ -231,6 +234,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,
@@ -248,6 +252,7 @@ class TestDebateThisEndpoint:
         def capture_direct(handler, body):
             called_body.update(body)
             from aragora.server.handlers.base import json_response
+
             return json_response(
                 {"success": True, "debate_id": "adhoc_test", "status": "starting"},
                 status=200,

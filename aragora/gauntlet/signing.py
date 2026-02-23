@@ -544,10 +544,15 @@ def verify_receipt(signed_receipt: SignedReceipt) -> bool:
 
             emitter = get_global_emitter()
             if emitter is not None:
-                emitter.emit(StreamEvent(type=event_type, data={
-                    "receipt_id": getattr(signed_receipt, "receipt_id", "unknown"),
-                    "valid": is_valid,
-                }))
+                emitter.emit(
+                    StreamEvent(
+                        type=event_type,
+                        data={
+                            "receipt_id": getattr(signed_receipt, "receipt_id", "unknown"),
+                            "valid": is_valid,
+                        },
+                    )
+                )
     except (ImportError, AttributeError, TypeError):
         pass
     return is_valid

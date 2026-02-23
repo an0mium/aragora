@@ -307,10 +307,7 @@ class TestDependencyScanStorage:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=create_repo, args=(f"repo-{i}",))
-            for i in range(20)
-        ]
+        threads = [threading.Thread(target=create_repo, args=(f"repo-{i}",)) for i in range(20)]
         for t in threads:
             t.start()
         for t in threads:
@@ -496,11 +493,14 @@ class TestGetScanner:
     """Tests for the get_scanner service registry helper."""
 
     def test_creates_and_registers_scanner(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.DependencyScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.DependencyScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockScanner.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -515,11 +515,14 @@ class TestGetScanner:
     def test_returns_existing_scanner(self):
         """Second call returns the cached scanner via registry, no new construction."""
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.DependencyScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.DependencyScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -531,11 +534,14 @@ class TestGetScanner:
 
     def test_uses_service_registry(self):
         """Verifies interaction with the ServiceRegistry."""
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.DependencyScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.DependencyScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockScanner.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -551,11 +557,14 @@ class TestGetScanner:
     def test_skips_registration_when_exists(self):
         """If scanner already registered, does not create a new one."""
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.DependencyScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.DependencyScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -574,11 +583,12 @@ class TestGetCVEClient:
     """Tests for the get_cve_client service registry helper."""
 
     def test_creates_and_registers_client(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.CVEClient"
-        ) as MockClient, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.CVEClient") as MockClient,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockClient.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -592,11 +602,12 @@ class TestGetCVEClient:
 
     def test_returns_existing_client(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.CVEClient"
-        ) as MockClient, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.CVEClient") as MockClient,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -607,11 +618,12 @@ class TestGetCVEClient:
             assert client is existing
 
     def test_uses_service_registry(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.CVEClient"
-        ) as MockClient, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.CVEClient") as MockClient,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockClient.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -625,11 +637,12 @@ class TestGetCVEClient:
 
     def test_skips_registration_when_exists(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.CVEClient"
-        ) as MockClient, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.CVEClient") as MockClient,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -648,11 +661,14 @@ class TestGetSecretsScanner:
     """Tests for the get_secrets_scanner service registry helper."""
 
     def test_creates_and_registers_scanner(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SecretsScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SecretsScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockScanner.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -666,11 +682,14 @@ class TestGetSecretsScanner:
 
     def test_returns_existing_scanner(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SecretsScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SecretsScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -681,11 +700,14 @@ class TestGetSecretsScanner:
             assert scanner is existing
 
     def test_uses_service_registry(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SecretsScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SecretsScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockScanner.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -699,11 +721,14 @@ class TestGetSecretsScanner:
 
     def test_skips_registration_when_exists(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SecretsScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SecretsScanner"
+            ) as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -722,11 +747,12 @@ class TestGetSASTScanner:
     """Tests for the get_sast_scanner service registry helper."""
 
     def test_creates_and_registers_scanner(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SASTScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.SASTScanner") as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockScanner.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -740,11 +766,12 @@ class TestGetSASTScanner:
 
     def test_returns_existing_scanner(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SASTScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.SASTScanner") as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -755,11 +782,12 @@ class TestGetSASTScanner:
             assert scanner is existing
 
     def test_uses_service_registry(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SASTScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.SASTScanner") as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockScanner.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -773,11 +801,12 @@ class TestGetSASTScanner:
 
     def test_skips_registration_when_exists(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SASTScanner"
-        ) as MockScanner, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch("aragora.server.handlers.codebase.security.storage.SASTScanner") as MockScanner,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -796,11 +825,14 @@ class TestGetSBOMGenerator:
     """Tests for the get_sbom_generator service registry helper."""
 
     def test_creates_and_registers_generator(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
-        ) as MockGenerator, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
+            ) as MockGenerator,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockGenerator.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -814,11 +846,14 @@ class TestGetSBOMGenerator:
 
     def test_returns_existing_generator(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
-        ) as MockGenerator, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
+            ) as MockGenerator,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 
@@ -829,11 +864,14 @@ class TestGetSBOMGenerator:
             assert generator is existing
 
     def test_uses_service_registry(self):
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
-        ) as MockGenerator, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
+            ) as MockGenerator,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_instance = MagicMock()
             MockGenerator.return_value = mock_instance
             mock_reg = _mock_registry(has_service=False, resolved_instance=mock_instance)
@@ -847,11 +885,14 @@ class TestGetSBOMGenerator:
 
     def test_skips_registration_when_exists(self):
         existing = MagicMock()
-        with patch(
-            "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
-        ) as MockGenerator, patch(
-            "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
-        ) as MockRegistryCls:
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.storage.SBOMGenerator"
+            ) as MockGenerator,
+            patch(
+                "aragora.server.handlers.codebase.security.storage.ServiceRegistry"
+            ) as MockRegistryCls,
+        ):
             mock_reg = _mock_registry(has_service=True, resolved_instance=existing)
             MockRegistryCls.get.return_value = mock_reg
 

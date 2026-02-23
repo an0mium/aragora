@@ -484,8 +484,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
                     {
                         "trial": trial_status.to_dict(),
                         "message": (
-                            f"Trial already active. "
-                            f"{trial_status.days_remaining} day(s) remaining."
+                            f"Trial already active. {trial_status.days_remaining} day(s) remaining."
                         ),
                     }
                 )

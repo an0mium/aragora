@@ -1300,7 +1300,9 @@ class TestRBACPermissions:
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
-    def test_handle_post_without_permission_returns_403(self, mock_limiter, handler, temp_nomic_dir):
+    def test_handle_post_without_permission_returns_403(
+        self, mock_limiter, handler, temp_nomic_dir
+    ):
         """Non-GET requests return 403 when user lacks debates:write permission."""
         mock_limiter.is_allowed.return_value = True
         mock_user = self._make_mock_user(permissions=set())

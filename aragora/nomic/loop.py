@@ -582,8 +582,7 @@ class NomicLoop:
             proposals = getattr(debate_result, "proposals", {})
             if proposals:
                 self._current_record.debate_proposals = [
-                    {"agent": agent, "proposal": text[:500]}
-                    for agent, text in proposals.items()
+                    {"agent": agent, "proposal": text[:500]} for agent, text in proposals.items()
                 ]
 
             # Extract critiques
@@ -615,8 +614,7 @@ class NomicLoop:
             verification = getattr(debate_result, "verification_results", {})
             if verification:
                 self._current_record.evidence_quality_scores = {
-                    k: float(v) for k, v in verification.items()
-                    if isinstance(v, (int, float))
+                    k: float(v) for k, v in verification.items() if isinstance(v, (int, float))
                 }
 
             # Extract trickster intervention count from metadata

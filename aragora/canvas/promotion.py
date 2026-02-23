@@ -85,7 +85,9 @@ def promote_ideas_to_goals(
             data={
                 "stage": PipelineStage.GOALS.value,
                 "goal_type": goal_type,
-                "description": source_node.data.get("body", source_node.data.get("full_content", "")),
+                "description": source_node.data.get(
+                    "body", source_node.data.get("full_content", "")
+                ),
                 "priority": "medium",
                 "source_idea_type": idea_type,
                 "source_node_id": node_id,

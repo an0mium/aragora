@@ -2002,9 +2002,7 @@ class TestEarlyStopSpectatorEvents:
 
         phase = DebateRoundsPhase()
         phase._convergence_tracker = convergence_tracker
-        phase._check_judge_termination = AsyncMock(
-            return_value=(False, "Debate is conclusive")
-        )
+        phase._check_judge_termination = AsyncMock(return_value=(False, "Debate is conclusive"))
         phase._check_early_stopping = None
         phase._stability_detector = None
 
@@ -2091,9 +2089,7 @@ class TestEarlyStopSpectatorEvents:
 
         ctx = MockDebateContext(debate_id="test-debate-789")
 
-        phase._emit_early_stop_event(
-            ctx, round_num=2, source="stability", details="Stabilized"
-        )
+        phase._emit_early_stop_event(ctx, round_num=2, source="stability", details="Stabilized")
 
         event_emitter.emit_sync.assert_called_once()
         call_kwargs = event_emitter.emit_sync.call_args[1]
@@ -2173,7 +2169,9 @@ class TestEarlyStopSpectatorEvents:
             perf_monitor.slow_round_threshold = 60.0
 
             # Execute round 2 out of 5 (not last round, termination checks apply)
-            should_continue = await phase._execute_round(ctx, perf_monitor, round_num=2, total_rounds=5)
+            should_continue = await phase._execute_round(
+                ctx, perf_monitor, round_num=2, total_rounds=5
+            )
 
         assert should_continue is False
         assert result.metadata["early_termination"] is True
@@ -2190,7 +2188,9 @@ class TestEarlyStopSpectatorEvents:
 
         convergence_tracker = MagicMock()
         convergence_tracker.check_convergence.return_value = MockConvergenceResult(
-            converged=True, blocked_by_trickster=False, similarity=0.95,
+            converged=True,
+            blocked_by_trickster=False,
+            similarity=0.95,
         )
 
         agent1 = MockAgent(name="agent-1", role="proposer")
@@ -2220,7 +2220,9 @@ class TestEarlyStopSpectatorEvents:
             perf_monitor.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
             perf_monitor.slow_round_threshold = 60.0
 
-            should_continue = await phase._execute_round(ctx, perf_monitor, round_num=2, total_rounds=5)
+            should_continue = await phase._execute_round(
+                ctx, perf_monitor, round_num=2, total_rounds=5
+            )
 
         assert should_continue is False
         assert result.metadata["early_termination"] is True
@@ -2229,10 +2231,7 @@ class TestEarlyStopSpectatorEvents:
         assert "0.95" in result.metadata["early_termination_reason"]
 
         # Verify spectator was notified with early_stop event
-        early_stop_calls = [
-            c for c in notify_spectator.call_args_list
-            if c[0][0] == "early_stop"
-        ]
+        early_stop_calls = [c for c in notify_spectator.call_args_list if c[0][0] == "early_stop"]
         assert len(early_stop_calls) >= 1
         assert "convergence" in early_stop_calls[0][1]["details"].lower()
 

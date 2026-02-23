@@ -120,10 +120,12 @@ class CoordinationHandlerMixin:
 
         try:
             workspaces = coordinator.list_workspaces()
-            return json_response({
-                "workspaces": [w.to_dict() for w in workspaces],
-                "total": len(workspaces),
-            })
+            return json_response(
+                {
+                    "workspaces": [w.to_dict() for w in workspaces],
+                    "total": len(workspaces),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error listing workspaces: %s", e)
             return error_response(safe_error_message(e, "coordination"), 500)
@@ -254,10 +256,12 @@ class CoordinationHandlerMixin:
                     entry["target_workspace_id"] = tgt
                     policies.append(entry)
 
-            return json_response({
-                "policies": policies,
-                "total": len(policies),
-            })
+            return json_response(
+                {
+                    "policies": policies,
+                    "total": len(policies),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error listing federation policies: %s", e)
             return error_response(safe_error_message(e, "coordination"), 500)
@@ -329,10 +333,12 @@ class CoordinationHandlerMixin:
         try:
             workspace_id = query_params.get("workspace_id")
             requests = coordinator.list_pending_requests(workspace_id=workspace_id)
-            return json_response({
-                "executions": [r.to_dict() for r in requests],
-                "total": len(requests),
-            })
+            return json_response(
+                {
+                    "executions": [r.to_dict() for r in requests],
+                    "total": len(requests),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error listing executions: %s", e)
             return error_response(safe_error_message(e, "coordination"), 500)
@@ -358,9 +364,7 @@ class CoordinationHandlerMixin:
         source_workspace_id = body.get("source_workspace_id")
         target_workspace_id = body.get("target_workspace_id")
         if not source_workspace_id or not target_workspace_id:
-            return error_response(
-                "source_workspace_id and target_workspace_id are required", 400
-            )
+            return error_response("source_workspace_id and target_workspace_id are required", 400)
 
         try:
             from aragora.coordination.cross_workspace import (
@@ -427,10 +431,12 @@ class CoordinationHandlerMixin:
         try:
             workspace_id = query_params.get("workspace_id")
             consents = coordinator.list_consents(workspace_id=workspace_id)
-            return json_response({
-                "consents": [c.to_dict() for c in consents],
-                "total": len(consents),
-            })
+            return json_response(
+                {
+                    "consents": [c.to_dict() for c in consents],
+                    "total": len(consents),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Error listing consents: %s", e)
             return error_response(safe_error_message(e, "coordination"), 500)
@@ -496,25 +502,31 @@ class CoordinationHandlerMixin:
         """Check coordination service health."""
         coordinator = self._get_coordination_coordinator()
         if not coordinator:
-            return json_response({
-                "status": "unavailable",
-                "message": "Coordination service not initialized",
-            })
+            return json_response(
+                {
+                    "status": "unavailable",
+                    "message": "Coordination service not initialized",
+                }
+            )
 
         try:
             stats = coordinator.get_stats()
-            return json_response({
-                "status": "healthy",
-                "total_workspaces": stats.get("total_workspaces", 0),
-                "pending_requests": stats.get("pending_requests", 0),
-                "valid_consents": stats.get("valid_consents", 0),
-            })
+            return json_response(
+                {
+                    "status": "healthy",
+                    "total_workspaces": stats.get("total_workspaces", 0),
+                    "pending_requests": stats.get("pending_requests", 0),
+                    "valid_consents": stats.get("valid_consents", 0),
+                }
+            )
         except (ValueError, RuntimeError) as e:
             logger.error("Coordination health check failed: %s", e)
-            return json_response({
-                "status": "degraded",
-                "error": safe_error_message(e, "coordination"),
-            })
+            return json_response(
+                {
+                    "status": "degraded",
+                    "error": safe_error_message(e, "coordination"),
+                }
+            )
 
 
 __all__ = ["CoordinationHandlerMixin"]

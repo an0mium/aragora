@@ -104,7 +104,9 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
     max_expiry = mfa_bypass_approved_at + timedelta(days=MAX_MFA_BYPASS_DAYS)
     if now >= max_expiry:
         logger.warning(
-            "MFA bypass exceeded maximum duration of %s days for service account %s", MAX_MFA_BYPASS_DAYS, getattr(full_user, 'id', 'unknown')
+            "MFA bypass exceeded maximum duration of %s days for service account %s",
+            MAX_MFA_BYPASS_DAYS,
+            getattr(full_user, "id", "unknown"),
         )
         return False
 
@@ -112,7 +114,8 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
     mfa_bypass_expires_at = getattr(full_user, "mfa_bypass_expires_at", None)
     if not mfa_bypass_expires_at:
         logger.warning(
-            "MFA bypass without expiration denied for service account %s - expiration is mandatory", getattr(full_user, 'id', 'unknown')
+            "MFA bypass without expiration denied for service account %s - expiration is mandatory",
+            getattr(full_user, "id", "unknown"),
         )
         return False
 
@@ -243,7 +246,9 @@ def require_admin_mfa(func: Callable) -> Callable:
                     # Check for service account bypass first
                     if _has_valid_mfa_bypass(full_user):
                         has_bypass = True
-                        logger.warning("Admin service account %s bypassing MFA requirement", user.id)
+                        logger.warning(
+                            "Admin service account %s bypassing MFA requirement", user.id
+                        )
                         _audit_mfa_bypass(user.id, "require_admin_mfa decorator bypass")
                     else:
                         mfa_enabled = getattr(full_user, "mfa_enabled", False)
@@ -253,7 +258,9 @@ def require_admin_mfa(func: Callable) -> Callable:
 
             if not mfa_enabled and not has_bypass:
                 logger.warning(
-                    "Admin MFA enforcement: user %s (%s) attempted admin access without MFA", user.id, user.role
+                    "Admin MFA enforcement: user %s (%s) attempted admin access without MFA",
+                    user.id,
+                    user.role,
                 )
                 return error_response(
                     "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
@@ -587,7 +594,9 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
                 max_age_seconds = max_age_minutes * 60
                 if not session_manager.is_session_mfa_fresh(user.id, token_jti, max_age_seconds):
                     logger.warning(
-                        "MFA step-up required for user %s: MFA not fresh (max age: %s min)", user.id, max_age_minutes
+                        "MFA step-up required for user %s: MFA not fresh (max age: %s min)",
+                        user.id,
+                        max_age_minutes,
                     )
                     return error_response(
                         "This operation requires recent MFA verification. "

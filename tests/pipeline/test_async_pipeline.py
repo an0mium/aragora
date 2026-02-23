@@ -21,6 +21,7 @@ from aragora.canvas.stages import GoalNodeType
 # Fixtures
 # =========================================================================
 
+
 @pytest.fixture
 def pipeline():
     return IdeaToExecutionPipeline()
@@ -49,6 +50,7 @@ def events_collected():
 # StageResult tests
 # =========================================================================
 
+
 class TestStageResult:
     def test_to_dict_basic(self):
         sr = StageResult(stage_name="ideation", status="completed", duration=1.5)
@@ -71,6 +73,7 @@ class TestStageResult:
 # =========================================================================
 # PipelineResult enhanced fields
 # =========================================================================
+
 
 class TestPipelineResultEnhanced:
     def test_to_dict_with_stage_results(self):
@@ -107,6 +110,7 @@ class TestPipelineResultEnhanced:
 # =========================================================================
 # Async run() tests
 # =========================================================================
+
 
 class TestAsyncRun:
     @pytest.mark.asyncio
@@ -191,7 +195,8 @@ class TestAsyncRun:
             dry_run=True,
         )
         result = await pipeline.run(
-            "Build authentication. Add rate limiting. Deploy to cloud.", config,
+            "Build authentication. Add rate limiting. Deploy to cloud.",
+            config,
         )
         # Should extract goals from the ideas
         if result.goal_graph:

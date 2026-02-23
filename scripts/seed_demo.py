@@ -456,7 +456,7 @@ def seed_pipelines(clear: bool) -> int:
             continue
         stages = ["ideas", "goals", "actions", "orchestration"]
         if p["status"] == "complete":
-            stage_status = {s: "complete" for s in stages}
+            stage_status = dict.fromkeys(stages, "complete")
         else:
             stage_status = {
                 "ideas": "complete",
@@ -470,15 +470,30 @@ def seed_pipelines(clear: bool) -> int:
             "status": p["status"],
             "stage_status": stage_status,
             "ideas": [
-                {"id": f"{pid}_idea_{i}", "text": idea, "source": "demo", "confidence": round(random.uniform(0.7, 0.95), 2)}
+                {
+                    "id": f"{pid}_idea_{i}",
+                    "text": idea,
+                    "source": "demo",
+                    "confidence": round(random.uniform(0.7, 0.95), 2),
+                }
                 for i, idea in enumerate(p["ideas"])
             ],
             "goals": [
-                {"id": f"{pid}_goal_{i}", "title": goal, "priority": i + 1, "confidence": round(random.uniform(0.75, 0.98), 2)}
+                {
+                    "id": f"{pid}_goal_{i}",
+                    "title": goal,
+                    "priority": i + 1,
+                    "confidence": round(random.uniform(0.75, 0.98), 2),
+                }
                 for i, goal in enumerate(p["goals"])
             ],
             "actions": [
-                {"id": f"{pid}_action_{i}", "description": f"Implement: {goal}", "agent": agents_used[i % len(agents_used)], "status": "complete" if p["status"] == "complete" else "pending"}
+                {
+                    "id": f"{pid}_action_{i}",
+                    "description": f"Implement: {goal}",
+                    "agent": agents_used[i % len(agents_used)],
+                    "status": "complete" if p["status"] == "complete" else "pending",
+                }
                 for i, goal in enumerate(p["goals"])
             ],
             "orchestration": {

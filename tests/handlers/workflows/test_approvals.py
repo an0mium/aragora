@@ -237,9 +237,7 @@ class TestResolveApproval:
             patch(f"{PATCH_MOD}.ApprovalStatus", MockApprovalStatus),
             patch(f"{PATCH_MOD}._resolve", mock_resolve),
         ):
-            result = await resolve_approval(
-                "req-1", "approved", "user-1", notes="Looks good"
-            )
+            result = await resolve_approval("req-1", "approved", "user-1", notes="Looks good")
         assert result is True
         mock_resolve.assert_called_once_with(
             "req-1",
@@ -423,9 +421,7 @@ class TestResolveApproval:
             patch(f"{PATCH_MOD}.ApprovalStatus", MockApprovalStatus),
             patch(f"{PATCH_MOD}._resolve", mock_resolve),
         ):
-            await resolve_approval(
-                "req-1", "approved", "user-1", checklist_updates={}
-            )
+            await resolve_approval("req-1", "approved", "user-1", checklist_updates={})
         mock_resolve.assert_called_once_with(
             "req-1",
             MockApprovalStatus.APPROVED,

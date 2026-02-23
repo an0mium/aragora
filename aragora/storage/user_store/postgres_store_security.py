@@ -74,7 +74,9 @@ class SecurityOperationsMixin:
                 )
                 return True
             except Exception as e:  # noqa: BLE001 - Database errors return False
-                logger.debug("Failed to link OAuth provider %s for user %s: %s", provider, user_id, e)
+                logger.debug(
+                    "Failed to link OAuth provider %s for user %s: %s", provider, user_id, e
+                )
                 return False
 
     def unlink_oauth_provider(self, user_id: str, provider: str) -> bool:

@@ -45,8 +45,11 @@ def _make_mock_adapter(
 
 def _make_subtask(id: str, title: str, desc: str = "") -> SubTask:
     return SubTask(
-        id=id, title=title, description=desc or title,
-        dependencies=[], estimated_complexity="medium",
+        id=id,
+        title=title,
+        description=desc or title,
+        dependencies=[],
+        estimated_complexity="medium",
     )
 
 
@@ -61,18 +64,23 @@ class TestHighROIGoalTypes:
     @pytest.mark.asyncio
     async def test_high_roi_injected_into_successes(self):
         """High-ROI patterns should appear in past_successes_to_build_on."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "coverage improvement",
-                "avg_improvement_score": 0.8,
-                "cycle_count": 3,
-                "example_objectives": ["Improve test coverage"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "coverage improvement",
+                    "avg_improvement_score": 0.8,
+                    "cycle_count": 3,
+                    "example_objectives": ["Improve test coverage"],
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -80,7 +88,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Improve tests", [Track.QA], context,
+                "Improve tests",
+                [Track.QA],
+                context,
             )
 
         assert any("high_roi" in s for s in result.past_successes_to_build_on)
@@ -88,18 +98,23 @@ class TestHighROIGoalTypes:
     @pytest.mark.asyncio
     async def test_high_roi_below_threshold_excluded(self):
         """ROI patterns below 0.3 should not be added."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "trivial change",
-                "avg_improvement_score": 0.1,
-                "cycle_count": 1,
-                "example_objectives": ["Minor tweak"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "trivial change",
+                    "avg_improvement_score": 0.1,
+                    "cycle_count": 1,
+                    "example_objectives": ["Minor tweak"],
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -107,7 +122,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Something", [Track.CORE], context,
+                "Something",
+                [Track.CORE],
+                context,
             )
 
         assert not any("high_roi" in s for s in result.past_successes_to_build_on)
@@ -115,18 +132,23 @@ class TestHighROIGoalTypes:
     @pytest.mark.asyncio
     async def test_high_roi_includes_pattern_text(self):
         """The pattern text should appear in the success entry."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "lint reduction",
-                "avg_improvement_score": 0.6,
-                "cycle_count": 2,
-                "example_objectives": ["Fix lint"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "lint reduction",
+                    "avg_improvement_score": 0.6,
+                    "cycle_count": 2,
+                    "example_objectives": ["Fix lint"],
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -134,7 +156,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         matching = [s for s in result.past_successes_to_build_on if "lint reduction" in s]
@@ -145,9 +169,12 @@ class TestHighROIGoalTypes:
         """Empty high-ROI results should not add any successes."""
         adapter = _make_mock_adapter(high_roi=[])
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -155,7 +182,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert not any("high_roi" in s for s in result.past_successes_to_build_on)
@@ -166,9 +195,12 @@ class TestHighROIGoalTypes:
         adapter = _make_mock_adapter()
         adapter.find_high_roi_goal_types = AsyncMock(side_effect=RuntimeError("boom"))
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -176,7 +208,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert isinstance(result, PlanningContext)
@@ -184,18 +218,23 @@ class TestHighROIGoalTypes:
     @pytest.mark.asyncio
     async def test_high_roi_includes_cycle_count(self):
         """Cycle count should appear in the success entry."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "refactor module",
-                "avg_improvement_score": 0.7,
-                "cycle_count": 5,
-                "example_objectives": ["Refactor auth"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "refactor module",
+                    "avg_improvement_score": 0.7,
+                    "cycle_count": 5,
+                    "example_objectives": ["Refactor auth"],
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -203,7 +242,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.CORE], context,
+                "Test",
+                [Track.CORE],
+                context,
             )
 
         matching = [s for s in result.past_successes_to_build_on if "5 cycles" in s]
@@ -212,18 +253,23 @@ class TestHighROIGoalTypes:
     @pytest.mark.asyncio
     async def test_high_roi_includes_score(self):
         """Improvement score should appear in the success entry."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "testing",
-                "avg_improvement_score": 0.75,
-                "cycle_count": 2,
-                "example_objectives": ["Test"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "testing",
+                    "avg_improvement_score": 0.75,
+                    "cycle_count": 2,
+                    "example_objectives": ["Test"],
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -231,7 +277,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         matching = [s for s in result.past_successes_to_build_on if "0.75" in s]
@@ -240,15 +288,35 @@ class TestHighROIGoalTypes:
     @pytest.mark.asyncio
     async def test_multiple_high_roi_patterns(self):
         """Multiple high-ROI patterns should all be added."""
-        adapter = _make_mock_adapter(high_roi=[
-            {"pattern": "test coverage", "avg_improvement_score": 0.9, "cycle_count": 3, "example_objectives": []},
-            {"pattern": "lint cleanup", "avg_improvement_score": 0.7, "cycle_count": 2, "example_objectives": []},
-            {"pattern": "minor docs", "avg_improvement_score": 0.2, "cycle_count": 1, "example_objectives": []},
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "test coverage",
+                    "avg_improvement_score": 0.9,
+                    "cycle_count": 3,
+                    "example_objectives": [],
+                },
+                {
+                    "pattern": "lint cleanup",
+                    "avg_improvement_score": 0.7,
+                    "cycle_count": 2,
+                    "example_objectives": [],
+                },
+                {
+                    "pattern": "minor docs",
+                    "avg_improvement_score": 0.2,
+                    "cycle_count": 1,
+                    "example_objectives": [],
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -256,7 +324,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         # Only patterns > 0.3 should be added
@@ -269,9 +339,12 @@ class TestHighROIGoalTypes:
         adapter = _make_mock_adapter()
         adapter.find_high_roi_goal_types = AsyncMock(side_effect=AttributeError("no attr"))
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -279,7 +352,9 @@ class TestHighROIGoalTypes:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert isinstance(result, PlanningContext)
@@ -296,19 +371,24 @@ class TestRecurringFailures:
     @pytest.mark.asyncio
     async def test_recurring_failures_injected(self):
         """Recurring failures should appear in past_failures_to_avoid."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {
-                "pattern": "timeout in tests",
-                "occurrences": 4,
-                "affected_tracks": ["qa"],
-                "example_errors": ["TimeoutError"],
-                "last_seen": "2026-02-10",
-            },
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "timeout in tests",
+                    "occurrences": 4,
+                    "affected_tracks": ["qa"],
+                    "example_errors": ["TimeoutError"],
+                    "last_seen": "2026-02-10",
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -316,7 +396,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Fix tests", [Track.QA], context,
+                "Fix tests",
+                [Track.QA],
+                context,
             )
 
         assert any("recurring_failure" in f for f in result.past_failures_to_avoid)
@@ -324,19 +406,24 @@ class TestRecurringFailures:
     @pytest.mark.asyncio
     async def test_recurring_failures_include_pattern(self):
         """The failure pattern text should appear."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {
-                "pattern": "import cycle",
-                "occurrences": 3,
-                "affected_tracks": [],
-                "example_errors": [],
-                "last_seen": "2026-02-15",
-            },
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "import cycle",
+                    "occurrences": 3,
+                    "affected_tracks": [],
+                    "example_errors": [],
+                    "last_seen": "2026-02-15",
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -344,7 +431,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.CORE], context,
+                "Test",
+                [Track.CORE],
+                context,
             )
 
         matching = [f for f in result.past_failures_to_avoid if "import cycle" in f]
@@ -353,19 +442,24 @@ class TestRecurringFailures:
     @pytest.mark.asyncio
     async def test_recurring_failures_include_occurrence_count(self):
         """Occurrence count should appear in the failure entry."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {
-                "pattern": "flaky test",
-                "occurrences": 7,
-                "affected_tracks": ["qa"],
-                "example_errors": [],
-                "last_seen": "2026-02-15",
-            },
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "flaky test",
+                    "occurrences": 7,
+                    "affected_tracks": ["qa"],
+                    "example_errors": [],
+                    "last_seen": "2026-02-15",
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -373,7 +467,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         matching = [f for f in result.past_failures_to_avoid if "7x" in f]
@@ -382,19 +478,24 @@ class TestRecurringFailures:
     @pytest.mark.asyncio
     async def test_recurring_failures_include_tracks(self):
         """Affected tracks should appear in the failure entry."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {
-                "pattern": "auth bug",
-                "occurrences": 2,
-                "affected_tracks": ["security", "core"],
-                "example_errors": [],
-                "last_seen": "2026-02-10",
-            },
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "auth bug",
+                    "occurrences": 2,
+                    "affected_tracks": ["security", "core"],
+                    "example_errors": [],
+                    "last_seen": "2026-02-10",
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -402,7 +503,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.SECURITY], context,
+                "Test",
+                [Track.SECURITY],
+                context,
             )
 
         matching = [f for f in result.past_failures_to_avoid if "security" in f]
@@ -413,9 +516,12 @@ class TestRecurringFailures:
         """Empty recurring failures should not add any entries."""
         adapter = _make_mock_adapter(recurring_failures=[])
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -423,7 +529,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.CORE], context,
+                "Test",
+                [Track.CORE],
+                context,
             )
 
         assert not any("recurring_failure" in f for f in result.past_failures_to_avoid)
@@ -434,9 +542,12 @@ class TestRecurringFailures:
         adapter = _make_mock_adapter()
         adapter.find_recurring_failures = AsyncMock(side_effect=RuntimeError("db err"))
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -444,7 +555,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert isinstance(result, PlanningContext)
@@ -452,14 +565,31 @@ class TestRecurringFailures:
     @pytest.mark.asyncio
     async def test_multiple_recurring_failures(self):
         """Multiple failure patterns should all be added."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {"pattern": "timeout", "occurrences": 3, "affected_tracks": [], "example_errors": [], "last_seen": ""},
-            {"pattern": "import error", "occurrences": 5, "affected_tracks": ["core"], "example_errors": [], "last_seen": ""},
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "timeout",
+                    "occurrences": 3,
+                    "affected_tracks": [],
+                    "example_errors": [],
+                    "last_seen": "",
+                },
+                {
+                    "pattern": "import error",
+                    "occurrences": 5,
+                    "affected_tracks": ["core"],
+                    "example_errors": [],
+                    "last_seen": "",
+                },
+            ]
+        )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -467,7 +597,9 @@ class TestRecurringFailures:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.CORE], context,
+                "Test",
+                [Track.CORE],
+                context,
             )
 
         failure_entries = [f for f in result.past_failures_to_avoid if "recurring_failure" in f]
@@ -485,9 +617,12 @@ class TestMetaPlannerKMEnrichment:
     @pytest.mark.asyncio
     async def test_adapter_import_error_handled(self):
         """ImportError for nomic_cycle_adapter should be swallowed."""
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -495,7 +630,9 @@ class TestMetaPlannerKMEnrichment:
             side_effect=ImportError("no adapter"),
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert isinstance(result, PlanningContext)
@@ -505,9 +642,12 @@ class TestMetaPlannerKMEnrichment:
         """Both find_high_roi_goal_types and find_recurring_failures should be called."""
         adapter = _make_mock_adapter()
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -515,7 +655,9 @@ class TestMetaPlannerKMEnrichment:
             return_value=adapter,
         ):
             await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         adapter.find_high_roi_goal_types.assert_called_once()
@@ -526,9 +668,12 @@ class TestMetaPlannerKMEnrichment:
         """find_similar_cycles should still be called alongside new queries."""
         adapter = _make_mock_adapter()
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -536,7 +681,9 @@ class TestMetaPlannerKMEnrichment:
             return_value=adapter,
         ):
             await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         adapter.find_similar_cycles.assert_called_once()
@@ -545,24 +692,31 @@ class TestMetaPlannerKMEnrichment:
     async def test_high_roi_and_failures_combined(self):
         """Both successes and failures should be populated together."""
         adapter = _make_mock_adapter(
-            high_roi=[{
-                "pattern": "test improvement",
-                "avg_improvement_score": 0.9,
-                "cycle_count": 5,
-                "example_objectives": ["Better tests"],
-            }],
-            recurring_failures=[{
-                "pattern": "circular import",
-                "occurrences": 3,
-                "affected_tracks": ["core"],
-                "example_errors": [],
-                "last_seen": "2026-02-10",
-            }],
+            high_roi=[
+                {
+                    "pattern": "test improvement",
+                    "avg_improvement_score": 0.9,
+                    "cycle_count": 5,
+                    "example_objectives": ["Better tests"],
+                }
+            ],
+            recurring_failures=[
+                {
+                    "pattern": "circular import",
+                    "occurrences": 3,
+                    "affected_tracks": ["core"],
+                    "example_errors": [],
+                    "last_seen": "2026-02-10",
+                }
+            ],
         )
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -570,7 +724,9 @@ class TestMetaPlannerKMEnrichment:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.CORE], context,
+                "Test",
+                [Track.CORE],
+                context,
             )
 
         assert len(result.past_successes_to_build_on) >= 1
@@ -581,9 +737,12 @@ class TestMetaPlannerKMEnrichment:
         """Track values should be passed to find_similar_cycles."""
         adapter = _make_mock_adapter()
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -591,7 +750,9 @@ class TestMetaPlannerKMEnrichment:
             return_value=adapter,
         ):
             await planner._enrich_context_with_history(
-                "Test", [Track.QA, Track.DEVELOPER], context,
+                "Test",
+                [Track.QA, Track.DEVELOPER],
+                context,
             )
 
         call_kwargs = adapter.find_similar_cycles.call_args.kwargs
@@ -603,9 +764,12 @@ class TestMetaPlannerKMEnrichment:
         """Pre-existing context fields should be preserved."""
         adapter = _make_mock_adapter()
 
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext(
             recent_issues=["existing issue"],
             test_failures=["existing failure"],
@@ -616,7 +780,9 @@ class TestMetaPlannerKMEnrichment:
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert "existing issue" in result.recent_issues
@@ -625,9 +791,12 @@ class TestMetaPlannerKMEnrichment:
     @pytest.mark.asyncio
     async def test_runtime_error_from_adapter_handled(self):
         """RuntimeError from adapter should be handled gracefully."""
-        planner = MetaPlanner(MetaPlannerConfig(
-            enable_cross_cycle_learning=True, enable_metrics_collection=False,
-        ))
+        planner = MetaPlanner(
+            MetaPlannerConfig(
+                enable_cross_cycle_learning=True,
+                enable_metrics_collection=False,
+            )
+        )
         context = PlanningContext()
 
         with patch(
@@ -635,7 +804,9 @@ class TestMetaPlannerKMEnrichment:
             side_effect=RuntimeError("adapter broke"),
         ):
             result = await planner._enrich_context_with_history(
-                "Test", [Track.QA], context,
+                "Test",
+                [Track.QA],
+                context,
             )
 
         assert isinstance(result, PlanningContext)
@@ -652,15 +823,17 @@ class TestTaskDecomposerEnrichment:
     @pytest.mark.asyncio
     async def test_failure_warnings_added_to_subtasks(self):
         """Relevant failure patterns should inject km_warnings."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {
-                "pattern": "timeout in test execution",
-                "occurrences": 3,
-                "affected_tracks": ["qa"],
-                "example_errors": [],
-                "last_seen": "2026-02-15",
-            },
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "timeout in test execution",
+                    "occurrences": 3,
+                    "affected_tracks": ["qa"],
+                    "example_errors": [],
+                    "last_seen": "2026-02-15",
+                },
+            ]
+        )
 
         decomposer = TaskDecomposer()
         subtasks = [_make_subtask("s1", "Fix test execution issues")]
@@ -670,25 +843,25 @@ class TestTaskDecomposerEnrichment:
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km(
-                "Fix test execution timeout issues", subtasks,
+                "Fix test execution timeout issues",
+                subtasks,
             )
 
-        assert any(
-            "km_warnings" in s.success_criteria
-            for s in result
-        )
+        assert any("km_warnings" in s.success_criteria for s in result)
 
     @pytest.mark.asyncio
     async def test_high_roi_suggests_additional_subtask(self):
         """High-ROI patterns should add suggested subtasks."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "coverage improvement",
-                "avg_improvement_score": 0.8,
-                "cycle_count": 4,
-                "example_objectives": ["Add missing tests"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "coverage improvement",
+                    "avg_improvement_score": 0.8,
+                    "cycle_count": 4,
+                    "example_objectives": ["Add missing tests"],
+                },
+            ]
+        )
 
         decomposer = TaskDecomposer()
         subtasks = [_make_subtask("s1", "Fix a bug")]
@@ -698,7 +871,8 @@ class TestTaskDecomposerEnrichment:
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km(
-                "Improve codebase quality", subtasks,
+                "Improve codebase quality",
+                subtasks,
             )
 
         assert len(result) >= 1
@@ -706,15 +880,17 @@ class TestTaskDecomposerEnrichment:
     @pytest.mark.asyncio
     async def test_subtask_cap_respected(self):
         """Suggestions should not exceed max_subtasks."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": f"pattern_{i}",
-                "avg_improvement_score": 0.9,
-                "cycle_count": 5,
-                "example_objectives": [f"Example {i}"],
-            }
-            for i in range(10)
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": f"pattern_{i}",
+                    "avg_improvement_score": 0.9,
+                    "cycle_count": 5,
+                    "example_objectives": [f"Example {i}"],
+                }
+                for i in range(10)
+            ]
+        )
 
         from aragora.nomic.task_decomposer import DecomposerConfig
 
@@ -761,15 +937,17 @@ class TestTaskDecomposerEnrichment:
     @pytest.mark.asyncio
     async def test_no_warnings_when_no_overlap(self):
         """Failures with no word overlap should not inject warnings."""
-        adapter = _make_mock_adapter(recurring_failures=[
-            {
-                "pattern": "completely unrelated database migration",
-                "occurrences": 5,
-                "affected_tracks": ["core"],
-                "example_errors": [],
-                "last_seen": "2026-02-10",
-            },
-        ])
+        adapter = _make_mock_adapter(
+            recurring_failures=[
+                {
+                    "pattern": "completely unrelated database migration",
+                    "occurrences": 5,
+                    "affected_tracks": ["core"],
+                    "example_errors": [],
+                    "last_seen": "2026-02-10",
+                },
+            ]
+        )
 
         decomposer = TaskDecomposer()
         subtasks = [_make_subtask("s1", "Fix UI styling")]
@@ -779,7 +957,8 @@ class TestTaskDecomposerEnrichment:
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km(
-                "Fix UI styling", subtasks,
+                "Fix UI styling",
+                subtasks,
             )
 
         for s in result:
@@ -789,14 +968,16 @@ class TestTaskDecomposerEnrichment:
     @pytest.mark.asyncio
     async def test_empty_subtasks_handled(self):
         """Empty subtask list should not crash."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "test",
-                "avg_improvement_score": 0.9,
-                "cycle_count": 1,
-                "example_objectives": ["test"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "test",
+                    "avg_improvement_score": 0.9,
+                    "cycle_count": 1,
+                    "example_objectives": ["test"],
+                },
+            ]
+        )
 
         decomposer = TaskDecomposer()
 
@@ -811,14 +992,16 @@ class TestTaskDecomposerEnrichment:
     @pytest.mark.asyncio
     async def test_km_source_in_suggested_criteria(self):
         """KM-suggested subtasks should have km_source in success_criteria."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "unique_pattern_xyz",
-                "avg_improvement_score": 0.95,
-                "cycle_count": 10,
-                "example_objectives": ["Example xyz"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "unique_pattern_xyz",
+                    "avg_improvement_score": 0.95,
+                    "cycle_count": 10,
+                    "example_objectives": ["Example xyz"],
+                },
+            ]
+        )
 
         decomposer = TaskDecomposer()
         subtasks = [_make_subtask("s1", "Something else entirely")]
@@ -827,7 +1010,9 @@ class TestTaskDecomposerEnrichment:
             "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
-            result = await decomposer.enrich_subtasks_from_km("Do unique_pattern_xyz work", subtasks)
+            result = await decomposer.enrich_subtasks_from_km(
+                "Do unique_pattern_xyz work", subtasks
+            )
 
         km_suggested = [s for s in result if "KM-suggested" in s.title]
         if km_suggested:
@@ -836,14 +1021,16 @@ class TestTaskDecomposerEnrichment:
     @pytest.mark.asyncio
     async def test_low_roi_patterns_not_suggested(self):
         """Patterns with avg_improvement_score < 0.5 should not generate subtasks."""
-        adapter = _make_mock_adapter(high_roi=[
-            {
-                "pattern": "weak pattern",
-                "avg_improvement_score": 0.3,
-                "cycle_count": 2,
-                "example_objectives": ["Weak example"],
-            },
-        ])
+        adapter = _make_mock_adapter(
+            high_roi=[
+                {
+                    "pattern": "weak pattern",
+                    "avg_improvement_score": 0.3,
+                    "cycle_count": 2,
+                    "example_objectives": ["Weak example"],
+                },
+            ]
+        )
 
         decomposer = TaskDecomposer()
         subtasks = [_make_subtask("s1", "Original task")]
@@ -882,7 +1069,10 @@ class TestCodebaseIndexing:
         mock_builder.ingest_dependency_graph = AsyncMock(return_value=mock_stats)
 
         with (
-            patch("aragora.memory.codebase_builder.CodebaseKnowledgeBuilder", return_value=mock_builder),
+            patch(
+                "aragora.memory.codebase_builder.CodebaseKnowledgeBuilder",
+                return_value=mock_builder,
+            ),
             patch("aragora.memory.fabric.MemoryFabric"),
         ):
             await pipeline._index_codebase()
@@ -921,13 +1111,15 @@ class TestCodebaseIndexing:
         """When enable_codebase_indexing=False, run() should skip indexing."""
         from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
 
-        pipeline = SelfImprovePipeline(SelfImproveConfig(
-            enable_codebase_indexing=False,
-            use_meta_planner=False,
-            use_worktrees=False,
-            capture_metrics=False,
-            persist_outcomes=False,
-        ))
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                enable_codebase_indexing=False,
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+            )
+        )
 
         with patch.object(pipeline, "_index_codebase", new_callable=AsyncMock) as mock_idx:
             await pipeline.run("Test skip indexing")
@@ -939,13 +1131,15 @@ class TestCodebaseIndexing:
         """When enable_codebase_indexing=True, run() should call indexing."""
         from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
 
-        pipeline = SelfImprovePipeline(SelfImproveConfig(
-            enable_codebase_indexing=True,
-            use_meta_planner=False,
-            use_worktrees=False,
-            capture_metrics=False,
-            persist_outcomes=False,
-        ))
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                enable_codebase_indexing=True,
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+            )
+        )
 
         with (
             patch.object(pipeline, "_index_codebase", new_callable=AsyncMock) as mock_idx,
@@ -979,9 +1173,12 @@ class TestPipelineKMIntegration:
         pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_indexing=False))
 
         goal = PrioritizedGoal(
-            id="g1", track=Track.QA,
+            id="g1",
+            track=Track.QA,
             description="Refactor the entire authentication and add comprehensive testing",
-            rationale="Test", estimated_impact="high", priority=1,
+            rationale="Test",
+            estimated_impact="high",
+            priority=1,
         )
 
         with patch(
@@ -1002,9 +1199,12 @@ class TestPipelineKMIntegration:
         pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_indexing=False))
 
         goal = PrioritizedGoal(
-            id="g1", track=Track.CORE,
+            id="g1",
+            track=Track.CORE,
             description="Refactor authentication and add comprehensive tests for coverage",
-            rationale="Test", estimated_impact="high", priority=1,
+            rationale="Test",
+            estimated_impact="high",
+            priority=1,
         )
 
         with patch(
@@ -1019,15 +1219,21 @@ class TestPipelineKMIntegration:
     @pytest.mark.asyncio
     async def test_full_run_with_km_enrichment(self):
         """Full pipeline run should integrate KM enrichment without crashing."""
-        from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig, SelfImproveResult
+        from aragora.nomic.self_improve import (
+            SelfImprovePipeline,
+            SelfImproveConfig,
+            SelfImproveResult,
+        )
 
-        pipeline = SelfImprovePipeline(SelfImproveConfig(
-            use_meta_planner=False,
-            use_worktrees=False,
-            capture_metrics=False,
-            persist_outcomes=False,
-            enable_codebase_indexing=False,
-        ))
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+            )
+        )
 
         result = await pipeline.run("Improve test coverage and fix authentication bugs")
 

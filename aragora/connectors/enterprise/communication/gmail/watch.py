@@ -290,7 +290,9 @@ class GmailWatchMixin(GmailBaseMethods):
                     if response.status_code >= 500 or response.status_code == 429:
                         self.record_failure()
                     logger.warning(
-                        "[Gmail] Stop watch returned %s: %s", response.status_code, error.get('message', response.text)
+                        "[Gmail] Stop watch returned %s: %s",
+                        response.status_code,
+                        error.get("message", response.text),
                     )
                     return {
                         "success": False,
@@ -327,7 +329,9 @@ class GmailWatchMixin(GmailBaseMethods):
                 and webhook.email_address != self._gmail_state.email_address
             ):
                 logger.warning(
-                    "[Gmail] Webhook for %s but expecting %s", webhook.email_address, self._gmail_state.email_address
+                    "[Gmail] Webhook for %s but expecting %s",
+                    webhook.email_address,
+                    self._gmail_state.email_address,
                 )
                 return []
 

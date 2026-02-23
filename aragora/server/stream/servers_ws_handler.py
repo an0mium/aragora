@@ -392,7 +392,11 @@ class WebSocketHandlerMixin:
             self._rate_limiter_last_access[client_id] = time.time()
 
         logger.info(
-            "[ws] Client %s... connected from %s (authenticated=%s, total_clients=%s)", client_id[:8], client_ip, is_authenticated, len(self.clients)
+            "[ws] Client %s... connected from %s (authenticated=%s, total_clients=%s)",
+            client_id[:8],
+            client_ip,
+            is_authenticated,
+            len(self.clients),
         )
 
         # Send connection info including auth status
@@ -430,7 +434,9 @@ class WebSocketHandlerMixin:
                     msg_data = msg.data
                     if len(msg_data) > WS_MAX_MESSAGE_SIZE:
                         logger.warning(
-                            "[ws] Message too large: %s bytes (max %s)", len(msg_data), WS_MAX_MESSAGE_SIZE
+                            "[ws] Message too large: %s bytes (max %s)",
+                            len(msg_data),
+                            WS_MAX_MESSAGE_SIZE,
                         )
                         await ws.send_json(
                             {
@@ -516,7 +522,9 @@ class WebSocketHandlerMixin:
                                         self._client_subscriptions[ws_id] = debate_id
                                     setattr(ws, "_bound_loop_id", debate_id)
                                     logger.info(
-                                        "[ws] Client %s... subscribed to %s", client_id[:8], debate_id
+                                        "[ws] Client %s... subscribed to %s",
+                                        client_id[:8],
+                                        debate_id,
                                     )
                                     # Send current debate state if available
                                     with self._debate_states_lock:
@@ -661,7 +669,10 @@ class WebSocketHandlerMixin:
             # Clean up auth state
             self.remove_ws_auth_state(ws_id)
             logger.info(
-                "[ws] Client %s... disconnected from %s (remaining_clients=%s)", client_id[:8], client_ip, len(self.clients)
+                "[ws] Client %s... disconnected from %s (remaining_clients=%s)",
+                client_id[:8],
+                client_ip,
+                len(self.clients),
             )
 
         return ws

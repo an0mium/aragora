@@ -146,24 +146,22 @@ class TestRecordOutcome:
 
     def test_record_timeout(self):
         bridge = OutcomeComplexityBridge()
-        bridge.record_complexity_outcome(
-            "d1", "complex", succeeded=False, timeout=True
-        )
+        bridge.record_complexity_outcome("d1", "complex", succeeded=False, timeout=True)
         stats = bridge.get_complexity_stats("complex")
         assert stats.timeout_debates == 1
 
     def test_record_time_to_failure(self):
         bridge = OutcomeComplexityBridge()
-        bridge.record_complexity_outcome(
-            "d1", "complex", succeeded=False, time_to_failure=15.0
-        )
+        bridge.record_complexity_outcome("d1", "complex", succeeded=False, time_to_failure=15.0)
         stats = bridge.get_complexity_stats("complex")
         assert stats.total_time_to_failure == 15.0
 
     def test_record_extracts_failure_signals(self):
         bridge = OutcomeComplexityBridge()
         bridge.record_complexity_outcome(
-            "d1", "complex", succeeded=False,
+            "d1",
+            "complex",
+            succeeded=False,
             task_text="optimize distributed concurrent system",
         )
         signals = bridge.get_failure_signals()
@@ -176,7 +174,7 @@ class TestRecordOutcome:
         for i in range(5):
             bridge.record_complexity_outcome(f"d{i}", "moderate", succeeded=True)
         for i in range(3):
-            bridge.record_complexity_outcome(f"d{i+5}", "moderate", succeeded=False)
+            bridge.record_complexity_outcome(f"d{i + 5}", "moderate", succeeded=False)
 
         stats = bridge.get_complexity_stats("moderate")
         assert stats.total_debates == 8
@@ -213,7 +211,9 @@ class TestAdaptiveTimeoutFactor:
         # Record failures with signals
         for _ in range(5):
             bridge.record_complexity_outcome(
-                "d", "complex", succeeded=False,
+                "d",
+                "complex",
+                succeeded=False,
                 task_text="distributed concurrent system",
             )
 
@@ -258,9 +258,7 @@ class TestRecalibration:
         )
         # Record 10 timeout outcomes to trigger recalibration
         for i in range(10):
-            bridge.record_complexity_outcome(
-                f"d{i}", "simple", succeeded=False, timeout=True
-            )
+            bridge.record_complexity_outcome(f"d{i}", "simple", succeeded=False, timeout=True)
         # After 10 outcomes with 100% timeout, should have adjustment
         # (recalibrate is called when total_debates % 10 == 0)
         adj = bridge.get_factor_adjustments()
@@ -294,7 +292,9 @@ class TestStatsAndUtils:
         bridge = OutcomeComplexityBridge()
         bridge.record_complexity_outcome("d1", "simple", succeeded=True)
         bridge.record_complexity_outcome(
-            "d2", "complex", succeeded=False,
+            "d2",
+            "complex",
+            succeeded=False,
             task_text="optimize distributed system",
         )
         stats = bridge.get_stats()

@@ -230,8 +230,16 @@ def _make_mock_roi_calculator(metrics=None, benchmarks=None, projections=None):
     calc.calculate_period_roi.return_value = metrics or MockROIMetrics()
     calc.get_benchmark_comparison.return_value = benchmarks or {
         "benchmarks": {
-            "sme": {"avg_decision_cost_usd": "50.00", "avg_hours_per_decision": 4, "avg_participants": 3},
-            "enterprise": {"avg_decision_cost_usd": "200.00", "avg_hours_per_decision": 12, "avg_participants": 8},
+            "sme": {
+                "avg_decision_cost_usd": "50.00",
+                "avg_hours_per_decision": 4,
+                "avg_participants": 3,
+            },
+            "enterprise": {
+                "avg_decision_cost_usd": "200.00",
+                "avg_hours_per_decision": 12,
+                "avg_participants": 8,
+            },
         }
     }
     calc.estimate_future_savings.return_value = {
@@ -331,7 +339,9 @@ class TestHandleDispatch:
     """Test the main handle() dispatch routing."""
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
     def test_dispatch_to_summary(self, mock_consensus, mock_ct, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
         h = _make_handler()
@@ -365,7 +375,9 @@ class TestHandleDispatch:
         assert _status(result) == 405
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=90.0)
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=90.0
+    )
     def test_dispatch_uses_handler_command_attribute(self, mock_consensus, mock_ct, handler):
         """When handler has 'command' attribute, it overrides method param."""
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -387,15 +399,20 @@ class TestRateLimiting:
     def test_rate_limit_allows_normal_requests(self, handler):
         h = _make_handler()
         # Should not hit rate limit for a single request
-        with patch.object(handler, "_get_summary", return_value=HandlerResult(
-            status_code=200, content_type="application/json", body=b'{"summary": {}}'
-        )):
+        with patch.object(
+            handler,
+            "_get_summary",
+            return_value=HandlerResult(
+                status_code=200, content_type="application/json", body=b'{"summary": {}}'
+            ),
+        ):
             result = handler.handle("/api/v1/usage/summary", {}, h)
             assert _status(result) == 200
 
     def test_rate_limit_exceeded_returns_429(self, handler):
         # Fill up the rate limiter
         import time
+
         now = time.time()
         _dashboard_limiter._buckets["127.0.0.1"] = [now] * 61
         h = _make_handler()
@@ -406,15 +423,20 @@ class TestRateLimiting:
 
     def test_rate_limit_different_ips_independent(self, handler):
         import time
+
         now = time.time()
         # Exhaust limiter for IP 1
         _dashboard_limiter._buckets["10.0.0.1"] = [now] * 61
         # Different IP should be fine
         h = _make_handler()
         h.client_address = ("10.0.0.2", 12345)
-        with patch.object(handler, "_get_summary", return_value=HandlerResult(
-            status_code=200, content_type="application/json", body=b'{"summary": {}}'
-        )):
+        with patch.object(
+            handler,
+            "_get_summary",
+            return_value=HandlerResult(
+                status_code=200, content_type="application/json", body=b'{"summary": {}}'
+            ),
+        ):
             result = handler.handle("/api/v1/usage/summary", {}, h)
             assert _status(result) == 200
 
@@ -572,8 +594,12 @@ class TestParsePeriod:
 class TestGetSummary:
     """Test the usage summary endpoint."""
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_basic_summary(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -589,8 +615,12 @@ class TestGetSummary:
         assert "tokens" in summary
         assert "activity" in summary
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=92.5)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=92.5
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_period_info(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -604,8 +634,12 @@ class TestGetSummary:
         assert "end" in period
         assert period["days"] == 7
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_debate_counts(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -618,8 +652,12 @@ class TestGetSummary:
         assert debates["completed"] == 45
         assert debates["consensus_rate"] == 85.0
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_cost_data(self, mock_ct, mock_ut, mock_consensus, handler):
         stats = _make_workspace_stats(total_cost="12.50")
@@ -633,8 +671,12 @@ class TestGetSummary:
         assert "avg_per_debate_usd" in costs
         assert "by_provider" in costs
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_token_data(self, mock_ct, mock_ut, mock_consensus, handler):
         stats = _make_workspace_stats(tokens_in=500000, tokens_out=250000)
@@ -648,8 +690,12 @@ class TestGetSummary:
         assert tokens["input"] == 500000
         assert tokens["output"] == 250000
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_activity_data(self, mock_ct, mock_ut, mock_consensus, handler):
         stats = _make_workspace_stats(api_calls=150)
@@ -663,8 +709,12 @@ class TestGetSummary:
         assert "debates_per_day" in activity
         assert activity["api_calls"] == 150
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_zero_debates(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -681,8 +731,12 @@ class TestGetSummary:
         activity = body["activity"]
         assert activity["active_days"] == 0
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_no_usage_tracker(self, mock_ct, mock_ut, mock_consensus, handler):
         """When usage tracker is None, debates default to 0."""
@@ -694,8 +748,12 @@ class TestGetSummary:
         body = _body(result)
         assert body["debates"]["total"] == 0
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_usage_tracker_exception(self, mock_ct, mock_ut, mock_consensus, handler):
         """When usage tracker raises, handle gracefully."""
@@ -709,8 +767,12 @@ class TestGetSummary:
         body = _body(result)
         assert body["debates"]["total"] == 0
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_cost_by_provider(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -864,7 +926,9 @@ class TestGetROI:
     @patch("aragora.billing.roi_calculator.IndustryBenchmark")
     @patch("aragora.billing.roi_calculator.DebateROIInput")
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
-    def test_roi_with_hourly_rate(self, mock_ct, mock_input, mock_benchmark, mock_roi_calc, handler):
+    def test_roi_with_hourly_rate(
+        self, mock_ct, mock_input, mock_benchmark, mock_roi_calc, handler
+    ):
         stats = _make_workspace_stats(api_calls=100, total_cost="10.00")
         mock_ct.return_value = _make_mock_cost_tracker(workspace_stats=stats)
         mock_benchmark.side_effect = lambda v: v
@@ -1064,7 +1128,9 @@ class TestGetBudgetStatus:
 class TestGetForecast:
     """Test the usage forecast endpoint."""
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_forecast_basic(self, mock_ct, mock_get_roi, handler):
         stats = _make_workspace_stats(api_calls=100, total_cost="10.00")
@@ -1077,7 +1143,9 @@ class TestGetForecast:
         body = _body(result)
         assert isinstance(body, (dict, list))  # forecast data unwrapped
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_forecast_zero_api_calls(self, mock_ct, mock_get_roi, handler):
         stats = _make_workspace_stats(api_calls=0, total_cost="0")
@@ -1092,7 +1160,9 @@ class TestGetForecast:
         call_kwargs = calc.estimate_future_savings.call_args
         assert call_kwargs[1]["projected_debates_per_month"] == 5
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_forecast_with_benchmark(self, mock_ct, mock_get_roi, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -1118,7 +1188,9 @@ class TestGetForecast:
 class TestGetBenchmarks:
     """Test the benchmarks comparison endpoint."""
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     def test_benchmarks_basic(self, mock_get_roi, handler):
         calc = _make_mock_roi_calculator()
         mock_get_roi.return_value = calc
@@ -1128,7 +1200,9 @@ class TestGetBenchmarks:
         body = _body(result)
         assert "benchmarks" in body  # benchmarks data has benchmarks key
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     def test_benchmarks_contains_data(self, mock_get_roi, handler):
         calc = _make_mock_roi_calculator()
         mock_get_roi.return_value = calc
@@ -1178,7 +1252,9 @@ class TestExportJSON:
         assert "by_agent" in body
         assert "by_model" in body
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_export_json_with_roi(self, mock_ct, mock_get_roi, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -1281,7 +1357,9 @@ class TestExportCSV:
         assert "Cost by Model" in csv_content
         assert "claude-3-opus" in csv_content
 
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_export_csv_with_roi(self, mock_ct, mock_get_roi, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
@@ -1463,16 +1541,22 @@ class TestGetROICalculator:
 class TestEdgeCases:
     """Test various edge cases."""
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_with_custom_period(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()
         mock_ut.return_value = _make_mock_usage_tracker(summary=MockUsageSummary(total_debates=10))
-        h = _make_handler(query_params={
-            "start": "2025-01-01T00:00:00+00:00",
-            "end": "2025-01-31T23:59:59+00:00",
-        })
+        h = _make_handler(
+            query_params={
+                "start": "2025-01-01T00:00:00+00:00",
+                "end": "2025-01-31T23:59:59+00:00",
+            }
+        )
         result = handler.handle("/api/v1/usage/summary", {}, h)
         assert _status(result) == 200
         body = _body(result)
@@ -1480,10 +1564,16 @@ class TestEdgeCases:
         assert "2025-01-01" in period["start"]
         assert "2025-01-31" in period["end"]
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
-    def test_summary_usage_summary_no_cost_by_provider_attr(self, mock_ct, mock_ut, mock_consensus, handler):
+    def test_summary_usage_summary_no_cost_by_provider_attr(
+        self, mock_ct, mock_ut, mock_consensus, handler
+    ):
         """Usage summary without cost_by_provider returns empty dict."""
         mock_ct.return_value = _make_mock_cost_tracker()
 
@@ -1520,8 +1610,12 @@ class TestEdgeCases:
         assert "Period Start" in csv_content
         assert "Period End" in csv_content
 
-    @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
-    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_summary_debates_per_day_rounded(self, mock_ct, mock_ut, mock_consensus, handler):
         mock_ct.return_value = _make_mock_cost_tracker()

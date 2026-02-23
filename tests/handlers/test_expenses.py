@@ -351,16 +351,18 @@ class TestListExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_list_expenses({
-                "category": "travel",
-                "status": "pending",
-                "vendor": "Acme",
-                "start_date": "2025-01-01",
-                "end_date": "2025-12-31",
-                "employee_id": "emp-1",
-                "limit": "50",
-                "offset": "10",
-            })
+            result = await handle_list_expenses(
+                {
+                    "category": "travel",
+                    "status": "pending",
+                    "vendor": "Acme",
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-12-31",
+                    "employee_id": "emp-1",
+                    "limit": "50",
+                    "offset": "10",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -369,10 +371,12 @@ class TestListExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_list_expenses({
-                "start_date": "not-a-date",
-                "end_date": "also-not-a-date",
-            })
+            result = await handle_list_expenses(
+                {
+                    "start_date": "not-a-date",
+                    "end_date": "also-not-a-date",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -409,9 +413,7 @@ class TestListExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses", {}, None)
         assert _status(result) == 200
         body = _body(result)
         assert "expenses" in body
@@ -472,9 +474,7 @@ class TestGetExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses/exp-001", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses/exp-001", {}, None)
         assert _status(result) == 200
         body = _body(result)
         assert "expense" in body
@@ -505,10 +505,12 @@ class TestGetExpenseStats:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_get_expense_stats({
-                "start_date": "2025-01-01",
-                "end_date": "2025-12-31",
-            })
+            result = await handle_get_expense_stats(
+                {
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-12-31",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -517,9 +519,11 @@ class TestGetExpenseStats:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_get_expense_stats({
-                "start_date": "bad-date",
-            })
+            result = await handle_get_expense_stats(
+                {
+                    "start_date": "bad-date",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -549,9 +553,7 @@ class TestGetExpenseStats:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses/stats", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses/stats", {}, None)
         assert _status(result) == 200
 
 
@@ -590,9 +592,7 @@ class TestGetPendingApprovals:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses/pending", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses/pending", {}, None)
         assert _status(result) == 200
 
 
@@ -651,10 +651,12 @@ class TestExportExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_export_expenses({
-                "start_date": "2025-01-01",
-                "end_date": "2025-12-31",
-            })
+            result = await handle_export_expenses(
+                {
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-12-31",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -672,9 +674,7 @@ class TestExportExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses/export", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses/export", {}, None)
         assert _status(result) == 200
 
 
@@ -693,10 +693,12 @@ class TestUploadReceipt:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_upload_receipt({
-                "receipt_data": receipt_data,
-                "content_type": "image/png",
-            })
+            result = await handle_upload_receipt(
+                {
+                    "receipt_data": receipt_data,
+                    "content_type": "image/png",
+                }
+            )
         body = _body(result)
         assert _status(result) == 200
         assert "expense" in body
@@ -726,9 +728,11 @@ class TestUploadReceipt:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_upload_receipt({
-                "receipt_data": "not!valid!base64!!!",
-            })
+            result = await handle_upload_receipt(
+                {
+                    "receipt_data": "not!valid!base64!!!",
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -738,10 +742,12 @@ class TestUploadReceipt:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_upload_receipt({
-                "receipt_data": receipt_data,
-                "content_type": "text/html",
-            })
+            result = await handle_upload_receipt(
+                {
+                    "receipt_data": receipt_data,
+                    "content_type": "text/html",
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -751,10 +757,12 @@ class TestUploadReceipt:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_upload_receipt({
-                "receipt_data": receipt_data,
-                "employee_id": 999,
-            })
+            result = await handle_upload_receipt(
+                {
+                    "receipt_data": receipt_data,
+                    "employee_id": 999,
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -765,10 +773,12 @@ class TestUploadReceipt:
                 "aragora.server.handlers.expenses.get_expense_tracker",
                 return_value=mock_tracker,
             ):
-                result = await handle_upload_receipt({
-                    "receipt_data": receipt_data,
-                    "content_type": ct,
-                })
+                result = await handle_upload_receipt(
+                    {
+                        "receipt_data": receipt_data,
+                        "content_type": ct,
+                    }
+                )
             assert _status(result) == 200, f"Failed for content_type={ct}"
 
     @pytest.mark.asyncio
@@ -778,10 +788,12 @@ class TestUploadReceipt:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_upload_receipt({
-                "receipt_data": receipt_data,
-                "payment_method": "bitcoin",
-            })
+            result = await handle_upload_receipt(
+                {
+                    "receipt_data": receipt_data,
+                    "payment_method": "bitcoin",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -823,10 +835,12 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Office Depot",
-                "amount": 99.99,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Office Depot",
+                    "amount": 99.99,
+                }
+            )
         body = _body(result)
         assert _status(result) == 200
         assert "expense" in body
@@ -856,10 +870,12 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "x" * 501,
-                "amount": 50.00,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "x" * 501,
+                    "amount": 50.00,
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -877,10 +893,12 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": "not-a-number",
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": "not-a-number",
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -889,10 +907,12 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": -10.0,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": -10.0,
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -901,10 +921,12 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 2_000_000_000,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 2_000_000_000,
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -913,11 +935,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "date": "not-a-date",
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "date": "not-a-date",
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -926,11 +950,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "date": 12345,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "date": 12345,
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -939,11 +965,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "description": "x" * 5001,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "description": "x" * 5001,
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -952,11 +980,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "tags": "not-a-list",
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "tags": "not-a-list",
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -965,11 +995,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "tags": [f"tag-{i}" for i in range(51)],
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "tags": [f"tag-{i}" for i in range(51)],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -978,11 +1010,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "tags": ["x" * 101],
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "tags": ["x" * 101],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -991,11 +1025,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "tags": [123],
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "tags": [123],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1004,11 +1040,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "category": "travel",
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "category": "travel",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1018,11 +1056,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "category": "invalid_category",
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "category": "invalid_category",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1031,11 +1071,13 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-                "payment_method": "gold_bullion",
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                    "payment_method": "gold_bullion",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1044,17 +1086,19 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Office Depot",
-                "amount": 99.99,
-                "date": "2025-06-15T10:00:00Z",
-                "category": "office_supplies",
-                "payment_method": "credit_card",
-                "description": "Monthly supplies",
-                "employee_id": "emp-001",
-                "is_reimbursable": True,
-                "tags": ["monthly", "supplies"],
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Office Depot",
+                    "amount": 99.99,
+                    "date": "2025-06-15T10:00:00Z",
+                    "category": "office_supplies",
+                    "payment_method": "credit_card",
+                    "description": "Monthly supplies",
+                    "employee_id": "emp-001",
+                    "is_reimbursable": True,
+                    "tags": ["monthly", "supplies"],
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1064,10 +1108,12 @@ class TestCreateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_create_expense({
-                "vendor_name": "Acme",
-                "amount": 50.0,
-            })
+            result = await handle_create_expense(
+                {
+                    "vendor_name": "Acme",
+                    "amount": 50.0,
+                }
+            )
         assert _status(result) == 500
 
     async def test_create_via_handler_post(self, handler, mock_tracker):
@@ -1097,10 +1143,13 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "vendor_name": "New Vendor",
-                "amount": 200.0,
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "vendor_name": "New Vendor",
+                    "amount": 200.0,
+                },
+            )
         body = _body(result)
         assert _status(result) == 200
         assert body["message"] == "Expense updated successfully"
@@ -1140,9 +1189,12 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "vendor_name": "x" * 501,
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "vendor_name": "x" * 501,
+                },
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1178,9 +1230,12 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "description": "x" * 5001,
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "description": "x" * 5001,
+                },
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1198,9 +1253,12 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "tags": [f"tag-{i}" for i in range(51)],
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "tags": [f"tag-{i}" for i in range(51)],
+                },
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1209,9 +1267,12 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "tags": ["x" * 101],
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "tags": ["x" * 101],
+                },
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1220,9 +1281,12 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "category": "nonexistent",
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "category": "nonexistent",
+                },
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1231,9 +1295,12 @@ class TestUpdateExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_update_expense("exp-001", {
-                "status": "nonexistent",
-            })
+            result = await handle_update_expense(
+                "exp-001",
+                {
+                    "status": "nonexistent",
+                },
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1427,9 +1494,12 @@ class TestRejectExpense:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_reject_expense("exp-001", {
-                "reason": "x" * 1001,
-            })
+            result = await handle_reject_expense(
+                "exp-001",
+                {
+                    "reason": "x" * 1001,
+                },
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1474,9 +1544,11 @@ class TestCategorizeExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_categorize_expenses({
-                "expense_ids": ["exp-001"],
-            })
+            result = await handle_categorize_expenses(
+                {
+                    "expense_ids": ["exp-001"],
+                }
+            )
         body = _body(result)
         assert _status(result) == 200
         assert body["count"] == 1
@@ -1523,9 +1595,11 @@ class TestCategorizeExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_categorize_expenses({
-                "expense_ids": [f"exp-{i}" for i in range(1001)],
-            })
+            result = await handle_categorize_expenses(
+                {
+                    "expense_ids": [f"exp-{i}" for i in range(1001)],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1534,9 +1608,11 @@ class TestCategorizeExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_categorize_expenses({
-                "expense_ids": [123],
-            })
+            result = await handle_categorize_expenses(
+                {
+                    "expense_ids": [123],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1545,9 +1621,11 @@ class TestCategorizeExpenses:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_categorize_expenses({
-                "expense_ids": ["x" * 101],
-            })
+            result = await handle_categorize_expenses(
+                {
+                    "expense_ids": ["x" * 101],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1587,9 +1665,11 @@ class TestSyncToQBO:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_sync_to_qbo({
-                "expense_ids": ["exp-001", "exp-002"],
-            })
+            result = await handle_sync_to_qbo(
+                {
+                    "expense_ids": ["exp-001", "exp-002"],
+                }
+            )
         body = _body(result)
         assert _status(result) == 200
         assert "result" in body
@@ -1632,9 +1712,11 @@ class TestSyncToQBO:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handle_sync_to_qbo({
-                "expense_ids": [f"exp-{i}" for i in range(501)],
-            })
+            result = await handle_sync_to_qbo(
+                {
+                    "expense_ids": [f"exp-{i}" for i in range(501)],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1813,9 +1895,7 @@ class TestHandlerRouteNotFound:
     """Tests for 404 on unmatched routes."""
 
     async def test_get_unknown_route(self, handler):
-        result = await handler.handle(
-            "/api/v1/accounting/expenses/exp-1/unknown", {}, None
-        )
+        result = await handler.handle("/api/v1/accounting/expenses/exp-1/unknown", {}, None)
         assert _status(result) == 404
 
     async def test_post_unknown_route(self, handler, mock_tracker):
@@ -1833,9 +1913,7 @@ class TestHandlerRouteNotFound:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle_put(
-                "/api/v1/accounting", {}, None
-            )
+            result = await handler.handle_put("/api/v1/accounting", {}, None)
         assert _status(result) == 404
 
     async def test_delete_no_expense_id(self, handler, mock_tracker):
@@ -1843,9 +1921,7 @@ class TestHandlerRouteNotFound:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle_delete(
-                "/api/v1/accounting", {}, None
-            )
+            result = await handler.handle_delete("/api/v1/accounting", {}, None)
         assert _status(result) == 404
 
     async def test_get_approve_path_returns_404(self, handler, mock_tracker):
@@ -1854,9 +1930,7 @@ class TestHandlerRouteNotFound:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses/exp-001/approve", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses/exp-001/approve", {}, None)
         assert _status(result) == 404
 
     async def test_get_reject_path_returns_404(self, handler, mock_tracker):
@@ -1865,7 +1939,5 @@ class TestHandlerRouteNotFound:
             "aragora.server.handlers.expenses.get_expense_tracker",
             return_value=mock_tracker,
         ):
-            result = await handler.handle(
-                "/api/v1/accounting/expenses/exp-001/reject", {}, None
-            )
+            result = await handler.handle("/api/v1/accounting/expenses/exp-001/reject", {}, None)
         assert _status(result) == 404

@@ -332,7 +332,11 @@ class ExternalAgentProxy:
             except (RuntimeError, OSError, ConnectionError, ValueError) as e:
                 last_error = e
                 logger.warning(
-                    "%s failed: %s, attempt %s/%s", operation, e, attempt + 1, self._config.max_retries
+                    "%s failed: %s, attempt %s/%s",
+                    operation,
+                    e,
+                    attempt + 1,
+                    self._config.max_retries,
                 )
 
             if attempt < self._config.max_retries - 1:

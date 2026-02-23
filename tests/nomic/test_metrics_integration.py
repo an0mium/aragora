@@ -191,9 +191,15 @@ class TestEnrichContextWithMetrics:
 
         snap = enriched.metric_snapshot
         expected_keys = {
-            "files_count", "total_lines", "lint_errors",
-            "tests_passed", "tests_failed", "tests_errors",
-            "tests_skipped", "test_coverage", "timestamp",
+            "files_count",
+            "total_lines",
+            "lint_errors",
+            "tests_passed",
+            "tests_failed",
+            "tests_errors",
+            "tests_skipped",
+            "test_coverage",
+            "timestamp",
         }
         assert expected_keys.issubset(set(snap.keys()))
 
@@ -267,9 +273,7 @@ class TestEnrichContextWithMetrics:
 class TestDebateTopicMetrics:
     """Tests for codebase metrics section in _build_debate_topic."""
 
-    def _build_topic(
-        self, metric_snapshot: dict[str, Any] | None = None
-    ) -> str:
+    def _build_topic(self, metric_snapshot: dict[str, Any] | None = None) -> str:
         planner = MetaPlanner()
         context = PlanningContext()
         if metric_snapshot is not None:
@@ -303,11 +307,13 @@ class TestDebateTopicMetrics:
 
     def test_pass_rate_formatted_as_percentage(self):
         """Test pass rate should appear as a percentage."""
-        topic = self._build_topic({
-            "tests_passed": 900,
-            "tests_failed": 100,
-            "tests_errors": 0,
-        })
+        topic = self._build_topic(
+            {
+                "tests_passed": 900,
+                "tests_failed": 100,
+                "tests_errors": 0,
+            }
+        )
         assert "90%" in topic
 
     def test_files_count_in_topic(self):
@@ -371,9 +377,7 @@ class TestPipelineBaselineAfter:
     @pytest.mark.asyncio
     async def test_capture_baseline_stashes_collector(self):
         """_capture_baseline stores collector on self._metrics_collector."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_metrics=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_metrics=True))
 
         mock_snapshot = MagicMock()
         mock_snapshot.to_dict.return_value = {"files_count": 50}
@@ -400,9 +404,7 @@ class TestPipelineBaselineAfter:
     @pytest.mark.asyncio
     async def test_capture_after_reuses_collector(self):
         """_capture_after should reuse the collector stashed by _capture_baseline."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_metrics=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_metrics=True))
 
         mock_snapshot = MagicMock()
         mock_snapshot.to_dict.return_value = {"files_count": 50}
@@ -424,9 +426,7 @@ class TestPipelineBaselineAfter:
     @pytest.mark.asyncio
     async def test_capture_after_creates_collector_if_none(self):
         """_capture_after creates a new collector if none was stashed."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_metrics=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_metrics=True))
         # No _metrics_collector stashed
 
         mock_snapshot = MagicMock()
@@ -454,9 +454,7 @@ class TestPipelineBaselineAfter:
     @pytest.mark.asyncio
     async def test_capture_baseline_returns_none_when_both_fail(self):
         """_capture_baseline returns None when debate and codebase both fail."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_metrics=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_metrics=True))
 
         with (
             patch.dict(
@@ -511,10 +509,16 @@ class TestPipelineBaselineAfter:
         pipeline = SelfImprovePipeline()
 
         base_snap = MetricSnapshot(
-            timestamp=time.time(), tests_passed=100, tests_failed=5, lint_errors=10,
+            timestamp=time.time(),
+            tests_passed=100,
+            tests_failed=5,
+            lint_errors=10,
         )
         after_snap = MetricSnapshot(
-            timestamp=time.time(), tests_passed=105, tests_failed=3, lint_errors=8,
+            timestamp=time.time(),
+            tests_passed=105,
+            tests_failed=3,
+            lint_errors=8,
         )
 
         baseline = {"debate": None, "codebase": base_snap.to_dict()}
@@ -540,10 +544,16 @@ class TestPipelineBaselineAfter:
         pipeline = SelfImprovePipeline()
 
         base_snap = MetricSnapshot(
-            timestamp=time.time(), lint_errors=20, tests_passed=100, tests_failed=10,
+            timestamp=time.time(),
+            lint_errors=20,
+            tests_passed=100,
+            tests_failed=10,
         )
         after_snap = MetricSnapshot(
-            timestamp=time.time(), lint_errors=0, tests_passed=110, tests_failed=0,
+            timestamp=time.time(),
+            lint_errors=0,
+            tests_passed=110,
+            tests_failed=0,
         )
 
         baseline = {"debate": None, "codebase": base_snap.to_dict()}
@@ -885,9 +895,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_capture_baseline_survives_collector_oserror(self):
         """OSError during baseline collection should not crash the pipeline."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_metrics=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_metrics=True))
 
         mock_module = ModuleType("aragora.nomic.metrics_collector")
         mock_module.MetricsCollectorConfig = MagicMock()  # type: ignore[attr-defined]
@@ -910,9 +918,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_capture_after_survives_import_error(self):
         """ImportError for metrics_collector during after capture should be handled."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_codebase_metrics=True)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_metrics=True))
 
         with (
             patch.dict("sys.modules", {"aragora.nomic.metrics_collector": None}),

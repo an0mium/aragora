@@ -101,20 +101,24 @@ def _make_impl(**overrides) -> MagicMock:
     """
     impl = MagicMock()
     # Provider client-id getters default to None (disabled)
-    impl._get_google_client_id.return_value = overrides.get("google", None)
-    impl._get_github_client_id.return_value = overrides.get("github", None)
-    impl._get_microsoft_client_id.return_value = overrides.get("microsoft", None)
-    impl._get_apple_client_id.return_value = overrides.get("apple", None)
-    impl._get_oidc_issuer.return_value = overrides.get("oidc_issuer", None)
-    impl._get_oidc_client_id.return_value = overrides.get("oidc_client", None)
+    impl._get_google_client_id.return_value = overrides.get("google")
+    impl._get_github_client_id.return_value = overrides.get("github")
+    impl._get_microsoft_client_id.return_value = overrides.get("microsoft")
+    impl._get_apple_client_id.return_value = overrides.get("apple")
+    impl._get_oidc_issuer.return_value = overrides.get("oidc_issuer")
+    impl._get_oidc_client_id.return_value = overrides.get("oidc_client")
 
     # Constants used in link_account URL construction
-    impl.GOOGLE_CLIENT_ID = overrides.get("GOOGLE_CLIENT_ID", None)
-    impl.GOOGLE_AUTH_URL = overrides.get("GOOGLE_AUTH_URL", "https://accounts.google.com/o/oauth2/v2/auth")
+    impl.GOOGLE_CLIENT_ID = overrides.get("GOOGLE_CLIENT_ID")
+    impl.GOOGLE_AUTH_URL = overrides.get(
+        "GOOGLE_AUTH_URL", "https://accounts.google.com/o/oauth2/v2/auth"
+    )
     impl._get_google_redirect_uri.return_value = "http://localhost/callback/google"
 
-    impl.GITHUB_CLIENT_ID = overrides.get("GITHUB_CLIENT_ID", None)
-    impl.GITHUB_AUTH_URL = overrides.get("GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize")
+    impl.GITHUB_CLIENT_ID = overrides.get("GITHUB_CLIENT_ID")
+    impl.GITHUB_AUTH_URL = overrides.get(
+        "GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize"
+    )
     impl._get_github_redirect_uri.return_value = "http://localhost/callback/github"
 
     impl.MICROSOFT_AUTH_URL_TEMPLATE = overrides.get(
@@ -124,7 +128,9 @@ def _make_impl(**overrides) -> MagicMock:
     impl._get_microsoft_redirect_uri.return_value = "http://localhost/callback/microsoft"
     impl._get_microsoft_tenant.return_value = "common"
 
-    impl.APPLE_AUTH_URL = overrides.get("APPLE_AUTH_URL", "https://appleid.apple.com/auth/authorize")
+    impl.APPLE_AUTH_URL = overrides.get(
+        "APPLE_AUTH_URL", "https://appleid.apple.com/auth/authorize"
+    )
     impl._get_apple_redirect_uri.return_value = "http://localhost/callback/apple"
 
     impl._get_oidc_redirect_uri.return_value = "http://localhost/callback/oidc"
@@ -224,8 +230,12 @@ class TestHandleListProviders:
 
     def test_all_providers_configured(self, host, handler):
         impl = _make_impl(
-            google="g", github="gh", microsoft="ms", apple="ap",
-            oidc_issuer="https://iss", oidc_client="oc",
+            google="g",
+            github="gh",
+            microsoft="ms",
+            apple="ap",
+            oidc_issuer="https://iss",
+            oidc_client="oc",
         )
         with patch(IMPL_PATCH, return_value=impl):
             result = host._handle_list_providers(handler)
@@ -271,13 +281,16 @@ class TestHandleOAuthUrl:
         assert body["auth_url"] == "https://google.com/auth?state=abc123"
         assert body["state"] == "abc123"
 
-    @pytest.mark.parametrize("provider,method_attr", [
-        ("google", "_handle_google_auth_start"),
-        ("github", "_handle_github_auth_start"),
-        ("microsoft", "_handle_microsoft_auth_start"),
-        ("apple", "_handle_apple_auth_start"),
-        ("oidc", "_handle_oidc_auth_start"),
-    ])
+    @pytest.mark.parametrize(
+        "provider,method_attr",
+        [
+            ("google", "_handle_google_auth_start"),
+            ("github", "_handle_github_auth_start"),
+            ("microsoft", "_handle_microsoft_auth_start"),
+            ("apple", "_handle_apple_auth_start"),
+            ("oidc", "_handle_oidc_auth_start"),
+        ],
+    )
     def test_each_provider_dispatches_correctly(self, host, handler, provider, method_attr):
         auth_result = MagicMock()
         auth_result.headers = {"Location": f"https://example.com/{provider}?state=s123"}
@@ -394,13 +407,16 @@ class TestHandleOAuthCallbackApi:
         assert _status(result) == 200
         assert _body(result)["access_token"] == "tok123"
 
-    @pytest.mark.parametrize("provider,method_attr", [
-        ("google", "_handle_google_callback"),
-        ("github", "_handle_github_callback"),
-        ("microsoft", "_handle_microsoft_callback"),
-        ("apple", "_handle_apple_callback"),
-        ("oidc", "_handle_oidc_callback"),
-    ])
+    @pytest.mark.parametrize(
+        "provider,method_attr",
+        [
+            ("google", "_handle_google_callback"),
+            ("github", "_handle_github_callback"),
+            ("microsoft", "_handle_microsoft_callback"),
+            ("apple", "_handle_apple_callback"),
+            ("oidc", "_handle_oidc_callback"),
+        ],
+    )
     def test_each_provider_dispatches_correctly(self, host, handler, provider, method_attr):
         cb_result = MagicMock()
         cb_result.headers = {
@@ -441,9 +457,7 @@ class TestHandleOAuthCallbackApi:
 
     def test_error_in_redirect_fragment_returns_400(self, host, handler):
         cb_result = MagicMock()
-        cb_result.headers = {
-            "Location": "http://localhost/error#error=access_denied"
-        }
+        cb_result.headers = {"Location": "http://localhost/error#error=access_denied"}
         host._handle_google_callback.return_value = cb_result
         host.read_json_body.return_value = {"provider": "google", "code": "c", "state": "s"}
 
@@ -453,9 +467,7 @@ class TestHandleOAuthCallbackApi:
 
     def test_error_in_query_params_returns_400(self, host, handler):
         cb_result = MagicMock()
-        cb_result.headers = {
-            "Location": "http://localhost/error?error=invalid_scope"
-        }
+        cb_result.headers = {"Location": "http://localhost/error?error=invalid_scope"}
         host._handle_google_callback.return_value = cb_result
         host.read_json_body.return_value = {"provider": "google", "code": "c", "state": "s"}
 
@@ -510,9 +522,7 @@ class TestHandleOAuthCallbackApi:
 
     def test_default_token_type_is_bearer(self, host, handler):
         cb_result = MagicMock()
-        cb_result.headers = {
-            "Location": "http://localhost/success#access_token=at"
-        }
+        cb_result.headers = {"Location": "http://localhost/success#access_token=at"}
         host._handle_google_callback.return_value = cb_result
         host.read_json_body.return_value = {"provider": "google", "code": "c", "state": "s"}
 
@@ -642,8 +652,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl()
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 400
         assert "json" in _body(result)["error"].lower()
@@ -654,21 +663,22 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl()
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 400
         assert "unsupported" in _body(result)["error"].lower()
 
     def test_invalid_redirect_url_returns_400(self, host, handler):
-        host.read_json_body.return_value = {"provider": "google", "redirect_url": "https://evil.com"}
+        host.read_json_body.return_value = {
+            "provider": "google",
+            "redirect_url": "https://evil.com",
+        }
         user_store = MagicMock()
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl(GOOGLE_CLIENT_ID="gid")
         impl._validate_redirect_url.return_value = False
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 400
         assert "redirect" in _body(result)["error"].lower()
@@ -679,8 +689,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl(GOOGLE_CLIENT_ID=None)
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
         assert "google" in _body(result)["error"].lower()
@@ -691,8 +700,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("user-link-g")
         impl = _make_impl(GOOGLE_CLIENT_ID="g-client-id")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -700,7 +708,9 @@ class TestHandleLinkAccount:
         assert "accounts.google.com" in body["auth_url"]
         assert "g-client-id" in body["auth_url"]
         assert "state=mock-state-token" in body["auth_url"]
-        assert "scope=openid+email+profile" in body["auth_url"] or "scope=openid" in body["auth_url"]
+        assert (
+            "scope=openid+email+profile" in body["auth_url"] or "scope=openid" in body["auth_url"]
+        )
 
     def test_link_github_not_configured_returns_503(self, host, handler):
         host.read_json_body.return_value = {"provider": "github"}
@@ -708,8 +718,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl(GITHUB_CLIENT_ID=None)
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
 
@@ -719,8 +728,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("user-gh")
         impl = _make_impl(GITHUB_CLIENT_ID="gh-id")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -734,8 +742,7 @@ class TestHandleLinkAccount:
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl()
         impl._get_microsoft_client_id.return_value = None
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
 
@@ -746,8 +753,7 @@ class TestHandleLinkAccount:
         auth_ctx = _mock_auth_ctx("user-ms")
         impl = _make_impl()
         impl._get_microsoft_client_id.return_value = "ms-client"
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -762,8 +768,7 @@ class TestHandleLinkAccount:
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl()
         impl._get_apple_client_id.return_value = None
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
 
@@ -774,8 +779,7 @@ class TestHandleLinkAccount:
         auth_ctx = _mock_auth_ctx("user-ap")
         impl = _make_impl()
         impl._get_apple_client_id.return_value = "apple-client"
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -791,8 +795,7 @@ class TestHandleLinkAccount:
         impl = _make_impl()
         impl._get_oidc_issuer.return_value = None
         impl._get_oidc_client_id.return_value = None
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
 
@@ -805,8 +808,7 @@ class TestHandleLinkAccount:
         impl._get_oidc_issuer.return_value = "https://issuer.example.com"
         impl._get_oidc_client_id.return_value = "oidc-client"
         host._get_oidc_discovery.return_value = None
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
         assert "discovery" in _body(result)["error"].lower()
@@ -820,8 +822,7 @@ class TestHandleLinkAccount:
         impl._get_oidc_issuer.return_value = "https://issuer.example.com"
         impl._get_oidc_client_id.return_value = "oidc-client"
         host._get_oidc_discovery.return_value = {"token_endpoint": "https://issuer/token"}
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 503
 
@@ -836,8 +837,7 @@ class TestHandleLinkAccount:
         host._get_oidc_discovery.return_value = {
             "authorization_endpoint": "https://issuer.example.com/authorize"
         }
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -853,8 +853,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("user-redir")
         impl = _make_impl(GOOGLE_CLIENT_ID="gid")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         # Verify _generate_state was called with the custom redirect_url
@@ -868,8 +867,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("user-def")
         impl = _make_impl(GOOGLE_CLIENT_ID="gid")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
         impl._generate_state.assert_called_once_with(
@@ -883,8 +881,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl(GOOGLE_CLIENT_ID="gid")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 200
 
@@ -894,8 +891,7 @@ class TestHandleLinkAccount:
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx()
         impl = _make_impl()
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(IMPL_PATCH, return_value=impl):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(IMPL_PATCH, return_value=impl):
             result = host._handle_link_account(handler)
         assert _status(result) == 400
 
@@ -980,8 +976,7 @@ class TestHandleUnlinkAccount:
         user_store.unlink_oauth_provider.return_value = True
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("user-unlink")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(AUDIT_PATCH) as mock_audit:
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(AUDIT_PATCH) as mock_audit:
             result = host._handle_unlink_account(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -1019,8 +1014,7 @@ class TestHandleUnlinkAccount:
         user_store.get_user_by_id = MagicMock(return_value=user)
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("user-no-support")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(AUDIT_PATCH) as mock_audit:
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(AUDIT_PATCH) as mock_audit:
             result = host._handle_unlink_account(handler)
         assert _status(result) == 200
         assert "apple" in _body(result)["message"].lower()
@@ -1036,8 +1030,7 @@ class TestHandleUnlinkAccount:
         user_store.unlink_oauth_provider.return_value = True
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("u1")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(AUDIT_PATCH):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(AUDIT_PATCH):
             result = host._handle_unlink_account(handler)
         assert _status(result) == 200
         assert provider in _body(result)["message"]
@@ -1051,8 +1044,7 @@ class TestHandleUnlinkAccount:
         user_store.unlink_oauth_provider.return_value = True
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("u1")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(AUDIT_PATCH):
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(AUDIT_PATCH):
             result = host._handle_unlink_account(handler)
         assert _status(result) == 200
         user_store.unlink_oauth_provider.assert_called_once_with("u1", "github")
@@ -1066,13 +1058,15 @@ class TestHandleUnlinkAccount:
         user_store.unlink_oauth_provider.return_value = True
         host._get_user_store.return_value = user_store
         auth_ctx = _mock_auth_ctx("u-audit")
-        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), \
-             patch(AUDIT_PATCH) as mock_audit:
+        with patch(EXTRACT_USER_PATCH, return_value=auth_ctx), patch(AUDIT_PATCH) as mock_audit:
             result = host._handle_unlink_account(handler)
         assert _status(result) == 200
         mock_audit.assert_called_once()
         call_kwargs = mock_audit.call_args
-        assert call_kwargs.kwargs.get("provider") == "microsoft" or call_kwargs[1].get("provider") == "microsoft"
+        assert (
+            call_kwargs.kwargs.get("provider") == "microsoft"
+            or call_kwargs[1].get("provider") == "microsoft"
+        )
 
     def test_missing_provider_key_returns_400(self, host, handler):
         """Body has no provider key at all -> empty string lowered -> unsupported."""

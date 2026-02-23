@@ -124,7 +124,11 @@ class KnowledgePruningStep(BaseStep):
             )
 
             logger.info(
-                "Pruning complete for '%s': %s/%s items (%s)", workspace_id, result.items_pruned, result.items_analyzed, 'dry run' if dry_run else 'executed'
+                "Pruning complete for '%s': %s/%s items (%s)",
+                workspace_id,
+                result.items_pruned,
+                result.items_analyzed,
+                "dry run" if dry_run else "executed",
             )
 
             return {
@@ -223,7 +227,10 @@ class KnowledgeDedupStep(BaseStep):
                 result_data["duplicates_removed"] = merge_result.get("duplicates_found", 0)
 
             logger.info(
-                "Dedup complete for '%s': %s clusters found, %s merged", workspace_id, report.duplicate_clusters_found, result_data.get('merges_performed', 0)
+                "Dedup complete for '%s': %s clusters found, %s merged",
+                workspace_id,
+                report.duplicate_clusters_found,
+                result_data.get("merges_performed", 0),
             )
 
             return result_data

@@ -750,7 +750,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     def _handle_removed_from_space(self, event: dict[str, Any]) -> HandlerResult:
         """Handle bot removed from space."""
         space = event.get("space", {})
-        logger.info("Bot removed from space: %s", space.get('name'))
+        logger.info("Bot removed from space: %s", space.get("name"))
         return json_response({})
 
     # ==========================================================================
@@ -1051,7 +1051,9 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             router = get_decision_router()
             result = await router.route(request)
             if result and result.success:
-                logger.info("DecisionRouter completed debate for Google Chat: %s", result.request_id)
+                logger.info(
+                    "DecisionRouter completed debate for Google Chat: %s", result.request_id
+                )
                 return  # Response handler will post the result
             else:
                 logger.warning("DecisionRouter returned unsuccessful result, falling back")

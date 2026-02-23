@@ -287,14 +287,10 @@ class StrategicHandlersMixin:
                 engine.pause_all(
                     reason=f"Emergency brake: {reason}",
                 )
-                logger.warning(
-                    "Paused all workflows due to critical alert %s", alert_id
-                )
+                logger.warning("Paused all workflows due to critical alert %s", alert_id)
             elif hasattr(engine, "emergency_stop"):
                 engine.emergency_stop(reason=f"Alert escalation: {reason}")
-                logger.warning(
-                    "Emergency stopped workflows due to critical alert %s", alert_id
-                )
+                logger.warning("Emergency stopped workflows due to critical alert %s", alert_id)
         except ImportError:
             pass  # Workflow engine not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
@@ -335,14 +331,14 @@ class StrategicHandlersMixin:
                 # Fallback: store adjustments for TeamSelector to query
                 if not hasattr(TeamSelector, "_meta_learning_state"):
                     TeamSelector._meta_learning_state = {}
-                TeamSelector._meta_learning_state.update({
-                    "adjustments": adjustments,
-                    "learning_rate": learning_rate,
-                    "total_adjustments": total_adjustments,
-                })
-                logger.debug(
-                    "Stored meta-learning state for team selection (fallback)"
+                TeamSelector._meta_learning_state.update(
+                    {
+                        "adjustments": adjustments,
+                        "learning_rate": learning_rate,
+                        "total_adjustments": total_adjustments,
+                    }
                 )
+                logger.debug("Stored meta-learning state for team selection (fallback)")
         except ImportError:
             pass  # TeamSelector not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:

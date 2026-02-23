@@ -1212,7 +1212,9 @@ class PayPalClient:
         # Check 2: Webhook ID must match
         if webhook_id != self.credentials.webhook_id:
             logger.warning(
-                "SECURITY: PayPal webhook ID mismatch. Expected: %s..., Got: %s...", self.credentials.webhook_id[:8], webhook_id[:8] if webhook_id else 'None'
+                "SECURITY: PayPal webhook ID mismatch. Expected: %s..., Got: %s...",
+                self.credentials.webhook_id[:8],
+                webhook_id[:8] if webhook_id else "None",
             )
             return False
 
@@ -1270,19 +1272,23 @@ class PayPalClient:
 
             if not is_valid:
                 logger.warning(
-                    "SECURITY: PayPal webhook signature mismatch. Transmission ID: %s", transmission_id
+                    "SECURITY: PayPal webhook signature mismatch. Transmission ID: %s",
+                    transmission_id,
                 )
                 logger.debug("Signature verification failed. Input: %s...", expected_sig_input[:50])
             else:
                 logger.debug(
-                    "PayPal webhook signature verified successfully. Transmission ID: %s", transmission_id
+                    "PayPal webhook signature verified successfully. Transmission ID: %s",
+                    transmission_id,
                 )
 
             return is_valid
 
         except (ValueError, TypeError, UnicodeDecodeError, OverflowError) as e:
             logger.error(
-                "SECURITY: PayPal webhook signature verification failed with error: %s. Transmission ID: %s", e, transmission_id
+                "SECURITY: PayPal webhook signature verification failed with error: %s. Transmission ID: %s",
+                e,
+                transmission_id,
             )
             return False
 

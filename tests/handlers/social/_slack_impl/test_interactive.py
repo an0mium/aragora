@@ -242,9 +242,7 @@ class TestHandleInteractiveActionDispatch:
 
     def test_block_actions_routes_view_details(self, slack_handler):
         """block_actions with view_details routes to view details handler."""
-        payload = _block_actions_payload(
-            actions=[_view_details_action("d42")]
-        )
+        payload = _block_actions_payload(actions=[_view_details_action("d42")])
         h = _make_interactive_handler(payload=payload)
         # view_details tries to fetch debate from storage; without mock, debate won't be found
         result = slack_handler._handle_interactive(h)
@@ -254,10 +252,12 @@ class TestHandleInteractiveActionDispatch:
 
     def test_block_actions_uses_first_action_only(self, slack_handler):
         """Only the first action in the actions array is processed."""
-        payload = _block_actions_payload(actions=[
-            _vote_action("d1", "agree"),
-            _vote_action("d2", "disagree"),
-        ])
+        payload = _block_actions_payload(
+            actions=[
+                _vote_action("d1", "agree"),
+                _vote_action("d2", "disagree"),
+            ]
+        )
         h = _make_interactive_handler(payload=payload)
         result = slack_handler._handle_interactive(h)
         body = _body(result)
@@ -309,7 +309,12 @@ class TestHandleInteractiveAuditLogging:
         mock_audit = MagicMock()
         monkeypatch.setattr(interactive_module, "_get_audit_logger", lambda: mock_audit)
 
-        payload = {"type": "block_actions", "user": {"id": "U123"}, "team": {"id": "T789"}, "actions": []}
+        payload = {
+            "type": "block_actions",
+            "user": {"id": "U123"},
+            "team": {"id": "T789"},
+            "actions": [],
+        }
         h = _make_interactive_handler(payload=payload)
         slack_handler._handle_interactive(h)
 
@@ -329,7 +334,12 @@ class TestHandleInteractiveAuditLogging:
     ):
         """When audit logger is None, no error occurs."""
         monkeypatch.setattr(interactive_module, "_get_audit_logger", lambda: None)
-        payload = {"type": "block_actions", "user": {"id": "U123"}, "team": {"id": "T789"}, "actions": []}
+        payload = {
+            "type": "block_actions",
+            "user": {"id": "U123"},
+            "team": {"id": "T789"},
+            "actions": [],
+        }
         h = _make_interactive_handler(payload=payload)
         # Should not raise
         result = slack_handler._handle_interactive(h)
@@ -342,7 +352,12 @@ class TestHandleInteractiveAuditLogging:
         mock_audit = MagicMock()
         monkeypatch.setattr(interactive_module, "_get_audit_logger", lambda: mock_audit)
 
-        payload = {"type": "block_actions", "user": {"id": "U123"}, "team": {"id": "T555"}, "actions": []}
+        payload = {
+            "type": "block_actions",
+            "user": {"id": "U123"},
+            "team": {"id": "T555"},
+            "actions": [],
+        }
         h = _make_interactive_handler(payload=payload, team_id="T999")
         slack_handler._handle_interactive(h)
 
@@ -500,6 +515,7 @@ class TestHandleVoteAction:
         mock_va_module.VoteAggregator.get_instance.return_value = mock_aggregator
 
         import sys
+
         with patch.dict(sys.modules, {"aragora.debate.vote_aggregator": mock_va_module}):
             result = slack_handler._handle_vote_action(payload, action)
 
@@ -518,6 +534,7 @@ class TestHandleVoteAction:
         mock_va_module.VoteAggregator.get_instance.return_value = mock_aggregator
 
         import sys
+
         with patch.dict(sys.modules, {"aragora.debate.vote_aggregator": mock_va_module}):
             result = slack_handler._handle_vote_action(payload, action)
 
@@ -1192,13 +1209,20 @@ class TestHandleInteractiveContextExtraction:
     def test_workspace_attribute_set_on_handler(self, slack_handler):
         """Handler._slack_workspace attribute is available."""
         mock_ws = MagicMock()
-        payload = {"type": "block_actions", "user": {"id": "U1"}, "team": {"id": "T1"}, "actions": []}
+        payload = {
+            "type": "block_actions",
+            "user": {"id": "U1"},
+            "team": {"id": "T1"},
+            "actions": [],
+        }
         h = _make_interactive_handler(payload=payload, workspace=mock_ws)
         result = slack_handler._handle_interactive(h)
         # No error
         assert _body(result)["text"] == "Action received"
 
-    def test_team_id_attribute_used_as_fallback(self, slack_handler, interactive_module, monkeypatch):
+    def test_team_id_attribute_used_as_fallback(
+        self, slack_handler, interactive_module, monkeypatch
+    ):
         """_slack_team_id is used when payload has no team object."""
         mock_audit = MagicMock()
         monkeypatch.setattr(interactive_module, "_get_audit_logger", lambda: mock_audit)

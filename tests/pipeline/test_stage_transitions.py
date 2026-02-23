@@ -70,9 +70,7 @@ def action_graph():
 
 class TestPromoteNode:
     def test_promote_idea_to_goal(self, idea_graph):
-        result = promote_node(
-            idea_graph, "idea-0", PipelineStage.GOALS, "goal"
-        )
+        result = promote_node(idea_graph, "idea-0", PipelineStage.GOALS, "goal")
         assert result.stage == PipelineStage.GOALS
         assert result.node_subtype == "goal"
         assert result.parent_ids == ["idea-0"]
@@ -80,25 +78,24 @@ class TestPromoteNode:
         assert result.id in idea_graph.nodes
 
     def test_promote_creates_cross_stage_edge(self, idea_graph):
-        result = promote_node(
-            idea_graph, "idea-0", PipelineStage.GOALS, "goal"
-        )
+        result = promote_node(idea_graph, "idea-0", PipelineStage.GOALS, "goal")
         cross_edges = idea_graph.get_cross_stage_edges()
         assert len(cross_edges) == 1
         assert cross_edges[0].source_id == "idea-0"
         assert cross_edges[0].target_id == result.id
 
     def test_promote_preserves_content(self, idea_graph):
-        result = promote_node(
-            idea_graph, "idea-0", PipelineStage.GOALS, "goal"
-        )
+        result = promote_node(idea_graph, "idea-0", PipelineStage.GOALS, "goal")
         source = idea_graph.nodes["idea-0"]
         assert result.description == source.description
         assert result.previous_hash == source.content_hash
 
     def test_promote_with_custom_label(self, idea_graph):
         result = promote_node(
-            idea_graph, "idea-0", PipelineStage.GOALS, "goal",
+            idea_graph,
+            "idea-0",
+            PipelineStage.GOALS,
+            "goal",
             new_label="Custom Goal",
         )
         assert result.label == "Custom Goal"
@@ -140,8 +137,10 @@ class TestIdeasToGoals:
     def test_skips_non_idea_nodes(self, idea_graph):
         # Add a goal node and try to promote it as an idea
         goal = UniversalNode(
-            id="goal-x", stage=PipelineStage.GOALS,
-            node_subtype="goal", label="Already a goal",
+            id="goal-x",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Already a goal",
         )
         idea_graph.add_node(goal)
         result = ideas_to_goals(idea_graph, ["goal-x"])
@@ -159,12 +158,16 @@ class TestIdeasToGoals:
     def test_subtype_mapping(self, idea_graph):
         # Add different idea types
         question = UniversalNode(
-            id="q1", stage=PipelineStage.IDEAS,
-            node_subtype="question", label="What?",
+            id="q1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="question",
+            label="What?",
         )
         constraint = UniversalNode(
-            id="c1", stage=PipelineStage.IDEAS,
-            node_subtype="constraint", label="Must be fast",
+            id="c1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="constraint",
+            label="Must be fast",
         )
         idea_graph.add_node(question)
         idea_graph.add_node(constraint)
@@ -186,8 +189,10 @@ class TestGoalsToActions:
     def test_action_subtype_mapping(self, goal_graph):
         # Add milestone goal
         ms = UniversalNode(
-            id="ms-1", stage=PipelineStage.GOALS,
-            node_subtype="milestone", label="Reach milestone",
+            id="ms-1",
+            stage=PipelineStage.GOALS,
+            node_subtype="milestone",
+            label="Reach milestone",
         )
         goal_graph.add_node(ms)
         actions = goals_to_actions(goal_graph, ["ms-1"])
@@ -244,8 +249,10 @@ class TestActionsToOrchestration:
 
     def test_checkpoint_becomes_human_gate(self, action_graph):
         cp = UniversalNode(
-            id="cp-1", stage=PipelineStage.ACTIONS,
-            node_subtype="checkpoint", label="Review checkpoint",
+            id="cp-1",
+            stage=PipelineStage.ACTIONS,
+            node_subtype="checkpoint",
+            label="Review checkpoint",
         )
         action_graph.add_node(cp)
         orch = actions_to_orchestration(action_graph, ["cp-1"])
@@ -257,8 +264,10 @@ class TestFullPipelinePromotion:
         """Test promoting through all three transitions: ideas→goals→actions→orchestration."""
         graph = UniversalGraph(id="full-pipe", name="Full Pipeline")
         idea = UniversalNode(
-            id="idea-root", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Build a rate limiter",
+            id="idea-root",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Build a rate limiter",
             description="Implement token bucket rate limiting",
             confidence=0.9,
         )
@@ -299,8 +308,10 @@ class TestFullPipelinePromotion:
         """Verify content hash chains through promotions."""
         graph = UniversalGraph(id="hash-chain")
         idea = UniversalNode(
-            id="i1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test chain",
+            id="i1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test chain",
         )
         graph.add_node(idea)
 

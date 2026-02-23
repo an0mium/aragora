@@ -138,7 +138,8 @@ class CORSConfig:
             # Warn about non-HTTPS origins in production
             if is_production and parsed.scheme != "https":
                 logger.warning(
-                    "[CORS] Non-HTTPS origin '%s' configured in production. HTTPS is strongly recommended for all production origins.", origin
+                    "[CORS] Non-HTTPS origin '%s' configured in production. HTTPS is strongly recommended for all production origins.",
+                    origin,
                 )
 
         # Log configured origins at debug level

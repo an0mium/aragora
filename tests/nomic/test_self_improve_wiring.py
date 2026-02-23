@@ -261,9 +261,7 @@ class TestExecutionBridgeInCoordinatedPath:
             id: str = "st_001"
             title: str = "Refactor module"
             description: str = "Refactor the analytics module for clarity"
-            file_scope: list[str] = field(
-                default_factory=lambda: ["analytics.py", "utils.py"]
-            )
+            file_scope: list[str] = field(default_factory=lambda: ["analytics.py", "utils.py"])
             success_criteria: dict[str, Any] = field(
                 default_factory=lambda: {"test_pass_rate": ">0.95"}
             )
@@ -330,9 +328,7 @@ class TestExecutionBridgeInCoordinatedPath:
             id: str = "st_003"
             title: str = "Add tests"
             description: str = "Add tests for auth"
-            file_scope: list[str] = field(
-                default_factory=lambda: ["auth.py", "test_auth.py"]
-            )
+            file_scope: list[str] = field(default_factory=lambda: ["auth.py", "test_auth.py"])
             success_criteria: dict[str, Any] = field(default_factory=dict)
             dependencies: list[str] = field(default_factory=list)
             estimated_complexity: str = "medium"
@@ -529,18 +525,15 @@ class TestIdeaToExecutionPipelineWiring:
         }
 
         # Mock the canvas converters and bridge
-        with patch(
-            "aragora.pipeline.idea_to_execution.debate_to_ideas_canvas"
-        ) as mock_debate_canvas, patch(
-            "aragora.pipeline.km_bridge.PipelineKMBridge"
-        ) as MockBridge, patch.object(
-            pipeline, "_advance_to_goals", side_effect=lambda r: r
-        ), patch.object(
-            pipeline, "_advance_to_actions", side_effect=lambda r: r
-        ), patch.object(
-            pipeline, "_advance_to_orchestration", side_effect=lambda r: r
-        ), patch.object(
-            pipeline, "_build_universal_graph"
+        with (
+            patch(
+                "aragora.pipeline.idea_to_execution.debate_to_ideas_canvas"
+            ) as mock_debate_canvas,
+            patch("aragora.pipeline.km_bridge.PipelineKMBridge") as MockBridge,
+            patch.object(pipeline, "_advance_to_goals", side_effect=lambda r: r),
+            patch.object(pipeline, "_advance_to_actions", side_effect=lambda r: r),
+            patch.object(pipeline, "_advance_to_orchestration", side_effect=lambda r: r),
+            patch.object(pipeline, "_build_universal_graph"),
         ):
             mock_canvas = MagicMock()
             mock_canvas.nodes = {}
@@ -572,17 +565,15 @@ class TestIdeaToExecutionPipelineWiring:
 
         pipeline = IdeaToExecutionPipeline(goal_extractor=mock_extractor)
 
-        with patch(
-            "aragora.pipeline.km_bridge.PipelineKMBridge"
-        ) as MockBridge, patch.object(
-            pipeline, "_advance_to_actions", side_effect=lambda r: r
-        ), patch.object(
-            pipeline, "_advance_to_orchestration", side_effect=lambda r: r
-        ), patch.object(
-            pipeline, "_build_universal_graph"
-        ), patch(
-            "aragora.pipeline.idea_to_execution.content_hash",
-            return_value="abc123",
+        with (
+            patch("aragora.pipeline.km_bridge.PipelineKMBridge") as MockBridge,
+            patch.object(pipeline, "_advance_to_actions", side_effect=lambda r: r),
+            patch.object(pipeline, "_advance_to_orchestration", side_effect=lambda r: r),
+            patch.object(pipeline, "_build_universal_graph"),
+            patch(
+                "aragora.pipeline.idea_to_execution.content_hash",
+                return_value="abc123",
+            ),
         ):
             mock_bridge_inst = MagicMock()
             mock_bridge_inst.available = True
@@ -603,9 +594,7 @@ class TestIdeaToExecutionPipelineWiring:
         # recording. The feedback loop is closed by PipelineKMBridge instead.
         import ast
 
-        with open(
-            "/Users/armand/Development/aragora/aragora/pipeline/idea_to_execution.py"
-        ) as f:
+        with open("/Users/armand/Development/aragora/aragora/pipeline/idea_to_execution.py") as f:
             source = f.read()
 
         tree = ast.parse(source)
@@ -617,9 +606,7 @@ class TestIdeaToExecutionPipelineWiring:
         """PipelineKMBridge is used (not StrategicMemoryStore) for pipeline result storage."""
         import ast
 
-        with open(
-            "/Users/armand/Development/aragora/aragora/pipeline/idea_to_execution.py"
-        ) as f:
+        with open("/Users/armand/Development/aragora/aragora/pipeline/idea_to_execution.py") as f:
             source = f.read()
 
         # PipelineKMBridge.store_pipeline_result should be called
@@ -650,9 +637,7 @@ class TestIdeaToExecutionPipelineWiring:
             ideas_canvas=mock_canvas,
         )
 
-        with patch(
-            "aragora.pipeline.km_bridge.PipelineKMBridge"
-        ) as MockBridge:
+        with patch("aragora.pipeline.km_bridge.PipelineKMBridge") as MockBridge:
             mock_bridge_inst = MagicMock()
             mock_bridge_inst.available = True
             mock_bridge_inst.query_similar_goals.return_value = {}
@@ -685,9 +670,7 @@ class TestIdeaToExecutionPipelineWiring:
             },
         )
 
-        with patch(
-            "aragora.nomic.meta_planner.MetaPlanner"
-        ) as MockPlanner:
+        with patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner:
             mock_planner = MagicMock()
             MockPlanner.return_value = mock_planner
 
@@ -698,9 +681,11 @@ class TestIdeaToExecutionPipelineWiring:
 
             # Verify the format of goal_outcomes
             call_kwargs = mock_planner.record_outcome.call_args
-            goal_outcomes = call_kwargs.kwargs.get(
-                "goal_outcomes", call_kwargs[1].get("goal_outcomes")
-            ) if call_kwargs.kwargs else call_kwargs[0][0]
+            goal_outcomes = (
+                call_kwargs.kwargs.get("goal_outcomes", call_kwargs[1].get("goal_outcomes"))
+                if call_kwargs.kwargs
+                else call_kwargs[0][0]
+            )
 
             # Should have 4 entries (one per stage)
             assert len(goal_outcomes) == 4
@@ -725,9 +710,7 @@ class TestIdeaToExecutionPipelineWiring:
             stage_status={"ideas": "complete"},
         )
 
-        with patch(
-            "aragora.nomic.meta_planner.MetaPlanner"
-        ) as MockPlanner:
+        with patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner:
             mock_planner = MagicMock()
             MockPlanner.return_value = mock_planner
 
@@ -851,9 +834,7 @@ class TestFeedbackLoopClosure:
             "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=mock_adapter,
         ):
-            result = _make_result(
-                completed=2, failed=0, assignments=assignments
-            )
+            result = _make_result(completed=2, failed=0, assignments=assignments)
 
             await orch._record_orchestration_outcome("test", result)
 
@@ -953,9 +934,7 @@ class TestFeedbackLoopClosure:
         """Silently handles RuntimeError from adapter.ingest_cycle_outcome."""
         orch = _make_orchestrator()
         mock_adapter = AsyncMock()
-        mock_adapter.ingest_cycle_outcome = AsyncMock(
-            side_effect=RuntimeError("DB down")
-        )
+        mock_adapter.ingest_cycle_outcome = AsyncMock(side_effect=RuntimeError("DB down"))
 
         with patch(
             "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
@@ -972,22 +951,32 @@ class TestFeedbackLoopClosure:
 
         mock_result = _make_result()
 
-        with patch.object(
-            type(orch).__bases__[0],
-            "execute_goal",
-            new_callable=AsyncMock,
-            return_value=mock_result,
-        ), patch.object(
-            orch,
-            "_record_orchestration_outcome",
-            new_callable=AsyncMock,
-        ) as mock_record, patch.object(
-            orch, "_collect_baseline_metrics", new_callable=AsyncMock,
-            return_value=None,
-        ), patch.object(
-            orch, "_reconcile_audits",
-        ), patch.object(
-            orch, "_emit_event",
+        with (
+            patch.object(
+                type(orch).__bases__[0],
+                "execute_goal",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ),
+            patch.object(
+                orch,
+                "_record_orchestration_outcome",
+                new_callable=AsyncMock,
+            ) as mock_record,
+            patch.object(
+                orch,
+                "_collect_baseline_metrics",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.object(
+                orch,
+                "_reconcile_audits",
+            ),
+            patch.object(
+                orch,
+                "_emit_event",
+            ),
         ):
             await orch.execute_goal("test goal")
 

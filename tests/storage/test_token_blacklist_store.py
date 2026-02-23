@@ -768,7 +768,6 @@ class TestModuleExports:
             PostgresBlacklist,
             get_blacklist_backend,
             set_blacklist_backend,
-            HAS_REDIS,
         )
 
         assert BlacklistBackend is not None

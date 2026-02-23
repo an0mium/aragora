@@ -167,9 +167,7 @@ class TestExplainParser:
         subparsers = parser.add_subparsers()
         add_explain_parser(subparsers)
 
-        args = parser.parse_args(
-            ["explain", "debate-abc", "--api-url", "http://example.com:9090"]
-        )
+        args = parser.parse_args(["explain", "debate-abc", "--api-url", "http://example.com:9090"])
         assert args.api_url == "http://example.com:9090"
 
     def test_parser_verbose_flag(self):
@@ -190,9 +188,7 @@ class TestExplainParser:
         subparsers = parser.add_subparsers()
         add_explain_parser(subparsers)
 
-        args = parser.parse_args(
-            ["explain", "debate-abc", "--api-key", "sk-test-123"]
-        )
+        args = parser.parse_args(["explain", "debate-abc", "--api-key", "sk-test-123"])
         assert args.api_key == "sk-test-123"
 
 
@@ -219,9 +215,7 @@ class TestExplainAPIPath:
         mock_client = MagicMock()
         mock_client.explainability.get_explanation.return_value = mock_explanation
 
-        with patch(
-            "aragora.cli.commands.explain.AragoraClient", create=True
-        ) as mock_cls:
+        with patch("aragora.cli.commands.explain.AragoraClient", create=True) as mock_cls:
             # Patch at the module level where it's imported
             pass
 
@@ -251,9 +245,7 @@ class TestExplainAPIPath:
     def test_api_connection_error_returns_none(self):
         """When API unreachable, returns None."""
         mock_client = MagicMock()
-        mock_client.explainability.get_explanation.side_effect = ConnectionError(
-            "refused"
-        )
+        mock_client.explainability.get_explanation.side_effect = ConnectionError("refused")
 
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
@@ -264,9 +256,7 @@ class TestExplainAPIPath:
     def test_api_runtime_error_returns_none(self):
         """When API returns a runtime error, returns None."""
         mock_client = MagicMock()
-        mock_client.explainability.get_explanation.side_effect = RuntimeError(
-            "server error"
-        )
+        mock_client.explainability.get_explanation.side_effect = RuntimeError("server error")
 
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
@@ -294,9 +284,7 @@ class TestExplainAPIPath:
             args = _make_args(api_url="http://custom:9090", api_key="sk-custom")
             _try_api_explanation("d1", args)
 
-        mock_cls.assert_called_once_with(
-            base_url="http://custom:9090", api_key="sk-custom"
-        )
+        mock_cls.assert_called_once_with(base_url="http://custom:9090", api_key="sk-custom")
 
 
 # ===========================================================================
@@ -323,9 +311,7 @@ class TestExplainLocalFallback:
 
     def test_local_no_debate_data_returns_none(self):
         """When no local debate data exists, returns None."""
-        with patch(
-            "aragora.cli.commands.explain._load_local_debate", return_value=None
-        ):
+        with patch("aragora.cli.commands.explain._load_local_debate", return_value=None):
             result = _try_local_explanation("nonexistent-debate")
 
         assert result is None
@@ -334,12 +320,15 @@ class TestExplainLocalFallback:
         """When ExplanationBuilder.build() raises, returns None gracefully."""
         mock_debate = MagicMock()
 
-        with patch(
-            "aragora.cli.commands.explain._load_local_debate",
-            return_value=mock_debate,
-        ), patch(
-            "aragora.explainability.builder.ExplanationBuilder.build",
-            side_effect=ValueError("invalid debate structure"),
+        with (
+            patch(
+                "aragora.cli.commands.explain._load_local_debate",
+                return_value=mock_debate,
+            ),
+            patch(
+                "aragora.explainability.builder.ExplanationBuilder.build",
+                side_effect=ValueError("invalid debate structure"),
+            ),
         ):
             result = _try_local_explanation("bad-debate")
 
@@ -374,11 +363,12 @@ class TestCmdExplain:
         """cmd_explain falls back to local when API fails."""
         explanation = _mock_explanation()
 
-        with patch(
-            "aragora.cli.commands.explain._try_api_explanation", return_value=None
-        ), patch(
-            "aragora.cli.commands.explain._try_local_explanation",
-            return_value=explanation,
+        with (
+            patch("aragora.cli.commands.explain._try_api_explanation", return_value=None),
+            patch(
+                "aragora.cli.commands.explain._try_local_explanation",
+                return_value=explanation,
+            ),
         ):
             args = _make_args()
             result = cmd_explain(args)
@@ -389,10 +379,9 @@ class TestCmdExplain:
 
     def test_failure_when_both_fail(self, capsys):
         """cmd_explain returns 1 when both API and local fail."""
-        with patch(
-            "aragora.cli.commands.explain._try_api_explanation", return_value=None
-        ), patch(
-            "aragora.cli.commands.explain._try_local_explanation", return_value=None
+        with (
+            patch("aragora.cli.commands.explain._try_api_explanation", return_value=None),
+            patch("aragora.cli.commands.explain._try_local_explanation", return_value=None),
         ):
             args = _make_args()
             result = cmd_explain(args)
@@ -440,10 +429,9 @@ class TestCmdExplain:
 
     def test_error_message_includes_debate_id(self, capsys):
         """Error message mentions the specific debate ID."""
-        with patch(
-            "aragora.cli.commands.explain._try_api_explanation", return_value=None
-        ), patch(
-            "aragora.cli.commands.explain._try_local_explanation", return_value=None
+        with (
+            patch("aragora.cli.commands.explain._try_api_explanation", return_value=None),
+            patch("aragora.cli.commands.explain._try_local_explanation", return_value=None),
         ):
             args = _make_args(debate_id="missing-debate-xyz")
             cmd_explain(args)

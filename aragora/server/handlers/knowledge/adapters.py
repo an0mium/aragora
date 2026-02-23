@@ -54,9 +54,7 @@ class KMAdapterStatusHandler(BaseHandler):
         return path == "/api/knowledge/adapters"
 
     @handle_errors("KM adapter status GET")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for adapter status."""
         path = strip_version_prefix(path)
 
@@ -67,9 +65,7 @@ class KMAdapterStatusHandler(BaseHandler):
 
     @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=30, limiter_name="km_adapter_status")
-    def _list_adapters(
-        self, handler: Any = None, user: Any = None
-    ) -> HandlerResult:
+    def _list_adapters(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """List all KM adapters with status information.
 
         Returns adapter specs from the factory registry and, if a coordinator
@@ -105,7 +101,9 @@ class KMAdapterStatusHandler(BaseHandler):
             live = coordinator_status.get(name)
             if live:
                 adapter_info["enabled"] = live.get("enabled", spec.enabled_by_default)
-                adapter_info["has_reverse"] = live.get("has_reverse", spec.reverse_method is not None)
+                adapter_info["has_reverse"] = live.get(
+                    "has_reverse", spec.reverse_method is not None
+                )
                 adapter_info["forward_errors"] = live.get("forward_errors", 0)
                 adapter_info["reverse_errors"] = live.get("reverse_errors", 0)
                 adapter_info["last_forward_sync"] = live.get("last_forward_sync")

@@ -171,16 +171,20 @@ def get_handler():
 @pytest.fixture
 def post_handler_factory():
     """Factory for creating POST HTTP handlers with body."""
+
     def _create(body: dict) -> MockHTTPHandler:
         return MockHTTPHandler(body=body, method="POST")
+
     return _create
 
 
 @pytest.fixture
 def put_handler_factory():
     """Factory for creating PUT HTTP handlers with body."""
+
     def _create(body: dict) -> MockHTTPHandler:
         return MockHTTPHandler(body=body, method="PUT")
+
     return _create
 
 
@@ -347,7 +351,14 @@ class TestGetFact:
     def test_get_fact_includes_all_fields(self, handler, get_handler):
         result = handler.handle("/api/v1/knowledge/facts/fact-001", {}, get_handler)
         body = _body(result)
-        expected_keys = {"id", "statement", "confidence", "workspace_id", "validation_status", "topics"}
+        expected_keys = {
+            "id",
+            "statement",
+            "confidence",
+            "workspace_id",
+            "validation_status",
+            "topics",
+        }
         assert expected_keys.issubset(set(body.keys()))
 
     def test_get_fact_via_sdk_alias(self, handler, get_handler):
@@ -384,13 +395,18 @@ class TestCreateFact:
         http = post_handler_factory({"statement": "Earth is round"})
         handler.handle("/api/v1/knowledge/facts", {}, http)
         call_kwargs = mock_fact_store.add_fact.call_args
-        assert call_kwargs.kwargs.get("statement") or call_kwargs[1].get("statement") == "Earth is round"
+        assert (
+            call_kwargs.kwargs.get("statement")
+            or call_kwargs[1].get("statement") == "Earth is round"
+        )
 
     def test_create_fact_passes_workspace_id(self, handler, post_handler_factory, mock_fact_store):
         http = post_handler_factory({"statement": "Test", "workspace_id": "ws-1"})
         handler.handle("/api/v1/knowledge/facts", {}, http)
         call_kwargs = mock_fact_store.add_fact.call_args
-        assert call_kwargs.kwargs.get("workspace_id") or call_kwargs[1].get("workspace_id") == "ws-1"
+        assert (
+            call_kwargs.kwargs.get("workspace_id") or call_kwargs[1].get("workspace_id") == "ws-1"
+        )
 
     def test_create_fact_default_workspace(self, handler, post_handler_factory, mock_fact_store):
         http = post_handler_factory({"statement": "Test"})
@@ -480,7 +496,9 @@ class TestUpdateFact:
         call_args = mock_fact_store.update_fact.call_args
         assert call_args[1].get("confidence") == 0.99
 
-    def test_update_fact_passes_validation_status(self, handler, put_handler_factory, mock_fact_store):
+    def test_update_fact_passes_validation_status(
+        self, handler, put_handler_factory, mock_fact_store
+    ):
         http = put_handler_factory({"validation_status": "contested"})
         handler.handle("/api/v1/knowledge/facts/fact-001", {}, http)
         call_args = mock_fact_store.update_fact.call_args
@@ -528,7 +546,9 @@ class TestUpdateFact:
         result = handler.handle("/api/v1/knowledge/facts/fact-001", {}, http)
         assert _status(result) == 400
 
-    def test_update_fact_only_sends_provided_fields(self, handler, put_handler_factory, mock_fact_store):
+    def test_update_fact_only_sends_provided_fields(
+        self, handler, put_handler_factory, mock_fact_store
+    ):
         """Only fields present in the body should be passed to update_fact."""
         http = put_handler_factory({"confidence": 0.5})
         handler.handle("/api/v1/knowledge/facts/fact-001", {}, http)
@@ -584,7 +604,9 @@ class TestVerifyFact:
         result = handler.handle("/api/v1/knowledge/facts/bad-id/verify", {}, http)
         assert _status(result) == 404
 
-    def test_verify_fact_queued_when_no_dataset_engine(self, handler, mock_fact_store, mock_query_engine):
+    def test_verify_fact_queued_when_no_dataset_engine(
+        self, handler, mock_fact_store, mock_query_engine
+    ):
         """When query engine is not DatasetQueryEngine, fact is queued."""
         http = MockHTTPHandler(method="POST", body={})
         result = handler.handle("/api/v1/knowledge/facts/fact-001/verify", {}, http)
@@ -791,18 +813,24 @@ class TestAddRelation:
     """Test POST /api/v1/knowledge/facts/:id/relations."""
 
     def test_add_relation_returns_201(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         assert _status(result) == 201
 
-    def test_add_relation_returns_relation_data(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+    def test_add_relation_returns_relation_data(
+        self, handler, post_handler_factory, mock_fact_store
+    ):
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         body = _body(result)
         assert "source_fact_id" in body
@@ -819,30 +847,42 @@ class TestAddRelation:
         assert _status(result) == 400
 
     def test_add_relation_invalid_relation_type_returns_400(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "invalid_type",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "invalid_type",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         assert _status(result) == 400
 
-    def test_add_relation_source_not_found_returns_404(self, handler, post_handler_factory, mock_fact_store):
+    def test_add_relation_source_not_found_returns_404(
+        self, handler, post_handler_factory, mock_fact_store
+    ):
         mock_fact_store.get_fact.return_value = None
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/bad-source/relations", {}, http)
         assert _status(result) == 404
 
-    def test_add_relation_target_not_found_returns_404(self, handler, post_handler_factory, mock_fact_store):
+    def test_add_relation_target_not_found_returns_404(
+        self, handler, post_handler_factory, mock_fact_store
+    ):
         # Source exists, target does not
         source_fact = _make_fact("fact-001")
-        mock_fact_store.get_fact.side_effect = lambda fid: source_fact if fid == "fact-001" else None
-        http = post_handler_factory({
-            "target_fact_id": "nonexistent",
-            "relation_type": "supports",
-        })
+        mock_fact_store.get_fact.side_effect = (
+            lambda fid: source_fact if fid == "fact-001" else None
+        )
+        http = post_handler_factory(
+            {
+                "target_fact_id": "nonexistent",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         assert _status(result) == 404
 
@@ -859,31 +899,37 @@ class TestAddRelation:
         assert _status(result) == 400
 
     def test_add_relation_with_confidence(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-            "confidence": 0.9,
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+                "confidence": 0.9,
+            }
+        )
         handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         call_kwargs = mock_fact_store.add_relation.call_args[1]
         assert call_kwargs["confidence"] == 0.9
 
     def test_add_relation_with_created_by(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-            "created_by": "agent-claude",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+                "created_by": "agent-claude",
+            }
+        )
         handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         call_kwargs = mock_fact_store.add_relation.call_args[1]
         assert call_kwargs["created_by"] == "agent-claude"
 
     def test_add_relation_with_metadata(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-            "metadata": {"reason": "test"},
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+                "metadata": {"reason": "test"},
+            }
+        )
         handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         call_kwargs = mock_fact_store.add_relation.call_args[1]
         assert call_kwargs["metadata"] == {"reason": "test"}
@@ -891,10 +937,12 @@ class TestAddRelation:
     def test_add_relation_all_valid_types(self, handler, post_handler_factory, mock_fact_store):
         """All FactRelationType values should be accepted."""
         for rt in FactRelationType:
-            http = post_handler_factory({
-                "target_fact_id": "fact-002",
-                "relation_type": rt.value,
-            })
+            http = post_handler_factory(
+                {
+                    "target_fact_id": "fact-002",
+                    "relation_type": rt.value,
+                }
+            )
             # Reset get_fact to return a fact
             mock_fact_store.get_fact.return_value = _make_fact()
             result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
@@ -910,20 +958,24 @@ class TestAddRelationBulk:
     """Test POST /api/v1/knowledge/facts/relations."""
 
     def test_bulk_add_relation_returns_201(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 201
 
     def test_bulk_add_relation_returns_relation_data(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         body = _body(result)
         assert "source_fact_id" in body
@@ -931,35 +983,45 @@ class TestAddRelationBulk:
         assert "relation_type" in body
 
     def test_bulk_add_relation_missing_source_returns_400(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 400
 
     def test_bulk_add_relation_missing_target_returns_400(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 400
 
-    def test_bulk_add_relation_missing_relation_type_returns_400(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-        })
+    def test_bulk_add_relation_missing_relation_type_returns_400(
+        self, handler, post_handler_factory
+    ):
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 400
 
     def test_bulk_add_relation_invalid_type_returns_400(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "bogus",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "bogus",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 400
 
@@ -975,34 +1037,44 @@ class TestAddRelationBulk:
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 400
 
-    def test_bulk_add_relation_with_confidence(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "implies",
-            "confidence": 0.75,
-        })
+    def test_bulk_add_relation_with_confidence(
+        self, handler, post_handler_factory, mock_fact_store
+    ):
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "implies",
+                "confidence": 0.75,
+            }
+        )
         handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         call_kwargs = mock_fact_store.add_relation.call_args[1]
         assert call_kwargs["confidence"] == 0.75
 
-    def test_bulk_add_relation_with_created_by(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "contradicts",
-            "created_by": "user-123",
-        })
+    def test_bulk_add_relation_with_created_by(
+        self, handler, post_handler_factory, mock_fact_store
+    ):
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "contradicts",
+                "created_by": "user-123",
+            }
+        )
         handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         call_kwargs = mock_fact_store.add_relation.call_args[1]
         assert call_kwargs["created_by"] == "user-123"
 
     def test_bulk_add_relation_calls_store(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         mock_fact_store.add_relation.assert_called_once()
         call_kwargs = mock_fact_store.add_relation.call_args[1]
@@ -1057,10 +1129,12 @@ class TestFactRouting:
         mock_fact_store.get_relations.assert_called_once()
 
     def test_post_relations_route_parsed(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         assert _status(result) == 201
 
@@ -1124,19 +1198,23 @@ class TestStoreErrorHandling:
 
     def test_add_relation_store_raises(self, handler, post_handler_factory, mock_fact_store):
         mock_fact_store.add_relation.side_effect = RuntimeError("DB down")
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/fact-001/relations", {}, http)
         assert _status(result) == 500
 
     def test_bulk_add_relation_store_raises(self, handler, post_handler_factory, mock_fact_store):
         mock_fact_store.add_relation.side_effect = RuntimeError("DB down")
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 500

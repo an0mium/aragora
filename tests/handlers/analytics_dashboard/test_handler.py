@@ -43,6 +43,7 @@ class FakeUserCtx:
 @dataclass
 class FakeUserInfo:
     """Fake user info returned by extract_user_from_request."""
+
     user_id: str = "user_001"
     org_id: str = "org_001"
     role: str = "admin"
@@ -51,6 +52,7 @@ class FakeUserInfo:
 @dataclass
 class FakeDecision:
     """Fake RBAC decision result."""
+
     allowed: bool = True
     reason: str | None = None
 
@@ -156,33 +158,38 @@ class TestRoutesList:
 
     def test_routes_all_start_with_api(self):
         for route in AnalyticsDashboardHandler.ROUTES:
-            assert route.startswith("/api/analytics/"), f"Route {route!r} does not start with /api/analytics/"
+            assert route.startswith("/api/analytics/"), (
+                f"Route {route!r} does not start with /api/analytics/"
+            )
 
     def test_routes_unique(self):
         assert len(AnalyticsDashboardHandler.ROUTES) == len(set(AnalyticsDashboardHandler.ROUTES))
 
     # Verify presence of every expected route
-    @pytest.mark.parametrize("route", [
-        "/api/analytics/summary",
-        "/api/analytics/trends/findings",
-        "/api/analytics/remediation",
-        "/api/analytics/agents",
-        "/api/analytics/cost",
-        "/api/analytics/compliance",
-        "/api/analytics/heatmap",
-        "/api/analytics/tokens",
-        "/api/analytics/tokens/trends",
-        "/api/analytics/tokens/providers",
-        "/api/analytics/cost/breakdown",
-        "/api/analytics/flips/summary",
-        "/api/analytics/flips/recent",
-        "/api/analytics/flips/consistency",
-        "/api/analytics/flips/trends",
-        "/api/analytics/deliberations",
-        "/api/analytics/deliberations/channels",
-        "/api/analytics/deliberations/consensus",
-        "/api/analytics/deliberations/performance",
-    ])
+    @pytest.mark.parametrize(
+        "route",
+        [
+            "/api/analytics/summary",
+            "/api/analytics/trends/findings",
+            "/api/analytics/remediation",
+            "/api/analytics/agents",
+            "/api/analytics/cost",
+            "/api/analytics/compliance",
+            "/api/analytics/heatmap",
+            "/api/analytics/tokens",
+            "/api/analytics/tokens/trends",
+            "/api/analytics/tokens/providers",
+            "/api/analytics/cost/breakdown",
+            "/api/analytics/flips/summary",
+            "/api/analytics/flips/recent",
+            "/api/analytics/flips/consistency",
+            "/api/analytics/flips/trends",
+            "/api/analytics/deliberations",
+            "/api/analytics/deliberations/channels",
+            "/api/analytics/deliberations/consensus",
+            "/api/analytics/deliberations/performance",
+        ],
+    )
     def test_route_registered(self, route):
         assert route in AnalyticsDashboardHandler.ROUTES
 
@@ -383,7 +390,9 @@ class TestHandleRoutingToMethods:
     @patch.object(AnalyticsDashboardHandler, "_get_provider_breakdown")
     def test_routes_to_get_provider_breakdown(self, mock_method, mock_perm, handler, mock_http):
         mock_method.return_value = ({"ok": True}, 200, {})
-        result = handler.handle("/api/analytics/tokens/providers", {"workspace_id": "ws"}, mock_http)
+        result = handler.handle(
+            "/api/analytics/tokens/providers", {"workspace_id": "ws"}, mock_http
+        )
         mock_method.assert_called_once_with({"workspace_id": "ws"}, mock_http)
 
     # Flip analytics (with RBAC check)
@@ -405,7 +414,9 @@ class TestHandleRoutingToMethods:
     @patch.object(AnalyticsDashboardHandler, "_get_agent_consistency")
     def test_routes_to_get_agent_consistency(self, mock_method, mock_perm, handler, mock_http):
         mock_method.return_value = ({"ok": True}, 200, {})
-        result = handler.handle("/api/analytics/flips/consistency", {"workspace_id": "ws"}, mock_http)
+        result = handler.handle(
+            "/api/analytics/flips/consistency", {"workspace_id": "ws"}, mock_http
+        )
         mock_method.assert_called_once_with({"workspace_id": "ws"}, mock_http)
 
     @patch.object(AnalyticsDashboardHandler, "_check_permission", return_value=None)
@@ -425,23 +436,33 @@ class TestHandleRoutingToMethods:
 
     @patch.object(AnalyticsDashboardHandler, "_check_permission", return_value=None)
     @patch.object(AnalyticsDashboardHandler, "_get_deliberation_by_channel")
-    def test_routes_to_get_deliberation_by_channel(self, mock_method, mock_perm, handler, mock_http):
+    def test_routes_to_get_deliberation_by_channel(
+        self, mock_method, mock_perm, handler, mock_http
+    ):
         mock_method.return_value = ({"ok": True}, 200, {})
-        result = handler.handle("/api/analytics/deliberations/channels", {"workspace_id": "ws"}, mock_http)
+        result = handler.handle(
+            "/api/analytics/deliberations/channels", {"workspace_id": "ws"}, mock_http
+        )
         mock_method.assert_called_once_with({"workspace_id": "ws"}, mock_http)
 
     @patch.object(AnalyticsDashboardHandler, "_check_permission", return_value=None)
     @patch.object(AnalyticsDashboardHandler, "_get_consensus_rates")
     def test_routes_to_get_consensus_rates(self, mock_method, mock_perm, handler, mock_http):
         mock_method.return_value = ({"ok": True}, 200, {})
-        result = handler.handle("/api/analytics/deliberations/consensus", {"workspace_id": "ws"}, mock_http)
+        result = handler.handle(
+            "/api/analytics/deliberations/consensus", {"workspace_id": "ws"}, mock_http
+        )
         mock_method.assert_called_once_with({"workspace_id": "ws"}, mock_http)
 
     @patch.object(AnalyticsDashboardHandler, "_check_permission", return_value=None)
     @patch.object(AnalyticsDashboardHandler, "_get_deliberation_performance")
-    def test_routes_to_get_deliberation_performance(self, mock_method, mock_perm, handler, mock_http):
+    def test_routes_to_get_deliberation_performance(
+        self, mock_method, mock_perm, handler, mock_http
+    ):
         mock_method.return_value = ({"ok": True}, 200, {})
-        result = handler.handle("/api/analytics/deliberations/performance", {"workspace_id": "ws"}, mock_http)
+        result = handler.handle(
+            "/api/analytics/deliberations/performance", {"workspace_id": "ws"}, mock_http
+        )
         mock_method.assert_called_once_with({"workspace_id": "ws"}, mock_http)
 
 
@@ -551,7 +572,9 @@ class TestHandleRBACChecks:
 
     @pytest.mark.parametrize("route", COMPLIANCE_ROUTES)
     @patch.object(AnalyticsDashboardHandler, "_check_permission")
-    def test_compliance_routes_check_compliance_permission(self, mock_perm, handler, mock_http, route):
+    def test_compliance_routes_check_compliance_permission(
+        self, mock_perm, handler, mock_http, route
+    ):
         """Compliance routes should check analytics:compliance:read."""
         mock_perm.return_value = ({"error": "denied"}, 403, {})
         result = handler.handle(route, {"workspace_id": "ws"}, mock_http)
@@ -578,7 +601,9 @@ class TestHandleRBACChecks:
 
     @pytest.mark.parametrize("route", DELIBERATION_ROUTES)
     @patch.object(AnalyticsDashboardHandler, "_check_permission")
-    def test_deliberation_routes_check_deliberation_permission(self, mock_perm, handler, mock_http, route):
+    def test_deliberation_routes_check_deliberation_permission(
+        self, mock_perm, handler, mock_http, route
+    ):
         """Deliberation routes should check analytics:deliberations:read."""
         mock_perm.return_value = ({"error": "denied"}, 403, {})
         result = handler.handle(route, {"workspace_id": "ws"}, mock_http)
@@ -607,7 +632,9 @@ class TestHandleRBACChecks:
             "/api/analytics/agents": "_get_agent_metrics",
             "/api/analytics/heatmap": "_get_risk_heatmap",
         }[route]
-        with patch.object(AnalyticsDashboardHandler, method_name, return_value=({"ok": True}, 200, {})):
+        with patch.object(
+            AnalyticsDashboardHandler, method_name, return_value=({"ok": True}, 200, {})
+        ):
             handler.handle(route, {"workspace_id": "ws"}, mock_http)
         mock_perm.assert_not_called()
 
@@ -630,7 +657,9 @@ class TestHandlePermissionDenied:
 
     @patch.object(AnalyticsDashboardHandler, "_get_token_usage")
     @patch.object(AnalyticsDashboardHandler, "_check_permission")
-    def test_token_permission_denied_blocks_method(self, mock_perm, mock_method, handler, mock_http):
+    def test_token_permission_denied_blocks_method(
+        self, mock_perm, mock_method, handler, mock_http
+    ):
         mock_perm.return_value = ({"error": "Permission denied"}, 403, {})
         result = handler.handle("/api/analytics/tokens", {"workspace_id": "ws"}, mock_http)
         mock_method.assert_not_called()
@@ -646,7 +675,9 @@ class TestHandlePermissionDenied:
 
     @patch.object(AnalyticsDashboardHandler, "_get_deliberation_summary")
     @patch.object(AnalyticsDashboardHandler, "_check_permission")
-    def test_deliberation_permission_denied_blocks_method(self, mock_perm, mock_method, handler, mock_http):
+    def test_deliberation_permission_denied_blocks_method(
+        self, mock_perm, mock_method, handler, mock_http
+    ):
         mock_perm.return_value = ({"error": "Permission denied"}, 403, {})
         result = handler.handle("/api/analytics/deliberations", {"workspace_id": "ws"}, mock_http)
         mock_method.assert_not_called()
@@ -789,7 +820,9 @@ class TestCheckPermission:
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.analytics_dashboard.handler.RBAC_AVAILABLE", False)
-    @patch("aragora.server.handlers.analytics_dashboard.handler.rbac_fail_closed", return_value=False)
+    @patch(
+        "aragora.server.handlers.analytics_dashboard.handler.rbac_fail_closed", return_value=False
+    )
     def test_rbac_not_available_not_fail_closed_allows(self, mock_fail, handler):
         """When RBAC is unavailable and fail_closed is False, allow access."""
         result = handler._check_permission(MagicMock(), "analytics:cost:read")
@@ -797,7 +830,9 @@ class TestCheckPermission:
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.analytics_dashboard.handler.RBAC_AVAILABLE", False)
-    @patch("aragora.server.handlers.analytics_dashboard.handler.rbac_fail_closed", return_value=True)
+    @patch(
+        "aragora.server.handlers.analytics_dashboard.handler.rbac_fail_closed", return_value=True
+    )
     def test_rbac_not_available_fail_closed_returns_503(self, mock_fail, handler):
         """When RBAC is unavailable and fail_closed is True, return 503."""
         result = handler._check_permission(MagicMock(), "analytics:cost:read")
@@ -844,6 +879,7 @@ class TestCheckPermission:
     def test_permission_denied_error_exception(self, mock_record, mock_check, handler):
         """When PermissionDeniedError is raised, return 403."""
         from aragora.server.handlers.analytics_dashboard.handler import PermissionDeniedError
+
         mock_check.side_effect = PermissionDeniedError("forbidden")
         handler._get_auth_context = MagicMock(return_value=MagicMock(user_id="user_1"))
         result = handler._check_permission(MagicMock(), "analytics:cost:read")
@@ -946,22 +982,27 @@ class TestInheritance:
 
     def test_inherits_from_base_handler(self):
         from aragora.server.handlers.base import BaseHandler
+
         assert issubclass(AnalyticsDashboardHandler, BaseHandler)
 
     def test_inherits_from_debate_mixin(self):
         from aragora.server.handlers.analytics_dashboard.debates import DebateAnalyticsMixin
+
         assert issubclass(AnalyticsDashboardHandler, DebateAnalyticsMixin)
 
     def test_inherits_from_agent_mixin(self):
         from aragora.server.handlers.analytics_dashboard.agents import AgentAnalyticsMixin
+
         assert issubclass(AnalyticsDashboardHandler, AgentAnalyticsMixin)
 
     def test_inherits_from_usage_mixin(self):
         from aragora.server.handlers.analytics_dashboard.usage import UsageAnalyticsMixin
+
         assert issubclass(AnalyticsDashboardHandler, UsageAnalyticsMixin)
 
     def test_inherits_from_deliberation_mixin(self):
         from aragora.server.handlers.analytics_dashboard.endpoints import DeliberationAnalyticsMixin
+
         assert issubclass(AnalyticsDashboardHandler, DeliberationAnalyticsMixin)
 
 
@@ -1004,7 +1045,9 @@ class TestEdgeCases:
 
     def test_routes_is_class_attribute_not_instance(self):
         """ROUTES should be a class-level attribute."""
-        assert "ROUTES" in AnalyticsDashboardHandler.__dict__ or hasattr(AnalyticsDashboardHandler, "ROUTES")
+        assert "ROUTES" in AnalyticsDashboardHandler.__dict__ or hasattr(
+            AnalyticsDashboardHandler, "ROUTES"
+        )
 
     def test_handle_method_exists(self, handler):
         assert hasattr(handler, "handle")

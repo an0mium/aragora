@@ -374,10 +374,26 @@ class TestFindingDataClass:
         f = self._make_finding()
         d = f.to_dict()
         expected_keys = {
-            "id", "scan_id", "scan_type", "severity", "title", "description",
-            "file_path", "line_number", "column", "code_snippet", "rule_id",
-            "cwe_id", "owasp_category", "remediation", "confidence", "status",
-            "created_at", "dismissed_by", "dismissed_reason", "github_issue_url",
+            "id",
+            "scan_id",
+            "scan_type",
+            "severity",
+            "title",
+            "description",
+            "file_path",
+            "line_number",
+            "column",
+            "code_snippet",
+            "rule_id",
+            "cwe_id",
+            "owasp_category",
+            "remediation",
+            "confidence",
+            "status",
+            "created_at",
+            "dismissed_by",
+            "dismissed_reason",
+            "github_issue_url",
         }
         assert set(d.keys()) == expected_keys
 
@@ -393,9 +409,7 @@ class TestFindingDataClass:
         assert d["dismissed_reason"] == "Not applicable to our codebase"
 
     def test_to_dict_with_github_url(self):
-        f = self._make_finding(
-            github_issue_url="https://github.com/org/repo/issues/42"
-        )
+        f = self._make_finding(github_issue_url="https://github.com/org/repo/issues/42")
         d = f.to_dict()
         assert d["github_issue_url"] == "https://github.com/org/repo/issues/42"
 
@@ -500,10 +514,20 @@ class TestScanResultDataClass:
         s = self._make_scan_result()
         d = s.to_dict()
         expected_keys = {
-            "id", "tenant_id", "scan_type", "status", "target_path",
-            "started_at", "completed_at", "error_message", "files_scanned",
-            "findings_count", "severity_counts", "duration_seconds",
-            "progress", "metrics",
+            "id",
+            "tenant_id",
+            "scan_type",
+            "status",
+            "target_path",
+            "started_at",
+            "completed_at",
+            "error_message",
+            "files_scanned",
+            "findings_count",
+            "severity_counts",
+            "duration_seconds",
+            "progress",
+            "metrics",
         }
         assert set(d.keys()) == expected_keys
 
@@ -679,7 +703,9 @@ class TestValidateRepositoryPath:
         assert is_valid is False
         assert "Home directory expansion" in err
 
-    @pytest.mark.parametrize("char", [";", "|", "&", "$", "`", "(", ")", "{", "}", "<", ">", "\n", "\r"])
+    @pytest.mark.parametrize(
+        "char", [";", "|", "&", "$", "`", "(", ")", "{", "}", "<", ">", "\n", "\r"]
+    )
     def test_each_dangerous_char_rejected(self, char):
         is_valid, err = validate_repository_path(f"src{char}evil")
         assert is_valid is False
@@ -804,7 +830,9 @@ class TestValidateStatusFilter:
         assert is_valid is True
         assert err is None
 
-    @pytest.mark.parametrize("status", ["open", "dismissed", "fixed", "false_positive", "accepted_risk"])
+    @pytest.mark.parametrize(
+        "status", ["open", "dismissed", "fixed", "false_positive", "accepted_risk"]
+    )
     def test_valid_statuses(self, status):
         is_valid, err = validate_status_filter(status)
         assert is_valid is True
@@ -1415,18 +1443,26 @@ class TestDataClassMutability:
 
     def test_finding_status_can_be_updated(self):
         f = Finding(
-            id="f1", scan_id="s1", scan_type=ScanType.SAST,
-            severity=FindingSeverity.HIGH, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=ScanType.SAST,
+            severity=FindingSeverity.HIGH,
+            title="test",
+            description="desc",
+            file_path="x.py",
         )
         f.status = FindingStatus.DISMISSED
         assert f.status == FindingStatus.DISMISSED
 
     def test_finding_dismissed_fields_can_be_set(self):
         f = Finding(
-            id="f1", scan_id="s1", scan_type=ScanType.SAST,
-            severity=FindingSeverity.HIGH, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=ScanType.SAST,
+            severity=FindingSeverity.HIGH,
+            title="test",
+            description="desc",
+            file_path="x.py",
         )
         f.dismissed_by = "admin@example.com"
         f.dismissed_reason = "Not applicable"
@@ -1435,17 +1471,24 @@ class TestDataClassMutability:
 
     def test_finding_github_url_can_be_set(self):
         f = Finding(
-            id="f1", scan_id="s1", scan_type=ScanType.SAST,
-            severity=FindingSeverity.HIGH, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=ScanType.SAST,
+            severity=FindingSeverity.HIGH,
+            title="test",
+            description="desc",
+            file_path="x.py",
         )
         f.github_issue_url = "https://github.com/org/repo/issues/1"
         assert f.github_issue_url == "https://github.com/org/repo/issues/1"
 
     def test_scan_result_status_can_be_updated(self):
         s = ScanResult(
-            id="s1", tenant_id="t1", scan_type=ScanType.SAST,
-            status=ScanStatus.RUNNING, target_path=".",
+            id="s1",
+            tenant_id="t1",
+            scan_type=ScanType.SAST,
+            status=ScanStatus.RUNNING,
+            target_path=".",
             started_at=datetime.now(timezone.utc),
         )
         s.status = ScanStatus.COMPLETED
@@ -1453,8 +1496,11 @@ class TestDataClassMutability:
 
     def test_scan_result_completed_at_can_be_set(self):
         s = ScanResult(
-            id="s1", tenant_id="t1", scan_type=ScanType.SAST,
-            status=ScanStatus.RUNNING, target_path=".",
+            id="s1",
+            tenant_id="t1",
+            scan_type=ScanType.SAST,
+            status=ScanStatus.RUNNING,
+            target_path=".",
             started_at=datetime.now(timezone.utc),
         )
         now = datetime.now(timezone.utc)
@@ -1463,22 +1509,32 @@ class TestDataClassMutability:
 
     def test_scan_result_findings_list_mutable(self):
         s = ScanResult(
-            id="s1", tenant_id="t1", scan_type=ScanType.SAST,
-            status=ScanStatus.COMPLETED, target_path=".",
+            id="s1",
+            tenant_id="t1",
+            scan_type=ScanType.SAST,
+            status=ScanStatus.COMPLETED,
+            target_path=".",
             started_at=datetime.now(timezone.utc),
         )
         f = Finding(
-            id="f1", scan_id="s1", scan_type=ScanType.SAST,
-            severity=FindingSeverity.HIGH, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=ScanType.SAST,
+            severity=FindingSeverity.HIGH,
+            title="test",
+            description="desc",
+            file_path="x.py",
         )
         s.findings.append(f)
         assert len(s.findings) == 1
 
     def test_scan_result_error_message_settable(self):
         s = ScanResult(
-            id="s1", tenant_id="t1", scan_type=ScanType.SAST,
-            status=ScanStatus.FAILED, target_path=".",
+            id="s1",
+            tenant_id="t1",
+            scan_type=ScanType.SAST,
+            status=ScanStatus.FAILED,
+            target_path=".",
             started_at=datetime.now(timezone.utc),
         )
         s.error_message = "Scanner process killed"
@@ -1533,9 +1589,13 @@ class TestFindingToDictConsistency:
     @pytest.mark.parametrize("severity", list(FindingSeverity))
     def test_to_dict_with_each_severity(self, severity):
         f = Finding(
-            id="f1", scan_id="s1", scan_type=ScanType.SAST,
-            severity=severity, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=ScanType.SAST,
+            severity=severity,
+            title="test",
+            description="desc",
+            file_path="x.py",
         )
         d = f.to_dict()
         assert d["severity"] == severity.value
@@ -1544,9 +1604,13 @@ class TestFindingToDictConsistency:
     @pytest.mark.parametrize("status", list(FindingStatus))
     def test_to_dict_with_each_status(self, status):
         f = Finding(
-            id="f1", scan_id="s1", scan_type=ScanType.SAST,
-            severity=FindingSeverity.HIGH, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=ScanType.SAST,
+            severity=FindingSeverity.HIGH,
+            title="test",
+            description="desc",
+            file_path="x.py",
             status=status,
         )
         d = f.to_dict()
@@ -1556,9 +1620,13 @@ class TestFindingToDictConsistency:
     @pytest.mark.parametrize("scan_type", list(ScanType))
     def test_to_dict_with_each_scan_type(self, scan_type):
         f = Finding(
-            id="f1", scan_id="s1", scan_type=scan_type,
-            severity=FindingSeverity.HIGH, title="test",
-            description="desc", file_path="x.py",
+            id="f1",
+            scan_id="s1",
+            scan_type=scan_type,
+            severity=FindingSeverity.HIGH,
+            title="test",
+            description="desc",
+            file_path="x.py",
         )
         d = f.to_dict()
         assert d["scan_type"] == scan_type.value

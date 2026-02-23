@@ -34,13 +34,15 @@ class TestPostDebateWorkflowSubscriber:
     def test_high_confidence_consensus_triggers_implement(self):
         """High-confidence consensus should trigger post_debate_implement workflow."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "debate-123",
-            "consensus_reached": True,
-            "confidence": 0.9,
-            "task": "Design a rate limiter",
-            "winning_position": "Token bucket algorithm",
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "debate-123",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "task": "Design a rate limiter",
+                "winning_position": "Token bucket algorithm",
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -58,12 +60,14 @@ class TestPostDebateWorkflowSubscriber:
     def test_low_confidence_consensus_triggers_review(self):
         """Low-confidence consensus should trigger post_debate_review workflow."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "debate-456",
-            "consensus_reached": True,
-            "confidence": 0.5,
-            "task": "Choose database",
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "debate-456",
+                "consensus_reached": True,
+                "confidence": 0.5,
+                "task": "Choose database",
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -77,11 +81,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_no_consensus_triggers_escalate(self):
         """No consensus should trigger post_debate_escalate workflow."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "debate-789",
-            "consensus_reached": False,
-            "confidence": 0.3,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "debate-789",
+                "consensus_reached": False,
+                "confidence": 0.3,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -95,12 +101,14 @@ class TestPostDebateWorkflowSubscriber:
     def test_timeout_triggers_retry(self):
         """Timed out debate should trigger post_debate_retry workflow."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "debate-timeout",
-            "consensus_reached": False,
-            "confidence": 0.0,
-            "timed_out": True,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "debate-timeout",
+                "consensus_reached": False,
+                "confidence": 0.0,
+                "timed_out": True,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -114,12 +122,14 @@ class TestPostDebateWorkflowSubscriber:
     def test_timeout_takes_priority_over_consensus(self):
         """Timeout should be classified as timeout even with consensus."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "debate-to",
-            "consensus_reached": True,
-            "confidence": 0.95,
-            "timed_out": True,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "debate-to",
+                "consensus_reached": True,
+                "confidence": 0.95,
+                "timed_out": True,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -135,11 +145,13 @@ class TestPostDebateWorkflowSubscriber:
             "no_consensus": "custom_action_b",
         }
         sub = PostDebateWorkflowSubscriber(workflow_map=custom_map)
-        event = make_debate_end_event({
-            "debate_id": "d1",
-            "consensus_reached": True,
-            "confidence": 0.95,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d1",
+                "consensus_reached": True,
+                "confidence": 0.95,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -151,11 +163,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_custom_min_confidence_threshold(self):
         """Custom min_confidence_for_auto should change the high/low boundary."""
         sub = PostDebateWorkflowSubscriber(min_confidence_for_auto=0.95)
-        event = make_debate_end_event({
-            "debate_id": "d2",
-            "consensus_reached": True,
-            "confidence": 0.8,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d2",
+                "consensus_reached": True,
+                "confidence": 0.8,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -182,11 +196,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_stats_workflows_triggered_increments(self):
         """workflows_triggered should increment when a workflow is triggered."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "d4",
-            "consensus_reached": True,
-            "confidence": 0.9,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d4",
+                "consensus_reached": True,
+                "confidence": 0.9,
+            }
+        )
 
         # Patch the workflow engine import to succeed without side effects
         with patch(
@@ -252,14 +268,16 @@ class TestPostDebateWorkflowSubscriber:
         """Long task/position/synthesis strings should be truncated."""
         sub = PostDebateWorkflowSubscriber()
         long_text = "x" * 2000
-        event = make_debate_end_event({
-            "debate_id": "d6",
-            "consensus_reached": True,
-            "confidence": 0.9,
-            "task": long_text,
-            "winning_position": long_text,
-            "synthesis": long_text,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d6",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "task": long_text,
+                "winning_position": long_text,
+                "synthesis": long_text,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -274,11 +292,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_domain_defaults_to_general(self):
         """Domain should default to 'general' when not provided."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event({
-            "debate_id": "d7",
-            "consensus_reached": True,
-            "confidence": 0.85,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d7",
+                "consensus_reached": True,
+                "confidence": 0.85,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -304,11 +324,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_no_workflow_template_for_unmapped_outcome(self):
         """No workflow should trigger when outcome key has no mapping."""
         sub = PostDebateWorkflowSubscriber(workflow_map={})
-        event = make_debate_end_event({
-            "debate_id": "d8",
-            "consensus_reached": True,
-            "confidence": 0.9,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d8",
+                "consensus_reached": True,
+                "confidence": 0.9,
+            }
+        )
 
         sub.handle_debate_end(event)
 
@@ -325,11 +347,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_confidence_boundary_exactly_at_threshold(self):
         """Confidence exactly at min_confidence_for_auto should be high confidence."""
         sub = PostDebateWorkflowSubscriber(min_confidence_for_auto=0.7)
-        event = make_debate_end_event({
-            "debate_id": "d9",
-            "consensus_reached": True,
-            "confidence": 0.7,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d9",
+                "consensus_reached": True,
+                "confidence": 0.7,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
@@ -341,11 +365,13 @@ class TestPostDebateWorkflowSubscriber:
     def test_confidence_just_below_threshold(self):
         """Confidence just below threshold should be low confidence."""
         sub = PostDebateWorkflowSubscriber(min_confidence_for_auto=0.7)
-        event = make_debate_end_event({
-            "debate_id": "d10",
-            "consensus_reached": True,
-            "confidence": 0.69,
-        })
+        event = make_debate_end_event(
+            {
+                "debate_id": "d10",
+                "consensus_reached": True,
+                "confidence": 0.69,
+            }
+        )
 
         with patch(
             "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"

@@ -110,7 +110,7 @@ class ShopifyConnector(EnterpriseConnector):
             async with self._session.get(f"{self.base_url}/shop.json") as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    logger.info("Connected to Shopify store: %s", data['shop']['name'])
+                    logger.info("Connected to Shopify store: %s", data["shop"]["name"])
                     return True
                 else:
                     logger.error("Failed to connect to Shopify: %s", resp.status)

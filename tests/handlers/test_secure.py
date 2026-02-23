@@ -324,10 +324,13 @@ class TestCheckPermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch(f"{_METRICS_MOD}.record_rbac_decision") as mock_record:
+        with (
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(f"{_METRICS_MOD}.record_rbac_decision") as mock_record,
+        ):
             result = handler.check_permission(auth_ctx, "items.read")
 
         assert result is True
@@ -342,10 +345,13 @@ class TestCheckPermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch(f"{_METRICS_MOD}.record_rbac_decision"):
+        with (
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(f"{_METRICS_MOD}.record_rbac_decision"),
+        ):
             with pytest.raises(ForbiddenError) as exc_info:
                 handler.check_permission(auth_ctx, "items.delete")
 
@@ -359,10 +365,13 @@ class TestCheckPermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch(f"{_METRICS_MOD}.record_rbac_decision"):
+        with (
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(f"{_METRICS_MOD}.record_rbac_decision"),
+        ):
             handler.check_permission(auth_ctx, "items.read", resource_id="res-123")
 
         mock_checker.check_permission.assert_called_once_with(auth_ctx, "items.read", "res-123")
@@ -375,10 +384,13 @@ class TestCheckPermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch(f"{_METRICS_MOD}.record_rbac_decision") as mock_record:
+        with (
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(f"{_METRICS_MOD}.record_rbac_decision") as mock_record,
+        ):
             with pytest.raises(ForbiddenError):
                 handler.check_permission(auth_ctx, "secret.read")
 
@@ -392,10 +404,13 @@ class TestCheckPermission:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch(f"{_METRICS_MOD}.record_rbac_decision"):
+        with (
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(f"{_METRICS_MOD}.record_rbac_decision"),
+        ):
             handler.check_permission(auth_ctx, "items.list", resource_id=None)
 
         mock_checker.check_permission.assert_called_once_with(auth_ctx, "items.list", None)
@@ -776,9 +791,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 200
@@ -799,11 +817,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "check_permission", return_value=True
-        ) as mock_perm, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "check_permission", return_value=True) as mock_perm,
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 200
@@ -823,11 +843,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "check_permission", return_value=True
-        ) as mock_perm, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "check_permission", return_value=True) as mock_perm,
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request, item_id="abc-123")
 
         mock_perm.assert_called_once_with(auth_ctx, "items.read", "abc-123")
@@ -846,11 +868,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "check_permission", return_value=True
-        ) as mock_perm, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "check_permission", return_value=True) as mock_perm,
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         mock_perm.assert_called_once_with(auth_ctx, "items.read", None)
@@ -869,11 +893,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             result = await handle_post(handler, request, item_id="item-99")
 
         assert result.status_code == 201
@@ -896,11 +922,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await handle_post(handler, request)
 
         call_kwargs = mock_audit.call_args[1]
@@ -920,11 +948,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await handle_post(handler, request)
 
         call_kwargs = mock_audit.call_args[1]
@@ -944,11 +974,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await handle_get(handler, request)
 
         mock_audit.assert_not_awaited()
@@ -967,12 +999,15 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler,
-            "get_auth_context",
-            new_callable=AsyncMock,
-            side_effect=UnauthorizedError("No token"),
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler,
+                "get_auth_context",
+                new_callable=AsyncMock,
+                side_effect=UnauthorizedError("No token"),
+            ),
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 401
@@ -991,13 +1026,17 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler,
-            "check_permission",
-            side_effect=ForbiddenError("denied", permission="secret.access"),
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(
+                handler,
+                "check_permission",
+                side_effect=ForbiddenError("denied", permission="secret.access"),
+            ),
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 403
@@ -1016,13 +1055,17 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler,
-            "check_permission",
-            side_effect=PermissionDeniedError("nope", decision=None),
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(
+                handler,
+                "check_permission",
+                side_effect=PermissionDeniedError("nope", decision=None),
+            ),
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 403
@@ -1041,15 +1084,19 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler,
-            "check_permission",
-            side_effect=RoleRequiredError(
-                "Need admin", required_roles={"admin"}, actual_roles={"member"}
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
             ),
-        ), _patch_metrics():
+            patch.object(
+                handler,
+                "check_permission",
+                side_effect=RoleRequiredError(
+                    "Need admin", required_roles={"admin"}, actual_roles={"member"}
+                ),
+            ),
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 403
@@ -1064,9 +1111,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(ValueError, match="bad input"):
                 await handle_get(handler, request)
 
@@ -1080,9 +1130,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(TypeError, match="wrong type"):
                 await handle_get(handler, request)
 
@@ -1096,9 +1149,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(KeyError):
                 await handle_get(handler, request)
 
@@ -1116,9 +1172,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics() as mocks:
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics() as mocks,
+        ):
             await handle_get(handler, request)
 
         mocks["record_auth_attempt"].assert_called_once_with("jwt", success=True)
@@ -1138,9 +1197,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=anon_ctx
-        ), _patch_metrics() as mocks:
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=anon_ctx
+            ),
+            _patch_metrics() as mocks,
+        ):
             await handle_get(handler, request)
 
         mocks["record_auth_attempt"].assert_called_once_with("jwt", success=False)
@@ -1159,11 +1221,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "check_permission"
-        ) as mock_check, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "check_permission") as mock_check,
+            _patch_metrics(),
+        ):
             await handle_get(handler, request)
 
         mock_check.assert_not_called()
@@ -1188,9 +1252,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(RuntimeError, match="server crashed"):
                 await handle_get(handler, request)
 
@@ -1204,9 +1271,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(OSError, match="disk full"):
                 await handle_get(handler, request)
 
@@ -1220,9 +1290,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(ConnectionError, match="db gone"):
                 await handle_get(handler, request)
 
@@ -1236,9 +1309,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(TimeoutError, match="too slow"):
                 await handle_get(handler, request)
 
@@ -1252,9 +1328,12 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             with pytest.raises(AttributeError, match="no such attr"):
                 await handle_get(handler, request)
 
@@ -1272,11 +1351,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await handle_post(handler, request)
 
         call_kwargs = mock_audit.call_args[1]
@@ -1297,11 +1378,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await handle_post(handler, request)
 
         call_kwargs = mock_audit.call_args[1]
@@ -1321,11 +1404,13 @@ class TestSecureEndpointDecorator:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "check_permission", return_value=True
-        ) as mock_perm, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "check_permission", return_value=True) as mock_perm,
+            _patch_metrics(),
+        ):
             await handle_get(handler, request, item_id=42)
 
         mock_perm.assert_called_once_with(auth_ctx, "items.read", "42")
@@ -1349,11 +1434,14 @@ class TestAuditSensitiveAccessDecorator:
 
         request = _make_request()
 
-        with patch(
-            f"{_METRICS_MOD}.record_secret_access",
-        ) as mock_record, patch(
-            f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                f"{_METRICS_MOD}.record_secret_access",
+            ) as mock_record,
+            patch(
+                f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await get_api_key(handler, request, auth_ctx)
 
@@ -1370,12 +1458,15 @@ class TestAuditSensitiveAccessDecorator:
 
         request = _make_request()
 
-        with patch(
-            f"{_METRICS_MOD}.record_secret_access",
-        ), patch(
-            f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
-            new_callable=AsyncMock,
-        ) as mock_audit:
+        with (
+            patch(
+                f"{_METRICS_MOD}.record_secret_access",
+            ),
+            patch(
+                f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
+                new_callable=AsyncMock,
+            ) as mock_audit,
+        ):
             await rotate_token(handler, request, auth_ctx)
 
         mock_audit.assert_awaited_once_with(
@@ -1406,11 +1497,14 @@ class TestAuditSensitiveAccessDecorator:
 
         request = _make_request()
 
-        with patch(
-            f"{_METRICS_MOD}.record_secret_access",
-        ), patch(
-            f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                f"{_METRICS_MOD}.record_secret_access",
+            ),
+            patch(
+                f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await list_keys(handler, request, auth_ctx, prefix="sk-")
 
@@ -1426,12 +1520,15 @@ class TestAuditSensitiveAccessDecorator:
 
         request = _make_request()
 
-        with patch(
-            f"{_METRICS_MOD}.record_secret_access",
-        ) as mock_record, patch(
-            f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
-            new_callable=AsyncMock,
-        ) as mock_audit:
+        with (
+            patch(
+                f"{_METRICS_MOD}.record_secret_access",
+            ) as mock_record,
+            patch(
+                f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
+                new_callable=AsyncMock,
+            ) as mock_audit,
+        ):
             await get_credential(handler, request, auth_ctx)
 
         mock_record.assert_called_once_with("credential", "access")
@@ -1448,12 +1545,15 @@ class TestAuditSensitiveAccessDecorator:
 
         request = _make_request()
 
-        with patch(
-            f"{_METRICS_MOD}.record_secret_access",
-        ), patch(
-            f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
-            new_callable=AsyncMock,
-        ) as mock_audit:
+        with (
+            patch(
+                f"{_METRICS_MOD}.record_secret_access",
+            ),
+            patch(
+                f"{_SECURITY_AUDIT_MOD}.audit_secret_access",
+                new_callable=AsyncMock,
+            ) as mock_audit,
+        ):
             await view_secret(handler, request, auth_ctx)
 
         call_kwargs = mock_audit.call_args[1]
@@ -1490,13 +1590,16 @@ class TestSecureEndpointIntegration:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics(), patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock),
         ):
             result = await handle_put(handler, request, id="item-100")
 
@@ -1525,11 +1628,15 @@ class TestSecureEndpointIntegration:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics(), patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
         ):
             result = await handle_delete(handler, request)
 
@@ -1553,12 +1660,15 @@ class TestSecureEndpointIntegration:
 
         request = _make_request()
 
-        with patch.object(
-            handler,
-            "get_auth_context",
-            new_callable=AsyncMock,
-            side_effect=UnauthorizedError("expired"),
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler,
+                "get_auth_context",
+                new_callable=AsyncMock,
+                side_effect=UnauthorizedError("expired"),
+            ),
+            _patch_metrics(),
+        ):
             result = await handle_get(handler, request)
 
         assert result.status_code == 401
@@ -1645,14 +1755,18 @@ class TestEdgeCases:
         mock_checker = MagicMock()
         mock_checker.check_permission.return_value = mock_decision
 
-        with patch(
-            f"{_RBAC_CHECKER_MOD}.get_permission_checker",
-            return_value=mock_checker,
-        ), patch(
-            f"{_METRICS_MOD}.record_rbac_decision",
-        ), patch(
-            "aragora.server.handlers.secure.logger",
-        ) as mock_logger:
+        with (
+            patch(
+                f"{_RBAC_CHECKER_MOD}.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                f"{_METRICS_MOD}.record_rbac_decision",
+            ),
+            patch(
+                "aragora.server.handlers.secure.logger",
+            ) as mock_logger,
+        ):
             with pytest.raises(ForbiddenError):
                 handler.check_permission(auth_ctx, "sensitive.data")
 
@@ -1663,9 +1777,12 @@ class TestEdgeCases:
         """Unknown error type is logged at error level."""
         err = Exception("mysterious")
 
-        with _patch_metrics(), patch(
-            "aragora.server.handlers.secure.logger",
-        ) as mock_logger:
+        with (
+            _patch_metrics(),
+            patch(
+                "aragora.server.handlers.secure.logger",
+            ) as mock_logger,
+        ):
             result = handler.handle_security_error(err)
 
         assert result.status_code == 500
@@ -1687,17 +1804,18 @@ class TestEdgeCases:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            _patch_metrics(),
+        ):
             await handle_get(handler, request, extra_param="hello")
 
         assert received_kwargs["extra_param"] == "hello"
 
     @pytest.mark.asyncio
-    async def test_secure_endpoint_audit_action_derived_from_method_name(
-        self, handler, auth_ctx
-    ):
+    async def test_secure_endpoint_audit_action_derived_from_method_name(self, handler, auth_ctx):
         """Audit action is derived by stripping 'handle_' prefix."""
 
         @secure_endpoint(audit=True)
@@ -1710,11 +1828,13 @@ class TestEdgeCases:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await handle_create_widget(handler, request)
 
         call_kwargs = mock_audit.call_args[1]
@@ -1734,11 +1854,13 @@ class TestEdgeCases:
 
         request = _make_request()
 
-        with patch.object(
-            handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
-        ), patch.object(
-            handler, "audit_action", new_callable=AsyncMock
-        ) as mock_audit, _patch_metrics():
+        with (
+            patch.object(
+                handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_ctx
+            ),
+            patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit,
+            _patch_metrics(),
+        ):
             await process_data(handler, request)
 
         call_kwargs = mock_audit.call_args[1]

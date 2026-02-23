@@ -362,7 +362,9 @@ class OutlookSyncService:
                 self._renewal_task = asyncio.create_task(self._subscription_renewal_loop())
 
             logger.info(
-                "[OutlookSync] Started for %s (tenant: %s)", self._state.email_address, self.tenant_id
+                "[OutlookSync] Started for %s (tenant: %s)",
+                self._state.email_address,
+                self.tenant_id,
             )
             return True
 
@@ -426,12 +428,15 @@ class OutlookSyncService:
             # Validate client state
             if self._state and webhook.client_state != self._state.client_state:
                 logger.warning(
-                    "[OutlookSync] Client state mismatch for subscription %s", webhook.subscription_id
+                    "[OutlookSync] Client state mismatch for subscription %s",
+                    webhook.subscription_id,
                 )
                 continue
 
             logger.info(
-                "[OutlookSync] Notification received: %s for resource %s", webhook.change_type, webhook.resource
+                "[OutlookSync] Notification received: %s for resource %s",
+                webhook.change_type,
+                webhook.resource,
             )
 
             # Handle based on change type
@@ -451,7 +456,9 @@ class OutlookSyncService:
                         if synced:
                             synced_messages.append(synced)
                     except (OSError, KeyError, ValueError) as e:
-                        logger.warning("[OutlookSync] Failed to fetch message %s: %s", message_id, e)
+                        logger.warning(
+                            "[OutlookSync] Failed to fetch message %s: %s", message_id, e
+                        )
 
         # Callback for batch
         if synced_messages and self._on_batch_complete:
@@ -757,7 +764,9 @@ class OutlookSyncService:
 
                     await self._save_state()
                     logger.info(
-                        "[OutlookSync] Subscription created: %s, expires at %s", self._state.subscription_id, self._state.subscription_expiry
+                        "[OutlookSync] Subscription created: %s, expires at %s",
+                        self._state.subscription_id,
+                        self._state.subscription_expiry,
                     )
                 else:
                     logger.error("[OutlookSync] Failed to create subscription: %s", response.text)
@@ -802,7 +811,8 @@ class OutlookSyncService:
 
                     await self._save_state()
                     logger.info(
-                        "[OutlookSync] Subscription renewed, new expiry: %s", self._state.subscription_expiry
+                        "[OutlookSync] Subscription renewed, new expiry: %s",
+                        self._state.subscription_expiry,
                     )
                 elif response.status_code == 404:
                     # Subscription expired/deleted, recreate

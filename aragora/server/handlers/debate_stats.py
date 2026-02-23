@@ -62,7 +62,15 @@ class DebateStatsHandler(BaseHandler):
             service = DebateAnalytics(storage)
             stats = service.get_debate_stats(period=period)
             return json_response(stats.to_dict())
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             logger.error("Failed to get debate stats: %s", exc)
             return error_response("Failed to get debate stats", 500)
 
@@ -84,7 +92,15 @@ class DebateStatsHandler(BaseHandler):
                     "count": len(agent_stats),
                 }
             )
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             logger.error("Failed to get agent stats: %s", exc)
             return error_response("Failed to get agent stats", 500)
 

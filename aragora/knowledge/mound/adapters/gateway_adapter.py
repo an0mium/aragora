@@ -795,7 +795,10 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to get device capabilities analysis: %s", e)
-                return {"analysis_available": False, "error": "Device capabilities analysis unavailable"}
+                return {
+                    "analysis_available": False,
+                    "error": "Device capabilities analysis unavailable",
+                }
 
     # =========================================================================
     # Sync from Gateway

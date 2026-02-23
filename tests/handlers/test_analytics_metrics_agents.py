@@ -111,10 +111,15 @@ def _make_elo_system(
     elo.list_agents.return_value = agents or lb
     elo.get_elo_history.return_value = elo_history or []
     elo.get_recent_matches.return_value = recent_matches or []
-    elo.get_head_to_head.return_value = head_to_head or {"a_wins": 0, "b_wins": 0, "draws": 0, "total": 0}
+    elo.get_head_to_head.return_value = head_to_head or {
+        "a_wins": 0,
+        "b_wins": 0,
+        "draws": 0,
+        "total": 0,
+    }
 
     def _get_rating(agent_id):
-        for a in (agents or lb):
+        for a in agents or lb:
             if a.agent_name == agent_id:
                 return a
         raise ValueError(f"Agent not found: {agent_id}")
@@ -144,9 +149,29 @@ def http_handler():
 def three_agents():
     """Three mock agents for leaderboard and comparison tests."""
     return [
-        _make_agent("claude", elo=1650, wins=120, losses=30, draws=10, win_rate=0.75, games_played=160, calibration_score=0.85),
-        _make_agent("gpt-4", elo=1580, wins=90, losses=50, draws=20, win_rate=0.5625, games_played=160, calibration_score=0.78),
-        _make_agent("gemini", elo=1520, wins=70, losses=60, draws=30, win_rate=0.4375, games_played=160),
+        _make_agent(
+            "claude",
+            elo=1650,
+            wins=120,
+            losses=30,
+            draws=10,
+            win_rate=0.75,
+            games_played=160,
+            calibration_score=0.85,
+        ),
+        _make_agent(
+            "gpt-4",
+            elo=1580,
+            wins=90,
+            losses=50,
+            draws=20,
+            win_rate=0.5625,
+            games_played=160,
+            calibration_score=0.78,
+        ),
+        _make_agent(
+            "gemini", elo=1520, wins=70, losses=60, draws=30, win_rate=0.4375, games_played=160
+        ),
     ]
 
 
@@ -491,7 +516,9 @@ class TestAgentPerformance:
 
     def test_domain_performance_included(self, handler):
         """Domain performance is included when agent has domain_elos."""
-        agent = _make_agent("claude", elo=1650, domain_elos={"security": 1700.3, "performance": 1620.7})
+        agent = _make_agent(
+            "claude", elo=1650, domain_elos={"security": 1700.3, "performance": 1620.7}
+        )
         elo_sys = _make_elo_system(agents=[agent])
         elo_sys.get_leaderboard.return_value = [agent]
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
@@ -579,7 +606,12 @@ class TestAgentsComparison:
     def test_success_two_agents(self, handler, three_agents):
         """Compare two agents with head-to-head stats."""
         elo_sys = _make_elo_system(agents=three_agents)
-        elo_sys.get_head_to_head.return_value = {"a_wins": 15, "b_wins": 10, "draws": 5, "total": 30}
+        elo_sys.get_head_to_head.return_value = {
+            "a_wins": 15,
+            "b_wins": 10,
+            "draws": 5,
+            "total": 30,
+        }
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
             result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
 
@@ -1037,9 +1069,7 @@ class TestAgentHandleRouting:
     async def test_route_agents_leaderboard(self, handler, mock_elo, http_handler):
         """handle() routes /api/v1/analytics/agents/leaderboard."""
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/analytics/agents/leaderboard", {}, http_handler
-            )
+            result = await handler.handle("/api/v1/analytics/agents/leaderboard", {}, http_handler)
 
         assert result is not None
         assert _status(result) == 200
@@ -1050,9 +1080,7 @@ class TestAgentHandleRouting:
     async def test_route_agents_leaderboard_unversioned(self, handler, mock_elo, http_handler):
         """handle() routes unversioned /api/analytics/agents/leaderboard."""
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/analytics/agents/leaderboard", {}, http_handler
-            )
+            result = await handler.handle("/api/analytics/agents/leaderboard", {}, http_handler)
 
         assert result is not None
         assert _status(result) == 200

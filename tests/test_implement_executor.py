@@ -466,7 +466,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [simple_task]
         completed = set()
 
-        mock_execute = AsyncMock(return_value=TaskResult(task_id=simple_task.id, success=True, diff=""))
+        mock_execute = AsyncMock(
+            return_value=TaskResult(task_id=simple_task.id, success=True, diff="")
+        )
         executor.execute_task_with_retry = mock_execute
         results = await executor.execute_plan(tasks, completed)
 
@@ -506,7 +508,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [complex_task]
         completed = {"task-1", "task-2"}  # Dependencies already complete
 
-        mock_execute = AsyncMock(return_value=TaskResult(task_id=complex_task.id, success=True, diff=""))
+        mock_execute = AsyncMock(
+            return_value=TaskResult(task_id=complex_task.id, success=True, diff="")
+        )
         executor.execute_task_with_retry = mock_execute
         results = await executor.execute_plan(tasks, completed)
 
@@ -549,7 +553,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [task1, task2]
         completed = set()
 
-        mock_execute = AsyncMock(return_value=TaskResult(task_id="t1", success=False, error="Failed"))
+        mock_execute = AsyncMock(
+            return_value=TaskResult(task_id="t1", success=False, error="Failed")
+        )
         executor.execute_task_with_retry = mock_execute
         results = await executor.execute_plan(tasks, completed, stop_on_failure=True)
 
@@ -566,7 +572,9 @@ class TestHybridExecutorPlanExecution:
         def callback(task_id, result):
             callback_called.append(task_id)
 
-        mock_execute = AsyncMock(return_value=TaskResult(task_id=simple_task.id, success=True, diff=""))
+        mock_execute = AsyncMock(
+            return_value=TaskResult(task_id=simple_task.id, success=True, diff="")
+        )
         executor.execute_task_with_retry = mock_execute
         await executor.execute_plan(tasks, completed, on_task_complete=callback)
 

@@ -136,7 +136,9 @@ class ConsensusHandler(BaseHandler):
             checker = get_permission_checker()
             decision = checker.check_permission(context, permission)
             if not decision.allowed:
-                logger.warning("RBAC denied %s for user %s: %s", permission, user_id, decision.reason)
+                logger.warning(
+                    "RBAC denied %s for user %s: %s", permission, user_id, decision.reason
+                )
                 return error_response("Permission denied", 403)
             return None
         except (TypeError, ValueError, KeyError, AttributeError) as e:

@@ -168,9 +168,7 @@ class TestOnQuery:
         assert state.access_count == 2
 
     @pytest.mark.asyncio
-    async def test_on_query_decays_surprise_ema(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_query_decays_surprise_ema(self, controller: TitansMemoryController) -> None:
         now = time.time()
         controller._upsert_state(SurpriseState("q1", "km", 0.8, now, 0, now))
 
@@ -183,9 +181,7 @@ class TestOnQuery:
         assert state.surprise_ema < 0.8
 
     @pytest.mark.asyncio
-    async def test_on_query_updates_last_access(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_query_updates_last_access(self, controller: TitansMemoryController) -> None:
         old_time = time.time() - 1000
         controller._upsert_state(SurpriseState("q1", "km", 0.5, old_time, 0, old_time))
 
@@ -213,9 +209,7 @@ class TestOnQuery:
         assert controller.get_stats()["item_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_on_query_multiple_results(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_query_multiple_results(self, controller: TitansMemoryController) -> None:
         results = [
             MagicMock(item_id="q1", source_system="km"),
             MagicMock(item_id="q2", source_system="continuum"),
@@ -243,9 +237,7 @@ class TestOnQuery:
 
 class TestOnWrite:
     @pytest.mark.asyncio
-    async def test_on_write_creates_state(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_write_creates_state(self, controller: TitansMemoryController) -> None:
         await controller.on_write("w1", "km", "some novel content about testing")
 
         state = controller.get_state("w1", "km")
@@ -326,9 +318,7 @@ class TestOnWrite:
         assert len(ctx["content_preview"]) <= 200
 
     @pytest.mark.asyncio
-    async def test_on_write_trigger_error_does_not_propagate(
-        self, db_path: Path
-    ) -> None:
+    async def test_on_write_trigger_error_does_not_propagate(self, db_path: Path) -> None:
         engine = MagicMock()
         engine.fire = AsyncMock(side_effect=RuntimeError("trigger boom"))
         ctrl = TitansMemoryController(db_path=db_path, trigger_engine=engine)
@@ -341,9 +331,7 @@ class TestOnWrite:
             ctrl.close()
 
     @pytest.mark.asyncio
-    async def test_on_write_sets_timestamp(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_write_sets_timestamp(self, controller: TitansMemoryController) -> None:
         before = time.time()
         await controller.on_write("w1", "km", "test content")
         after = time.time()
@@ -369,10 +357,12 @@ class TestSweep:
 
     @pytest.mark.asyncio
     async def test_sweep_retain_action(self, db_path: Path) -> None:
-        gate = RetentionGate(RetentionGateConfig(
-            forget_threshold=0.15,
-            consolidate_threshold=0.7,
-        ))
+        gate = RetentionGate(
+            RetentionGateConfig(
+                forget_threshold=0.15,
+                consolidate_threshold=0.7,
+            )
+        )
         ctrl = TitansMemoryController(retention_gate=gate, db_path=db_path)
         try:
             now = time.time()
@@ -407,10 +397,12 @@ class TestSweep:
 
     @pytest.mark.asyncio
     async def test_sweep_demote_action(self, db_path: Path) -> None:
-        gate = RetentionGate(RetentionGateConfig(
-            forget_threshold=0.15,
-            consolidate_threshold=0.7,
-        ))
+        gate = RetentionGate(
+            RetentionGateConfig(
+                forget_threshold=0.15,
+                consolidate_threshold=0.7,
+            )
+        )
         ctrl = TitansMemoryController(retention_gate=gate, db_path=db_path)
         try:
             now = time.time()
@@ -427,10 +419,12 @@ class TestSweep:
 
     @pytest.mark.asyncio
     async def test_sweep_consolidate_action(self, db_path: Path) -> None:
-        gate = RetentionGate(RetentionGateConfig(
-            forget_threshold=0.15,
-            consolidate_threshold=0.7,
-        ))
+        gate = RetentionGate(
+            RetentionGateConfig(
+                forget_threshold=0.15,
+                consolidate_threshold=0.7,
+            )
+        )
         ctrl = TitansMemoryController(retention_gate=gate, db_path=db_path)
         try:
             now = time.time()
@@ -490,10 +484,12 @@ class TestSweep:
 
     @pytest.mark.asyncio
     async def test_sweep_multiple_items_mixed_actions(self, db_path: Path) -> None:
-        gate = RetentionGate(RetentionGateConfig(
-            forget_threshold=0.15,
-            consolidate_threshold=0.7,
-        ))
+        gate = RetentionGate(
+            RetentionGateConfig(
+                forget_threshold=0.15,
+                consolidate_threshold=0.7,
+            )
+        )
         ctrl = TitansMemoryController(retention_gate=gate, db_path=db_path)
         try:
             now = time.time()
@@ -516,16 +512,12 @@ class TestSweep:
 
 class TestSweepLoop:
     @pytest.mark.asyncio
-    async def test_sweep_loop_single_iteration(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_sweep_loop_single_iteration(self, controller: TitansMemoryController) -> None:
         await controller.run_sweep_loop(interval_seconds=0.01, max_sweeps=1)
         # Should complete without error
 
     @pytest.mark.asyncio
-    async def test_sweep_loop_multiple_iterations(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_sweep_loop_multiple_iterations(self, controller: TitansMemoryController) -> None:
         now = time.time()
         controller._upsert_state(SurpriseState("x", "km", 0.5, now, 1, now))
 
@@ -546,15 +538,11 @@ class TestSweepLoop:
             ctrl.close()
 
     @pytest.mark.asyncio
-    async def test_sweep_loop_zero_interval(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_sweep_loop_zero_interval(self, controller: TitansMemoryController) -> None:
         await controller.run_sweep_loop(interval_seconds=0.0, max_sweeps=2)
 
     @pytest.mark.asyncio
-    async def test_sweep_loop_respects_max_sweeps(
-        self, db_path: Path
-    ) -> None:
+    async def test_sweep_loop_respects_max_sweeps(self, db_path: Path) -> None:
         sweep_count = 0
         original_sweep = TitansMemoryController.sweep
 
@@ -594,9 +582,7 @@ class TestEdgeCases:
         # (this is expected behavior)
 
     @pytest.mark.asyncio
-    async def test_on_query_empty_results(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_query_empty_results(self, controller: TitansMemoryController) -> None:
         await controller.on_query("test", [])
         assert controller.get_stats()["item_count"] == 0
 
@@ -610,9 +596,7 @@ class TestEdgeCases:
         assert controller.get_stats()["item_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_on_write_empty_content(
-        self, controller: TitansMemoryController
-    ) -> None:
+    async def test_on_write_empty_content(self, controller: TitansMemoryController) -> None:
         await controller.on_write("w1", "km", "")
         state = controller.get_state("w1", "km")
         assert state is not None

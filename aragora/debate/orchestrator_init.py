@@ -240,7 +240,8 @@ def init_skills_and_propulsion(arena: Arena, cfg: Any) -> None:
     arena.enable_skills = cfg.enable_skills
     if arena.skill_registry and arena.enable_skills:
         logger.info(
-            "[skills] Skill registry attached with %s skills (debate evidence collection enabled)", arena.skill_registry.count()
+            "[skills] Skill registry attached with %s skills (debate evidence collection enabled)",
+            arena.skill_registry.count(),
         )
     arena.propulsion_engine = cfg.propulsion_engine
     arena.enable_propulsion = cfg.enable_propulsion

@@ -1,4 +1,5 @@
 """Tests for MetaPlanner integration in goals_to_actions."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock

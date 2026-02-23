@@ -160,11 +160,14 @@ class TranscriptionWorker:
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single transcription job."""
         start_time = time.time()
-        self._emit_transcription_event("TRANSCRIPTION_STARTED", {
-            "job_id": job.id,
-            "job_type": job.job_type,
-            "worker_id": self.worker_id,
-        })
+        self._emit_transcription_event(
+            "TRANSCRIPTION_STARTED",
+            {
+                "job_id": job.id,
+                "job_type": job.job_type,
+                "worker_id": self.worker_id,
+            },
+        )
 
         try:
             job_type = job.job_type
@@ -191,22 +194,31 @@ class TranscriptionWorker:
             )
 
             logger.info(f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s")
-            self._emit_transcription_event("TRANSCRIPTION_COMPLETE", {
-                "job_id": job.id,
-                "job_type": job.job_type,
-                "duration_seconds": duration,
-            })
+            self._emit_transcription_event(
+                "TRANSCRIPTION_COMPLETE",
+                {
+                    "job_id": job.id,
+                    "job_type": job.job_type,
+                    "duration_seconds": duration,
+                },
+            )
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
-                "[%s] Job %s failed: %s", self.worker_id, job.id, e,
+                "[%s] Job %s failed: %s",
+                self.worker_id,
+                job.id,
+                e,
                 exc_info=True,
             )
-            self._emit_transcription_event("TRANSCRIPTION_FAILED", {
-                "job_id": job.id,
-                "job_type": job.job_type,
-                "error": type(e).__name__,
-            })
+            self._emit_transcription_event(
+                "TRANSCRIPTION_FAILED",
+                {
+                    "job_id": job.id,
+                    "job_type": job.job_type,
+                    "error": type(e).__name__,
+                },
+            )
 
             # Check if we should retry
             should_retry = job.attempts < job.max_attempts
@@ -218,7 +230,11 @@ class TranscriptionWorker:
 
             if should_retry:
                 logger.info(
-                    "[%s] Job %s will retry (attempt %s/%s)", self.worker_id, job.id, job.attempts, job.max_attempts
+                    "[%s] Job %s will retry (attempt %s/%s)",
+                    self.worker_id,
+                    job.id,
+                    job.attempts,
+                    job.max_attempts,
                 )
 
     async def _process_audio_job(self, job: QueuedJob) -> dict:

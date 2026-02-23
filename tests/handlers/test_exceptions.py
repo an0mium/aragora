@@ -204,7 +204,10 @@ class TestHandlerNotFoundError:
 
     def test_message_format(self):
         err = HandlerNotFoundError("Agent", "agent-x")
-        assert str(err) == "Agent not found: agent-x (details: {'resource_type': 'Agent', 'resource_id': 'agent-x'})"
+        assert (
+            str(err)
+            == "Agent not found: agent-x (details: {'resource_type': 'Agent', 'resource_id': 'agent-x'})"
+        )
 
     def test_inherits_from_handler_error(self):
         err = HandlerNotFoundError("X", "Y")
@@ -759,17 +762,28 @@ class TestExceptionMap:
     def test_all_expected_types_present(self):
         """Verify all expected exception types are in the map."""
         expected_types = {
-            HandlerValidationError, InputValidationError, ValidationError,
-            ValueError, KeyError, TypeError,
-            HandlerNotFoundError, RecordNotFoundError,
-            HandlerAuthorizationError, AuthorizationError,
-            AuthenticationError, AuthError,
-            HandlerRateLimitError, RateLimitExceededError,
+            HandlerValidationError,
+            InputValidationError,
+            ValidationError,
+            ValueError,
+            KeyError,
+            TypeError,
+            HandlerNotFoundError,
+            RecordNotFoundError,
+            HandlerAuthorizationError,
+            AuthorizationError,
+            AuthenticationError,
+            AuthError,
+            HandlerRateLimitError,
+            RateLimitExceededError,
             HandlerConflictError,
             HandlerExternalServiceError,
-            HandlerDatabaseError, DatabaseError,
-            sqlite3.Error, sqlite3.IntegrityError,
-            TimeoutError, HandlerTimeoutError,
+            HandlerDatabaseError,
+            DatabaseError,
+            sqlite3.Error,
+            sqlite3.IntegrityError,
+            TimeoutError,
+            HandlerTimeoutError,
             HandlerJSONParseError,
             HandlerStreamError,
             HandlerOAuthError,
@@ -1320,10 +1334,18 @@ class TestInheritanceHierarchy:
 
     def test_all_handler_exceptions_are_exceptions(self):
         for cls in [
-            HandlerError, HandlerValidationError, HandlerNotFoundError,
-            HandlerAuthorizationError, HandlerConflictError, HandlerRateLimitError,
-            HandlerExternalServiceError, HandlerDatabaseError, HandlerJSONParseError,
-            HandlerTimeoutError, HandlerStreamError, HandlerOAuthError,
+            HandlerError,
+            HandlerValidationError,
+            HandlerNotFoundError,
+            HandlerAuthorizationError,
+            HandlerConflictError,
+            HandlerRateLimitError,
+            HandlerExternalServiceError,
+            HandlerDatabaseError,
+            HandlerJSONParseError,
+            HandlerTimeoutError,
+            HandlerStreamError,
+            HandlerOAuthError,
         ]:
             assert issubclass(cls, Exception), f"{cls.__name__} is not an Exception"
 
@@ -1434,29 +1456,52 @@ class TestModuleExports:
 
     def test_handler_exceptions_exported(self):
         from aragora.server.handlers import exceptions as mod
+
         expected = [
-            "HandlerError", "HandlerValidationError", "HandlerNotFoundError",
-            "HandlerAuthorizationError", "HandlerConflictError", "HandlerRateLimitError",
-            "HandlerExternalServiceError", "HandlerDatabaseError", "HandlerJSONParseError",
-            "HandlerTimeoutError", "HandlerStreamError", "HandlerOAuthError",
+            "HandlerError",
+            "HandlerValidationError",
+            "HandlerNotFoundError",
+            "HandlerAuthorizationError",
+            "HandlerConflictError",
+            "HandlerRateLimitError",
+            "HandlerExternalServiceError",
+            "HandlerDatabaseError",
+            "HandlerJSONParseError",
+            "HandlerTimeoutError",
+            "HandlerStreamError",
+            "HandlerOAuthError",
         ]
         for name in expected:
             assert name in mod.__all__, f"{name} not in __all__"
 
     def test_utility_functions_exported(self):
         from aragora.server.handlers import exceptions as mod
-        for name in ["classify_exception", "handle_handler_error",
-                      "is_client_error", "is_server_error", "is_retryable_error"]:
+
+        for name in [
+            "classify_exception",
+            "handle_handler_error",
+            "is_client_error",
+            "is_server_error",
+            "is_retryable_error",
+        ]:
             assert name in mod.__all__, f"{name} not in __all__"
 
     def test_reexported_base_exceptions(self):
         from aragora.server.handlers import exceptions as mod
-        for name in ["ValidationError", "InputValidationError", "DatabaseError",
-                      "RecordNotFoundError", "AuthenticationError", "AuthorizationError",
-                      "RateLimitExceededError"]:
+
+        for name in [
+            "ValidationError",
+            "InputValidationError",
+            "DatabaseError",
+            "RecordNotFoundError",
+            "AuthenticationError",
+            "AuthorizationError",
+            "RateLimitExceededError",
+        ]:
             assert name in mod.__all__, f"{name} not in __all__"
 
     def test_all_exports_are_importable(self):
         from aragora.server.handlers import exceptions as mod
+
         for name in mod.__all__:
             assert hasattr(mod, name), f"{name} in __all__ but not importable"

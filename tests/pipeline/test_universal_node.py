@@ -29,31 +29,39 @@ from aragora.pipeline.universal_node import (
 class TestUniversalNode:
     def test_auto_content_hash(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test Idea",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test Idea",
         )
         assert node.content_hash == content_hash("Test Idea")
 
     def test_auto_content_hash_includes_description(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test",
             description="Description",
         )
         assert node.content_hash == content_hash("TestDescription")
 
     def test_explicit_content_hash_preserved(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test",
             content_hash="custom123",
         )
         assert node.content_hash == "custom123"
 
     def test_default_field_values(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test",
         )
         assert node.description == ""
         assert node.position_x == 0.0
@@ -73,72 +81,89 @@ class TestUniversalNode:
 
     def test_validate_subtype_valid(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test",
         )
         assert node.validate_subtype() is True
 
     def test_validate_subtype_invalid(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="agent_task", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="agent_task",
+            label="Test",
         )
         assert node.validate_subtype() is False
 
     def test_validate_subtype_empty_string(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="",
+            label="Test",
         )
         assert node.validate_subtype() is False
 
     def test_validate_subtype_nonexistent_type(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.GOALS,
-            node_subtype="nonexistent", label="Test",
+            id="n1",
+            stage=PipelineStage.GOALS,
+            node_subtype="nonexistent",
+            label="Test",
         )
         assert node.validate_subtype() is False
 
-    @pytest.mark.parametrize("stage,subtype", [
-        (PipelineStage.IDEAS, "concept"),
-        (PipelineStage.IDEAS, "cluster"),
-        (PipelineStage.IDEAS, "question"),
-        (PipelineStage.IDEAS, "insight"),
-        (PipelineStage.IDEAS, "evidence"),
-        (PipelineStage.IDEAS, "assumption"),
-        (PipelineStage.IDEAS, "constraint"),
-        (PipelineStage.IDEAS, "observation"),
-        (PipelineStage.IDEAS, "hypothesis"),
-        (PipelineStage.GOALS, "goal"),
-        (PipelineStage.GOALS, "principle"),
-        (PipelineStage.GOALS, "strategy"),
-        (PipelineStage.GOALS, "milestone"),
-        (PipelineStage.GOALS, "metric"),
-        (PipelineStage.GOALS, "risk"),
-        (PipelineStage.ACTIONS, "task"),
-        (PipelineStage.ACTIONS, "epic"),
-        (PipelineStage.ACTIONS, "checkpoint"),
-        (PipelineStage.ACTIONS, "deliverable"),
-        (PipelineStage.ACTIONS, "dependency"),
-        (PipelineStage.ORCHESTRATION, "agent_task"),
-        (PipelineStage.ORCHESTRATION, "debate"),
-        (PipelineStage.ORCHESTRATION, "human_gate"),
-        (PipelineStage.ORCHESTRATION, "parallel_fan"),
-        (PipelineStage.ORCHESTRATION, "merge"),
-        (PipelineStage.ORCHESTRATION, "verification"),
-    ])
+    @pytest.mark.parametrize(
+        "stage,subtype",
+        [
+            (PipelineStage.IDEAS, "concept"),
+            (PipelineStage.IDEAS, "cluster"),
+            (PipelineStage.IDEAS, "question"),
+            (PipelineStage.IDEAS, "insight"),
+            (PipelineStage.IDEAS, "evidence"),
+            (PipelineStage.IDEAS, "assumption"),
+            (PipelineStage.IDEAS, "constraint"),
+            (PipelineStage.IDEAS, "observation"),
+            (PipelineStage.IDEAS, "hypothesis"),
+            (PipelineStage.GOALS, "goal"),
+            (PipelineStage.GOALS, "principle"),
+            (PipelineStage.GOALS, "strategy"),
+            (PipelineStage.GOALS, "milestone"),
+            (PipelineStage.GOALS, "metric"),
+            (PipelineStage.GOALS, "risk"),
+            (PipelineStage.ACTIONS, "task"),
+            (PipelineStage.ACTIONS, "epic"),
+            (PipelineStage.ACTIONS, "checkpoint"),
+            (PipelineStage.ACTIONS, "deliverable"),
+            (PipelineStage.ACTIONS, "dependency"),
+            (PipelineStage.ORCHESTRATION, "agent_task"),
+            (PipelineStage.ORCHESTRATION, "debate"),
+            (PipelineStage.ORCHESTRATION, "human_gate"),
+            (PipelineStage.ORCHESTRATION, "parallel_fan"),
+            (PipelineStage.ORCHESTRATION, "merge"),
+            (PipelineStage.ORCHESTRATION, "verification"),
+        ],
+    )
     def test_validate_subtype_all_stages(self, stage, subtype):
         node = UniversalNode(
-            id="n1", stage=stage, node_subtype=subtype, label="Test",
+            id="n1",
+            stage=stage,
+            node_subtype=subtype,
+            label="Test",
         )
         assert node.validate_subtype() is True
 
     def test_to_dict_roundtrip(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.GOALS,
-            node_subtype="goal", label="Build API",
+            id="n1",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Build API",
             description="Build the REST API",
-            position_x=100, position_y=200,
+            position_x=100,
+            position_y=200,
             parent_ids=["idea-1"],
             source_stage=PipelineStage.IDEAS,
             confidence=0.8,
@@ -161,8 +186,11 @@ class TestUniversalNode:
     def test_to_dict_content_hash_preserved(self):
         """Content hash in to_dict matches from_dict restoration."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Hello", description="World",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Hello",
+            description="World",
         )
         d = node.to_dict()
         assert d["content_hash"] == content_hash("HelloWorld")
@@ -171,9 +199,12 @@ class TestUniversalNode:
 
     def test_to_react_flow_node(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Test Idea",
-            position_x=50, position_y=100,
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Test Idea",
+            position_x=50,
+            position_y=100,
         )
         rf = node.to_react_flow_node()
         assert rf["id"] == "n1"
@@ -187,8 +218,10 @@ class TestUniversalNode:
     def test_to_react_flow_node_uses_node_type_colors(self):
         """The color in react flow data uses NODE_TYPE_COLORS mapping."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.GOALS,
-            node_subtype="risk", label="Risk Item",
+            id="n1",
+            stage=PipelineStage.GOALS,
+            node_subtype="risk",
+            label="Risk Item",
         )
         rf = node.to_react_flow_node()
         assert rf["data"]["color"] == NODE_TYPE_COLORS["risk"]
@@ -196,8 +229,10 @@ class TestUniversalNode:
     def test_to_react_flow_node_unknown_subtype_fallback_color(self):
         """Unknown subtype gets fallback gray color."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="unknown_type", label="Test",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="unknown_type",
+            label="Test",
         )
         rf = node.to_react_flow_node()
         assert rf["data"]["color"] == "#94a3b8"
@@ -205,8 +240,10 @@ class TestUniversalNode:
     def test_to_react_flow_node_stage_color(self):
         """Stage color from STAGE_COLORS is included."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.ORCHESTRATION,
-            node_subtype="debate", label="Debate",
+            id="n1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="debate",
+            label="Debate",
         )
         rf = node.to_react_flow_node()
         assert rf["data"]["stageColor"] == STAGE_COLORS[PipelineStage.ORCHESTRATION]["primary"]
@@ -214,9 +251,12 @@ class TestUniversalNode:
     def test_to_react_flow_node_style_dimensions(self):
         """Width and height appear in style dict."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="T",
-            width=300.0, height=150.0,
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="T",
+            width=300.0,
+            height=150.0,
         )
         rf = node.to_react_flow_node()
         assert rf["style"]["width"] == 300.0
@@ -225,8 +265,10 @@ class TestUniversalNode:
     def test_to_react_flow_node_custom_data_merged(self):
         """Custom data dict is merged into react flow data."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="T",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="T",
             data={"priority": "high", "tags": ["a"]},
         )
         rf = node.to_react_flow_node()
@@ -236,8 +278,10 @@ class TestUniversalNode:
     def test_to_react_flow_node_custom_style_merged(self):
         """Custom style dict is merged into react flow style."""
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="T",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="T",
             style={"borderRadius": "8px"},
         )
         rf = node.to_react_flow_node()
@@ -245,8 +289,10 @@ class TestUniversalNode:
 
     def test_source_stage_none_serialization(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="T",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="T",
         )
         d = node.to_dict()
         assert d["source_stage"] is None
@@ -268,8 +314,10 @@ class TestUniversalNode:
 
     def test_previous_hash_roundtrip(self):
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="T",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="T",
             previous_hash="abc123",
         )
         d = node.to_dict()
@@ -281,8 +329,10 @@ class TestUniversalNode:
         """All documented status values are accepted."""
         for status in ("active", "completed", "archived", "rejected"):
             node = UniversalNode(
-                id="n1", stage=PipelineStage.IDEAS,
-                node_subtype="concept", label="T",
+                id="n1",
+                stage=PipelineStage.IDEAS,
+                node_subtype="concept",
+                label="T",
                 status=status,
             )
             assert node.status == status
@@ -294,7 +344,9 @@ class TestUniversalNode:
 class TestUniversalEdge:
     def test_creation_defaults(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.SUPPORTS,
         )
         assert edge.label == ""
@@ -305,9 +357,12 @@ class TestUniversalEdge:
 
     def test_to_dict_roundtrip(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.SUPPORTS,
-            label="supports", weight=0.8,
+            label="supports",
+            weight=0.8,
             cross_stage=True,
             data={"custom": "data"},
         )
@@ -323,7 +378,9 @@ class TestUniversalEdge:
 
     def test_to_dict_edge_type_serialized_as_string(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.INSPIRES,
         )
         d = edge.to_dict()
@@ -331,7 +388,9 @@ class TestUniversalEdge:
 
     def test_to_react_flow_edge(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.DERIVED_FROM,
             cross_stage=True,
         )
@@ -345,7 +404,9 @@ class TestUniversalEdge:
     def test_to_react_flow_edge_label_fallback(self):
         """When label is empty, edge_type value is used as label."""
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.BLOCKS,
         )
         rf = edge.to_react_flow_edge()
@@ -354,7 +415,9 @@ class TestUniversalEdge:
     def test_to_react_flow_edge_custom_label(self):
         """When label is provided, it overrides edge_type value."""
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.BLOCKS,
             label="is blocked by",
         )
@@ -363,7 +426,9 @@ class TestUniversalEdge:
 
     def test_intra_stage_edge(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.SUPPORTS,
             cross_stage=False,
         )
@@ -373,7 +438,9 @@ class TestUniversalEdge:
 
     def test_to_react_flow_edge_data_includes_weight(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.REQUIRES,
             weight=0.5,
         )
@@ -383,7 +450,9 @@ class TestUniversalEdge:
 
     def test_to_react_flow_edge_custom_data_merged(self):
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.SUPPORTS,
             data={"notes": "important"},
         )
@@ -410,14 +479,24 @@ class TestUniversalEdge:
 class TestUniversalGraph:
     def _make_graph(self):
         graph = UniversalGraph(id="g1", name="Test Pipeline")
-        n1 = UniversalNode(id="n1", stage=PipelineStage.IDEAS, node_subtype="concept", label="Idea 1")
+        n1 = UniversalNode(
+            id="n1", stage=PipelineStage.IDEAS, node_subtype="concept", label="Idea 1"
+        )
         n2 = UniversalNode(
-            id="n2", stage=PipelineStage.GOALS, node_subtype="goal", label="Goal 1",
-            parent_ids=["n1"], source_stage=PipelineStage.IDEAS,
+            id="n2",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Goal 1",
+            parent_ids=["n1"],
+            source_stage=PipelineStage.IDEAS,
         )
         n3 = UniversalNode(
-            id="n3", stage=PipelineStage.ACTIONS, node_subtype="task", label="Task 1",
-            parent_ids=["n2"], source_stage=PipelineStage.GOALS,
+            id="n3",
+            stage=PipelineStage.ACTIONS,
+            node_subtype="task",
+            label="Task 1",
+            parent_ids=["n2"],
+            source_stage=PipelineStage.GOALS,
         )
         graph.add_node(n1)
         graph.add_node(n2)
@@ -441,7 +520,9 @@ class TestUniversalGraph:
     def test_add_edge(self):
         graph = self._make_graph()
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.DERIVED_FROM,
         )
         graph.add_edge(edge)
@@ -452,7 +533,9 @@ class TestUniversalGraph:
         """add_edge sets cross_stage=True when source and target are in different stages."""
         graph = self._make_graph()
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.DERIVED_FROM,
             cross_stage=False,  # Explicitly set to False
         )
@@ -466,31 +549,41 @@ class TestUniversalGraph:
         n2 = UniversalNode(id="n2", stage=PipelineStage.IDEAS, node_subtype="insight", label="B")
         graph.add_node(n1)
         graph.add_node(n2)
-        edge = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.SUPPORTS)
+        edge = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.SUPPORTS
+        )
         graph.add_edge(edge)
         assert graph.edges["e1"].cross_stage is False
 
     def test_add_edge_invalid_source(self):
         graph = self._make_graph()
-        edge = UniversalEdge(id="e1", source_id="missing", target_id="n1", edge_type=StageEdgeType.SUPPORTS)
+        edge = UniversalEdge(
+            id="e1", source_id="missing", target_id="n1", edge_type=StageEdgeType.SUPPORTS
+        )
         graph.add_edge(edge)
         assert "e1" not in graph.edges
 
     def test_add_edge_invalid_target(self):
         graph = self._make_graph()
-        edge = UniversalEdge(id="e1", source_id="n1", target_id="missing", edge_type=StageEdgeType.SUPPORTS)
+        edge = UniversalEdge(
+            id="e1", source_id="n1", target_id="missing", edge_type=StageEdgeType.SUPPORTS
+        )
         graph.add_edge(edge)
         assert "e1" not in graph.edges
 
     def test_add_edge_both_invalid(self):
         graph = UniversalGraph(id="g1")
-        edge = UniversalEdge(id="e1", source_id="bad1", target_id="bad2", edge_type=StageEdgeType.SUPPORTS)
+        edge = UniversalEdge(
+            id="e1", source_id="bad1", target_id="bad2", edge_type=StageEdgeType.SUPPORTS
+        )
         graph.add_edge(edge)
         assert "e1" not in graph.edges  # silently skipped
 
     def test_remove_node_cascades_edges(self):
         graph = self._make_graph()
-        edge = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
+        edge = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
         graph.add_edge(edge)
         assert "e1" in graph.edges
         graph.remove_node("n1")
@@ -512,9 +605,13 @@ class TestUniversalGraph:
     def test_remove_node_cascades_multiple_edges(self):
         """Removing a node removes ALL edges touching it (both directions)."""
         graph = self._make_graph()
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
         e2 = UniversalEdge(id="e2", source_id="n2", target_id="n1", edge_type=StageEdgeType.REFUTES)
-        e3 = UniversalEdge(id="e3", source_id="n2", target_id="n3", edge_type=StageEdgeType.IMPLEMENTS)
+        e3 = UniversalEdge(
+            id="e3", source_id="n2", target_id="n3", edge_type=StageEdgeType.IMPLEMENTS
+        )
         graph.add_edge(e1)
         graph.add_edge(e2)
         graph.add_edge(e3)
@@ -525,7 +622,9 @@ class TestUniversalGraph:
 
     def test_remove_edge(self):
         graph = self._make_graph()
-        edge = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
+        edge = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
         graph.add_edge(edge)
         removed = graph.remove_edge("e1")
         assert removed is not None
@@ -544,7 +643,9 @@ class TestUniversalGraph:
 
     def test_get_stage_multiple_nodes(self):
         graph = self._make_graph()
-        n4 = UniversalNode(id="n4", stage=PipelineStage.IDEAS, node_subtype="insight", label="Idea 2")
+        n4 = UniversalNode(
+            id="n4", stage=PipelineStage.IDEAS, node_subtype="insight", label="Idea 2"
+        )
         graph.add_node(n4)
         ideas = graph.get_stage(PipelineStage.IDEAS)
         assert len(ideas) == 2
@@ -558,8 +659,12 @@ class TestUniversalGraph:
 
     def test_get_cross_stage_edges(self):
         graph = self._make_graph()
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
-        e2 = UniversalEdge(id="e2", source_id="n2", target_id="n3", edge_type=StageEdgeType.IMPLEMENTS)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
+        e2 = UniversalEdge(
+            id="e2", source_id="n2", target_id="n3", edge_type=StageEdgeType.IMPLEMENTS
+        )
         graph.add_edge(e1)
         graph.add_edge(e2)
         cross = graph.get_cross_stage_edges()
@@ -574,8 +679,12 @@ class TestUniversalGraph:
         graph.add_node(n1)
         graph.add_node(n2)
         graph.add_node(n3)
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.SUPPORTS)
-        e2 = UniversalEdge(id="e2", source_id="n1", target_id="n3", edge_type=StageEdgeType.DERIVED_FROM)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.SUPPORTS
+        )
+        e2 = UniversalEdge(
+            id="e2", source_id="n1", target_id="n3", edge_type=StageEdgeType.DERIVED_FROM
+        )
         graph.add_edge(e1)
         graph.add_edge(e2)
         cross = graph.get_cross_stage_edges()
@@ -607,8 +716,10 @@ class TestUniversalGraph:
         """If a parent_id references a non-existent node, it is skipped."""
         graph = UniversalGraph(id="g1")
         n1 = UniversalNode(
-            id="n1", stage=PipelineStage.GOALS,
-            node_subtype="goal", label="G",
+            id="n1",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="G",
             parent_ids=["missing_parent"],
         )
         graph.add_node(n1)
@@ -618,8 +729,12 @@ class TestUniversalGraph:
 
     def test_provenance_chain_no_cycles(self):
         graph = UniversalGraph(id="g1")
-        n1 = UniversalNode(id="n1", stage=PipelineStage.IDEAS, node_subtype="concept", label="A", parent_ids=["n2"])
-        n2 = UniversalNode(id="n2", stage=PipelineStage.IDEAS, node_subtype="concept", label="B", parent_ids=["n1"])
+        n1 = UniversalNode(
+            id="n1", stage=PipelineStage.IDEAS, node_subtype="concept", label="A", parent_ids=["n2"]
+        )
+        n2 = UniversalNode(
+            id="n2", stage=PipelineStage.IDEAS, node_subtype="concept", label="B", parent_ids=["n1"]
+        )
         graph.add_node(n1)
         graph.add_node(n2)
         chain = graph.get_provenance_chain("n1")
@@ -629,8 +744,10 @@ class TestUniversalGraph:
         """A node listing itself in parent_ids does not cause infinite loop."""
         graph = UniversalGraph(id="g1")
         n1 = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="Self",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Self",
             parent_ids=["n1"],
         )
         graph.add_node(n1)
@@ -642,9 +759,12 @@ class TestUniversalGraph:
         """Four levels deep: n4 -> n3 -> n2 -> n1."""
         graph = self._make_graph()
         n4 = UniversalNode(
-            id="n4", stage=PipelineStage.ORCHESTRATION,
-            node_subtype="agent_task", label="Agent Task 1",
-            parent_ids=["n3"], source_stage=PipelineStage.ACTIONS,
+            id="n4",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Agent Task 1",
+            parent_ids=["n3"],
+            source_stage=PipelineStage.ACTIONS,
         )
         graph.add_node(n4)
         chain = graph.get_provenance_chain("n4")
@@ -654,10 +774,30 @@ class TestUniversalGraph:
     def test_provenance_chain_diamond(self):
         """Diamond shape: n3 has two parents (n1, n2), both derived from same root."""
         graph = UniversalGraph(id="g1")
-        root = UniversalNode(id="root", stage=PipelineStage.IDEAS, node_subtype="concept", label="Root")
-        n1 = UniversalNode(id="n1", stage=PipelineStage.IDEAS, node_subtype="insight", label="A", parent_ids=["root"])
-        n2 = UniversalNode(id="n2", stage=PipelineStage.IDEAS, node_subtype="insight", label="B", parent_ids=["root"])
-        n3 = UniversalNode(id="n3", stage=PipelineStage.GOALS, node_subtype="goal", label="C", parent_ids=["n1", "n2"])
+        root = UniversalNode(
+            id="root", stage=PipelineStage.IDEAS, node_subtype="concept", label="Root"
+        )
+        n1 = UniversalNode(
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="insight",
+            label="A",
+            parent_ids=["root"],
+        )
+        n2 = UniversalNode(
+            id="n2",
+            stage=PipelineStage.IDEAS,
+            node_subtype="insight",
+            label="B",
+            parent_ids=["root"],
+        )
+        n3 = UniversalNode(
+            id="n3",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="C",
+            parent_ids=["n1", "n2"],
+        )
         graph.add_node(root)
         graph.add_node(n1)
         graph.add_node(n2)
@@ -691,10 +831,18 @@ class TestUniversalGraph:
         na = UniversalNode(id="na", stage=PipelineStage.IDEAS, node_subtype="concept", label="A")
         nb = UniversalNode(id="nb", stage=PipelineStage.IDEAS, node_subtype="concept", label="B")
         # Insert in opposite orders
-        g1.add_node(UniversalNode(id="na", stage=PipelineStage.IDEAS, node_subtype="concept", label="A"))
-        g1.add_node(UniversalNode(id="nb", stage=PipelineStage.IDEAS, node_subtype="concept", label="B"))
-        g2.add_node(UniversalNode(id="nb", stage=PipelineStage.IDEAS, node_subtype="concept", label="B"))
-        g2.add_node(UniversalNode(id="na", stage=PipelineStage.IDEAS, node_subtype="concept", label="A"))
+        g1.add_node(
+            UniversalNode(id="na", stage=PipelineStage.IDEAS, node_subtype="concept", label="A")
+        )
+        g1.add_node(
+            UniversalNode(id="nb", stage=PipelineStage.IDEAS, node_subtype="concept", label="B")
+        )
+        g2.add_node(
+            UniversalNode(id="nb", stage=PipelineStage.IDEAS, node_subtype="concept", label="B")
+        )
+        g2.add_node(
+            UniversalNode(id="na", stage=PipelineStage.IDEAS, node_subtype="concept", label="A")
+        )
         assert g1.integrity_hash() == g2.integrity_hash()
 
     def test_integrity_hash_empty_graph(self):
@@ -712,7 +860,9 @@ class TestUniversalGraph:
     def test_to_react_flow_with_edges(self):
         """React flow export includes edges when they exist."""
         graph = self._make_graph()
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
         graph.add_edge(e1)
         rf = graph.to_react_flow()
         assert len(rf["edges"]) == 1
@@ -727,7 +877,9 @@ class TestUniversalGraph:
     def test_to_react_flow_filtered_excludes_cross_stage_edges(self):
         """When filtering by stage, edges to nodes outside the filter are excluded."""
         graph = self._make_graph()
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
         graph.add_edge(e1)
         rf = graph.to_react_flow(stage_filter=PipelineStage.IDEAS)
         assert len(rf["edges"]) == 0  # n2 is GOALS, filtered out
@@ -739,7 +891,9 @@ class TestUniversalGraph:
         n2 = UniversalNode(id="n2", stage=PipelineStage.IDEAS, node_subtype="insight", label="B")
         graph.add_node(n1)
         graph.add_node(n2)
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.SUPPORTS)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.SUPPORTS
+        )
         graph.add_edge(e1)
         rf = graph.to_react_flow(stage_filter=PipelineStage.IDEAS)
         assert len(rf["nodes"]) == 2
@@ -747,11 +901,17 @@ class TestUniversalGraph:
 
     def test_to_dict_roundtrip(self):
         graph = self._make_graph()
-        e1 = UniversalEdge(id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM)
+        e1 = UniversalEdge(
+            id="e1", source_id="n1", target_id="n2", edge_type=StageEdgeType.DERIVED_FROM
+        )
         graph.add_edge(e1)
-        graph.transitions.append(StageTransition(
-            id="t1", from_stage=PipelineStage.IDEAS, to_stage=PipelineStage.GOALS,
-        ))
+        graph.transitions.append(
+            StageTransition(
+                id="t1",
+                from_stage=PipelineStage.IDEAS,
+                to_stage=PipelineStage.GOALS,
+            )
+        )
         d = graph.to_dict()
         restored = UniversalGraph.from_dict(d)
         assert restored.id == "g1"
@@ -762,7 +922,8 @@ class TestUniversalGraph:
 
     def test_to_dict_roundtrip_preserves_metadata(self):
         graph = UniversalGraph(
-            id="g1", name="My Pipeline",
+            id="g1",
+            name="My Pipeline",
             metadata={"version": 2, "tags": ["test"]},
             owner_id="user-123",
             workspace_id="ws-456",

@@ -197,7 +197,7 @@ class GatewayConfigHandler(BaseHandler):
 
         # Log changes for audit
         if changes:
-            logger.info("Gateway config updated: %s", ', '.join(changes))
+            logger.info("Gateway config updated: %s", ", ".join(changes))
         else:
             logger.debug("Gateway config POST with no changes")
 

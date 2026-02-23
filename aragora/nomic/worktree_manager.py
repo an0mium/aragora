@@ -174,9 +174,7 @@ class WorktreeManager:
                 branch=branch_name,
             )
             if not result.get("success"):
-                raise RuntimeError(
-                    f"Failed to create worktree: {result.get('error', 'unknown')}"
-                )
+                raise RuntimeError(f"Failed to create worktree: {result.get('error', 'unknown')}")
         else:
             # Direct subprocess fallback
             result = await asyncio.to_thread(
@@ -187,9 +185,7 @@ class WorktreeManager:
                 cwd=self.repo_path,
             )
             if result.returncode != 0:
-                raise RuntimeError(
-                    f"Failed to create worktree: {result.stderr or 'unknown error'}"
-                )
+                raise RuntimeError(f"Failed to create worktree: {result.stderr or 'unknown error'}")
 
         ctx = WorktreeContext(
             subtask_id=subtask.id,
@@ -289,9 +285,7 @@ class WorktreeManager:
         if require_tests_pass and test_paths:
             test_result = await self.run_tests_in_worktree(ctx, test_paths)
             if not test_result["success"]:
-                logger.warning(
-                    "merge_aborted subtask=%s reason=tests_failed", ctx.subtask_id
-                )
+                logger.warning("merge_aborted subtask=%s reason=tests_failed", ctx.subtask_id)
                 return {
                     "success": False,
                     "error": "Tests failed, merge aborted",
@@ -336,7 +330,9 @@ class WorktreeManager:
         # Fallback: direct git merge
         self._run_git("checkout", self.base_branch)
         result = self._run_git(
-            "merge", "--no-ff", "-m",
+            "merge",
+            "--no-ff",
+            "-m",
             f"Merge {ctx.branch_name} (subtask {ctx.subtask_id})",
             ctx.branch_name,
         )
@@ -383,11 +379,14 @@ class WorktreeManager:
         # Phase 1: Pre-merge tests in the worktree
         if config.require_pre_merge_pass and config.pre_merge_test_paths:
             pre_result = await self.run_tests_in_worktree(
-                ctx, config.pre_merge_test_paths, timeout=config.test_timeout,
+                ctx,
+                config.pre_merge_test_paths,
+                timeout=config.test_timeout,
             )
             if not pre_result["success"]:
                 logger.warning(
-                    "merge_gate_pre_failed subtask=%s", ctx.subtask_id,
+                    "merge_gate_pre_failed subtask=%s",
+                    ctx.subtask_id,
                 )
                 return MergeGateResult(
                     success=False,
@@ -401,7 +400,9 @@ class WorktreeManager:
         # Phase 2: Merge branch to base (--no-ff)
         self._run_git("checkout", self.base_branch)
         merge_proc = self._run_git(
-            "merge", "--no-ff", "-m",
+            "merge",
+            "--no-ff",
+            "-m",
             f"Merge {ctx.branch_name} (subtask {ctx.subtask_id})",
             ctx.branch_name,
         )
@@ -422,11 +423,7 @@ class WorktreeManager:
 
         # Phase 3: Post-merge tests on base
         if config.require_post_merge_pass and config.post_merge_test_paths:
-            cmd = (
-                ["python", "-m", "pytest"]
-                + config.post_merge_test_paths
-                + ["--tb=short", "-q"]
-            )
+            cmd = ["python", "-m", "pytest"] + config.post_merge_test_paths + ["--tb=short", "-q"]
             datetime.now(timezone.utc)
             try:
                 post_proc = await asyncio.wait_for(
@@ -527,9 +524,7 @@ class WorktreeManager:
             result = self._run_git("worktree", "remove", str(ctx.worktree_path))
             if result.returncode != 0:
                 # Force remove as fallback
-                result = self._run_git(
-                    "worktree", "remove", "--force", str(ctx.worktree_path)
-                )
+                result = self._run_git("worktree", "remove", "--force", str(ctx.worktree_path))
                 if result.returncode != 0:
                     logger.warning(
                         "worktree_cleanup_failed subtask=%s error=%s",

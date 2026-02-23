@@ -78,6 +78,7 @@ def _status(result) -> int:
 def handler_module():
     """Import the handler module lazily (after conftest patches)."""
     import aragora.server.handlers.bots.slack.handler as mod
+
     return mod
 
 
@@ -85,6 +86,7 @@ def handler_module():
 def slack_pkg():
     """Import the top-level slack package module."""
     import aragora.server.handlers.bots.slack as mod
+
     return mod
 
 
@@ -108,9 +110,7 @@ def handler(handler_cls, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _compute_slack_signature(
-    body: bytes, timestamp: str, signing_secret: str
-) -> str:
+def _compute_slack_signature(body: bytes, timestamp: str, signing_secret: str) -> str:
     """Compute a valid Slack signature for testing."""
     sig_basestring = f"v0:{timestamp}:{body.decode('utf-8')}"
     return (
@@ -643,9 +643,7 @@ class TestPathNormalization:
                 path="/api/v1/integrations/slack/commands",
                 signing_secret="test-signing-secret",
             )
-            result = handler.handle(
-                "/api/v1/integrations/slack/commands", {}, http_handler
-            )
+            result = handler.handle("/api/v1/integrations/slack/commands", {}, http_handler)
             assert result is not None
 
 
@@ -966,7 +964,7 @@ class TestCommandAgents:
         # Should show top 10, not all 15
         text = body["text"]
         assert "agent14" in text  # Highest ELO (index 14 = 1640)
-        assert "agent5" in text   # 10th highest (index 5 = 1550)
+        assert "agent5" in text  # 10th highest (index 5 = 1550)
         # agent0-4 should not be in top 10
         assert "agent0:" not in text
 
@@ -1010,9 +1008,7 @@ class TestSlackResponseFormatting:
 
     def test_slack_blocks_response_ephemeral(self, handler):
         blocks = [{"type": "divider"}]
-        result = handler._slack_blocks_response(
-            blocks, response_type="ephemeral"
-        )
+        result = handler._slack_blocks_response(blocks, response_type="ephemeral")
         body = _body(result)
         assert body["response_type"] == "ephemeral"
 
@@ -1033,9 +1029,7 @@ class TestCheckPermissionOrAdmin:
 
     def test_returns_none_when_rbac_unavailable(self, handler, monkeypatch):
         """When RBAC is not available and not fail-closed, returns None (allow)."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.handler.rbac_fail_closed",
             lambda: False,
@@ -1045,9 +1039,7 @@ class TestCheckPermissionOrAdmin:
 
     def test_returns_503_when_rbac_unavailable_and_fail_closed(self, handler, monkeypatch):
         """When RBAC is not available and fail-closed, returns 503."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.handler.rbac_fail_closed",
             lambda: True,
@@ -1060,9 +1052,7 @@ class TestCheckPermissionOrAdmin:
         mock_decision = MagicMock()
         mock_decision.allowed = True
 
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", True
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", True)
         mock_check = MagicMock(return_value=mock_decision)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.handler.check_permission",
@@ -1077,9 +1067,7 @@ class TestCheckPermissionOrAdmin:
 
     def test_null_context_returns_none(self, handler, monkeypatch):
         """When context cannot be built, returns None."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", True
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.handler.RBAC_AVAILABLE", True)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.handler.check_permission",
             MagicMock(),
@@ -1175,9 +1163,7 @@ class TestHandlePostRouting:
             body={"type": "event_callback"},
             signing_secret="test-signing-secret",
         )
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/events", {}, http_handler
-        )
+        result = await handler.handle_post("/api/v1/bots/slack/events", {}, http_handler)
         mock_events.assert_called_once_with(http_handler)
 
     @pytest.mark.asyncio
@@ -1196,9 +1182,7 @@ class TestHandlePostRouting:
             body={"type": "block_actions"},
             signing_secret="test-signing-secret",
         )
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/interactions", {}, http_handler
-        )
+        result = await handler.handle_post("/api/v1/bots/slack/interactions", {}, http_handler)
         mock_interactions.assert_called_once_with(http_handler)
 
     @pytest.mark.asyncio
@@ -1217,9 +1201,7 @@ class TestHandlePostRouting:
             body={"command": "/aragora", "text": "help"},
             signing_secret="test-signing-secret",
         )
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/commands", {}, http_handler
-        )
+        result = await handler.handle_post("/api/v1/bots/slack/commands", {}, http_handler)
         mock_commands.assert_called_once_with(http_handler)
 
     @pytest.mark.asyncio
@@ -1229,20 +1211,14 @@ class TestHandlePostRouting:
             body={},
             signing_secret="test-signing-secret",
         )
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/unknown", {}, http_handler
-        )
+        result = await handler.handle_post("/api/v1/bots/slack/unknown", {}, http_handler)
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_handle_post_missing_signing_secret_returns_503(
-        self, handler, monkeypatch
-    ):
+    async def test_handle_post_missing_signing_secret_returns_503(self, handler, monkeypatch):
         monkeypatch.delenv("SLACK_SIGNING_SECRET", raising=False)
         http_handler = _make_slack_handler(body={})
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/events", {}, http_handler
-        )
+        result = await handler.handle_post("/api/v1/bots/slack/events", {}, http_handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1255,9 +1231,7 @@ class TestHandlePostRouting:
         # Make headers.get raise an error to simulate verification failure
         http_handler.headers = MagicMock()
         http_handler.headers.get = MagicMock(side_effect=AttributeError("boom"))
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/events", {}, http_handler
-        )
+        result = await handler.handle_post("/api/v1/bots/slack/events", {}, http_handler)
         assert _status(result) == 401
 
 

@@ -413,12 +413,8 @@ class TestGetLineage:
         assert len(lineage) == 2
 
     def test_lineage_handles_cycles(self, adapter: GenesisAdapter) -> None:
-        g1 = GenesisEvolutionItem(
-            genome_id="cycle-a", name="a", parent_genomes=["cycle-b"]
-        )
-        g2 = GenesisEvolutionItem(
-            genome_id="cycle-b", name="b", parent_genomes=["cycle-a"]
-        )
+        g1 = GenesisEvolutionItem(genome_id="cycle-a", name="a", parent_genomes=["cycle-b"])
+        g2 = GenesisEvolutionItem(genome_id="cycle-b", name="b", parent_genomes=["cycle-a"])
         adapter._synced_genomes["cycle-a"] = g1
         adapter._synced_genomes["cycle-b"] = g2
         lineage = adapter.get_lineage("cycle-a")
@@ -429,9 +425,7 @@ class TestGetLineage:
         g1 = GenesisEvolutionItem(
             genome_id="g1", name="parent", generation=1, parent_genomes=["g0"]
         )
-        g2 = GenesisEvolutionItem(
-            genome_id="g2", name="child", generation=2, parent_genomes=["g1"]
-        )
+        g2 = GenesisEvolutionItem(genome_id="g2", name="child", generation=2, parent_genomes=["g1"])
         adapter._synced_genomes["g0"] = g0
         adapter._synced_genomes["g1"] = g1
         adapter._synced_genomes["g2"] = g2
@@ -556,9 +550,7 @@ class TestSyncToKM:
 
     @pytest.mark.asyncio
     async def test_sync_skips_low_fitness(self, adapter: GenesisAdapter) -> None:
-        low_fitness = GenesisEvolutionItem(
-            genome_id="low-1", name="weak-agent", fitness_score=0.1
-        )
+        low_fitness = GenesisEvolutionItem(genome_id="low-1", name="weak-agent", fitness_score=0.1)
         adapter.store_genome(low_fitness)
 
         mound = MagicMock()
@@ -598,9 +590,7 @@ class TestSyncToKM:
         assert "genome-001" in adapter._synced_genomes
 
     @pytest.mark.asyncio
-    async def test_sync_emits_event(
-        self, sample_genome: GenesisEvolutionItem
-    ) -> None:
+    async def test_sync_emits_event(self, sample_genome: GenesisEvolutionItem) -> None:
         callback = MagicMock()
         adapter = GenesisAdapter(event_callback=callback)
         mound = MagicMock()
@@ -618,9 +608,7 @@ class TestSyncToKM:
     @pytest.mark.asyncio
     async def test_sync_batch_size(self, adapter: GenesisAdapter) -> None:
         for i in range(10):
-            item = GenesisEvolutionItem(
-                genome_id=f"g-{i}", name=f"agent-{i}", fitness_score=0.8
-            )
+            item = GenesisEvolutionItem(genome_id=f"g-{i}", name=f"agent-{i}", fitness_score=0.8)
             adapter.store_genome(item)
 
         mound = MagicMock()
@@ -677,9 +665,7 @@ class TestGetStats:
     ) -> None:
         adapter._synced_genomes["genome-001"] = sample_genome
         adapter._synced_genomes["genome-002"] = child_genome
-        adapter._pending_genomes.append(
-            GenesisEvolutionItem(genome_id="pending-1", name="pending")
-        )
+        adapter._pending_genomes.append(GenesisEvolutionItem(genome_id="pending-1", name="pending"))
 
         stats = adapter.get_stats()
         assert stats["total_synced"] == 2
@@ -778,9 +764,7 @@ class TestGracefulDegradation:
         assert hasattr(genesis_adapter, "GenesisAdapter")
         assert hasattr(genesis_adapter, "GenesisEvolutionItem")
 
-    def test_ingest_works_with_mock_genome_no_genesis(
-        self, adapter: GenesisAdapter
-    ) -> None:
+    def test_ingest_works_with_mock_genome_no_genesis(self, adapter: GenesisAdapter) -> None:
         """ingest() works via duck-typing even if genesis types are unavailable."""
         mock_genome = MagicMock(spec=[])
         # Add only the duck-type attributes

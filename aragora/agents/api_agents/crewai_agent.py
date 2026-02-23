@@ -300,7 +300,8 @@ class CrewAIAgent(ExternalFrameworkAgent):
 
         if self.crewai_config.audit_all_requests:
             logger.info(
-                "[%s] CrewAI request", self.name,
+                "[%s] CrewAI request",
+                self.name,
                 extra={
                     "prompt_length": len(prompt),
                     "allowed_tools": self._get_allowed_tools(),
@@ -363,12 +364,16 @@ class CrewAIAgent(ExternalFrameworkAgent):
             blocked_tools = set(tools) - set(filtered_tools)
             if blocked_tools:
                 logger.warning(
-                    "[%s] Blocked tools: %s. Allowed: %s", self.name, blocked_tools, self.crewai_config.allowed_tools
+                    "[%s] Blocked tools: %s. Allowed: %s",
+                    self.name,
+                    blocked_tools,
+                    self.crewai_config.allowed_tools,
                 )
 
         if self.crewai_config.audit_all_requests:
             logger.info(
-                "[%s] CrewAI kickoff", self.name,
+                "[%s] CrewAI kickoff",
+                self.name,
                 extra={
                     "task_length": len(task),
                     "inputs": list(inputs.keys()) if inputs else [],
@@ -540,7 +545,11 @@ class CrewAIAgent(ExternalFrameworkAgent):
         available = await super().is_available()
         if available:
             logger.debug(
-                "[%s] CrewAI available at %s (process=%s, tools=%s)", self.name, self.base_url, self.crewai_config.process, len(self.crewai_config.allowed_tools)
+                "[%s] CrewAI available at %s (process=%s, tools=%s)",
+                self.name,
+                self.base_url,
+                self.crewai_config.process,
+                len(self.crewai_config.allowed_tools),
             )
         return available
 

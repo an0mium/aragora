@@ -284,12 +284,8 @@ def reset_rate_limiter():
 @pytest.fixture(autouse=True)
 def patch_audit(monkeypatch):
     """Patch audit functions to no-op."""
-    monkeypatch.setattr(
-        "aragora.server.handlers.organizations.audit_admin", lambda **kw: None
-    )
-    monkeypatch.setattr(
-        "aragora.server.handlers.organizations.audit_data", lambda **kw: None
-    )
+    monkeypatch.setattr("aragora.server.handlers.organizations.audit_admin", lambda **kw: None)
+    monkeypatch.setattr("aragora.server.handlers.organizations.audit_data", lambda **kw: None)
 
 
 @pytest.fixture(autouse=True)
@@ -490,9 +486,7 @@ class TestUpdateOrganization:
         assert _status(result) == 200
 
     def test_update_name_and_settings(self, handler, mock_user_store):
-        h = MockHTTPHandler(
-            body={"name": "New Name", "settings": {"key": "val"}}, method="PUT"
-        )
+        h = MockHTTPHandler(body={"name": "New Name", "settings": {"key": "val"}}, method="PUT")
         result = handler.handle("/api/org/org-001", {}, h, method="PUT")
         assert _status(result) == 200
 
@@ -623,9 +617,7 @@ class TestInviteMember:
     """Tests for _invite_member endpoint."""
 
     def test_invite_new_user(self, handler, mock_user_store):
-        h = MockHTTPHandler(
-            body={"email": "newuser@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "newuser@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 201
         body = _body(result)
@@ -635,9 +627,7 @@ class TestInviteMember:
     def test_invite_existing_user_no_org(self, handler, mock_user_store):
         existing = MockUser(id="user-existing", email="existing@example.com", org_id=None)
         mock_user_store.get_user_by_email.return_value = existing
-        h = MockHTTPHandler(
-            body={"email": "existing@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "existing@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 200
         body = _body(result)
@@ -646,9 +636,7 @@ class TestInviteMember:
     def test_invite_existing_member(self, handler, mock_user_store):
         existing = MockUser(id="user-existing", email="member@example.com", org_id="org-001")
         mock_user_store.get_user_by_email.return_value = existing
-        h = MockHTTPHandler(
-            body={"email": "member@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "member@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 400
         assert "already a member" in _body(result).get("error", "")
@@ -656,9 +644,7 @@ class TestInviteMember:
     def test_invite_user_in_other_org(self, handler, mock_user_store):
         existing = MockUser(id="user-other", email="other@example.com", org_id="org-999")
         mock_user_store.get_user_by_email.return_value = existing
-        h = MockHTTPHandler(
-            body={"email": "other@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "other@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 400
         assert "another organization" in _body(result).get("error", "")
@@ -669,17 +655,13 @@ class TestInviteMember:
         assert _status(result) == 400
 
     def test_invite_invalid_role(self, handler):
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "superadmin"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "superadmin"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_invite_org_not_found(self, handler, mock_user_store):
         mock_user_store.get_organization_by_id.return_value = None
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 404
 
@@ -687,26 +669,20 @@ class TestInviteMember:
         org = MockOrganization(limits=MockTierLimits(users_per_org=1))
         mock_user_store.get_organization_by_id.return_value = org
         mock_user_store.get_org_members.return_value = [MockUser()]
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 403
         assert "limit reached" in _body(result).get("error", "")
 
     def test_invite_requires_admin(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(role="member", org_id="org-001"))
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 403
 
     def test_invite_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 401
 
@@ -721,9 +697,7 @@ class TestInviteMember:
         mock_user_store.get_invitation_by_email.return_value = MockInvitation(
             email="test@example.com", is_pending=True
         )
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 400
         assert "already been sent" in _body(result).get("error", "")
@@ -732,9 +706,7 @@ class TestInviteMember:
         existing = MockUser(id="user-existing", email="test@example.com", org_id=None)
         mock_user_store.get_user_by_email.return_value = existing
         mock_user_store.add_user_to_org.return_value = False
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "member"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "member"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 500
 
@@ -749,9 +721,7 @@ class TestInviteMember:
         assert _status(result) == 201
 
     def test_invite_admin_role(self, handler, mock_user_store):
-        h = MockHTTPHandler(
-            body={"email": "test@example.com", "role": "admin"}, method="POST"
-        )
+        h = MockHTTPHandler(body={"email": "test@example.com", "role": "admin"}, method="POST")
         result = handler.handle("/api/org/org-001/invite", {}, h, method="POST")
         assert _status(result) == 201
 
@@ -769,9 +739,7 @@ class TestRemoveMember:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-001", role="admin", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target", {}, h, method="DELETE")
         assert _status(result) == 200
         assert _body(result)["user_id"] == "user-target"
 
@@ -780,9 +748,7 @@ class TestRemoveMember:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-001", role="admin", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-owner", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-owner", {}, h, method="DELETE")
         assert _status(result) == 403
         assert "owner" in _body(result).get("error", "").lower()
 
@@ -791,9 +757,7 @@ class TestRemoveMember:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-001", role="admin", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-001", {}, h, method="DELETE")
         assert _status(result) == 400
         assert "yourself" in _body(result).get("error", "").lower()
 
@@ -802,9 +766,7 @@ class TestRemoveMember:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-001", role="admin", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-admin2", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-admin2", {}, h, method="DELETE")
         assert _status(result) == 403
         assert "owner" in _body(result).get("error", "").lower()
 
@@ -813,26 +775,20 @@ class TestRemoveMember:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-admin2", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-admin2", {}, h, method="DELETE")
         assert _status(result) == 200
 
     def test_target_user_not_found(self, handler, mock_user_store):
         mock_user_store.get_user_by_id.return_value = None
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/nonexistent", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/nonexistent", {}, h, method="DELETE")
         assert _status(result) == 404
 
     def test_target_not_in_org(self, handler, mock_user_store):
         target = MockUser(id="user-other", org_id="org-999")
         mock_user_store.get_user_by_id.return_value = target
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-other", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-other", {}, h, method="DELETE")
         assert _status(result) == 400
 
     def test_store_failure(self, handler, mock_user_store, monkeypatch):
@@ -841,24 +797,18 @@ class TestRemoveMember:
         mock_user_store.remove_user_from_org.return_value = False
         _patch_user(monkeypatch, MockUser(id="user-001", role="admin", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target", {}, h, method="DELETE")
         assert _status(result) == 500
 
     def test_requires_admin(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(role="member", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target", {}, h, method="DELETE")
         assert _status(result) == 403
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target", {}, h, method="GET")
         assert _status(result) == 405
 
 
@@ -875,9 +825,7 @@ class TestUpdateMemberRole:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "admin"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 200
         body = _body(result)
         assert body["role"] == "admin"
@@ -887,9 +835,7 @@ class TestUpdateMemberRole:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "member"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 200
 
     def test_cannot_change_owner_role(self, handler, mock_user_store, monkeypatch):
@@ -905,34 +851,26 @@ class TestUpdateMemberRole:
     def test_invalid_role(self, handler, mock_user_store, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "superadmin"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 400
 
     def test_empty_role(self, handler, mock_user_store, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": ""}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 400
 
     def test_requires_owner_role(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-admin", role="admin", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "admin"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 403
 
     def test_target_not_found(self, handler, mock_user_store, monkeypatch):
         mock_user_store.get_user_by_id.return_value = None
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "admin"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 404
 
     def test_target_not_in_org(self, handler, mock_user_store, monkeypatch):
@@ -940,9 +878,7 @@ class TestUpdateMemberRole:
         mock_user_store.get_user_by_id.return_value = target
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "admin"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-other/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-other/role", {}, h, method="PUT")
         assert _status(result) == 400
 
     def test_store_failure(self, handler, mock_user_store, monkeypatch):
@@ -951,9 +887,7 @@ class TestUpdateMemberRole:
         mock_user_store.update_user.return_value = False
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(body={"role": "admin"}, method="PUT")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 500
 
     def test_invalid_json(self, handler, monkeypatch):
@@ -961,16 +895,12 @@ class TestUpdateMemberRole:
         h = MockHTTPHandler(method="PUT")
         h.headers = {"Content-Length": "5"}
         h.rfile.read.return_value = b"notjs"
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="PUT"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="PUT")
         assert _status(result) == 400
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/members/user-target/role", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/members/user-target/role", {}, h, method="GET")
         assert _status(result) == 405
 
 
@@ -1045,57 +975,43 @@ class TestSwitchOrganization:
 
     def test_success(self, handler, mock_user_store):
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 200
         assert "organization" in _body(result)
 
     def test_missing_org_id(self, handler):
         h = MockHTTPHandler(body={}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_empty_org_id(self, handler):
         h = MockHTTPHandler(body={"org_id": ""}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_not_member(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(org_id="org-999"))
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 403
 
     def test_org_not_found(self, handler, mock_user_store):
         mock_user_store.get_organization_by_id.return_value = None
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 404
 
     def test_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 401
 
     def test_invalid_json(self, handler):
         h = MockHTTPHandler(method="POST")
         h.headers = {"Content-Length": "3"}
         h.rfile.read.return_value = b"bad"
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_no_store(self, handler_no_store, monkeypatch):
@@ -1104,16 +1020,12 @@ class TestSwitchOrganization:
             lambda self, handler: (MockUser(), MockAuthContext()),
         )
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler_no_store.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler_no_store.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 503
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="GET"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="GET")
         assert _status(result) == 405
 
 
@@ -1127,42 +1039,32 @@ class TestSetDefaultOrganization:
 
     def test_success(self, handler, mock_user_store):
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 200
         assert _body(result)["success"] is True
 
     def test_missing_org_id(self, handler):
         h = MockHTTPHandler(body={}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_not_member(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(org_id="org-999"))
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 403
 
     def test_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 401
 
     def test_invalid_json(self, handler):
         h = MockHTTPHandler(method="POST")
         h.headers = {"Content-Length": "3"}
         h.rfile.read.return_value = b"bad"
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_no_store(self, handler_no_store, monkeypatch):
@@ -1171,16 +1073,12 @@ class TestSetDefaultOrganization:
             lambda self, handler: (MockUser(), MockAuthContext()),
         )
         h = MockHTTPHandler(body={"org_id": "org-001"}, method="POST")
-        result = handler_no_store.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler_no_store.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 503
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="GET"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="GET")
         assert _status(result) == 405
 
 
@@ -1195,44 +1093,34 @@ class TestLeaveOrganization:
     def test_success(self, handler, mock_user_store, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-001", role="member", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 200
         assert _body(result)["success"] is True
 
     def test_owner_cannot_leave(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-owner", role="owner", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 400
         assert "owner" in _body(result).get("error", "").lower()
 
     def test_not_member(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(org_id="org-999"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 403
 
     def test_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 401
 
     def test_store_failure(self, handler, mock_user_store, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-001", role="member", org_id="org-001"))
         mock_user_store.remove_user_from_org.return_value = False
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 500
 
     def test_no_store(self, handler_no_store, monkeypatch):
@@ -1241,24 +1129,18 @@ class TestLeaveOrganization:
             lambda self, handler: (MockUser(role="member"), MockAuthContext()),
         )
         h = MockHTTPHandler(method="DELETE")
-        result = handler_no_store.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler_no_store.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 503
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="GET"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="GET")
         assert _status(result) == 405
 
     def test_admin_can_leave(self, handler, mock_user_store, monkeypatch):
         _patch_user(monkeypatch, MockUser(id="user-admin", role="admin", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/user/organizations/org-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/user/organizations/org-001", {}, h, method="DELETE")
         assert _status(result) == 200
 
 
@@ -1276,9 +1158,7 @@ class TestListInvitations:
             MockInvitation(id="inv-2", is_pending=False, status="accepted"),
         ]
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/invitations", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/invitations", {}, h, method="GET")
         assert _status(result) == 200
         body = _body(result)
         assert body["count"] == 2
@@ -1286,26 +1166,20 @@ class TestListInvitations:
 
     def test_empty(self, handler, mock_user_store):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/invitations", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/invitations", {}, h, method="GET")
         assert _status(result) == 200
         assert _body(result)["count"] == 0
 
     def test_requires_admin(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(role="member", org_id="org-001"))
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/invitations", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/invitations", {}, h, method="GET")
         assert _status(result) == 403
 
     def test_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/invitations", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/invitations", {}, h, method="GET")
         assert _status(result) == 401
 
     def test_no_store(self, handler_no_store, monkeypatch):
@@ -1314,16 +1188,12 @@ class TestListInvitations:
             lambda self, handler: (MockUser(role="admin"), MockAuthContext()),
         )
         h = MockHTTPHandler(method="GET")
-        result = handler_no_store.handle(
-            "/api/org/org-001/invitations", {}, h, method="GET"
-        )
+        result = handler_no_store.handle("/api/org/org-001/invitations", {}, h, method="GET")
         assert _status(result) == 503
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/org/org-001/invitations", {}, h, method="POST"
-        )
+        result = handler.handle("/api/org/org-001/invitations", {}, h, method="POST")
         assert _status(result) == 405
 
 
@@ -1339,55 +1209,41 @@ class TestRevokeInvitation:
         inv = MockInvitation(id="inv-001", org_id="org-001", is_pending=True)
         mock_user_store.get_invitation_by_id.return_value = inv
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-001", {}, h, method="DELETE")
         assert _status(result) == 200
         assert _body(result)["invitation_id"] == "inv-001"
 
     def test_invitation_not_found(self, handler, mock_user_store):
         mock_user_store.get_invitation_by_id.return_value = None
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-999", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-999", {}, h, method="DELETE")
         assert _status(result) == 404
 
     def test_invitation_wrong_org(self, handler, mock_user_store):
         inv = MockInvitation(id="inv-001", org_id="org-999")
         mock_user_store.get_invitation_by_id.return_value = inv
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-001", {}, h, method="DELETE")
         assert _status(result) == 404
 
     def test_invitation_not_pending(self, handler, mock_user_store):
-        inv = MockInvitation(
-            id="inv-001", org_id="org-001", is_pending=False, status="accepted"
-        )
+        inv = MockInvitation(id="inv-001", org_id="org-001", is_pending=False, status="accepted")
         mock_user_store.get_invitation_by_id.return_value = inv
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-001", {}, h, method="DELETE")
         assert _status(result) == 400
         assert "accepted" in _body(result).get("error", "")
 
     def test_requires_admin(self, handler, monkeypatch):
         _patch_user(monkeypatch, MockUser(role="member", org_id="org-001"))
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-001", {}, h, method="DELETE")
         assert _status(result) == 403
 
     def test_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
         h = MockHTTPHandler(method="DELETE")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-001", {}, h, method="DELETE"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-001", {}, h, method="DELETE")
         assert _status(result) == 401
 
     def test_no_store(self, handler_no_store, monkeypatch):
@@ -1403,9 +1259,7 @@ class TestRevokeInvitation:
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/org/org-001/invitations/inv-001", {}, h, method="GET"
-        )
+        result = handler.handle("/api/org/org-001/invitations/inv-001", {}, h, method="GET")
         assert _status(result) == 405
 
 
@@ -1475,9 +1329,7 @@ class TestAcceptInvitation:
         mock_user_store.get_invitation_by_token.return_value = inv
         _patch_user(monkeypatch, MockUser(id="user-001", email="admin@example.com", org_id=None))
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 200
         body = _body(result)
         assert "organization" in body
@@ -1485,64 +1337,52 @@ class TestAcceptInvitation:
 
     def test_invitation_not_found(self, handler):
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/bad-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/bad-token/accept", {}, h, method="POST")
         assert _status(result) == 404
 
     def test_invitation_not_pending(self, handler, mock_user_store):
         inv = MockInvitation(
-            token="abc-token", is_pending=False, status="accepted",
+            token="abc-token",
+            is_pending=False,
+            status="accepted",
             email="admin@example.com",
         )
         mock_user_store.get_invitation_by_token.return_value = inv
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_wrong_email(self, handler, mock_user_store, monkeypatch):
-        inv = MockInvitation(
-            token="abc-token", email="other@example.com", is_pending=True
-        )
+        inv = MockInvitation(token="abc-token", email="other@example.com", is_pending=True)
         mock_user_store.get_invitation_by_token.return_value = inv
         _patch_user(monkeypatch, MockUser(email="admin@example.com", org_id=None))
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 403
 
     def test_already_in_org(self, handler, mock_user_store):
-        inv = MockInvitation(
-            token="abc-token", email="admin@example.com", is_pending=True
-        )
+        inv = MockInvitation(token="abc-token", email="admin@example.com", is_pending=True)
         mock_user_store.get_invitation_by_token.return_value = inv
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 400
         assert "already a member" in _body(result).get("error", "")
 
     def test_org_no_longer_exists(self, handler, mock_user_store, monkeypatch):
-        inv = MockInvitation(
-            token="abc-token", email="admin@example.com", is_pending=True
-        )
+        inv = MockInvitation(token="abc-token", email="admin@example.com", is_pending=True)
         mock_user_store.get_invitation_by_token.return_value = inv
         mock_user_store.get_organization_by_id.return_value = None
         _patch_user(monkeypatch, MockUser(email="admin@example.com", org_id=None))
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 404
 
     def test_org_member_limit(self, handler, mock_user_store, monkeypatch):
         inv = MockInvitation(
-            token="abc-token", email="admin@example.com",
-            org_id="org-001", is_pending=True,
+            token="abc-token",
+            email="admin@example.com",
+            org_id="org-001",
+            is_pending=True,
         )
         mock_user_store.get_invitation_by_token.return_value = inv
         org = MockOrganization(limits=MockTierLimits(users_per_org=1))
@@ -1550,57 +1390,54 @@ class TestAcceptInvitation:
         mock_user_store.get_org_members.return_value = [MockUser()]
         _patch_user(monkeypatch, MockUser(email="admin@example.com", org_id=None))
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 403
 
     def test_add_user_failure(self, handler, mock_user_store, monkeypatch):
         inv = MockInvitation(
-            token="abc-token", email="admin@example.com",
-            org_id="org-001", is_pending=True,
+            token="abc-token",
+            email="admin@example.com",
+            org_id="org-001",
+            is_pending=True,
         )
         mock_user_store.get_invitation_by_token.return_value = inv
         mock_user_store.add_user_to_org.return_value = False
         _patch_user(monkeypatch, MockUser(email="admin@example.com", org_id=None))
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 500
 
     def test_unauthenticated(self, handler, monkeypatch):
         _patch_user_none(monkeypatch)
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 401
 
     def test_method_not_allowed(self, handler):
         h = MockHTTPHandler(method="GET")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="GET"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="GET")
         assert _status(result) == 405
 
     def test_no_user_store(self, handler_no_store, monkeypatch):
         inv = MockInvitation(
-            token="abc-token", email="admin@example.com",
-            org_id="org-001", is_pending=True,
+            token="abc-token",
+            email="admin@example.com",
+            org_id="org-001",
+            is_pending=True,
         )
         monkeypatch.setattr(
             "aragora.server.handlers.organizations.OrganizationsHandler._get_current_user",
-            lambda self, handler: (MockUser(email="admin@example.com", org_id=None), MockAuthContext()),
+            lambda self, handler: (
+                MockUser(email="admin@example.com", org_id=None),
+                MockAuthContext(),
+            ),
         )
         monkeypatch.setattr(
             "aragora.server.handlers.organizations.OrganizationsHandler._get_invitation_by_token",
             lambda self, token: inv,
         )
         h = MockHTTPHandler(method="POST")
-        result = handler_no_store.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler_no_store.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 503
 
 
@@ -1745,16 +1582,12 @@ class TestEdgeCases:
 
     def test_whitespace_org_id_in_switch(self, handler):
         h = MockHTTPHandler(body={"org_id": "   "}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/switch", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/switch", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_whitespace_org_id_in_default(self, handler):
         h = MockHTTPHandler(body={"org_id": "   "}, method="POST")
-        result = handler.handle(
-            "/api/user/organizations/default", {}, h, method="POST"
-        )
+        result = handler.handle("/api/user/organizations/default", {}, h, method="POST")
         assert _status(result) == 400
 
     def test_name_only_whitespace(self, handler):
@@ -1779,13 +1612,13 @@ class TestEdgeCases:
 
     def test_case_insensitive_email_match_on_accept(self, handler, mock_user_store, monkeypatch):
         inv = MockInvitation(
-            token="abc-token", email="Admin@Example.com",
-            org_id="org-001", is_pending=True,
+            token="abc-token",
+            email="Admin@Example.com",
+            org_id="org-001",
+            is_pending=True,
         )
         mock_user_store.get_invitation_by_token.return_value = inv
         _patch_user(monkeypatch, MockUser(email="admin@example.com", org_id=None))
         h = MockHTTPHandler(method="POST")
-        result = handler.handle(
-            "/api/invitations/abc-token/accept", {}, h, method="POST"
-        )
+        result = handler.handle("/api/invitations/abc-token/accept", {}, h, method="POST")
         assert _status(result) == 200

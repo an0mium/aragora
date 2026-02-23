@@ -79,7 +79,9 @@ class TestEnsureInitialized:
     @pytest.mark.asyncio
     async def test_handles_busygroup_error(self):
         queue, mock_redis = _make_queue()
-        mock_redis.xgroup_create.side_effect = RuntimeError("BUSYGROUP Consumer group already exists")
+        mock_redis.xgroup_create.side_effect = RuntimeError(
+            "BUSYGROUP Consumer group already exists"
+        )
 
         await queue._ensure_initialized()
 

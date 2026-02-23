@@ -55,9 +55,7 @@ class TestSurpriseChainTracker:
         tracker.enrich(self._base_score(0.6), {"machine", "learning", "model"})
 
         # Second related item
-        enriched = tracker.enrich(
-            self._base_score(0.5), {"machine", "learning", "training"}
-        )
+        enriched = tracker.enrich(self._base_score(0.5), {"machine", "learning", "training"})
 
         assert enriched.chain_length == 2
         assert enriched.chain_bonus == pytest.approx(0.05)
@@ -95,9 +93,7 @@ class TestSurpriseChainTracker:
         tracker = SurpriseChainTracker()
 
         tracker.enrich(self._base_score(0.6), {"machine", "learning", "model"})
-        enriched = tracker.enrich(
-            self._base_score(0.6), {"cooking", "recipe", "dinner"}
-        )
+        enriched = tracker.enrich(self._base_score(0.6), {"cooking", "recipe", "dinner"})
 
         # Should start a new chain, not extend the old one
         assert enriched.chain_length == 1

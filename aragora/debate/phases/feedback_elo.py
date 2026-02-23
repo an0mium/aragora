@@ -158,7 +158,9 @@ class EloFeedback:
                 )
 
             logger.debug(
-                "[voting_accuracy] Recorded voting accuracy for %s votes in debate %s", len(result.votes), ctx.debate_id
+                "[voting_accuracy] Recorded voting accuracy for %s votes in debate %s",
+                len(result.votes),
+                ctx.debate_id,
             )
 
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001

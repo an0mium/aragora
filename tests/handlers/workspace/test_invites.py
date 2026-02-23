@@ -630,7 +630,9 @@ class TestCreateInvite:
         result = handler._handle_create_invite(req, "ws-1")
         assert _status(result) == 401
 
-    def test_create_workspace_access_denied(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_workspace_access_denied(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         exc_class = mock_workspace_module.AccessDeniedException
 
         mgr = MagicMock()
@@ -759,7 +761,9 @@ class TestListInvites:
         result = handler._handle_list_invites(req, "ws-1")
         assert _status(result) == 401
 
-    def test_list_workspace_access_denied(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_workspace_access_denied(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         exc_class = mock_workspace_module.AccessDeniedException
         mgr = MagicMock()
         mgr.get_workspace = AsyncMock(side_effect=exc_class("denied"))
@@ -1045,7 +1049,9 @@ class TestAcceptInvite:
         result = handler._handle_accept_invite(req, "any-token")
         assert _status(result) == 401
 
-    def test_accept_add_member_access_denied(self, handler, make_handler_request, mock_workspace_module):
+    def test_accept_add_member_access_denied(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         from aragora.server.handlers.workspace.invites import get_invite_store
 
         store = get_invite_store()

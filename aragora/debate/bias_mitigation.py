@@ -270,7 +270,9 @@ def apply_self_vote_penalty(
             else:  # log_only
                 if config.log_self_votes:
                     logger.info(
-                        "self_vote_detected agent=%s choice=%s (no penalty applied)", agent, vote.choice
+                        "self_vote_detected agent=%s choice=%s (no penalty applied)",
+                        agent,
+                        vote.choice,
                     )
 
     return adjusted
@@ -839,5 +841,9 @@ class BiasMitigationConfig:
     def log_summary(self) -> None:
         """Log summary of enabled bias mitigation features."""
         logger.info(
-            "bias_mitigation_config position_shuffling=%s self_vote=%s verbosity=%s process_eval=%s", self.enable_position_shuffling, self.enable_self_vote_mitigation, self.enable_verbosity_normalization, self.enable_process_evaluation
+            "bias_mitigation_config position_shuffling=%s self_vote=%s verbosity=%s process_eval=%s",
+            self.enable_position_shuffling,
+            self.enable_self_vote_mitigation,
+            self.enable_verbosity_normalization,
+            self.enable_process_evaluation,
         )

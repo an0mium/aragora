@@ -13,7 +13,6 @@ from aragora.mcp.tools_module.integrations import (
 )
 
 
-
 def _make_mock_module(func_name, return_value):
     """Create a mock module with a single factory function returning the given value."""
     mod = MagicMock()

@@ -88,6 +88,7 @@ class MockHTTPHandler:
 
 class MockGenesisEventType(Enum):
     """Mock of GenesisEventType for testing."""
+
     DEBATE_START = "debate_start"
     DEBATE_END = "debate_end"
     DEBATE_SPAWN = "debate_spawn"
@@ -430,7 +431,14 @@ class TestGetEvents:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
-            ("evt-1", "agent_birth", "2026-01-15T10:00:00Z", None, "abc123def456ghi7890", '{"genome_id": "g1"}'),
+            (
+                "evt-1",
+                "agent_birth",
+                "2026-01-15T10:00:00Z",
+                None,
+                "abc123def456ghi7890",
+                '{"genome_id": "g1"}',
+            ),
         ]
         mock_conn.cursor.return_value = mock_cursor
         mock_ledger.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -548,9 +556,7 @@ class TestGetEvents:
         mock_ledger.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_ledger.db.connection.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = handler.handle(
-            "/api/genesis/events", {"limit": "500"}, http_handler
-        )
+        result = handler.handle("/api/genesis/events", {"limit": "500"}, http_handler)
         assert _status(result) == 200
         # Verify limit=100 was passed to SQL
         mock_cursor.execute.assert_called_once()
@@ -590,7 +596,9 @@ class TestGetGenomes:
         mock_store = MagicMock()
         mock_store_cls.return_value = mock_store
         mock_store.get_all.return_value = [
-            _make_mock_genome("g1"), _make_mock_genome("g2"), _make_mock_genome("g3"),
+            _make_mock_genome("g1"),
+            _make_mock_genome("g2"),
+            _make_mock_genome("g3"),
         ]
 
         result = handler.handle("/api/genesis/genomes", {}, http_handler)
@@ -609,9 +617,7 @@ class TestGetGenomes:
         genomes = [_make_mock_genome(f"g{i}") for i in range(10)]
         mock_store.get_all.return_value = genomes
 
-        result = handler.handle(
-            "/api/genesis/genomes", {"limit": "3", "offset": "2"}, http_handler
-        )
+        result = handler.handle("/api/genesis/genomes", {"limit": "3", "offset": "2"}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["total"] == 10
@@ -627,9 +633,7 @@ class TestGetGenomes:
         mock_store_cls.return_value = mock_store
         mock_store.get_all.return_value = []
 
-        result = handler.handle(
-            "/api/genesis/genomes", {"limit": "999"}, http_handler
-        )
+        result = handler.handle("/api/genesis/genomes", {"limit": "999"}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["limit"] == 200
@@ -694,9 +698,7 @@ class TestGetTopGenomes:
         mock_store_cls.return_value = mock_store
         mock_store.get_top_by_fitness.return_value = []
 
-        result = handler.handle(
-            "/api/genesis/genomes/top", {"limit": "5"}, http_handler
-        )
+        result = handler.handle("/api/genesis/genomes/top", {"limit": "5"}, http_handler)
         assert _status(result) == 200
         mock_store.get_top_by_fitness.assert_called_once_with(5)
 
@@ -708,9 +710,7 @@ class TestGetTopGenomes:
         mock_store_cls.return_value = mock_store
         mock_store.get_top_by_fitness.return_value = []
 
-        result = handler.handle(
-            "/api/genesis/genomes/top", {"limit": "999"}, http_handler
-        )
+        result = handler.handle("/api/genesis/genomes/top", {"limit": "999"}, http_handler)
         assert _status(result) == 200
         mock_store.get_top_by_fitness.assert_called_once_with(50)
 
@@ -816,8 +816,20 @@ class TestGetLineage:
         mock_ledger_cls.return_value = mock_ledger
 
         lineage_data = [
-            {"genome_id": "g1", "name": "claude", "generation": 1, "fitness_score": 0.9, "parent_genomes": []},
-            {"genome_id": "g0", "name": "proto", "generation": 0, "fitness_score": 0.5, "parent_genomes": []},
+            {
+                "genome_id": "g1",
+                "name": "claude",
+                "generation": 1,
+                "fitness_score": 0.9,
+                "parent_genomes": [],
+            },
+            {
+                "genome_id": "g0",
+                "name": "proto",
+                "generation": 0,
+                "fitness_score": 0.5,
+                "parent_genomes": [],
+            },
         ]
         mock_ledger.get_lineage.return_value = lineage_data
 
@@ -860,9 +872,7 @@ class TestGetLineage:
         mock_ledger.get_lineage.return_value = lineage
         mock_ledger.get_events_by_type.return_value = []
 
-        result = handler.handle(
-            "/api/genesis/lineage/g0", {"max_depth": "3"}, http_handler
-        )
+        result = handler.handle("/api/genesis/lineage/g0", {"max_depth": "3"}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["generations"] == 3
@@ -877,9 +887,7 @@ class TestGetLineage:
         mock_ledger.get_lineage.return_value = [{"genome_id": "g1", "name": "a"}]
         mock_ledger.get_events_by_type.return_value = []
 
-        result = handler.handle(
-            "/api/genesis/lineage/g1", {"max_depth": "100"}, http_handler
-        )
+        result = handler.handle("/api/genesis/lineage/g1", {"max_depth": "100"}, http_handler)
         assert _status(result) == 200
 
     @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True)
@@ -892,9 +900,7 @@ class TestGetLineage:
         mock_ledger.get_lineage.return_value = [{"genome_id": "g1", "name": "a"}]
         mock_ledger.get_events_by_type.return_value = []
 
-        result = handler.handle(
-            "/api/genesis/lineage/g1", {"max_depth": "0"}, http_handler
-        )
+        result = handler.handle("/api/genesis/lineage/g1", {"max_depth": "0"}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         # Should still return at least 1 if there's data
@@ -1025,6 +1031,7 @@ class TestGetPopulation:
         mock_pm.get_or_create_population.return_value = pop
 
         import sys
+
         original = sys.modules.get("aragora.genesis.breeding")
         sys.modules["aragora.genesis.breeding"] = mock_breeding_module
         try:
@@ -1234,9 +1241,7 @@ class TestGetDescendants:
         mock_store.get.return_value = root
         mock_store.get_all.return_value = [root, child, grandchild]
 
-        result = handler.handle(
-            "/api/genesis/descendants/g1", {"max_depth": "1"}, http_handler
-        )
+        result = handler.handle("/api/genesis/descendants/g1", {"max_depth": "1"}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         # Only depth 1 descendants (direct children)
@@ -1254,15 +1259,11 @@ class TestGetDescendants:
         mock_store.get_all.return_value = [root]
 
         # max_depth=0 should be clamped to 1
-        result = handler.handle(
-            "/api/genesis/descendants/g1", {"max_depth": "0"}, http_handler
-        )
+        result = handler.handle("/api/genesis/descendants/g1", {"max_depth": "0"}, http_handler)
         assert _status(result) == 200
 
         # max_depth=50 should be clamped to 20
-        result = handler.handle(
-            "/api/genesis/descendants/g1", {"max_depth": "50"}, http_handler
-        )
+        result = handler.handle("/api/genesis/descendants/g1", {"max_depth": "50"}, http_handler)
         assert _status(result) == 200
 
     @patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True)
@@ -1575,7 +1576,7 @@ class TestEdgeCases:
         mock_cursor = MagicMock()
         full_hash = "a" * 64
         mock_cursor.fetchall.return_value = [
-            ("evt-1", "agent_birth", "2026-01-15T10:00:00Z", None, full_hash, '{}'),
+            ("evt-1", "agent_birth", "2026-01-15T10:00:00Z", None, full_hash, "{}"),
         ]
         mock_conn.cursor.return_value = mock_cursor
         mock_ledger.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -1597,7 +1598,7 @@ class TestEdgeCases:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
-            ("evt-1", "agent_birth", "2026-01-15T10:00:00Z", None, None, '{}'),
+            ("evt-1", "agent_birth", "2026-01-15T10:00:00Z", None, None, "{}"),
         ]
         mock_conn.cursor.return_value = mock_cursor
         mock_ledger.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -1633,7 +1634,14 @@ class TestEdgeCases:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
-            ("evt-1", "agent_birth", "2026-01-15T10:00:00Z", None, "abc123def456ghi7", "not-valid-json"),
+            (
+                "evt-1",
+                "agent_birth",
+                "2026-01-15T10:00:00Z",
+                None,
+                "abc123def456ghi7",
+                "not-valid-json",
+            ),
         ]
         mock_conn.cursor.return_value = mock_cursor
         mock_ledger.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -1669,9 +1677,7 @@ class TestEdgeCases:
 
     @patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True)
     @patch("aragora.server.handlers.genesis.GenomeStore")
-    def test_descendants_handles_none_fitness_score(
-        self, mock_store_cls, handler, http_handler
-    ):
+    def test_descendants_handles_none_fitness_score(self, mock_store_cls, handler, http_handler):
         """Descendants handles genomes with None fitness_score in sorting."""
         mock_store = MagicMock()
         mock_store_cls.return_value = mock_store
@@ -1695,9 +1701,7 @@ class TestEdgeCases:
         mock_store_cls.return_value = mock_store
         mock_store.get_all.return_value = [_make_mock_genome("g1")]
 
-        result = handler.handle(
-            "/api/genesis/genomes", {"offset": "100"}, http_handler
-        )
+        result = handler.handle("/api/genesis/genomes", {"offset": "100"}, http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["total"] == 1

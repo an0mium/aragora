@@ -30,14 +30,16 @@ def _emit_retry_exhausted(func_name: str, total_attempts: int, args: tuple) -> N
             from aragora.events.types import StreamEvent, StreamEventType
 
             adapter_name = getattr(obj, "_adapter_name", getattr(obj, "adapter_name", "unknown"))
-            emitter.emit(StreamEvent(
-                type=StreamEventType.KM_RETRY_EXHAUSTED,
-                data={
-                    "adapter": adapter_name,
-                    "function": func_name,
-                    "total_attempts": total_attempts,
-                },
-            ))
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.KM_RETRY_EXHAUSTED,
+                    data={
+                        "adapter": adapter_name,
+                        "function": func_name,
+                        "total_attempts": total_attempts,
+                    },
+                )
+            )
     except (ImportError, AttributeError, TypeError):
         pass
 

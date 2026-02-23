@@ -372,7 +372,9 @@ class TestCategoryFilter:
     @patch("aragora.server.handlers.feature_flags.FlagCategory", MockFlagCategory)
     @patch("aragora.server.handlers.feature_flags.get_flag_registry")
     def test_filter_by_valid_category(self, mock_get_reg, handler, http_get):
-        flag = _make_flag("perf_flag", True, "Performance flag", category=MockFlagCategory.PERFORMANCE)
+        flag = _make_flag(
+            "perf_flag", True, "Performance flag", category=MockFlagCategory.PERFORMANCE
+        )
         registry = _mock_registry(flags=[flag], value_map={"perf_flag": True})
         mock_get_reg.return_value = registry
         result = handler.handle("/api/v1/feature-flags", {"category": "performance"}, http_get)
@@ -483,9 +485,7 @@ class TestGetFlag:
     @patch("aragora.server.handlers.feature_flags.FLAGS_AVAILABLE", True)
     @patch("aragora.server.handlers.feature_flags.get_flag_registry")
     def test_get_flag_with_deprecated_status(self, mock_get_reg, handler, http_get):
-        flag = _make_flag(
-            "old_flag", True, "Deprecated flag", status=MockFlagStatus.DEPRECATED
-        )
+        flag = _make_flag("old_flag", True, "Deprecated flag", status=MockFlagStatus.DEPRECATED)
         registry = _mock_registry(
             definition_map={"old_flag": flag},
             value_map={"old_flag": True},
@@ -805,7 +805,9 @@ class TestEdgeCases:
 
     @patch("aragora.server.handlers.feature_flags.FLAGS_AVAILABLE", True)
     @patch("aragora.server.handlers.feature_flags.get_flag_registry")
-    def test_method_not_allowed_checked_before_flags_available(self, mock_get_reg, handler, http_post):
+    def test_method_not_allowed_checked_before_flags_available(
+        self, mock_get_reg, handler, http_post
+    ):
         """Method check happens first, before flags availability check."""
         result = handler.handle("/api/v1/feature-flags", {}, http_post)
         assert _status(result) == 405
@@ -814,6 +816,7 @@ class TestEdgeCases:
 
     def test_handler_is_instance_of_base_handler(self, handler):
         from aragora.server.handlers.base import BaseHandler
+
         assert isinstance(handler, BaseHandler)
 
     @patch("aragora.server.handlers.feature_flags.FLAGS_AVAILABLE", True)

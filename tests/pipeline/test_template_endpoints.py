@@ -22,7 +22,8 @@ def mock_store():
     store.get.return_value = None
     store.save.return_value = None
     with patch(
-        "aragora.server.handlers.canvas_pipeline._get_store", return_value=store,
+        "aragora.server.handlers.canvas_pipeline._get_store",
+        return_value=store,
     ):
         yield store
 
@@ -86,10 +87,12 @@ class TestFromTemplate:
 
     @pytest.mark.asyncio
     async def test_from_template_creates_pipeline(self, handler, mock_store):
-        result = await handler.handle_from_template({
-            "template_name": "hiring_decision",
-            "auto_advance": False,
-        })
+        result = await handler.handle_from_template(
+            {
+                "template_name": "hiring_decision",
+                "auto_advance": False,
+            }
+        )
         status, body = _parse_result(result)
         assert status == 201
         assert "pipeline_id" in body
@@ -97,18 +100,22 @@ class TestFromTemplate:
 
     @pytest.mark.asyncio
     async def test_from_template_persists_result(self, handler, mock_store):
-        await handler.handle_from_template({
-            "template_name": "product_launch",
-            "auto_advance": False,
-        })
+        await handler.handle_from_template(
+            {
+                "template_name": "product_launch",
+                "auto_advance": False,
+            }
+        )
         assert mock_store.save.called
 
     @pytest.mark.asyncio
     async def test_from_template_response_includes_template_info(self, handler, mock_store):
-        result = await handler.handle_from_template({
-            "template_name": "vendor_selection",
-            "auto_advance": False,
-        })
+        result = await handler.handle_from_template(
+            {
+                "template_name": "vendor_selection",
+                "auto_advance": False,
+            }
+        )
         status, body = _parse_result(result)
         assert status == 201
         assert body["template"]["name"] == "vendor_selection"
@@ -116,10 +123,12 @@ class TestFromTemplate:
 
     @pytest.mark.asyncio
     async def test_from_template_response_includes_goals_count(self, handler, mock_store):
-        result = await handler.handle_from_template({
-            "template_name": "market_entry",
-            "auto_advance": False,
-        })
+        result = await handler.handle_from_template(
+            {
+                "template_name": "market_entry",
+                "auto_advance": False,
+            }
+        )
         status, body = _parse_result(result)
         assert status == 201
         assert "goals_count" in body
@@ -142,6 +151,7 @@ class TestCanHandleRoutes:
         result = handler.handle("/api/v1/canvas/pipeline/templates", {}, mock_handler)
         # Should return a coroutine (async handler)
         import asyncio
+
         assert asyncio.iscoroutine(result)
         # Clean up the coroutine to avoid warning
         result.close()

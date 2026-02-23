@@ -83,11 +83,13 @@ class MockUnifiedResponse:
 def mock_gateway():
     """Create a mock MemoryGateway."""
     gw = AsyncMock()
-    gw.get_stats = MagicMock(return_value={
-        "enabled": True,
-        "sources": ["continuum", "km"],
-        "total_queries": 42,
-    })
+    gw.get_stats = MagicMock(
+        return_value={
+            "enabled": True,
+            "sources": ["continuum", "km"],
+            "total_queries": 42,
+        }
+    )
     return gw
 
 
@@ -765,10 +767,12 @@ class TestEdgeCases:
         mock_mod.UnifiedMemoryQuery = capture
 
         with patch.dict("sys.modules", {"aragora.memory.gateway": mock_mod}):
-            await handler.handle_search({
-                "query": "q",
-                "sources": ["continuum", "km", "supermemory"],
-            })
+            await handler.handle_search(
+                {
+                    "query": "q",
+                    "sources": ["continuum", "km", "supermemory"],
+                }
+            )
 
         assert captured["sources"] == ["continuum", "km", "supermemory"]
 
@@ -873,11 +877,13 @@ class TestEdgeCases:
             "sys.modules",
             {"aragora.memory.gateway": MagicMock(UnifiedMemoryQuery=MagicMock)},
         ):
-            result = await handler.handle_search({
-                "query": "q",
-                "unknown_field": True,
-                "extra": [1, 2, 3],
-            })
+            result = await handler.handle_search(
+                {
+                    "query": "q",
+                    "unknown_field": True,
+                    "extra": [1, 2, 3],
+                }
+            )
 
         # Should succeed without error
         assert "error" not in result
@@ -893,9 +899,9 @@ class TestEdgeCases:
             "sys.modules",
             {"aragora.memory.gateway": MagicMock(UnifiedMemoryQuery=MagicMock)},
         ):
-            results = await asyncio.gather(*[
-                handler.handle_search({"query": f"q{i}"}) for i in range(5)
-            ])
+            results = await asyncio.gather(
+                *[handler.handle_search({"query": f"q{i}"}) for i in range(5)]
+            )
 
         assert all(r.get("total_found") == 1 for r in results)
         assert mock_gateway.query.call_count == 5

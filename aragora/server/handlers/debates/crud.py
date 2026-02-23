@@ -462,7 +462,10 @@ class CrudOperationsMixin:
 
                 if not access_decision.allowed:
                     logger.warning(
-                        "ABAC denied WRITE access to debate %s for user %s: %s", debate_id, user.user_id, access_decision.reason
+                        "ABAC denied WRITE access to debate %s for user %s: %s",
+                        debate_id,
+                        user.user_id,
+                        access_decision.reason,
                     )
                     return error_response(
                         "You do not have permission to update this debate",
@@ -598,7 +601,10 @@ class CrudOperationsMixin:
 
                 if not access_decision.allowed:
                     logger.warning(
-                        "ABAC denied DELETE access to debate %s for user %s: %s", debate_id, user.user_id, access_decision.reason
+                        "ABAC denied DELETE access to debate %s for user %s: %s",
+                        debate_id,
+                        user.user_id,
+                        access_decision.reason,
                     )
                     return error_response(
                         "You do not have permission to delete this debate",

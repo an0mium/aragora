@@ -527,9 +527,7 @@ class TestTierFiltering:
             ("_gateway_handler", MagicMock()),  # optional
         ]
 
-        filtered = filter_registry_by_tier(
-            registry, active_tiers={"core", "extended", "optional"}
-        )
+        filtered = filter_registry_by_tier(registry, active_tiers={"core", "extended", "optional"})
         names = [name for name, _ in filtered]
         assert "_health_handler" in names
         assert "_gateway_handler" in names

@@ -247,7 +247,9 @@ class AgentSelector:
                 profile.has_critical_probes = probe_profile.has_critical_issues()
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # Agent not in probe system - use defaults
-                logger.debug("Failed to sync probe profile for %s: %s. Using defaults.", agent_name, e)
+                logger.debug(
+                    "Failed to sync probe profile for %s: %s. Using defaults.", agent_name, e
+                )
                 profile.probe_score = 1.0
                 profile.has_critical_probes = False
 
@@ -347,7 +349,9 @@ class AgentSelector:
                     profile.is_overconfident = False
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # Agent not in calibration system - use defaults
-                logger.debug("Failed to sync calibration for %s: %s. Using defaults.", agent_name, e)
+                logger.debug(
+                    "Failed to sync calibration for %s: %s. Using defaults.", agent_name, e
+                )
                 profile.calibration_score = 1.0
                 profile.brier_score = 0.0
                 profile.is_overconfident = False
@@ -410,7 +414,8 @@ class AgentSelector:
         try:
             self._performance_insights = self.performance_monitor.get_performance_insights()
             logger.debug(
-                "Refreshed performance insights for %s agents", len(self._performance_insights.get('agent_stats', {}))
+                "Refreshed performance insights for %s agents",
+                len(self._performance_insights.get("agent_stats", {})),
             )
         except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.warning("Failed to refresh performance insights: %s", e)
@@ -843,7 +848,11 @@ class AgentSelector:
 
         # Detailed routing decision log
         logger.info(
-            "[ROUTING] Task '%s': primary_domain=%s, secondary=%s, traits=%s", task_id or 'unnamed', requirements.primary_domain, requirements.secondary_domains, requirements.required_traits
+            "[ROUTING] Task '%s': primary_domain=%s, secondary=%s, traits=%s",
+            task_id or "unnamed",
+            requirements.primary_domain,
+            requirements.secondary_domains,
+            requirements.required_traits,
         )
 
         # Log detected domains with confidence
@@ -860,7 +869,9 @@ class AgentSelector:
             exp = agent.expertise.get(requirements.primary_domain, 0)
             agent_details.append(f"{agent.name}(exp={exp:.0%},elo={agent.elo_rating:.0f})")
         logger.info(
-            "[ROUTING] Selected team for %s: %s", requirements.primary_domain, ', '.join(agent_details)
+            "[ROUTING] Selected team for %s: %s",
+            requirements.primary_domain,
+            ", ".join(agent_details),
         )
 
         return team

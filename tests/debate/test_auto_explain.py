@@ -124,16 +124,12 @@ class TestExplanationSummaryInStatus:
         config.debate_format = "full"
         config.debate_id = "test-1"
 
-        with patch(
-            "aragora.server.debate_controller.run_async"
-        ) as mock_run_async, patch(
-            "aragora.server.debate_controller.update_debate_status"
-        ) as mock_update, patch(
-            "aragora.server.debate_controller.create_arena_hooks"
-        ), patch(
-            "aragora.server.debate_controller.wrap_agent_for_streaming"
-        ), patch(
-            "aragora.storage.receipt_store.get_receipt_store"
+        with (
+            patch("aragora.server.debate_controller.run_async") as mock_run_async,
+            patch("aragora.server.debate_controller.update_debate_status") as mock_update,
+            patch("aragora.server.debate_controller.create_arena_hooks"),
+            patch("aragora.server.debate_controller.wrap_agent_for_streaming"),
+            patch("aragora.storage.receipt_store.get_receipt_store"),
         ):
             mock_run_async.return_value = result
             controller.factory.create_arena.return_value = MagicMock()

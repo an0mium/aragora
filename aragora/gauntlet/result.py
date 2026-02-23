@@ -339,5 +339,7 @@ class GauntletResult:
             "consensus_points": self.consensus_points,
             "config_used": self.config_used,
             "agents_used": self.agents_used,
-            "rejection_summary": self.get_rejection_summary() if self.verdict != Verdict.PASS else None,
+            "rejection_summary": self.get_rejection_summary()
+            if self.verdict != Verdict.PASS
+            else None,
         }

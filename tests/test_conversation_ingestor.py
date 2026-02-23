@@ -164,7 +164,7 @@ def test_claim_extraction():
     found_systems_claim = any("systems" in t or "structure" in t for t in claim_texts)
 
     # Print some sample claims
-    print(f"  Sample claims extracted:")
+    print("  Sample claims extracted:")
     for claim in claims[:5]:
         preview = claim.claim[:80] + "..." if len(claim.claim) > 80 else claim.claim
         print(f"    [{claim.claim_type}] {preview}")
@@ -221,7 +221,7 @@ def test_statistics():
     assert "chatgpt" in stats["conversations_by_source"]
     assert "claude" in stats["conversations_by_source"]
 
-    print(f"✓ Statistics generation passed:")
+    print("✓ Statistics generation passed:")
     print(f"    Total conversations: {stats['total_conversations']}")
     print(f"    User words: {stats['total_user_words']:,}")
     print(f"    Assistant words: {stats['total_assistant_words']:,}")

@@ -266,9 +266,7 @@ def mock_audit_log():
 def mock_classifier():
     cls = MagicMock()
     cls.classify = AsyncMock(return_value=MockClassificationResult())
-    cls.get_level_policy = MagicMock(
-        return_value={"encryption": True, "access_control": "strict"}
-    )
+    cls.get_level_policy = MagicMock(return_value={"encryption": True, "access_control": "strict"})
     return cls
 
 
@@ -289,14 +287,16 @@ def _patch_handler(
     handler._get_audit_log = MagicMock(return_value=mock_audit_log)
     handler._get_classifier = MagicMock(return_value=mock_classifier)
     handler._get_user_store = MagicMock(return_value=None)
+
     def _sync_run_async(coro):
-        if not hasattr(coro, '__await__'):
+        if not hasattr(coro, "__await__"):
             return coro
         try:
             coro.__await__().__next__()
         except StopIteration as e:
             return e.value
         raise RuntimeError("coroutine did not return")
+
     handler._run_async = _sync_run_async
     handler._check_rbac_permission = MagicMock(return_value=None)
     return handler
@@ -594,9 +594,7 @@ class TestGetWorkspace:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -613,7 +611,9 @@ class TestGetWorkspace:
         from aragora.privacy import AccessDeniedException
 
         mock_isolation_manager.get_workspace = AsyncMock(
-            side_effect=AccessDeniedException("denied", workspace_id="ws-001", actor="user-001", action="access")
+            side_effect=AccessDeniedException(
+                "denied", workspace_id="ws-001", actor="user-001", action="access"
+            )
         )
         _patch_handler(
             handler,
@@ -628,9 +628,7 @@ class TestGetWorkspace:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001", {}, http, method="GET")
 
         assert _status(result) == 403
 
@@ -661,9 +659,7 @@ class TestDeleteWorkspace:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001", {}, http, method="DELETE"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001", {}, http, method="DELETE")
 
         assert _status(result) == 200
         assert "deleted" in _body(result).get("message", "").lower()
@@ -681,7 +677,9 @@ class TestDeleteWorkspace:
         from aragora.privacy import AccessDeniedException
 
         mock_isolation_manager.delete_workspace = AsyncMock(
-            side_effect=AccessDeniedException("denied", workspace_id="ws-001", actor="user-001", action="access")
+            side_effect=AccessDeniedException(
+                "denied", workspace_id="ws-001", actor="user-001", action="access"
+            )
         )
         _patch_handler(
             handler,
@@ -696,9 +694,7 @@ class TestDeleteWorkspace:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001", {}, http, method="DELETE"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001", {}, http, method="DELETE")
 
         assert _status(result) == 403
 
@@ -733,9 +729,7 @@ class TestWorkspaceIdValidation:
             return_value=_make_auth_ctx(),
         ):
             # Path traversal attempt -- single segment so it reaches ID validation
-            result = handler.handle(
-                "/api/v1/workspaces/..", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/..", {}, http, method="GET")
 
         assert _status(result) == 400
 
@@ -771,9 +765,7 @@ class TestAddMember:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/members", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/members", {}, http, method="POST")
 
         assert _status(result) == 201
 
@@ -800,9 +792,7 @@ class TestAddMember:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/members", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/members", {}, http, method="POST")
 
         assert _status(result) == 400
         assert "user_id" in _body(result).get("error", "")
@@ -852,7 +842,9 @@ class TestRemoveMember:
         from aragora.privacy import AccessDeniedException
 
         mock_isolation_manager.remove_member = AsyncMock(
-            side_effect=AccessDeniedException("denied", workspace_id="ws-001", actor="user-001", action="access")
+            side_effect=AccessDeniedException(
+                "denied", workspace_id="ws-001", actor="user-001", action="access"
+            )
         )
         _patch_handler(
             handler,
@@ -906,9 +898,7 @@ class TestListPolicies:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/retention/policies", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -970,9 +960,7 @@ class TestCreatePolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/retention/policies", {}, http, method="POST")
 
         assert _status(result) == 201
         assert "Policy created" in _body(result).get("message", "")
@@ -998,9 +986,7 @@ class TestCreatePolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/retention/policies", {}, http, method="POST")
 
         assert _status(result) == 400
         assert "name is required" in _body(result).get("error", "")
@@ -1028,9 +1014,7 @@ class TestCreatePolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/retention/policies", {}, http, method="POST")
 
         assert _status(result) == 400
         assert "Invalid action" in _body(result).get("error", "")
@@ -1060,9 +1044,7 @@ class TestGetPolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies/pol-001", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/retention/policies/pol-001", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1121,9 +1103,7 @@ class TestUpdatePolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies/pol-001", {}, http, method="PUT"
-            )
+            result = handler.handle("/api/v1/retention/policies/pol-001", {}, http, method="PUT")
 
         assert _status(result) == 200
         assert "updated" in _body(result).get("message", "").lower()
@@ -1177,9 +1157,7 @@ class TestUpdatePolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies/pol-001", {}, http, method="PUT"
-            )
+            result = handler.handle("/api/v1/retention/policies/pol-001", {}, http, method="PUT")
 
         assert _status(result) == 400
 
@@ -1208,9 +1186,7 @@ class TestDeletePolicy:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/policies/pol-001", {}, http, method="DELETE"
-            )
+            result = handler.handle("/api/v1/retention/policies/pol-001", {}, http, method="DELETE")
 
         assert _status(result) == 200
         assert "deleted" in _body(result).get("message", "").lower()
@@ -1291,9 +1267,7 @@ class TestExecutePolicy:
         mock_audit_log,
         mock_classifier,
     ):
-        mock_retention_manager.execute_policy = AsyncMock(
-            side_effect=ValueError("Not found")
-        )
+        mock_retention_manager.execute_policy = AsyncMock(side_effect=ValueError("Not found"))
         _patch_handler(
             handler,
             mock_isolation_manager,
@@ -1341,9 +1315,7 @@ class TestExpiringItems:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/expiring", {"days": "7"}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/retention/expiring", {"days": "7"}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1371,9 +1343,7 @@ class TestExpiringItems:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/expiring", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/retention/expiring", {}, http, method="GET")
 
         assert _status(result) == 200
         assert _body(result)["days_ahead"] == 14
@@ -1469,16 +1439,17 @@ class TestGetLevelPolicy:
         http = MockHTTPHandler(method="GET")
 
         # Patch SensitivityLevel to accept our test value
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.SensitivityLevel",
-            side_effect=lambda x: MagicMock(value=x),
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.SensitivityLevel",
+                side_effect=lambda x: MagicMock(value=x),
+            ),
         ):
-            result = handler.handle(
-                "/api/v1/classify/policy/confidential", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/classify/policy/confidential", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1501,16 +1472,17 @@ class TestGetLevelPolicy:
         )
         http = MockHTTPHandler(method="GET")
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.SensitivityLevel",
-            side_effect=ValueError("invalid"),
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.SensitivityLevel",
+                side_effect=ValueError("invalid"),
+            ),
         ):
-            result = handler.handle(
-                "/api/v1/classify/policy/invalid_level", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/classify/policy/invalid_level", {}, http, method="GET")
 
         assert _status(result) == 400
         assert "Invalid level" in _body(result).get("error", "")
@@ -1545,9 +1517,7 @@ class TestQueryAudit:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/entries", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/audit/entries", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1640,9 +1610,7 @@ class TestAuditReport:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/report", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/audit/report", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1703,9 +1671,7 @@ class TestVerifyIntegrity:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/verify", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/audit/verify", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1736,9 +1702,7 @@ class TestVerifyIntegrity:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/verify", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/audit/verify", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1770,9 +1734,7 @@ class TestActorHistory:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/actor/user-001/history", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/audit/actor/user-001/history", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1868,9 +1830,7 @@ class TestDeniedAccess:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/denied", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/audit/denied", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -1936,9 +1896,7 @@ class TestRouting:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/retention/unknown", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/retention/unknown", {}, http, method="GET")
 
         assert _status(result) == 404
 
@@ -1963,9 +1921,7 @@ class TestRouting:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/classify/unknown/deep", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/classify/unknown/deep", {}, http, method="GET")
 
         assert _status(result) == 404
 
@@ -1990,9 +1946,7 @@ class TestRouting:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/audit/nonexistent", {}, http, method="PATCH"
-            )
+            result = handler.handle("/api/v1/audit/nonexistent", {}, http, method="PATCH")
 
         assert _status(result) == 404
 
@@ -2030,9 +1984,7 @@ class TestRouting:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/invites/unknown", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/invites/unknown", {}, http, method="GET")
 
         assert _status(result) == 404
 
@@ -2085,17 +2037,13 @@ class TestCreateInvite:
             mock_audit_log,
             mock_classifier,
         )
-        http = MockHTTPHandler(
-            body={"email": "new@test.com", "role": "member"}, method="POST"
-        )
+        http = MockHTTPHandler(body={"email": "new@test.com", "role": "member"}, method="POST")
 
         with patch(
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/invites", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/invites", {}, http, method="POST")
 
         assert _status(result) == 201
 
@@ -2122,9 +2070,7 @@ class TestCreateInvite:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/invites", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/invites", {}, http, method="POST")
 
         assert _status(result) == 400
         assert "email" in _body(result).get("error", "").lower()
@@ -2146,17 +2092,13 @@ class TestCreateInvite:
             mock_audit_log,
             mock_classifier,
         )
-        http = MockHTTPHandler(
-            body={"email": "user@test.com", "role": "superadmin"}, method="POST"
-        )
+        http = MockHTTPHandler(body={"email": "user@test.com", "role": "superadmin"}, method="POST")
 
         with patch(
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/invites", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/invites", {}, http, method="POST")
 
         assert _status(result) == 400
         assert "Invalid role" in _body(result).get("error", "")
@@ -2182,17 +2124,13 @@ class TestCreateInvite:
             mock_audit_log,
             mock_classifier,
         )
-        http = MockHTTPHandler(
-            body={"email": "dup@test.com", "role": "member"}, method="POST"
-        )
+        http = MockHTTPHandler(body={"email": "dup@test.com", "role": "member"}, method="POST")
 
         with patch(
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/invites", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/invites", {}, http, method="POST")
 
         assert _status(result) == 409
 
@@ -2396,9 +2334,7 @@ class TestAcceptInvite:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/invites/test-token/accept", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/invites/test-token/accept", {}, http, method="POST")
 
         assert _status(result) == 200
         assert "joined" in _body(result).get("message", "").lower()
@@ -2430,9 +2366,7 @@ class TestAcceptInvite:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/invites/bad-token/accept", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/invites/bad-token/accept", {}, http, method="POST")
 
         assert _status(result) == 404
 
@@ -2469,9 +2403,7 @@ class TestAcceptInvite:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/invites/expired-token/accept", {}, http, method="POST"
-            )
+            result = handler.handle("/api/v1/invites/expired-token/accept", {}, http, method="POST")
 
         assert _status(result) == 410
 
@@ -2594,24 +2526,26 @@ class TestListProfiles:
         mock_config.default_role = "member"
         mock_config.features = {"basic"}
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.workspace_module.RBACProfile",
-            [mock_profile],
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_profile_config",
-            return_value=mock_config,
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_lite_role_summary",
-            return_value={"owner": "Full access", "member": "Basic access"},
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.workspace_module.RBACProfile",
+                [mock_profile],
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.get_profile_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.get_lite_role_summary",
+                return_value={"owner": "Full access", "member": "Basic access"},
+            ),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/profiles", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/profiles", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -2635,15 +2569,14 @@ class TestListProfiles:
         )
         http = MockHTTPHandler(method="GET")
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", False
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", False),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/profiles", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/profiles", {}, http, method="GET")
 
         assert _status(result) == 503
 
@@ -2797,31 +2730,29 @@ class TestRBACPermissionCheck:
 
     def test_rbac_check_returns_none_when_unavailable(self, handler):
         """When RBAC is not available and fail-open, returns None."""
-        with patch(
-            "aragora.server.handlers.workspace_module.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.workspace_module.rbac_fail_closed",
-            return_value=False,
+        with (
+            patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.workspace_module.rbac_fail_closed",
+                return_value=False,
+            ),
         ):
             http = MockHTTPHandler(method="GET")
             # Bypass the patched version to test real _check_rbac_permission
-            result = WorkspaceHandler._check_rbac_permission(
-                handler, http, "workspace:read"
-            )
+            result = WorkspaceHandler._check_rbac_permission(handler, http, "workspace:read")
             assert result is None
 
     def test_rbac_check_fail_closed_returns_503(self, handler):
         """When RBAC is not available and fail-closed, returns 503."""
-        with patch(
-            "aragora.server.handlers.workspace_module.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.workspace_module.rbac_fail_closed",
-            return_value=True,
+        with (
+            patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.workspace_module.rbac_fail_closed",
+                return_value=True,
+            ),
         ):
             http = MockHTTPHandler(method="GET")
-            result = WorkspaceHandler._check_rbac_permission(
-                handler, http, "workspace:read"
-            )
+            result = WorkspaceHandler._check_rbac_permission(handler, http, "workspace:read")
             assert _status(result) == 503
 
 
@@ -2850,15 +2781,14 @@ class TestGetWorkspaceRoles:
         )
         http = MockHTTPHandler(method="GET")
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", False
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", False),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/roles", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/roles", {}, http, method="GET")
 
         assert _status(result) == 503
 
@@ -2887,24 +2817,26 @@ class TestGetWorkspaceRoles:
         mock_role.name = "Owner"
         mock_role.description = "Full access"
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_profile_config",
-            return_value=mock_config,
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_profile_roles",
-            return_value={"owner": mock_role, "member": mock_role},
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_available_roles_for_assignment",
-            return_value=["member"],
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.workspace_module.get_profile_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.get_profile_roles",
+                return_value={"owner": mock_role, "member": mock_role},
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.get_available_roles_for_assignment",
+                return_value=["member"],
+            ),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces/ws-001/roles", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces/ws-001/roles", {}, http, method="GET")
 
         assert _status(result) == 200
         body = _body(result)
@@ -2937,11 +2869,12 @@ class TestUpdateMemberRole:
         )
         http = MockHTTPHandler(body={"role": "admin"}, method="PUT")
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", False
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", False),
         ):
             result = handler.handle(
                 "/api/v1/workspaces/ws-001/members/user-002/role",
@@ -2969,11 +2902,12 @@ class TestUpdateMemberRole:
         )
         http = MockHTTPHandler(body={}, method="PUT")
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True),
         ):
             result = handler.handle(
                 "/api/v1/workspaces/ws-001/members/user-002/role",
@@ -3007,17 +2941,20 @@ class TestUpdateMemberRole:
         mock_config = MagicMock()
         mock_config.roles = ["owner", "admin", "member"]
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_profile_config",
-            return_value=mock_config,
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_available_roles_for_assignment",
-            return_value=["admin", "member"],
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.workspace_module.get_profile_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "aragora.server.handlers.workspace_module.get_available_roles_for_assignment",
+                return_value=["admin", "member"],
+            ),
         ):
             result = handler.handle(
                 "/api/v1/workspaces/ws-001/members/user-002/role",
@@ -3051,14 +2988,16 @@ class TestUpdateMemberRole:
         mock_config = MagicMock()
         mock_config.roles = ["owner", "admin", "member"]
 
-        with patch(
-            "aragora.server.handlers.workspace_module.extract_user_from_request",
-            return_value=_make_auth_ctx(),
-        ), patch(
-            "aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.workspace_module.get_profile_config",
-            return_value=mock_config,
+        with (
+            patch(
+                "aragora.server.handlers.workspace_module.extract_user_from_request",
+                return_value=_make_auth_ctx(),
+            ),
+            patch("aragora.server.handlers.workspace_module.PROFILES_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.workspace_module.get_profile_config",
+                return_value=mock_config,
+            ),
         ):
             result = handler.handle(
                 "/api/v1/workspaces/ws-001/members/user-002/role",
@@ -3102,9 +3041,7 @@ class TestCommandOverride:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            result = handler.handle(
-                "/api/v1/workspaces", {}, http, method="GET"
-            )
+            result = handler.handle("/api/v1/workspaces", {}, http, method="GET")
 
         # Should behave as POST (create workspace), which requires name
         assert _status(result) == 400

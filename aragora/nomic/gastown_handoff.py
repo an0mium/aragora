@@ -463,7 +463,10 @@ class HandoffProtocol:
         )
         await self.store.save_bead_handoff(handoff)
         logger.info(
-            "Created handoff %s: %s -> %s", handoff.id, source_bead_id, target_bead_id or target_agent_id
+            "Created handoff %s: %s -> %s",
+            handoff.id,
+            source_bead_id,
+            target_bead_id or target_agent_id,
         )
         return handoff
 

@@ -305,9 +305,7 @@ class TestCreate:
         """debate_id is injected as kwarg only for the sentence-transformer backend."""
         SimilarityFactory.register("sentence-transformer", _DummyBackend)
         SimilarityFactory._initialized = True
-        instance = SimilarityFactory.create(
-            "sentence-transformer", debate_id="d-123"
-        )
+        instance = SimilarityFactory.create("sentence-transformer", debate_id="d-123")
         assert instance.kwargs.get("debate_id") == "d-123"
 
     def test_create_sentence_transformer_no_debate_id_when_none(self):
@@ -334,16 +332,28 @@ class TestAutoSelect:
     def _register_stubs(self):
         """Register stub backends under standard names."""
         SimilarityFactory.register(
-            "jaccard", _DummyBackend, min_input_size=0, max_input_size=1000,
-            accuracy="low", speed="fast",
+            "jaccard",
+            _DummyBackend,
+            min_input_size=0,
+            max_input_size=1000,
+            accuracy="low",
+            speed="fast",
         )
         SimilarityFactory.register(
-            "tfidf", _DummyBackend, min_input_size=0, max_input_size=5000,
-            accuracy="medium", speed="medium",
+            "tfidf",
+            _DummyBackend,
+            min_input_size=0,
+            max_input_size=5000,
+            accuracy="medium",
+            speed="medium",
         )
         SimilarityFactory.register(
-            "sentence-transformer", _DummyBackend, min_input_size=0,
-            max_input_size=10000, accuracy="high", speed="slow",
+            "sentence-transformer",
+            _DummyBackend,
+            min_input_size=0,
+            max_input_size=10000,
+            accuracy="high",
+            speed="slow",
         )
         SimilarityFactory._initialized = True
 
@@ -365,8 +375,12 @@ class TestAutoSelect:
     def test_large_input_prefers_faiss(self):
         self._register_stubs()
         SimilarityFactory.register(
-            "faiss", _DummyBackend, min_input_size=50, max_input_size=100000,
-            accuracy="high", speed="fast",
+            "faiss",
+            _DummyBackend,
+            min_input_size=50,
+            max_input_size=100000,
+            accuracy="high",
+            speed="fast",
         )
         # Patch is_available to return True only for faiss
         with patch.object(SimilarityFactory, "is_available", side_effect=lambda n: n == "faiss"):
@@ -376,7 +390,8 @@ class TestAutoSelect:
     def test_prefer_accuracy_selects_sentence_transformer(self):
         self._register_stubs()
         with patch.object(
-            SimilarityFactory, "is_available",
+            SimilarityFactory,
+            "is_available",
             side_effect=lambda n: n in ("sentence-transformer", "tfidf", "jaccard"),
         ):
             result = SimilarityFactory.auto_select(input_size=10, prefer_accuracy=True)
@@ -385,7 +400,8 @@ class TestAutoSelect:
     def test_fallback_to_tfidf_when_st_unavailable(self):
         self._register_stubs()
         with patch.object(
-            SimilarityFactory, "is_available",
+            SimilarityFactory,
+            "is_available",
             side_effect=lambda n: n in ("tfidf", "jaccard"),
         ):
             result = SimilarityFactory.auto_select(input_size=10, prefer_accuracy=True)
@@ -395,7 +411,9 @@ class TestAutoSelect:
         self._register_stubs()
         # Only jaccard "available" (tfidf / sentence-transformer fail is_available)
         with patch.object(
-            SimilarityFactory, "is_available", return_value=False,
+            SimilarityFactory,
+            "is_available",
+            return_value=False,
         ):
             result = SimilarityFactory.auto_select(input_size=5, prefer_accuracy=False)
         # Falls through all is_available checks, ends up calling create("jaccard")
@@ -403,10 +421,14 @@ class TestAutoSelect:
 
     def test_auto_select_passes_debate_id(self):
         self._register_stubs()
-        with patch.object(
-            SimilarityFactory, "is_available",
-            side_effect=lambda n: n == "sentence-transformer",
-        ), patch.object(SimilarityFactory, "create", return_value=_DummyBackend()) as mock_create:
+        with (
+            patch.object(
+                SimilarityFactory,
+                "is_available",
+                side_effect=lambda n: n == "sentence-transformer",
+            ),
+            patch.object(SimilarityFactory, "create", return_value=_DummyBackend()) as mock_create,
+        ):
             SimilarityFactory.auto_select(prefer_accuracy=True, debate_id="d-789")
         mock_create.assert_called_with("sentence-transformer", debate_id="d-789")
 
@@ -414,14 +436,19 @@ class TestAutoSelect:
         """With small input and prefer_accuracy=False, should skip FAISS and ST."""
         self._register_stubs()
         SimilarityFactory.register(
-            "faiss", _DummyBackend, min_input_size=50, max_input_size=100000,
+            "faiss",
+            _DummyBackend,
+            min_input_size=50,
+            max_input_size=100000,
         )
         # is_available returns True for everything
         with patch.object(SimilarityFactory, "is_available", return_value=True):
             # input_size < 50 so FAISS check skipped, prefer_accuracy=False so ST skipped
             # Should still pick sentence-transformer because prefer_accuracy defaults to True
             # Actually, let's explicitly set prefer_accuracy=False
-            with patch.object(SimilarityFactory, "create", wraps=SimilarityFactory.create) as mock_create:
+            with patch.object(
+                SimilarityFactory, "create", wraps=SimilarityFactory.create
+            ) as mock_create:
                 result = SimilarityFactory.auto_select(input_size=5, prefer_accuracy=False)
         # With prefer_accuracy=False and input_size<50, should fall through to tfidf
         assert isinstance(result, _DummyBackend)
@@ -474,9 +501,7 @@ class TestFAISSBackendWrapper:
             wrapper = _FAISSBackendWrapper(dimension=4)
 
         fake_embedder = MagicMock()
-        fake_embedder.encode.return_value = np.array(
-            [[0.5, 0.5, 0.5, 0.5]], dtype=np.float32
-        )
+        fake_embedder.encode.return_value = np.array([[0.5, 0.5, 0.5, 0.5]], dtype=np.float32)
         wrapper._embedder = fake_embedder
 
         sim = wrapper.compute_similarity("same", "same")
@@ -514,7 +539,8 @@ class TestFAISSBackendWrapper:
 
         mock_st = MagicMock()
         with patch(
-            "sentence_transformers.SentenceTransformer", return_value=mock_st,
+            "sentence_transformers.SentenceTransformer",
+            return_value=mock_st,
         ):
             embedder = wrapper._get_embedder()
         assert embedder is mock_st
@@ -527,7 +553,8 @@ class TestFAISSBackendWrapper:
 
         mock_st = MagicMock()
         with patch(
-            "sentence_transformers.SentenceTransformer", return_value=mock_st,
+            "sentence_transformers.SentenceTransformer",
+            return_value=mock_st,
         ) as mock_cls:
             wrapper._get_embedder()
             wrapper._get_embedder()
@@ -550,9 +577,7 @@ class TestGetBackend:
         assert isinstance(result, _DummyBackend)
 
     def test_specific_name_delegates_to_create(self):
-        with patch.object(
-            SimilarityFactory, "create", return_value=_DummyBackend()
-        ) as mock_create:
+        with patch.object(SimilarityFactory, "create", return_value=_DummyBackend()) as mock_create:
             result = get_backend(preferred="tfidf", debate_id="d-2", extra=True)
         mock_create.assert_called_once_with("tfidf", debate_id="d-2", extra=True)
         assert isinstance(result, _DummyBackend)

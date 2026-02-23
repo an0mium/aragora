@@ -599,7 +599,9 @@ class AuditTrailStore:
 
         if total_removed > 0:
             logger.info(
-                "Cleaned up %s audit trail entries older than %s days", total_removed, self.retention_days
+                "Cleaned up %s audit trail entries older than %s days",
+                total_removed,
+                self.retention_days,
             )
 
         return total_removed

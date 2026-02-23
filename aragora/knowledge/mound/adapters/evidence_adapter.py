@@ -453,11 +453,11 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 quality_scores = json.loads(evidence["quality_scores_json"])
             except json.JSONDecodeError as e:
                 logger.warning(
-                    "Failed to parse quality_scores_json for evidence %s: %s", evidence.get('id'), e
+                    "Failed to parse quality_scores_json for evidence %s: %s", evidence.get("id"), e
                 )
             except TypeError as e:
                 logger.warning(
-                    "Invalid quality_scores_json type for evidence %s: %s", evidence.get('id'), e
+                    "Invalid quality_scores_json type for evidence %s: %s", evidence.get("id"), e
                 )
 
         # Parse enriched metadata if available
@@ -469,11 +469,13 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 enriched_metadata = json.loads(evidence["enriched_metadata_json"])
             except json.JSONDecodeError as e:
                 logger.warning(
-                    "Failed to parse enriched_metadata_json for evidence %s: %s", evidence.get('id'), e
+                    "Failed to parse enriched_metadata_json for evidence %s: %s",
+                    evidence.get("id"),
+                    e,
                 )
             except TypeError as e:
                 logger.warning(
-                    "Invalid enriched_metadata_json type for evidence %s: %s", evidence.get('id'), e
+                    "Invalid enriched_metadata_json type for evidence %s: %s", evidence.get("id"), e
                 )
 
         # Build metadata

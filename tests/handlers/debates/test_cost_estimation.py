@@ -198,9 +198,7 @@ class TestEstimateDebateCostModelTypes:
 
     def test_model_round_robin(self):
         """Models are assigned round-robin when fewer than num_agents."""
-        result = estimate_debate_cost(
-            num_agents=5, model_types=["gpt-4o", "claude-sonnet-4"]
-        )
+        result = estimate_debate_cost(num_agents=5, model_types=["gpt-4o", "claude-sonnet-4"])
         models = [b["model"] for b in result["breakdown_by_model"]]
         assert models == [
             "gpt-4o",
@@ -270,18 +268,14 @@ class TestEstimateDebateCostProviderLookup:
 
     def test_unknown_model_falls_back_to_openrouter(self):
         """Unknown model name falls back to openrouter provider."""
-        result = estimate_debate_cost(
-            num_agents=1, model_types=["unknown-model-xyz"]
-        )
+        result = estimate_debate_cost(num_agents=1, model_types=["unknown-model-xyz"])
         entry = result["breakdown_by_model"][0]
         assert entry["provider"] == "openrouter"
         assert entry["model"] == "unknown-model-xyz"
 
     def test_unknown_model_uses_default_pricing(self):
         """Unknown model uses openrouter default pricing."""
-        result = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["unknown-model-xyz"]
-        )
+        result = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["unknown-model-xyz"])
         entry = result["breakdown_by_model"][0]
         # Default openrouter prices: 2.00 input, 8.00 output per 1M tokens
         input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND
@@ -331,9 +325,7 @@ class TestEstimateDebateCostBreakdownFields:
 
     def test_subtotal_equals_calculate_token_cost(self):
         """Subtotal matches calculate_token_cost for the same parameters."""
-        result = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["gpt-4o"]
-        )
+        result = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["gpt-4o"])
         entry = result["breakdown_by_model"][0]
         input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND
         output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND
@@ -369,9 +361,7 @@ class TestEstimateDebateCostTokenCalculation:
 
     def test_all_agents_same_tokens_for_same_model(self):
         """All agents with the same model get identical token estimates."""
-        result = estimate_debate_cost(
-            num_agents=4, num_rounds=5, model_types=["gpt-4o"]
-        )
+        result = estimate_debate_cost(num_agents=4, num_rounds=5, model_types=["gpt-4o"])
         entries = result["breakdown_by_model"]
         for entry in entries:
             assert entry["estimated_input_tokens"] == entries[0]["estimated_input_tokens"]
@@ -394,15 +384,11 @@ class TestEstimateDebateCostPricingAccuracy:
     )
     def test_known_model_input_cost(self, model, provider):
         """Input cost matches PROVIDER_PRICING for each known model."""
-        result = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=[model]
-        )
+        result = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
         entry = result["breakdown_by_model"][0]
         input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND
         price = PROVIDER_PRICING[provider][model]
-        expected = float(
-            round((Decimal(input_tokens) / Decimal("1000000")) * price, 6)
-        )
+        expected = float(round((Decimal(input_tokens) / Decimal("1000000")) * price, 6))
         assert entry["input_cost_usd"] == expected
 
     @pytest.mark.parametrize(
@@ -418,15 +404,11 @@ class TestEstimateDebateCostPricingAccuracy:
     )
     def test_known_model_output_cost(self, model, provider):
         """Output cost matches PROVIDER_PRICING for each known model."""
-        result = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=[model]
-        )
+        result = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
         entry = result["breakdown_by_model"][0]
         output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND
         price = PROVIDER_PRICING[provider][f"{model}-output"]
-        expected = float(
-            round((Decimal(output_tokens) / Decimal("1000000")) * price, 6)
-        )
+        expected = float(round((Decimal(output_tokens) / Decimal("1000000")) * price, 6))
         assert entry["output_cost_usd"] == expected
 
 
@@ -596,9 +578,7 @@ class TestHandleEstimateCostValidation:
 
     def test_model_types_str_with_only_commas(self):
         """model_types_str with only commas/spaces produces empty list (uses defaults)."""
-        result = handle_estimate_cost(
-            num_agents=2, num_rounds=2, model_types_str=", , , "
-        )
+        result = handle_estimate_cost(num_agents=2, num_rounds=2, model_types_str=", , , ")
         assert _status(result) == 200
         body = _body(result)
         # Empty after strip -> uses defaults
@@ -625,45 +605,33 @@ class TestEstimateDebateCostCostComparisons:
 
     def test_opus_costs_more_than_sonnet(self):
         """Claude opus should be more expensive than sonnet."""
-        opus = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["claude-opus-4"]
-        )
-        sonnet = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["claude-sonnet-4"]
-        )
+        opus = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["claude-opus-4"])
+        sonnet = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["claude-sonnet-4"])
         assert opus["total_estimated_cost_usd"] > sonnet["total_estimated_cost_usd"]
 
     def test_gpt4o_costs_more_than_mini(self):
         """GPT-4o should be more expensive than GPT-4o-mini."""
-        full = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["gpt-4o"]
-        )
-        mini = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["gpt-4o-mini"]
-        )
+        full = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["gpt-4o"])
+        mini = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["gpt-4o-mini"])
         assert full["total_estimated_cost_usd"] > mini["total_estimated_cost_usd"]
 
     def test_deepseek_cheapest_known_model(self):
         """DeepSeek v3 should be the cheapest known model."""
-        deepseek = estimate_debate_cost(
-            num_agents=1, num_rounds=1, model_types=["deepseek-v3"]
-        )
+        deepseek = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["deepseek-v3"])
         for model in ["claude-opus-4", "claude-sonnet-4", "gpt-4o", "gpt-4o-mini", "gemini-pro"]:
-            other = estimate_debate_cost(
-                num_agents=1, num_rounds=1, model_types=[model]
+            other = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
+            assert deepseek["total_estimated_cost_usd"] <= other["total_estimated_cost_usd"], (
+                f"DeepSeek should be <= {model}"
             )
-            assert (
-                deepseek["total_estimated_cost_usd"] <= other["total_estimated_cost_usd"]
-            ), f"DeepSeek should be <= {model}"
 
     def test_cost_scales_linearly_with_agents(self):
         """Cost should roughly double when agents double (same model)."""
-        cost_2 = estimate_debate_cost(
-            num_agents=2, num_rounds=1, model_types=["gpt-4o"]
-        )["total_estimated_cost_usd"]
-        cost_4 = estimate_debate_cost(
-            num_agents=4, num_rounds=1, model_types=["gpt-4o"]
-        )["total_estimated_cost_usd"]
+        cost_2 = estimate_debate_cost(num_agents=2, num_rounds=1, model_types=["gpt-4o"])[
+            "total_estimated_cost_usd"
+        ]
+        cost_4 = estimate_debate_cost(num_agents=4, num_rounds=1, model_types=["gpt-4o"])[
+            "total_estimated_cost_usd"
+        ]
         assert abs(cost_4 - 2 * cost_2) < 0.0001
 
 

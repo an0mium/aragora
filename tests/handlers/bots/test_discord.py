@@ -284,12 +284,8 @@ class TestStatusEndpoint:
 
     @pytest.mark.asyncio
     async def test_handle_returns_none_for_non_status_get(self, handler):
-        http_handler = MockHTTPHandler(
-            path="/api/v1/bots/discord/interactions", method="GET"
-        )
-        result = await handler.handle(
-            "/api/v1/bots/discord/interactions", {}, http_handler
-        )
+        http_handler = MockHTTPHandler(path="/api/v1/bots/discord/interactions", method="GET")
+        result = await handler.handle("/api/v1/bots/discord/interactions", {}, http_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -309,15 +305,19 @@ class TestVerifyDiscordSignature:
 
     def test_no_public_key_dev_mode_allows(self, handler_module):
         """When DISCORD_PUBLIC_KEY is missing and dev mode allows, returns True."""
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", None), \
-             patch.object(handler_module, "_should_allow_unverified", return_value=True):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", None),
+            patch.object(handler_module, "_should_allow_unverified", return_value=True),
+        ):
             result = handler_module._verify_discord_signature("sig", "ts", b"body")
         assert result is True
 
     def test_no_public_key_production_rejects(self, handler_module):
         """When DISCORD_PUBLIC_KEY is missing and not dev mode, returns False."""
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", None), \
-             patch.object(handler_module, "_should_allow_unverified", return_value=False):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", None),
+            patch.object(handler_module, "_should_allow_unverified", return_value=False),
+        ):
             result = handler_module._verify_discord_signature("sig", "ts", b"body")
         assert result is False
 
@@ -362,18 +362,22 @@ class TestVerifyDiscordSignature:
     def test_nacl_not_available_dev_mode_allows(self, handler_module):
         """When PyNaCl unavailable and dev mode, allows unverified."""
         ts = str(int(time.time()))
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", "abcdef1234567890"), \
-             patch.object(handler_module, "_NACL_AVAILABLE", False), \
-             patch.object(handler_module, "_should_allow_unverified", return_value=True):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", "abcdef1234567890"),
+            patch.object(handler_module, "_NACL_AVAILABLE", False),
+            patch.object(handler_module, "_should_allow_unverified", return_value=True),
+        ):
             result = handler_module._verify_discord_signature("sig", ts, b"body")
         assert result is True
 
     def test_nacl_not_available_production_rejects(self, handler_module):
         """When PyNaCl unavailable and not dev mode, rejects."""
         ts = str(int(time.time()))
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", "abcdef1234567890"), \
-             patch.object(handler_module, "_NACL_AVAILABLE", False), \
-             patch.object(handler_module, "_should_allow_unverified", return_value=False):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", "abcdef1234567890"),
+            patch.object(handler_module, "_NACL_AVAILABLE", False),
+            patch.object(handler_module, "_should_allow_unverified", return_value=False),
+        ):
             result = handler_module._verify_discord_signature("sig", ts, b"body")
         assert result is False
 
@@ -395,13 +399,18 @@ class TestVerifyDiscordSignature:
         mock_exceptions = MagicMock()
         mock_exceptions.BadSignatureError = mock_bad_sig_error
 
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", fake_pub_key), \
-             patch.object(handler_module, "_NACL_AVAILABLE", True), \
-             patch.dict("sys.modules", {
-                 "nacl": MagicMock(),
-                 "nacl.signing": mock_signing,
-                 "nacl.exceptions": mock_exceptions,
-             }):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", fake_pub_key),
+            patch.object(handler_module, "_NACL_AVAILABLE", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "nacl": MagicMock(),
+                    "nacl.signing": mock_signing,
+                    "nacl.exceptions": mock_exceptions,
+                },
+            ),
+        ):
             result = handler_module._verify_discord_signature("ab" * 32, ts, b"body")
         assert result is False
 
@@ -415,13 +424,18 @@ class TestVerifyDiscordSignature:
         mock_exceptions = MagicMock()
         mock_exceptions.BadSignatureError = type("BadSignatureError", (Exception,), {})
 
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", fake_pub_key), \
-             patch.object(handler_module, "_NACL_AVAILABLE", True), \
-             patch.dict("sys.modules", {
-                 "nacl": MagicMock(),
-                 "nacl.signing": mock_signing,
-                 "nacl.exceptions": mock_exceptions,
-             }):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", fake_pub_key),
+            patch.object(handler_module, "_NACL_AVAILABLE", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "nacl": MagicMock(),
+                    "nacl.signing": mock_signing,
+                    "nacl.exceptions": mock_exceptions,
+                },
+            ),
+        ):
             # "zzzz" is invalid hex - bytes.fromhex will raise ValueError
             result = handler_module._verify_discord_signature("zzzz", ts, b"body")
         assert result is False
@@ -430,9 +444,11 @@ class TestVerifyDiscordSignature:
         """If PyNaCl import fails despite _NACL_AVAILABLE=True, returns False."""
         ts = str(int(time.time()))
         fake_pub_key = "a" * 64
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", fake_pub_key), \
-             patch.object(handler_module, "_NACL_AVAILABLE", True), \
-             patch.dict("sys.modules", {"nacl.signing": None, "nacl.exceptions": None}):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", fake_pub_key),
+            patch.object(handler_module, "_NACL_AVAILABLE", True),
+            patch.dict("sys.modules", {"nacl.signing": None, "nacl.exceptions": None}),
+        ):
             result = handler_module._verify_discord_signature("ab" * 32, ts, b"body")
         assert result is False
 
@@ -458,13 +474,18 @@ class TestVerifyDiscordSignature:
         mock_exceptions = MagicMock()
         mock_exceptions.BadSignatureError = type("BadSignatureError", (Exception,), {})
 
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", "a" * 64), \
-             patch.object(handler_module, "_NACL_AVAILABLE", True), \
-             patch.dict("sys.modules", {
-                 "nacl": MagicMock(),
-                 "nacl.signing": mock_signing,
-                 "nacl.exceptions": mock_exceptions,
-             }):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", "a" * 64),
+            patch.object(handler_module, "_NACL_AVAILABLE", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "nacl": MagicMock(),
+                    "nacl.signing": mock_signing,
+                    "nacl.exceptions": mock_exceptions,
+                },
+            ),
+        ):
             result = handler_module._verify_discord_signature("ab" * 32, ts, b"body")
         assert result is True
 
@@ -482,13 +503,18 @@ class TestVerifyDiscordSignature:
         mock_exceptions = MagicMock()
         mock_exceptions.BadSignatureError = type("BadSignatureError", (Exception,), {})
 
-        with patch.object(handler_module, "DISCORD_PUBLIC_KEY", "a" * 64), \
-             patch.object(handler_module, "_NACL_AVAILABLE", True), \
-             patch.dict("sys.modules", {
-                 "nacl": MagicMock(),
-                 "nacl.signing": mock_signing,
-                 "nacl.exceptions": mock_exceptions,
-             }):
+        with (
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", "a" * 64),
+            patch.object(handler_module, "_NACL_AVAILABLE", True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "nacl": MagicMock(),
+                    "nacl.signing": mock_signing,
+                    "nacl.exceptions": mock_exceptions,
+                },
+            ),
+        ):
             result = handler_module._verify_discord_signature("ab" * 32, ts, b"body")
         assert result is False
 
@@ -566,8 +592,10 @@ class TestApplicationCommand:
             ],
         )
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec:
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec,
+        ):
             mock_exec.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"type": 4, "data": {"content": "OK"}}).encode(),
@@ -587,9 +615,11 @@ class TestApplicationCommand:
             options=[{"name": "topic", "value": "Should we use Python?"}],
         )
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec:
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec,
+        ):
             mock_exec.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"type": 4, "data": {"content": "OK"}}).encode(),
@@ -609,11 +639,14 @@ class TestApplicationCommand:
             options=[{"name": "topic", "value": "test"}],
         )
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(
-                 handler, "_check_bot_permission",
-                 side_effect=PermissionError("denied"),
-             ):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(
+                handler,
+                "_check_bot_permission",
+                side_effect=PermissionError("denied"),
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -630,9 +663,11 @@ class TestApplicationCommand:
             options=[{"name": "statement", "value": "test statement"}],
         )
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec:
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec,
+        ):
             mock_exec.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"type": 4, "data": {"content": "OK"}}).encode(),
@@ -652,11 +687,14 @@ class TestApplicationCommand:
             options=[{"name": "statement", "value": "test"}],
         )
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(
-                 handler, "_check_bot_permission",
-                 side_effect=PermissionError("denied"),
-             ):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(
+                handler,
+                "_check_bot_permission",
+                side_effect=PermissionError("denied"),
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -670,8 +708,10 @@ class TestApplicationCommand:
         """The /status command executes without RBAC check."""
         interaction = _command_interaction(command_name="status")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec:
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec,
+        ):
             mock_exec.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"type": 4, "data": {"content": "OK"}}).encode(),
@@ -704,8 +744,10 @@ class TestApplicationCommand:
         # Remove the top-level "user" key to force member fallback
         interaction.pop("user", None)
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec:
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec,
+        ):
             mock_exec.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"type": 4, "data": {"content": "OK"}}).encode(),
@@ -720,8 +762,10 @@ class TestApplicationCommand:
         """Command with empty options list."""
         interaction = _command_interaction(command_name="aragora", options=[])
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec:
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_execute_command", new_callable=AsyncMock) as mock_exec,
+        ):
             mock_exec.return_value = MagicMock(
                 status_code=200,
                 body=json.dumps({"type": 4, "data": {"content": "OK"}}).encode(),
@@ -749,9 +793,11 @@ class TestMessageComponent:
         http_handler = _make_interaction_handler(interaction)
         mock_db = MagicMock()
         mock_db.record_vote = MagicMock()
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -767,9 +813,11 @@ class TestMessageComponent:
         http_handler = _make_interaction_handler(interaction)
         mock_db = MagicMock()
         mock_db.record_vote = MagicMock()
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -781,11 +829,14 @@ class TestMessageComponent:
         """Vote RBAC denial returns permission denied."""
         interaction = _component_interaction(custom_id="vote_debate123_agree")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(
-                 handler, "_check_bot_permission",
-                 side_effect=PermissionError("denied"),
-             ):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(
+                handler,
+                "_check_bot_permission",
+                side_effect=PermissionError("denied"),
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -798,9 +849,11 @@ class TestMessageComponent:
         """Vote when db is None still responds."""
         interaction = _component_interaction(custom_id="vote_debate123_agree")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=None):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=None),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -813,9 +866,11 @@ class TestMessageComponent:
         interaction = _component_interaction(custom_id="vote_debate123_agree")
         http_handler = _make_interaction_handler(interaction)
         mock_db = MagicMock(spec=[])  # no record_vote attr
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -829,9 +884,11 @@ class TestMessageComponent:
         http_handler = _make_interaction_handler(interaction)
         mock_db = MagicMock()
         mock_db.record_vote.side_effect = ValueError("bad vote")
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -846,9 +903,11 @@ class TestMessageComponent:
         http_handler = _make_interaction_handler(interaction)
         mock_db = MagicMock()
         mock_db.record_vote.side_effect = RuntimeError("DB error")
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -860,8 +919,10 @@ class TestMessageComponent:
         """Vote custom_id with fewer than 3 parts returns 'Interaction received'."""
         interaction = _component_interaction(custom_id="vote_only")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -888,9 +949,11 @@ class TestMessageComponent:
         interaction.pop("user", None)
         http_handler = _make_interaction_handler(interaction)
         mock_db = MagicMock()
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_check_bot_permission"), \
-             patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_check_bot_permission"),
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -1015,8 +1078,10 @@ class TestInteractionErrorHandling:
         """ValueError in interaction handling returns ephemeral message."""
         interaction = _command_interaction(command_name="debate")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_handle_application_command", side_effect=ValueError("bad")):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_handle_application_command", side_effect=ValueError("bad")),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -1030,8 +1095,10 @@ class TestInteractionErrorHandling:
         """KeyError in interaction handling returns ephemeral message."""
         interaction = _command_interaction(command_name="debate")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_handle_application_command", side_effect=KeyError("missing")):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_handle_application_command", side_effect=KeyError("missing")),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -1044,8 +1111,12 @@ class TestInteractionErrorHandling:
         """TypeError in interaction handling returns ephemeral message."""
         interaction = _command_interaction(command_name="debate")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_handle_application_command", side_effect=TypeError("wrong type")):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(
+                handler, "_handle_application_command", side_effect=TypeError("wrong type")
+            ),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -1058,8 +1129,10 @@ class TestInteractionErrorHandling:
         """RuntimeError in interaction handling returns ephemeral message."""
         interaction = _command_interaction(command_name="debate")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_handle_application_command", side_effect=RuntimeError("boom")):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_handle_application_command", side_effect=RuntimeError("boom")),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -1072,8 +1145,10 @@ class TestInteractionErrorHandling:
         """OSError in interaction handling returns ephemeral message."""
         interaction = _command_interaction(command_name="debate")
         http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True), \
-             patch.object(handler, "_handle_application_command", side_effect=OSError("io error")):
+        with (
+            patch.object(handler_module, "_verify_discord_signature", return_value=True),
+            patch.object(handler, "_handle_application_command", side_effect=OSError("io error")),
+        ):
             result = await handler.handle_post(
                 "/api/v1/bots/discord/interactions", {}, http_handler
             )
@@ -1119,9 +1194,7 @@ class TestExecuteCommand:
 
         interaction = _command_interaction()
         with patch("aragora.bots.commands.get_default_registry", return_value=mock_registry):
-            result = await handler._execute_command(
-                "help", "", "user-123", interaction
-            )
+            result = await handler._execute_command("help", "", "user-123", interaction)
         body = _body(result)
         assert body["type"] == 4
         assert body["data"]["content"] == "Command completed"
@@ -1141,9 +1214,7 @@ class TestExecuteCommand:
 
         interaction = _command_interaction()
         with patch("aragora.bots.commands.get_default_registry", return_value=mock_registry):
-            result = await handler._execute_command(
-                "status", "", "user-123", interaction
-            )
+            result = await handler._execute_command("status", "", "user-123", interaction)
         body = _body(result)
         assert body["data"]["embeds"] == [{"title": "Debate", "description": "A debate"}]
 
@@ -1161,9 +1232,7 @@ class TestExecuteCommand:
 
         interaction = _command_interaction()
         with patch("aragora.bots.commands.get_default_registry", return_value=mock_registry):
-            result = await handler._execute_command(
-                "help", "", "user-123", interaction
-            )
+            result = await handler._execute_command("help", "", "user-123", interaction)
         body = _body(result)
         assert body["data"]["flags"] == 64
 
@@ -1179,9 +1248,7 @@ class TestExecuteCommand:
 
         interaction = _command_interaction()
         with patch("aragora.bots.commands.get_default_registry", return_value=mock_registry):
-            result = await handler._execute_command(
-                "debate", "test", "user-123", interaction
-            )
+            result = await handler._execute_command("debate", "test", "user-123", interaction)
         body = _body(result)
         assert body["type"] == 4
         assert "Error: Something went wrong" in body["data"]["content"]
@@ -1201,9 +1268,7 @@ class TestExecuteCommand:
 
         interaction = _command_interaction()
         with patch("aragora.bots.commands.get_default_registry", return_value=mock_registry):
-            result = await handler._execute_command(
-                "status", "", "user-123", interaction
-            )
+            result = await handler._execute_command("status", "", "user-123", interaction)
         body = _body(result)
         assert body["data"]["content"] == "Command executed"
 
@@ -1218,26 +1283,34 @@ class TestRBACPermissions:
 
     def test_rbac_not_available_non_production(self, handler, handler_module):
         """When RBAC is unavailable and not production, should pass."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.discord.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.discord.rbac_fail_closed", return_value=False),
+        ):
             handler._check_bot_permission("debates:create", user_id="discord:123")
 
     def test_rbac_not_available_production(self, handler, handler_module):
         """When RBAC is unavailable in production, should raise."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.discord.rbac_fail_closed", return_value=True):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.discord.rbac_fail_closed", return_value=True),
+        ):
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="discord:123")
 
     def test_rbac_available_permission_granted(self, handler, handler_module):
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             mock_check.return_value = None
             handler._check_bot_permission("debates:create", user_id="discord:123")
 
     def test_rbac_available_permission_denied(self, handler, handler_module):
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             mock_check.side_effect = PermissionError("Denied")
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="discord:123")
@@ -1245,8 +1318,10 @@ class TestRBACPermissions:
     def test_rbac_with_auth_context_in_context(self, handler, handler_module):
         """When auth_context is provided in context dict, it should be used."""
         mock_auth_ctx = MagicMock()
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission(
                 "debates:create",
                 context={"auth_context": mock_auth_ctx},
@@ -1255,8 +1330,10 @@ class TestRBACPermissions:
 
     def test_rbac_no_user_id_no_context(self, handler, handler_module):
         """When no user_id and no auth_context, check_permission not called."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission("debates:create")
             mock_check.assert_not_called()
 
@@ -1291,22 +1368,28 @@ class TestPlatformConfigStatus:
     """Tests for _get_platform_config_status."""
 
     def test_all_configured(self, handler, handler_module):
-        with patch.object(handler_module, "DISCORD_APPLICATION_ID", "app-123"), \
-             patch.object(handler_module, "DISCORD_PUBLIC_KEY", "key-456"):
+        with (
+            patch.object(handler_module, "DISCORD_APPLICATION_ID", "app-123"),
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", "key-456"),
+        ):
             status = handler._get_platform_config_status()
         assert status["application_id_configured"] is True
         assert status["public_key_configured"] is True
 
     def test_none_configured(self, handler, handler_module):
-        with patch.object(handler_module, "DISCORD_APPLICATION_ID", None), \
-             patch.object(handler_module, "DISCORD_PUBLIC_KEY", None):
+        with (
+            patch.object(handler_module, "DISCORD_APPLICATION_ID", None),
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", None),
+        ):
             status = handler._get_platform_config_status()
         assert status["application_id_configured"] is False
         assert status["public_key_configured"] is False
 
     def test_partial_configured(self, handler, handler_module):
-        with patch.object(handler_module, "DISCORD_APPLICATION_ID", "app-123"), \
-             patch.object(handler_module, "DISCORD_PUBLIC_KEY", None):
+        with (
+            patch.object(handler_module, "DISCORD_APPLICATION_ID", "app-123"),
+            patch.object(handler_module, "DISCORD_PUBLIC_KEY", None),
+        ):
             status = handler._get_platform_config_status()
         assert status["application_id_configured"] is True
         assert status["public_key_configured"] is False

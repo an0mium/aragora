@@ -160,7 +160,9 @@ def _open_circuit_breaker():
         cb.record_failure()
 
 
-def _make_connector(deals=None, deal=None, get_deals_exc=None, get_deal_exc=None, create_deal_exc=None):
+def _make_connector(
+    deals=None, deal=None, get_deals_exc=None, get_deal_exc=None, create_deal_exc=None
+):
     """Create a mock HubSpot connector with configurable behavior."""
     conn = AsyncMock()
     if get_deals_exc:
@@ -240,9 +242,7 @@ class TestListAllDeals:
         conn = _make_connector(deals=deals)
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/deals", query={"limit": "2"})
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/deals", query={"limit": "2"}))
         assert _status(result) == 200
         body = _body(result)
         assert len(body["deals"]) <= 2
@@ -260,7 +260,12 @@ class TestListAllDeals:
         _connect_hubspot()
         # Also add salesforce (coming_soon=True) credentials
         _platform_credentials["salesforce"] = {
-            "credentials": {"client_id": "c", "client_secret": "s", "refresh_token": "r", "instance_url": "u"},
+            "credentials": {
+                "client_id": "c",
+                "client_secret": "s",
+                "refresh_token": "r",
+                "instance_url": "u",
+            },
             "connected_at": "2026-02-23T00:00:00+00:00",
         }
         conn = _make_connector(deals=[])
@@ -472,9 +477,7 @@ class TestListPlatformDeals:
         conn = _make_connector(deals=[])
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         body = _body(result)
         assert body["deals"] == []
@@ -488,9 +491,7 @@ class TestListPlatformDeals:
         conn = _make_connector(deals=[d1])
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -522,9 +523,7 @@ class TestListPlatformDeals:
 
     @pytest.mark.asyncio
     async def test_list_platform_deals_platform_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 404
         assert "not connected" in _body(result).get("error", "").lower()
 
@@ -534,9 +533,7 @@ class TestListPlatformDeals:
         does not parse it as a platform. The path ends with /deals, so it falls
         through to _list_all_deals (200) instead of returning a validation error.
         This tests the actual routing behavior."""
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/bad platform!/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/bad platform!/deals"))
         # Router doesn't parse 'bad platform!' as a platform, falls through to list all
         assert _status(result) == 200
 
@@ -544,18 +541,14 @@ class TestListPlatformDeals:
     async def test_list_platform_deals_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_list_platform_deals_no_connector(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/deals")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         body = _body(result)
         assert body["deals"] == []
@@ -577,9 +570,7 @@ class TestListPlatformDeals:
         conn = _make_connector(get_deals_exc=ConnectionError("network"))
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         body = _body(result)
         assert body["deals"] == []
@@ -600,9 +591,7 @@ class TestGetDeal:
         conn = _make_connector(deal=d)
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d1")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d1"))
         assert _status(result) == 200
         body = _body(result)
         assert body["id"] == "d1"
@@ -613,9 +602,7 @@ class TestGetDeal:
 
     @pytest.mark.asyncio
     async def test_get_deal_platform_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 404
         assert "not connected" in _body(result).get("error", "").lower()
 
@@ -623,9 +610,7 @@ class TestGetDeal:
     async def test_get_deal_no_connector(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/deals/d123")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 500
         assert "could not initialize" in _body(result).get("error", "").lower()
 
@@ -635,9 +620,7 @@ class TestGetDeal:
         conn = _make_connector(get_deal_exc=ConnectionError("fail"))
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -647,9 +630,7 @@ class TestGetDeal:
         conn = _make_connector(get_deal_exc=TimeoutError("timeout"))
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -658,9 +639,7 @@ class TestGetDeal:
         conn = _make_connector(get_deal_exc=ValueError("bad"))
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -669,35 +648,27 @@ class TestGetDeal:
         conn = _make_connector(get_deal_exc=OSError("io"))
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_deal_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_get_deal_invalid_deal_id_too_long(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/" + "x" * 200)
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/" + "x" * 200))
         assert _status(result) == 400
         assert "too long" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_get_deal_invalid_deal_id_format(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/" + "!@#$%")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/" + "!@#$%"))
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -707,9 +678,7 @@ class TestGetDeal:
         conn = _make_connector(deal=d)
         _platform_connectors["hubspot"] = conn
 
-        await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d1")
-        )
+        await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d1"))
         cb = get_crm_circuit_breaker()
         assert cb.state == "closed"
 
@@ -719,9 +688,7 @@ class TestGetDeal:
         conn = _make_connector(get_deal_exc=ConnectionError("fail"))
         _platform_connectors["hubspot"] = conn
 
-        await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d1")
-        )
+        await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d1"))
         cb = get_crm_circuit_breaker()
         # Failure count should have increased
         assert cb.state in ("closed", "open")
@@ -736,9 +703,7 @@ class TestGetDeal:
         conn = AsyncMock()
         _platform_connectors["custom_crm"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/custom_crm/deals/d1")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/custom_crm/deals/d1"))
         # custom_crm is not in SUPPORTED_PLATFORMS so routing may not detect it as platform
         # The result is either 400 (unsupported) or 404 (endpoint not found)
         assert _status(result) in (400, 404)
@@ -1266,9 +1231,7 @@ class TestDealRouting:
     @pytest.mark.asyncio
     async def test_get_deals_routes_correctly(self, handler):
         """GET /api/v1/crm/deals routes to _list_all_deals."""
-        result = await handler.handle_request(
-            _req(method="GET", path="/api/v1/crm/deals")
-        )
+        result = await handler.handle_request(_req(method="GET", path="/api/v1/crm/deals"))
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1278,9 +1241,7 @@ class TestDealRouting:
         conn = _make_connector(deals=[])
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(method="GET", path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(method="GET", path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         assert _body(result).get("platform") == "hubspot"
 
@@ -1511,9 +1472,7 @@ class TestDealEdgeCases:
         conn = _make_connector(deal=d)
         _platform_connectors["hubspot"] = conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d-with-hyphens")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d-with-hyphens"))
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1541,9 +1500,7 @@ class TestDealRBACPermissions:
     @pytest.mark.asyncio
     async def test_list_all_deals_requires_read_permission(self):
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/deals"))
         assert _status(result) in (401, 403)
 
     @pytest.mark.no_auto_auth
@@ -1551,9 +1508,7 @@ class TestDealRBACPermissions:
     async def test_list_platform_deals_requires_read_permission(self):
         _connect_hubspot()
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) in (401, 403)
 
     @pytest.mark.no_auto_auth
@@ -1561,9 +1516,7 @@ class TestDealRBACPermissions:
     async def test_get_deal_requires_read_permission(self):
         _connect_hubspot()
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d1")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d1"))
         assert _status(result) in (401, 403)
 
     @pytest.mark.no_auto_auth

@@ -504,8 +504,9 @@ def execution_to_orchestration_canvas(
 # =============================================================================
 
 
-def _radial_layout(count: int, center_x: float = 400, center_y: float = 300,
-                   radius: float = 250) -> list[Position]:
+def _radial_layout(
+    count: int, center_x: float = 400, center_y: float = 300, radius: float = 250
+) -> list[Position]:
     """Arrange nodes in a radial layout."""
     if count == 0:
         return []

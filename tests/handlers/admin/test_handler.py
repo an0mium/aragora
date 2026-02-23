@@ -475,8 +475,10 @@ class TestCheckRbacPermission:
 
     def test_no_user_store_returns_none(self):
         h = AdminHandler({})
-        with patch("aragora.server.handlers.admin.handler.RBAC_AVAILABLE", True), \
-             patch("aragora.server.handlers.admin.handler.AuthorizationContext"):
+        with (
+            patch("aragora.server.handlers.admin.handler.RBAC_AVAILABLE", True),
+            patch("aragora.server.handlers.admin.handler.AuthorizationContext"),
+        ):
             result = h._check_rbac_permission(MockAuthContext(), "admin.test")
         assert result is None
 
@@ -492,7 +494,9 @@ class TestRoutes:
 
     def test_routes_all_start_with_api_v1_admin(self):
         for route in AdminHandler.ROUTES:
-            assert route.startswith("/api/v1/admin"), f"Route {route} doesn't start with /api/v1/admin"
+            assert route.startswith("/api/v1/admin"), (
+                f"Route {route} doesn't start with /api/v1/admin"
+            )
 
     def test_organizations_route_present(self):
         assert "/api/v1/admin/organizations" in AdminHandler.ROUTES
@@ -616,7 +620,7 @@ class TestHandleGetRoutes:
 
     @patch.object(AdminHandler, "_get_nomic_circuit_breakers")
     def test_get_nomic_circuit_breakers(self, mock_method, handler, http):
-        mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+        mock_method.return_value = HandlerResult(200, "application/json", b"{}")
         h = http(path="/api/v1/admin/nomic/circuit-breakers")
         result = handler.handle("/api/v1/admin/nomic/circuit-breakers", {}, h, "GET")
         mock_method.assert_called_once_with(h)
@@ -756,7 +760,7 @@ class TestHandleMethodDispatch:
         h = http(path="/api/v1/admin/stats", method="GET")
         h.command = "GET"
         with patch.object(AdminHandler, "_get_stats") as mock_method:
-            mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+            mock_method.return_value = HandlerResult(200, "application/json", b"{}")
             result = handler.handle("/api/v1/admin/stats", {}, h, "POST")
             # handler.command is GET, so it should route to GET
             mock_method.assert_called_once()
@@ -770,7 +774,7 @@ class TestHandleMethodDispatch:
 class TestPathUserIdExtraction:
     @patch.object(AdminHandler, "_impersonate_user")
     def test_impersonate_extracts_user_id_from_last_segment(self, mock_method, handler, http):
-        mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+        mock_method.return_value = HandlerResult(200, "application/json", b"{}")
         h = http(method="POST")
         handler.handle("/api/v1/admin/impersonate/abc-123-def", {}, h, "POST")
         mock_method.assert_called_once()
@@ -780,7 +784,7 @@ class TestPathUserIdExtraction:
 
     @patch.object(AdminHandler, "_deactivate_user")
     def test_deactivate_extracts_user_id_from_penultimate_segment(self, mock_method, handler, http):
-        mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+        mock_method.return_value = HandlerResult(200, "application/json", b"{}")
         path = "/api/v1/admin/users/uid-789/deactivate"
         h = http(path=path, method="POST")
         handler.handle(path, {}, h, "POST")
@@ -789,7 +793,7 @@ class TestPathUserIdExtraction:
 
     @patch.object(AdminHandler, "_activate_user")
     def test_activate_extracts_user_id(self, mock_method, handler, http):
-        mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+        mock_method.return_value = HandlerResult(200, "application/json", b"{}")
         path = "/api/v1/admin/users/uid-456/activate"
         h = http(path=path, method="POST")
         handler.handle(path, {}, h, "POST")
@@ -798,7 +802,7 @@ class TestPathUserIdExtraction:
 
     @patch.object(AdminHandler, "_unlock_user")
     def test_unlock_extracts_user_id(self, mock_method, handler, http):
-        mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+        mock_method.return_value = HandlerResult(200, "application/json", b"{}")
         path = "/api/v1/admin/users/uid-999/unlock"
         h = http(path=path, method="POST")
         handler.handle(path, {}, h, "POST")
@@ -1001,7 +1005,7 @@ class TestHandleEdgeCases:
     def test_valid_user_id_formats(self, handler, http):
         """Alphanumeric and hyphen/underscore should be valid."""
         with patch.object(AdminHandler, "_impersonate_user") as mock_method:
-            mock_method.return_value = HandlerResult(200, "application/json", b'{}')
+            mock_method.return_value = HandlerResult(200, "application/json", b"{}")
             for uid in ["user-123", "abc_def", "USR001", "a1b2c3"]:
                 result = handler.handle(
                     f"/api/v1/admin/impersonate/{uid}", {}, http(method="POST"), "POST"

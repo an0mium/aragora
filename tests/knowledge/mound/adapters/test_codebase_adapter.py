@@ -112,7 +112,9 @@ class TestSyncToKM:
         files = [_make_crawled_file(symbols=[sym])]
         dep_graph = {"a.py": ["b.py"]}
         file_types = {".py": 10}
-        crawl = _make_crawl_result(files=files, dependency_graph=dep_graph, file_type_counts=file_types)
+        crawl = _make_crawl_result(
+            files=files, dependency_graph=dep_graph, file_type_counts=file_types
+        )
 
         count = await adapter.sync_to_km(crawl)
         # At least 3: 1 symbol + 1 dep + 1 file type pattern

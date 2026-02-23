@@ -79,9 +79,7 @@ class TestListReviews:
     def test_list_reviews_empty_directory(self):
         """Should return empty list when no reviews exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch(
-                "aragora.server.handlers.reviews.REVIEWS_DIR", Path(tmpdir) / "nonexistent"
-            ):
+            with patch("aragora.server.handlers.reviews.REVIEWS_DIR", Path(tmpdir) / "nonexistent"):
                 mock_handler = make_mock_handler()
                 result = self.handler.handle("/api/v1/reviews", {}, mock_handler)
 

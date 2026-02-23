@@ -111,18 +111,14 @@ class TestBuildStartingBlocks:
 
     def test_user_id_in_context(self):
         """Context references the requesting user via Slack mention."""
-        blocks = build_starting_blocks(
-            topic="Test", user_id="U999", debate_id="d-abc"
-        )
+        blocks = build_starting_blocks(topic="Test", user_id="U999", debate_id="d-abc")
         context = blocks[-1]
         context_text = context["elements"][0]["text"]
         assert "<@U999>" in context_text
 
     def test_debate_id_in_context(self):
         """Context includes the debate ID in code format."""
-        blocks = build_starting_blocks(
-            topic="Test", user_id="U001", debate_id="d-xyz-789"
-        )
+        blocks = build_starting_blocks(topic="Test", user_id="U001", debate_id="d-xyz-789")
         context = blocks[-1]
         context_text = context["elements"][0]["text"]
         assert "`d-xyz-789`" in context_text
@@ -142,17 +138,13 @@ class TestBuildStartingBlocks:
 
     def test_no_agents(self):
         """No agent info when agents=None."""
-        blocks = build_starting_blocks(
-            topic="Test", user_id="U001", debate_id="d-1", agents=None
-        )
+        blocks = build_starting_blocks(topic="Test", user_id="U001", debate_id="d-1", agents=None)
         context_text = blocks[-1]["elements"][0]["text"]
         assert "Agents:" not in context_text
 
     def test_empty_agents_list(self):
         """Empty agents list is treated as falsy, omitted from context."""
-        blocks = build_starting_blocks(
-            topic="Test", user_id="U001", debate_id="d-1", agents=[]
-        )
+        blocks = build_starting_blocks(topic="Test", user_id="U001", debate_id="d-1", agents=[])
         context_text = blocks[-1]["elements"][0]["text"]
         assert "Agents:" not in context_text
 
@@ -229,52 +221,40 @@ class TestBuildRoundUpdateBlocks:
 
     def test_basic_structure(self):
         """Returns a list with a single section block."""
-        blocks = build_round_update_blocks(
-            round_num=2, total_rounds=5, agent="claude"
-        )
+        blocks = build_round_update_blocks(round_num=2, total_rounds=5, agent="claude")
         assert isinstance(blocks, list)
         assert len(blocks) == 1
         assert blocks[0]["type"] == "section"
 
     def test_round_numbers_in_text(self):
         """Round number and total are displayed in the block."""
-        blocks = build_round_update_blocks(
-            round_num=3, total_rounds=7, agent="gpt-4"
-        )
+        blocks = build_round_update_blocks(round_num=3, total_rounds=7, agent="gpt-4")
         text = blocks[0]["text"]["text"]
         assert "Round 3/7" in text
 
     def test_agent_name_in_text(self):
         """Agent name appears in the response text."""
-        blocks = build_round_update_blocks(
-            round_num=1, total_rounds=3, agent="gemini-pro"
-        )
+        blocks = build_round_update_blocks(round_num=1, total_rounds=3, agent="gemini-pro")
         text = blocks[0]["text"]["text"]
         assert "gemini-pro responded" in text
 
     def test_progress_bar_visualization(self):
         """Progress bar shows correct filled/empty squares."""
-        blocks = build_round_update_blocks(
-            round_num=2, total_rounds=5, agent="test"
-        )
+        blocks = build_round_update_blocks(round_num=2, total_rounds=5, agent="test")
         text = blocks[0]["text"]["text"]
         assert ":black_large_square:" * 2 in text
         assert ":white_large_square:" * 3 in text
 
     def test_progress_bar_complete(self):
         """Full progress bar when round_num == total_rounds."""
-        blocks = build_round_update_blocks(
-            round_num=4, total_rounds=4, agent="test"
-        )
+        blocks = build_round_update_blocks(round_num=4, total_rounds=4, agent="test")
         text = blocks[0]["text"]["text"]
         assert ":black_large_square:" * 4 in text
         assert ":white_large_square:" not in text
 
     def test_progress_bar_start(self):
         """Mostly empty progress bar at round 1."""
-        blocks = build_round_update_blocks(
-            round_num=1, total_rounds=10, agent="test"
-        )
+        blocks = build_round_update_blocks(round_num=1, total_rounds=10, agent="test")
         text = blocks[0]["text"]["text"]
         assert ":black_large_square:" in text
         assert text.count(":white_large_square:") == 9
@@ -321,9 +301,7 @@ class TestBuildRoundUpdateBlocks:
 
     def test_default_phase_is_analyzing(self):
         """Default phase parameter is 'analyzing'."""
-        blocks = build_round_update_blocks(
-            round_num=1, total_rounds=3, agent="test"
-        )
+        blocks = build_round_update_blocks(round_num=1, total_rounds=3, agent="test")
         text = blocks[0]["text"]["text"]
         assert ":mag:" in text
 
@@ -338,9 +316,7 @@ class TestBuildAgentResponseBlocks:
 
     def test_basic_structure(self):
         """Returns context, section, and divider blocks."""
-        blocks = build_agent_response_blocks(
-            agent="claude", response="Hello world", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="claude", response="Hello world", round_num=1)
         assert len(blocks) == 3
         assert blocks[0]["type"] == "context"
         assert blocks[1]["type"] == "section"
@@ -348,17 +324,13 @@ class TestBuildAgentResponseBlocks:
 
     def test_agent_name_in_context(self):
         """Agent name appears in the context header."""
-        blocks = build_agent_response_blocks(
-            agent="gpt-4", response="test", round_num=2
-        )
+        blocks = build_agent_response_blocks(agent="gpt-4", response="test", round_num=2)
         context_text = blocks[0]["elements"][0]["text"]
         assert "gpt-4" in context_text
 
     def test_round_num_in_context(self):
         """Round number appears in the context header."""
-        blocks = build_agent_response_blocks(
-            agent="claude", response="test", round_num=5
-        )
+        blocks = build_agent_response_blocks(agent="claude", response="test", round_num=5)
         context_text = blocks[0]["elements"][0]["text"]
         assert "Round 5" in context_text
 
@@ -372,74 +344,56 @@ class TestBuildAgentResponseBlocks:
 
     def test_known_agent_emoji_anthropic(self):
         """Anthropic API agent gets robot face emoji."""
-        blocks = build_agent_response_blocks(
-            agent="anthropic-api", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="anthropic-api", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":robot_face:" in context_text
 
     def test_known_agent_emoji_openai(self):
         """OpenAI API agent gets brain emoji."""
-        blocks = build_agent_response_blocks(
-            agent="openai-api", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="openai-api", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":brain:" in context_text
 
     def test_known_agent_emoji_gemini(self):
         """Gemini agent gets gem emoji."""
-        blocks = build_agent_response_blocks(
-            agent="gemini", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="gemini", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":gem:" in context_text
 
     def test_known_agent_emoji_grok(self):
         """Grok agent gets zap emoji."""
-        blocks = build_agent_response_blocks(
-            agent="grok", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="grok", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":zap:" in context_text
 
     def test_known_agent_emoji_mistral(self):
         """Mistral agent gets wind face emoji."""
-        blocks = build_agent_response_blocks(
-            agent="mistral", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="mistral", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":wind_face:" in context_text
 
     def test_known_agent_emoji_deepseek(self):
         """DeepSeek agent gets magnifying glass emoji."""
-        blocks = build_agent_response_blocks(
-            agent="deepseek", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="deepseek", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":mag:" in context_text
 
     def test_unknown_agent_fallback_emoji(self):
         """Unknown agent gets speech balloon fallback emoji."""
-        blocks = build_agent_response_blocks(
-            agent="unknown-agent", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="unknown-agent", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":speech_balloon:" in context_text
 
     def test_agent_name_case_insensitive(self):
         """Agent emoji lookup is case-insensitive."""
-        blocks = build_agent_response_blocks(
-            agent="GEMINI", response="test", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="GEMINI", response="test", round_num=1)
         context_text = blocks[0]["elements"][0]["text"]
         assert ":gem:" in context_text
 
     def test_response_truncation_at_2800(self):
         """Long responses are truncated at 2800 characters with ellipsis."""
         long_response = "A" * 3000
-        blocks = build_agent_response_blocks(
-            agent="claude", response=long_response, round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="claude", response=long_response, round_num=1)
         section_text = blocks[1]["text"]["text"]
         assert len(section_text) == 2803  # 2800 + "..."
         assert section_text.endswith("...")
@@ -447,9 +401,7 @@ class TestBuildAgentResponseBlocks:
     def test_response_exactly_2800_not_truncated(self):
         """Response of exactly 2800 chars is not truncated."""
         exact_response = "B" * 2800
-        blocks = build_agent_response_blocks(
-            agent="claude", response=exact_response, round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="claude", response=exact_response, round_num=1)
         section_text = blocks[1]["text"]["text"]
         assert section_text == exact_response
         assert not section_text.endswith("...")
@@ -457,25 +409,19 @@ class TestBuildAgentResponseBlocks:
     def test_response_2801_truncated(self):
         """Response of 2801 chars triggers truncation."""
         response = "C" * 2801
-        blocks = build_agent_response_blocks(
-            agent="claude", response=response, round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="claude", response=response, round_num=1)
         section_text = blocks[1]["text"]["text"]
         assert section_text.endswith("...")
         assert len(section_text) == 2803
 
     def test_short_response_not_truncated(self):
         """Short response is passed through as-is."""
-        blocks = build_agent_response_blocks(
-            agent="claude", response="Short.", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="claude", response="Short.", round_num=1)
         assert blocks[1]["text"]["text"] == "Short."
 
     def test_empty_response(self):
         """Empty response string is handled."""
-        blocks = build_agent_response_blocks(
-            agent="claude", response="", round_num=1
-        )
+        blocks = build_agent_response_blocks(agent="claude", response="", round_num=1)
         assert blocks[1]["text"]["text"] == ""
 
 
@@ -516,9 +462,7 @@ class TestBuildResultBlocks:
     def test_basic_structure_with_consensus(self):
         """Consensus result has divider, header, fields section, and context."""
         result = _make_debate_result(consensus_reached=True)
-        blocks = build_result_blocks(
-            topic="Test topic", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test topic", result=result, user_id="U001")
         assert blocks[0]["type"] == "divider"
         assert blocks[1]["type"] == "header"
         assert "Debate Complete" in blocks[1]["text"]["text"]
@@ -526,9 +470,7 @@ class TestBuildResultBlocks:
     def test_consensus_reached_status(self):
         """Consensus reached shows check mark and 'Consensus Reached' text."""
         result = _make_debate_result(consensus_reached=True)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         header_text = blocks[1]["text"]["text"]
         assert ":white_check_mark:" in header_text
 
@@ -539,9 +481,7 @@ class TestBuildResultBlocks:
     def test_no_consensus_status(self):
         """No consensus shows warning emoji and 'No Consensus' text."""
         result = _make_debate_result(consensus_reached=False)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         header_text = blocks[1]["text"]["text"]
         assert ":warning:" in header_text
 
@@ -552,9 +492,7 @@ class TestBuildResultBlocks:
     def test_confidence_bar_full(self):
         """100% confidence fills all 5 circles."""
         result = _make_debate_result(confidence=1.0)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         confidence_text = fields[1]["text"]
         assert ":large_blue_circle:" * 5 in confidence_text
@@ -564,9 +502,7 @@ class TestBuildResultBlocks:
     def test_confidence_bar_zero(self):
         """0% confidence shows all empty circles."""
         result = _make_debate_result(confidence=0.0)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         confidence_text = fields[1]["text"]
         assert ":white_circle:" * 5 in confidence_text
@@ -576,9 +512,7 @@ class TestBuildResultBlocks:
     def test_confidence_bar_partial(self):
         """60% confidence shows 3 filled, 2 empty circles."""
         result = _make_debate_result(confidence=0.6)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         confidence_text = fields[1]["text"]
         assert ":large_blue_circle:" * 3 in confidence_text
@@ -587,9 +521,7 @@ class TestBuildResultBlocks:
     def test_rounds_used_displayed(self):
         """Rounds used is shown in the fields."""
         result = _make_debate_result(rounds_used=7)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         rounds_text = fields[2]["text"]
         assert "7" in rounds_text
@@ -597,9 +529,7 @@ class TestBuildResultBlocks:
     def test_participants_up_to_four(self):
         """Up to 4 participants are listed by name."""
         result = _make_debate_result(participants=["a1", "a2", "a3", "a4"])
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         participants_text = fields[3]["text"]
         assert "a1" in participants_text
@@ -607,12 +537,8 @@ class TestBuildResultBlocks:
 
     def test_participants_overflow(self):
         """More than 4 participants shows +N suffix."""
-        result = _make_debate_result(
-            participants=["a1", "a2", "a3", "a4", "a5", "a6"]
-        )
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        result = _make_debate_result(participants=["a1", "a2", "a3", "a4", "a5", "a6"])
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         participants_text = fields[3]["text"]
         assert "a1" in participants_text
@@ -624,9 +550,7 @@ class TestBuildResultBlocks:
     def test_empty_participants(self):
         """Empty participants list produces empty text."""
         result = _make_debate_result(participants=[])
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields = blocks[2]["fields"]
         participants_text = fields[3]["text"]
         assert "Participants" in participants_text
@@ -634,12 +558,11 @@ class TestBuildResultBlocks:
     def test_conclusion_section_present(self):
         """Conclusion text is rendered as its own section."""
         result = _make_debate_result(conclusion="Final answer is 42.")
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         # Find the conclusion section
         conclusion_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Conclusion" in b.get("text", {}).get("text", "")
         ]
         assert len(conclusion_blocks) == 1
@@ -649,11 +572,10 @@ class TestBuildResultBlocks:
         """Long conclusion is truncated at 2800 characters."""
         long_conclusion = "X" * 3000
         result = _make_debate_result(conclusion=long_conclusion)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         conclusion_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Conclusion" in b.get("text", {}).get("text", "")
         ]
         assert len(conclusion_blocks) == 1
@@ -664,11 +586,10 @@ class TestBuildResultBlocks:
     def test_no_conclusion(self):
         """No conclusion section when conclusion is None."""
         result = _make_debate_result(conclusion=None)
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         conclusion_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Conclusion" in b.get("text", {}).get("text", "")
         ]
         assert len(conclusion_blocks) == 0
@@ -676,11 +597,10 @@ class TestBuildResultBlocks:
     def test_empty_conclusion(self):
         """Empty string conclusion is falsy, omitted."""
         result = _make_debate_result(conclusion="")
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         conclusion_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Conclusion" in b.get("text", {}).get("text", "")
         ]
         assert len(conclusion_blocks) == 0
@@ -833,9 +753,7 @@ class TestBuildResultBlocks:
     def test_fields_section_has_four_fields(self):
         """Fields section always has 4 fields: status, confidence, rounds, participants."""
         result = _make_debate_result()
-        blocks = build_result_blocks(
-            topic="Test", result=result, user_id="U001"
-        )
+        blocks = build_result_blocks(topic="Test", result=result, user_id="U001")
         fields_section = blocks[2]
         assert fields_section["type"] == "section"
         assert len(fields_section["fields"]) == 4
@@ -943,16 +861,15 @@ class TestBuildGauntletResultBlocks:
 
     def test_findings_displayed(self):
         """Findings are listed as bullet points."""
-        result = _make_gauntlet_result(
-            findings=["Finding 1", "Finding 2", "Finding 3"]
-        )
+        result = _make_gauntlet_result(findings=["Finding 1", "Finding 2", "Finding 3"])
         blocks = build_gauntlet_result_blocks(
             statement="Test",
             result=result,
             user_id="U001",
         )
         findings_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Key Findings" in b.get("text", {}).get("text", "")
         ]
         assert len(findings_blocks) == 1
@@ -963,16 +880,15 @@ class TestBuildGauntletResultBlocks:
 
     def test_findings_truncated_at_five(self):
         """More than 5 findings shows first 5 plus '...and N more'."""
-        result = _make_gauntlet_result(
-            findings=[f"Finding {i}" for i in range(8)]
-        )
+        result = _make_gauntlet_result(findings=[f"Finding {i}" for i in range(8)])
         blocks = build_gauntlet_result_blocks(
             statement="Test",
             result=result,
             user_id="U001",
         )
         findings_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Key Findings" in b.get("text", {}).get("text", "")
         ]
         text = findings_blocks[0]["text"]["text"]
@@ -990,7 +906,8 @@ class TestBuildGauntletResultBlocks:
             user_id="U001",
         )
         findings_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Key Findings" in b.get("text", {}).get("text", "")
         ]
         assert len(findings_blocks) == 0
@@ -1004,7 +921,8 @@ class TestBuildGauntletResultBlocks:
             user_id="U001",
         )
         findings_blocks = [
-            b for b in blocks
+            b
+            for b in blocks
             if b["type"] == "section" and "Key Findings" in b.get("text", {}).get("text", "")
         ]
         assert len(findings_blocks) == 0
@@ -1084,17 +1002,13 @@ class TestBuildSearchResultBlocks:
     def test_basic_structure_with_results(self):
         """Header followed by result sections."""
         results = [{"title": "Result 1", "snippet": "Snippet 1"}]
-        blocks = build_search_result_blocks(
-            query="test query", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test query", results=results, total=1)
         assert blocks[0]["type"] == "header"
         assert "test query" in blocks[0]["text"]["text"]
 
     def test_empty_results(self):
         """Empty results show 'No results found' message."""
-        blocks = build_search_result_blocks(
-            query="nothing", results=[], total=0
-        )
+        blocks = build_search_result_blocks(query="nothing", results=[], total=0)
         assert len(blocks) == 2
         assert blocks[0]["type"] == "header"
         assert blocks[1]["type"] == "section"
@@ -1102,62 +1016,48 @@ class TestBuildSearchResultBlocks:
 
     def test_query_in_header(self):
         """Search query appears in the header."""
-        blocks = build_search_result_blocks(
-            query="rate limiting", results=[], total=0
-        )
+        blocks = build_search_result_blocks(query="rate limiting", results=[], total=0)
         assert "rate limiting" in blocks[0]["text"]["text"]
 
     def test_result_title_from_title_field(self):
         """Result title is extracted from 'title' field."""
         results = [{"title": "My Great Debate", "snippet": "A snippet"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         section = blocks[1]
         assert "My Great Debate" in section["text"]["text"]
 
     def test_result_title_from_topic_field(self):
         """Falls back to 'topic' field when 'title' is missing."""
         results = [{"topic": "Fallback Topic", "snippet": "A snippet"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         section = blocks[1]
         assert "Fallback Topic" in section["text"]["text"]
 
     def test_result_title_untitled_fallback(self):
         """Falls back to 'Untitled' when both title and topic are missing."""
         results = [{"snippet": "A snippet"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         section = blocks[1]
         assert "Untitled" in section["text"]["text"]
 
     def test_result_snippet_from_snippet_field(self):
         """Snippet is extracted from 'snippet' field."""
         results = [{"title": "T", "snippet": "This is the snippet"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         section = blocks[1]
         assert "This is the snippet" in section["text"]["text"]
 
     def test_result_snippet_from_conclusion_field(self):
         """Falls back to 'conclusion' field when 'snippet' is missing."""
         results = [{"title": "T", "conclusion": "The conclusion text"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         section = blocks[1]
         assert "The conclusion text" in section["text"]["text"]
 
     def test_snippet_truncated_at_200(self):
         """Long snippets are truncated at 200 characters."""
         results = [{"title": "T", "snippet": "A" * 300}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         section = blocks[1]
         text = section["text"]["text"]
         # The snippet portion should be 200 chars followed by "..."
@@ -1172,9 +1072,7 @@ class TestBuildSearchResultBlocks:
             {"title": "Second", "snippet": "s2"},
             {"title": "Third", "snippet": "s3"},
         ]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=3
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=3)
         assert "1. First" in blocks[1]["text"]["text"]
         assert "2. Second" in blocks[2]["text"]["text"]
         assert "3. Third" in blocks[3]["text"]["text"]
@@ -1182,9 +1080,7 @@ class TestBuildSearchResultBlocks:
     def test_max_ten_results(self):
         """Only first 10 results are displayed even if more provided."""
         results = [{"title": f"R{i}", "snippet": f"S{i}"} for i in range(15)]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=15
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=15)
         # Header + 10 result sections + "showing X of Y" context
         result_sections = _find_all_blocks(blocks, "section")
         assert len(result_sections) == 10
@@ -1192,9 +1088,7 @@ class TestBuildSearchResultBlocks:
     def test_showing_count_when_total_exceeds_ten(self):
         """Context shows 'Showing 10 of N results' when total > 10."""
         results = [{"title": f"R{i}", "snippet": f"S{i}"} for i in range(10)]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=25
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=25)
         context = blocks[-1]
         assert context["type"] == "context"
         assert "Showing 10 of 25 results" in context["elements"][0]["text"]
@@ -1202,50 +1096,38 @@ class TestBuildSearchResultBlocks:
     def test_no_showing_count_when_ten_or_fewer(self):
         """No 'showing' context when total <= 10."""
         results = [{"title": f"R{i}", "snippet": f"S{i}"} for i in range(5)]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=5
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=5)
         # Last block should be a section (result), not a context
         assert blocks[-1]["type"] == "section"
 
     def test_type_emoji_debate(self):
         """Debate type results get speech balloon emoji."""
         results = [{"title": "T", "snippet": "S", "type": "debate"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         assert ":speech_balloon:" in blocks[1]["text"]["text"]
 
     def test_type_emoji_evidence(self):
         """Evidence type results get page emoji."""
         results = [{"title": "T", "snippet": "S", "type": "evidence"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         assert ":page_facing_up:" in blocks[1]["text"]["text"]
 
     def test_type_emoji_consensus(self):
         """Consensus type results get handshake emoji."""
         results = [{"title": "T", "snippet": "S", "type": "consensus"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         assert ":handshake:" in blocks[1]["text"]["text"]
 
     def test_type_emoji_unknown(self):
         """Unknown type results get magnifying glass emoji."""
         results = [{"title": "T", "snippet": "S", "type": "something_else"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         assert ":mag:" in blocks[1]["text"]["text"]
 
     def test_type_emoji_default(self):
         """Missing type defaults to 'debate' emoji."""
         results = [{"title": "T", "snippet": "S"}]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=1
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=1)
         assert ":speech_balloon:" in blocks[1]["text"]["text"]
 
     def test_total_defaults_to_zero(self):
@@ -1263,9 +1145,7 @@ class TestBuildSearchResultBlocks:
             {"title": "E", "snippet": "S", "type": "evidence"},
             {"title": "C", "snippet": "S", "type": "consensus"},
         ]
-        blocks = build_search_result_blocks(
-            query="test", results=results, total=3
-        )
+        blocks = build_search_result_blocks(query="test", results=results, total=3)
         assert ":speech_balloon:" in blocks[1]["text"]["text"]
         assert ":page_facing_up:" in blocks[2]["text"]["text"]
         assert ":handshake:" in blocks[3]["text"]["text"]
@@ -1282,15 +1162,9 @@ class TestBlockStructureIntegrity:
     def test_all_blocks_have_type(self):
         """Every block from every builder has a 'type' key."""
         all_blocks = []
-        all_blocks.extend(
-            build_starting_blocks("T", "U1", "d1", ["a"], 3)
-        )
-        all_blocks.extend(
-            build_round_update_blocks(1, 3, "agent")
-        )
-        all_blocks.extend(
-            build_agent_response_blocks("claude", "response", 1)
-        )
+        all_blocks.extend(build_starting_blocks("T", "U1", "d1", ["a"], 3))
+        all_blocks.extend(build_round_update_blocks(1, 3, "agent"))
+        all_blocks.extend(build_agent_response_blocks("claude", "response", 1))
         all_blocks.extend(
             build_result_blocks(
                 "T",
@@ -1308,9 +1182,7 @@ class TestBlockStructureIntegrity:
                 "https://report.url",
             )
         )
-        all_blocks.extend(
-            build_search_result_blocks("q", [{"title": "T"}], 1)
-        )
+        all_blocks.extend(build_search_result_blocks("q", [{"title": "T"}], 1))
 
         for i, block in enumerate(all_blocks):
             assert "type" in block, f"Block at index {i} is missing 'type' key: {block}"
@@ -1321,9 +1193,7 @@ class TestBlockStructureIntegrity:
         for block in blocks:
             if "text" in block and isinstance(block["text"], dict):
                 text_type = block["text"].get("type")
-                assert text_type in ("plain_text", "mrkdwn"), (
-                    f"Unexpected text type: {text_type}"
-                )
+                assert text_type in ("plain_text", "mrkdwn"), f"Unexpected text type: {text_type}"
 
     def test_header_blocks_use_plain_text(self):
         """Header blocks always use plain_text type."""
@@ -1337,12 +1207,6 @@ class TestBlockStructureIntegrity:
         assert isinstance(build_starting_blocks("T", "U1", "d1"), list)
         assert isinstance(build_round_update_blocks(1, 3, "a"), list)
         assert isinstance(build_agent_response_blocks("a", "r", 1), list)
-        assert isinstance(
-            build_result_blocks("T", _make_debate_result(), "U1"), list
-        )
-        assert isinstance(
-            build_gauntlet_result_blocks("S", _make_gauntlet_result(), "U1"), list
-        )
-        assert isinstance(
-            build_search_result_blocks("q", []), list
-        )
+        assert isinstance(build_result_blocks("T", _make_debate_result(), "U1"), list)
+        assert isinstance(build_gauntlet_result_blocks("S", _make_gauntlet_result(), "U1"), list)
+        assert isinstance(build_search_result_blocks("q", []), list)

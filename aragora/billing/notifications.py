@@ -143,12 +143,14 @@ class BillingNotifier:
             with urlopen(req, timeout=10) as response:
                 response.read()
 
-            logger.info("Sent webhook notification: %s", payload.get('event'))
+            logger.info("Sent webhook notification: %s", payload.get("event"))
             return NotificationResult(success=True, method="webhook")
 
         except URLError as e:
             logger.error("Failed to send webhook: %s", e)
-            return NotificationResult(success=False, method="webhook", error="Webhook delivery failed")
+            return NotificationResult(
+                success=False, method="webhook", error="Webhook delivery failed"
+            )
 
     def notify_payment_failed(
         self,
@@ -272,7 +274,12 @@ If you believe this is an error, please contact support@aragora.ai
 
         # Log as final fallback
         logger.warning(
-            "PAYMENT_FAILED: org=%s name=%s email=%s attempt=%s urgency=%s", org_id, org_name, email, attempt_count, urgency
+            "PAYMENT_FAILED: org=%s name=%s email=%s attempt=%s urgency=%s",
+            org_id,
+            org_name,
+            email,
+            attempt_count,
+            urgency,
         )
         return NotificationResult(success=True, method="log")
 
@@ -393,7 +400,11 @@ Questions? Contact us at support@aragora.ai
 
         # Log as final fallback
         logger.info(
-            "TRIAL_ENDING: org=%s name=%s email=%s days_remaining=%s", org_id, org_name, email, days_remaining
+            "TRIAL_ENDING: org=%s name=%s email=%s days_remaining=%s",
+            org_id,
+            org_name,
+            email,
+            days_remaining,
         )
         return NotificationResult(success=True, method="log")
 
@@ -489,7 +500,11 @@ We'd love to hear your feedback. What could we have done better?
 
         # Log as final fallback
         logger.info(
-            "SUBSCRIPTION_CANCELED: org=%s name=%s email=%s reason=%s", org_id, org_name, email, reason
+            "SUBSCRIPTION_CANCELED: org=%s name=%s email=%s reason=%s",
+            org_id,
+            org_name,
+            email,
+            reason,
         )
         return NotificationResult(success=True, method="log")
 
@@ -596,7 +611,11 @@ Need help? Contact support@aragora.ai
 
         # Log as final fallback
         logger.warning(
-            "SUBSCRIPTION_DOWNGRADED: org=%s name=%s email=%s previous_tier=%s", org_id, org_name, email, previous_tier.value
+            "SUBSCRIPTION_DOWNGRADED: org=%s name=%s email=%s previous_tier=%s",
+            org_id,
+            org_name,
+            email,
+            previous_tier.value,
         )
         return NotificationResult(success=True, method="log")
 

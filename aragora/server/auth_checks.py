@@ -352,7 +352,9 @@ class AuthChecksMixin:
         try:
             user_ctx = extract_user_from_request(self, self.user_store)
             logger.debug(
-                "RBAC user context: authenticated=%s, user_id=%s", user_ctx.authenticated, user_ctx.user_id
+                "RBAC user context: authenticated=%s, user_id=%s",
+                user_ctx.authenticated,
+                user_ctx.user_id,
             )
             if user_ctx.authenticated and user_ctx.user_id:
                 roles = {user_ctx.role} if user_ctx.role else {"member"}

@@ -594,7 +594,10 @@ class EnterpriseProxy:
                     await asyncio.sleep(delay)
                 else:
                     logger.warning(
-                        "Request to %s failed after %s attempts: %s", request.framework, retry_settings.max_retries + 1, e
+                        "Request to %s failed after %s attempts: %s",
+                        request.framework,
+                        retry_settings.max_retries + 1,
+                        e,
                     )
                     raise
 

@@ -652,23 +652,27 @@ class ArgumentCartographer:
         # Serialise nodes and edges into JSON-safe lists for embedding
         nodes_js = []
         for node in self.nodes.values():
-            nodes_js.append({
-                "id": node.id,
-                "agent": node.agent,
-                "type": node.node_type.value,
-                "summary": node.summary,
-                "content": node.full_content or node.summary,
-                "round": node.round_num,
-            })
+            nodes_js.append(
+                {
+                    "id": node.id,
+                    "agent": node.agent,
+                    "type": node.node_type.value,
+                    "summary": node.summary,
+                    "content": node.full_content or node.summary,
+                    "round": node.round_num,
+                }
+            )
 
         edges_js = []
         for edge in self.edges:
             if edge.source_id in self.nodes and edge.target_id in self.nodes:
-                edges_js.append({
-                    "source": edge.source_id,
-                    "target": edge.target_id,
-                    "relation": edge.relation.value,
-                })
+                edges_js.append(
+                    {
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "relation": edge.relation.value,
+                    }
+                )
 
         safe_title = html_mod.escape(title)
         topic_display = html_mod.escape(self.topic or title)

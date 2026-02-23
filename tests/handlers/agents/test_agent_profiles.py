@@ -35,6 +35,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result: object) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -57,11 +58,13 @@ def _status(result: object) -> int:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_caches():
     """Reset caches before each test to avoid stale cached data."""
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass
@@ -69,18 +72,21 @@ def _reset_caches():
     # Reset rate limiters
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
 
     try:
         from aragora.server.handlers.agents import agents as agents_mod
+
         agents_mod._agent_limiter = agents_mod.RateLimiter(requests_per_minute=60)
     except (ImportError, AttributeError):
         pass
 
     try:
         from aragora.server.handlers.utils import rate_limit as rl_mod
+
         with rl_mod._limiters_lock:
             rl_mod._limiters.clear()
     except (ImportError, AttributeError):
@@ -90,12 +96,14 @@ def _reset_caches():
 
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass
 
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -105,6 +113,7 @@ def _reset_caches():
 def handler():
     """Create an AgentsHandler with empty server context."""
     from aragora.server.handlers.agents.agents import AgentsHandler
+
     return AgentsHandler(server_context={})
 
 
@@ -150,6 +159,7 @@ def _make_rating(
 # Profile endpoint: /api/agent/{name}/profile
 # ===========================================================================
 
+
 class TestGetProfile:
     """Tests for the _get_profile endpoint."""
 
@@ -159,12 +169,13 @@ class TestGetProfile:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {
-            "rank": 1, "wins": 10, "losses": 2, "win_rate": 0.833,
+            "rank": 1,
+            "wins": 10,
+            "losses": 2,
+            "win_rate": 0.833,
         }
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["name"] == "claude"
@@ -178,9 +189,7 @@ class TestGetProfile:
     async def test_profile_no_elo(self, handler, mock_http_handler):
         """Returns 503 when ELO system is not available."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -189,9 +198,7 @@ class TestGetProfile:
         mock_elo = MagicMock(spec=[])  # no get_agent_stats
         mock_elo.get_rating = MagicMock(return_value=1500)
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["name"] == "claude"
@@ -204,13 +211,12 @@ class TestGetProfile:
     async def test_profile_rating_none_uses_initial(self, handler, mock_http_handler):
         """When get_rating returns None, the initial ELO rating is used."""
         from aragora.config import ELO_INITIAL_RATING
+
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = None
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["rating"] == ELO_INITIAL_RATING
@@ -222,9 +228,7 @@ class TestGetProfile:
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = None
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["wins"] == 0
@@ -235,11 +239,14 @@ class TestGetProfile:
         """Profile works with versioned path /api/v1/agent/{name}/profile."""
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = 1600
-        mock_elo.get_agent_stats.return_value = {"rank": 2, "wins": 5, "losses": 3, "win_rate": 0.625}
+        mock_elo.get_agent_stats.return_value = {
+            "rank": 2,
+            "wins": 5,
+            "losses": 3,
+            "win_rate": 0.625,
+        }
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["name"] == "claude"
@@ -252,9 +259,7 @@ class TestGetProfile:
         mock_elo.get_agent_stats.return_value = {}
         for name in ["gpt4", "gemini", "mistral-api", "anthropic-api"]:
             with patch.object(handler, "get_elo_system", return_value=mock_elo):
-                result = await handler.handle(
-                    f"/api/agent/{name}/profile", {}, mock_http_handler
-                )
+                result = await handler.handle(f"/api/agent/{name}/profile", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["name"] == name
@@ -264,6 +269,7 @@ class TestGetProfile:
 # History endpoint: /api/agent/{name}/history
 # ===========================================================================
 
+
 class TestGetHistory:
     """Tests for the _get_history endpoint."""
 
@@ -272,7 +278,9 @@ class TestGetHistory:
         """History returns agent name and list of history entries."""
         mock_elo = MagicMock()
         mock_elo.get_elo_history.return_value = [
-            (1000000, 1600), (1000001, 1610), (1000002, 1620),
+            (1000000, 1600),
+            (1000001, 1610),
+            (1000002, 1620),
         ]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
@@ -289,9 +297,7 @@ class TestGetHistory:
     async def test_history_no_elo(self, handler, mock_http_handler):
         """Returns 503 when ELO system is unavailable."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/history", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/history", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -300,9 +306,7 @@ class TestGetHistory:
         mock_elo = MagicMock()
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/history", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/history", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["history"] == []
@@ -326,9 +330,7 @@ class TestGetHistory:
         mock_elo = MagicMock()
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/history", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/history", {}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.get_elo_history.assert_called_once_with("claude", limit=30)
 
@@ -338,15 +340,14 @@ class TestGetHistory:
         mock_elo = MagicMock()
         mock_elo.get_elo_history.return_value = [(1, 1500)]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/history", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/history", {}, mock_http_handler)
             assert _status(result) == 200
 
 
 # ===========================================================================
 # Calibration endpoint: /api/agent/{name}/calibration
 # ===========================================================================
+
 
 class TestGetCalibration:
     """Tests for the _get_calibration endpoint."""
@@ -357,9 +358,7 @@ class TestGetCalibration:
         mock_elo = MagicMock()
         mock_elo.get_calibration.return_value = {"agent": "claude", "score": 0.75}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/calibration", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -369,9 +368,7 @@ class TestGetCalibration:
     async def test_calibration_no_elo(self, handler, mock_http_handler):
         """Returns 503 when ELO system is unavailable."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/calibration", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -391,9 +388,7 @@ class TestGetCalibration:
         """Falls back to default calibration when elo has no get_calibration."""
         mock_elo = MagicMock(spec=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/calibration", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -405,9 +400,7 @@ class TestGetCalibration:
         mock_elo = MagicMock()
         mock_elo.get_calibration.return_value = {"agent": "claude", "score": 0.6}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/calibration", {}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.get_calibration.assert_called_once_with("claude", domain=None)
 
@@ -416,6 +409,7 @@ class TestGetCalibration:
 # Consistency endpoint: /api/agent/{name}/consistency
 # ===========================================================================
 
+
 class TestGetConsistency:
     """Tests for the _get_consistency endpoint."""
 
@@ -423,9 +417,7 @@ class TestGetConsistency:
     async def test_consistency_no_nomic_dir(self, handler, mock_http_handler):
         """Returns 1.0 consistency when nomic_dir is not set."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/consistency", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/consistency", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -435,6 +427,7 @@ class TestGetConsistency:
     async def test_consistency_with_nomic_dir(self, handler, mock_http_handler):
         """Uses FlipDetector when nomic_dir is available."""
         from pathlib import Path
+
         mock_detector = MagicMock()
         mock_detector.get_agent_consistency.return_value = 0.85
 
@@ -459,9 +452,7 @@ class TestGetConsistency:
     async def test_consistency_versioned_path(self, handler, mock_http_handler):
         """Works with versioned path."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/v1/agent/claude/consistency", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/consistency", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["consistency_score"] == 1.0
@@ -470,6 +461,7 @@ class TestGetConsistency:
 # ===========================================================================
 # Network endpoint: /api/agent/{name}/network
 # ===========================================================================
+
 
 class TestGetNetwork:
     """Tests for the _get_network endpoint."""
@@ -481,9 +473,7 @@ class TestGetNetwork:
         mock_elo.get_rivals.return_value = [{"name": "gpt4", "elo": 1580}]
         mock_elo.get_allies.return_value = [{"name": "gemini", "elo": 1520}]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -494,9 +484,7 @@ class TestGetNetwork:
     async def test_network_no_elo(self, handler, mock_http_handler):
         """Returns 503 when ELO system is unavailable."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -504,9 +492,7 @@ class TestGetNetwork:
         """Falls back to empty when ELO has no get_rivals / get_allies."""
         mock_elo = MagicMock(spec=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["rivals"] == []
@@ -519,9 +505,7 @@ class TestGetNetwork:
         mock_elo.get_rivals.return_value = []
         mock_elo.get_allies.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["rivals"] == []
@@ -531,6 +515,7 @@ class TestGetNetwork:
 # ===========================================================================
 # Rivals endpoint: /api/agent/{name}/rivals
 # ===========================================================================
+
 
 class TestGetRivals:
     """Tests for the _get_rivals endpoint."""
@@ -555,9 +540,7 @@ class TestGetRivals:
     async def test_rivals_no_elo(self, handler, mock_http_handler):
         """Returns 503 without ELO."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/rivals", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/rivals", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -565,9 +548,7 @@ class TestGetRivals:
         """Returns empty when ELO has no get_rivals."""
         mock_elo = MagicMock(spec=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/rivals", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/rivals", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["rivals"] == []
@@ -590,9 +571,7 @@ class TestGetRivals:
         mock_elo = MagicMock()
         mock_elo.get_rivals.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/rivals", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/rivals", {}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.get_rivals.assert_called_once_with("claude", limit=5)
 
@@ -600,6 +579,7 @@ class TestGetRivals:
 # ===========================================================================
 # Allies endpoint: /api/agent/{name}/allies
 # ===========================================================================
+
 
 class TestGetAllies:
     """Tests for the _get_allies endpoint."""
@@ -624,9 +604,7 @@ class TestGetAllies:
     async def test_allies_no_elo(self, handler, mock_http_handler):
         """Returns 503 without ELO."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/allies", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/allies", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -634,9 +612,7 @@ class TestGetAllies:
         """Returns empty when ELO has no get_allies."""
         mock_elo = MagicMock(spec=[])
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/allies", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/allies", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["allies"] == []
@@ -647,9 +623,7 @@ class TestGetAllies:
         mock_elo = MagicMock()
         mock_elo.get_allies.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/allies", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/allies", {}, mock_http_handler)
             assert _status(result) == 200
             mock_elo.get_allies.assert_called_once_with("claude", limit=5)
 
@@ -657,6 +631,7 @@ class TestGetAllies:
 # ===========================================================================
 # Moments endpoint: /api/agent/{name}/moments
 # ===========================================================================
+
 
 class TestGetMoments:
     """Tests for the _get_moments endpoint."""
@@ -702,9 +677,7 @@ class TestGetMoments:
     async def test_moments_no_elo(self, handler, mock_http_handler):
         """Returns empty moments when ELO is unavailable."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/moments", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/moments", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -731,9 +704,7 @@ class TestGetMoments:
                 "aragora.agents.grounded.MomentDetector",
                 return_value=mock_detector,
             ):
-                result = await handler.handle(
-                    "/api/agent/claude/moments", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/agent/claude/moments", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["moments"][0]["timestamp"] is None
@@ -750,9 +721,7 @@ class TestGetMoments:
                 "aragora.agents.grounded.MomentDetector",
                 return_value=mock_detector,
             ):
-                result = await handler.handle(
-                    "/api/agent/claude/moments", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/agent/claude/moments", {}, mock_http_handler)
                 assert _status(result) == 200
                 body = _body(result)
                 assert body["moments"] == []
@@ -769,9 +738,7 @@ class TestGetMoments:
                 "aragora.agents.grounded.MomentDetector",
                 return_value=mock_detector,
             ):
-                result = await handler.handle(
-                    "/api/agent/claude/moments", {}, mock_http_handler
-                )
+                result = await handler.handle("/api/agent/claude/moments", {}, mock_http_handler)
                 assert _status(result) == 200
                 mock_detector.get_agent_moments.assert_called_once_with("claude", limit=10)
 
@@ -780,6 +747,7 @@ class TestGetMoments:
 # Positions endpoint: /api/agent/{name}/positions
 # ===========================================================================
 
+
 class TestGetPositions:
     """Tests for the _get_positions endpoint."""
 
@@ -787,9 +755,7 @@ class TestGetPositions:
     async def test_positions_no_nomic_dir(self, handler, mock_http_handler):
         """Returns empty positions when nomic_dir is not set."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/positions", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/positions", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -799,6 +765,7 @@ class TestGetPositions:
     async def test_positions_with_nomic_dir(self, handler, mock_http_handler):
         """Uses PositionLedger when nomic_dir is available."""
         from pathlib import Path
+
         mock_ledger = MagicMock()
         mock_ledger.get_agent_positions.return_value = [
             {"debate_id": "d1", "position": "for", "confidence": 0.9},
@@ -825,6 +792,7 @@ class TestGetPositions:
     async def test_positions_default_limit(self, handler, mock_http_handler):
         """Default limit for positions is 20."""
         from pathlib import Path
+
         mock_ledger = MagicMock()
         mock_ledger.get_agent_positions.return_value = []
 
@@ -848,6 +816,7 @@ class TestGetPositions:
 # Domains endpoint: /api/agent/{name}/domains
 # ===========================================================================
 
+
 class TestGetDomains:
     """Tests for the _get_domains endpoint."""
 
@@ -861,9 +830,7 @@ class TestGetDomains:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -881,9 +848,7 @@ class TestGetDomains:
     async def test_domains_no_elo(self, handler, mock_http_handler):
         """Returns 503 without ELO."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -894,9 +859,7 @@ class TestGetDomains:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["domains"] == []
@@ -909,9 +872,7 @@ class TestGetDomains:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["domains"] == []
@@ -924,9 +885,7 @@ class TestGetDomains:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["domain_count"] == 1
@@ -938,6 +897,7 @@ class TestGetDomains:
 # Performance endpoint: /api/agent/{name}/performance
 # ===========================================================================
 
+
 class TestGetPerformance:
     """Tests for the _get_performance endpoint."""
 
@@ -945,8 +905,12 @@ class TestGetPerformance:
     async def test_performance_happy_path(self, handler, mock_http_handler):
         """Returns detailed performance stats."""
         rating = _make_rating(
-            elo=1600, wins=10, losses=3, draws=2,
-            critiques_accepted=5, critiques_total=8,
+            elo=1600,
+            wins=10,
+            losses=3,
+            draws=2,
+            critiques_accepted=5,
+            critiques_total=8,
             critique_acceptance_rate=0.625,
             calibration_accuracy=0.85,
             calibration_brier_score=0.12,
@@ -955,18 +919,25 @@ class TestGetPerformance:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         mock_elo.get_agent_history.return_value = [
-            {"result": "win"}, {"result": "loss"}, {"result": "win"},
-            {"result": "win"}, {"result": "win"}, {"result": "loss"},
-            {"result": "win"}, {"result": "win"}, {"result": "draw"},
+            {"result": "win"},
+            {"result": "loss"},
+            {"result": "win"},
+            {"result": "win"},
+            {"result": "win"},
+            {"result": "loss"},
+            {"result": "win"},
+            {"result": "win"},
+            {"result": "draw"},
             {"result": "win"},
         ]
         mock_elo.get_elo_history.return_value = [
-            (10, 1650), (9, 1620), (8, 1600), (7, 1580),
+            (10, 1650),
+            (9, 1620),
+            (8, 1600),
+            (7, 1580),
         ]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["agent"] == "claude"
@@ -991,9 +962,7 @@ class TestGetPerformance:
     async def test_performance_no_elo(self, handler, mock_http_handler):
         """Returns 503 without ELO."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1005,9 +974,7 @@ class TestGetPerformance:
         mock_elo.get_agent_history.return_value = []
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["total_games"] == 0
@@ -1022,9 +989,7 @@ class TestGetPerformance:
         mock_elo = MagicMock(spec=[])
         mock_elo.get_rating = MagicMock(return_value=rating)
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["recent_win_rate"] == 0.0
@@ -1039,9 +1004,7 @@ class TestGetPerformance:
         mock_elo.get_agent_history.return_value = []
         mock_elo.get_elo_history.return_value = [(1, 1600)]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["elo_trend"] == 0.0
@@ -1053,13 +1016,13 @@ class TestGetPerformance:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         mock_elo.get_agent_history.return_value = [
-            {"result": "win"}, {"result": "win"}, {"result": "loss"},
+            {"result": "win"},
+            {"result": "win"},
+            {"result": "loss"},
         ]
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             # 2 wins out of 3 recent matches
@@ -1074,9 +1037,7 @@ class TestGetPerformance:
         mock_elo.get_agent_history.return_value = []
         mock_elo.get_elo_history.return_value = [(10, 1400), (1, 1500)]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             # Most recent (1400) - oldest (1500) = -100
@@ -1087,59 +1048,48 @@ class TestGetPerformance:
 # Input validation and security tests
 # ===========================================================================
 
+
 class TestInputValidation:
     """Tests for input validation across profile endpoints."""
 
     @pytest.mark.asyncio
     async def test_invalid_agent_name_path_traversal(self, handler, mock_http_handler):
         """Agent names with path traversal characters are rejected."""
-        result = await handler.handle(
-            "/api/agent/../../etc/passwd/profile", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/../../etc/passwd/profile", {}, mock_http_handler)
         # Should be rejected by validation (400) or return None for unmatched path
         assert result is None or _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_invalid_agent_name_script_injection(self, handler, mock_http_handler):
         """Agent names with script tags are rejected."""
-        result = await handler.handle(
-            "/api/agent/<script>/profile", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/<script>/profile", {}, mock_http_handler)
         # Should be rejected (400) or unmatched (None)
         assert result is None or _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_invalid_agent_name_spaces(self, handler, mock_http_handler):
         """Agent names with spaces are rejected."""
-        result = await handler.handle(
-            "/api/agent/bad agent/profile", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/bad agent/profile", {}, mock_http_handler)
         assert result is None or _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_agent_name(self, handler, mock_http_handler):
         """Empty agent name segment handled gracefully."""
-        result = await handler.handle(
-            "/api/agent//profile", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent//profile", {}, mock_http_handler)
         # Empty string splits differently, should not crash
         assert result is None or _status(result) in (400, 404)
 
     @pytest.mark.asyncio
     async def test_too_short_path(self, handler, mock_http_handler):
         """Path with too few segments returns error."""
-        result = await handler.handle(
-            "/api/agent/claude", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/claude", {}, mock_http_handler)
         # Less than 5 segments -> 400 from _handle_agent_endpoint
         assert result is None or _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_unknown_endpoint(self, handler, mock_http_handler):
         """Unknown per-agent endpoint returns None (no match)."""
-        result = await handler.handle(
-            "/api/agent/claude/nonexistent", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/agent/claude/nonexistent", {}, mock_http_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1154,9 +1104,7 @@ class TestInputValidation:
     async def test_very_long_agent_name(self, handler, mock_http_handler):
         """Very long agent names are handled gracefully."""
         long_name = "a" * 500
-        result = await handler.handle(
-            f"/api/agent/{long_name}/profile", {}, mock_http_handler
-        )
+        result = await handler.handle(f"/api/agent/{long_name}/profile", {}, mock_http_handler)
         # Should either work (if valid chars) or return 400
         assert result is not None
         assert _status(result) in (200, 400, 503)
@@ -1165,6 +1113,7 @@ class TestInputValidation:
 # ===========================================================================
 # Route dispatch tests
 # ===========================================================================
+
 
 class TestRouteDispatch:
     """Tests ensuring correct routing to profile mixin methods."""
@@ -1176,18 +1125,26 @@ class TestRouteDispatch:
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agent/gpt4/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/gpt4/profile", {}, mock_http_handler)
             assert _status(result) == 200
             assert _body(result)["name"] == "gpt4"
 
     @pytest.mark.asyncio
     async def test_all_profile_endpoints_accessible(self, handler, mock_http_handler):
         """All profile mixin endpoints are accessible through the handler."""
-        endpoints = ["profile", "history", "calibration", "consistency",
-                     "network", "rivals", "allies", "moments", "positions",
-                     "domains", "performance"]
+        endpoints = [
+            "profile",
+            "history",
+            "calibration",
+            "consistency",
+            "network",
+            "rivals",
+            "allies",
+            "moments",
+            "positions",
+            "domains",
+            "performance",
+        ]
 
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = _make_rating()
@@ -1210,8 +1167,9 @@ class TestRouteDispatch:
                             f"/api/agent/claude/{endpoint}", {}, mock_http_handler
                         )
                         assert result is not None, f"Endpoint {endpoint} returned None"
-                        assert _status(result) in (200, 503), \
+                        assert _status(result) in (200, 503), (
                             f"Endpoint {endpoint} returned {_status(result)}"
+                        )
 
     @pytest.mark.asyncio
     async def test_agents_prefix_converted_to_agent(self, handler, mock_http_handler):
@@ -1220,9 +1178,7 @@ class TestRouteDispatch:
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/agents/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agents/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
             assert _body(result)["name"] == "claude"
 
@@ -1230,6 +1186,7 @@ class TestRouteDispatch:
 # ===========================================================================
 # Versioned path tests
 # ===========================================================================
+
 
 class TestVersionedPaths:
     """Tests for /api/v1/ prefixed paths."""
@@ -1240,9 +1197,7 @@ class TestVersionedPaths:
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/profile", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/profile", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1250,9 +1205,7 @@ class TestVersionedPaths:
         mock_elo = MagicMock()
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/history", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/history", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1260,9 +1213,7 @@ class TestVersionedPaths:
         mock_elo = MagicMock()
         mock_elo.get_calibration.return_value = {"agent": "claude", "score": 0.5}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/calibration", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1271,9 +1222,7 @@ class TestVersionedPaths:
         mock_elo.get_rivals.return_value = []
         mock_elo.get_allies.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/network", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/network", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1282,9 +1231,7 @@ class TestVersionedPaths:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = rating
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/domains", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/domains", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1295,9 +1242,7 @@ class TestVersionedPaths:
         mock_elo.get_agent_history.return_value = []
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                "/api/v1/agent/claude/performance", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/performance", {}, mock_http_handler)
             assert _status(result) == 200
 
 
@@ -1305,28 +1250,34 @@ class TestVersionedPaths:
 # ELO system unavailability (503 across all endpoints)
 # ===========================================================================
 
+
 class TestEloUnavailable:
     """Confirm all ELO-dependent endpoints return 503 when ELO is None."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("endpoint", [
-        "profile", "history", "calibration", "network",
-        "rivals", "allies", "domains", "performance",
-    ])
+    @pytest.mark.parametrize(
+        "endpoint",
+        [
+            "profile",
+            "history",
+            "calibration",
+            "network",
+            "rivals",
+            "allies",
+            "domains",
+            "performance",
+        ],
+    )
     async def test_no_elo_returns_503(self, handler, mock_http_handler, endpoint):
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                f"/api/agent/claude/{endpoint}", {}, mock_http_handler
-            )
+            result = await handler.handle(f"/api/agent/claude/{endpoint}", {}, mock_http_handler)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_moments_no_elo_returns_200_empty(self, handler, mock_http_handler):
         """Moments returns 200 with empty list when ELO is None."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/moments", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/moments", {}, mock_http_handler)
             assert _status(result) == 200
             assert _body(result)["moments"] == []
 
@@ -1345,9 +1296,7 @@ class TestEloUnavailable:
     async def test_positions_no_elo_returns_200(self, handler, mock_http_handler):
         """Positions does not depend on ELO - returns 200 with empty list."""
         with patch.object(handler, "get_nomic_dir", return_value=None):
-            result = await handler.handle(
-                "/api/agent/claude/positions", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/agent/claude/positions", {}, mock_http_handler)
             assert _status(result) == 200
             assert _body(result)["positions"] == []
 
@@ -1356,23 +1305,31 @@ class TestEloUnavailable:
 # Edge cases with multiple agents
 # ===========================================================================
 
+
 class TestMultipleAgentNames:
     """Tests ensuring different agent names are correctly passed through."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("agent_name", [
-        "claude", "gpt4", "gemini", "mistral-api", "grok",
-        "anthropic-api", "openai-api", "llama3",
-    ])
+    @pytest.mark.parametrize(
+        "agent_name",
+        [
+            "claude",
+            "gpt4",
+            "gemini",
+            "mistral-api",
+            "grok",
+            "anthropic-api",
+            "openai-api",
+            "llama3",
+        ],
+    )
     async def test_agent_name_passed_correctly(self, handler, mock_http_handler, agent_name):
         """Each agent name is correctly extracted and passed to the handler method."""
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle(
-                f"/api/agent/{agent_name}/profile", {}, mock_http_handler
-            )
+            result = await handler.handle(f"/api/agent/{agent_name}/profile", {}, mock_http_handler)
             assert _status(result) == 200
             body = _body(result)
             assert body["name"] == agent_name
@@ -1382,6 +1339,7 @@ class TestMultipleAgentNames:
 # Cache behavior tests
 # ===========================================================================
 
+
 class TestCacheBehavior:
     """Tests for caching behavior on profile endpoint."""
 
@@ -1390,14 +1348,15 @@ class TestCacheBehavior:
         """Profile endpoint uses ttl_cache - second call should use cached result."""
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = 1600
-        mock_elo.get_agent_stats.return_value = {"rank": 1, "wins": 10, "losses": 2, "win_rate": 0.833}
+        mock_elo.get_agent_stats.return_value = {
+            "rank": 1,
+            "wins": 10,
+            "losses": 2,
+            "win_rate": 0.833,
+        }
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result1 = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
-            result2 = await handler.handle(
-                "/api/agent/claude/profile", {}, mock_http_handler
-            )
+            result1 = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
+            result2 = await handler.handle("/api/agent/claude/profile", {}, mock_http_handler)
             assert _status(result1) == 200
             assert _status(result2) == 200
             # Both should return the same data
@@ -1407,6 +1366,7 @@ class TestCacheBehavior:
 # ===========================================================================
 # can_handle tests for profile-related paths
 # ===========================================================================
+
 
 class TestCanHandle:
     """Tests for can_handle on profile-related paths."""

@@ -226,7 +226,9 @@ class PlaywrightConnector:
         self._page.set_default_timeout(self.timeout_ms)
 
         self._initialized = True
-        logger.info("Browser connector initialized: %s, headless=%s", self.browser_type, self.headless)
+        logger.info(
+            "Browser connector initialized: %s, headless=%s", self.browser_type, self.headless
+        )
 
     async def close(self) -> None:
         """Close browser and cleanup resources."""

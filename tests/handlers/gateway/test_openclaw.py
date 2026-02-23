@@ -31,6 +31,7 @@ MODULE = "aragora.server.handlers.gateway.openclaw"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result) -> dict[str, Any]:
     """Decode a HandlerResult body to dict."""
     if hasattr(result, "body"):
@@ -68,6 +69,7 @@ def _make_response(status: str = "completed", result: Any = "done") -> MagicMock
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _reset_singleton():
@@ -126,9 +128,7 @@ class TestHandleOpenclawExecute:
             metadata={"execution_time_ms": 150},
         )
 
-        result = await handle_openclaw_execute(
-            {"content": "What is 6*7?"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "What is 6*7?"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 200
         assert body["success"] is True
@@ -164,9 +164,7 @@ class TestHandleOpenclawExecute:
             blocked_reason="capability_blocked",
         )
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 400
         assert "blocked" in body["error"].lower()
@@ -181,9 +179,7 @@ class TestHandleOpenclawExecute:
             blocked_reason=None,
         )
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 500
 
@@ -197,9 +193,7 @@ class TestHandleOpenclawExecute:
             blocked_reason=None,
         )
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 500
         assert "failed" in body["error"].lower()
@@ -210,9 +204,7 @@ class TestHandleOpenclawExecute:
 
         mock_adapter.execute_task.side_effect = ConnectionError("unreachable")
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 500
         assert "failed" in body["error"].lower()
@@ -223,9 +215,7 @@ class TestHandleOpenclawExecute:
 
         mock_adapter.execute_task.side_effect = TimeoutError("timed out")
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -234,9 +224,7 @@ class TestHandleOpenclawExecute:
 
         mock_adapter.execute_task.side_effect = ValueError("bad data")
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -245,9 +233,7 @@ class TestHandleOpenclawExecute:
 
         mock_adapter.execute_task.side_effect = OSError("disk fail")
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -256,9 +242,7 @@ class TestHandleOpenclawExecute:
 
         mock_adapter.execute_task.side_effect = TypeError("bad type")
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -267,9 +251,7 @@ class TestHandleOpenclawExecute:
 
         mock_adapter.execute_task.side_effect = KeyError("missing")
 
-        result = await handle_openclaw_execute(
-            {"content": "test"}, user_id="u1"
-        )
+        result = await handle_openclaw_execute({"content": "test"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -301,7 +283,9 @@ class TestHandleOpenclawExecute:
 
         # Verify request constructed with our fields
         call_args = mock_adapter.execute_task.call_args
-        request_obj = call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        request_obj = (
+            call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        )
         assert request_obj.content == "Is the sky blue?"
         assert request_obj.request_type == "query"
         assert request_obj.priority == "high"
@@ -318,12 +302,12 @@ class TestHandleOpenclawExecute:
             success=True, response=resp_mock, metadata={"execution_time_ms": 0}
         )
 
-        await handle_openclaw_execute(
-            {"content": "test", "timeout_seconds": 999}, user_id="u1"
-        )
+        await handle_openclaw_execute({"content": "test", "timeout_seconds": 999}, user_id="u1")
 
         call_args = mock_adapter.execute_task.call_args
-        request_obj = call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        request_obj = (
+            call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        )
         assert request_obj.timeout_seconds <= 100
 
     @pytest.mark.asyncio
@@ -341,7 +325,9 @@ class TestHandleOpenclawExecute:
         )
 
         call_args = mock_adapter.execute_task.call_args
-        request_obj = call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        request_obj = (
+            call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        )
         assert request_obj.timeout_seconds == 300
 
     @pytest.mark.asyncio
@@ -354,12 +340,12 @@ class TestHandleOpenclawExecute:
             success=True, response=resp_mock, metadata={"execution_time_ms": 0}
         )
 
-        await handle_openclaw_execute(
-            {"content": "test", "timeout_seconds": -5}, user_id="u1"
-        )
+        await handle_openclaw_execute({"content": "test", "timeout_seconds": -5}, user_id="u1")
 
         call_args = mock_adapter.execute_task.call_args
-        request_obj = call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        request_obj = (
+            call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        )
         assert request_obj.timeout_seconds == 300
 
     @pytest.mark.asyncio
@@ -372,12 +358,12 @@ class TestHandleOpenclawExecute:
             success=True, response=resp_mock, metadata={"execution_time_ms": 0}
         )
 
-        await handle_openclaw_execute(
-            {"content": "test", "timeout_seconds": 0}, user_id="u1"
-        )
+        await handle_openclaw_execute({"content": "test", "timeout_seconds": 0}, user_id="u1")
 
         call_args = mock_adapter.execute_task.call_args
-        request_obj = call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        request_obj = (
+            call_args.kwargs.get("request") or call_args[1].get("request") or call_args[0][0]
+        )
         assert request_obj.timeout_seconds == 300
 
     @pytest.mark.asyncio
@@ -392,7 +378,11 @@ class TestHandleOpenclawExecute:
         await handle_openclaw_execute({"content": "test"})
 
         call_args = mock_adapter.execute_task.call_args
-        auth_ctx = call_args.kwargs.get("auth_context") or call_args[1].get("auth_context") or call_args[0][1]
+        auth_ctx = (
+            call_args.kwargs.get("auth_context")
+            or call_args[1].get("auth_context")
+            or call_args[0][1]
+        )
         assert auth_ctx.actor_id == "default"
 
     @pytest.mark.asyncio
@@ -413,7 +403,11 @@ class TestHandleOpenclawExecute:
         await handle_openclaw_execute(data, user_id="u1")
 
         call_args = mock_adapter.execute_task.call_args
-        tenant_ctx = call_args.kwargs.get("tenant_context") or call_args[1].get("tenant_context") or call_args[0][2]
+        tenant_ctx = (
+            call_args.kwargs.get("tenant_context")
+            or call_args[1].get("tenant_context")
+            or call_args[0][2]
+        )
         assert tenant_ctx.tenant_id == "t-100"
         assert tenant_ctx.organization_id == "org-50"
 
@@ -470,9 +464,7 @@ class TestHandleOpenclawStatus:
     async def test_status_success(self, mock_adapter):
         from aragora.server.handlers.gateway.openclaw import handle_openclaw_status
 
-        result = await handle_openclaw_status(
-            {"task_id": "task-abc"}, user_id="u1"
-        )
+        result = await handle_openclaw_status({"task_id": "task-abc"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 200
         assert body["data"]["task_id"] == "task-abc"
@@ -590,9 +582,7 @@ class TestHandleOpenclawDeviceRegister:
     async def test_register_adapter_failure_no_message(self, mock_adapter):
         from aragora.server.handlers.gateway.openclaw import handle_openclaw_device_register
 
-        mock_adapter.register_device.return_value = _make_gateway_result(
-            success=False, error=None
-        )
+        mock_adapter.register_device.return_value = _make_gateway_result(success=False, error=None)
 
         data = {"device_id": "d1", "device_name": "name", "device_type": "desktop"}
         result = await handle_openclaw_device_register(data, user_id="u1")
@@ -643,9 +633,7 @@ class TestHandleOpenclawDeviceUnregister:
 
         mock_adapter.unregister_device.return_value = _make_gateway_result(success=True)
 
-        result = await handle_openclaw_device_unregister(
-            {"device_id": "dev-1"}, user_id="u1"
-        )
+        result = await handle_openclaw_device_unregister({"device_id": "dev-1"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 200
         assert body["data"]["device_id"] == "dev-1"
@@ -675,9 +663,7 @@ class TestHandleOpenclawDeviceUnregister:
             success=False, error="Not found"
         )
 
-        result = await handle_openclaw_device_unregister(
-            {"device_id": "dev-1"}, user_id="u1"
-        )
+        result = await handle_openclaw_device_unregister({"device_id": "dev-1"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 400
 
@@ -689,9 +675,7 @@ class TestHandleOpenclawDeviceUnregister:
             success=False, error=None
         )
 
-        result = await handle_openclaw_device_unregister(
-            {"device_id": "dev-1"}, user_id="u1"
-        )
+        result = await handle_openclaw_device_unregister({"device_id": "dev-1"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 400
         assert "unregistration failed" in body["error"].lower()
@@ -702,9 +686,7 @@ class TestHandleOpenclawDeviceUnregister:
 
         mock_adapter.unregister_device.side_effect = ConnectionError("down")
 
-        result = await handle_openclaw_device_unregister(
-            {"device_id": "dev-1"}, user_id="u1"
-        )
+        result = await handle_openclaw_device_unregister({"device_id": "dev-1"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -713,9 +695,7 @@ class TestHandleOpenclawDeviceUnregister:
 
         mock_adapter.unregister_device.side_effect = TimeoutError("timeout")
 
-        result = await handle_openclaw_device_unregister(
-            {"device_id": "dev-1"}, user_id="u1"
-        )
+        result = await handle_openclaw_device_unregister({"device_id": "dev-1"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -838,9 +818,7 @@ class TestHandleOpenclawPluginInstall:
     async def test_install_adapter_failure_no_message(self, mock_adapter):
         from aragora.server.handlers.gateway.openclaw import handle_openclaw_plugin_install
 
-        mock_adapter.install_plugin.return_value = _make_gateway_result(
-            success=False, error=None
-        )
+        mock_adapter.install_plugin.return_value = _make_gateway_result(success=False, error=None)
 
         data = {"plugin_id": "p1", "plugin_name": "n", "version": "1.0"}
         result = await handle_openclaw_plugin_install(data, user_id="u1")
@@ -876,7 +854,9 @@ class TestHandleOpenclawPluginInstall:
         await handle_openclaw_plugin_install(data, user_id="u1")
 
         call_args = mock_adapter.install_plugin.call_args
-        tenant_ctx = call_args[0][2] if len(call_args[0]) > 2 else call_args.kwargs.get("tenant_context")
+        tenant_ctx = (
+            call_args[0][2] if len(call_args[0]) > 2 else call_args.kwargs.get("tenant_context")
+        )
         assert tenant_ctx is not None
         assert tenant_ctx.tenant_id == "t-200"
 
@@ -915,9 +895,7 @@ class TestHandleOpenclawPluginUninstall:
 
         mock_adapter.uninstall_plugin.return_value = _make_gateway_result(success=True)
 
-        result = await handle_openclaw_plugin_uninstall(
-            {"plugin_id": "plug-1"}, user_id="u1"
-        )
+        result = await handle_openclaw_plugin_uninstall({"plugin_id": "plug-1"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 200
         assert body["data"]["plugin_id"] == "plug-1"
@@ -947,9 +925,7 @@ class TestHandleOpenclawPluginUninstall:
             success=False, error="Not found"
         )
 
-        result = await handle_openclaw_plugin_uninstall(
-            {"plugin_id": "p1"}, user_id="u1"
-        )
+        result = await handle_openclaw_plugin_uninstall({"plugin_id": "p1"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 400
 
@@ -957,13 +933,9 @@ class TestHandleOpenclawPluginUninstall:
     async def test_uninstall_adapter_failure_no_message(self, mock_adapter):
         from aragora.server.handlers.gateway.openclaw import handle_openclaw_plugin_uninstall
 
-        mock_adapter.uninstall_plugin.return_value = _make_gateway_result(
-            success=False, error=None
-        )
+        mock_adapter.uninstall_plugin.return_value = _make_gateway_result(success=False, error=None)
 
-        result = await handle_openclaw_plugin_uninstall(
-            {"plugin_id": "p1"}, user_id="u1"
-        )
+        result = await handle_openclaw_plugin_uninstall({"plugin_id": "p1"}, user_id="u1")
         body = _body(result)
         assert result.status_code == 400
         assert "uninstallation failed" in body["error"].lower()
@@ -974,9 +946,7 @@ class TestHandleOpenclawPluginUninstall:
 
         mock_adapter.uninstall_plugin.side_effect = ConnectionError("down")
 
-        result = await handle_openclaw_plugin_uninstall(
-            {"plugin_id": "p1"}, user_id="u1"
-        )
+        result = await handle_openclaw_plugin_uninstall({"plugin_id": "p1"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -985,9 +955,7 @@ class TestHandleOpenclawPluginUninstall:
 
         mock_adapter.uninstall_plugin.side_effect = TimeoutError("timeout")
 
-        result = await handle_openclaw_plugin_uninstall(
-            {"plugin_id": "p1"}, user_id="u1"
-        )
+        result = await handle_openclaw_plugin_uninstall({"plugin_id": "p1"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -996,9 +964,7 @@ class TestHandleOpenclawPluginUninstall:
 
         mock_adapter.uninstall_plugin.side_effect = ValueError("bad")
 
-        result = await handle_openclaw_plugin_uninstall(
-            {"plugin_id": "p1"}, user_id="u1"
-        )
+        result = await handle_openclaw_plugin_uninstall({"plugin_id": "p1"}, user_id="u1")
         assert result.status_code == 500
 
     @pytest.mark.asyncio
@@ -1110,9 +1076,7 @@ class TestBuildAuthContext:
         """Permissions should NOT come from request data (security)."""
         from aragora.server.handlers.gateway.openclaw import _build_auth_context
 
-        ctx = _build_auth_context(
-            "user-1", {"permissions": ["admin"], "roles": ["superuser"]}
-        )
+        ctx = _build_auth_context("user-1", {"permissions": ["admin"], "roles": ["superuser"]})
         assert ctx.permissions == set()
         assert ctx.roles == []
 
@@ -1153,14 +1117,16 @@ class TestBuildTenantContext:
     def test_full_tenant_context(self):
         from aragora.server.handlers.gateway.openclaw import _build_tenant_context
 
-        ctx = _build_tenant_context({
-            "tenant_id": "t-1",
-            "organization_id": "org-1",
-            "workspace_id": "ws-1",
-            "user_id": "u-1",
-            "enabled_capabilities": ["cap1", "cap2"],
-            "enabled_plugins": ["plug1"],
-        })
+        ctx = _build_tenant_context(
+            {
+                "tenant_id": "t-1",
+                "organization_id": "org-1",
+                "workspace_id": "ws-1",
+                "user_id": "u-1",
+                "enabled_capabilities": ["cap1", "cap2"],
+                "enabled_plugins": ["plug1"],
+            }
+        )
         assert ctx.tenant_id == "t-1"
         assert ctx.organization_id == "org-1"
         assert ctx.workspace_id == "ws-1"
@@ -1221,10 +1187,12 @@ class TestGetGatewayAdapter:
         mod._gateway_adapter = None
 
         with patch.dict("os.environ", {}, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter") as MockAdapter, \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter") as MockFilter, \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator") as MockTranslator:
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter") as MockAdapter,
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter") as MockFilter,
+                patch(f"{MODULE}.OpenClawProtocolTranslator") as MockTranslator,
+            ):
                 adapter = mod._get_gateway_adapter()
                 MockAdapter.assert_called_once()
                 call_kwargs = MockAdapter.call_args.kwargs
@@ -1242,10 +1210,12 @@ class TestGetGatewayAdapter:
             "OPENCLAW_PLUGIN_ALLOWLIST": "p1,p2,p3",
         }
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter") as MockAdapter, \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter") as MockAdapter,
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 sandbox_call = MockSandbox.call_args.kwargs
                 assert sandbox_call["max_memory_mb"] == 1024
@@ -1263,10 +1233,12 @@ class TestGetGatewayAdapter:
 
         env = {"OPENCLAW_MAX_MEMORY_MB": "10"}
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter"), \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter"),
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 assert MockSandbox.call_args.kwargs["max_memory_mb"] == 64
 
@@ -1277,10 +1249,12 @@ class TestGetGatewayAdapter:
 
         env = {"OPENCLAW_MAX_MEMORY_MB": "99999"}
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter"), \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter"),
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 assert MockSandbox.call_args.kwargs["max_memory_mb"] == 16384
 
@@ -1291,10 +1265,12 @@ class TestGetGatewayAdapter:
 
         env = {"OPENCLAW_MAX_EXECUTION_SECONDS": "0"}
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter"), \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter"),
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 assert MockSandbox.call_args.kwargs["max_execution_seconds"] == 1
 
@@ -1305,10 +1281,12 @@ class TestGetGatewayAdapter:
 
         env = {"OPENCLAW_MAX_EXECUTION_SECONDS": "99999"}
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter"), \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter"),
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 assert MockSandbox.call_args.kwargs["max_execution_seconds"] == 3600
 
@@ -1319,10 +1297,12 @@ class TestGetGatewayAdapter:
 
         env = {"OPENCLAW_PLUGIN_ALLOWLIST": ""}
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter"), \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter"),
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 assert MockSandbox.call_args.kwargs["plugin_allowlist_mode"] is False
                 assert MockSandbox.call_args.kwargs["allowed_plugins"] == []
@@ -1332,10 +1312,12 @@ class TestGetGatewayAdapter:
 
         mod._gateway_adapter = None
 
-        with patch(f"{MODULE}.OpenClawGatewayAdapter") as MockAdapter, \
-             patch(f"{MODULE}.SandboxConfig"), \
-             patch(f"{MODULE}.CapabilityFilter"), \
-             patch(f"{MODULE}.OpenClawProtocolTranslator"):
+        with (
+            patch(f"{MODULE}.OpenClawGatewayAdapter") as MockAdapter,
+            patch(f"{MODULE}.SandboxConfig"),
+            patch(f"{MODULE}.CapabilityFilter"),
+            patch(f"{MODULE}.OpenClawProtocolTranslator"),
+        ):
             a1 = mod._get_gateway_adapter()
             a2 = mod._get_gateway_adapter()
             assert a1 is a2
@@ -1348,10 +1330,12 @@ class TestGetGatewayAdapter:
 
         env = {"OPENCLAW_PLUGIN_ALLOWLIST": " p1 , p2 , , p3 "}
         with patch.dict("os.environ", env, clear=True):
-            with patch(f"{MODULE}.OpenClawGatewayAdapter"), \
-                 patch(f"{MODULE}.SandboxConfig") as MockSandbox, \
-                 patch(f"{MODULE}.CapabilityFilter"), \
-                 patch(f"{MODULE}.OpenClawProtocolTranslator"):
+            with (
+                patch(f"{MODULE}.OpenClawGatewayAdapter"),
+                patch(f"{MODULE}.SandboxConfig") as MockSandbox,
+                patch(f"{MODULE}.CapabilityFilter"),
+                patch(f"{MODULE}.OpenClawProtocolTranslator"),
+            ):
                 mod._get_gateway_adapter()
                 assert MockSandbox.call_args.kwargs["allowed_plugins"] == ["p1", "p2", "p3"]
 

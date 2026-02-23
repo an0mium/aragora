@@ -95,7 +95,9 @@ class MockUser:
     email_verified: bool = True
     created_at: datetime = field(default_factory=lambda: datetime(2025, 1, 1, tzinfo=timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime(2025, 6, 1, tzinfo=timezone.utc))
-    last_login_at: datetime = field(default_factory=lambda: datetime(2026, 2, 1, tzinfo=timezone.utc))
+    last_login_at: datetime = field(
+        default_factory=lambda: datetime(2026, 2, 1, tzinfo=timezone.utc)
+    )
     mfa_enabled: bool = False
     api_key_prefix: str | None = None
     api_key_created_at: datetime | None = None
@@ -575,11 +577,14 @@ class TestAccountDeletion:
 
     def test_delete_success(self, handler, mock_user_store):
         """Successful deletion returns 200 with deletion details."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-            "reason": "Closing account",
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+                "reason": "Closing account",
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 200
         body = _body(result)
@@ -590,29 +595,38 @@ class TestAccountDeletion:
 
     def test_delete_v2_route(self, handler, mock_user_store):
         """V2 delete route works."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v2/users/me", {}, mock_h, method="DELETE")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_patch_unauth")
     def test_delete_unauthenticated(self, handler):
         """Unauthenticated user gets 401."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "pass",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "pass",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 401
 
     def test_delete_no_user_store(self, handler_no_store):
         """Missing user store returns 503."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "pass",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "pass",
+                "confirm": True,
+            },
+        )
         result = handler_no_store.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 503
 
@@ -626,9 +640,12 @@ class TestAccountDeletion:
 
     def test_delete_missing_confirm(self, handler, mock_user_store):
         """Missing confirm flag returns 400."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 400
         body = _body(result)
@@ -636,29 +653,38 @@ class TestAccountDeletion:
 
     def test_delete_confirm_false(self, handler, mock_user_store):
         """confirm=false returns 400."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": False,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": False,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 400
 
     def test_delete_user_not_found(self, handler, mock_user_store):
         """Non-existent user returns 404."""
         mock_user_store.get_user_by_id.return_value = None
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "pass",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "pass",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 404
 
     def test_delete_wrong_password(self, handler, mock_user_store):
         """Wrong password returns 401."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "wrong-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "wrong-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 401
         body = _body(result)
@@ -673,10 +699,13 @@ class TestAccountDeletion:
             {"id": "user-001"},
             {"id": "user-002"},
         ]
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 400
         body = _body(result)
@@ -688,10 +717,13 @@ class TestAccountDeletion:
         mock_user_store.get_user_by_id.return_value = user
         mock_user_store.get_organization_by_id.return_value = MockOrg(owner_id="user-001")
         mock_user_store.get_org_members.return_value = [{"id": "user-001"}]
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 200
 
@@ -700,38 +732,50 @@ class TestAccountDeletion:
         user = MockUser(org_id="org-001")
         mock_user_store.get_user_by_id.return_value = user
         mock_user_store.get_organization_by_id.return_value = MockOrg(owner_id="user-999")
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert _status(result) == 200
 
     def test_delete_logs_audit_event(self, handler, mock_user_store):
         """Deletion logs audit events."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         assert mock_user_store.log_audit_event.call_count >= 1
 
     def test_delete_data_deleted_includes_preferences(self, handler, mock_user_store):
         """Deletion result includes preferences in data_deleted."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         body = _body(result)
         assert "preferences" in body["data_deleted"]
 
     def test_delete_data_deleted_includes_profile(self, handler, mock_user_store):
         """Deletion result includes profile in data_deleted."""
-        mock_h = _MockHTTPHandler("DELETE", body={
-            "password": "correct-password",
-            "confirm": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "DELETE",
+            body={
+                "password": "correct-password",
+                "confirm": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/account", {}, mock_h, method="DELETE")
         body = _body(result)
         assert "profile" in body["data_deleted"]
@@ -912,10 +956,13 @@ class TestUpdatePreferences:
 
     def test_update_success(self, handler, mock_user_store):
         """Successfully update privacy preferences."""
-        mock_h = _MockHTTPHandler("POST", body={
-            "do_not_sell": True,
-            "marketing_opt_out": True,
-        })
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={
+                "do_not_sell": True,
+                "marketing_opt_out": True,
+            },
+        )
         result = handler.handle("/api/v1/privacy/preferences", {}, mock_h, method="POST")
         assert _status(result) == 200
         body = _body(result)
@@ -972,10 +1019,13 @@ class TestUpdatePreferences:
 
     def test_update_boolean_coercion(self, handler, mock_user_store):
         """Non-boolean values are coerced to bool."""
-        mock_h = _MockHTTPHandler("POST", body={
-            "do_not_sell": 1,
-            "marketing_opt_out": "",
-        })
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={
+                "do_not_sell": 1,
+                "marketing_opt_out": "",
+            },
+        )
         result = handler.handle("/api/v1/privacy/preferences", {}, mock_h, method="POST")
         body = _body(result)
         assert body["preferences"]["do_not_sell"] is True
@@ -983,22 +1033,28 @@ class TestUpdatePreferences:
 
     def test_update_ignores_unknown_fields(self, handler, mock_user_store):
         """Unknown fields in body are ignored."""
-        mock_h = _MockHTTPHandler("POST", body={
-            "do_not_sell": True,
-            "unknown_field": "value",
-        })
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={
+                "do_not_sell": True,
+                "unknown_field": "value",
+            },
+        )
         result = handler.handle("/api/v1/privacy/preferences", {}, mock_h, method="POST")
         body = _body(result)
         assert "unknown_field" not in body["preferences"]
 
     def test_update_all_fields(self, handler, mock_user_store):
         """All four preference fields can be updated at once."""
-        mock_h = _MockHTTPHandler("POST", body={
-            "do_not_sell": True,
-            "marketing_opt_out": True,
-            "analytics_opt_out": True,
-            "third_party_sharing": False,
-        })
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={
+                "do_not_sell": True,
+                "marketing_opt_out": True,
+                "analytics_opt_out": True,
+                "third_party_sharing": False,
+            },
+        )
         result = handler.handle("/api/v1/privacy/preferences", {}, mock_h, method="POST")
         body = _body(result)
         prefs = body["preferences"]

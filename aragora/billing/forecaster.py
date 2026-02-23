@@ -857,7 +857,13 @@ async def run_budget_runway_check(
                         message=result.message,
                         metadata=result.to_dict(),
                     )
-                except (ImportError, RuntimeError, OSError, ConnectionError, ValueError) as notify_err:
+                except (
+                    ImportError,
+                    RuntimeError,
+                    OSError,
+                    ConnectionError,
+                    ValueError,
+                ) as notify_err:
                     logger.warning("Failed to send budget alert for %s: %s", ws_id, notify_err)
         except (RuntimeError, OSError, ConnectionError, ValueError, TypeError, KeyError) as e:
             logger.error("Budget runway check failed for %s: %s", ws_id, e)

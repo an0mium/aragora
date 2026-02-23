@@ -306,7 +306,8 @@ class TestModuleAvailability:
     def test_unavailable_delete(self, ab_handler_unavailable):
         """Test DELETE returns 503 when module unavailable."""
         result = ab_handler_unavailable.handle_delete(
-            "/api/evolution/ab-tests/test-123", {},
+            "/api/evolution/ab-tests/test-123",
+            {},
         )
         assert result.status_code == 503
 

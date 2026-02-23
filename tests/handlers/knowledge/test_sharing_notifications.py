@@ -251,9 +251,7 @@ class TestGetNotifications:
     def test_get_notifications_success(self, handler, http_handler, sample_notifications):
         with (
             patch(f"{_MOD}._notifications_limiter") as limiter,
-            patch(
-                f"{_MOD}.SharingNotificationsHandler._get_notifications"
-            ) as mock_get,
+            patch(f"{_MOD}.SharingNotificationsHandler._get_notifications") as mock_get,
         ):
             limiter.is_allowed.return_value = True
             from aragora.server.handlers.base import json_response
@@ -289,9 +287,7 @@ class TestGetNotifications:
                 {
                     "aragora.knowledge.mound.notifications": MagicMock(
                         NotificationStatus=MagicMock(),
-                        get_notifications_for_user=MagicMock(
-                            return_value=sample_notifications
-                        ),
+                        get_notifications_for_user=MagicMock(return_value=sample_notifications),
                     )
                 },
             ),
@@ -587,9 +583,7 @@ class TestGetPreferences:
 
     def test_get_preferences_runtime_error_returns_500(self, handler, http_handler):
         mock_mod = MagicMock()
-        mock_mod.get_notification_preferences = MagicMock(
-            side_effect=RuntimeError("store error")
-        )
+        mock_mod.get_notification_preferences = MagicMock(side_effect=RuntimeError("store error"))
 
         with (
             patch(f"{_MOD}._notifications_limiter") as limiter,
@@ -798,9 +792,7 @@ class TestMarkAllRead:
 
     def test_mark_all_read_runtime_error_returns_500(self, handler):
         mock_mod = MagicMock()
-        mock_mod.mark_all_notifications_read = MagicMock(
-            side_effect=RuntimeError("db error")
-        )
+        mock_mod.mark_all_notifications_read = MagicMock(side_effect=RuntimeError("db error"))
         mock_http = _MockHTTPHandler(
             method="POST",
             path="/api/v1/knowledge/notifications/read-all",
@@ -895,9 +887,7 @@ class TestDismissNotification:
 
     def test_dismiss_runtime_error_returns_500(self, handler):
         mock_store = MagicMock()
-        mock_store.dismiss_notification = MagicMock(
-            side_effect=RuntimeError("store failure")
-        )
+        mock_store.dismiss_notification = MagicMock(side_effect=RuntimeError("store failure"))
         mock_mod = MagicMock()
         mock_mod.get_notification_store = MagicMock(return_value=mock_store)
         mock_http = _MockHTTPHandler(
@@ -942,9 +932,7 @@ class TestDismissNotification:
                 mock_http,
             )
         # parts[4] is "notifications" due to the index bug
-        mock_store.dismiss_notification.assert_called_once_with(
-            "notifications", "test-user-001"
-        )
+        mock_store.dismiss_notification.assert_called_once_with("notifications", "test-user-001")
 
 
 # =============================================================================
@@ -1089,9 +1077,7 @@ class TestUpdatePreferences:
     def test_update_preferences_runtime_error_returns_500(self, handler):
         mock_mod = MagicMock()
         mock_mod.NotificationPreferences = MockNotificationPreferences
-        mock_mod.set_notification_preferences = MagicMock(
-            side_effect=RuntimeError("store error")
-        )
+        mock_mod.set_notification_preferences = MagicMock(side_effect=RuntimeError("store error"))
         mock_http = _MockHTTPHandler(
             method="PUT",
             path="/api/v1/knowledge/notifications/preferences",

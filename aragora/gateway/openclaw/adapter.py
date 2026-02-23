@@ -1052,7 +1052,9 @@ class OpenClawAdapter:
             )
         except (OSError, RuntimeError, AttributeError) as e:
             # Fallback to sync log
-            logger.debug("Async audit log failed, falling back to sync: %s: %s", type(e).__name__, e)
+            logger.debug(
+                "Async audit log failed, falling back to sync: %s: %s", type(e).__name__, e
+            )
             self.audit_logger.log(
                 event.value,
                 actor_id,

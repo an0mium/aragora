@@ -359,9 +359,7 @@ class UnifiedAuditLogger:
                 actor_id=event.actor_id or "",
                 resource_type=event.resource_type or "",
                 resource_id=event.resource_id or "",
-                outcome=outcome_map.get(
-                    event.outcome.value.upper(), ComplianceOutcome.SUCCESS
-                ),
+                outcome=outcome_map.get(event.outcome.value.upper(), ComplianceOutcome.SUCCESS),
                 org_id=event.org_id or "",
                 ip_address=event.ip_address or "",
                 details=event.details or {},

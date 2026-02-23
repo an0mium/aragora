@@ -342,20 +342,18 @@ class TestRateLimiting:
             "aragora.server.handlers.endpoint_analytics._endpoint_analytics_limiter"
         ) as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = _run(
-                handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-            )
+            result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
 
         assert _status(result) == 429
         body = _body(result)
-        assert "rate limit" in body.get("error", {}).get("message", "").lower() or \
-               "rate limit" in body.get("error", "").lower()
+        assert (
+            "rate limit" in body.get("error", {}).get("message", "").lower()
+            or "rate limit" in body.get("error", "").lower()
+        )
 
     def test_rate_limit_allowed_passes(self, handler, mock_http_handler):
         _seed_store()
-        result = _run(
-            handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
         assert _status(result) == 200
 
 
@@ -378,9 +376,7 @@ class TestRBAC:
             raise UnauthorizedError("No token")
 
         with patch.object(SecureHandler, "get_auth_context", mock_raise_unauth):
-            result = _run(
-                handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-            )
+            result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
 
         assert _status(result) == 401
 
@@ -406,11 +402,11 @@ class TestRBAC:
         def mock_check_perm(self, ctx, perm):
             raise ForbiddenError(f"Missing {perm}")
 
-        with patch.object(SecureHandler, "get_auth_context", mock_get_auth), \
-             patch.object(SecureHandler, "check_permission", mock_check_perm):
-            result = _run(
-                handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-            )
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch.object(SecureHandler, "check_permission", mock_check_perm),
+        ):
+            result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
 
         assert _status(result) == 403
 
@@ -424,9 +420,7 @@ class TestGetAllEndpoints:
     """Tests for the all-endpoints listing route."""
 
     def test_empty_store_returns_empty_list(self, handler, mock_http_handler):
-        result = _run(
-            handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["endpoints"] == []
@@ -434,9 +428,7 @@ class TestGetAllEndpoints:
 
     def test_returns_seeded_endpoints(self, handler, mock_http_handler):
         _seed_store()
-        result = _run(
-            handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert len(body["endpoints"]) == 3  # /api/debates GET, /api/agents GET, /api/users POST
@@ -518,9 +510,7 @@ class TestGetAllEndpoints:
 
     def test_versioned_path(self, handler, mock_http_handler):
         _seed_store()
-        result = _run(
-            handler.handle("/api/v1/analytics/endpoints", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/v1/analytics/endpoints", {}, mock_http_handler))
         assert _status(result) == 200
         assert len(_body(result)["endpoints"]) == 3
 
@@ -534,9 +524,7 @@ class TestGetSlowestEndpoints:
     """Tests for the slowest endpoints route."""
 
     def test_empty_store(self, handler, mock_http_handler):
-        result = _run(
-            handler.handle("/api/analytics/endpoints/slowest", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/slowest", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["slowest_endpoints"] == []
@@ -544,9 +532,7 @@ class TestGetSlowestEndpoints:
 
     def test_returns_sorted_by_p95_default(self, handler, mock_http_handler):
         _seed_store()
-        result = _run(
-            handler.handle("/api/analytics/endpoints/slowest", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/slowest", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         latencies = [ep["latency"]["p95_ms"] for ep in body["slowest_endpoints"]]
@@ -607,9 +593,7 @@ class TestGetSlowestEndpoints:
 
     def test_versioned_path(self, handler, mock_http_handler):
         _seed_store()
-        result = _run(
-            handler.handle("/api/v1/analytics/endpoints/slowest", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/v1/analytics/endpoints/slowest", {}, mock_http_handler))
         assert _status(result) == 200
 
 
@@ -622,9 +606,7 @@ class TestGetErrorEndpoints:
     """Tests for the error endpoints route."""
 
     def test_empty_store(self, handler, mock_http_handler):
-        result = _run(
-            handler.handle("/api/analytics/endpoints/errors", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/errors", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["error_endpoints"] == []
@@ -699,9 +681,7 @@ class TestGetErrorEndpoints:
         assert len(_body(result)["error_endpoints"]) == 1
 
     def test_versioned_path(self, handler, mock_http_handler):
-        result = _run(
-            handler.handle("/api/v1/analytics/endpoints/errors", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/v1/analytics/endpoints/errors", {}, mock_http_handler))
         assert _status(result) == 200
 
 
@@ -806,9 +786,7 @@ class TestGetHealthSummary:
     """Tests for the health summary route."""
 
     def test_empty_store_returns_unknown(self, handler, mock_http_handler):
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unknown"
@@ -820,9 +798,7 @@ class TestGetHealthSummary:
         entries = [("/api/a", "GET", 200, 0.01)] * 20
         _seed_store(entries)
 
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "healthy"
@@ -835,9 +811,7 @@ class TestGetHealthSummary:
         entries = [("/api/a", "GET", 200, 0.01)] * 97 + [("/api/a", "GET", 500, 0.01)] * 3
         _seed_store(entries)
 
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "warning"
@@ -847,9 +821,7 @@ class TestGetHealthSummary:
         entries = [("/api/a", "GET", 200, 0.01)] * 90 + [("/api/a", "GET", 500, 0.01)] * 10
         _seed_store(entries)
 
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "degraded"
@@ -859,9 +831,7 @@ class TestGetHealthSummary:
         entries = [("/api/slow", "GET", 200, 3.0)] * 20
         _seed_store(entries)
 
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "degraded"
@@ -871,18 +841,14 @@ class TestGetHealthSummary:
         entries = [("/api/moderate", "GET", 200, 0.8)] * 20
         _seed_store(entries)
 
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "warning"
 
     def test_health_summary_structure(self, handler, mock_http_handler):
         _seed_store()
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
 
@@ -911,9 +877,7 @@ class TestGetHealthSummary:
         )
         _seed_store(entries)
 
-        result = _run(
-            handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
         body = _body(result)
         # /api/healthy has 0% error rate -> healthy
@@ -922,9 +886,7 @@ class TestGetHealthSummary:
         assert body["endpoint_health"]["degraded"] >= 1
 
     def test_versioned_path(self, handler, mock_http_handler):
-        result = _run(
-            handler.handle("/api/v1/analytics/endpoints/health", {}, mock_http_handler)
-        )
+        result = _run(handler.handle("/api/v1/analytics/endpoints/health", {}, mock_http_handler))
         assert _status(result) == 200
 
 
@@ -959,19 +921,13 @@ class TestInternalErrors:
     """Tests for error handling within handler methods."""
 
     def test_all_endpoints_internal_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.endpoint_analytics._metrics_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.endpoint_analytics._metrics_store") as mock_store:
             mock_store.get_all_endpoints.side_effect = TypeError("test error")
-            result = _run(
-                handler.handle("/api/analytics/endpoints", {}, mock_http_handler)
-            )
+            result = _run(handler.handle("/api/analytics/endpoints", {}, mock_http_handler))
         assert _status(result) == 500
 
     def test_slowest_endpoints_internal_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.endpoint_analytics._metrics_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.endpoint_analytics._metrics_store") as mock_store:
             mock_store.get_all_endpoints.side_effect = ValueError("test error")
             result = _run(
                 handler.handle(
@@ -983,9 +939,7 @@ class TestInternalErrors:
         assert _status(result) == 500
 
     def test_error_endpoints_internal_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.endpoint_analytics._metrics_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.endpoint_analytics._metrics_store") as mock_store:
             mock_store.get_all_endpoints.side_effect = AttributeError("test error")
             result = _run(
                 handler.handle(
@@ -997,9 +951,7 @@ class TestInternalErrors:
         assert _status(result) == 500
 
     def test_endpoint_performance_internal_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.endpoint_analytics._metrics_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.endpoint_analytics._metrics_store") as mock_store:
             mock_store.get_endpoint.side_effect = KeyError("test error")
             result = _run(
                 handler.handle(
@@ -1011,9 +963,7 @@ class TestInternalErrors:
         assert _status(result) == 500
 
     def test_health_summary_internal_error(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.endpoint_analytics._metrics_store"
-        ) as mock_store:
+        with patch("aragora.server.handlers.endpoint_analytics._metrics_store") as mock_store:
             mock_store.get_all_endpoints.side_effect = TypeError("test error")
             result = _run(
                 handler.handle(

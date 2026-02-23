@@ -235,7 +235,14 @@ class GitHubClient:
         if self._connector:
             try:
                 return await self._get_pr_via_connector(owner, repo, pr_number)
-            except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
+            except (
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                ValueError,
+                KeyError,
+                AttributeError,
+            ) as e:
                 logger.warning("Connector failed, falling back to direct API: %s", e)
 
         if not self.token:
@@ -487,10 +494,21 @@ async def handle_trigger_pr_review(
                     }
 
                 logger.info(
-                    "[PRReview] Completed review %s for %s#%s: %s", review_id, repository, pr_number, verdict.value
+                    "[PRReview] Completed review %s for %s#%s: %s",
+                    review_id,
+                    repository,
+                    pr_number,
+                    verdict.value,
                 )
 
-            except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:  # for async review task
+            except (
+                ValueError,
+                KeyError,
+                TypeError,
+                RuntimeError,
+                OSError,
+                ConnectionError,
+            ) as e:  # for async review task
                 logger.exception("Review %s failed: %s", review_id, e)
                 with _storage_lock:
                     result.status = ReviewStatus.FAILED
@@ -643,7 +661,9 @@ async def _run_bug_detector_analysis(
                     continue
 
         logger.info(
-            "[PRReview] Bug detector found %s issues across %s files", len(comments), len(pr_details.changed_files)
+            "[PRReview] Bug detector found %s issues across %s files",
+            len(comments),
+            len(pr_details.changed_files),
         )
 
     except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
@@ -768,9 +788,8 @@ async def _perform_review(
                             if gap.suggested_tests:
                                 suggestions.extend(gap.suggested_tests[:2])
                         if suggestions:
-                            test_body = (
-                                "Missing test coverage. Suggested tests:\n"
-                                + "\n".join(f"- `{s}`" for s in suggestions[:5])
+                            test_body = "Missing test coverage. Suggested tests:\n" + "\n".join(
+                                f"- `{s}`" for s in suggestions[:5]
                             )
                 except (ImportError, ValueError, TypeError, AttributeError):
                     pass

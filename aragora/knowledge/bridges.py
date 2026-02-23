@@ -746,12 +746,14 @@ class KnowledgeBridgeHub:
                     continue
 
                 items = []
-                for r in results[:min(3, items_remaining)]:
+                for r in results[: min(3, items_remaining)]:
                     # Handle various result formats
                     if isinstance(r, dict):
                         content = r.get("content", r.get("summary", str(r)))
                         confidence = r.get("confidence", "")
-                        conf_str = f" ({confidence:.0%})" if isinstance(confidence, (int, float)) else ""
+                        conf_str = (
+                            f" ({confidence:.0%})" if isinstance(confidence, (int, float)) else ""
+                        )
                         items.append(f"- {content[:200]}{conf_str}")
                     elif hasattr(r, "content"):
                         conf = getattr(r, "confidence", "")
@@ -764,7 +766,14 @@ class KnowledgeBridgeHub:
                     sections.append(f"### {section_title}\n" + "\n".join(items))
                     items_remaining -= len(items)
 
-            except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
+            except (
+                ImportError,
+                AttributeError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                KeyError,
+            ) as e:
                 logger.debug("KM synthesis: %s adapter query failed: %s", adapter_name, e)
                 continue
 

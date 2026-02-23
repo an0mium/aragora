@@ -140,7 +140,9 @@ class VoteProcessor:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-                logger.warning("vote_exception agent=%s error=%s: %s", agent.name, type(e).__name__, e)
+                logger.warning(
+                    "vote_exception agent=%s error=%s: %s", agent.name, type(e).__name__, e
+                )
                 return (agent, e)
 
         async def collect_all_votes() -> None:
@@ -169,7 +171,10 @@ class VoteProcessor:
             await asyncio.wait_for(collect_all_votes(), timeout=self.vote_collection_timeout)
         except asyncio.TimeoutError:
             logger.warning(
-                "vote_collection_timeout collected=%s expected=%s timeout=%ss", len(votes), len(ctx.agents), self.vote_collection_timeout
+                "vote_collection_timeout collected=%s expected=%s timeout=%ss",
+                len(votes),
+                len(ctx.agents),
+                self.vote_collection_timeout,
             )
 
         return votes
@@ -209,7 +214,10 @@ class VoteProcessor:
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
-                    "vote_exception_unanimous agent=%s error=%s: %s", agent.name, type(e).__name__, e
+                    "vote_exception_unanimous agent=%s error=%s: %s",
+                    agent.name,
+                    type(e).__name__,
+                    e,
                 )
                 return (agent, e)
 
@@ -230,7 +238,9 @@ class VoteProcessor:
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
-                        logger.error("vote_error_unanimous agent=%s error=%s", agent.name, vote_result)
+                        logger.error(
+                            "vote_error_unanimous agent=%s error=%s", agent.name, vote_result
+                        )
                     else:
                         logger.error(
                             "vote_error_unanimous agent=%s error=vote returned None", agent.name
@@ -246,7 +256,11 @@ class VoteProcessor:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
             logger.warning(
-                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss", len(votes), voting_errors, len(ctx.agents), self.vote_collection_timeout
+                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss",
+                len(votes),
+                voting_errors,
+                len(ctx.agents),
+                self.vote_collection_timeout,
             )
 
         return votes, voting_errors

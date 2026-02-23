@@ -153,16 +153,20 @@ def mock_flow():
     flow = MagicMock()
     flow.list_pending = MagicMock(return_value=[])
     flow._load_request = MagicMock(return_value=None)
-    flow.approve = MagicMock(return_value=_make_approval_request(
-        status=_MockApprovalStatus.APPROVED,
-        approved_by="test-user-001",
-        approved_at=datetime(2026, 2, 15, 11, 0, 0, tzinfo=timezone.utc),
-    ))
-    flow.reject = MagicMock(return_value=_make_approval_request(
-        status=_MockApprovalStatus.REJECTED,
-        approved_by="test-user-001",
-        rejection_reason="Too risky",
-    ))
+    flow.approve = MagicMock(
+        return_value=_make_approval_request(
+            status=_MockApprovalStatus.APPROVED,
+            approved_by="test-user-001",
+            approved_at=datetime(2026, 2, 15, 11, 0, 0, tzinfo=timezone.utc),
+        )
+    )
+    flow.reject = MagicMock(
+        return_value=_make_approval_request(
+            status=_MockApprovalStatus.REJECTED,
+            approved_by="test-user-001",
+            rejection_reason="Too risky",
+        )
+    )
     return flow
 
 
@@ -247,9 +251,7 @@ class TestListPending:
 
     @pytest.mark.asyncio
     async def test_list_response_keys(self, install_flow, install_cb):
-        pending_req = _make_approval_request(
-            metadata={"priority": "high", "source": "nomic"}
-        )
+        pending_req = _make_approval_request(metadata={"priority": "high", "source": "nomic"})
         install_flow.list_pending.return_value = [pending_req]
 
         req = _make_request()
@@ -258,8 +260,15 @@ class TestListPending:
         data = await _parse(resp)
         item = data["pending"][0]
         expected_keys = {
-            "id", "title", "description", "changes", "risk_level",
-            "requested_at", "requested_by", "timeout_seconds", "metadata",
+            "id",
+            "title",
+            "description",
+            "changes",
+            "risk_level",
+            "requested_at",
+            "requested_by",
+            "timeout_seconds",
+            "metadata",
         }
         assert expected_keys == set(item.keys())
 
@@ -473,10 +482,19 @@ class TestGetRequest:
         data = await _parse(resp)
         request_data = data["request"]
         expected_keys = {
-            "id", "title", "description", "changes", "risk_level",
-            "requested_at", "requested_by", "timeout_seconds",
-            "status", "approved_by", "approved_at",
-            "rejection_reason", "metadata",
+            "id",
+            "title",
+            "description",
+            "changes",
+            "risk_level",
+            "requested_at",
+            "requested_by",
+            "timeout_seconds",
+            "status",
+            "approved_by",
+            "approved_at",
+            "rejection_reason",
+            "metadata",
         }
         assert expected_keys == set(request_data.keys())
 
@@ -637,9 +655,7 @@ class TestGetRequest:
 
     @pytest.mark.asyncio
     async def test_get_request_with_metadata(self, install_flow, install_cb):
-        approval_req = _make_approval_request(
-            metadata={"source": "nomic_loop", "cycle": 3}
-        )
+        approval_req = _make_approval_request(metadata={"source": "nomic_loop", "cycle": 3})
         install_flow._load_request.return_value = approval_req
 
         req = _make_request(match_info={"request_id": "req-001"})
@@ -1258,8 +1274,9 @@ class TestRegisterRoutes:
         assert any("request_id" in p and "/approve" in p for p in route_paths)
         assert any("request_id" in p and "/reject" in p for p in route_paths)
         # The GET for specific request by ID
-        assert any("request_id" in p and "/approve" not in p and "/reject" not in p
-                    for p in route_paths)
+        assert any(
+            "request_id" in p and "/approve" not in p and "/reject" not in p for p in route_paths
+        )
 
     def test_register_routes_custom_prefix(self):
         app = web.Application()
@@ -1279,11 +1296,7 @@ class TestRegisterRoutes:
         app = web.Application()
         ApprovalHandler.register_routes(app)
 
-        route_count = sum(
-            1
-            for r in app.router.routes()
-            if hasattr(r, "resource") and r.resource
-        )
+        route_count = sum(1 for r in app.router.routes() if hasattr(r, "resource") and r.resource)
         # 4 explicit routes: GET pending, GET {request_id}, POST approve, POST reject
         # aiohttp auto-adds HEAD for each GET = 2 more
         assert route_count == 6
@@ -1529,9 +1542,7 @@ class TestRBACNonAdmin:
             resp = await ApprovalHandler.list_pending(req)
 
         assert resp.status == 200
-        mock_checker.check_permission.assert_called_once_with(
-            mock_ctx, AUTONOMOUS_READ_PERMISSION
-        )
+        mock_checker.check_permission.assert_called_once_with(mock_ctx, AUTONOMOUS_READ_PERMISSION)
 
     @pytest.mark.asyncio
     @pytest.mark.no_auto_auth

@@ -803,7 +803,9 @@ async def explore_counterfactual(
 
     if not true_branch or not false_branch:
         logger.error(
-            "counterfactual_missing_branch true=%s false=%s", true_branch is not None, false_branch is not None
+            "counterfactual_missing_branch true=%s false=%s",
+            true_branch is not None,
+            false_branch is not None,
         )
         raise ValueError("Counterfactual analysis requires both true and false branches")
 

@@ -79,9 +79,7 @@ class MemoryTriggerEngine:
                     if not trigger.condition(context):
                         continue
                 except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as exc:
-                    logger.warning(
-                        "Trigger %s condition failed: %s", trigger.name, exc
-                    )
+                    logger.warning("Trigger %s condition failed: %s", trigger.name, exc)
                     self._fire_log.append(
                         TriggerResult(
                             trigger_name=trigger.name,
@@ -95,15 +93,18 @@ class MemoryTriggerEngine:
             if trigger.action is not None:
                 try:
                     await trigger.action(context)
-                    self._fire_log.append(
-                        TriggerResult(trigger_name=trigger.name, success=True)
-                    )
+                    self._fire_log.append(TriggerResult(trigger_name=trigger.name, success=True))
                     triggered.append(trigger.name)
                     _record_trigger_metric(trigger.name, True)
-                except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as exc:
-                    logger.warning(
-                        "Trigger %s action failed: %s", trigger.name, exc
-                    )
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    KeyError,
+                    AttributeError,
+                    OSError,
+                ) as exc:
+                    logger.warning("Trigger %s action failed: %s", trigger.name, exc)
                     self._fire_log.append(
                         TriggerResult(
                             trigger_name=trigger.name,
@@ -115,9 +116,7 @@ class MemoryTriggerEngine:
                     _record_trigger_metric(trigger.name, False)
             else:
                 # No action -- trigger matched but has no handler
-                self._fire_log.append(
-                    TriggerResult(trigger_name=trigger.name, success=True)
-                )
+                self._fire_log.append(TriggerResult(trigger_name=trigger.name, success=True))
                 triggered.append(trigger.name)
                 _record_trigger_metric(trigger.name, True)
 
@@ -164,8 +163,7 @@ class MemoryTriggerEngine:
                 name="stale_knowledge_revalidate",
                 event="stale_knowledge",
                 condition=lambda ctx: (
-                    ctx.get("days_since_access", 0) > 7
-                    and ctx.get("confidence", 1.0) < 0.5
+                    ctx.get("days_since_access", 0) > 7 and ctx.get("confidence", 1.0) < 0.5
                 ),
                 action=_mark_for_revalidation,
             )
@@ -183,8 +181,7 @@ class MemoryTriggerEngine:
                 name="consolidation_merge",
                 event="consolidation",
                 condition=lambda ctx: (
-                    ctx.get("item_count", 0) >= 3
-                    and ctx.get("avg_surprise", 1.0) < 0.2
+                    ctx.get("item_count", 0) >= 3 and ctx.get("avg_surprise", 1.0) < 0.2
                 ),
                 action=_merge_summaries,
             )

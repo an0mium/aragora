@@ -186,11 +186,11 @@ class TestListRuns:
     """Tests for listing self-improvement runs."""
 
     @pytest.mark.asyncio
-    async def test_list_runs_success(self, handler_with_store, mock_store, sample_run, mock_http_handler):
+    async def test_list_runs_success(
+        self, handler_with_store, mock_store, sample_run, mock_http_handler
+    ):
         mock_store.list_runs.return_value = [sample_run]
-        result = await handler_with_store.handle(
-            "/api/self-improve/runs", {}, mock_http_handler()
-        )
+        result = await handler_with_store.handle("/api/self-improve/runs", {}, mock_http_handler())
         body = parse_handler_response(result)
         assert result.status_code == 200
         assert len(body["runs"]) == 1
@@ -200,15 +200,15 @@ class TestListRuns:
     @pytest.mark.asyncio
     async def test_list_runs_empty(self, handler_with_store, mock_store, mock_http_handler):
         mock_store.list_runs.return_value = []
-        result = await handler_with_store.handle(
-            "/api/self-improve/runs", {}, mock_http_handler()
-        )
+        result = await handler_with_store.handle("/api/self-improve/runs", {}, mock_http_handler())
         body = parse_handler_response(result)
         assert body["runs"] == []
         assert body["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_runs_with_pagination(self, handler_with_store, mock_store, mock_http_handler):
+    async def test_list_runs_with_pagination(
+        self, handler_with_store, mock_store, mock_http_handler
+    ):
         mock_store.list_runs.return_value = []
         await handler_with_store.handle(
             "/api/self-improve/runs", {"limit": "10", "offset": "5"}, mock_http_handler()
@@ -216,7 +216,9 @@ class TestListRuns:
         mock_store.list_runs.assert_called_once_with(limit=10, offset=5, status=None)
 
     @pytest.mark.asyncio
-    async def test_list_runs_with_status_filter(self, handler_with_store, mock_store, mock_http_handler):
+    async def test_list_runs_with_status_filter(
+        self, handler_with_store, mock_store, mock_http_handler
+    ):
         mock_store.list_runs.return_value = []
         await handler_with_store.handle(
             "/api/self-improve/runs", {"status": "running"}, mock_http_handler()
@@ -226,9 +228,7 @@ class TestListRuns:
     @pytest.mark.asyncio
     async def test_list_runs_store_unavailable(self, handler, mock_http_handler):
         with patch.object(handler, "_get_store", return_value=None):
-            result = await handler.handle(
-                "/api/self-improve/runs", {}, mock_http_handler()
-            )
+            result = await handler.handle("/api/self-improve/runs", {}, mock_http_handler())
         assert result.status_code == 503
 
     @pytest.mark.asyncio
@@ -251,7 +251,9 @@ class TestGetRun:
     """Tests for getting a specific run."""
 
     @pytest.mark.asyncio
-    async def test_get_run_success(self, handler_with_store, mock_store, sample_run, mock_http_handler):
+    async def test_get_run_success(
+        self, handler_with_store, mock_store, sample_run, mock_http_handler
+    ):
         mock_store.get_run.return_value = sample_run
         result = await handler_with_store.handle(
             "/api/self-improve/runs/abc12345", {}, mock_http_handler()
@@ -273,13 +275,13 @@ class TestGetRun:
     @pytest.mark.asyncio
     async def test_get_run_store_unavailable(self, handler, mock_http_handler):
         with patch.object(handler, "_get_store", return_value=None):
-            result = await handler.handle(
-                "/api/self-improve/runs/abc123", {}, mock_http_handler()
-            )
+            result = await handler.handle("/api/self-improve/runs/abc123", {}, mock_http_handler())
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_get_completed_run(self, handler_with_store, mock_store, completed_run, mock_http_handler):
+    async def test_get_completed_run(
+        self, handler_with_store, mock_store, completed_run, mock_http_handler
+    ):
         mock_store.get_run.return_value = completed_run
         result = await handler_with_store.handle(
             "/api/self-improve/runs/def67890", {}, mock_http_handler()
@@ -300,17 +302,19 @@ class TestStartRun:
     """Tests for starting a self-improvement run."""
 
     @pytest.mark.asyncio
-    async def test_start_run_success(self, handler_with_store, mock_store, sample_run, mock_http_post_body):
+    async def test_start_run_success(
+        self, handler_with_store, mock_store, sample_run, mock_http_post_body
+    ):
         mock_store.create_run.return_value = sample_run
         mock_store.update_run.return_value = sample_run
 
         http = mock_http_post_body({"goal": "Improve test coverage"})
 
-        with patch.object(handler_with_store, "read_json_body", return_value={"goal": "Improve test coverage"}):
+        with patch.object(
+            handler_with_store, "read_json_body", return_value={"goal": "Improve test coverage"}
+        ):
             with patch.object(handler_with_store, "_execute_run", new_callable=AsyncMock):
-                result = await handler_with_store.handle_post(
-                    "/api/self-improve/start", {}, http
-                )
+                result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         body = parse_handler_response(result)
         assert result.status_code == 202
@@ -322,9 +326,7 @@ class TestStartRun:
         http = mock_http_post_body({})
 
         with patch.object(handler_with_store, "read_json_body", return_value={}):
-            result = await handler_with_store.handle_post(
-                "/api/self-improve/start", {}, http
-            )
+            result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         assert result.status_code == 400
         body = parse_handler_response(result)
@@ -335,9 +337,7 @@ class TestStartRun:
         http = mock_http_post_body({"goal": "   "})
 
         with patch.object(handler_with_store, "read_json_body", return_value={"goal": "   "}):
-            result = await handler_with_store.handle_post(
-                "/api/self-improve/start", {}, http
-            )
+            result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         assert result.status_code == 400
 
@@ -345,10 +345,10 @@ class TestStartRun:
     async def test_start_run_invalid_mode(self, handler_with_store, mock_http_post_body):
         http = mock_http_post_body({"goal": "Test", "mode": "invalid"})
 
-        with patch.object(handler_with_store, "read_json_body", return_value={"goal": "Test", "mode": "invalid"}):
-            result = await handler_with_store.handle_post(
-                "/api/self-improve/start", {}, http
-            )
+        with patch.object(
+            handler_with_store, "read_json_body", return_value={"goal": "Test", "mode": "invalid"}
+        ):
+            result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         assert result.status_code == 400
         body = parse_handler_response(result)
@@ -360,14 +360,14 @@ class TestStartRun:
 
         with patch.object(handler, "_get_store", return_value=None):
             with patch.object(handler, "read_json_body", return_value={"goal": "Test"}):
-                result = await handler.handle_post(
-                    "/api/self-improve/start", {}, http
-                )
+                result = await handler.handle_post("/api/self-improve/start", {}, http)
 
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_start_run_with_tracks(self, handler_with_store, mock_store, sample_run, mock_http_post_body):
+    async def test_start_run_with_tracks(
+        self, handler_with_store, mock_store, sample_run, mock_http_post_body
+    ):
         mock_store.create_run.return_value = sample_run
         mock_store.update_run.return_value = sample_run
 
@@ -376,9 +376,7 @@ class TestStartRun:
 
         with patch.object(handler_with_store, "read_json_body", return_value=body_data):
             with patch.object(handler_with_store, "_execute_run", new_callable=AsyncMock):
-                result = await handler_with_store.handle_post(
-                    "/api/self-improve/start", {}, http
-                )
+                result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         assert result.status_code == 202
         mock_store.create_run.assert_called_once()
@@ -386,7 +384,9 @@ class TestStartRun:
         assert call_kwargs["tracks"] == ["qa", "developer"]
 
     @pytest.mark.asyncio
-    async def test_start_run_hierarchical_mode(self, handler_with_store, mock_store, sample_run, mock_http_post_body):
+    async def test_start_run_hierarchical_mode(
+        self, handler_with_store, mock_store, sample_run, mock_http_post_body
+    ):
         mock_store.create_run.return_value = sample_run
         mock_store.update_run.return_value = sample_run
 
@@ -395,9 +395,7 @@ class TestStartRun:
 
         with patch.object(handler_with_store, "read_json_body", return_value=body_data):
             with patch.object(handler_with_store, "_execute_run", new_callable=AsyncMock):
-                result = await handler_with_store.handle_post(
-                    "/api/self-improve/start", {}, http
-                )
+                result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         assert result.status_code == 202
         call_kwargs = mock_store.create_run.call_args[1]
@@ -428,10 +426,10 @@ class TestDryRun:
         mock_plan = {"goal": "Refactor module", "subtasks": [], "tracks": []}
 
         with patch.object(handler_with_store, "read_json_body", return_value=body_data):
-            with patch.object(handler_with_store, "_generate_plan", new_callable=AsyncMock, return_value=mock_plan):
-                result = await handler_with_store.handle_post(
-                    "/api/self-improve/start", {}, http
-                )
+            with patch.object(
+                handler_with_store, "_generate_plan", new_callable=AsyncMock, return_value=mock_plan
+            ):
+                result = await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         body = parse_handler_response(result)
         assert result.status_code == 200
@@ -440,7 +438,9 @@ class TestDryRun:
         assert body["run_id"] == "dry12345"
 
     @pytest.mark.asyncio
-    async def test_dry_run_updates_store_completed(self, handler_with_store, mock_store, mock_http_post_body):
+    async def test_dry_run_updates_store_completed(
+        self, handler_with_store, mock_store, mock_http_post_body
+    ):
         dry_run = SelfImproveRun(
             run_id="dry12345",
             goal="Refactor module",
@@ -453,10 +453,10 @@ class TestDryRun:
         http = mock_http_post_body(body_data)
 
         with patch.object(handler_with_store, "read_json_body", return_value=body_data):
-            with patch.object(handler_with_store, "_generate_plan", new_callable=AsyncMock, return_value={}):
-                await handler_with_store.handle_post(
-                    "/api/self-improve/start", {}, http
-                )
+            with patch.object(
+                handler_with_store, "_generate_plan", new_callable=AsyncMock, return_value={}
+            ):
+                await handler_with_store.handle_post("/api/self-improve/start", {}, http)
 
         mock_store.update_run.assert_called_once()
         call_kwargs = mock_store.update_run.call_args[1]
@@ -473,7 +473,9 @@ class TestCancelRun:
     """Tests for cancelling a run."""
 
     @pytest.mark.asyncio
-    async def test_cancel_running_run(self, handler_with_store, mock_store, sample_run, mock_http_post_body):
+    async def test_cancel_running_run(
+        self, handler_with_store, mock_store, sample_run, mock_http_post_body
+    ):
         sample_run.status = RunStatus.CANCELLED
         mock_store.cancel_run.return_value = sample_run
 
@@ -503,7 +505,9 @@ class TestCancelRun:
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_cancel_stops_active_task(self, handler_with_store, mock_store, mock_http_post_body):
+    async def test_cancel_stops_active_task(
+        self, handler_with_store, mock_store, mock_http_post_body
+    ):
         from aragora.server.handlers.self_improve import _active_tasks
 
         mock_task = MagicMock(spec=asyncio.Task)
@@ -528,7 +532,9 @@ class TestCancelRun:
         assert "abc12345" not in _active_tasks
 
     @pytest.mark.asyncio
-    async def test_cancel_already_done_task(self, handler_with_store, mock_store, mock_http_post_body):
+    async def test_cancel_already_done_task(
+        self, handler_with_store, mock_store, mock_http_post_body
+    ):
         from aragora.server.handlers.self_improve import _active_tasks
 
         mock_task = MagicMock(spec=asyncio.Task)
@@ -545,9 +551,7 @@ class TestCancelRun:
         http = mock_http_post_body({})
 
         with patch.object(handler_with_store, "read_json_body", return_value={}):
-            await handler_with_store.handle_post(
-                "/api/self-improve/runs/abc12345/cancel", {}, http
-            )
+            await handler_with_store.handle_post("/api/self-improve/runs/abc12345/cancel", {}, http)
 
         mock_task.cancel.assert_not_called()
 
@@ -557,9 +561,7 @@ class TestCancelRun:
 
         with patch.object(handler, "_get_store", return_value=None):
             with patch.object(handler, "read_json_body", return_value={}):
-                result = await handler.handle_post(
-                    "/api/self-improve/runs/abc123/cancel", {}, http
-                )
+                result = await handler.handle_post("/api/self-improve/runs/abc123/cancel", {}, http)
 
         assert result.status_code == 503
 
@@ -582,12 +584,13 @@ class TestGeneratePlan:
         mock_result.subtasks = [mock_subtask]
         mock_result.complexity_score = 0.7
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.task_decomposer.TaskDecomposer"
-        ) as MockDecomposer:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.task_decomposer.TaskDecomposer") as MockDecomposer,
+        ):
             MockDecomposer.return_value.analyze.return_value = mock_result
             plan = await handler._generate_plan("Improve tests", ["qa"])
 
@@ -599,12 +602,15 @@ class TestGeneratePlan:
 
     @pytest.mark.asyncio
     async def test_generate_plan_import_error(self, handler):
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.task_decomposer.TaskDecomposer",
-            side_effect=ImportError("No decomposer"),
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch(
+                "aragora.nomic.task_decomposer.TaskDecomposer",
+                side_effect=ImportError("No decomposer"),
+            ),
         ):
             plan = await handler._generate_plan("Test", None)
 
@@ -617,12 +623,13 @@ class TestGeneratePlan:
     async def test_generate_plan_no_subtasks_attr(self, handler):
         mock_result = MagicMock(spec=[])
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.task_decomposer.TaskDecomposer"
-        ) as MockDecomposer:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.task_decomposer.TaskDecomposer") as MockDecomposer,
+        ):
             MockDecomposer.return_value.analyze.return_value = mock_result
             plan = await handler._generate_plan("Test", ["dev"])
 
@@ -634,12 +641,13 @@ class TestGeneratePlan:
         mock_result.subtasks = []
         mock_result.complexity_score = 0.1
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.task_decomposer.TaskDecomposer"
-        ) as MockDecomposer:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.task_decomposer.TaskDecomposer") as MockDecomposer,
+        ):
             MockDecomposer.return_value.analyze.return_value = mock_result
             plan = await handler._generate_plan("Test", None)
 
@@ -668,12 +676,13 @@ class TestExecuteRun:
         mock_result.summary = "Done"
         mock_result.error = None
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
-        ) as MockOrch:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.hardened_orchestrator.HardenedOrchestrator") as MockOrch,
+        ):
             mock_orch_instance = MockOrch.return_value
             mock_orch_instance.execute_goal_coordinated = AsyncMock(return_value=mock_result)
             await handler_with_store._execute_run("run123", "Test goal", None, "flat", None, 5)
@@ -686,12 +695,13 @@ class TestExecuteRun:
 
     @pytest.mark.asyncio
     async def test_execute_run_failure(self, handler_with_store, mock_store):
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
-        ) as MockOrch:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.hardened_orchestrator.HardenedOrchestrator") as MockOrch,
+        ):
             mock_orch_instance = MockOrch.return_value
             mock_orch_instance.execute_goal_coordinated = AsyncMock(
                 side_effect=RuntimeError("Orchestration failed")
@@ -705,12 +715,13 @@ class TestExecuteRun:
 
     @pytest.mark.asyncio
     async def test_execute_run_cancelled(self, handler_with_store, mock_store):
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
-        ) as MockOrch:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.hardened_orchestrator.HardenedOrchestrator") as MockOrch,
+        ):
             mock_orch_instance = MockOrch.return_value
             mock_orch_instance.execute_goal_coordinated = AsyncMock(
                 side_effect=asyncio.CancelledError()
@@ -741,12 +752,13 @@ class TestExecuteRun:
         mock_result.summary = "Failed"
         mock_result.error = "Test error"
 
-        with patch(
-            "aragora.nomic.self_improve.SelfImprovePipeline",
-            side_effect=ImportError("skip pipeline"),
-        ), patch(
-            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
-        ) as MockOrch:
+        with (
+            patch(
+                "aragora.nomic.self_improve.SelfImprovePipeline",
+                side_effect=ImportError("skip pipeline"),
+            ),
+            patch("aragora.nomic.hardened_orchestrator.HardenedOrchestrator") as MockOrch,
+        ):
             mock_orch_instance = MockOrch.return_value
             mock_orch_instance.execute_goal_coordinated = AsyncMock(return_value=mock_result)
             await handler_with_store._execute_run("run123", "Test", None, "flat", None, 5)
@@ -763,9 +775,7 @@ class TestStoreInit:
     """Tests for lazy store initialization."""
 
     def test_get_store_lazy_init(self, handler):
-        with patch(
-            "aragora.nomic.stores.run_store.SelfImproveRunStore"
-        ) as MockStore:
+        with patch("aragora.nomic.stores.run_store.SelfImproveRunStore") as MockStore:
             store_instance = MagicMock()
             MockStore.return_value = store_instance
 
@@ -818,12 +828,12 @@ class TestUnhandledPaths:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_handle_post_returns_none_for_unknown(self, handler_with_store, mock_http_post_body):
+    async def test_handle_post_returns_none_for_unknown(
+        self, handler_with_store, mock_http_post_body
+    ):
         http = mock_http_post_body({})
         with patch.object(handler_with_store, "read_json_body", return_value={}):
-            result = await handler_with_store.handle_post(
-                "/api/self-improve/unknown", {}, http
-            )
+            result = await handler_with_store.handle_post("/api/self-improve/unknown", {}, http)
         assert result is None
 
 
@@ -968,13 +978,9 @@ class TestListWorktrees:
         mock_wt.created_at = datetime(2026, 2, 15, 10, 0, 0, tzinfo=timezone.utc)
         mock_wt.assignment_id = "assign-001"
 
-        with patch(
-            "aragora.nomic.branch_coordinator.BranchCoordinator"
-        ) as MockCoord:
+        with patch("aragora.nomic.branch_coordinator.BranchCoordinator") as MockCoord:
             MockCoord.return_value.list_worktrees.return_value = [mock_wt]
-            result = await handler.handle(
-                "/api/self-improve/worktrees", {}, mock_http_handler()
-            )
+            result = await handler.handle("/api/self-improve/worktrees", {}, mock_http_handler())
 
         body = parse_handler_response(result)
         assert result.status_code == 200
@@ -984,13 +990,9 @@ class TestListWorktrees:
 
     @pytest.mark.asyncio
     async def test_list_worktrees_empty(self, handler, mock_http_handler):
-        with patch(
-            "aragora.nomic.branch_coordinator.BranchCoordinator"
-        ) as MockCoord:
+        with patch("aragora.nomic.branch_coordinator.BranchCoordinator") as MockCoord:
             MockCoord.return_value.list_worktrees.return_value = []
-            result = await handler.handle(
-                "/api/self-improve/worktrees", {}, mock_http_handler()
-            )
+            result = await handler.handle("/api/self-improve/worktrees", {}, mock_http_handler())
 
         body = parse_handler_response(result)
         assert body["worktrees"] == []
@@ -1002,9 +1004,7 @@ class TestListWorktrees:
             "aragora.nomic.branch_coordinator.BranchCoordinator",
             side_effect=ImportError("No coordinator"),
         ):
-            result = await handler.handle(
-                "/api/self-improve/worktrees", {}, mock_http_handler()
-            )
+            result = await handler.handle("/api/self-improve/worktrees", {}, mock_http_handler())
 
         body = parse_handler_response(result)
         assert body["worktrees"] == []
@@ -1019,13 +1019,9 @@ class TestListWorktrees:
         mock_wt.created_at = None
         mock_wt.assignment_id = None
 
-        with patch(
-            "aragora.nomic.branch_coordinator.BranchCoordinator"
-        ) as MockCoord:
+        with patch("aragora.nomic.branch_coordinator.BranchCoordinator") as MockCoord:
             MockCoord.return_value.list_worktrees.return_value = [mock_wt]
-            result = await handler.handle(
-                "/api/self-improve/worktrees", {}, mock_http_handler()
-            )
+            result = await handler.handle("/api/self-improve/worktrees", {}, mock_http_handler())
 
         body = parse_handler_response(result)
         assert body["worktrees"][0]["created_at"] is None
@@ -1039,14 +1035,10 @@ class TestCleanupWorktrees:
     async def test_cleanup_success(self, handler, mock_http_post_body):
         http = mock_http_post_body({})
 
-        with patch(
-            "aragora.nomic.branch_coordinator.BranchCoordinator"
-        ) as MockCoord:
+        with patch("aragora.nomic.branch_coordinator.BranchCoordinator") as MockCoord:
             MockCoord.return_value.cleanup_all_worktrees.return_value = 3
             with patch.object(handler, "read_json_body", return_value={}):
-                result = await handler.handle_post(
-                    "/api/self-improve/worktrees/cleanup", {}, http
-                )
+                result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         body = parse_handler_response(result)
         assert result.status_code == 200
@@ -1057,14 +1049,10 @@ class TestCleanupWorktrees:
     async def test_cleanup_nothing(self, handler, mock_http_post_body):
         http = mock_http_post_body({})
 
-        with patch(
-            "aragora.nomic.branch_coordinator.BranchCoordinator"
-        ) as MockCoord:
+        with patch("aragora.nomic.branch_coordinator.BranchCoordinator") as MockCoord:
             MockCoord.return_value.cleanup_all_worktrees.return_value = 0
             with patch.object(handler, "read_json_body", return_value={}):
-                result = await handler.handle_post(
-                    "/api/self-improve/worktrees/cleanup", {}, http
-                )
+                result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         body = parse_handler_response(result)
         assert body["removed"] == 0
@@ -1078,8 +1066,6 @@ class TestCleanupWorktrees:
             side_effect=ImportError("No coordinator"),
         ):
             with patch.object(handler, "read_json_body", return_value={}):
-                result = await handler.handle_post(
-                    "/api/self-improve/worktrees/cleanup", {}, http
-                )
+                result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         assert result.status_code == 503

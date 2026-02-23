@@ -453,9 +453,7 @@ class PromptContextMixin:
         """
         return self._knowledge_context
 
-    def set_knowledge_context(
-        self, context: str, item_ids: list[str] | None = None
-    ) -> None:
+    def set_knowledge_context(self, context: str, item_ids: list[str] | None = None) -> None:
         """Set structured Knowledge Mound context for prompt injection.
 
         This allows the context initializer to provide KM content as a

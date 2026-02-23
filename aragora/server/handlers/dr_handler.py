@@ -151,7 +151,13 @@ class DRHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+        except (
+            KeyError,
+            ValueError,
+            TypeError,
+            OSError,
+            RuntimeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Error handling DR request: %s", e)
             return error_response("Internal server error", 500)
 

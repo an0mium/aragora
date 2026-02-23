@@ -370,7 +370,11 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                         if _is_retryable_error(response.status_code, error):
                             if attempt < retries - 1:
                                 logger.warning(
-                                    "Slack %s retryable error: %s (attempt %s/%s)", operation, error, attempt + 1, retries
+                                    "Slack %s retryable error: %s (attempt %s/%s)",
+                                    operation,
+                                    error,
+                                    attempt + 1,
+                                    retries,
                                 )
                                 # Use Retry-After header for rate limits (429), exponential backoff otherwise
                                 if response.status_code == 429:
@@ -382,7 +386,9 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                         # Check for auth errors - attempt token refresh
                         if self._is_auth_error(error) and attempt < retries - 1:
                             logger.warning(
-                                "Slack %s auth error: %s, attempting token refresh", operation, error
+                                "Slack %s auth error: %s, attempting token refresh",
+                                operation,
+                                error,
                             )
                             if await self._attempt_token_refresh():
                                 # Token refreshed, retry immediately
@@ -399,7 +405,11 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                 classified = classify_connector_error(last_error, "slack")
                 if attempt < retries - 1:
                     logger.warning(
-                        "[slack] %s timeout (attempt %s/%s) [%s]", operation, attempt + 1, retries, type(classified).__name__
+                        "[slack] %s timeout (attempt %s/%s) [%s]",
+                        operation,
+                        attempt + 1,
+                        retries,
+                        type(classified).__name__,
                     )
                     await _exponential_backoff(attempt)
                     continue
@@ -411,12 +421,18 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                 classified = classify_connector_error(last_error, "slack")
                 if attempt < retries - 1:
                     logger.warning(
-                        "[slack] %s network error (attempt %s/%s) [%s]", operation, attempt + 1, retries, type(classified).__name__
+                        "[slack] %s network error (attempt %s/%s) [%s]",
+                        operation,
+                        attempt + 1,
+                        retries,
+                        type(classified).__name__,
                     )
                     await _exponential_backoff(attempt)
                     continue
                 # Final attempt failed
-                logger.error("[slack] %s network error after %s attempts: %s", operation, retries, e)
+                logger.error(
+                    "[slack] %s network error after %s attempts: %s", operation, retries, e
+                )
 
             except (_httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry, classify for metrics
@@ -430,7 +446,11 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 logger.exception(
-                    "[slack] %s unhandled %s [%s]: %s", operation, type(e).__name__, type(classified).__name__, e
+                    "[slack] %s unhandled %s [%s]: %s",
+                    operation,
+                    type(e).__name__,
+                    type(classified).__name__,
+                    e,
                 )
                 break
 

@@ -1053,76 +1053,94 @@ class TestAllExports:
 
     def test_all_exists(self):
         from aragora.server.handlers import interface
+
         assert hasattr(interface, "__all__")
 
     def test_all_is_list(self):
         from aragora.server.handlers import interface
+
         assert isinstance(interface.__all__, list)
 
     def test_all_items_are_strings(self):
         from aragora.server.handlers import interface
+
         for name in interface.__all__:
             assert isinstance(name, str)
 
     def test_all_items_importable(self):
         from aragora.server.handlers import interface
+
         for name in interface.__all__:
             assert hasattr(interface, name), f"{name!r} in __all__ but not accessible"
 
     def test_all_has_no_duplicates(self):
         from aragora.server.handlers import interface
+
         assert len(interface.__all__) == len(set(interface.__all__))
 
     def test_handler_result_in_all(self):
         from aragora.server.handlers import interface
+
         assert "HandlerResult" in interface.__all__
 
     def test_maybe_async_handler_result_in_all(self):
         from aragora.server.handlers import interface
+
         assert "MaybeAsyncHandlerResult" in interface.__all__
 
     def test_handler_interface_in_all(self):
         from aragora.server.handlers import interface
+
         assert "HandlerInterface" in interface.__all__
 
     def test_authenticated_handler_interface_in_all(self):
         from aragora.server.handlers import interface
+
         assert "AuthenticatedHandlerInterface" in interface.__all__
 
     def test_paginated_handler_interface_in_all(self):
         from aragora.server.handlers import interface
+
         assert "PaginatedHandlerInterface" in interface.__all__
 
     def test_cached_handler_interface_in_all(self):
         from aragora.server.handlers import interface
+
         assert "CachedHandlerInterface" in interface.__all__
 
     def test_storage_access_interface_in_all(self):
         from aragora.server.handlers import interface
+
         assert "StorageAccessInterface" in interface.__all__
 
     def test_minimal_server_context_in_all(self):
         from aragora.server.handlers import interface
+
         assert "MinimalServerContext" in interface.__all__
 
     def test_route_config_in_all(self):
         from aragora.server.handlers import interface
+
         assert "RouteConfig" in interface.__all__
 
     def test_handler_registration_in_all(self):
         from aragora.server.handlers import interface
+
         assert "HandlerRegistration" in interface.__all__
 
     def test_is_handler_in_all(self):
         from aragora.server.handlers import interface
+
         assert "is_handler" in interface.__all__
 
     def test_is_authenticated_handler_in_all(self):
         from aragora.server.handlers import interface
+
         assert "is_authenticated_handler" in interface.__all__
 
     def test_all_count(self):
         from aragora.server.handlers import interface
+
         assert len(interface.__all__) == 12
 
 

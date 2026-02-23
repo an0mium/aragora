@@ -319,7 +319,9 @@ class TestListPolicies:
         ids = [p["id"] for p in body["policies"]]
         assert ids == ["pol-001", "pol-002", "pol-003"]
 
-    def test_list_policies_with_workspace_filter(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_with_workspace_filter(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.list_policies.return_value = []
 
         req = make_handler_request()
@@ -327,7 +329,9 @@ class TestListPolicies:
         assert _status(result) == 200
         handler._mock_retention_manager.list_policies.assert_called_once_with(workspace_id="ws-42")
 
-    def test_list_policies_no_workspace_filter(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_no_workspace_filter(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.list_policies.return_value = []
 
         req = make_handler_request()
@@ -347,7 +351,9 @@ class TestListPolicies:
         assert body["policies"][0]["id"] == "cached-pol"
         handler._mock_retention_manager.list_policies.assert_not_called()
 
-    def test_list_policies_cache_miss_stores_result(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_cache_miss_stores_result(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """On cache miss, result should be stored in cache."""
         mock_workspace_module._retention_policy_cache.get.return_value = None
         handler._mock_retention_manager.list_policies.return_value = []
@@ -356,7 +362,9 @@ class TestListPolicies:
         handler._handle_list_policies(req, {})
         mock_workspace_module._retention_policy_cache.set.assert_called_once()
 
-    def test_list_policies_policy_with_last_run(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_policy_with_last_run(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         last_run = datetime(2026, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
         policy = _make_mock_policy(last_run=last_run)
         handler._mock_retention_manager.list_policies.return_value = [policy]
@@ -366,7 +374,9 @@ class TestListPolicies:
         body = _body(result)
         assert body["policies"][0]["last_run"] == last_run.isoformat()
 
-    def test_list_policies_policy_without_last_run(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_policy_without_last_run(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         policy = _make_mock_policy(last_run=None)
         handler._mock_retention_manager.list_policies.return_value = [policy]
 
@@ -375,7 +385,9 @@ class TestListPolicies:
         body = _body(result)
         assert body["policies"][0]["last_run"] is None
 
-    def test_list_policies_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request()
@@ -391,7 +403,9 @@ class TestListPolicies:
         result = handler._handle_list_policies(req, {})
         assert _status(result) == 403
 
-    def test_list_policies_applies_to_field(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_applies_to_field(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         policy = _make_mock_policy(applies_to=["documents", "sessions"])
         handler._mock_retention_manager.list_policies.return_value = [policy]
 
@@ -400,7 +414,9 @@ class TestListPolicies:
         body = _body(result)
         assert body["policies"][0]["applies_to"] == ["documents", "sessions"]
 
-    def test_list_policies_description_field(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_policies_description_field(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         policy = _make_mock_policy(description="Keep for compliance")
         handler._mock_retention_manager.list_policies.return_value = [policy]
 
@@ -497,7 +513,9 @@ class TestCreatePolicy:
         assert _status(result) == 400
         assert "JSON" in _error(result)
 
-    def test_create_policy_invalid_action(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_invalid_action(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         req = make_handler_request(
             method="POST",
             body={"name": "Test", "action": "explode"},
@@ -507,7 +525,9 @@ class TestCreatePolicy:
         assert "Invalid action" in _error(result)
         assert "explode" in _error(result)
 
-    def test_create_policy_action_delete(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_action_delete(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy(action=MockRetentionAction.DELETE)
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -516,7 +536,9 @@ class TestCreatePolicy:
         assert _status(result) == 201
         assert _body(result)["policy"]["action"] == "delete"
 
-    def test_create_policy_action_archive(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_action_archive(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy(action=MockRetentionAction.ARCHIVE)
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -525,7 +547,9 @@ class TestCreatePolicy:
         assert _status(result) == 201
         assert _body(result)["policy"]["action"] == "archive"
 
-    def test_create_policy_action_anonymize(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_action_anonymize(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy(action=MockRetentionAction.ANONYMIZE)
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -534,7 +558,9 @@ class TestCreatePolicy:
         assert _status(result) == 201
         assert _body(result)["policy"]["action"] == "anonymize"
 
-    def test_create_policy_action_notify(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_action_notify(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy(action=MockRetentionAction.NOTIFY)
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -543,7 +569,9 @@ class TestCreatePolicy:
         assert _status(result) == 201
         assert _body(result)["policy"]["action"] == "notify"
 
-    def test_create_policy_invalidates_cache(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_invalidates_cache(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy()
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -559,7 +587,9 @@ class TestCreatePolicy:
         handler._handle_create_policy(req)
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_create_policy_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="POST", body={"name": "P"})
@@ -575,7 +605,9 @@ class TestCreatePolicy:
         result = handler._handle_create_policy(req)
         assert _status(result) == 403
 
-    def test_create_policy_default_applies_to(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_default_applies_to(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy()
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -585,7 +617,9 @@ class TestCreatePolicy:
         call_kwargs = handler._mock_retention_manager.create_policy.call_args.kwargs
         assert call_kwargs["applies_to"] == ["documents", "findings", "sessions"]
 
-    def test_create_policy_default_description_empty(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_policy_default_description_empty(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy()
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -649,7 +683,9 @@ class TestGetPolicy:
         assert body["policy"]["id"] == "cached-pol"
         handler._mock_retention_manager.get_policy.assert_not_called()
 
-    def test_get_policy_cache_miss_stores_result(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_cache_miss_stores_result(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._retention_policy_cache.get.return_value = None
         policy = _make_mock_policy()
         handler._mock_retention_manager.get_policy.return_value = policy
@@ -671,7 +707,9 @@ class TestGetPolicy:
         body = _body(result)
         assert body["policy"]["last_run"] == last_run.isoformat()
 
-    def test_get_policy_without_last_run(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_without_last_run(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         policy = _make_mock_policy(last_run=None)
         handler._mock_retention_manager.get_policy.return_value = policy
 
@@ -680,7 +718,9 @@ class TestGetPolicy:
         body = _body(result)
         assert body["policy"]["last_run"] is None
 
-    def test_get_policy_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request()
@@ -754,7 +794,9 @@ class TestUpdatePolicy:
         call_kwargs = handler._mock_retention_manager.update_policy.call_args.kwargs
         assert call_kwargs["action"] == MockRetentionAction.ARCHIVE
 
-    def test_update_policy_invalid_action(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_policy_invalid_action(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         req = make_handler_request(
             method="PUT",
             body={"action": "nuke"},
@@ -780,7 +822,9 @@ class TestUpdatePolicy:
         assert _status(result) == 400
         assert "JSON" in _error(result)
 
-    def test_update_policy_invalidates_cache(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_policy_invalidates_cache(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         updated = _make_mock_policy()
         handler._mock_retention_manager.update_policy.return_value = updated
 
@@ -796,7 +840,9 @@ class TestUpdatePolicy:
         handler._handle_update_policy(req, "pol-001")
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_update_policy_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_policy_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="PUT", body={"name": "X"})
@@ -812,7 +858,9 @@ class TestUpdatePolicy:
         result = handler._handle_update_policy(req, "pol-001")
         assert _status(result) == 403
 
-    def test_update_policy_body_without_action_passes_through(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_policy_body_without_action_passes_through(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """When body has no action key, body passes through without enum conversion."""
         updated = _make_mock_policy()
         handler._mock_retention_manager.update_policy.return_value = updated
@@ -829,7 +877,9 @@ class TestUpdatePolicy:
         assert call_kwargs["enabled"] is False
         assert "action" not in call_kwargs
 
-    def test_update_policy_passes_policy_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_policy_passes_policy_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         updated = _make_mock_policy()
         handler._mock_retention_manager.update_policy.return_value = updated
 
@@ -854,12 +904,16 @@ class TestDeletePolicy:
         body = _body(result)
         assert body["message"] == "Policy deleted successfully"
 
-    def test_delete_policy_calls_manager(self, handler, make_handler_request, mock_workspace_module):
+    def test_delete_policy_calls_manager(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         req = make_handler_request(method="DELETE")
         handler._handle_delete_policy(req, "pol-xyz")
         handler._mock_retention_manager.delete_policy.assert_called_once_with("pol-xyz")
 
-    def test_delete_policy_invalidates_cache(self, handler, make_handler_request, mock_workspace_module):
+    def test_delete_policy_invalidates_cache(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         req = make_handler_request(method="DELETE")
         handler._handle_delete_policy(req, "pol-001")
         mock_workspace_module._invalidate_retention_cache.assert_called_once_with("pol-001")
@@ -869,7 +923,9 @@ class TestDeletePolicy:
         handler._handle_delete_policy(req, "pol-001")
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_delete_policy_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_delete_policy_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="DELETE")
@@ -885,7 +941,9 @@ class TestDeletePolicy:
         result = handler._handle_delete_policy(req, "pol-001")
         assert _status(result) == 403
 
-    def test_delete_policy_rbac_checks_delete_permission(self, handler, make_handler_request, mock_workspace_module):
+    def test_delete_policy_rbac_checks_delete_permission(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Verify that delete uses PERM_RETENTION_DELETE, not WRITE."""
         captured_perms = []
 
@@ -920,7 +978,9 @@ class TestExecutePolicy:
         assert body["report"]["items_deleted"] == 10
         assert body["report"]["items_evaluated"] == 200
 
-    def test_execute_policy_dry_run_true(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_policy_dry_run_true(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = _make_mock_report()
         handler._mock_retention_manager.execute_policy = AsyncMock(return_value=report)
 
@@ -935,7 +995,9 @@ class TestExecutePolicy:
             "pol-001", dry_run=True
         )
 
-    def test_execute_policy_dry_run_false_default(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_policy_dry_run_false_default(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = _make_mock_report()
         handler._mock_retention_manager.execute_policy = AsyncMock(return_value=report)
 
@@ -946,7 +1008,9 @@ class TestExecutePolicy:
             "pol-001", dry_run=False
         )
 
-    def test_execute_policy_dry_run_case_insensitive(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_policy_dry_run_case_insensitive(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = _make_mock_report()
         handler._mock_retention_manager.execute_policy = AsyncMock(return_value=report)
 
@@ -972,7 +1036,9 @@ class TestExecutePolicy:
         handler._handle_execute_policy(req, "pol-001", {})
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_execute_policy_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_policy_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="POST")
@@ -988,7 +1054,9 @@ class TestExecutePolicy:
         result = handler._handle_execute_policy(req, "pol-001", {})
         assert _status(result) == 403
 
-    def test_execute_policy_rbac_checks_execute_permission(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_policy_rbac_checks_execute_permission(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Verify that execute uses PERM_RETENTION_EXECUTE."""
         captured_perms = []
 
@@ -1004,7 +1072,9 @@ class TestExecutePolicy:
         handler._handle_execute_policy(req, "pol-001", {})
         assert "retention:execute" in captured_perms
 
-    def test_execute_policy_dry_run_non_true_is_false(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_policy_dry_run_non_true_is_false(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Any value other than 'true' for dry_run should be treated as false."""
         report = _make_mock_report()
         handler._mock_retention_manager.execute_policy = AsyncMock(return_value=report)
@@ -1028,9 +1098,7 @@ class TestExpiringItems:
             {"id": "item-1", "expires_at": "2026-03-01T00:00:00Z"},
             {"id": "item-2", "expires_at": "2026-03-05T00:00:00Z"},
         ]
-        handler._mock_retention_manager.check_expiring_soon = AsyncMock(
-            return_value=expiring_data
-        )
+        handler._mock_retention_manager.check_expiring_soon = AsyncMock(return_value=expiring_data)
 
         req = make_handler_request()
         result = handler._handle_expiring_items(req, {})
@@ -1063,7 +1131,9 @@ class TestExpiringItems:
             workspace_id=None, days=30
         )
 
-    def test_expiring_items_with_workspace_filter(self, handler, make_handler_request, mock_workspace_module):
+    def test_expiring_items_with_workspace_filter(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.check_expiring_soon = AsyncMock(return_value=[])
 
         req = make_handler_request()
@@ -1074,7 +1144,9 @@ class TestExpiringItems:
             workspace_id="ws-99", days=14
         )
 
-    def test_expiring_items_with_both_params(self, handler, make_handler_request, mock_workspace_module):
+    def test_expiring_items_with_both_params(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.check_expiring_soon = AsyncMock(return_value=[])
 
         req = make_handler_request()
@@ -1087,7 +1159,9 @@ class TestExpiringItems:
             workspace_id="ws-1", days=7
         )
 
-    def test_expiring_items_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_expiring_items_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request()
@@ -1103,7 +1177,9 @@ class TestExpiringItems:
         result = handler._handle_expiring_items(req, {})
         assert _status(result) == 403
 
-    def test_expiring_items_default_days_is_14(self, handler, make_handler_request, mock_workspace_module):
+    def test_expiring_items_default_days_is_14(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.check_expiring_soon = AsyncMock(return_value=[])
 
         req = make_handler_request()
@@ -1134,7 +1210,9 @@ class TestModuleExports:
 class TestAuditDetails:
     """Test that audit log entries contain correct operation details."""
 
-    def test_create_audit_contains_operation_create(self, handler, make_handler_request, mock_workspace_module):
+    def test_create_audit_contains_operation_create(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         created_policy = _make_mock_policy(name="Audit Test")
         handler._mock_retention_manager.create_policy.return_value = created_policy
 
@@ -1145,7 +1223,9 @@ class TestAuditDetails:
         assert call_kwargs["details"]["operation"] == "create"
         assert call_kwargs["details"]["name"] == "Audit Test"
 
-    def test_update_audit_contains_changed_keys(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_audit_contains_changed_keys(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         updated = _make_mock_policy()
         handler._mock_retention_manager.update_policy.return_value = updated
 
@@ -1159,14 +1239,18 @@ class TestAuditDetails:
         assert call_kwargs["details"]["operation"] == "update"
         assert set(call_kwargs["details"]["changes"]) == {"name", "retention_days"}
 
-    def test_delete_audit_contains_operation_delete(self, handler, make_handler_request, mock_workspace_module):
+    def test_delete_audit_contains_operation_delete(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         req = make_handler_request(method="DELETE")
         handler._handle_delete_policy(req, "pol-001")
 
         call_kwargs = handler._mock_audit_log.log.call_args.kwargs
         assert call_kwargs["details"]["operation"] == "delete"
 
-    def test_execute_audit_contains_dry_run_and_counts(self, handler, make_handler_request, mock_workspace_module):
+    def test_execute_audit_contains_dry_run_and_counts(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = _make_mock_report(items_deleted=7, items_evaluated=42)
         handler._mock_retention_manager.execute_policy = AsyncMock(return_value=report)
 
@@ -1190,7 +1274,9 @@ class TestAuditDetails:
         # Actor is created via mock_workspace_module.Actor(id=auth_ctx.user_id, type="user")
         mock_workspace_module.Actor.assert_called_with(id="test-user-001", type="user")
 
-    def test_audit_resource_uses_policy_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_audit_resource_uses_policy_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Audit log resource should use the policy ID."""
         req = make_handler_request(method="DELETE")
         handler._handle_delete_policy(req, "pol-target")
@@ -1201,7 +1287,9 @@ class TestAuditDetails:
 class TestCacheKeyFormats:
     """Test that cache keys are formed correctly."""
 
-    def test_list_cache_key_with_workspace(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_cache_key_with_workspace(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.list_policies.return_value = []
 
         req = make_handler_request()
@@ -1210,7 +1298,9 @@ class TestCacheKeyFormats:
         get_call = mock_workspace_module._retention_policy_cache.get.call_args
         assert get_call[0][0] == "retention:list:ws-42"
 
-    def test_list_cache_key_without_workspace(self, handler, make_handler_request, mock_workspace_module):
+    def test_list_cache_key_without_workspace(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_retention_manager.list_policies.return_value = []
 
         req = make_handler_request()
@@ -1241,7 +1331,9 @@ class TestCacheInvalidation:
         handler._handle_create_policy(req)
         mock_workspace_module._invalidate_retention_cache.assert_called_once_with()
 
-    def test_update_invalidates_specific_policy(self, handler, make_handler_request, mock_workspace_module):
+    def test_update_invalidates_specific_policy(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         updated = _make_mock_policy()
         handler._mock_retention_manager.update_policy.return_value = updated
 
@@ -1249,7 +1341,9 @@ class TestCacheInvalidation:
         handler._handle_update_policy(req, "pol-42")
         mock_workspace_module._invalidate_retention_cache.assert_called_once_with("pol-42")
 
-    def test_delete_invalidates_specific_policy(self, handler, make_handler_request, mock_workspace_module):
+    def test_delete_invalidates_specific_policy(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         req = make_handler_request(method="DELETE")
         handler._handle_delete_policy(req, "pol-42")
         mock_workspace_module._invalidate_retention_cache.assert_called_once_with("pol-42")

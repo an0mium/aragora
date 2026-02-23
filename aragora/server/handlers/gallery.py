@@ -148,7 +148,9 @@ class GalleryHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
         debates = self._load_debates_from_replays(nomic_dir, limit, offset, agent_filter)
 
-        logger.info("Gallery listing: %s debates (limit=%s, offset=%s)", len(debates), limit, offset)
+        logger.info(
+            "Gallery listing: %s debates (limit=%s, offset=%s)", len(debates), limit, offset
+        )
         return json_response(
             {
                 "debates": [d.to_dict() for d in debates],
@@ -167,7 +169,7 @@ class GalleryHandler(BaseHandler):
             logger.debug("Debate not found: %s", debate_id)
             return error_response("Debate not found", status=404)
 
-        logger.info("Retrieved debate %s with %s events", debate_id, len(debate.get('events', [])))
+        logger.info("Retrieved debate %s with %s events", debate_id, len(debate.get("events", [])))
         return json_response(debate)
 
     def _get_embed(self, debate_id: str) -> HandlerResult:

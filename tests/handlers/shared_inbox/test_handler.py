@@ -176,13 +176,19 @@ class TestPostSharedInbox:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "inbox": {"id": "inbox_1", "name": "Support"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Support",
-                "description": "Support inbox",
-                "email_address": "support@example.com",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Support",
+                    "description": "Support inbox",
+                    "email_address": "support@example.com",
+                }
+            )
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -204,29 +210,39 @@ class TestPostSharedInbox:
 
     @pytest.mark.asyncio
     async def test_invalid_inbox_name_too_long(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_shared_inbox({
-            "workspace_id": "ws_1",
-            "name": "x" * 300,
-        })
+        result = await handler.handle_post_shared_inbox(
+            {
+                "workspace_id": "ws_1",
+                "name": "x" * 300,
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_invalid_email_address(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_shared_inbox({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "email_address": "not-an-email",
-        })
+        result = await handler.handle_post_shared_inbox(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "email_address": "not-an-email",
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Duplicate name"}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Support",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Support",
+                }
+            )
         assert _status(result) == 400
         body = _body(result)
         assert "Duplicate name" in body.get("error", "")
@@ -234,11 +250,17 @@ class TestPostSharedInbox:
     @pytest.mark.asyncio
     async def test_sanitizes_name(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "inbox": {"id": "inbox_1", "name": "Good Name"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "  Good Name  ",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "  Good Name  ",
+                }
+            )
             # The sanitized name should be passed
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["name"] is not None
@@ -246,15 +268,21 @@ class TestPostSharedInbox:
     @pytest.mark.asyncio
     async def test_passes_optional_fields(self, handler_with_auth: SharedInboxHandler):
         mock_result = {"success": True, "inbox": {"id": "inbox_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler_with_auth.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "connector_type": "gmail",
-                "team_members": ["user1", "user2"],
-                "admins": ["admin1"],
-                "settings": {"auto_assign": True},
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler_with_auth.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "connector_type": "gmail",
+                    "team_members": ["user1", "user2"],
+                    "admins": ["admin1"],
+                    "settings": {"auto_assign": True},
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["connector_type"] == "gmail"
             assert call_kwargs["team_members"] == ["user1", "user2"]
@@ -265,34 +293,48 @@ class TestPostSharedInbox:
     @pytest.mark.asyncio
     async def test_description_sanitized(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "inbox": {"id": "inbox_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "description": "A description",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "description": "A description",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["description"] is not None
 
     @pytest.mark.asyncio
     async def test_error_with_unknown_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Test",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                }
+            )
         assert _status(result) == 400
         body = _body(result)
         assert "Unknown error" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_description_too_long(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_shared_inbox({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "description": "d" * 1500,
-        })
+        result = await handler.handle_post_shared_inbox(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "description": "d" * 1500,
+            }
+        )
         assert _status(result) == 400
 
 
@@ -307,7 +349,11 @@ class TestGetSharedInboxes:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "inboxes": [{"id": "inbox_1"}], "total": 1}
-        with patch(f"{_HANDLER_MOD}.handle_list_shared_inboxes", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_shared_inboxes",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_shared_inboxes({"workspace_id": "ws_1"})
         assert _status(result) == 200
         body = _body(result)
@@ -321,14 +367,22 @@ class TestGetSharedInboxes:
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Access denied"}
-        with patch(f"{_HANDLER_MOD}.handle_list_shared_inboxes", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_shared_inboxes",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_shared_inboxes({"workspace_id": "ws_1"})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_passes_user_id(self, handler_with_auth: SharedInboxHandler):
         mock_result = {"success": True, "inboxes": [], "total": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_shared_inboxes", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_shared_inboxes",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler_with_auth.handle_get_shared_inboxes({"workspace_id": "ws_1"})
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["user_id"] == "user-42"
@@ -345,7 +399,11 @@ class TestGetSharedInbox:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "inbox": {"id": "inbox_1", "name": "Support"}}
-        with patch(f"{_HANDLER_MOD}.handle_get_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_shared_inbox({}, "inbox_1")
         assert _status(result) == 200
         body = _body(result)
@@ -354,14 +412,22 @@ class TestGetSharedInbox:
     @pytest.mark.asyncio
     async def test_not_found(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Inbox not found"}
-        with patch(f"{_HANDLER_MOD}.handle_get_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_shared_inbox({}, "nonexistent")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_error_returns_404(self, handler: SharedInboxHandler):
         mock_result = {"success": False}
-        with patch(f"{_HANDLER_MOD}.handle_get_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_shared_inbox({}, "inbox_1")
         assert _status(result) == 404
 
@@ -383,7 +449,11 @@ class TestGetInboxMessages:
             "limit": 50,
             "offset": 0,
         }
-        with patch(f"{_HANDLER_MOD}.handle_get_inbox_messages", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_inbox_messages",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_inbox_messages({}, "inbox_1")
         assert _status(result) == 200
         body = _body(result)
@@ -392,9 +462,19 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_with_filters(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "messages": [], "total": 0, "limit": 10, "offset": 5}
-        with patch(f"{_HANDLER_MOD}.handle_get_inbox_messages", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_inbox_messages",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_get_inbox_messages(
-                {"status": "open", "assigned_to": "user1", "tag": "urgent", "limit": "10", "offset": "5"},
+                {
+                    "status": "open",
+                    "assigned_to": "user1",
+                    "tag": "urgent",
+                    "limit": "10",
+                    "offset": "5",
+                },
                 "inbox_1",
             )
             call_kwargs = mock_fn.call_args[1]
@@ -407,7 +487,11 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_default_limit_and_offset(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "messages": [], "total": 0, "limit": 50, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_get_inbox_messages", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_inbox_messages",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_get_inbox_messages({}, "inbox_1")
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["limit"] == 50
@@ -416,7 +500,11 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_handler_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Inbox not found"}
-        with patch(f"{_HANDLER_MOD}.handle_get_inbox_messages", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_inbox_messages",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_inbox_messages({}, "inbox_1")
         assert _status(result) == 400
 
@@ -432,7 +520,11 @@ class TestPostAssignMessage:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "assigned_to": "user1"}}
-        with patch(f"{_HANDLER_MOD}.handle_assign_message", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_assign_message",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_assign_message(
                 {"assigned_to": "user1"}, "inbox_1", "msg_1"
             )
@@ -447,9 +539,7 @@ class TestPostAssignMessage:
 
     @pytest.mark.asyncio
     async def test_assigned_to_not_string(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_assign_message(
-            {"assigned_to": 123}, "inbox_1", "msg_1"
-        )
+        result = await handler.handle_post_assign_message({"assigned_to": 123}, "inbox_1", "msg_1")
         assert _status(result) == 400
         body = _body(result)
         assert "string" in body.get("error", "").lower()
@@ -475,7 +565,11 @@ class TestPostAssignMessage:
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Message not found"}
-        with patch(f"{_HANDLER_MOD}.handle_assign_message", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_assign_message",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_assign_message(
                 {"assigned_to": "user1"}, "inbox_1", "msg_1"
             )
@@ -484,7 +578,11 @@ class TestPostAssignMessage:
     @pytest.mark.asyncio
     async def test_passes_assigned_by(self, handler_with_auth: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_assign_message", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_assign_message",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler_with_auth.handle_post_assign_message(
                 {"assigned_to": "user1"}, "inbox_1", "msg_1"
             )
@@ -503,16 +601,22 @@ class TestPostUpdateStatus:
     @pytest.mark.asyncio
     async def test_success_open(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "status": "open"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_update_status(
-                {"status": "open"}, "inbox_1", "msg_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_update_status({"status": "open"}, "inbox_1", "msg_1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_success_resolved(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "status": "resolved"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_update_status(
                 {"status": "resolved"}, "inbox_1", "msg_1"
             )
@@ -521,7 +625,11 @@ class TestPostUpdateStatus:
     @pytest.mark.asyncio
     async def test_success_assigned(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "status": "assigned"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_update_status(
                 {"status": "assigned"}, "inbox_1", "msg_1"
             )
@@ -530,7 +638,11 @@ class TestPostUpdateStatus:
     @pytest.mark.asyncio
     async def test_success_in_progress(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "status": "in_progress"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_update_status(
                 {"status": "in_progress"}, "inbox_1", "msg_1"
             )
@@ -539,7 +651,11 @@ class TestPostUpdateStatus:
     @pytest.mark.asyncio
     async def test_success_waiting(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "status": "waiting"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_update_status(
                 {"status": "waiting"}, "inbox_1", "msg_1"
             )
@@ -548,7 +664,11 @@ class TestPostUpdateStatus:
     @pytest.mark.asyncio
     async def test_success_closed(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "status": "closed"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_post_update_status(
                 {"status": "closed"}, "inbox_1", "msg_1"
             )
@@ -573,16 +693,22 @@ class TestPostUpdateStatus:
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Message not found"}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_update_status(
-                {"status": "open"}, "inbox_1", "msg_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_update_status({"status": "open"}, "inbox_1", "msg_1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_passes_updated_by(self, handler_with_auth: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_message_status",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler_with_auth.handle_post_update_status(
                 {"status": "open"}, "inbox_1", "msg_1"
             )
@@ -601,10 +727,12 @@ class TestPostAddTag:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "tags": ["urgent"]}}
-        with patch(f"{_HANDLER_MOD}.handle_add_message_tag", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_add_tag(
-                {"tag": "urgent"}, "inbox_1", "msg_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_add_message_tag",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_add_tag({"tag": "urgent"}, "inbox_1", "msg_1")
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -621,34 +749,34 @@ class TestPostAddTag:
 
     @pytest.mark.asyncio
     async def test_tag_too_long(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_add_tag(
-            {"tag": "x" * 200}, "inbox_1", "msg_1"
-        )
+        result = await handler.handle_post_add_tag({"tag": "x" * 200}, "inbox_1", "msg_1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_tag_invalid_characters(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_add_tag(
-            {"tag": "has spaces!"}, "inbox_1", "msg_1"
-        )
+        result = await handler.handle_post_add_tag({"tag": "has spaces!"}, "inbox_1", "msg_1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_tag_with_hyphen_and_underscore(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "tags": ["my-tag_1"]}}
-        with patch(f"{_HANDLER_MOD}.handle_add_message_tag", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_add_tag(
-                {"tag": "my-tag_1"}, "inbox_1", "msg_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_add_message_tag",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_add_tag({"tag": "my-tag_1"}, "inbox_1", "msg_1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Message not found"}
-        with patch(f"{_HANDLER_MOD}.handle_add_message_tag", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_add_tag(
-                {"tag": "urgent"}, "inbox_1", "msg_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_add_message_tag",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_add_tag({"tag": "urgent"}, "inbox_1", "msg_1")
         assert _status(result) == 400
 
 
@@ -663,88 +791,112 @@ class TestPostRoutingRule:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1", "name": "Test Rule"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_routing_rule", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_routing_rule({
-                "workspace_id": "ws_1",
-                "name": "Test Rule",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "urgent"}],
-                "actions": [{"type": "assign", "target": "team1"}],
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test Rule",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "urgent"}],
+                    "actions": [{"type": "assign", "target": "team1"}],
+                }
+            )
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
 
     @pytest.mark.asyncio
     async def test_missing_workspace_id(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_routing_rule({
-            "name": "Test",
-            "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-            "actions": [{"type": "assign", "target": "team1"}],
-        })
+        result = await handler.handle_post_routing_rule(
+            {
+                "name": "Test",
+                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                "actions": [{"type": "assign", "target": "team1"}],
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_name(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_routing_rule({
-            "workspace_id": "ws_1",
-            "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-            "actions": [{"type": "assign", "target": "team1"}],
-        })
+        result = await handler.handle_post_routing_rule(
+            {
+                "workspace_id": "ws_1",
+                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                "actions": [{"type": "assign", "target": "team1"}],
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_conditions(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_routing_rule({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "actions": [{"type": "assign", "target": "team1"}],
-        })
+        result = await handler.handle_post_routing_rule(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "actions": [{"type": "assign", "target": "team1"}],
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_actions(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_routing_rule({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-        })
+        result = await handler.handle_post_routing_rule(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_conditions(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_routing_rule({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "conditions": [],
-            "actions": [{"type": "assign", "target": "team1"}],
-        })
+        result = await handler.handle_post_routing_rule(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "conditions": [],
+                "actions": [{"type": "assign", "target": "team1"}],
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_actions(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_routing_rule({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-            "actions": [],
-        })
+        result = await handler.handle_post_routing_rule(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                "actions": [],
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_passes_optional_fields(self, handler_with_auth: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler_with_auth.handle_post_routing_rule({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-                "actions": [{"type": "assign", "target": "team1"}],
-                "condition_logic": "OR",
-                "priority": 1,
-                "enabled": False,
-                "description": "A rule",
-                "inbox_id": "inbox_1",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler_with_auth.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                    "actions": [{"type": "assign", "target": "team1"}],
+                    "condition_logic": "OR",
+                    "priority": 1,
+                    "enabled": False,
+                    "description": "A rule",
+                    "inbox_id": "inbox_1",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["condition_logic"] == "OR"
             assert call_kwargs["priority"] == 1
@@ -756,51 +908,75 @@ class TestPostRoutingRule:
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Rate limit exceeded"}
-        with patch(f"{_HANDLER_MOD}.handle_create_routing_rule", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_routing_rule({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-                "actions": [{"type": "assign", "target": "team1"}],
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                    "actions": [{"type": "assign", "target": "team1"}],
+                }
+            )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_default_condition_logic(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_routing_rule({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-                "actions": [{"type": "assign", "target": "team1"}],
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                    "actions": [{"type": "assign", "target": "team1"}],
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["condition_logic"] == "AND"
 
     @pytest.mark.asyncio
     async def test_default_priority(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_routing_rule({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-                "actions": [{"type": "assign", "target": "team1"}],
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                    "actions": [{"type": "assign", "target": "team1"}],
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["priority"] == 5
 
     @pytest.mark.asyncio
     async def test_default_enabled(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_routing_rule({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
-                "actions": [{"type": "assign", "target": "team1"}],
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "x"}],
+                    "actions": [{"type": "assign", "target": "team1"}],
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["enabled"] is True
 
@@ -815,8 +991,18 @@ class TestGetRoutingRules:
 
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
-        mock_result = {"success": True, "rules": [{"id": "rule_1"}], "total": 1, "limit": 100, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result):
+        mock_result = {
+            "success": True,
+            "rules": [{"id": "rule_1"}],
+            "total": 1,
+            "limit": 100,
+            "offset": 0,
+        }
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_routing_rules({"workspace_id": "ws_1"})
         assert _status(result) == 200
         body = _body(result)
@@ -830,14 +1016,20 @@ class TestGetRoutingRules:
     @pytest.mark.asyncio
     async def test_with_filters(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rules": [], "total": 0, "limit": 10, "offset": 5}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_get_routing_rules({
-                "workspace_id": "ws_1",
-                "enabled_only": "true",
-                "limit": "10",
-                "offset": "5",
-                "inbox_id": "inbox_1",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_get_routing_rules(
+                {
+                    "workspace_id": "ws_1",
+                    "enabled_only": "true",
+                    "limit": "10",
+                    "offset": "5",
+                    "inbox_id": "inbox_1",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["enabled_only"] is True
             assert call_kwargs["limit"] == 10
@@ -847,18 +1039,28 @@ class TestGetRoutingRules:
     @pytest.mark.asyncio
     async def test_enabled_only_false(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rules": [], "total": 0, "limit": 100, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_get_routing_rules({
-                "workspace_id": "ws_1",
-                "enabled_only": "false",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_get_routing_rules(
+                {
+                    "workspace_id": "ws_1",
+                    "enabled_only": "false",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["enabled_only"] is False
 
     @pytest.mark.asyncio
     async def test_enabled_only_default(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rules": [], "total": 0, "limit": 100, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_get_routing_rules({"workspace_id": "ws_1"})
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["enabled_only"] is False
@@ -866,7 +1068,11 @@ class TestGetRoutingRules:
     @pytest.mark.asyncio
     async def test_default_limit_and_offset(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rules": [], "total": 0, "limit": 100, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_get_routing_rules({"workspace_id": "ws_1"})
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["limit"] == 100
@@ -875,7 +1081,11 @@ class TestGetRoutingRules:
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Access denied"}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_routing_rules({"workspace_id": "ws_1"})
         assert _status(result) == 400
 
@@ -891,7 +1101,11 @@ class TestPatchRoutingRule:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1", "enabled": False}}
-        with patch(f"{_HANDLER_MOD}.handle_update_routing_rule", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_patch_routing_rule({"enabled": False}, "rule_1")
         assert _status(result) == 200
         body = _body(result)
@@ -900,14 +1114,22 @@ class TestPatchRoutingRule:
     @pytest.mark.asyncio
     async def test_not_found(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Rule not found"}
-        with patch(f"{_HANDLER_MOD}.handle_update_routing_rule", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_patch_routing_rule({"enabled": False}, "nonexistent")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_passes_data_and_rule_id(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule": {"id": "rule_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_update_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_update_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_patch_routing_rule({"priority": 1, "name": "New Name"}, "rule_1")
             args = mock_fn.call_args[0]
             assert args[0] == "rule_1"
@@ -925,7 +1147,11 @@ class TestDeleteRoutingRule:
     @pytest.mark.asyncio
     async def test_success(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "deleted": "rule_1"}
-        with patch(f"{_HANDLER_MOD}.handle_delete_routing_rule", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_delete_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_delete_routing_rule("rule_1")
         assert _status(result) == 200
         body = _body(result)
@@ -934,14 +1160,22 @@ class TestDeleteRoutingRule:
     @pytest.mark.asyncio
     async def test_not_found(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Rule not found"}
-        with patch(f"{_HANDLER_MOD}.handle_delete_routing_rule", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_delete_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_delete_routing_rule("nonexistent")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_passes_rule_id(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "deleted": "rule_abc"}
-        with patch(f"{_HANDLER_MOD}.handle_delete_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_delete_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_delete_routing_rule("rule_abc")
             mock_fn.assert_called_once_with("rule_abc")
 
@@ -962,10 +1196,12 @@ class TestPostTestRoutingRule:
             "match_count": 5,
             "rule": {"id": "rule_1", "name": "Test Rule"},
         }
-        with patch(f"{_HANDLER_MOD}.handle_test_routing_rule", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_test_routing_rule(
-                {"workspace_id": "ws_1"}, "rule_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_test_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_test_routing_rule({"workspace_id": "ws_1"}, "rule_1")
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -978,19 +1214,23 @@ class TestPostTestRoutingRule:
     @pytest.mark.asyncio
     async def test_handler_returns_error(self, handler: SharedInboxHandler):
         mock_result = {"success": False, "error": "Rule not found"}
-        with patch(f"{_HANDLER_MOD}.handle_test_routing_rule", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_test_routing_rule(
-                {"workspace_id": "ws_1"}, "rule_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_test_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_test_routing_rule({"workspace_id": "ws_1"}, "rule_1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_passes_rule_id_and_workspace(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "rule_id": "rule_1", "match_count": 0, "rule": {}}
-        with patch(f"{_HANDLER_MOD}.handle_test_routing_rule", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_test_routing_rule(
-                {"workspace_id": "ws_1"}, "rule_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_test_routing_rule",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_test_routing_rule({"workspace_id": "ws_1"}, "rule_1")
             mock_fn.assert_called_once_with("rule_1", "ws_1")
 
 
@@ -1027,12 +1267,18 @@ class TestEdgeCases:
     async def test_post_inbox_null_description(self, handler: SharedInboxHandler):
         """Null description should not be sanitized."""
         mock_result = {"success": True, "inbox": {"id": "inbox_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "description": None,
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "description": None,
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["description"] is None
 
@@ -1040,12 +1286,18 @@ class TestEdgeCases:
     async def test_post_inbox_empty_description(self, handler: SharedInboxHandler):
         """Empty string description should not be sanitized."""
         mock_result = {"success": True, "inbox": {"id": "inbox_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Test",
-                "description": "",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Test",
+                    "description": "",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             # Empty string is falsy, so description should be None
             assert call_kwargs["description"] is None
@@ -1054,7 +1306,11 @@ class TestEdgeCases:
     async def test_assign_message_sanitizes_user_id(self, handler: SharedInboxHandler):
         """The assigned_to field should be sanitized before passing to handler."""
         mock_result = {"success": True, "message": {"id": "msg_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_assign_message", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
+        with patch(
+            f"{_HANDLER_MOD}.handle_assign_message",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
             await handler.handle_post_assign_message(
                 {"assigned_to": "user-valid"}, "inbox_1", "msg_1"
             )
@@ -1068,7 +1324,11 @@ class TestEdgeCases:
 
         for status_val in MessageStatus:
             mock_result = {"success": True, "message": {"id": "msg_1", "status": status_val.value}}
-            with patch(f"{_HANDLER_MOD}.handle_update_message_status", new_callable=AsyncMock, return_value=mock_result):
+            with patch(
+                f"{_HANDLER_MOD}.handle_update_message_status",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ):
                 result = await handler.handle_post_update_status(
                     {"status": status_val.value}, "inbox_1", "msg_1"
                 )
@@ -1087,14 +1347,22 @@ class TestEdgeCases:
         assert h.ctx["key"] == "value"
 
     @pytest.mark.asyncio
-    async def test_get_routing_rules_enabled_only_case_insensitive(self, handler: SharedInboxHandler):
+    async def test_get_routing_rules_enabled_only_case_insensitive(
+        self, handler: SharedInboxHandler
+    ):
         """enabled_only 'True' (uppercase T) should still be truthy."""
         mock_result = {"success": True, "rules": [], "total": 0, "limit": 100, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_get_routing_rules({
-                "workspace_id": "ws_1",
-                "enabled_only": "True",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_get_routing_rules(
+                {
+                    "workspace_id": "ws_1",
+                    "enabled_only": "True",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["enabled_only"] is True
 
@@ -1102,56 +1370,74 @@ class TestEdgeCases:
     async def test_get_routing_rules_enabled_only_TRUE(self, handler: SharedInboxHandler):
         """enabled_only 'TRUE' (all caps) should also be truthy."""
         mock_result = {"success": True, "rules": [], "total": 0, "limit": 100, "offset": 0}
-        with patch(f"{_HANDLER_MOD}.handle_list_routing_rules", new_callable=AsyncMock, return_value=mock_result) as mock_fn:
-            await handler.handle_get_routing_rules({
-                "workspace_id": "ws_1",
-                "enabled_only": "TRUE",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_list_routing_rules",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_fn:
+            await handler.handle_get_routing_rules(
+                {
+                    "workspace_id": "ws_1",
+                    "enabled_only": "TRUE",
+                }
+            )
             call_kwargs = mock_fn.call_args[1]
             assert call_kwargs["enabled_only"] is True
 
     @pytest.mark.asyncio
     async def test_tag_with_numbers(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "message": {"id": "msg_1", "tags": ["tag123"]}}
-        with patch(f"{_HANDLER_MOD}.handle_add_message_tag", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_add_tag(
-                {"tag": "tag123"}, "inbox_1", "msg_1"
-            )
+        with patch(
+            f"{_HANDLER_MOD}.handle_add_message_tag",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_add_tag({"tag": "tag123"}, "inbox_1", "msg_1")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_tag_special_chars_rejected(self, handler: SharedInboxHandler):
         """Tags with @, #, etc. should be rejected."""
-        result = await handler.handle_post_add_tag(
-            {"tag": "@mention"}, "inbox_1", "msg_1"
-        )
+        result = await handler.handle_post_add_tag({"tag": "@mention"}, "inbox_1", "msg_1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_create_inbox_with_valid_email(self, handler: SharedInboxHandler):
         mock_result = {"success": True, "inbox": {"id": "inbox_1"}}
-        with patch(f"{_HANDLER_MOD}.handle_create_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
-            result = await handler.handle_post_shared_inbox({
-                "workspace_id": "ws_1",
-                "name": "Support",
-                "email_address": "support@company.com",
-            })
+        with patch(
+            f"{_HANDLER_MOD}.handle_create_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await handler.handle_post_shared_inbox(
+                {
+                    "workspace_id": "ws_1",
+                    "name": "Support",
+                    "email_address": "support@company.com",
+                }
+            )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_create_inbox_email_missing_domain_dot(self, handler: SharedInboxHandler):
-        result = await handler.handle_post_shared_inbox({
-            "workspace_id": "ws_1",
-            "name": "Test",
-            "email_address": "user@nodot",
-        })
+        result = await handler.handle_post_shared_inbox(
+            {
+                "workspace_id": "ws_1",
+                "name": "Test",
+                "email_address": "user@nodot",
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_get_inbox_unknown_error_fallback(self, handler: SharedInboxHandler):
         """When handler returns success=False with no error field."""
         mock_result = {"success": False}
-        with patch(f"{_HANDLER_MOD}.handle_get_shared_inbox", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{_HANDLER_MOD}.handle_get_shared_inbox",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await handler.handle_get_shared_inbox({}, "inbox_1")
         assert _status(result) == 404
         body = _body(result)

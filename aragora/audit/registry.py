@@ -135,7 +135,9 @@ class AuditRegistry:
             )
 
         self._auditors[audit_type_id] = auditor
-        logger.info("Registered auditor: %s (v%s) by %s", audit_type_id, auditor.version, auditor.author)
+        logger.info(
+            "Registered auditor: %s (v%s) by %s", audit_type_id, auditor.version, auditor.author
+        )
 
     def register_class(
         self,
@@ -441,7 +443,9 @@ class AuditRegistry:
                                 self.register(attr())
                                 count += 1
                                 logger.info(
-                                    "Discovered plugin auditor: %s from %s.py", attr_name, plugin_dir / module_info.name
+                                    "Discovered plugin auditor: %s from %s.py",
+                                    attr_name,
+                                    plugin_dir / module_info.name,
                                 )
 
                 except (ImportError, ValueError, OSError, RuntimeError) as e:

@@ -55,6 +55,7 @@ def _body(result) -> dict:
     if hasattr(result, "status_code"):
         # HandlerResult dataclass - decode JSON body
         import json as _json
+
         try:
             return _json.loads(result.body.decode("utf-8")) if result.body else {}
         except (ValueError, AttributeError):
@@ -168,16 +169,18 @@ def _reset_circuit_breaker():
 def _make_mock_queue():
     """Create a mock queue with standard async methods."""
     queue = AsyncMock()
-    queue.get_queue_stats = AsyncMock(return_value={
-        "pending": 5,
-        "processing": 2,
-        "completed": 10,
-        "failed": 1,
-        "cancelled": 0,
-        "retrying": 0,
-        "stream_length": 18,
-        "pending_in_group": 5,
-    })
+    queue.get_queue_stats = AsyncMock(
+        return_value={
+            "pending": 5,
+            "processing": 2,
+            "completed": 10,
+            "failed": 1,
+            "cancelled": 0,
+            "retrying": 0,
+            "stream_length": 18,
+            "pending_in_group": 5,
+        }
+    )
     queue.enqueue = AsyncMock(return_value="job-new-001")
     queue.get_status = AsyncMock(return_value=None)
     queue.cancel = AsyncMock(return_value=True)
@@ -189,12 +192,14 @@ def _make_mock_queue():
     queue.stream_key = "aragora:queue:stream"
     queue._status_tracker = AsyncMock()
     queue._status_tracker.list_jobs = AsyncMock(return_value=[])
-    queue._status_tracker.get_counts_by_status = AsyncMock(return_value={
-        "pending": 5,
-        "processing": 2,
-        "completed": 10,
-        "failed": 1,
-    })
+    queue._status_tracker.get_counts_by_status = AsyncMock(
+        return_value={
+            "pending": 5,
+            "processing": 2,
+            "completed": 10,
+            "failed": 1,
+        }
+    )
     return queue
 
 
@@ -792,7 +797,9 @@ class TestListJobs:
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
                 result = await handler.handle(
-                    "/api/queue/jobs", "GET", handler=mock_handler,
+                    "/api/queue/jobs",
+                    "GET",
+                    handler=mock_handler,
                 )
 
         assert _status(result) == 200
@@ -804,7 +811,9 @@ class TestListJobs:
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
                 result = await handler.handle(
-                    "/api/queue/jobs", "GET", handler=mock_handler,
+                    "/api/queue/jobs",
+                    "GET",
+                    handler=mock_handler,
                 )
 
         assert _status(result) == 400
@@ -838,7 +847,9 @@ class TestListJobs:
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
                 result = await handler.handle(
-                    "/api/queue/jobs", "GET", handler=mock_handler,
+                    "/api/queue/jobs",
+                    "GET",
+                    handler=mock_handler,
                 )
 
         assert _status(result) == 200
@@ -1220,7 +1231,9 @@ class TestListDLQ:
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
                 result = await handler.handle(
-                    "/api/queue/dlq", "GET", handler=mock_handler,
+                    "/api/queue/dlq",
+                    "GET",
+                    handler=mock_handler,
                 )
 
         assert _status(result) == 200
@@ -1446,7 +1459,13 @@ class TestRequeueAllDLQ:
 
         mock_queue.enqueue = AsyncMock(side_effect=enqueue_side_effect)
         jobs = [
-            MockJob(id=f"dlq-{i:03d}", status=MockJobStatus.FAILED, attempts=3, max_attempts=3, metadata={})
+            MockJob(
+                id=f"dlq-{i:03d}",
+                status=MockJobStatus.FAILED,
+                attempts=3,
+                max_attempts=3,
+                metadata={},
+            )
             for i in range(3)
         ]
         mock_queue.list_jobs.return_value = jobs
@@ -1505,7 +1524,11 @@ class TestCleanupJobs:
         old_time = datetime.now().timestamp() - (10 * 86400)  # 10 days ago
         jobs = [
             MockJob(id="old-001", status=MockJobStatus.COMPLETED, completed_at=old_time),
-            MockJob(id="new-001", status=MockJobStatus.COMPLETED, completed_at=datetime.now().timestamp()),
+            MockJob(
+                id="new-001",
+                status=MockJobStatus.COMPLETED,
+                completed_at=datetime.now().timestamp(),
+            ),
         ]
         mock_queue.list_jobs.return_value = jobs
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
@@ -1714,8 +1737,8 @@ class TestListStaleJobs:
         mock_queue = _make_mock_queue()
         now = datetime.now().timestamp()
         jobs = [
-            MockJob(id="short-001", status=MockJobStatus.PROCESSING, started_at=now - 7200),   # 2h
-            MockJob(id="long-001", status=MockJobStatus.PROCESSING, started_at=now - 14400),    # 4h
+            MockJob(id="short-001", status=MockJobStatus.PROCESSING, started_at=now - 7200),  # 2h
+            MockJob(id="long-001", status=MockJobStatus.PROCESSING, started_at=now - 14400),  # 4h
             MockJob(id="medium-001", status=MockJobStatus.PROCESSING, started_at=now - 10800),  # 3h
         ]
         mock_queue.list_jobs.return_value = jobs
@@ -1736,7 +1759,11 @@ class TestListStaleJobs:
         mock_queue = _make_mock_queue()
         now = datetime.now().timestamp()
         jobs = [
-            MockJob(id=f"stuck-{i:03d}", status=MockJobStatus.PROCESSING, started_at=now - (i + 1) * 7200)
+            MockJob(
+                id=f"stuck-{i:03d}",
+                status=MockJobStatus.PROCESSING,
+                started_at=now - (i + 1) * 7200,
+            )
             for i in range(10)
         ]
         mock_queue.list_jobs.return_value = jobs
@@ -1794,7 +1821,9 @@ class TestAuthentication:
         from aragora.server.handlers.utils.auth import UnauthorizedError
 
         with patch.object(
-            handler, "get_auth_context", side_effect=UnauthorizedError("Not authenticated"),
+            handler,
+            "get_auth_context",
+            side_effect=UnauthorizedError("Not authenticated"),
         ):
             result = await handler.handle("/api/queue/stats", "GET")
 
@@ -1807,7 +1836,9 @@ class TestAuthentication:
         from aragora.server.handlers.utils.auth import ForbiddenError
 
         with patch.object(
-            handler, "get_auth_context", side_effect=ForbiddenError("Forbidden"),
+            handler,
+            "get_auth_context",
+            side_effect=ForbiddenError("Forbidden"),
         ):
             result = await handler.handle("/api/queue/stats", "GET")
 
@@ -1828,10 +1859,14 @@ class TestAuthentication:
             permissions={"queue:read"},
         )
         with patch.object(
-            handler, "get_auth_context", return_value=mock_ctx,
+            handler,
+            "get_auth_context",
+            return_value=mock_ctx,
         ):
             with patch.object(
-                handler, "check_permission", side_effect=ForbiddenError("Denied"),
+                handler,
+                "check_permission",
+                side_effect=ForbiddenError("Denied"),
             ):
                 result = await handler.handle("/api/queue/dlq", "GET")
 
@@ -1843,7 +1878,12 @@ class TestAuthentication:
         # This test just verifies the handler runs without permission errors
         # when the auto-auth provides wildcard permissions
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            for path in ["/api/queue/stats", "/api/queue/workers", "/api/queue/jobs", "/api/queue/stale"]:
+            for path in [
+                "/api/queue/stats",
+                "/api/queue/workers",
+                "/api/queue/jobs",
+                "/api/queue/stale",
+            ]:
                 result = await handler.handle(path, "GET")
                 assert result is not None
 

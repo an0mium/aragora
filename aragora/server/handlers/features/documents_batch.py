@@ -329,7 +329,9 @@ class DocumentBatchHandler(BaseHandler):
                         )
                         knowledge_job_ids.append(kp_job_id)
                     logger.info(
-                        "Queued %s knowledge processing jobs for batch %s", len(knowledge_job_ids), batch_id
+                        "Queued %s knowledge processing jobs for batch %s",
+                        len(knowledge_job_ids),
+                        batch_id,
                     )
                 except ImportError:
                     logger.warning("Knowledge pipeline not available for batch processing")

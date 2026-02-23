@@ -78,9 +78,7 @@ class TestDebugAttempt:
 
 class TestDebugLoopResult:
     def test_defaults(self):
-        result = DebugLoopResult(
-            subtask_id="sub_1", success=False, total_attempts=0
-        )
+        result = DebugLoopResult(subtask_id="sub_1", success=False, total_attempts=0)
         assert result.subtask_id == "sub_1"
         assert result.success is False
         assert result.total_attempts == 0
@@ -120,16 +118,18 @@ class TestDebugLoopResult:
         assert d["attempts"][0]["success"] is False
 
     def test_to_dict_empty_attempts(self):
-        result = DebugLoopResult(
-            subtask_id="x", success=True, total_attempts=0
-        )
+        result = DebugLoopResult(subtask_id="x", success=True, total_attempts=0)
         d = result.to_dict()
         assert d["attempts"] == []
         assert d["final_files_changed"] == []
 
     def test_with_populated_attempts(self):
-        a1 = DebugAttempt(attempt_number=1, prompt="p1", tests_passed=3, tests_failed=2, success=False)
-        a2 = DebugAttempt(attempt_number=2, prompt="p2", tests_passed=5, tests_failed=0, success=True)
+        a1 = DebugAttempt(
+            attempt_number=1, prompt="p1", tests_passed=3, tests_failed=2, success=False
+        )
+        a2 = DebugAttempt(
+            attempt_number=2, prompt="p2", tests_passed=5, tests_failed=0, success=True
+        )
         result = DebugLoopResult(
             subtask_id="sub_multi",
             success=True,
@@ -165,7 +165,9 @@ class TestSingleAttemptSuccess:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("ok", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 10, "failed": 0, "output": "10 passed"},
             ),
             patch.object(loop, "_get_changed_files", return_value=["fix.py"]),
@@ -192,7 +194,9 @@ class TestSingleAttemptSuccess:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 0, "failed": 0, "output": "no tests ran"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
@@ -213,14 +217,14 @@ class TestSingleAttemptSuccess:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 3, "failed": 0, "output": "3 passed"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Fix it", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Fix it", worktree_path="/tmp/wt")
 
         assert result.success is True
         assert result.final_tests_passed == 3
@@ -231,18 +235,20 @@ class TestSingleAttemptSuccess:
         loop = DebugLoop(DebugLoopConfig(max_retries=1))
         with (
             patch.object(
-                loop, "_run_agent", new_callable=AsyncMock,
+                loop,
+                "_run_agent",
+                new_callable=AsyncMock,
                 return_value=("agent output here", "some warning"),
             ),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "1 passed"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Task", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Task", worktree_path="/tmp/wt")
 
         assert result.attempts[0].agent_stdout == "agent output here"
         assert result.attempts[0].agent_stderr == "some warning"
@@ -255,14 +261,14 @@ class TestSingleAttemptSuccess:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "ok"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction=long_prompt, worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction=long_prompt, worktree_path="/tmp/wt")
 
         assert len(result.attempts[0].prompt) == 500
 
@@ -273,18 +279,20 @@ class TestSingleAttemptSuccess:
         long_stdout = "y" * 2000
         with (
             patch.object(
-                loop, "_run_agent", new_callable=AsyncMock,
+                loop,
+                "_run_agent",
+                new_callable=AsyncMock,
                 return_value=(long_stdout, ""),
             ),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "ok"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="task", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="task", worktree_path="/tmp/wt")
 
         assert len(result.attempts[0].agent_stdout) == 1000
 
@@ -295,18 +303,20 @@ class TestSingleAttemptSuccess:
         long_stderr = "z" * 800
         with (
             patch.object(
-                loop, "_run_agent", new_callable=AsyncMock,
+                loop,
+                "_run_agent",
+                new_callable=AsyncMock,
                 return_value=("", long_stderr),
             ),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "ok"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="task", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="task", worktree_path="/tmp/wt")
 
         assert len(result.attempts[0].agent_stderr) == 500
 
@@ -317,7 +327,9 @@ class TestSingleAttemptSuccess:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "1 passed"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
@@ -336,7 +348,9 @@ class TestSingleAttemptSuccess:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "ok"},
             ) as mock_run_tests,
             patch.object(loop, "_get_changed_files", return_value=[]),
@@ -382,9 +396,7 @@ class TestRetryBehavior:
             patch.object(loop, "_run_tests", side_effect=mock_run_tests),
             patch.object(loop, "_get_changed_files", return_value=["fixed.py"]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Fix tests", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Fix tests", worktree_path="/tmp/wt")
 
         assert result.success is True
         assert result.total_attempts == 2
@@ -398,14 +410,14 @@ class TestRetryBehavior:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 2, "failed": 1, "output": "1 failed"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Unfixable", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Unfixable", worktree_path="/tmp/wt")
 
         assert result.success is False
         assert result.total_attempts == 3
@@ -438,9 +450,7 @@ class TestRetryBehavior:
             patch.object(loop, "_run_tests", side_effect=mock_tests),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            await loop.execute_with_retry(
-                instruction="Fix auth", worktree_path="/tmp/wt"
-            )
+            await loop.execute_with_retry(instruction="Fix auth", worktree_path="/tmp/wt")
 
         assert len(prompts_received) == 2
         # First call gets the original instruction
@@ -511,9 +521,7 @@ class TestRetryBehavior:
             patch.object(loop, "_run_tests", side_effect=mock_tests),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            await loop.execute_with_retry(
-                instruction="Fix it", worktree_path="/tmp/wt"
-            )
+            await loop.execute_with_retry(instruction="Fix it", worktree_path="/tmp/wt")
 
         retry_prompt = prompts_received[1]
         assert "... [truncated]" in retry_prompt
@@ -527,14 +535,14 @@ class TestRetryBehavior:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 0, "failed": 1, "output": "fail"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="x", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="x", worktree_path="/tmp/wt")
 
         assert len(result.attempts) == 3
         for i, attempt in enumerate(result.attempts, 1):
@@ -561,9 +569,7 @@ class TestRetryBehavior:
             patch.object(loop, "_run_tests", side_effect=mock_tests),
             patch.object(loop, "_get_changed_files", return_value=["partial.py"]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="x", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="x", worktree_path="/tmp/wt")
 
         assert result.success is False
         assert result.final_tests_passed == 2
@@ -576,16 +582,14 @@ class TestRetryBehavior:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 0, "failed": 1, "output": "fail"},
             ),
-            patch.object(
-                loop, "_get_changed_files", return_value=["broken.py"]
-            ) as mock_changed,
+            patch.object(loop, "_get_changed_files", return_value=["broken.py"]) as mock_changed,
         ):
-            result = await loop.execute_with_retry(
-                instruction="x", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="x", worktree_path="/tmp/wt")
 
         assert result.final_files_changed == ["broken.py"]
         mock_changed.assert_called_with("/tmp/wt")
@@ -597,14 +601,14 @@ class TestRetryBehavior:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 0, "failed": 1, "output": "fail"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="x", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="x", worktree_path="/tmp/wt")
 
         assert result.total_attempts == 1
         assert len(result.attempts) == 1
@@ -631,9 +635,7 @@ class TestRetryBehavior:
             patch.object(loop, "_run_tests", side_effect=mock_tests),
             patch.object(loop, "_get_changed_files", return_value=["final.py"]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Hard fix", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Hard fix", worktree_path="/tmp/wt")
 
         assert result.success is True
         assert result.total_attempts == 3
@@ -655,9 +657,7 @@ class TestRetryBehavior:
             patch.object(loop, "_run_tests", side_effect=counting_tests),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Easy fix", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Easy fix", worktree_path="/tmp/wt")
 
         assert result.success is True
         assert result.total_attempts == 1
@@ -670,7 +670,9 @@ class TestRetryBehavior:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "ok"},
             ) as mock_tests,
             patch.object(loop, "_get_changed_files", return_value=[]),
@@ -689,14 +691,14 @@ class TestRetryBehavior:
         with (
             patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("", "")),
             patch.object(
-                loop, "_run_tests", new_callable=AsyncMock,
+                loop,
+                "_run_tests",
+                new_callable=AsyncMock,
                 return_value={"passed": 1, "failed": 0, "output": "ok"},
             ),
             patch.object(loop, "_get_changed_files", return_value=[]),
         ):
-            result = await loop.execute_with_retry(
-                instruction="Fix", worktree_path="/tmp/wt"
-            )
+            result = await loop.execute_with_retry(instruction="Fix", worktree_path="/tmp/wt")
 
         assert result.subtask_id == ""
 
@@ -741,7 +743,10 @@ class TestBuildRetryPrompt:
     def test_includes_retry_attempt_header(self):
         loop = DebugLoop()
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=3, tests_failed=2,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=3,
+            tests_failed=2,
             test_output="FAILED test_x",
         )
         prompt = loop._build_retry_prompt("original", attempt)
@@ -750,7 +755,10 @@ class TestBuildRetryPrompt:
     def test_includes_attempt_number_incremented(self):
         loop = DebugLoop()
         attempt = DebugAttempt(
-            attempt_number=2, prompt="p", tests_passed=1, tests_failed=1,
+            attempt_number=2,
+            prompt="p",
+            tests_passed=1,
+            tests_failed=1,
             test_output="fail",
         )
         prompt = loop._build_retry_prompt("orig", attempt)
@@ -759,7 +767,10 @@ class TestBuildRetryPrompt:
     def test_includes_original_objective(self):
         loop = DebugLoop()
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=0, tests_failed=1,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=0,
+            tests_failed=1,
             test_output="err",
         )
         prompt = loop._build_retry_prompt("Refactor authentication module", attempt)
@@ -769,7 +780,10 @@ class TestBuildRetryPrompt:
     def test_includes_test_count_summary(self):
         loop = DebugLoop()
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=7, tests_failed=3,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=7,
+            tests_failed=3,
             test_output="output",
         )
         prompt = loop._build_retry_prompt("orig", attempt)
@@ -779,7 +793,10 @@ class TestBuildRetryPrompt:
     def test_includes_test_output(self):
         loop = DebugLoop()
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=0, tests_failed=1,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=0,
+            tests_failed=1,
             test_output="FAILED tests/auth/test_login.py::test_invalid_token - AssertionError",
         )
         prompt = loop._build_retry_prompt("orig", attempt)
@@ -789,7 +806,10 @@ class TestBuildRetryPrompt:
         loop = DebugLoop(DebugLoopConfig(max_failure_context_chars=100))
         long_output = "FAIL " * 200  # 1000 chars
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=0, tests_failed=5,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=0,
+            tests_failed=5,
             test_output=long_output,
         )
         prompt = loop._build_retry_prompt("orig", attempt)
@@ -801,7 +821,10 @@ class TestBuildRetryPrompt:
         """Prompt should instruct to fix, not revert."""
         loop = DebugLoop()
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=0, tests_failed=1,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=0,
+            tests_failed=1,
             test_output="err",
         )
         prompt = loop._build_retry_prompt("orig", attempt)
@@ -813,7 +836,10 @@ class TestBuildRetryPrompt:
         loop = DebugLoop()
         long_instruction = "A" * 2000
         attempt = DebugAttempt(
-            attempt_number=1, prompt="p", tests_passed=0, tests_failed=1,
+            attempt_number=1,
+            prompt="p",
+            tests_passed=0,
+            tests_failed=1,
             test_output="err",
         )
         prompt = loop._build_retry_prompt(long_instruction, attempt)
@@ -833,13 +859,9 @@ class TestPipelineDebugLoopIntegration:
     @pytest.mark.asyncio
     async def test_returns_none_when_disabled(self):
         """_execute_with_debug_loop returns None when enable_debug_loop=False."""
-        pipeline = SelfImprovePipeline(
-            SelfImproveConfig(enable_debug_loop=False)
-        )
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_debug_loop=False))
         mock_instruction = MagicMock()
-        result = await pipeline._execute_with_debug_loop(
-            mock_instruction, "/tmp/wt"
-        )
+        result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
         assert result is None
 
     @pytest.mark.asyncio
@@ -861,24 +883,22 @@ class TestPipelineDebugLoopIntegration:
         mock_instruction.to_agent_prompt.return_value = "test prompt"
 
         # Mock DebugLoop to avoid real agent/harness execution
-        with patch(
-            "aragora.nomic.self_improve.DebugLoop",
-            side_effect=ImportError("mocked"),
-        ) if False else patch(
-            "aragora.nomic.debug_loop.DebugLoop"
-        ) as MockDebug:
+        with (
+            patch(
+                "aragora.nomic.self_improve.DebugLoop",
+                side_effect=ImportError("mocked"),
+            )
+            if False
+            else patch("aragora.nomic.debug_loop.DebugLoop") as MockDebug
+        ):
             mock_result = MagicMock()
             mock_result.success = True
             mock_result.final_files_changed = []
             mock_result.final_tests_passed = 1
             mock_result.final_tests_failed = 0
             mock_result.total_attempts = 1
-            MockDebug.return_value.execute_with_retry = AsyncMock(
-                return_value=mock_result
-            )
-            result = await pipeline._execute_with_debug_loop(
-                mock_instruction, "/tmp/wt"
-            )
+            MockDebug.return_value.execute_with_retry = AsyncMock(return_value=mock_result)
+            result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
 
         # Debug loop now runs and returns a result dict (not None)
         assert result is not None
@@ -907,9 +927,7 @@ class TestPipelineDebugLoopIntegration:
 
         # Actually patch at the import site within the method
         with patch.dict("sys.modules", {"aragora.nomic.debug_loop": None}):
-            result = await pipeline._execute_with_debug_loop(
-                mock_instruction, "/tmp/wt"
-            )
+            result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
         assert result is None
 
     @pytest.mark.asyncio
@@ -937,9 +955,7 @@ class TestPipelineDebugLoopIntegration:
 
         with patch("aragora.nomic.debug_loop.DebugLoop", return_value=mock_debug_loop):
             with patch("aragora.nomic.debug_loop.DebugLoopConfig"):
-                result = await pipeline._execute_with_debug_loop(
-                    mock_instruction, "/tmp/wt"
-                )
+                result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
 
         assert result is not None
         assert result["files_changed"] == ["auth.py"]
@@ -974,9 +990,7 @@ class TestPipelineDebugLoopIntegration:
 
         with patch("aragora.nomic.debug_loop.DebugLoop", return_value=mock_debug_loop):
             with patch("aragora.nomic.debug_loop.DebugLoopConfig"):
-                result = await pipeline._execute_with_debug_loop(
-                    mock_instruction, "/tmp/wt"
-                )
+                result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
 
         assert result is not None
         assert result["debug_loop_success"] is True
@@ -1008,15 +1022,16 @@ class TestPipelineDebugLoopIntegration:
         }
 
         with (
-            patch(
-                "aragora.nomic.execution_bridge.ExecutionBridge"
-            ) as MockBridge,
+            patch("aragora.nomic.execution_bridge.ExecutionBridge") as MockBridge,
             patch.object(
-                pipeline, "_dispatch_to_claude_code",
-                new_callable=AsyncMock, return_value=dispatch_result,
+                pipeline,
+                "_dispatch_to_claude_code",
+                new_callable=AsyncMock,
+                return_value=dispatch_result,
             ) as mock_dispatch,
             patch.object(
-                pipeline, "_write_instruction_to_worktree",
+                pipeline,
+                "_write_instruction_to_worktree",
                 return_value=True,
             ),
         ):
@@ -1041,15 +1056,11 @@ class TestPipelineDebugLoopIntegration:
         mock_instruction.subtask_id = "sub_err"
 
         mock_debug_loop = MagicMock()
-        mock_debug_loop.execute_with_retry = AsyncMock(
-            side_effect=RuntimeError("boom")
-        )
+        mock_debug_loop.execute_with_retry = AsyncMock(side_effect=RuntimeError("boom"))
 
         with patch("aragora.nomic.debug_loop.DebugLoop", return_value=mock_debug_loop):
             with patch("aragora.nomic.debug_loop.DebugLoopConfig"):
-                result = await pipeline._execute_with_debug_loop(
-                    mock_instruction, "/tmp/wt"
-                )
+                result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
 
         assert result is None
 
@@ -1153,9 +1164,7 @@ class TestRunAgentCLIMissing:
         loop = DebugLoop()
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
-            patch(
-                "aragora.harnesses.claude_code.ClaudeCodeHarness"
-            ) as MockHarness,
+            patch("aragora.harnesses.claude_code.ClaudeCodeHarness") as MockHarness,
         ):
             mock_h = MagicMock()
             mock_h.execute_implementation = AsyncMock(
@@ -1209,9 +1218,7 @@ class TestRunAgentCLIMissing:
 
         with patch("aragora.nomic.debug_loop.DebugLoop", return_value=mock_debug_loop):
             with patch("aragora.nomic.debug_loop.DebugLoopConfig"):
-                result = await pipeline._execute_with_debug_loop(
-                    mock_instruction, "/tmp/wt"
-                )
+                result = await pipeline._execute_with_debug_loop(mock_instruction, "/tmp/wt")
 
         # Should return None, triggering fallback
         assert result is None

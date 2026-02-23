@@ -44,7 +44,9 @@ def fix_fstring_logging_in_file(filepath: Path, dry_run: bool = False) -> int:
             continue
         # Check if the receiver looks like a logger
         func_src = ast.get_source_segment(source, node.func.value)
-        if func_src and not (func_src == "logger" or func_src.endswith("logger") or func_src == "log"):
+        if func_src and not (
+            func_src == "logger" or func_src.endswith("logger") or func_src == "log"
+        ):
             continue
 
         if not node.args:
@@ -74,9 +76,9 @@ def fix_fstring_logging_in_file(filepath: Path, dry_run: bool = False) -> int:
                     skip = True
                     break
                 # Handle conversion (!r, !s, !a)
-                if value.conversion == ord('r'):
+                if value.conversion == ord("r"):
                     fmt_parts.append("%r")
-                elif value.conversion == ord('a'):
+                elif value.conversion == ord("a"):
                     fmt_parts.append("%r")  # close enough
                 else:
                     fmt_parts.append("%s")
@@ -105,7 +107,7 @@ def fix_fstring_logging_in_file(filepath: Path, dry_run: bool = False) -> int:
             quote = '"'
             new_fmt = new_fmt.replace('"', '\\"') if '"' in new_fmt else new_fmt
 
-        new_first_arg = f'{quote}{new_fmt}{quote}'
+        new_first_arg = f"{quote}{new_fmt}{quote}"
         args_str = ", ".join(extra_args)
         new_call_args = f"{new_first_arg}, {args_str}"
 
@@ -124,7 +126,11 @@ def fix_fstring_logging_in_file(filepath: Path, dry_run: bool = False) -> int:
     for fstring_node, new_args, orig_text in replacements:
         # Replace the f-string in the source
         # We need to find the exact f-string text and replace it
-        source = source[:_offset(source, fstring_node)] + new_args + source[_end_offset(source, fstring_node):]
+        source = (
+            source[: _offset(source, fstring_node)]
+            + new_args
+            + source[_end_offset(source, fstring_node) :]
+        )
 
     filepath.write_text(source)
     return fixes
@@ -133,20 +139,24 @@ def fix_fstring_logging_in_file(filepath: Path, dry_run: bool = False) -> int:
 def _offset(source: str, node: ast.AST) -> int:
     """Get byte offset of AST node in source."""
     lines = source.split("\n")
-    offset = sum(len(line) + 1 for line in lines[:node.lineno - 1])
+    offset = sum(len(line) + 1 for line in lines[: node.lineno - 1])
     return offset + node.col_offset
 
 
 def _end_offset(source: str, node: ast.AST) -> int:
     """Get end byte offset of AST node in source."""
     lines = source.split("\n")
-    offset = sum(len(line) + 1 for line in lines[:node.end_lineno - 1])
+    offset = sum(len(line) + 1 for line in lines[: node.end_lineno - 1])
     return offset + node.end_col_offset
 
 
 def main():
     dry_run = "--dry-run" in sys.argv
-    target = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "aragora/server/handlers"
+    target = (
+        sys.argv[1]
+        if len(sys.argv) > 1 and not sys.argv[1].startswith("-")
+        else "aragora/server/handlers"
+    )
     target_path = Path(target)
 
     if target_path.is_file():
@@ -162,7 +172,9 @@ def main():
             action = "Would fix" if dry_run else "Fixed"
             print(f"  {action} {count} f-string logging calls in {f}")
 
-    print(f"\nTotal: {total_fixes} f-string logging calls {'would be fixed' if dry_run else 'fixed'}")
+    print(
+        f"\nTotal: {total_fixes} f-string logging calls {'would be fixed' if dry_run else 'fixed'}"
+    )
 
 
 if __name__ == "__main__":

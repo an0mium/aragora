@@ -599,9 +599,7 @@ class TestIntrospectionEnrichment:
             with patch.dict("sys.modules", {"aragora.introspection.api": MagicMock()}):
                 import sys
 
-                sys.modules["aragora.introspection.api"].get_agent_introspection = (
-                    lambda name: None
-                )
+                sys.modules["aragora.introspection.api"].get_agent_introspection = lambda name: None
                 result = handler.handle("/api/v1/agents/recommend", {}, mock_http_handler)
                 body = _body(result)
                 rec = body["recommendations"][0]
@@ -766,9 +764,7 @@ class TestLeaderboard:
         """Domain queries use get_leaderboard, not get_cached_leaderboard."""
         mock_elo = _make_mock_elo()
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            handler.handle(
-                "/api/v1/agents/leaderboard", {"domain": "financial"}, mock_http_handler
-            )
+            handler.handle("/api/v1/agents/leaderboard", {"domain": "financial"}, mock_http_handler)
             mock_elo.get_leaderboard.assert_called_once_with(limit=20, domain="financial")
             mock_elo.get_cached_leaderboard.assert_not_called()
 
@@ -993,9 +989,7 @@ class TestEdgeCases:
         """Non-numeric limit falls back to default."""
         mock_elo = _make_mock_elo()
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            handler.handle(
-                "/api/v1/agents/recommend", {"limit": "not_a_number"}, mock_http_handler
-            )
+            handler.handle("/api/v1/agents/recommend", {"limit": "not_a_number"}, mock_http_handler)
             # get_int_param returns default (5) on ValueError, then clamped stays 5
             mock_elo.get_leaderboard.assert_called_once_with(limit=5)
 

@@ -459,11 +459,13 @@ class TestRepositoryPost:
         monkeypatch.setenv("ARAGORA_SCAN_ROOT", "/tmp/allowed")
         mock_orch.return_value = MagicMock()
 
-        result = await self.handler._batch_index({
-            "repositories": [
-                {"path": "/etc/passwd", "workspace_id": "default"},
-            ]
-        })
+        result = await self.handler._batch_index(
+            {
+                "repositories": [
+                    {"path": "/etc/passwd", "workspace_id": "default"},
+                ]
+            }
+        )
         assert result.status_code == 400
         assert "Invalid path" in _body(result)["error"]
 
@@ -485,9 +487,7 @@ class TestRepositoryHandlePost:
 
         with patch.object(self.handler, "_start_index", new_callable=AsyncMock) as mock_start:
             mock_start.return_value = MagicMock(status_code=200)
-            result = await self.handler.handle_post(
-                "/api/v1/repository/index", {}, mock_handler
-            )
+            result = await self.handler.handle_post("/api/v1/repository/index", {}, mock_handler)
             mock_start.assert_called_once()
 
     @pytest.mark.asyncio
@@ -507,9 +507,7 @@ class TestRepositoryHandlePost:
 
         with patch.object(self.handler, "_batch_index", new_callable=AsyncMock) as mock_batch:
             mock_batch.return_value = MagicMock(status_code=200)
-            result = await self.handler.handle_post(
-                "/api/v1/repository/batch", {}, mock_handler
-            )
+            result = await self.handler.handle_post("/api/v1/repository/batch", {}, mock_handler)
             mock_batch.assert_called_once()
 
     @pytest.mark.asyncio
@@ -581,9 +579,7 @@ class TestRepositoryHandleDelete:
     @pytest.mark.asyncio
     async def test_delete_short_path_rejected(self):
         mock_handler = _make_repo_handler()
-        result = await self.handler.handle_delete(
-            "/api/v1/repository/", {}, mock_handler
-        )
+        result = await self.handler.handle_delete("/api/v1/repository/", {}, mock_handler)
         # Short path without repo_id returns 400 or 404
         assert result.status_code in (400, 404)
 
@@ -591,10 +587,10 @@ class TestRepositoryHandleDelete:
     async def test_delete_dispatches_to_remove(self):
         mock_handler = _make_repo_handler()
 
-        with patch.object(self.handler, "_remove_repository", new_callable=AsyncMock) as mock_remove:
+        with patch.object(
+            self.handler, "_remove_repository", new_callable=AsyncMock
+        ) as mock_remove:
             mock_remove.return_value = MagicMock(status_code=200)
             # DELETE /api/v1/repository/repo1 → parts = ['', 'api', 'v1', 'repository', 'repo1']
-            result = await self.handler.handle_delete(
-                "/api/v1/repository/repo1", {}, mock_handler
-            )
+            result = await self.handler.handle_delete("/api/v1/repository/repo1", {}, mock_handler)
             mock_remove.assert_called_once()

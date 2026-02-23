@@ -293,9 +293,17 @@ class TestRequestContext:
     def test_annotations_contain_all_fields(self):
         hints = get_type_hints(RequestContext)
         expected = {
-            "user_id", "org_id", "workspace_id", "trace_id",
-            "request_id", "client_ip", "user_agent", "auth_method",
-            "permissions", "roles", "metadata",
+            "user_id",
+            "org_id",
+            "workspace_id",
+            "trace_id",
+            "request_id",
+            "client_ip",
+            "user_agent",
+            "auth_method",
+            "permissions",
+            "roles",
+            "metadata",
         }
         assert expected == set(hints.keys())
 
@@ -1413,9 +1421,7 @@ class TestErrorResponse:
         assert resp["error"] == "Something went wrong"
 
     def test_create_with_error_detail(self):
-        resp: ErrorResponse = {
-            "error": {"code": "AUTH_REQUIRED", "message": "Login required"}
-        }
+        resp: ErrorResponse = {"error": {"code": "AUTH_REQUIRED", "message": "Login required"}}
         assert resp["error"]["code"] == "AUTH_REQUIRED"
 
     def test_create_empty(self):
@@ -1476,42 +1482,51 @@ class TestAllExports:
 
     def test_all_exists(self):
         from aragora.server.handlers import types
+
         assert hasattr(types, "__all__")
 
     def test_all_is_list(self):
         from aragora.server.handlers import types
+
         assert isinstance(types.__all__, list)
 
     def test_all_items_are_strings(self):
         from aragora.server.handlers import types
+
         for name in types.__all__:
             assert isinstance(name, str)
 
     def test_all_items_importable(self):
         from aragora.server.handlers import types
+
         for name in types.__all__:
             assert hasattr(types, name), f"{name!r} in __all__ but not accessible"
 
     def test_handler_protocol_in_all(self):
         from aragora.server.handlers import types
+
         assert "HandlerProtocol" in types.__all__
 
     def test_request_context_in_all(self):
         from aragora.server.handlers import types
+
         assert "RequestContext" in types.__all__
 
     def test_response_type_in_all(self):
         from aragora.server.handlers import types
+
         assert "ResponseType" in types.__all__
 
     def test_handler_function_aliases_in_all(self):
         from aragora.server.handlers import types
+
         assert "HandlerFunction" in types.__all__
         assert "AsyncHandlerFunction" in types.__all__
         assert "MaybeAsyncHandlerFunction" in types.__all__
 
     def test_middleware_aliases_in_all(self):
         from aragora.server.handlers import types
+
         assert "MiddlewareFunction" in types.__all__
         assert "AsyncMiddlewareFunction" in types.__all__
         assert "MaybeAsyncMiddlewareFunction" in types.__all__
@@ -1519,6 +1534,7 @@ class TestAllExports:
 
     def test_parameter_types_in_all(self):
         from aragora.server.handlers import types
+
         assert "PaginationParams" in types.__all__
         assert "FilterParams" in types.__all__
         assert "SortParams" in types.__all__
@@ -1526,19 +1542,25 @@ class TestAllExports:
 
     def test_debate_types_in_all(self):
         from aragora.server.handlers import types
+
         for name in [
-            "CreateDebateRequest", "DebateUpdateRequest",
-            "DebateSummaryResponse", "DebateDetailResponse", "DebateListResponse",
+            "CreateDebateRequest",
+            "DebateUpdateRequest",
+            "DebateSummaryResponse",
+            "DebateDetailResponse",
+            "DebateListResponse",
         ]:
             assert name in types.__all__
 
     def test_all_has_no_duplicates(self):
         from aragora.server.handlers import types
+
         assert len(types.__all__) == len(set(types.__all__))
 
     def test_all_count(self):
         """Verify the expected number of exports."""
         from aragora.server.handlers import types
+
         # At least 40 exports based on module contents
         assert len(types.__all__) >= 40
 
@@ -1586,24 +1608,58 @@ class TestTypeIntrospection:
 
     def test_all_typeddicts_have_annotations(self):
         typeddicts = [
-            RequestContext, PaginationParams, FilterParams, SortParams, QueryParams,
-            CreateDebateRequest, DebateUpdateRequest, DebateSummaryResponse,
-            DebateDetailResponse, DebateListResponse, ForkRequest, ForkResponse,
-            BatchDebateItem, BatchSubmitRequest, BatchSubmitResponse, BatchStatusResponse,
-            UserRegisterRequest, UserLoginRequest, AuthResponse, UserResponse,
-            OrgCreateRequest, OrgInviteRequest, OrgResponse,
-            GauntletRunRequest, GauntletResponse,
-            VerificationRequest, VerificationResponse,
-            MemoryCleanupRequest, MemoryEntry,
-            AgentConfigRequest, AgentStatusResponse,
-            ProbeRunRequest, ProbeResultResponse,
-            SocialPublishRequest, ShareUpdateRequest, ShareResponse,
-            CheckoutSessionRequest, CheckoutSessionResponse, UsageResponse,
-            PluginRunRequest, PluginInstallRequest, PluginResponse,
-            ConvergenceMetrics, PhaseMetrics, DebateMetrics,
-            AgentPerformanceMetrics, DashboardSummary, DashboardResponse,
-            ErrorDetail, ErrorResponse,
-            PaginatedResponse, StatusResponse,
+            RequestContext,
+            PaginationParams,
+            FilterParams,
+            SortParams,
+            QueryParams,
+            CreateDebateRequest,
+            DebateUpdateRequest,
+            DebateSummaryResponse,
+            DebateDetailResponse,
+            DebateListResponse,
+            ForkRequest,
+            ForkResponse,
+            BatchDebateItem,
+            BatchSubmitRequest,
+            BatchSubmitResponse,
+            BatchStatusResponse,
+            UserRegisterRequest,
+            UserLoginRequest,
+            AuthResponse,
+            UserResponse,
+            OrgCreateRequest,
+            OrgInviteRequest,
+            OrgResponse,
+            GauntletRunRequest,
+            GauntletResponse,
+            VerificationRequest,
+            VerificationResponse,
+            MemoryCleanupRequest,
+            MemoryEntry,
+            AgentConfigRequest,
+            AgentStatusResponse,
+            ProbeRunRequest,
+            ProbeResultResponse,
+            SocialPublishRequest,
+            ShareUpdateRequest,
+            ShareResponse,
+            CheckoutSessionRequest,
+            CheckoutSessionResponse,
+            UsageResponse,
+            PluginRunRequest,
+            PluginInstallRequest,
+            PluginResponse,
+            ConvergenceMetrics,
+            PhaseMetrics,
+            DebateMetrics,
+            AgentPerformanceMetrics,
+            DashboardSummary,
+            DashboardResponse,
+            ErrorDetail,
+            ErrorResponse,
+            PaginatedResponse,
+            StatusResponse,
         ]
         for td in typeddicts:
             assert hasattr(td, "__annotations__"), f"{td.__name__} missing __annotations__"

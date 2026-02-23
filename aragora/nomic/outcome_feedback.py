@@ -130,9 +130,7 @@ class OutcomeFeedbackBridge:
                 queue.enqueue(suggestion)
                 queued += 1
 
-            logger.info(
-                "Queued %d outcome-driven improvement suggestions", queued
-            )
+            logger.info("Queued %d outcome-driven improvement suggestions", queued)
             return queued
         except (ImportError, OSError) as e:
             logger.debug("ImprovementQueue not available: %s", e)
@@ -171,62 +169,68 @@ class OutcomeFeedbackBridge:
         # Goal 1: Reduce overconfidence
         if overconfidence > self.overconfidence_threshold:
             severity = min(1.0, overconfidence * 3)  # 0.33 overconfidence → max severity
-            goals.append(FeedbackGoal(
-                domain=domain,
-                agent=agent,
-                goal_type="reduce_overconfidence",
-                severity=severity,
-                description=(
-                    f"Agent '{agent}' is {overconfidence:.0%} overconfident in "
-                    f"'{domain}' domain ({total} decisions, {success_rate:.0%} success "
-                    f"vs {error.get('avg_confidence', 0):.0%} avg confidence)"
-                ),
-                metrics={
-                    "overconfidence": overconfidence,
-                    "success_rate": success_rate,
-                    "avg_confidence": error.get("avg_confidence", 0),
-                    "total_verifications": total,
-                },
-            ))
+            goals.append(
+                FeedbackGoal(
+                    domain=domain,
+                    agent=agent,
+                    goal_type="reduce_overconfidence",
+                    severity=severity,
+                    description=(
+                        f"Agent '{agent}' is {overconfidence:.0%} overconfident in "
+                        f"'{domain}' domain ({total} decisions, {success_rate:.0%} success "
+                        f"vs {error.get('avg_confidence', 0):.0%} avg confidence)"
+                    ),
+                    metrics={
+                        "overconfidence": overconfidence,
+                        "success_rate": success_rate,
+                        "avg_confidence": error.get("avg_confidence", 0),
+                        "total_verifications": total,
+                    },
+                )
+            )
 
         # Goal 2: Increase accuracy in low-performing domains
         if success_rate < self.low_accuracy_threshold:
             severity = min(1.0, (self.low_accuracy_threshold - success_rate) * 5)
-            goals.append(FeedbackGoal(
-                domain=domain,
-                agent=agent,
-                goal_type="increase_accuracy",
-                severity=severity,
-                description=(
-                    f"Agent '{agent}' has low accuracy ({success_rate:.0%}) in "
-                    f"'{domain}' domain — consider domain-specific training or "
-                    f"reducing agent's selection weight for this domain"
-                ),
-                metrics={
-                    "success_rate": success_rate,
-                    "avg_brier": avg_brier,
-                    "total_verifications": total,
-                },
-            ))
+            goals.append(
+                FeedbackGoal(
+                    domain=domain,
+                    agent=agent,
+                    goal_type="increase_accuracy",
+                    severity=severity,
+                    description=(
+                        f"Agent '{agent}' has low accuracy ({success_rate:.0%}) in "
+                        f"'{domain}' domain — consider domain-specific training or "
+                        f"reducing agent's selection weight for this domain"
+                    ),
+                    metrics={
+                        "success_rate": success_rate,
+                        "avg_brier": avg_brier,
+                        "total_verifications": total,
+                    },
+                )
+            )
 
         # Goal 3: Domain training for consistently poor Brier scores
         if avg_brier > 0.3 and total >= self.min_verifications * 2:
             severity = min(1.0, (avg_brier - 0.3) * 5)
-            goals.append(FeedbackGoal(
-                domain=domain,
-                agent=agent,
-                goal_type="domain_training",
-                severity=severity,
-                description=(
-                    f"Agent '{agent}' has poor calibration (Brier={avg_brier:.2f}) in "
-                    f"'{domain}' domain — needs domain-specific prompt tuning or "
-                    f"temperature scaling adjustment"
-                ),
-                metrics={
-                    "avg_brier": avg_brier,
-                    "total_verifications": total,
-                },
-            ))
+            goals.append(
+                FeedbackGoal(
+                    domain=domain,
+                    agent=agent,
+                    goal_type="domain_training",
+                    severity=severity,
+                    description=(
+                        f"Agent '{agent}' has poor calibration (Brier={avg_brier:.2f}) in "
+                        f"'{domain}' domain — needs domain-specific prompt tuning or "
+                        f"temperature scaling adjustment"
+                    ),
+                    metrics={
+                        "avg_brier": avg_brier,
+                        "total_verifications": total,
+                    },
+                )
+            )
 
         return goals
 

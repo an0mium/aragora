@@ -6,6 +6,7 @@ into the Nomic Loop's verification and planning phases.
 Uses the ``gh`` CLI for GitHub API access, gracefully degrading
 when ``gh`` is not available (same pattern as GitHubConnector).
 """
+
 from __future__ import annotations
 
 import json
@@ -137,13 +138,19 @@ class CIResultCollector:
         try:
             result = subprocess.run(
                 [
-                    "gh", "api",
+                    "gh",
+                    "api",
                     f"repos/{self.repo_slug}/actions/runs",
-                    "-q", ".workflow_runs[0]",
-                    "--jq", ".",
-                    "-f", f"branch={branch}",
-                    "-f", "per_page=1",
-                    "-f", "status=completed",
+                    "-q",
+                    ".workflow_runs[0]",
+                    "--jq",
+                    ".",
+                    "-f",
+                    f"branch={branch}",
+                    "-f",
+                    "per_page=1",
+                    "-f",
+                    "status=completed",
                 ],
                 capture_output=True,
                 text=True,
@@ -163,11 +170,15 @@ class CIResultCollector:
         try:
             result = subprocess.run(
                 [
-                    "gh", "api",
+                    "gh",
+                    "api",
                     f"repos/{self.repo_slug}/actions/runs",
-                    "-f", f"branch={branch}",
-                    "-f", f"head_sha={sha}",
-                    "-f", "per_page=1",
+                    "-f",
+                    f"branch={branch}",
+                    "-f",
+                    f"head_sha={sha}",
+                    "-f",
+                    "per_page=1",
                 ],
                 capture_output=True,
                 text=True,

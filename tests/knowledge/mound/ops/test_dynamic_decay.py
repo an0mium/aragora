@@ -19,10 +19,12 @@ class TestCalculateDynamicHalfLife:
     """Tests for calculate_dynamic_half_life method."""
 
     def _manager(self, **kwargs) -> ConfidenceDecayManager:
-        return ConfidenceDecayManager(DecayConfig(
-            enable_surprise_modulated_decay=True,
-            **kwargs,
-        ))
+        return ConfidenceDecayManager(
+            DecayConfig(
+                enable_surprise_modulated_decay=True,
+                **kwargs,
+            )
+        )
 
     def test_neutral_surprise_no_change(self):
         """Surprise=0.5 should yield factor=1.0, preserving base half-life."""
@@ -71,14 +73,18 @@ class TestCalculateDynamicHalfLife:
 
     def test_custom_strength(self):
         """Strength parameter controls how strongly surprise affects half-life."""
-        weak = ConfidenceDecayManager(DecayConfig(
-            enable_surprise_modulated_decay=True,
-            surprise_decay_strength=1.0,
-        ))
-        strong = ConfidenceDecayManager(DecayConfig(
-            enable_surprise_modulated_decay=True,
-            surprise_decay_strength=4.0,
-        ))
+        weak = ConfidenceDecayManager(
+            DecayConfig(
+                enable_surprise_modulated_decay=True,
+                surprise_decay_strength=1.0,
+            )
+        )
+        strong = ConfidenceDecayManager(
+            DecayConfig(
+                enable_surprise_modulated_decay=True,
+                surprise_decay_strength=4.0,
+            )
+        )
 
         weak_hl = weak.calculate_dynamic_half_life(90.0, item_surprise=0.8)
         strong_hl = strong.calculate_dynamic_half_life(90.0, item_surprise=0.8)
@@ -179,12 +185,8 @@ class TestCalculateDecayWithSurprise:
         )
         mgr = ConfidenceDecayManager(config)
 
-        relaxed = mgr.calculate_decay(
-            1.0, age_days=90.0, surprise_score=0.2, tier_pressure=0.0
-        )
-        pressured = mgr.calculate_decay(
-            1.0, age_days=90.0, surprise_score=0.2, tier_pressure=1.0
-        )
+        relaxed = mgr.calculate_decay(1.0, age_days=90.0, surprise_score=0.2, tier_pressure=0.0)
+        pressured = mgr.calculate_decay(1.0, age_days=90.0, surprise_score=0.2, tier_pressure=1.0)
         assert pressured < relaxed
 
     def test_min_confidence_floor_still_applies(self):
@@ -195,9 +197,7 @@ class TestCalculateDecayWithSurprise:
             enable_surprise_modulated_decay=True,
         )
         mgr = ConfidenceDecayManager(config)
-        result = mgr.calculate_decay(
-            1.0, age_days=1000.0, surprise_score=0.0, tier_pressure=1.0
-        )
+        result = mgr.calculate_decay(1.0, age_days=1000.0, surprise_score=0.0, tier_pressure=1.0)
         assert result >= 0.1
 
 

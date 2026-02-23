@@ -537,7 +537,13 @@ class AragoraRLM(RLMStreamingMixin):
                     try:
                         completion = self._fallback_rlm.completion(prompt)
                         return completion.response
-                    except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as fallback_exc:
+                    except (
+                        RuntimeError,
+                        ValueError,
+                        ConnectionError,
+                        TimeoutError,
+                        OSError,
+                    ) as fallback_exc:
                         logger.warning("Fallback RLM call failed: %s", fallback_exc)
 
         # Fallback to Aragora agent registry
@@ -821,7 +827,13 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                         confidence=0.8,
                         uncertainty_sources=[],
                     )
-                except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as fallback_exc:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    ConnectionError,
+                    TimeoutError,
+                    OSError,
+                ) as fallback_exc:
                     logger.warning("[AragoraRLM] Fallback TRUE RLM query failed: %s", fallback_exc)
             logger.warning(
                 "[AragoraRLM] Falling back to COMPRESSION approach "
@@ -916,9 +928,15 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                 else:
                     results = search_fn(query, limit=3)
                 for r in results or []:
-                    meta = r.get("metadata", {}) if isinstance(r, dict) else getattr(r, "metadata", {})
+                    meta = (
+                        r.get("metadata", {}) if isinstance(r, dict) else getattr(r, "metadata", {})
+                    )
                     if meta.get("role") == "pre_compression_fallback":
-                        return r.get("content", "") if isinstance(r, dict) else getattr(r, "content", "")
+                        return (
+                            r.get("content", "")
+                            if isinstance(r, dict)
+                            else getattr(r, "content", "")
+                        )
         except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
             logger.warning("Supermemory cache check failed: %s", exc)
         return None
@@ -1083,7 +1101,8 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             compression = await self._hierarchy_cache.get_cached(content, source_type)
             if compression:
                 logger.debug(
-                    "[AragoraRLM] Using cached compression (cache_stats=%s)", self._hierarchy_cache.stats
+                    "[AragoraRLM] Using cached compression (cache_stats=%s)",
+                    self._hierarchy_cache.stats,
                 )
 
         # Compress if not cached

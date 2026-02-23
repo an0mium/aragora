@@ -285,9 +285,7 @@ class TestListDecisions:
         import aragora.server.handlers.decision as mod
 
         mock_store = MagicMock()
-        mock_store.list_recent.return_value = [
-            {"request_id": "dec_001", "status": "completed"}
-        ]
+        mock_store.list_recent.return_value = [{"request_id": "dec_001", "status": "completed"}]
         mock_store.count.return_value = 1
         mod._decision_result_store = MagicMock()
         mod._decision_result_store.get.return_value = mock_store
@@ -548,18 +546,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Should we deploy?"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -581,18 +584,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -636,18 +644,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -664,18 +677,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -692,18 +710,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -720,18 +743,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -742,15 +770,19 @@ class TestCreateDecision:
         """Returns 400 when DecisionRequest.from_http raises ValueError."""
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.side_effect = ValueError("Invalid decision type")
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -761,15 +793,19 @@ class TestCreateDecision:
         """Returns 400 when DecisionRequest import fails."""
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.side_effect = ImportError("no module")
             result = await handler.handle_post("/api/v1/decisions", {}, h)
 
@@ -804,18 +840,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             # Ensure store is not available so fallback is used
             mod._decision_result_store = MagicMock()
@@ -838,18 +879,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             mod._decision_result_store = MagicMock()
             mod._decision_result_store.get.return_value = None
@@ -870,18 +916,23 @@ class TestCreateDecision:
 
         h = _make_http_handler({"content": "Test question"})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=MagicMock(authenticated=False),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=MagicMock(authenticated=False),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             mod._decision_result_store = MagicMock()
             mod._decision_result_store.get.return_value = None
@@ -930,25 +981,34 @@ class TestCreateDecision:
         mock_auth.user_id = "auth-user-001"
         mock_auth.org_id = "auth-org-001"
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=mock_auth,
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=mock_auth,
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             # Patch RBAC enforcer to succeed
             with patch("aragora.rbac.RBACEnforcer") as mock_enforcer_cls:
                 mock_enforcer = MagicMock()
                 mock_enforcer.require = AsyncMock()
                 mock_enforcer_cls.return_value = mock_enforcer
-                with patch("aragora.rbac.ResourceType"), patch("aragora.rbac.Action"), patch("aragora.rbac.IsolationContext"):
+                with (
+                    patch("aragora.rbac.ResourceType"),
+                    patch("aragora.rbac.Action"),
+                    patch("aragora.rbac.IsolationContext"),
+                ):
                     result = await handler.handle_post("/api/v1/decisions", {}, h)
 
         assert _status(result) == 200
@@ -969,24 +1029,33 @@ class TestCreateDecision:
 
         mock_router = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.billing.auth.extract_user_from_request",
-            return_value=mock_auth,
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.billing.auth.extract_user_from_request",
+                return_value=mock_auth,
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
             with patch("aragora.rbac.RBACEnforcer") as mock_enforcer_cls:
                 mock_enforcer = MagicMock()
                 mock_enforcer.require = AsyncMock(side_effect=RuntimeError("RBAC down"))
                 mock_enforcer_cls.return_value = mock_enforcer
-                with patch("aragora.rbac.ResourceType"), patch("aragora.rbac.Action"), patch("aragora.rbac.IsolationContext"):
+                with (
+                    patch("aragora.rbac.ResourceType"),
+                    patch("aragora.rbac.Action"),
+                    patch("aragora.rbac.IsolationContext"),
+                ):
                     result = await handler.handle_post("/api/v1/decisions", {}, h)
 
         assert _status(result) == 503
@@ -1020,9 +1089,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_cancel_001/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_cancel_001/cancel", {}, h)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1049,9 +1116,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_cancel_002/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_cancel_002/cancel", {}, h)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1076,9 +1141,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_cancel_003/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_cancel_003/cancel", {}, h)
 
         assert _status(result) == 200
 
@@ -1101,9 +1164,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_cancel_done/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_cancel_done/cancel", {}, h)
 
         assert _status(result) == 409
         assert "cannot cancel" in _body(result).get("error", "").lower()
@@ -1127,9 +1188,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_cancel_fail/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_cancel_fail/cancel", {}, h)
 
         assert _status(result) == 409
 
@@ -1147,9 +1206,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_nonexist/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_nonexist/cancel", {}, h)
 
         assert _status(result) == 404
 
@@ -1172,9 +1229,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_noreason/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_noreason/cancel", {}, h)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1218,9 +1273,7 @@ class TestCancelDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(None, perm_error),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_perm/cancel", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_perm/cancel", {}, h)
 
         assert _status(result) == 403
 
@@ -1245,7 +1298,12 @@ class TestRetryDecision:
             "request_id": "dec_retry_001",
             "status": "failed",
             "result": {
-                "request": {"content": "Test question", "decision_type": "auto", "config": {}, "context": {}},
+                "request": {
+                    "content": "Test question",
+                    "decision_type": "auto",
+                    "config": {},
+                    "context": {},
+                },
                 "retry_count": 0,
             },
             "content": "Test question",
@@ -1260,19 +1318,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_001/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_001/retry", {}, h)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1304,19 +1364,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_can/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_can/retry", {}, h)
 
         assert _status(result) == 200
 
@@ -1343,19 +1405,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_to/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_to/retry", {}, h)
 
         assert _status(result) == 200
 
@@ -1378,9 +1442,7 @@ class TestRetryDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_done/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_done/retry", {}, h)
 
         assert _status(result) == 409
         assert "cannot retry" in _body(result).get("error", "").lower()
@@ -1404,9 +1466,7 @@ class TestRetryDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_run/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_run/retry", {}, h)
 
         assert _status(result) == 409
 
@@ -1424,9 +1484,7 @@ class TestRetryDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_nonexist/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_nonexist/retry", {}, h)
 
         assert _status(result) == 404
 
@@ -1450,9 +1508,7 @@ class TestRetryDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(MagicMock(authenticated=False), None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_nocontent/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_nocontent/retry", {}, h)
 
         assert _status(result) == 400
         assert "content not found" in _body(result).get("error", "").lower()
@@ -1473,16 +1529,17 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_norouter/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_norouter/retry", {}, h)
 
         assert _status(result) == 503
 
@@ -1508,19 +1565,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_to2/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_to2/retry", {}, h)
 
         assert _status(result) == 408
         assert "timed out" in _body(result).get("error", "").lower()
@@ -1547,19 +1606,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_ce/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_ce/retry", {}, h)
 
         assert _status(result) == 500
         assert "failed" in _body(result).get("error", "").lower()
@@ -1582,19 +1643,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.side_effect = TypeError("invalid")
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_build/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_build/retry", {}, h)
 
         assert _status(result) == 400
 
@@ -1610,9 +1673,7 @@ class TestRetryDecision:
             "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
             return_value=(None, perm_error),
         ):
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_perm/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_perm/retry", {}, h)
 
         assert _status(result) == 403
 
@@ -1639,19 +1700,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            await handler.handle_post(
-                "/api/v1/decisions/dec_retry_store/retry", {}, h
-            )
+            await handler.handle_post("/api/v1/decisions/dec_retry_store/retry", {}, h)
 
         # The new request_id is dynamically generated, find it
         new_ids = [k for k in mod._decision_results_fallback if k != "dec_retry_store"]
@@ -1682,19 +1745,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_task/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_task/retry", {}, h)
 
         assert _status(result) == 200
 
@@ -1722,19 +1787,21 @@ class TestRetryDecision:
 
         h = _make_http_handler({})
 
-        with patch(
-            "aragora.server.handlers.decision._get_decision_router",
-            return_value=mock_router,
-        ), patch(
-            "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
-            return_value=(MagicMock(authenticated=False), None),
-        ), patch(
-            "aragora.core.decision.DecisionRequest",
-        ) as mock_dr_cls:
+        with (
+            patch(
+                "aragora.server.handlers.decision._get_decision_router",
+                return_value=mock_router,
+            ),
+            patch(
+                "aragora.server.handlers.decision.DecisionHandler.require_permission_or_error",
+                return_value=(MagicMock(authenticated=False), None),
+            ),
+            patch(
+                "aragora.core.decision.DecisionRequest",
+            ) as mock_dr_cls,
+        ):
             mock_dr_cls.from_http.return_value = mock_request
-            result = await handler.handle_post(
-                "/api/v1/decisions/dec_retry_top/retry", {}, h
-            )
+            result = await handler.handle_post("/api/v1/decisions/dec_retry_top/retry", {}, h)
 
         assert _status(result) == 200
 
@@ -1759,18 +1826,14 @@ class TestPostRouting:
         """POST cancel with wrong segment count returns None."""
         h = _make_http_handler({})
         # 7 segments: /api/v1/decisions/id/extra/cancel
-        result = await handler.handle_post(
-            "/api/v1/decisions/id/extra/cancel", {}, h
-        )
+        result = await handler.handle_post("/api/v1/decisions/id/extra/cancel", {}, h)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_post_retry_wrong_segment_count(self, handler):
         """POST retry with wrong segment count returns None."""
         h = _make_http_handler({})
-        result = await handler.handle_post(
-            "/api/v1/decisions/id/extra/retry", {}, h
-        )
+        result = await handler.handle_post("/api/v1/decisions/id/extra/retry", {}, h)
         assert result is None
 
 

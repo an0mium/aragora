@@ -11,7 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # ---------------------------------------------------------------------------
 
 
-def _make_symbol(name="Arena", kind="class", line=50, docstring="The Arena class", source="class Arena: ..."):
+def _make_symbol(
+    name="Arena", kind="class", line=50, docstring="The Arena class", source="class Arena: ..."
+):
     sym = MagicMock()
     sym.name = name
     sym.kind = kind
@@ -30,7 +32,9 @@ def _make_crawled_file(relative_path="aragora/debate/arena.py", symbols=None, li
     return f
 
 
-def _make_crawl_result(files=None, dependency_graph=None, file_type_counts=None, symbol_counts=None):
+def _make_crawl_result(
+    files=None, dependency_graph=None, file_type_counts=None, symbol_counts=None
+):
     cr = MagicMock()
     cr.files = files or []
     cr.total_files = len(files or [])

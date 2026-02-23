@@ -168,7 +168,13 @@ class TestCorrelateWithDiff:
             -old
             +new
         """)
-        errors = [{"test": "tests/sdk/test_client.py::test_init", "error": "ImportError", "file": "aragora/sdk/client.py"}]
+        errors = [
+            {
+                "test": "tests/sdk/test_client.py::test_init",
+                "error": "ImportError",
+                "file": "aragora/sdk/client.py",
+            }
+        ]
         cause = fixer._correlate_with_diff(diff, errors)
         assert "client.py" in cause
 

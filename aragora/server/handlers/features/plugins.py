@@ -672,7 +672,9 @@ class PluginsHandler(BaseHandler):
         }
         _plugin_submissions[submission_id] = submission
 
-        logger.info("Plugin submission received: %s v%s by %s", name, manifest.get('version'), user_id)
+        logger.info(
+            "Plugin submission received: %s v%s by %s", name, manifest.get("version"), user_id
+        )
 
         return json_response(
             {

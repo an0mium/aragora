@@ -443,7 +443,9 @@ class HumanCheckpointStep(BaseStep):
                             # Update in-memory cache
                             _pending_approvals[request.id] = request
                             logger.debug(
-                                "Detected approval %s status change from governance store: %s", request.id, record.status
+                                "Detected approval %s status change from governance store: %s",
+                                request.id,
+                                record.status,
                             )
                             break
                     except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:

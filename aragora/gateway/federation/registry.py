@@ -555,7 +555,12 @@ class FederationRegistry:
         )
 
         logger.info(
-            "Framework registered: %s (name=%s, version=%s, api=%s, capabilities=%s)", framework.framework_id, name, version, negotiated_version, [c.name for c in capabilities]
+            "Framework registered: %s (name=%s, version=%s, api=%s, capabilities=%s)",
+            framework.framework_id,
+            name,
+            version,
+            negotiated_version,
+            [c.name for c in capabilities],
         )
 
         return RegistrationResult(

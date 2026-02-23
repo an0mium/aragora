@@ -699,7 +699,9 @@ class TestListAllCampaigns:
         mock_conn.get_campaigns.return_value = [mock_campaign]
 
         # Patch _get_connector to return our mock
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(method="GET", path="/api/v1/advertising/campaigns")
             result = await handler.handle_request(request)
 
@@ -828,7 +830,9 @@ class TestGetCampaign:
         mock_campaign.bidding_strategy = "CPC"
         mock_conn.get_campaign.return_value = mock_campaign
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="GET",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -846,7 +850,9 @@ class TestGetCampaign:
         mock_conn = _make_mock_connector()
         mock_conn.get_campaign.side_effect = ValueError("Not found")
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="GET",
                 path="/api/v1/advertising/google_ads/campaigns/nonexistent",
@@ -895,7 +901,9 @@ class TestCreateCampaign:
         mock_conn = _make_mock_connector()
         mock_conn.create_campaign.return_value = "camp-new"
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/google_ads/campaigns",
@@ -914,7 +922,9 @@ class TestCreateCampaign:
         mock_conn = _make_mock_connector()
         mock_conn.create_campaign.return_value = "ms-camp-1"
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/microsoft_ads/campaigns",
@@ -943,7 +953,9 @@ class TestCreateCampaign:
         mock_campaign.spend_cap = None
         mock_conn.create_campaign.return_value = mock_campaign
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/meta_ads/campaigns",
@@ -960,7 +972,9 @@ class TestCreateCampaign:
         _connect_platform("linkedin_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/linkedin_ads/campaigns",
@@ -988,7 +1002,9 @@ class TestCreateCampaign:
         mock_campaign.campaign_type = "SPONSORED_UPDATES"
         mock_conn.create_campaign.return_value = mock_campaign
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/linkedin_ads/campaigns",
@@ -1110,7 +1126,9 @@ class TestCreateCampaign:
         mock_conn = _make_mock_connector()
         mock_conn.create_campaign.side_effect = ConnectionError("API failure")
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/google_ads/campaigns",
@@ -1155,7 +1173,9 @@ class TestCreateCampaign:
         mock_conn = _make_mock_connector()
         mock_conn.create_campaign.return_value = "camp-typed"
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="POST",
                 path="/api/v1/advertising/google_ads/campaigns",
@@ -1190,7 +1210,9 @@ class TestUpdateCampaign:
         _connect_platform("google_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -1208,7 +1230,9 @@ class TestUpdateCampaign:
         _connect_platform("google_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -1224,7 +1248,9 @@ class TestUpdateCampaign:
         _connect_platform("google_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -1240,7 +1266,9 @@ class TestUpdateCampaign:
         _connect_platform("google_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -1256,7 +1284,9 @@ class TestUpdateCampaign:
         _connect_platform("google_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -1272,7 +1302,9 @@ class TestUpdateCampaign:
         mock_conn = _make_mock_connector()
         mock_conn.update_campaign_status.side_effect = ConnectionError("Error")
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/google_ads/campaigns/camp-123",
@@ -1302,7 +1334,9 @@ class TestUpdateCampaign:
         _connect_platform("meta_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/meta_ads/campaigns/camp-456",
@@ -1318,7 +1352,9 @@ class TestUpdateCampaign:
         _connect_platform("microsoft_ads")
         mock_conn = _make_mock_connector()
 
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=mock_conn
+        ):
             request = MockRequest(
                 method="PUT",
                 path="/api/v1/advertising/microsoft_ads/campaigns/ms-camp",

@@ -136,7 +136,10 @@ async def _generate_edge_tts(
                 process.kill()
                 await process.wait()
                 logger.warning(
-                    "edge-tts timed out after %ss (attempt %s/%s)", timeout, attempt + 1, max_retries
+                    "edge-tts timed out after %ss (attempt %s/%s)",
+                    timeout,
+                    attempt + 1,
+                    max_retries,
                 )
                 last_error = TimeoutError(f"edge-tts timed out after {timeout}s")
                 # Continue to retry
@@ -151,7 +154,11 @@ async def _generate_edge_tts(
                     stderr.decode("utf-8", errors="replace").strip() if stderr else "unknown error"
                 )
                 logger.debug(
-                    "edge-tts failed (attempt %s/%s): returncode=%s, error=%s", attempt + 1, max_retries, process.returncode, error_msg[:200]
+                    "edge-tts failed (attempt %s/%s): returncode=%s, error=%s",
+                    attempt + 1,
+                    max_retries,
+                    process.returncode,
+                    error_msg[:200],
                 )
                 last_error = RuntimeError(
                     f"edge-tts returned {process.returncode}: {error_msg[:100]}"
@@ -162,7 +169,9 @@ async def _generate_edge_tts(
             logger.debug("edge-tts not found in PATH")
             return False
         except (RuntimeError, OSError, ValueError) as e:
-            logger.debug("edge-tts generation failed (attempt %s/%s): %s", attempt + 1, max_retries, e)
+            logger.debug(
+                "edge-tts generation failed (attempt %s/%s): %s", attempt + 1, max_retries, e
+            )
             last_error = e
 
         # Exponential backoff before retry (except on last attempt)

@@ -121,9 +121,7 @@ class MockShopifyOrder:
     customer: MockShopifyCustomer = field(default_factory=MockShopifyCustomer)
     total_price: str = "45.97"
     subtotal_price: str = "39.98"
-    total_shipping_price_set: MockShippingPriceSet = field(
-        default_factory=MockShippingPriceSet
-    )
+    total_shipping_price_set: MockShippingPriceSet = field(default_factory=MockShippingPriceSet)
     total_tax: str = "3.00"
     currency: str = "USD"
     line_items: list[MockLineItem] = field(default_factory=lambda: [MockLineItem()])
@@ -164,9 +162,7 @@ class MockShopifyVariant:
 class MockShopifyProduct:
     id: int = 2001
     title: str = "Widget Pro"
-    variants: list[MockShopifyVariant] = field(
-        default_factory=lambda: [MockShopifyVariant()]
-    )
+    variants: list[MockShopifyVariant] = field(default_factory=lambda: [MockShopifyVariant()])
     status: str = "active"
     vendor: str = "Acme Corp"
     product_type: str = "Gadgets"
@@ -225,22 +221,16 @@ class MockWalmartPostalAddress:
 
 @dataclass
 class MockWalmartShippingInfo:
-    postal_address: MockWalmartPostalAddress = field(
-        default_factory=MockWalmartPostalAddress
-    )
+    postal_address: MockWalmartPostalAddress = field(default_factory=MockWalmartPostalAddress)
 
 
 @dataclass
 class MockWalmartOrder:
     purchase_order_id: str = "WM-5001"
     customer_order_id: str = "WMCO-5001"
-    order_status: MockWalmartOrderStatus = field(
-        default_factory=MockWalmartOrderStatus
-    )
+    order_status: MockWalmartOrderStatus = field(default_factory=MockWalmartOrderStatus)
     customer_email: str = "bob@example.com"
-    shipping_info: MockWalmartShippingInfo = field(
-        default_factory=MockWalmartShippingInfo
-    )
+    shipping_info: MockWalmartShippingInfo = field(default_factory=MockWalmartShippingInfo)
     order_total: str = "149.99"
     order_date: datetime = field(
         default_factory=lambda: datetime(2026, 2, 4, 14, 0, 0, tzinfo=timezone.utc)
@@ -262,9 +252,7 @@ class MockWalmartItem:
     price: MockWalmartItemPrice = field(default_factory=MockWalmartItemPrice)
     gtin: str = "098765432109"
     quantity: int = 100
-    lifecycle_status: MockWalmartLifecycleStatus = field(
-        default_factory=MockWalmartLifecycleStatus
-    )
+    lifecycle_status: MockWalmartLifecycleStatus = field(default_factory=MockWalmartLifecycleStatus)
     brand: str = "Walmart Brand"
     product_type: str = "Electronics"
 
@@ -460,9 +448,7 @@ class TestCircuitBreakerStatus:
 
     @pytest.mark.asyncio
     async def test_get_circuit_breaker_status(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/circuit-breaker"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/circuit-breaker")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -470,9 +456,7 @@ class TestCircuitBreakerStatus:
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_defaults_to_closed(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/circuit-breaker"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/circuit-breaker")
         result = await handler.handle_request(request)
         body = _body(result)
         assert body["state"] == "closed"
@@ -746,9 +730,7 @@ class TestDisconnectPlatform:
     @pytest.mark.asyncio
     async def test_disconnect_shopify(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
-        request = MockRequest(
-            method="DELETE", path="/api/v1/ecommerce/shopify"
-        )
+        request = MockRequest(method="DELETE", path="/api/v1/ecommerce/shopify")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -758,9 +740,7 @@ class TestDisconnectPlatform:
 
     @pytest.mark.asyncio
     async def test_disconnect_not_connected(self, handler):
-        request = MockRequest(
-            method="DELETE", path="/api/v1/ecommerce/shopify"
-        )
+        request = MockRequest(method="DELETE", path="/api/v1/ecommerce/shopify")
         result = await handler.handle_request(request)
         assert _status(result) == 404
         assert "not connected" in _body(result)["error"]
@@ -768,9 +748,7 @@ class TestDisconnectPlatform:
     @pytest.mark.asyncio
     async def test_disconnect_without_connector_in_cache(self, handler):
         _connect_shopify()  # no connector in _platform_connectors
-        request = MockRequest(
-            method="DELETE", path="/api/v1/ecommerce/shopify"
-        )
+        request = MockRequest(method="DELETE", path="/api/v1/ecommerce/shopify")
         result = await handler.handle_request(request)
         assert _status(result) == 200
 
@@ -793,9 +771,7 @@ class TestListAllOrders:
         assert body["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_all_orders_from_shopify(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_list_all_orders_from_shopify(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         request = MockRequest(method="GET", path="/api/v1/ecommerce/orders")
         result = await handler.handle_request(request)
@@ -821,9 +797,7 @@ class TestListAllOrders:
         assert "walmart" in platforms
 
     @pytest.mark.asyncio
-    async def test_list_all_orders_pagination_params(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_list_all_orders_pagination_params(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         request = MockRequest(
             method="GET",
@@ -848,9 +822,7 @@ class TestListAllOrders:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_list_all_orders_platform_error_handled(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_list_all_orders_platform_error_handled(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_orders.side_effect = ConnectionError("timeout")
         request = MockRequest(method="GET", path="/api/v1/ecommerce/orders")
@@ -872,9 +844,7 @@ class TestListPlatformOrders:
     @pytest.mark.asyncio
     async def test_list_shopify_orders(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -887,17 +857,13 @@ class TestListPlatformOrders:
 
     @pytest.mark.asyncio
     async def test_list_platform_orders_not_connected(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders")
         result = await handler.handle_request(request)
         assert _status(result) == 404
         assert "not connected" in _body(result)["error"]
 
     @pytest.mark.asyncio
-    async def test_list_platform_orders_with_status_filter(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_list_platform_orders_with_status_filter(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         request = MockRequest(
             method="GET",
@@ -911,9 +877,7 @@ class TestListPlatformOrders:
     @pytest.mark.asyncio
     async def test_list_shipstation_orders(self, handler, mock_shipstation_connector):
         _connect_shipstation(mock_shipstation_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shipstation/orders"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shipstation/orders")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -925,9 +889,7 @@ class TestListPlatformOrders:
     @pytest.mark.asyncio
     async def test_list_walmart_orders(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/walmart/orders"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/walmart/orders")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -948,9 +910,7 @@ class TestGetOrder:
     @pytest.mark.asyncio
     async def test_get_shopify_order(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders/1001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders/1001")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -962,9 +922,7 @@ class TestGetOrder:
     @pytest.mark.asyncio
     async def test_get_shipstation_order(self, handler, mock_shipstation_connector):
         _connect_shipstation(mock_shipstation_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shipstation/orders/3001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shipstation/orders/3001")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -974,9 +932,7 @@ class TestGetOrder:
     @pytest.mark.asyncio
     async def test_get_walmart_order(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/walmart/orders/WM5001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/walmart/orders/WM5001")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -984,9 +940,7 @@ class TestGetOrder:
 
     @pytest.mark.asyncio
     async def test_get_order_not_connected(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders/1001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders/1001")
         result = await handler.handle_request(request)
         assert _status(result) == 404
         assert "not connected" in _body(result)["error"]
@@ -996,9 +950,7 @@ class TestGetOrder:
         _connect_shopify()
         # No connector in cache, and _get_connector returns None by patching
         with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
-            request = MockRequest(
-                method="GET", path="/api/v1/ecommerce/shopify/orders/1001"
-            )
+            request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders/1001")
             result = await handler.handle_request(request)
         assert _status(result) == 500
 
@@ -1006,9 +958,7 @@ class TestGetOrder:
     async def test_get_order_connection_error(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_order.side_effect = ConnectionError("down")
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders/1001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders/1001")
         result = await handler.handle_request(request)
         assert _status(result) == 503
 
@@ -1016,9 +966,7 @@ class TestGetOrder:
     async def test_get_order_not_found(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_order.side_effect = KeyError("not found")
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders/9999"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders/9999")
         result = await handler.handle_request(request)
         assert _status(result) == 404
 
@@ -1026,9 +974,7 @@ class TestGetOrder:
     async def test_get_order_value_error(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_order.side_effect = ValueError("bad")
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/orders/1001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/orders/1001")
         result = await handler.handle_request(request)
         assert _status(result) == 400
 
@@ -1051,9 +997,7 @@ class TestListAllProducts:
         assert body["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_products_from_shopify(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_list_products_from_shopify(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         request = MockRequest(method="GET", path="/api/v1/ecommerce/products")
         result = await handler.handle_request(request)
@@ -1088,9 +1032,7 @@ class TestListAllProducts:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_list_products_from_walmart(
-        self, handler, mock_walmart_connector
-    ):
+    async def test_list_products_from_walmart(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
         request = MockRequest(method="GET", path="/api/v1/ecommerce/products")
         result = await handler.handle_request(request)
@@ -1101,9 +1043,7 @@ class TestListAllProducts:
         assert product["platform"] == "walmart"
 
     @pytest.mark.asyncio
-    async def test_list_products_platform_error_handled(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_list_products_platform_error_handled(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_products.side_effect = ConnectionError("down")
         request = MockRequest(method="GET", path="/api/v1/ecommerce/products")
@@ -1124,9 +1064,7 @@ class TestListPlatformProducts:
     @pytest.mark.asyncio
     async def test_list_shopify_products(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/products"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -1135,18 +1073,14 @@ class TestListPlatformProducts:
 
     @pytest.mark.asyncio
     async def test_list_platform_products_not_connected(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/products"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products")
         result = await handler.handle_request(request)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_list_walmart_products(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/walmart/products"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/walmart/products")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -1164,9 +1098,7 @@ class TestGetProduct:
     @pytest.mark.asyncio
     async def test_get_shopify_product(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/products/2001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products/2001")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -1178,9 +1110,7 @@ class TestGetProduct:
     @pytest.mark.asyncio
     async def test_get_walmart_product(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/walmart/products/WM-SKU-001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/walmart/products/WM-SKU-001")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -1189,9 +1119,7 @@ class TestGetProduct:
 
     @pytest.mark.asyncio
     async def test_get_product_not_connected(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/products/2001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products/2001")
         result = await handler.handle_request(request)
         assert _status(result) == 404
 
@@ -1199,9 +1127,7 @@ class TestGetProduct:
     async def test_get_product_connector_unavailable(self, handler):
         _connect_shopify()
         with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
-            request = MockRequest(
-                method="GET", path="/api/v1/ecommerce/shopify/products/2001"
-            )
+            request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products/2001")
             result = await handler.handle_request(request)
         assert _status(result) == 500
 
@@ -1209,9 +1135,7 @@ class TestGetProduct:
     async def test_get_product_connection_error(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_product.side_effect = ConnectionError("down")
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/products/2001"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products/2001")
         result = await handler.handle_request(request)
         assert _status(result) == 503
 
@@ -1219,9 +1143,7 @@ class TestGetProduct:
     async def test_get_product_not_found(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         mock_shopify_connector.get_product.side_effect = KeyError("nope")
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/shopify/products/9999"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/shopify/products/9999")
         result = await handler.handle_request(request)
         assert _status(result) == 404
 
@@ -1229,8 +1151,7 @@ class TestGetProduct:
     async def test_get_product_invalid_id(self, handler):
         _connect_shopify()
         request = MockRequest(
-            method="GET",
-            path="/api/v1/ecommerce/shopify/products/../../etc/passwd"
+            method="GET", path="/api/v1/ecommerce/shopify/products/../../etc/passwd"
         )
         result = await handler.handle_request(request)
         # The path traversal chars should fail resource ID validation
@@ -1354,12 +1275,13 @@ class TestSyncInventory:
         )
         result = await handler.handle_request(request)
         assert _status(result) == 400
-        assert "quantity" in _body(result)["error"].lower() or "source" in _body(result)["error"].lower()
+        assert (
+            "quantity" in _body(result)["error"].lower()
+            or "source" in _body(result)["error"].lower()
+        )
 
     @pytest.mark.asyncio
-    async def test_sync_inventory_from_source_platform(
-        self, handler, mock_walmart_connector
-    ):
+    async def test_sync_inventory_from_source_platform(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
         # Source platform returns quantity
         mock_walmart_connector.get_inventory.return_value = [MockWalmartInventory(quantity=75)]
@@ -1378,9 +1300,7 @@ class TestSyncInventory:
         assert body["quantity"] == 75
 
     @pytest.mark.asyncio
-    async def test_sync_inventory_target_not_connected(
-        self, handler, mock_walmart_connector
-    ):
+    async def test_sync_inventory_target_not_connected(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
         request = MockRequest(
             method="POST",
@@ -1459,9 +1379,7 @@ class TestSyncInventory:
         assert "walmart" not in body["results"]
 
     @pytest.mark.asyncio
-    async def test_sync_inventory_connector_error(
-        self, handler, mock_walmart_connector
-    ):
+    async def test_sync_inventory_connector_error(self, handler, mock_walmart_connector):
         _connect_walmart(mock_walmart_connector)
         mock_walmart_connector.update_inventory.side_effect = ConnectionError("fail")
         request = MockRequest(
@@ -1499,9 +1417,7 @@ class TestGetFulfillmentStatus:
 
     @pytest.mark.asyncio
     async def test_fulfillment_no_platforms(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/fulfillment"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/fulfillment")
         result = await handler.handle_request(request)
         assert _status(result) == 200
         body = _body(result)
@@ -1511,9 +1427,7 @@ class TestGetFulfillmentStatus:
     @pytest.mark.asyncio
     async def test_fulfillment_shopify(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
-        mock_shopify_connector.get_order.return_value = (
-            MockShopifyOrderWithFulfillments()
-        )
+        mock_shopify_connector.get_order.return_value = MockShopifyOrderWithFulfillments()
         request = MockRequest(
             method="GET",
             path="/api/v1/ecommerce/fulfillment",
@@ -1660,9 +1574,7 @@ class TestCreateShipment:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_create_shipment_connection_error(
-        self, handler, mock_shipstation_connector
-    ):
+    async def test_create_shipment_connection_error(self, handler, mock_shipstation_connector):
         _connect_shipstation(mock_shipstation_connector)
         mock_shipstation_connector.create_label.side_effect = ConnectionError("fail")
         request = MockRequest(
@@ -1774,9 +1686,7 @@ class TestCreateShipment:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_shipment_application_error(
-        self, handler, mock_shipstation_connector
-    ):
+    async def test_create_shipment_application_error(self, handler, mock_shipstation_connector):
         _connect_shipstation(mock_shipstation_connector)
         mock_shipstation_connector.create_label.side_effect = ValueError("bad input")
         request = MockRequest(
@@ -1927,9 +1837,7 @@ class TestCircuitBreakerProtection:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_records_success(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_circuit_breaker_records_success(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         cb = handler._circuit_breaker
         initial_status = cb.get_status()
@@ -1961,26 +1869,20 @@ class TestNotFound:
 
     @pytest.mark.asyncio
     async def test_unknown_ecommerce_endpoint(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/unknown-endpoint"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/unknown-endpoint")
         result = await handler.handle_request(request)
         assert _status(result) == 404
         assert "not found" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_connect(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/connect"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/connect")
         result = await handler.handle_request(request)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_ship(self, handler):
-        request = MockRequest(
-            method="GET", path="/api/v1/ecommerce/ship"
-        )
+        request = MockRequest(method="GET", path="/api/v1/ecommerce/ship")
         result = await handler.handle_request(request)
         assert _status(result) == 404
 
@@ -2110,9 +2012,7 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     @pytest.mark.asyncio
-    async def test_pagination_offset_exceeds_results(
-        self, handler, mock_shopify_connector
-    ):
+    async def test_pagination_offset_exceeds_results(self, handler, mock_shopify_connector):
         _connect_shopify(mock_shopify_connector)
         request = MockRequest(
             method="GET",
@@ -2129,8 +2029,7 @@ class TestEdgeCases:
         """Resource IDs with special characters should be rejected."""
         _connect_shopify()
         request = MockRequest(
-            method="GET",
-            path="/api/v1/ecommerce/shopify/orders/<script>alert(1)</script>"
+            method="GET", path="/api/v1/ecommerce/shopify/orders/<script>alert(1)</script>"
         )
         result = await handler.handle_request(request)
         assert _status(result) == 400
@@ -2214,7 +2113,9 @@ class TestEdgeCases:
                 "order_id": "WM5001",
             },
         )
-        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=MagicMock()):
+        with patch.object(
+            handler, "_get_connector", new_callable=AsyncMock, return_value=MagicMock()
+        ):
             result = await handler.handle_request(request)
         assert _status(result) == 400
         assert "Unsupported" in _body(result)["error"]

@@ -192,19 +192,24 @@ class GauntletRunner:
         # Write critical findings to ImprovementQueue for self-improvement
         if result.vulnerabilities:
             critical_count = sum(
-                1 for v in result.vulnerabilities
-                if v.severity == SeverityLevel.CRITICAL
+                1 for v in result.vulnerabilities if v.severity == SeverityLevel.CRITICAL
             )
             if critical_count > 0:
                 try:
-                    from aragora.nomic.feedback_orchestrator import ImprovementGoal, ImprovementQueue
+                    from aragora.nomic.feedback_orchestrator import (
+                        ImprovementGoal,
+                        ImprovementQueue,
+                    )
+
                     queue = ImprovementQueue()
-                    queue.push(ImprovementGoal(
-                        goal=f"Fix {critical_count} critical gauntlet findings from {gauntlet_id}",
-                        source="gauntlet",
-                        priority=0.95,
-                        context={"gauntlet_id": gauntlet_id, "critical_count": critical_count},
-                    ))
+                    queue.push(
+                        ImprovementGoal(
+                            goal=f"Fix {critical_count} critical gauntlet findings from {gauntlet_id}",
+                            source="gauntlet",
+                            priority=0.95,
+                            context={"gauntlet_id": gauntlet_id, "critical_count": critical_count},
+                        )
+                    )
                     logger.info("Enqueued %d critical findings to ImprovementQueue", critical_count)
                 except (ImportError, RuntimeError, ValueError, OSError) as e:
                     logger.debug("ImprovementQueue feedback skipped: %s", type(e).__name__)

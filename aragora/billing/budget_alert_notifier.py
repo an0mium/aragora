@@ -124,7 +124,10 @@ class BudgetAlertNotifier:
                 results = loop.run_until_complete(self.deliver_alert(alert))
                 for result in results:
                     logger.info(
-                        "Budget alert delivery to %s:%s: %s", result.channel_type, result.channel_id, result.status.value
+                        "Budget alert delivery to %s:%s: %s",
+                        result.channel_type,
+                        result.channel_id,
+                        result.status.value,
                     )
             finally:
                 loop.close()
@@ -223,7 +226,10 @@ class BudgetAlertNotifier:
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, ImportError) as e:
             logger.error(
-                "Failed to deliver to %s:%s: %s", channel_type, subscription.channel_id, e,
+                "Failed to deliver to %s:%s: %s",
+                channel_type,
+                subscription.channel_id,
+                e,
                 exc_info=True,
             )
             return DeliveryResult(

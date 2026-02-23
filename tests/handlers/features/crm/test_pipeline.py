@@ -189,7 +189,7 @@ def _mock_connector(**overrides):
     """Create a mock HubSpot connector with sensible defaults."""
     conn = AsyncMock()
     conn.get_pipelines = AsyncMock(return_value=overrides.get("pipelines", []))
-    conn.get_contact_by_email = AsyncMock(return_value=overrides.get("existing_contact", None))
+    conn.get_contact_by_email = AsyncMock(return_value=overrides.get("existing_contact"))
     conn.create_contact = AsyncMock(
         return_value=overrides.get(
             "created_contact",
@@ -365,7 +365,9 @@ class TestGetPipeline:
                 ],
             },
         }
-        with patch.object(handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result):
+        with patch.object(
+            handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result
+        ):
             result = await handler._get_pipeline(_req(query={"platform": "hubspot"}))
         body = _body(result)
         assert body["stage_summary"]["discovery"]["count"] == 2
@@ -390,7 +392,9 @@ class TestGetPipeline:
                 ],
             },
         }
-        with patch.object(handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result):
+        with patch.object(
+            handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result
+        ):
             result = await handler._get_pipeline(_req(query={"platform": "hubspot"}))
         body = _body(result)
         assert body["stage_summary"]["discovery"]["total_value"] == 500
@@ -405,7 +409,9 @@ class TestGetPipeline:
             "status_code": 200,
             "body": {"deals": [{"amount": 100}]},
         }
-        with patch.object(handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result):
+        with patch.object(
+            handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result
+        ):
             result = await handler._get_pipeline(_req(query={"platform": "hubspot"}))
         body = _body(result)
         assert "unknown" in body["stage_summary"]
@@ -512,7 +518,9 @@ class TestGetPipeline:
         _connect_hubspot()
         _install_connector()
 
-        with patch.object(handler, "_list_all_deals", new_callable=AsyncMock, return_value="not-a-dict"):
+        with patch.object(
+            handler, "_list_all_deals", new_callable=AsyncMock, return_value="not-a-dict"
+        ):
             result = await handler._get_pipeline(_req(query={"platform": "hubspot"}))
         body = _body(result)
         assert body["total_deals"] == 0
@@ -524,7 +532,9 @@ class TestGetPipeline:
         _install_connector()
 
         deals_result = {"status_code": 200, "body": {"deals": []}}
-        with patch.object(handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result):
+        with patch.object(
+            handler, "_list_all_deals", new_callable=AsyncMock, return_value=deals_result
+        ):
             result = await handler._get_pipeline(_req(query={"platform": "hubspot"}))
         body = _body(result)
         assert body["total_deals"] == 0
@@ -1546,31 +1556,23 @@ class TestHandleRequestRouting:
     @pytest.mark.asyncio
     async def test_route_wrong_method_for_pipeline(self, handler):
         """POST /api/v1/crm/pipeline returns 404 (wrong method)."""
-        result = await handler.handle_request(
-            _req(method="POST", path="/api/v1/crm/pipeline")
-        )
+        result = await handler.handle_request(_req(method="POST", path="/api/v1/crm/pipeline"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_route_wrong_method_for_enrich(self, handler):
         """GET /api/v1/crm/enrich returns 404 (wrong method)."""
-        result = await handler.handle_request(
-            _req(method="GET", path="/api/v1/crm/enrich")
-        )
+        result = await handler.handle_request(_req(method="GET", path="/api/v1/crm/enrich"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_route_wrong_method_for_search(self, handler):
         """GET /api/v1/crm/search returns 404 (wrong method)."""
-        result = await handler.handle_request(
-            _req(method="GET", path="/api/v1/crm/search")
-        )
+        result = await handler.handle_request(_req(method="GET", path="/api/v1/crm/search"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_route_wrong_method_for_sync_lead(self, handler):
         """GET /api/v1/crm/sync-lead returns 404 (wrong method)."""
-        result = await handler.handle_request(
-            _req(method="GET", path="/api/v1/crm/sync-lead")
-        )
+        result = await handler.handle_request(_req(method="GET", path="/api/v1/crm/sync-lead"))
         assert _status(result) == 404

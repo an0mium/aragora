@@ -396,16 +396,28 @@ class ContradictionDetector:
                     if conflict.conflict_score >= self.config.auto_debate_threshold:
                         try:
                             from aragora.events.dispatcher import get_event_dispatcher
+
                             dispatcher = get_event_dispatcher()
-                            await dispatcher.dispatch("contradiction_debate_requested", {
-                                "contradiction_id": conflict.id,
-                                "item_a_id": item_a.id,
-                                "item_b_id": item_b.id,
-                                "conflict_type": conflict.contradiction_type.value,
-                                "description": f"Resolve contradiction: {conflict.description[:200]}" if hasattr(conflict, 'description') and conflict.description else f"Resolve {conflict.contradiction_type.value} contradiction {conflict.id}",
-                            })
+                            await dispatcher.dispatch(
+                                "contradiction_debate_requested",
+                                {
+                                    "contradiction_id": conflict.id,
+                                    "item_a_id": item_a.id,
+                                    "item_b_id": item_b.id,
+                                    "conflict_type": conflict.contradiction_type.value,
+                                    "description": f"Resolve contradiction: {conflict.description[:200]}"
+                                    if hasattr(conflict, "description") and conflict.description
+                                    else f"Resolve {conflict.contradiction_type.value} contradiction {conflict.id}",
+                                },
+                            )
                             logger.info("Auto-created debate for contradiction %s", conflict.id)
-                        except (ImportError, RuntimeError, ValueError, OSError, AttributeError) as e:
+                        except (
+                            ImportError,
+                            RuntimeError,
+                            ValueError,
+                            OSError,
+                            AttributeError,
+                        ) as e:
                             logger.debug("Auto-debate creation skipped: %s", type(e).__name__)
 
                 comparisons += 1

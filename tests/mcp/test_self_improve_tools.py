@@ -40,6 +40,7 @@ class TestAssessCodebaseTool:
             mock_cls.return_value = mock_engine
 
             from aragora.mcp.tools_module.self_improve import assess_codebase_tool
+
             result = await assess_codebase_tool()
 
         assert result["health_score"] == 0.8
@@ -48,8 +49,10 @@ class TestAssessCodebaseTool:
     async def test_assess_graceful_on_import_error(self):
         with patch.dict("sys.modules", {"aragora.nomic.assessment_engine": None}):
             from aragora.mcp.tools_module import self_improve
+
             # Force reimport to pick up the None module
             import importlib
+
             importlib.reload(self_improve)
 
             result = await self_improve.assess_codebase_tool()
@@ -59,6 +62,7 @@ class TestAssessCodebaseTool:
     @pytest.mark.asyncio
     async def test_assess_with_invalid_weights(self):
         from aragora.mcp.tools_module.self_improve import assess_codebase_tool
+
         result = await assess_codebase_tool(weights="not-json")
         assert "error" in result
 
@@ -92,6 +96,7 @@ class TestGenerateGoalsTool:
             mock_gen_cls.return_value = mock_gen
 
             from aragora.mcp.tools_module.self_improve import generate_improvement_goals_tool
+
             result = await generate_improvement_goals_tool(max_goals=3)
 
         assert result["goals_count"] == 1
@@ -111,6 +116,7 @@ class TestRunSelfImprovementTool:
             mock_cls.return_value = mock_pipeline
 
             from aragora.mcp.tools_module.self_improve import run_self_improvement_tool
+
             result = await run_self_improvement_tool(objective="Fix tests", dry_run=True)
 
         assert result["mode"] == "dry_run"
@@ -149,6 +155,7 @@ class TestGetDaemonStatusTool:
             mock_get.return_value = mock_daemon
 
             from aragora.mcp.tools_module.self_improve import get_daemon_status_tool
+
             result = await get_daemon_status_tool()
 
         assert result["state"] == "idle"
@@ -190,6 +197,7 @@ class TestTriggerCycleTool:
             mock_cls.return_value = mock_daemon
 
             from aragora.mcp.tools_module.self_improve import trigger_improvement_cycle_tool
+
             result = await trigger_improvement_cycle_tool(dry_run=True)
 
         assert result["skipped"] is True

@@ -127,8 +127,15 @@ class MockWorkspaceBead:
 
 
 class MockAgent:
-    def __init__(self, agent_id, role, supervised_by=None, is_ephemeral=False,
-                 assigned_at=None, capabilities=None):
+    def __init__(
+        self,
+        agent_id,
+        role,
+        supervised_by=None,
+        is_ephemeral=False,
+        assigned_at=None,
+        capabilities=None,
+    ):
         self.agent_id = agent_id
         self.role = role
         self.supervised_by = supervised_by
@@ -276,8 +283,11 @@ class TestAuthentication:
         from aragora.rbac.models import AuthorizationContext
 
         mock_ctx = AuthorizationContext(
-            user_id="u1", user_email="u@x.com", org_id="o1",
-            roles={"viewer"}, permissions=set(),
+            user_id="u1",
+            user_email="u@x.com",
+            org_id="o1",
+            roles={"viewer"},
+            permissions=set(),
         )
 
         async def mock_get_auth(self, req, require_auth=True):
@@ -286,20 +296,25 @@ class TestAuthentication:
         def mock_check_perm(self, ctx, perm, resource_id=None):
             raise ForbiddenError("No gastown:read")
 
-        with patch.object(SecureHandler, "get_auth_context", mock_get_auth), \
-             patch.object(SecureHandler, "check_permission", mock_check_perm):
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch.object(SecureHandler, "check_permission", mock_check_perm),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
         assert _status(result) == 403
 
     async def test_authenticated_request_succeeds(self, handler, mock_http):
         """With auto-auth, a basic request should succeed."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gastown_dashboard.GasTownDashboardHandler._get_canonical_workspace_stores",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard.GasTownDashboardHandler._get_canonical_workspace_stores",
+                return_value=None,
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
@@ -316,10 +331,13 @@ class TestOverview:
 
     async def test_overview_empty_state(self, handler, mock_http):
         """Overview returns defaults when no extensions or stores are available."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
         assert _status(result) == 200
@@ -332,10 +350,13 @@ class TestOverview:
 
     async def test_overview_caching(self, handler, mock_http):
         """Second call returns cached data."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result1 = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
             body1 = _body(result1)
 
@@ -347,17 +368,24 @@ class TestOverview:
 
     async def test_overview_force_refresh(self, handler, mock_http):
         """refresh=true bypasses cache."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result1 = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {},
+                mock_http,
             )
             body1 = _body(result1)
 
             result2 = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
             body2 = _body(result2)
 
@@ -381,15 +409,23 @@ class TestOverview:
         mock_state.convoy_tracker = mock_tracker
         mock_state.coordinator = None
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
-        ), patch(
-            "aragora.server.handlers.gastown_dashboard.GasTownDashboardHandler._get_canonical_workspace_stores",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus)},
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard.GasTownDashboardHandler._get_canonical_workspace_stores",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    )
+                },
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
@@ -414,14 +450,20 @@ class TestOverview:
         mock_stores.convoy_manager = AsyncMock(return_value=mock_manager)
         mock_stores.bead_store = AsyncMock(return_value=MagicMock())
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_canonical_workspace_stores", return_value=mock_stores,
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus)},
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(
+                handler,
+                "_get_canonical_workspace_stores",
+                return_value=mock_stores,
+            ),
+            patch.dict(
+                "sys.modules",
+                {"aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus)},
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
@@ -433,11 +475,16 @@ class TestOverview:
 
     async def test_overview_convoy_import_error(self, handler, mock_http):
         """ImportError in convoy section is handled gracefully."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_canonical_workspace_stores", side_effect=ImportError("no module"),
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(
+                handler,
+                "_get_canonical_workspace_stores",
+                side_effect=ImportError("no module"),
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
@@ -451,13 +498,21 @@ class TestOverview:
         mock_state.convoy_tracker = MagicMock()
         mock_state.convoy_tracker.list_convoys = AsyncMock(side_effect=RuntimeError("oops"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus)},
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    )
+                },
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
         assert _status(result) == 200
@@ -472,7 +527,10 @@ class TestOverview:
             if status == MockBeadStatus.PENDING:
                 return [MockBead("b1", MockBeadStatus.PENDING)]
             if status == MockBeadStatus.COMPLETED:
-                return [MockBead("b2", MockBeadStatus.COMPLETED), MockBead("b3", MockBeadStatus.COMPLETED)]
+                return [
+                    MockBead("b2", MockBeadStatus.COMPLETED),
+                    MockBead("b3", MockBeadStatus.COMPLETED),
+                ]
             return []
 
         mock_bead_store.list_beads = AsyncMock(side_effect=list_beads_by_status)
@@ -480,21 +538,33 @@ class TestOverview:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(return_value=mock_bead_store)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_canonical_workspace_stores", return_value=mock_stores,
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, ConvoyStatus=MockConvoyStatus)},
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(
+                handler,
+                "_get_canonical_workspace_stores",
+                return_value=mock_stores,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, ConvoyStatus=MockConvoyStatus
+                    )
+                },
+            ),
         ):
             # Also need to mock convoy_manager for the convoy section
             mock_stores.convoy_manager = AsyncMock(
                 return_value=AsyncMock(list_convoys=AsyncMock(return_value=[])),
             )
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         body = _body(result)
@@ -507,22 +577,31 @@ class TestOverview:
         mock_witness = MagicMock()
         mock_witness._running = True
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch(
-                 "aragora.server.handlers.gastown_dashboard.get_witness_behavior",
-                 return_value=mock_witness,
-                 create=True,
-             ), patch.dict("sys.modules", {
-                 "aragora.server.startup": MagicMock(
-                     get_witness_behavior=MagicMock(return_value=mock_witness),
-                     get_mayor_coordinator=MagicMock(return_value=None),
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch(
+                "aragora.server.handlers.gastown_dashboard.get_witness_behavior",
+                return_value=mock_witness,
+                create=True,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": MagicMock(
+                        get_witness_behavior=MagicMock(return_value=mock_witness),
+                        get_mayor_coordinator=MagicMock(return_value=None),
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         body = _body(result)
@@ -534,18 +613,26 @@ class TestOverview:
         mock_coordinator.is_mayor = True
         mock_coordinator.get_current_mayor_node.return_value = "node-42"
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.server.startup": MagicMock(
-                     get_witness_behavior=MagicMock(return_value=None),
-                     get_mayor_coordinator=MagicMock(return_value=mock_coordinator),
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": MagicMock(
+                        get_witness_behavior=MagicMock(return_value=None),
+                        get_mayor_coordinator=MagicMock(return_value=mock_coordinator),
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         body = _body(result)
@@ -554,30 +641,46 @@ class TestOverview:
 
     async def test_overview_witness_import_error(self, handler, mock_http):
         """ImportError from witness module handled gracefully."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.server.startup": None,
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": None,
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
 
     async def test_overview_agent_stats_import_error(self, handler, mock_http):
         """ImportError for agent roles handled gracefully."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.extensions.gastown.agent_roles": None,
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.agent_roles": None,
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         body = _body(result)
@@ -594,10 +697,13 @@ class TestConvoys:
 
     async def test_convoys_empty(self, handler, mock_http):
         """Returns empty list when no stores available."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -631,16 +737,24 @@ class TestConvoys:
 
         mock_bead_mgr.list_beads = AsyncMock(side_effect=list_beads)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(
-                BeadManager=MagicMock(return_value=mock_bead_mgr),
-                BeadStatus=MockWorkspaceBeadStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(
+                        BeadManager=MagicMock(return_value=mock_bead_mgr),
+                        BeadStatus=MockWorkspaceBeadStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -678,13 +792,19 @@ class TestConvoys:
         mock_stores.bead_store = AsyncMock(return_value=mock_bead_store)
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -715,13 +835,19 @@ class TestConvoys:
         mock_stores.bead_store = AsyncMock(return_value=mock_bead_store)
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -742,15 +868,23 @@ class TestConvoys:
         mock_stores.bead_store = AsyncMock(return_value=AsyncMock(get=AsyncMock(return_value=None)))
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/convoys", {"limit": "2"}, mock_http,
+                "/api/v1/dashboard/gastown/convoys",
+                {"limit": "2"},
+                mock_http,
             )
 
         body = _body(result)
@@ -762,17 +896,25 @@ class TestConvoys:
         mock_tracker = AsyncMock()
         mock_tracker.list_convoys = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(
-                ConvoyStatus=MockGastownConvoyStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-            "aragora.workspace.bead": MagicMock(),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus,
+                    ),
+                    "aragora.workspace.bead": MagicMock(),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/convoys", {"status": "invalid_status"}, mock_http,
+                "/api/v1/dashboard/gastown/convoys",
+                {"status": "invalid_status"},
+                mock_http,
             )
 
         assert _status(result) == 400
@@ -787,15 +929,23 @@ class TestConvoys:
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
         mock_stores.bead_store = AsyncMock(return_value=mock_bead_store)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/convoys", {"status": "bogus"}, mock_http,
+                "/api/v1/dashboard/gastown/convoys",
+                {"status": "bogus"},
+                mock_http,
             )
 
         assert _status(result) == 400
@@ -811,15 +961,23 @@ class TestConvoys:
         mock_stores.bead_store = AsyncMock(return_value=AsyncMock(get=AsyncMock(return_value=None)))
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/convoys", {"status": "active"}, mock_http,
+                "/api/v1/dashboard/gastown/convoys",
+                {"status": "active"},
+                mock_http,
             )
 
         body = _body(result)
@@ -842,13 +1000,21 @@ class TestConvoys:
         mock_tracker = MagicMock()
         mock_tracker.list_convoys = AsyncMock(side_effect=AttributeError("bad attr"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(),
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -859,13 +1025,21 @@ class TestConvoys:
         mock_tracker = MagicMock()
         mock_tracker.list_convoys = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(),
-        }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         assert _status(result) == 500
@@ -881,13 +1055,19 @@ class TestConvoys:
         mock_stores.bead_store = AsyncMock(return_value=AsyncMock(get=AsyncMock(return_value=None)))
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -906,13 +1086,19 @@ class TestConvoys:
         mock_stores.bead_store = AsyncMock(return_value=AsyncMock(get=AsyncMock(return_value=None)))
         mock_stores.convoy_manager = AsyncMock(return_value=mock_convoy_mgr)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -998,7 +1184,8 @@ class TestAgents:
         """Agent serialization includes all expected fields."""
         now = datetime.now(timezone.utc)
         agent = MockAgent(
-            "a1", MockAgentRole.MAYOR,
+            "a1",
+            MockAgentRole.MAYOR,
             supervised_by="supervisor-1",
             is_ephemeral=True,
             assigned_at=now,
@@ -1043,10 +1230,17 @@ class TestBeads:
 
     async def test_beads_no_stores(self, handler, mock_http):
         """Returns empty when no stores available."""
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         body = _body(result)
@@ -1077,10 +1271,17 @@ class TestBeads:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(return_value=mock_bead_store)
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         body = _body(result)
@@ -1108,10 +1309,17 @@ class TestBeads:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(side_effect=AttributeError("broken"))
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         body = _body(result)
@@ -1122,16 +1330,24 @@ class TestBeads:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         assert _status(result) == 500
 
     async def test_beads_claimed_contributes_to_processing(self, handler, mock_http):
         """Claimed beads are included in the processing count."""
+
         # We need a BeadStatus that includes 'claimed'
         class BeadStatusWithClaimed(Enum):
             PENDING = "pending"
@@ -1153,13 +1369,18 @@ class TestBeads:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(return_value=mock_bead_store)
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(
-                     BeadStatus=BeadStatusWithClaimed,
-                     BeadPriority=MockBeadPriority,
-                 ),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=BeadStatusWithClaimed,
+                        BeadPriority=MockBeadPriority,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         body = _body(result)
@@ -1176,12 +1397,19 @@ class TestMetrics:
 
     async def test_metrics_defaults(self, handler, mock_http):
         """Returns default metrics when no sources available."""
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -1198,9 +1426,12 @@ class TestMetrics:
         mock_metrics.get_convoy_completion_rate = MagicMock(return_value=75.5)
         mock_metrics.get_gupp_recovery_count = MagicMock(return_value=3)
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -1215,11 +1446,16 @@ class TestMetrics:
         mock_metrics.get_convoy_completion_rate = MagicMock(return_value=50.0)
         mock_metrics.get_gupp_recovery_count = MagicMock(return_value=0)
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/metrics", {"hours": "10"}, mock_http,
+                "/api/v1/dashboard/gastown/metrics",
+                {"hours": "10"},
+                mock_http,
             )
 
         body = _body(result)
@@ -1241,12 +1477,20 @@ class TestMetrics:
         mock_state.convoy_tracker = mock_tracker
         mock_state.coordinator = None
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
@@ -1266,15 +1510,25 @@ class TestMetrics:
         mock_stores = AsyncMock()
         mock_stores.convoy_manager = AsyncMock(return_value=mock_mgr)
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
-             }):
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(ConvoyStatus=MockConvoyStatus),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -1282,11 +1536,17 @@ class TestMetrics:
 
     async def test_metrics_fallback_import_error(self, handler, mock_http):
         """Complete import failure in fallback still returns default metrics."""
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            side_effect=ImportError("nope"),
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                side_effect=ImportError("nope"),
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
@@ -1298,9 +1558,12 @@ class TestMetrics:
         mock_metrics = MagicMock()
         mock_metrics.get_beads_completed_count = MagicMock(side_effect=AttributeError("bad"))
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -1311,9 +1574,12 @@ class TestMetrics:
         mock_metrics = MagicMock()
         mock_metrics.get_beads_completed_count = MagicMock(side_effect=RuntimeError("oops"))
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -1327,11 +1593,16 @@ class TestMetrics:
         mock_metrics.get_convoy_completion_rate = MagicMock(return_value=0.0)
         mock_metrics.get_gupp_recovery_count = MagicMock(return_value=0)
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/metrics", {"hours": "0"}, mock_http,
+                "/api/v1/dashboard/gastown/metrics",
+                {"hours": "0"},
+                mock_http,
             )
 
         body = _body(result)
@@ -1348,12 +1619,20 @@ class TestMetrics:
         mock_state.convoy_tracker = mock_tracker
         mock_state.coordinator = None
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
@@ -1377,7 +1656,7 @@ class TestRouteDispatch:
     async def test_overview_route_dispatch(self, handler, mock_http):
         """Overview route dispatches correctly."""
         with patch.object(handler, "_get_overview", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -1385,15 +1664,17 @@ class TestRouteDispatch:
     async def test_convoys_route_dispatch(self, handler, mock_http):
         """Convoys route dispatches correctly."""
         with patch.object(handler, "_get_convoys", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
-            result = await handler.handle("/api/v1/dashboard/gastown/convoys", {"limit": "5"}, mock_http)
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
+            result = await handler.handle(
+                "/api/v1/dashboard/gastown/convoys", {"limit": "5"}, mock_http
+            )
 
         mock_get.assert_awaited_once()
 
     async def test_agents_route_dispatch(self, handler, mock_http):
         """Agents route dispatches correctly."""
         with patch.object(handler, "_get_agents", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/v1/dashboard/gastown/agents", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -1401,7 +1682,7 @@ class TestRouteDispatch:
     async def test_beads_route_dispatch(self, handler, mock_http):
         """Beads route dispatches correctly."""
         with patch.object(handler, "_get_beads", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -1409,7 +1690,7 @@ class TestRouteDispatch:
     async def test_metrics_route_dispatch(self, handler, mock_http):
         """Metrics route dispatches correctly."""
         with patch.object(handler, "_get_metrics", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -1417,7 +1698,7 @@ class TestRouteDispatch:
     async def test_v2_path_dispatches_correctly(self, handler, mock_http):
         """v2 paths are normalized and dispatch to the correct handler."""
         with patch.object(handler, "_get_overview", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/v2/dashboard/gastown/overview", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -1562,9 +1843,14 @@ class TestWorkspaceStores:
     def test_stores_cached(self, handler):
         """Stores are cached on first call."""
         mock_stores = MagicMock()
-        with patch.dict("sys.modules", {
-            "aragora.stores": MagicMock(get_canonical_workspace_stores=MagicMock(return_value=mock_stores)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.stores": MagicMock(
+                    get_canonical_workspace_stores=MagicMock(return_value=mock_stores)
+                ),
+            },
+        ):
             result1 = handler._get_canonical_workspace_stores()
             result2 = handler._get_canonical_workspace_stores()
 
@@ -1618,13 +1904,18 @@ class TestOverviewEdgeCases:
 
     async def test_overview_bead_import_error(self, handler, mock_http):
         """ImportError in bead section is handled gracefully."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {"aragora.nomic.stores": None}):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict("sys.modules", {"aragora.nomic.stores": None}),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1639,18 +1930,26 @@ class TestOverviewEdgeCases:
             return_value=AsyncMock(list_convoys=AsyncMock(return_value=[])),
         )
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(
-                     BeadStatus=MockBeadStatus,
-                     ConvoyStatus=MockConvoyStatus,
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus,
+                        ConvoyStatus=MockConvoyStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1660,15 +1959,23 @@ class TestOverviewEdgeCases:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(side_effect=TypeError("wrong type"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1679,14 +1986,25 @@ class TestOverviewEdgeCases:
         mock_state.convoy_tracker = MagicMock()
         mock_state.convoy_tracker.list_convoys = AsyncMock(side_effect=TypeError("bad type"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-        }), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                },
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1699,14 +2017,25 @@ class TestOverviewEdgeCases:
         mock_state.convoy_tracker = MagicMock()
         mock_state.convoy_tracker.list_convoys = AsyncMock(side_effect=OSError("disk error"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-        }), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                },
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1717,15 +2046,23 @@ class TestOverviewEdgeCases:
         mock_module.AgentRole = MockAgentRole
         mock_module.AgentHierarchy = MagicMock(side_effect=RuntimeError("agent crash"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.extensions.gastown.agent_roles": mock_module,
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.agent_roles": mock_module,
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1738,33 +2075,49 @@ class TestOverviewEdgeCases:
         mock_module.AgentRole = MockAgentRole
         mock_module.AgentHierarchy = MagicMock(side_effect=TypeError("bad"))
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.extensions.gastown.agent_roles": mock_module,
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.agent_roles": mock_module,
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
 
     async def test_overview_witness_runtime_error(self, handler, mock_http):
         """RuntimeError from witness module handled gracefully."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.server.startup": MagicMock(
-                     get_witness_behavior=MagicMock(side_effect=RuntimeError("fail")),
-                     get_mayor_coordinator=MagicMock(return_value=None),
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": MagicMock(
+                        get_witness_behavior=MagicMock(side_effect=RuntimeError("fail")),
+                        get_mayor_coordinator=MagicMock(return_value=None),
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1773,38 +2126,56 @@ class TestOverviewEdgeCases:
         """AttributeError from witness object handled gracefully."""
         mock_witness = MagicMock()
         # Make _running raise AttributeError
-        type(mock_witness)._running = property(lambda self: (_ for _ in ()).throw(AttributeError("no _running")))
+        type(mock_witness)._running = property(
+            lambda self: (_ for _ in ()).throw(AttributeError("no _running"))
+        )
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.server.startup": MagicMock(
-                     get_witness_behavior=MagicMock(return_value=mock_witness),
-                     get_mayor_coordinator=MagicMock(return_value=None),
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": MagicMock(
+                        get_witness_behavior=MagicMock(return_value=mock_witness),
+                        get_mayor_coordinator=MagicMock(return_value=None),
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
 
     async def test_overview_mayor_runtime_error(self, handler, mock_http):
         """RuntimeError from mayor coordinator handled gracefully."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.server.startup": MagicMock(
-                     get_witness_behavior=MagicMock(return_value=None),
-                     get_mayor_coordinator=MagicMock(side_effect=RuntimeError("fail")),
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": MagicMock(
+                        get_witness_behavior=MagicMock(return_value=None),
+                        get_mayor_coordinator=MagicMock(side_effect=RuntimeError("fail")),
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1816,18 +2187,26 @@ class TestOverviewEdgeCases:
             lambda self: (_ for _ in ()).throw(AttributeError("no is_mayor")),
         )
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None), \
-             patch.dict("sys.modules", {
-                 "aragora.server.startup": MagicMock(
-                     get_witness_behavior=MagicMock(return_value=None),
-                     get_mayor_coordinator=MagicMock(return_value=mock_coord),
-                 ),
-             }):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup": MagicMock(
+                        get_witness_behavior=MagicMock(return_value=None),
+                        get_mayor_coordinator=MagicMock(return_value=mock_coord),
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -1837,7 +2216,9 @@ class TestOverviewEdgeCases:
         _set_cached_data("overview", {"cached": True, "generated_at": "old"})
 
         result = await handler.handle(
-            "/api/v1/dashboard/gastown/overview", {"refresh": "false"}, mock_http,
+            "/api/v1/dashboard/gastown/overview",
+            {"refresh": "false"},
+            mock_http,
         )
 
         body = _body(result)
@@ -1845,12 +2226,17 @@ class TestOverviewEdgeCases:
 
     async def test_overview_generated_at_is_iso(self, handler, mock_http):
         """generated_at field is a valid ISO timestamp."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         body = _body(result)
@@ -1875,16 +2261,24 @@ class TestConvoysEdgeCases:
         mock_bead_mgr = AsyncMock()
         mock_bead_mgr.list_beads = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(
-                BeadManager=MagicMock(return_value=mock_bead_mgr),
-                BeadStatus=MockWorkspaceBeadStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(
+                        BeadManager=MagicMock(return_value=mock_bead_mgr),
+                        BeadStatus=MockWorkspaceBeadStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -1907,16 +2301,24 @@ class TestConvoysEdgeCases:
         mock_bead_mgr = AsyncMock()
         mock_bead_mgr.list_beads = AsyncMock(return_value=beads)
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(
-                BeadManager=MagicMock(return_value=mock_bead_mgr),
-                BeadStatus=MockWorkspaceBeadStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(
+                        BeadManager=MagicMock(return_value=mock_bead_mgr),
+                        BeadStatus=MockWorkspaceBeadStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -1935,16 +2337,24 @@ class TestConvoysEdgeCases:
         mock_bead_mgr = AsyncMock()
         mock_bead_mgr.list_beads = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(
-                BeadManager=MagicMock(return_value=mock_bead_mgr),
-                BeadStatus=MockWorkspaceBeadStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(
+                        BeadManager=MagicMock(return_value=mock_bead_mgr),
+                        BeadStatus=MockWorkspaceBeadStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
         body = _body(result)
@@ -1952,12 +2362,16 @@ class TestConvoysEdgeCases:
 
     async def test_convoys_type_error(self, handler, mock_http):
         """TypeError returns empty with error flag."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_canonical_workspace_stores",
-            side_effect=TypeError("wrong"),
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(
+                handler,
+                "_get_canonical_workspace_stores",
+                side_effect=TypeError("wrong"),
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
@@ -1966,12 +2380,16 @@ class TestConvoysEdgeCases:
 
     async def test_convoys_key_error(self, handler, mock_http):
         """KeyError returns empty with error flag."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_canonical_workspace_stores",
-            side_effect=KeyError("missing"),
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(
+                handler,
+                "_get_canonical_workspace_stores",
+                side_effect=KeyError("missing"),
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
@@ -1980,12 +2398,16 @@ class TestConvoysEdgeCases:
 
     async def test_convoys_os_error_returns_500(self, handler, mock_http):
         """OSError returns 500."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_canonical_workspace_stores",
-            side_effect=OSError("io error"),
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(
+                handler,
+                "_get_canonical_workspace_stores",
+                side_effect=OSError("io error"),
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", {}, mock_http)
 
@@ -2001,18 +2423,28 @@ class TestConvoysEdgeCases:
         mock_bead_mgr = AsyncMock()
         mock_bead_mgr.list_beads = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(
-                BeadManager=MagicMock(return_value=mock_bead_mgr),
-                BeadStatus=MockWorkspaceBeadStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(
+                        BeadManager=MagicMock(return_value=mock_bead_mgr),
+                        BeadStatus=MockWorkspaceBeadStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/convoys", {"status": "completed"}, mock_http,
+                "/api/v1/dashboard/gastown/convoys",
+                {"status": "completed"},
+                mock_http,
             )
 
         assert _status(result) == 200
@@ -2031,18 +2463,28 @@ class TestConvoysEdgeCases:
         mock_bead_mgr = AsyncMock()
         mock_bead_mgr.list_beads = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=mock_tracker,
-        ), patch.dict("sys.modules", {
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-            "aragora.workspace.bead": MagicMock(
-                BeadManager=MagicMock(return_value=mock_bead_mgr),
-                BeadStatus=MockWorkspaceBeadStatus,
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=mock_tracker,
             ),
-        }):
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                    "aragora.workspace.bead": MagicMock(
+                        BeadManager=MagicMock(return_value=mock_bead_mgr),
+                        BeadStatus=MockWorkspaceBeadStatus,
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/convoys", {"limit": "3"}, mock_http,
+                "/api/v1/dashboard/gastown/convoys",
+                {"limit": "3"},
+                mock_http,
             )
 
         body = _body(result)
@@ -2133,10 +2575,17 @@ class TestBeadsEdgeCases:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(side_effect=TypeError("nope"))
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         body = _body(result)
@@ -2147,10 +2596,17 @@ class TestBeadsEdgeCases:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(side_effect=KeyError("bad"))
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         body = _body(result)
@@ -2161,10 +2617,17 @@ class TestBeadsEdgeCases:
         mock_stores = AsyncMock()
         mock_stores.bead_store = AsyncMock(side_effect=OSError("io"))
 
-        with patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores), \
-             patch.dict("sys.modules", {
-                 "aragora.nomic.stores": MagicMock(BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority),
-             }):
+        with (
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=mock_stores),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.stores": MagicMock(
+                        BeadStatus=MockBeadStatus, BeadPriority=MockBeadPriority
+                    ),
+                },
+            ),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/beads", {}, mock_http)
 
         assert _status(result) == 500
@@ -2178,9 +2641,12 @@ class TestMetricsEdgeCases:
         mock_metrics = MagicMock()
         mock_metrics.get_beads_completed_count = MagicMock(side_effect=ValueError("parse error"))
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -2192,9 +2658,12 @@ class TestMetricsEdgeCases:
         mock_metrics = MagicMock()
         mock_metrics.get_beads_completed_count = MagicMock(side_effect=OSError("disk"))
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -2207,11 +2676,16 @@ class TestMetricsEdgeCases:
         mock_metrics.get_convoy_completion_rate = MagicMock(return_value=0.0)
         mock_metrics.get_gupp_recovery_count = MagicMock(return_value=0)
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": mock_metrics,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.extensions.gastown.metrics": mock_metrics,
+            },
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/metrics", {"hours": "99999"}, mock_http,
+                "/api/v1/dashboard/gastown/metrics",
+                {"hours": "99999"},
+                mock_http,
             )
 
         body = _body(result)
@@ -2219,14 +2693,23 @@ class TestMetricsEdgeCases:
 
     async def test_metrics_invalid_hours_uses_default(self, handler, mock_http):
         """Non-numeric hours param falls back to default=24."""
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/metrics", {"hours": "abc"}, mock_http,
+                "/api/v1/dashboard/gastown/metrics",
+                {"hours": "abc"},
+                mock_http,
             )
 
         body = _body(result)
@@ -2234,12 +2717,19 @@ class TestMetricsEdgeCases:
 
     async def test_metrics_fallback_nomic_stores_no_stores(self, handler, mock_http):
         """Fallback with no stores returns 0.0 completion rate."""
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._resolve_convoy_tracker",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
         body = _body(result)
@@ -2254,12 +2744,20 @@ class TestMetricsEdgeCases:
         mock_state.convoy_tracker = mock_tracker
         mock_state.coordinator = None
 
-        with patch.dict("sys.modules", {
-            "aragora.extensions.gastown.metrics": None,
-            "aragora.extensions.gastown.models": MagicMock(ConvoyStatus=MockGastownConvoyStatus),
-        }), patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=mock_state,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.extensions.gastown.metrics": None,
+                    "aragora.extensions.gastown.models": MagicMock(
+                        ConvoyStatus=MockGastownConvoyStatus
+                    ),
+                },
+            ),
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=mock_state,
+            ),
         ):
             result = await handler.handle("/api/v1/dashboard/gastown/metrics", {}, mock_http)
 
@@ -2337,7 +2835,7 @@ class TestRouteDispatchEdgeCases:
     async def test_unversioned_path_dispatches(self, handler, mock_http):
         """Unversioned /api/dashboard/gastown/convoys dispatches correctly."""
         with patch.object(handler, "_get_convoys", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/dashboard/gastown/convoys", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -2345,7 +2843,7 @@ class TestRouteDispatchEdgeCases:
     async def test_v3_path_dispatches(self, handler, mock_http):
         """v3 paths are also normalized correctly."""
         with patch.object(handler, "_get_beads", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             result = await handler.handle("/api/v3/dashboard/gastown/beads", {}, mock_http)
 
         mock_get.assert_awaited_once()
@@ -2353,7 +2851,7 @@ class TestRouteDispatchEdgeCases:
     async def test_query_params_passed_to_handler(self, handler, mock_http):
         """Query params are forwarded to sub-handlers."""
         with patch.object(handler, "_get_convoys", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             params = {"limit": "5", "status": "active"}
             result = await handler.handle("/api/v1/dashboard/gastown/convoys", params, mock_http)
 
@@ -2361,22 +2859,30 @@ class TestRouteDispatchEdgeCases:
 
     async def test_overview_response_content_type(self, handler, mock_http):
         """Overview response has JSON content type."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle("/api/v1/dashboard/gastown/overview", {}, mock_http)
 
         assert result.content_type == "application/json"
 
     async def test_all_overview_keys_present(self, handler, mock_http):
         """Overview response has all expected top-level keys."""
-        with patch(
-            "aragora.server.handlers.gastown_dashboard._get_gastown_state",
-            return_value=None,
-        ), patch.object(handler, "_get_canonical_workspace_stores", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.gastown_dashboard._get_gastown_state",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_canonical_workspace_stores", return_value=None),
+        ):
             result = await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "true"}, mock_http,
+                "/api/v1/dashboard/gastown/overview",
+                {"refresh": "true"},
+                mock_http,
             )
 
         body = _body(result)

@@ -18,6 +18,7 @@ import pytest
 # Helpers: lightweight stand-ins so we never import real heavy modules
 # ---------------------------------------------------------------------------
 
+
 def _make_memory_entry(entry_id: str = "mem-1", success_rate: float = 0.95):
     """Create a lightweight mock ContinuumMemoryEntry with required attrs."""
     entry = SimpleNamespace(id=entry_id, success_rate=success_rate)
@@ -175,18 +176,14 @@ class TestEstimateRoundsGlacialHighConfidence:
 
     def test_respect_minimum_true_enforces_at_least_2(self):
         entries = [_make_memory_entry("g1", 0.99)]
-        strategy, fake_tier = self._make_strategy_with_glacial(
-            entries, quick_validation_rounds=1
-        )
+        strategy, fake_tier = self._make_strategy_with_glacial(entries, quick_validation_rounds=1)
         with patch.dict(sys.modules, {_TIER_PATCH: fake_tier}):
             rec = strategy.estimate_rounds("task", respect_minimum=True)
         assert rec.estimated_rounds == 2  # max(2, 1) = 2
 
     def test_respect_minimum_false_allows_below_2(self):
         entries = [_make_memory_entry("g1", 0.99)]
-        strategy, fake_tier = self._make_strategy_with_glacial(
-            entries, quick_validation_rounds=1
-        )
+        strategy, fake_tier = self._make_strategy_with_glacial(entries, quick_validation_rounds=1)
         with patch.dict(sys.modules, {_TIER_PATCH: fake_tier}):
             rec = strategy.estimate_rounds("task", respect_minimum=False)
         assert rec.estimated_rounds == 1  # no minimum enforced

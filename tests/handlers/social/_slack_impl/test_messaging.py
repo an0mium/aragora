@@ -58,6 +58,7 @@ def _status(result) -> int:
 
 class Messenger(MessagingMixin):
     """Concrete class that uses MessagingMixin for testing."""
+
     pass
 
 
@@ -70,6 +71,7 @@ class Messenger(MessagingMixin):
 def _reset_circuit_breaker():
     """Reset the module-level circuit breaker singleton before and after each test."""
     import aragora.server.handlers.social._slack_impl.messaging as mod
+
     old = mod._slack_circuit_breaker
     mod._slack_circuit_breaker = None
     yield
@@ -271,9 +273,7 @@ class TestPostToResponseUrl:
                 cb.record_failure()
             assert cb.state == "open"
 
-            with patch(
-                "aragora.server.http_client_pool.get_http_pool"
-            ) as mock_get_pool:
+            with patch("aragora.server.http_client_pool.get_http_pool") as mock_get_pool:
                 await messenger._post_to_response_url(
                     "https://hooks.slack.com/resp/123", {"text": "hi"}
                 )
@@ -287,12 +287,15 @@ class TestPostToResponseUrl:
         mock_response.status_code = 200
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -311,12 +314,15 @@ class TestPostToResponseUrl:
         mock_response.text = "bad request"
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -334,12 +340,15 @@ class TestPostToResponseUrl:
         mock_response.text = "internal server error"
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -354,12 +363,15 @@ class TestPostToResponseUrl:
         pool, client = mock_pool
         client.post.side_effect = ConnectionError("connection refused")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -374,12 +386,15 @@ class TestPostToResponseUrl:
         pool, client = mock_pool
         client.post.side_effect = TimeoutError("timed out")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -394,12 +409,15 @@ class TestPostToResponseUrl:
         pool, client = mock_pool
         client.post.side_effect = RuntimeError("unexpected")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -414,12 +432,15 @@ class TestPostToResponseUrl:
         pool, client = mock_pool
         client.post.side_effect = OSError("network unreachable")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(
                 "https://hooks.slack.com/resp/123", {"text": "hi"}
@@ -438,12 +459,15 @@ class TestPostToResponseUrl:
         url = "https://hooks.slack.com/resp/456"
         payload = {"text": "hello", "response_type": "in_channel"}
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
-            return_value=True,
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging._validate_slack_url",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_to_response_url(url, payload)
 
@@ -506,12 +530,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "1234567890.123456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -525,12 +552,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "123.456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello")
 
@@ -545,12 +575,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "123.456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello", thread_ts="111.222")
 
@@ -568,12 +601,15 @@ class TestPostMessageAsync:
 
         blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "test"}}]
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello", blocks=blocks)
 
@@ -589,12 +625,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "123.456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello")
 
@@ -610,12 +649,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "123.456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello")
 
@@ -631,12 +673,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": False, "error": "channel_not_found"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -652,12 +697,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": False, "error": "rate_limited"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -673,12 +721,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": False, "error": "service_unavailable"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -694,12 +745,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": False, "error": "fatal_error"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -715,12 +769,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": False, "error": "invalid_auth"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -736,12 +793,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": False}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -753,12 +813,15 @@ class TestPostMessageAsync:
         pool, client = mock_pool
         client.post.side_effect = ConnectionError("refused")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -772,12 +835,15 @@ class TestPostMessageAsync:
         pool, client = mock_pool
         client.post.side_effect = TimeoutError("timed out")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -791,12 +857,15 @@ class TestPostMessageAsync:
         pool, client = mock_pool
         client.post.side_effect = ValueError("bad value")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -810,12 +879,15 @@ class TestPostMessageAsync:
         pool, client = mock_pool
         client.post.side_effect = TypeError("type error")
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 
@@ -831,12 +903,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "123.456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello")
 
@@ -851,12 +926,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True, "ts": "123.456"}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-my-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-my-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             await messenger._post_message_async("C123", "hello")
 
@@ -872,12 +950,15 @@ class TestPostMessageAsync:
         mock_response.json.return_value = {"ok": True}
         client.post.return_value = mock_response
 
-        with patch(
-            "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
-            "xoxb-test-token",
-        ), patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=pool,
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.messaging.SLACK_BOT_TOKEN",
+                "xoxb-test-token",
+            ),
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=pool,
+            ),
         ):
             result = await messenger._post_message_async("C123", "hello")
 

@@ -88,9 +88,7 @@ class TestPackageJSON:
         mock_receipt.checksum = "abc123"
         mock_receipt.created_at = "2026-02-15T00:00:00Z"
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_store.get_by_gauntlet.return_value = mock_receipt
             mock_get_store.return_value = mock_store
@@ -155,12 +153,15 @@ class TestPackageJSON:
         ]
         storage.get_debate.return_value = debate
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store",
-            side_effect=ImportError("no store"),
-        ), patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            side_effect=ImportError("no mapper"),
+        with (
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                side_effect=ImportError("no store"),
+            ),
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                side_effect=ImportError("no mapper"),
+            ),
         ):
             result = h._handle_json("test-1")
 

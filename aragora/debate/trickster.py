@@ -320,7 +320,10 @@ class EvidencePoweredTrickster:
         self._state.total_interventions += 1
 
         logger.info(
-            "trickster_intervene round=%s type=%s targets=%s", round_num, intervention.intervention_type.value, intervention.target_agents
+            "trickster_intervene round=%s type=%s targets=%s",
+            round_num,
+            intervention.intervention_type.value,
+            intervention.target_agents,
         )
 
         if self.on_intervention:
@@ -623,7 +626,9 @@ class EvidencePoweredTrickster:
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                "novelty_challenge_limit round=%s total=%s", round_num, self._state.total_interventions
+                "novelty_challenge_limit round=%s total=%s",
+                round_num,
+                self._state.total_interventions,
             )
             return None
 
@@ -738,29 +743,24 @@ class EvidencePoweredTrickster:
         """
         agent_penalties: dict[str, float] = {}
         intervention_type_weights = {
-            InterventionType.EVIDENCE_GAP: -0.3,       # Missing evidence
-            InterventionType.ECHO_CHAMBER: -0.2,        # Citing same sources
-            InterventionType.CHALLENGE_PROMPT: -0.15,    # Hollow consensus
-            InterventionType.QUALITY_ROLE: -0.1,         # Assigned quality role
-            InterventionType.NOVELTY_CHALLENGE: -0.1,    # Stale proposals
-            InterventionType.EXTENDED_ROUND: -0.05,      # Needed more time
-            InterventionType.BREAKPOINT: -0.4,           # Human review needed
+            InterventionType.EVIDENCE_GAP: -0.3,  # Missing evidence
+            InterventionType.ECHO_CHAMBER: -0.2,  # Citing same sources
+            InterventionType.CHALLENGE_PROMPT: -0.15,  # Hollow consensus
+            InterventionType.QUALITY_ROLE: -0.1,  # Assigned quality role
+            InterventionType.NOVELTY_CHALLENGE: -0.1,  # Stale proposals
+            InterventionType.EXTENDED_ROUND: -0.05,  # Needed more time
+            InterventionType.BREAKPOINT: -0.4,  # Human review needed
         }
 
         for intervention in self._state.interventions:
-            weight = intervention_type_weights.get(
-                intervention.intervention_type, -0.1
-            )
+            weight = intervention_type_weights.get(intervention.intervention_type, -0.1)
             # Scale by priority (0-1)
             penalty = weight * intervention.priority
             for agent in intervention.target_agents:
                 agent_penalties[agent] = agent_penalties.get(agent, 0.0) + penalty
 
         # Clamp penalties to [-1.0, 0.0]
-        return {
-            agent: max(penalty, -1.0)
-            for agent, penalty in agent_penalties.items()
-        }
+        return {agent: max(penalty, -1.0) for agent, penalty in agent_penalties.items()}
 
     def get_evidence_quality_scores(self) -> dict[str, float]:
         """Get average evidence quality per agent across all rounds.
@@ -775,9 +775,7 @@ class EvidencePoweredTrickster:
                 agent_totals.setdefault(agent, []).append(score.overall_quality)
 
         return {
-            agent: sum(scores) / len(scores)
-            for agent, scores in agent_totals.items()
-            if scores
+            agent: sum(scores) / len(scores) for agent, scores in agent_totals.items() if scores
         }
 
     def reset(self) -> None:

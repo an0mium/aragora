@@ -166,9 +166,7 @@ class TestGetEmergentTraits:
         traits = _make_traits(3)
         mock_lab_cls.return_value.detect_emergent_traits.return_value = traits
 
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         body = _body(result)
         assert _status(result) == 200
@@ -181,9 +179,7 @@ class TestGetEmergentTraits:
         traits = _make_traits(1)
         mock_lab_cls.return_value.detect_emergent_traits.return_value = traits
 
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         body = _body(result)
         t = body["emergent_traits"][0]
@@ -280,9 +276,7 @@ class TestGetEmergentTraits:
         """No traits detected returns empty list."""
         mock_lab_cls.return_value.detect_emergent_traits.return_value = []
 
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         body = _body(result)
         assert _status(result) == 200
@@ -308,9 +302,7 @@ class TestGetEmergentTraits:
     @patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", False)
     def test_lab_unavailable(self, handler):
         """Returns 503 when PersonaLaboratory not importable."""
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "")
@@ -319,9 +311,7 @@ class TestGetEmergentTraits:
     @patch("aragora.server.handlers.laboratory.PersonaLaboratory", None)
     def test_lab_class_is_none(self, handler):
         """Returns 503 when PersonaLaboratory is None despite AVAILABLE=True."""
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         assert _status(result) == 503
 
@@ -334,9 +324,7 @@ class TestGetEmergentTraits:
         handler_with_ctx.ctx["nomic_dir"] = Path("/tmp/test_nomic")
         mock_lab_cls.return_value.detect_emergent_traits.return_value = []
 
-        handler_with_ctx.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        handler_with_ctx.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         _, kwargs = mock_lab_cls.call_args
         assert kwargs["db_path"] == "/tmp/test_nomic/laboratory.db"
@@ -347,9 +335,7 @@ class TestGetEmergentTraits:
         """When ctx has no nomic_dir, db_path is None."""
         mock_lab_cls.return_value.detect_emergent_traits.return_value = []
 
-        handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         _, kwargs = mock_lab_cls.call_args
         assert kwargs["db_path"] is None
@@ -360,9 +346,7 @@ class TestGetEmergentTraits:
         """persona_manager from ctx is passed to PersonaLaboratory."""
         mock_lab_cls.return_value.detect_emergent_traits.return_value = []
 
-        handler_with_ctx.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        handler_with_ctx.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         _, kwargs = mock_lab_cls.call_args
         assert kwargs["persona_manager"] is not None
@@ -375,17 +359,13 @@ class TestGetEmergentTraits:
             "Database error"
         )
 
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, _MockHTTPHandler())
 
         assert _status(result) == 500
 
     def test_unmatched_get_path_returns_none(self, handler):
         """Paths not matching any route return None from handle()."""
-        result = handler.handle(
-            "/api/v1/laboratory/cross-pollinations", {}, _MockHTTPHandler()
-        )
+        result = handler.handle("/api/v1/laboratory/cross-pollinations", {}, _MockHTTPHandler())
 
         assert result is None
 
@@ -501,15 +481,19 @@ class TestSuggestCrossPollinations:
         http_handler.rfile.read.return_value = b"not-json"
         http_handler.headers = {"Content-Length": "8"}
 
-        with patch(
-            "aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True
-        ), patch("aragora.server.handlers.laboratory.PersonaLaboratory"):
+        with (
+            patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True),
+            patch("aragora.server.handlers.laboratory.PersonaLaboratory"),
+        ):
             result = handler.handle_post(
                 "/api/v1/laboratory/cross-pollinations/suggest", {}, http_handler
             )
 
         assert _status(result) == 400
-        assert "Invalid JSON" in _body(result).get("error", "") or "body" in _body(result).get("error", "").lower()
+        assert (
+            "Invalid JSON" in _body(result).get("error", "")
+            or "body" in _body(result).get("error", "").lower()
+        )
 
     @patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True)
     @patch("aragora.server.handlers.laboratory.PersonaLaboratory")
@@ -544,9 +528,7 @@ class TestSuggestCrossPollinations:
 
     def test_unmatched_post_path_returns_none(self, handler):
         http_handler = _MockHTTPHandler(body={"target_agent": "a1"})
-        result = handler.handle_post(
-            "/api/v1/laboratory/experiments", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/laboratory/experiments", {}, http_handler)
 
         assert result is None
 
@@ -570,9 +552,7 @@ class TestRateLimiting:
         for _ in range(25):
             lab_mod._laboratory_limiter.is_allowed("127.0.0.1")
 
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, http_handler
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, http_handler)
 
         assert _status(result) == 429
         assert "Rate limit" in _body(result).get("error", "")
@@ -607,9 +587,7 @@ class TestRateLimiting:
 
         # Different IP should still work
         http_handler = _MockHTTPHandler(client_address=("192.168.1.1", 9999))
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, http_handler
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, http_handler)
 
         assert _status(result) == 200
 
@@ -620,21 +598,18 @@ class TestRateLimiting:
         mock_lab_cls.return_value.detect_emergent_traits.return_value = []
 
         http_handler = _MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/laboratory/emergent-traits", {}, http_handler
-        )
+        result = handler.handle("/api/v1/laboratory/emergent-traits", {}, http_handler)
 
         assert _status(result) == 200
 
     def test_null_handler_rate_limit(self, handler):
         """Handler=None uses 'unknown' IP for rate limiting."""
-        with patch(
-            "aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True
-        ), patch("aragora.server.handlers.laboratory.PersonaLaboratory") as mock_lab_cls:
+        with (
+            patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True),
+            patch("aragora.server.handlers.laboratory.PersonaLaboratory") as mock_lab_cls,
+        ):
             mock_lab_cls.return_value.detect_emergent_traits.return_value = []
-            result = handler.handle(
-                "/api/v1/laboratory/emergent-traits", {}, None
-            )
+            result = handler.handle("/api/v1/laboratory/emergent-traits", {}, None)
             # Should still work (unknown IP has its own bucket)
             assert _status(result) == 200
 

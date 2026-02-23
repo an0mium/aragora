@@ -148,9 +148,7 @@ class MemoryGateway:
             # Fan-out in parallel
             tasks = {}
             for source in sources_to_query:
-                tasks[source] = asyncio.create_task(
-                    self._query_source(source, q.query, q.limit)
-                )
+                tasks[source] = asyncio.create_task(self._query_source(source, q.query, q.limit))
 
             for source, task in tasks.items():
                 try:
@@ -182,9 +180,7 @@ class MemoryGateway:
 
         # Filter by min confidence
         if q.min_confidence > 0:
-            all_results = [
-                r for r in all_results if r.confidence >= q.min_confidence
-            ]
+            all_results = [r for r in all_results if r.confidence >= q.min_confidence]
 
         # Dedup
         duplicates_removed = 0
@@ -234,9 +230,7 @@ class MemoryGateway:
             return {}
 
         # Check for duplicates before writing
-        dedup_result = await self._dedup_engine.check_duplicate_before_write(
-            content, targets
-        )
+        dedup_result = await self._dedup_engine.check_duplicate_before_write(content, targets)
         if dedup_result.is_duplicate:
             logger.info(
                 "Skipping duplicate write: %s already in %s",
@@ -275,9 +269,7 @@ class MemoryGateway:
             logger.warning("Unknown source: %s", source)
             return []
 
-    async def _query_continuum(
-        self, query: str, limit: int
-    ) -> list[UnifiedMemoryResult]:
+    async def _query_continuum(self, query: str, limit: int) -> list[UnifiedMemoryResult]:
         """Query ContinuumMemory."""
         if not self.continuum_memory:
             return []
@@ -298,18 +290,14 @@ class MemoryGateway:
                     source_system="continuum",
                     confidence=float(confidence) if confidence else 0.5,
                     surprise_score=float(surprise) if surprise is not None else None,
-                    content_hash=CrossSystemDedupEngine.compute_content_hash(
-                        str(content)
-                    ),
+                    content_hash=CrossSystemDedupEngine.compute_content_hash(str(content)),
                     metadata={"tier": getattr(entry, "tier", None)},
                 )
             )
 
         return results
 
-    async def _query_km(
-        self, query: str, limit: int
-    ) -> list[UnifiedMemoryResult]:
+    async def _query_km(self, query: str, limit: int) -> list[UnifiedMemoryResult]:
         """Query Knowledge Mound."""
         if not self.knowledge_mound:
             return []
@@ -327,25 +315,19 @@ class MemoryGateway:
                     content=str(content),
                     source_system="km",
                     confidence=float(confidence) if confidence else 0.5,
-                    content_hash=CrossSystemDedupEngine.compute_content_hash(
-                        str(content)
-                    ),
+                    content_hash=CrossSystemDedupEngine.compute_content_hash(str(content)),
                 )
             )
 
         return results
 
-    async def _query_supermemory(
-        self, query: str, limit: int
-    ) -> list[UnifiedMemoryResult]:
+    async def _query_supermemory(self, query: str, limit: int) -> list[UnifiedMemoryResult]:
         """Query Supermemory adapter."""
         if not self.supermemory_adapter:
             return []
 
         results = []
-        search_results = await self.supermemory_adapter.search_memories(
-            query=query, limit=limit
-        )
+        search_results = await self.supermemory_adapter.search_memories(query=query, limit=limit)
         for sr in search_results or []:
             content = getattr(sr, "content", "")
             similarity = getattr(sr, "similarity", 0.5)
@@ -356,25 +338,19 @@ class MemoryGateway:
                     content=str(content),
                     source_system="supermemory",
                     confidence=float(similarity),
-                    content_hash=CrossSystemDedupEngine.compute_content_hash(
-                        str(content)
-                    ),
+                    content_hash=CrossSystemDedupEngine.compute_content_hash(str(content)),
                 )
             )
 
         return results
 
-    async def _query_claude_mem(
-        self, query: str, limit: int
-    ) -> list[UnifiedMemoryResult]:
+    async def _query_claude_mem(self, query: str, limit: int) -> list[UnifiedMemoryResult]:
         """Query claude-mem adapter."""
         if not self.claude_mem_adapter:
             return []
 
         results = []
-        observations = await self.claude_mem_adapter.search_observations(
-            query=query, limit=limit
-        )
+        observations = await self.claude_mem_adapter.search_observations(query=query, limit=limit)
         for obs in observations or []:
             content = obs.get("content", "")
             obs_id = obs.get("id", "")
@@ -384,9 +360,7 @@ class MemoryGateway:
                     content=str(content),
                     source_system="claude_mem",
                     confidence=0.6,  # Default for external observations
-                    content_hash=CrossSystemDedupEngine.compute_content_hash(
-                        str(content)
-                    ),
+                    content_hash=CrossSystemDedupEngine.compute_content_hash(str(content)),
                     metadata=obs.get("metadata", {}),
                 )
             )
@@ -402,9 +376,7 @@ class MemoryGateway:
         removed = 0
 
         for result in results:
-            h = result.content_hash or CrossSystemDedupEngine.compute_content_hash(
-                result.content
-            )
+            h = result.content_hash or CrossSystemDedupEngine.compute_content_hash(result.content)
             if h in seen_hashes:
                 removed += 1
                 continue

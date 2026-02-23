@@ -241,7 +241,9 @@ class HandlerRegistryMixin:
                         # Handler init failure (e.g., read-only DB) — skip handler
                         logger.warning(
                             "[init_handlers] %s init failed, skipping: %s: %s",
-                            attr_name, type(e).__name__, e,
+                            attr_name,
+                            type(e).__name__,
+                            e,
                         )
                         continue
                     auto_instrument_handler(instance)
@@ -268,11 +270,14 @@ class HandlerRegistryMixin:
             logger.info(
                 "[handlers] Initialized %d/%d handlers in %.1fms "
                 "(resolve+init=%.1fms, routes=%.1fms, tiers=%s, skipped=%d, failed=%d)",
-                init_count, len(HANDLER_REGISTRY),
+                init_count,
+                len(HANDLER_REGISTRY),
                 (t_done - t_start) * 1000,
                 (t_init - t_filter) * 1000,
                 (t_done - t_init) * 1000,
-                tier_info, skipped, import_failures,
+                tier_info,
+                skipped,
+                import_failures,
             )
 
             # Check for unregistered handler classes in the codebase
@@ -285,7 +290,8 @@ class HandlerRegistryMixin:
             validation_results = validate_handlers_on_init(cls, active_registry)
             if validation_results["invalid"]:
                 logger.warning(
-                    "[handlers] %s handlers have validation issues", len(validation_results['invalid'])
+                    "[handlers] %s handlers have validation issues",
+                    len(validation_results["invalid"]),
                 )
 
             # Log resource availability for observability
@@ -321,10 +327,10 @@ class HandlerRegistryMixin:
         unavailable = [k for k, v in resources.items() if not v]
 
         if unavailable:
-            logger.info("[resources] Available: %s", ', '.join(available))
-            logger.info("[resources] Unavailable: %s", ', '.join(unavailable))
+            logger.info("[resources] Available: %s", ", ".join(available))
+            logger.info("[resources] Unavailable: %s", ", ".join(unavailable))
         else:
-            logger.info("[resources] All resources available: %s", ', '.join(available))
+            logger.info("[resources] All resources available: %s", ", ".join(available))
 
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
@@ -500,7 +506,10 @@ class HandlerRegistryMixin:
                 # Log successful handler dispatch at debug level
                 logger.debug(
                     "[handlers] %s %s -> %s (status=%d)",
-                    method, path, handler.__class__.__name__, result.status_code,
+                    method,
+                    path,
+                    handler.__class__.__name__,
+                    result.status_code,
                 )
                 self.send_response(result.status_code)
                 self.send_header("Content-Type", result.content_type)
@@ -543,7 +552,9 @@ class HandlerRegistryMixin:
             # Check for permission-related errors
             error_msg = str(e)
             if "AuthorizationContext" in error_msg or "Permission" in error_msg:
-                logger.warning("[handlers] Permission denied in %s: %s", handler.__class__.__name__, e)
+                logger.warning(
+                    "[handlers] Permission denied in %s: %s", handler.__class__.__name__, e
+                )
                 body_403 = json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
                 self.send_response(403)
                 self.send_header("Content-Type", "application/json")
@@ -574,7 +585,11 @@ class HandlerRegistryMixin:
         except Exception as e:  # noqa: BLE001 - catch-all for diagnostic: catches exception types not in the specific list above
             logger.error(
                 "[handlers] UNEXPECTED exception type %s in %s for %s %s: %s",
-                type(e).__name__, handler.__class__.__name__, method, path, e,
+                type(e).__name__,
+                handler.__class__.__name__,
+                method,
+                path,
+                e,
                 exc_info=True,
             )
             body_exc = json.dumps(
@@ -600,7 +615,10 @@ class HandlerRegistryMixin:
         if route_match is not None:
             logger.warning(
                 "[handlers] Handler %s matched %s %s but returned falsy result: %r",
-                handler.__class__.__name__, method, path, result,
+                handler.__class__.__name__,
+                method,
+                path,
+                result,
             )
             body_no_result = json.dumps(
                 {

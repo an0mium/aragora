@@ -335,7 +335,15 @@ async def handle_sso_callback(
             }
         )
 
-    except (ConnectionError, TimeoutError, ValueError, OSError, KeyError, ImportError, AttributeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        ValueError,
+        OSError,
+        KeyError,
+        ImportError,
+        AttributeError,
+    ) as e:
         logger.exception("SSO callback failed")
         return error_response(safe_error_message(e, "SSO authentication"), status=401)
 

@@ -81,9 +81,11 @@ class TestRLMSupermemoryBridge:
     @pytest.mark.asyncio
     async def test_check_supermemory_cache_returns_content(self):
         backend = MagicMock()
-        backend.search = MagicMock(return_value=[
-            {"content": "cached result", "metadata": {"role": "pre_compression_fallback"}},
-        ])
+        backend.search = MagicMock(
+            return_value=[
+                {"content": "cached result", "metadata": {"role": "pre_compression_fallback"}},
+            ]
+        )
         rlm = self._make_rlm(supermemory_backend=backend)
         result = await rlm._check_supermemory_cache("test query")
         assert result == "cached result"
@@ -91,9 +93,11 @@ class TestRLMSupermemoryBridge:
     @pytest.mark.asyncio
     async def test_check_supermemory_cache_async_search(self):
         backend = MagicMock()
-        backend.search = AsyncMock(return_value=[
-            {"content": "async cached", "metadata": {"role": "pre_compression_fallback"}},
-        ])
+        backend.search = AsyncMock(
+            return_value=[
+                {"content": "async cached", "metadata": {"role": "pre_compression_fallback"}},
+            ]
+        )
         rlm = self._make_rlm(supermemory_backend=backend)
         result = await rlm._check_supermemory_cache("test query")
         assert result == "async cached"
@@ -101,9 +105,11 @@ class TestRLMSupermemoryBridge:
     @pytest.mark.asyncio
     async def test_check_supermemory_cache_no_match(self):
         backend = MagicMock()
-        backend.search = MagicMock(return_value=[
-            {"content": "other", "metadata": {"role": "normal"}},
-        ])
+        backend.search = MagicMock(
+            return_value=[
+                {"content": "other", "metadata": {"role": "normal"}},
+            ]
+        )
         rlm = self._make_rlm(supermemory_backend=backend)
         result = await rlm._check_supermemory_cache("test query")
         assert result is None
@@ -151,9 +157,11 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_happy_path(self):
         cm = MagicMock()
-        cm.search = MagicMock(return_value=[
-            {"id": "1", "content": "important insight about architecture"},
-        ])
+        cm.search = MagicMock(
+            return_value=[
+                {"id": "1", "content": "important insight about architecture"},
+            ]
+        )
         km = MagicMock()
         km.store_knowledge = MagicMock()
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.0)
@@ -165,9 +173,11 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_surprise_filtering(self):
         cm = MagicMock()
-        cm.search = MagicMock(return_value=[
-            {"id": "1", "content": "a"},  # very short, low surprise
-        ])
+        cm.search = MagicMock(
+            return_value=[
+                {"id": "1", "content": "a"},  # very short, low surprise
+            ]
+        )
         km = MagicMock()
         km.store_knowledge = MagicMock()
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.99)
@@ -178,9 +188,11 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_dedup_by_id(self):
         cm = MagicMock()
-        cm.search = MagicMock(return_value=[
-            {"id": "1", "content": "unique insight about novel architecture"},
-        ])
+        cm.search = MagicMock(
+            return_value=[
+                {"id": "1", "content": "unique insight about novel architecture"},
+            ]
+        )
         km = MagicMock()
         km.store_knowledge = MagicMock()
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.0)
@@ -193,9 +205,11 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_empty_content_skipped(self):
         cm = MagicMock()
-        cm.search = MagicMock(return_value=[
-            {"id": "1", "content": ""},
-        ])
+        cm.search = MagicMock(
+            return_value=[
+                {"id": "1", "content": ""},
+            ]
+        )
         km = MagicMock()
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.0)
         result = await sync.sync()
@@ -205,9 +219,11 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_km_write_error(self):
         cm = MagicMock()
-        cm.search = MagicMock(return_value=[
-            {"id": "1", "content": "novel insight about architecture patterns"},
-        ])
+        cm.search = MagicMock(
+            return_value=[
+                {"id": "1", "content": "novel insight about architecture patterns"},
+            ]
+        )
         km = MagicMock()
         km.store_knowledge = MagicMock(side_effect=RuntimeError("write failed"))
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.0)
@@ -233,9 +249,11 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_async_backends(self):
         cm = MagicMock()
-        cm.search = AsyncMock(return_value=[
-            {"id": "a1", "content": "asynchronous novel insight about patterns"},
-        ])
+        cm.search = AsyncMock(
+            return_value=[
+                {"id": "a1", "content": "asynchronous novel insight about patterns"},
+            ]
+        )
         km = MagicMock()
         km.store_knowledge = AsyncMock()
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.0)
@@ -260,11 +278,13 @@ class TestClaudeMemKMSync:
     @pytest.mark.asyncio
     async def test_sync_multiple_items(self):
         cm = MagicMock()
-        cm.search = MagicMock(return_value=[
-            {"id": "1", "content": "first novel insight about architecture"},
-            {"id": "2", "content": "second novel insight about design patterns"},
-            {"id": "3", "content": "third novel insight about testing strategies"},
-        ])
+        cm.search = MagicMock(
+            return_value=[
+                {"id": "1", "content": "first novel insight about architecture"},
+                {"id": "2", "content": "second novel insight about design patterns"},
+                {"id": "3", "content": "third novel insight about testing strategies"},
+            ]
+        )
         km = MagicMock()
         km.store_knowledge = MagicMock()
         sync = self._make_sync(claude_mem=cm, km=km, min_surprise=0.0)
@@ -891,11 +911,13 @@ class TestCoordinatorRLMBackend:
         backend.build_context = AsyncMock(return_value=MagicMock())
         coord = self._make_coordinator(rlm_backend=backend)
 
-        result = await coord._write_rlm({
-            "debate_id": "d1",
-            "task": "test task",
-            "conclusion": "test conclusion",
-        })
+        result = await coord._write_rlm(
+            {
+                "debate_id": "d1",
+                "task": "test task",
+                "conclusion": "test conclusion",
+            }
+        )
         assert result == "rlm_d1"
         backend.build_context.assert_awaited_once()
 
@@ -920,11 +942,13 @@ class TestCoordinatorRLMBackend:
         backend.build_context = AsyncMock(return_value=MagicMock())
         coord = self._make_coordinator(rlm_backend=backend)
 
-        await coord._write_rlm({
-            "debate_id": "d1",
-            "task": "my task",
-            "conclusion": "my conclusion",
-        })
+        await coord._write_rlm(
+            {
+                "debate_id": "d1",
+                "task": "my task",
+                "conclusion": "my conclusion",
+            }
+        )
         call_args = backend.build_context.call_args
         content = call_args[0][0]
         assert "my task" in content
@@ -936,11 +960,13 @@ class TestCoordinatorRLMBackend:
         backend.build_context = AsyncMock(return_value=MagicMock())
         coord = self._make_coordinator(rlm_backend=backend)
 
-        await coord._write_rlm({
-            "debate_id": "d1",
-            "task": "task",
-            "final_answer": "the answer",
-        })
+        await coord._write_rlm(
+            {
+                "debate_id": "d1",
+                "task": "task",
+                "final_answer": "the answer",
+            }
+        )
         call_args = backend.build_context.call_args
         content = call_args[0][0]
         assert "the answer" in content

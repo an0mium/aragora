@@ -119,8 +119,10 @@ def mock_http():
 @pytest.fixture
 def mock_http_with_body():
     """Factory for mock HTTP handler with body."""
+
     def _create(body: dict[str, Any]) -> MockHTTPHandler:
         return MockHTTPHandler(body=body)
+
     return _create
 
 
@@ -229,9 +231,7 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -262,9 +262,7 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -281,9 +279,7 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -300,9 +296,7 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 500
         assert "Failed to list labels" in _body(result)["error"]
@@ -317,9 +311,7 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -333,9 +325,7 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -349,18 +339,14 @@ class TestListLabels:
                 "aragora.connectors.enterprise.communication.gmail.GmailConnector",
                 return_value=mock_connector,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_list_labels_no_state(self, handler, mock_http):
         with _patch_user_state(None):
-            result = await handler.handle(
-                "/api/v1/gmail/labels", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 401
         assert "authenticate" in _body(result)["error"].lower()
@@ -368,9 +354,7 @@ class TestListLabels:
     @pytest.mark.asyncio
     async def test_list_labels_no_refresh_token(self, handler, mock_http, gmail_state_no_refresh):
         with _patch_user_state(gmail_state_no_refresh):
-            result = await handler.handle(
-                "/api/v1/gmail/labels", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/labels", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -378,32 +362,30 @@ class TestListLabels:
     async def test_list_labels_with_user_id(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state) as mock_get:
             with patch.object(
-                handler, "_list_labels",
+                handler,
+                "_list_labels",
                 new_callable=AsyncMock,
                 return_value=MagicMock(
                     status_code=200,
                     body=json.dumps({"labels": [], "count": 0}).encode(),
                 ),
             ):
-                await handler.handle(
-                    "/api/v1/gmail/labels", {"user_id": "user42"}, mock_http
-                )
+                await handler.handle("/api/v1/gmail/labels", {"user_id": "user42"}, mock_http)
             mock_get.assert_called_once_with("user42")
 
     @pytest.mark.asyncio
     async def test_list_labels_default_user_id(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state) as mock_get:
             with patch.object(
-                handler, "_list_labels",
+                handler,
+                "_list_labels",
                 new_callable=AsyncMock,
                 return_value=MagicMock(
                     status_code=200,
                     body=json.dumps({"labels": [], "count": 0}).encode(),
                 ),
             ):
-                await handler.handle(
-                    "/api/v1/gmail/labels", {}, mock_http
-                )
+                await handler.handle("/api/v1/gmail/labels", {}, mock_http)
             mock_get.assert_called_once_with("default")
 
 
@@ -419,8 +401,12 @@ class TestCreateLabel:
     async def test_create_label_success(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Projects"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_label", new_callable=AsyncMock,
-                              return_value={"id": "Label_99", "name": "Projects"}):
+            with patch.object(
+                handler,
+                "_api_create_label",
+                new_callable=AsyncMock,
+                return_value={"id": "Label_99", "name": "Projects"},
+            ):
                 result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -443,11 +429,17 @@ class TestCreateLabel:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_label_api_connection_error(self, handler, mock_http_with_body, gmail_state):
+    async def test_create_label_api_connection_error(
+        self, handler, mock_http_with_body, gmail_state
+    ):
         http = mock_http_with_body({"name": "Test"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_label", new_callable=AsyncMock,
-                              side_effect=ConnectionError("API fail")):
+            with patch.object(
+                handler,
+                "_api_create_label",
+                new_callable=AsyncMock,
+                side_effect=ConnectionError("API fail"),
+            ):
                 result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
         assert _status(result) == 500
         assert "creation failed" in _body(result)["error"].lower()
@@ -456,8 +448,12 @@ class TestCreateLabel:
     async def test_create_label_timeout(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Test"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_label", new_callable=AsyncMock,
-                              side_effect=TimeoutError("timeout")):
+            with patch.object(
+                handler,
+                "_api_create_label",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("timeout"),
+            ):
                 result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
         assert _status(result) == 500
 
@@ -465,8 +461,9 @@ class TestCreateLabel:
     async def test_create_label_os_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Test"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_label", new_callable=AsyncMock,
-                              side_effect=OSError("network")):
+            with patch.object(
+                handler, "_api_create_label", new_callable=AsyncMock, side_effect=OSError("network")
+            ):
                 result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
         assert _status(result) == 500
 
@@ -486,12 +483,20 @@ class TestCreateLabel:
 
     @pytest.mark.asyncio
     async def test_create_label_with_colors(self, handler, mock_http_with_body, gmail_state):
-        http = mock_http_with_body({
-            "name": "Important", "background_color": "#ff0000", "text_color": "#ffffff",
-        })
+        http = mock_http_with_body(
+            {
+                "name": "Important",
+                "background_color": "#ff0000",
+                "text_color": "#ffffff",
+            }
+        )
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_label", new_callable=AsyncMock,
-                              return_value={"id": "Lc", "name": "Important"}) as mock_api:
+            with patch.object(
+                handler,
+                "_api_create_label",
+                new_callable=AsyncMock,
+                return_value={"id": "Lc", "name": "Important"},
+            ) as mock_api:
                 result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
                 opts = mock_api.call_args[0][2]
                 assert opts["background_color"] == "#ff0000"
@@ -502,13 +507,19 @@ class TestCreateLabel:
     async def test_create_label_user_id_from_body(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Test", "user_id": "custom_user"})
         with _patch_user_state(gmail_state) as mock_get:
-            with patch.object(handler, "_api_create_label", new_callable=AsyncMock,
-                              return_value={"id": "L1", "name": "Test"}):
+            with patch.object(
+                handler,
+                "_api_create_label",
+                new_callable=AsyncMock,
+                return_value={"id": "L1", "name": "Test"},
+            ):
                 await handler.handle_post("/api/v1/gmail/labels", {}, http)
             mock_get.assert_called_once_with("custom_user")
 
     @pytest.mark.asyncio
-    async def test_create_label_no_refresh_token(self, handler, mock_http_with_body, gmail_state_no_refresh):
+    async def test_create_label_no_refresh_token(
+        self, handler, mock_http_with_body, gmail_state_no_refresh
+    ):
         http = mock_http_with_body({"name": "Test"})
         with _patch_user_state(gmail_state_no_refresh):
             result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
@@ -527,8 +538,12 @@ class TestUpdateLabel:
     async def test_update_label_success(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Renamed"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_update_label", new_callable=AsyncMock,
-                              return_value={"id": "L1", "name": "Renamed"}):
+            with patch.object(
+                handler,
+                "_api_update_label",
+                new_callable=AsyncMock,
+                return_value={"id": "L1", "name": "Renamed"},
+            ):
                 result = await handler.handle_patch("/api/v1/gmail/labels/L1", {}, http)
         assert _status(result) == 200
         assert _body(result)["success"] is True
@@ -538,8 +553,12 @@ class TestUpdateLabel:
     async def test_update_label_api_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Renamed"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_update_label", new_callable=AsyncMock,
-                              side_effect=ConnectionError("API fail")):
+            with patch.object(
+                handler,
+                "_api_update_label",
+                new_callable=AsyncMock,
+                side_effect=ConnectionError("API fail"),
+            ):
                 result = await handler.handle_patch("/api/v1/gmail/labels/L1", {}, http)
         assert _status(result) == 500
         assert "update failed" in _body(result)["error"].lower()
@@ -568,13 +587,19 @@ class TestUpdateLabel:
     async def test_update_label_extracts_id(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Updated"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_update_label", new_callable=AsyncMock,
-                              return_value={"id": "MyLabel123"}) as mock_api:
+            with patch.object(
+                handler,
+                "_api_update_label",
+                new_callable=AsyncMock,
+                return_value={"id": "MyLabel123"},
+            ) as mock_api:
                 await handler.handle_patch("/api/v1/gmail/labels/MyLabel123", {}, http)
                 assert mock_api.call_args[0][1] == "MyLabel123"
 
     @pytest.mark.asyncio
-    async def test_update_label_no_refresh_token(self, handler, mock_http_with_body, gmail_state_no_refresh):
+    async def test_update_label_no_refresh_token(
+        self, handler, mock_http_with_body, gmail_state_no_refresh
+    ):
         http = mock_http_with_body({"name": "Renamed"})
         with _patch_user_state(gmail_state_no_refresh):
             result = await handler.handle_patch("/api/v1/gmail/labels/L1", {}, http)
@@ -584,8 +609,9 @@ class TestUpdateLabel:
     async def test_update_label_value_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"name": "Renamed"})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_update_label", new_callable=AsyncMock,
-                              side_effect=ValueError("bad")):
+            with patch.object(
+                handler, "_api_update_label", new_callable=AsyncMock, side_effect=ValueError("bad")
+            ):
                 result = await handler.handle_patch("/api/v1/gmail/labels/L1", {}, http)
         assert _status(result) == 500
 
@@ -610,8 +636,12 @@ class TestDeleteLabel:
     @pytest.mark.asyncio
     async def test_delete_label_api_error(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_delete_label", new_callable=AsyncMock,
-                              side_effect=ConnectionError("API fail")):
+            with patch.object(
+                handler,
+                "_api_delete_label",
+                new_callable=AsyncMock,
+                side_effect=ConnectionError("API fail"),
+            ):
                 result = await handler.handle_delete("/api/v1/gmail/labels/L1", {}, mock_http)
         assert _status(result) == 500
         assert "deletion failed" in _body(result)["error"].lower()
@@ -626,7 +656,9 @@ class TestDeleteLabel:
     async def test_delete_label_user_id_param(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state) as mock_get:
             with patch.object(handler, "_api_delete_label", new_callable=AsyncMock):
-                await handler.handle_delete("/api/v1/gmail/labels/L1", {"user_id": "u99"}, mock_http)
+                await handler.handle_delete(
+                    "/api/v1/gmail/labels/L1", {"user_id": "u99"}, mock_http
+                )
             mock_get.assert_called_once_with("u99")
 
     @pytest.mark.asyncio
@@ -644,8 +676,12 @@ class TestDeleteLabel:
     @pytest.mark.asyncio
     async def test_delete_label_timeout(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_delete_label", new_callable=AsyncMock,
-                              side_effect=TimeoutError("timeout")):
+            with patch.object(
+                handler,
+                "_api_delete_label",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("timeout"),
+            ):
                 result = await handler.handle_delete("/api/v1/gmail/labels/L1", {}, mock_http)
         assert _status(result) == 500
 
@@ -660,8 +696,12 @@ class TestModifyMessageLabels:
 
     @pytest.mark.asyncio
     async def test_modify_labels_add(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={"labelIds": ["STARRED", "INBOX"]}):
+        with patch.object(
+            handler,
+            "_api_modify_labels",
+            new_callable=AsyncMock,
+            return_value={"labelIds": ["STARRED", "INBOX"]},
+        ):
             result = await handler._modify_message_labels(
                 gmail_state, "msg1", {"add": ["STARRED"], "remove": []}
             )
@@ -673,8 +713,12 @@ class TestModifyMessageLabels:
 
     @pytest.mark.asyncio
     async def test_modify_labels_remove(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={"labelIds": ["SENT"]}):
+        with patch.object(
+            handler,
+            "_api_modify_labels",
+            new_callable=AsyncMock,
+            return_value={"labelIds": ["SENT"]},
+        ):
             result = await handler._modify_message_labels(
                 gmail_state, "msg1", {"add": [], "remove": ["INBOX"]}
             )
@@ -683,8 +727,12 @@ class TestModifyMessageLabels:
 
     @pytest.mark.asyncio
     async def test_modify_labels_add_and_remove(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={"labelIds": ["STARRED"]}):
+        with patch.object(
+            handler,
+            "_api_modify_labels",
+            new_callable=AsyncMock,
+            return_value={"labelIds": ["STARRED"]},
+        ):
             result = await handler._modify_message_labels(
                 gmail_state, "msg1", {"add": ["STARRED"], "remove": ["INBOX"]}
             )
@@ -706,21 +754,20 @@ class TestModifyMessageLabels:
 
     @pytest.mark.asyncio
     async def test_modify_labels_api_error(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          side_effect=ConnectionError("API fail")):
-            result = await handler._modify_message_labels(
-                gmail_state, "msg1", {"add": ["STARRED"]}
-            )
+        with patch.object(
+            handler,
+            "_api_modify_labels",
+            new_callable=AsyncMock,
+            side_effect=ConnectionError("API fail"),
+        ):
+            result = await handler._modify_message_labels(gmail_state, "msg1", {"add": ["STARRED"]})
         assert _status(result) == 500
         assert "modification failed" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
     async def test_modify_labels_empty_result(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}):
-            result = await handler._modify_message_labels(
-                gmail_state, "msg1", {"add": ["Custom"]}
-            )
+        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}):
+            result = await handler._modify_message_labels(gmail_state, "msg1", {"add": ["Custom"]})
         assert _status(result) == 200
         assert _body(result)["labels"] == []
 
@@ -735,8 +782,9 @@ class TestMarkRead:
 
     @pytest.mark.asyncio
     async def test_mark_read(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}) as mock_api:
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}
+        ) as mock_api:
             result = await handler._mark_read(gmail_state, "msg1", {"read": True})
         assert _status(result) == 200
         body = _body(result)
@@ -748,8 +796,9 @@ class TestMarkRead:
 
     @pytest.mark.asyncio
     async def test_mark_unread(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}) as mock_api:
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}
+        ) as mock_api:
             result = await handler._mark_read(gmail_state, "msg1", {"read": False})
         assert _status(result) == 200
         assert _body(result)["is_read"] is False
@@ -758,15 +807,15 @@ class TestMarkRead:
 
     @pytest.mark.asyncio
     async def test_mark_read_default_true(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}):
+        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}):
             result = await handler._mark_read(gmail_state, "msg1", {})
         assert _body(result)["is_read"] is True
 
     @pytest.mark.asyncio
     async def test_mark_read_api_error(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          side_effect=ValueError("bad")):
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, side_effect=ValueError("bad")
+        ):
             result = await handler._mark_read(gmail_state, "msg1", {"read": True})
         assert _status(result) == 500
 
@@ -781,8 +830,9 @@ class TestStarMessage:
 
     @pytest.mark.asyncio
     async def test_star_message(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}) as mock_api:
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}
+        ) as mock_api:
             result = await handler._star_message(gmail_state, "msg1", {"starred": True})
         assert _status(result) == 200
         assert _body(result)["is_starred"] is True
@@ -791,8 +841,9 @@ class TestStarMessage:
 
     @pytest.mark.asyncio
     async def test_unstar_message(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}) as mock_api:
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}
+        ) as mock_api:
             result = await handler._star_message(gmail_state, "msg1", {"starred": False})
         assert _body(result)["is_starred"] is False
         assert mock_api.call_args[0][2] == []
@@ -806,8 +857,9 @@ class TestStarMessage:
 
     @pytest.mark.asyncio
     async def test_star_api_error(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          side_effect=OSError("network")):
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, side_effect=OSError("network")
+        ):
             result = await handler._star_message(gmail_state, "msg1", {"starred": True})
         assert _status(result) == 500
 
@@ -822,8 +874,9 @@ class TestArchiveMessage:
 
     @pytest.mark.asyncio
     async def test_archive_message(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          return_value={}) as mock_api:
+        with patch.object(
+            handler, "_api_modify_labels", new_callable=AsyncMock, return_value={}
+        ) as mock_api:
             result = await handler._archive_message(gmail_state, "msg1")
         assert _status(result) == 200
         body = _body(result)
@@ -835,8 +888,12 @@ class TestArchiveMessage:
 
     @pytest.mark.asyncio
     async def test_archive_api_error(self, handler, gmail_state):
-        with patch.object(handler, "_api_modify_labels", new_callable=AsyncMock,
-                          side_effect=ConnectionError("fail")):
+        with patch.object(
+            handler,
+            "_api_modify_labels",
+            new_callable=AsyncMock,
+            side_effect=ConnectionError("fail"),
+        ):
             result = await handler._archive_message(gmail_state, "msg1")
         assert _status(result) == 500
         assert "archive" in _body(result)["error"].lower()
@@ -874,16 +931,24 @@ class TestTrashMessage:
 
     @pytest.mark.asyncio
     async def test_trash_api_error(self, handler, gmail_state):
-        with patch.object(handler, "_api_trash_message", new_callable=AsyncMock,
-                          side_effect=ConnectionError("fail")):
+        with patch.object(
+            handler,
+            "_api_trash_message",
+            new_callable=AsyncMock,
+            side_effect=ConnectionError("fail"),
+        ):
             result = await handler._trash_message(gmail_state, "msg1", {"trash": True})
         assert _status(result) == 500
         assert "trash" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
     async def test_untrash_api_error(self, handler, gmail_state):
-        with patch.object(handler, "_api_untrash_message", new_callable=AsyncMock,
-                          side_effect=TimeoutError("timeout")):
+        with patch.object(
+            handler,
+            "_api_untrash_message",
+            new_callable=AsyncMock,
+            side_effect=TimeoutError("timeout"),
+        ):
             result = await handler._trash_message(gmail_state, "msg1", {"trash": False})
         assert _status(result) == 500
 
@@ -904,13 +969,19 @@ class TestCreateFilter:
 
     @pytest.mark.asyncio
     async def test_create_filter_success(self, handler, mock_http_with_body, gmail_state):
-        http = mock_http_with_body({
-            "criteria": {"from": "noreply@example.com"},
-            "action": {"add_labels": ["Label_1"]},
-        })
+        http = mock_http_with_body(
+            {
+                "criteria": {"from": "noreply@example.com"},
+                "action": {"add_labels": ["Label_1"]},
+            }
+        )
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_filter", new_callable=AsyncMock,
-                              return_value={"id": "filter_1"}):
+            with patch.object(
+                handler,
+                "_api_create_filter",
+                new_callable=AsyncMock,
+                return_value={"id": "filter_1"},
+            ):
                 result = await handler.handle_post("/api/v1/gmail/filters", {}, http)
         assert _status(result) == 200
         assert _body(result)["success"] is True
@@ -943,8 +1014,12 @@ class TestCreateFilter:
     async def test_create_filter_api_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"criteria": {"from": "x@x.com"}, "action": {"star": True}})
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_create_filter", new_callable=AsyncMock,
-                              side_effect=ValueError("bad filter")):
+            with patch.object(
+                handler,
+                "_api_create_filter",
+                new_callable=AsyncMock,
+                side_effect=ValueError("bad filter"),
+            ):
                 result = await handler.handle_post("/api/v1/gmail/filters", {}, http)
         assert _status(result) == 500
         assert "creation failed" in _body(result)["error"].lower()
@@ -968,8 +1043,12 @@ class TestListFilters:
     @pytest.mark.asyncio
     async def test_list_filters_success(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_list_filters", new_callable=AsyncMock,
-                              return_value=[{"id": "f1"}, {"id": "f2"}]):
+            with patch.object(
+                handler,
+                "_api_list_filters",
+                new_callable=AsyncMock,
+                return_value=[{"id": "f1"}, {"id": "f2"}],
+            ):
                 result = await handler.handle("/api/v1/gmail/filters", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
@@ -979,8 +1058,9 @@ class TestListFilters:
     @pytest.mark.asyncio
     async def test_list_filters_empty(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_list_filters", new_callable=AsyncMock,
-                              return_value=[]):
+            with patch.object(
+                handler, "_api_list_filters", new_callable=AsyncMock, return_value=[]
+            ):
                 result = await handler.handle("/api/v1/gmail/filters", {}, mock_http)
         assert _status(result) == 200
         assert _body(result)["count"] == 0
@@ -989,8 +1069,12 @@ class TestListFilters:
     @pytest.mark.asyncio
     async def test_list_filters_api_error(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_list_filters", new_callable=AsyncMock,
-                              side_effect=ConnectionError("API down")):
+            with patch.object(
+                handler,
+                "_api_list_filters",
+                new_callable=AsyncMock,
+                side_effect=ConnectionError("API down"),
+            ):
                 result = await handler.handle("/api/v1/gmail/filters", {}, mock_http)
         assert _status(result) == 500
         assert "Failed to list filters" in _body(result)["error"]
@@ -1004,8 +1088,12 @@ class TestListFilters:
     @pytest.mark.asyncio
     async def test_list_filters_timeout(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_list_filters", new_callable=AsyncMock,
-                              side_effect=TimeoutError("timeout")):
+            with patch.object(
+                handler,
+                "_api_list_filters",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("timeout"),
+            ):
                 result = await handler.handle("/api/v1/gmail/filters", {}, mock_http)
         assert _status(result) == 500
 
@@ -1030,8 +1118,9 @@ class TestDeleteFilter:
     @pytest.mark.asyncio
     async def test_delete_filter_api_error(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            with patch.object(handler, "_api_delete_filter", new_callable=AsyncMock,
-                              side_effect=OSError("fail")):
+            with patch.object(
+                handler, "_api_delete_filter", new_callable=AsyncMock, side_effect=OSError("fail")
+            ):
                 result = await handler.handle_delete("/api/v1/gmail/filters/f1", {}, mock_http)
         assert _status(result) == 500
         assert "deletion failed" in _body(result)["error"].lower()
@@ -1074,7 +1163,9 @@ class TestPostRouting:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_post_no_refresh_token(self, handler, mock_http_with_body, gmail_state_no_refresh):
+    async def test_post_no_refresh_token(
+        self, handler, mock_http_with_body, gmail_state_no_refresh
+    ):
         http = mock_http_with_body({"name": "Test"})
         with _patch_user_state(gmail_state_no_refresh):
             result = await handler.handle_post("/api/v1/gmail/labels", {}, http)
@@ -1108,9 +1199,14 @@ class TestAuth:
     @pytest.mark.asyncio
     async def test_handle_unauthorized(self, mock_http):
         from aragora.server.handlers.secure import SecureHandler, UnauthorizedError
+
         h = GmailLabelsHandler(server_context={})
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          side_effect=UnauthorizedError("not auth")):
+        with patch.object(
+            SecureHandler,
+            "get_auth_context",
+            new_callable=AsyncMock,
+            side_effect=UnauthorizedError("not auth"),
+        ):
             result = await h.handle("/api/v1/gmail/labels", {}, mock_http)
         assert _status(result) == 401
         assert "Authentication required" in _body(result)["error"]
@@ -1120,13 +1216,17 @@ class TestAuth:
     async def test_handle_forbidden(self, mock_http):
         from aragora.server.handlers.secure import ForbiddenError, SecureHandler
         from aragora.rbac.models import AuthorizationContext
+
         h = GmailLabelsHandler(server_context={})
-        mock_ctx = AuthorizationContext(user_id="u1", user_email="u@e.com",
-                                        roles={"viewer"}, permissions=set())
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          return_value=mock_ctx):
-            with patch.object(SecureHandler, "check_permission",
-                              side_effect=ForbiddenError("no perm")):
+        mock_ctx = AuthorizationContext(
+            user_id="u1", user_email="u@e.com", roles={"viewer"}, permissions=set()
+        )
+        with patch.object(
+            SecureHandler, "get_auth_context", new_callable=AsyncMock, return_value=mock_ctx
+        ):
+            with patch.object(
+                SecureHandler, "check_permission", side_effect=ForbiddenError("no perm")
+            ):
                 result = await h.handle("/api/v1/gmail/labels", {}, mock_http)
         assert _status(result) == 403
         assert "Permission denied" in _body(result)["error"]
@@ -1135,10 +1235,15 @@ class TestAuth:
     @pytest.mark.asyncio
     async def test_handle_post_unauthorized(self, mock_http_with_body):
         from aragora.server.handlers.secure import SecureHandler, UnauthorizedError
+
         h = GmailLabelsHandler(server_context={})
         http = mock_http_with_body({"name": "Test"})
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          side_effect=UnauthorizedError("not auth")):
+        with patch.object(
+            SecureHandler,
+            "get_auth_context",
+            new_callable=AsyncMock,
+            side_effect=UnauthorizedError("not auth"),
+        ):
             result = await h.handle_post("/api/v1/gmail/labels", {}, http)
         assert _status(result) == 401
 
@@ -1147,14 +1252,18 @@ class TestAuth:
     async def test_handle_post_forbidden(self, mock_http_with_body):
         from aragora.server.handlers.secure import ForbiddenError, SecureHandler
         from aragora.rbac.models import AuthorizationContext
+
         h = GmailLabelsHandler(server_context={})
         http = mock_http_with_body({"name": "Test"})
-        mock_ctx = AuthorizationContext(user_id="u1", user_email="u@e.com",
-                                        roles={"viewer"}, permissions=set())
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          return_value=mock_ctx):
-            with patch.object(SecureHandler, "check_permission",
-                              side_effect=ForbiddenError("no perm")):
+        mock_ctx = AuthorizationContext(
+            user_id="u1", user_email="u@e.com", roles={"viewer"}, permissions=set()
+        )
+        with patch.object(
+            SecureHandler, "get_auth_context", new_callable=AsyncMock, return_value=mock_ctx
+        ):
+            with patch.object(
+                SecureHandler, "check_permission", side_effect=ForbiddenError("no perm")
+            ):
                 result = await h.handle_post("/api/v1/gmail/labels", {}, http)
         assert _status(result) == 403
 
@@ -1162,10 +1271,15 @@ class TestAuth:
     @pytest.mark.asyncio
     async def test_handle_patch_unauthorized(self, mock_http_with_body):
         from aragora.server.handlers.secure import SecureHandler, UnauthorizedError
+
         h = GmailLabelsHandler(server_context={})
         http = mock_http_with_body({"name": "Update"})
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          side_effect=UnauthorizedError("not auth")):
+        with patch.object(
+            SecureHandler,
+            "get_auth_context",
+            new_callable=AsyncMock,
+            side_effect=UnauthorizedError("not auth"),
+        ):
             result = await h.handle_patch("/api/v1/gmail/labels/L1", {}, http)
         assert _status(result) == 401
 
@@ -1174,14 +1288,18 @@ class TestAuth:
     async def test_handle_patch_forbidden(self, mock_http_with_body):
         from aragora.server.handlers.secure import ForbiddenError, SecureHandler
         from aragora.rbac.models import AuthorizationContext
+
         h = GmailLabelsHandler(server_context={})
         http = mock_http_with_body({"name": "Update"})
-        mock_ctx = AuthorizationContext(user_id="u1", user_email="u@e.com",
-                                        roles={"viewer"}, permissions=set())
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          return_value=mock_ctx):
-            with patch.object(SecureHandler, "check_permission",
-                              side_effect=ForbiddenError("no perm")):
+        mock_ctx = AuthorizationContext(
+            user_id="u1", user_email="u@e.com", roles={"viewer"}, permissions=set()
+        )
+        with patch.object(
+            SecureHandler, "get_auth_context", new_callable=AsyncMock, return_value=mock_ctx
+        ):
+            with patch.object(
+                SecureHandler, "check_permission", side_effect=ForbiddenError("no perm")
+            ):
                 result = await h.handle_patch("/api/v1/gmail/labels/L1", {}, http)
         assert _status(result) == 403
 
@@ -1189,9 +1307,14 @@ class TestAuth:
     @pytest.mark.asyncio
     async def test_handle_delete_unauthorized(self, mock_http):
         from aragora.server.handlers.secure import SecureHandler, UnauthorizedError
+
         h = GmailLabelsHandler(server_context={})
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          side_effect=UnauthorizedError("not auth")):
+        with patch.object(
+            SecureHandler,
+            "get_auth_context",
+            new_callable=AsyncMock,
+            side_effect=UnauthorizedError("not auth"),
+        ):
             result = await h.handle_delete("/api/v1/gmail/labels/L1", {}, mock_http)
         assert _status(result) == 401
 
@@ -1200,13 +1323,17 @@ class TestAuth:
     async def test_handle_delete_forbidden(self, mock_http):
         from aragora.server.handlers.secure import ForbiddenError, SecureHandler
         from aragora.rbac.models import AuthorizationContext
+
         h = GmailLabelsHandler(server_context={})
-        mock_ctx = AuthorizationContext(user_id="u1", user_email="u@e.com",
-                                        roles={"viewer"}, permissions=set())
-        with patch.object(SecureHandler, "get_auth_context", new_callable=AsyncMock,
-                          return_value=mock_ctx):
-            with patch.object(SecureHandler, "check_permission",
-                              side_effect=ForbiddenError("no perm")):
+        mock_ctx = AuthorizationContext(
+            user_id="u1", user_email="u@e.com", roles={"viewer"}, permissions=set()
+        )
+        with patch.object(
+            SecureHandler, "get_auth_context", new_callable=AsyncMock, return_value=mock_ctx
+        ):
+            with patch.object(
+                SecureHandler, "check_permission", side_effect=ForbiddenError("no perm")
+            ):
                 result = await h.handle_delete("/api/v1/gmail/labels/L1", {}, mock_http)
         assert _status(result) == 403
 
@@ -1261,14 +1388,24 @@ class TestApiCreateFilterMapping:
         mock_response.json.return_value = {"id": "f1"}
 
         criteria = {
-            "from": "a@b.com", "to": "c@d.com", "subject": "test",
-            "query": "is:important", "has_attachment": True,
-            "exclude_chats": True, "size": 1000, "size_comparison": "smaller",
+            "from": "a@b.com",
+            "to": "c@d.com",
+            "subject": "test",
+            "query": "is:important",
+            "has_attachment": True,
+            "exclude_chats": True,
+            "size": 1000,
+            "size_comparison": "smaller",
         }
         action = {
-            "add_labels": ["L1"], "remove_labels": ["L2"],
-            "star": True, "important": True, "archive": True,
-            "delete": True, "mark_read": True, "forward": "fwd@test.com",
+            "add_labels": ["L1"],
+            "remove_labels": ["L2"],
+            "star": True,
+            "important": True,
+            "archive": True,
+            "delete": True,
+            "mark_read": True,
+            "forward": "fwd@test.com",
         }
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
@@ -1334,8 +1471,11 @@ class TestApiLabelMapping:
         mock_response.json.return_value = {"id": "L1", "name": "Colored"}
 
         options = {
-            "name": "Colored", "background_color": "#ff0000", "text_color": "#00ff00",
-            "label_list_visibility": "labelHide", "message_list_visibility": "hide",
+            "name": "Colored",
+            "background_color": "#ff0000",
+            "text_color": "#00ff00",
+            "label_list_visibility": "labelHide",
+            "message_list_visibility": "hide",
         }
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             await handler._api_create_label(gmail_state, "Colored", options)
@@ -1402,7 +1542,8 @@ class TestApiLabelMapping:
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             await handler._api_update_label(
-                gmail_state, "L1",
+                gmail_state,
+                "L1",
                 {"label_list_visibility": "labelHide", "message_list_visibility": "hide"},
             )
 
@@ -1475,7 +1616,9 @@ class TestApiModifyLabels:
         mock_pool, mock_session, mock_response = _mock_http_pool()
         mock_response.json.return_value = {"labelIds": ["INBOX", "STARRED"]}
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
-            result = await handler._api_modify_labels(gmail_state, "msg_abc", ["STARRED"], ["UNREAD"])
+            result = await handler._api_modify_labels(
+                gmail_state, "msg_abc", ["STARRED"], ["UNREAD"]
+            )
         assert result["labelIds"] == ["INBOX", "STARRED"]
         posted = mock_session.post.call_args[1]["json"]
         assert posted["addLabelIds"] == ["STARRED"]

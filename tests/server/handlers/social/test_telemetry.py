@@ -292,7 +292,6 @@ class TestModuleExports:
 
     def test_all_functions_exported(self):
         """Test all expected functions are exported."""
-        from aragora.server.handlers.social import telemetry
 
         expected = [
             "record_webhook_request",

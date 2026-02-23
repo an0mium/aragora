@@ -123,9 +123,7 @@ def _disable_tenant_enforcement():
     Individual tests that need to verify tenant enforcement behavior
     should patch tenant_enforcement_enabled themselves.
     """
-    with patch(
-        "aragora.memory.access.tenant_enforcement_enabled", return_value=False
-    ):
+    with patch("aragora.memory.access.tenant_enforcement_enabled", return_value=False):
         with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
             with patch(
                 "aragora.memory.access.filter_entries",
@@ -313,9 +311,7 @@ class TestSearchIndex:
         handler._search_claude_mem = MagicMock(return_value=[])
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler._search_index(
-                {"q": "test", "include_external": "true"}
-            )
+            result = handler._search_index({"q": "test", "include_external": "true"})
 
         assert result.status_code == 200
         body = _body(result)
@@ -327,14 +323,10 @@ class TestSearchIndex:
         """include_external=true fetches claude-mem results."""
         mock_continuum.retrieve.return_value = []
         handler._search_supermemory = MagicMock(return_value=[])
-        handler._search_claude_mem = MagicMock(
-            return_value=[{"source": "claude-mem", "text": "c"}]
-        )
+        handler._search_claude_mem = MagicMock(return_value=[{"source": "claude-mem", "text": "c"}])
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler._search_index(
-                {"q": "test", "include_external": "true"}
-            )
+            result = handler._search_index({"q": "test", "include_external": "true"})
 
         assert result.status_code == 200
         body = _body(result)
@@ -370,9 +362,7 @@ class TestSearchIndex:
 
         for alias in ("claude_mem", "claudemem", "claude-mem"):
             handler._search_claude_mem.reset_mock()
-            with patch(
-                "aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier
-            ):
+            with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
                 result = handler._search_index(
                     {
                         "q": "test",
@@ -381,9 +371,7 @@ class TestSearchIndex:
                     }
                 )
             body = _body(result)
-            assert "claude-mem" in body["external_sources"], (
-                f"alias {alias!r} not normalized"
-            )
+            assert "claude-mem" in body["external_sources"], f"alias {alias!r} not normalized"
 
     def test_external_supermemory_aliases(self, handler, mock_continuum):
         """super-memory and sm normalize to supermemory."""
@@ -393,9 +381,7 @@ class TestSearchIndex:
 
         for alias in ("super-memory", "sm"):
             handler._search_supermemory.reset_mock()
-            with patch(
-                "aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier
-            ):
+            with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
                 handler._search_index(
                     {
                         "q": "test",
@@ -436,13 +422,9 @@ class TestSearchIndex:
                 }
             )
 
-        handler._search_claude_mem.assert_called_once_with(
-            "test", limit=20, project="my-project"
-        )
+        handler._search_claude_mem.assert_called_once_with("test", limit=20, project="my-project")
 
-    def test_tenant_enforcement_no_auth_context_disables_enforcement(
-        self, handler, mock_continuum
-    ):
+    def test_tenant_enforcement_no_auth_context_disables_enforcement(self, handler, mock_continuum):
         """When auth context is None, tenant enforcement is disabled."""
         handler._auth_context = None
         mock_continuum.retrieve.return_value = []
@@ -452,25 +434,19 @@ class TestSearchIndex:
                 "aragora.memory.access.tenant_enforcement_enabled",
                 return_value=True,
             ):
-                with patch(
-                    "aragora.memory.access.resolve_tenant_id", return_value=None
-                ):
+                with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
                     result = handler._search_index({"q": "test"})
 
         assert result.status_code == 200
 
-    def test_tenant_enforcement_required_but_no_tenant_returns_400(
-        self, handler, mock_continuum
-    ):
+    def test_tenant_enforcement_required_but_no_tenant_returns_400(self, handler, mock_continuum):
         """When tenant enforcement is on but tenant_id is None, returns 400."""
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             with patch(
                 "aragora.memory.access.tenant_enforcement_enabled",
                 return_value=True,
             ):
-                with patch(
-                    "aragora.memory.access.resolve_tenant_id", return_value=None
-                ):
+                with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
                     result = handler._search_index({"q": "test"})
 
         assert result.status_code == 400
@@ -482,17 +458,13 @@ class TestSearchIndex:
         mock_continuum.retrieve.return_value = [entry]
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            with patch(
-                "aragora.memory.access.filter_entries", return_value=[entry]
-            ) as mock_filter:
+            with patch("aragora.memory.access.filter_entries", return_value=[entry]) as mock_filter:
                 result = handler._search_index({"q": "test"})
 
         assert result.status_code == 200
         mock_filter.assert_called_once()
 
-    def test_memory_access_import_failure_degrades_gracefully(
-        self, handler, mock_continuum
-    ):
+    def test_memory_access_import_failure_degrades_gracefully(self, handler, mock_continuum):
         """When memory.access fails to import, search still works."""
         mock_continuum.retrieve.return_value = []
 
@@ -638,9 +610,7 @@ class TestSearchTimeline:
         }
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            handler._search_timeline(
-                {"anchor_id": "a1", "before": "10", "after": "5"}
-            )
+            handler._search_timeline({"anchor_id": "a1", "before": "10", "after": "5"})
 
         call_kwargs = mock_continuum.get_timeline_entries.call_args[1]
         assert call_kwargs["before"] == 10
@@ -655,9 +625,7 @@ class TestSearchTimeline:
         }
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            handler._search_timeline(
-                {"anchor_id": "a1", "min_importance": "0.6"}
-            )
+            handler._search_timeline({"anchor_id": "a1", "min_importance": "0.6"})
 
         call_kwargs = mock_continuum.get_timeline_entries.call_args[1]
         assert call_kwargs["min_importance"] == 0.6
@@ -672,9 +640,7 @@ class TestSearchTimeline:
         }
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            handler._search_timeline(
-                {"anchor_id": "a1", "tier": "fast,medium"}
-            )
+            handler._search_timeline({"anchor_id": "a1", "tier": "fast,medium"})
 
         call_kwargs = mock_continuum.get_timeline_entries.call_args[1]
         tier_names = {t.name for t in call_kwargs["tiers"]}
@@ -695,9 +661,7 @@ class TestSearchTimeline:
 
         assert result.status_code == 404
 
-    def test_timeline_rbac_filter_applied_to_before_after(
-        self, handler, mock_continuum
-    ):
+    def test_timeline_rbac_filter_applied_to_before_after(self, handler, mock_continuum):
         """filter_entries is called on before and after lists too."""
         anchor = MockMemory(id="a1")
         before1 = MockMemory(id="b1")
@@ -722,26 +686,20 @@ class TestSearchTimeline:
         # Called 3 times: anchor, before, after
         assert mock_filter.call_count == 3
 
-    def test_timeline_tenant_enforcement_no_tenant_returns_400(
-        self, handler, mock_continuum
-    ):
+    def test_timeline_tenant_enforcement_no_tenant_returns_400(self, handler, mock_continuum):
         """When tenant enforcement is on but tenant_id is None, returns 400."""
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             with patch(
                 "aragora.memory.access.tenant_enforcement_enabled",
                 return_value=True,
             ):
-                with patch(
-                    "aragora.memory.access.resolve_tenant_id", return_value=None
-                ):
+                with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
                     result = handler._search_timeline({"anchor_id": "a1"})
 
         assert result.status_code == 400
         assert "Tenant" in _body(result).get("error", "")
 
-    def test_timeline_tenant_enforcement_disabled_when_no_auth(
-        self, handler, mock_continuum
-    ):
+    def test_timeline_tenant_enforcement_disabled_when_no_auth(self, handler, mock_continuum):
         """When auth context is None, tenant enforcement is disabled."""
         anchor = MockMemory(id="a1")
         mock_continuum.get_timeline_entries.return_value = {
@@ -757,9 +715,7 @@ class TestSearchTimeline:
                 "aragora.memory.access.tenant_enforcement_enabled",
                 return_value=True,
             ):
-                with patch(
-                    "aragora.memory.access.resolve_tenant_id", return_value=None
-                ):
+                with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
                     result = handler._search_timeline({"anchor_id": "a1"})
 
         assert result.status_code == 200
@@ -899,9 +855,7 @@ class TestGetEntries:
 
         # filter_entries removes the entry
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            with patch(
-                "aragora.memory.access.filter_entries", return_value=[]
-            ) as mock_filter:
+            with patch("aragora.memory.access.filter_entries", return_value=[]) as mock_filter:
                 result = handler._get_entries({"ids": "m1"})
 
         assert result.status_code == 200
@@ -910,18 +864,14 @@ class TestGetEntries:
         assert body["entries"] == []
         mock_filter.assert_called_once()
 
-    def test_get_entries_tenant_enforcement_required_no_tenant(
-        self, handler, mock_continuum
-    ):
+    def test_get_entries_tenant_enforcement_required_no_tenant(self, handler, mock_continuum):
         """When tenant enforcement is on but tenant_id is None, returns 400."""
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             with patch(
                 "aragora.memory.access.tenant_enforcement_enabled",
                 return_value=True,
             ):
-                with patch(
-                    "aragora.memory.access.resolve_tenant_id", return_value=None
-                ):
+                with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
                     result = handler._get_entries({"ids": "m1"})
 
         assert result.status_code == 400
@@ -1001,9 +951,7 @@ class TestSearchMemories:
 
     def test_search_result_fields(self, handler, mock_continuum):
         """Verify all expected fields in search result."""
-        entry = MockMemory(
-            id="m1", content="Test content", importance=0.8, surprise_score=0.4
-        )
+        entry = MockMemory(id="m1", content="Test content", importance=0.8, surprise_score=0.4)
         mock_continuum.retrieve.return_value = [entry]
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
@@ -1096,9 +1044,7 @@ class TestSearchMemories:
         mock_continuum.retrieve.return_value = []
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler._search_memories(
-                {"q": "test", "tier": "fast,medium"}
-            )
+            result = handler._search_memories({"q": "test", "tier": "fast,medium"})
 
         call_kwargs = mock_continuum.retrieve.call_args[1]
         tier_names = {t.name for t in call_kwargs["tiers"]}
@@ -1119,16 +1065,12 @@ class TestSearchMemories:
         assert "FAST" in tier_names
         assert "BOGUS" not in tier_names
 
-    def test_search_all_invalid_tiers_defaults_to_all(
-        self, handler, mock_continuum
-    ):
+    def test_search_all_invalid_tiers_defaults_to_all(self, handler, mock_continuum):
         """If no valid tiers remain after parsing, all tiers are searched."""
         mock_continuum.retrieve.return_value = []
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler._search_memories(
-                {"q": "test", "tier": "bogus,nope"}
-            )
+            result = handler._search_memories({"q": "test", "tier": "bogus,nope"})
 
         call_kwargs = mock_continuum.retrieve.call_args[1]
         assert len(call_kwargs["tiers"]) == 4  # All tiers
@@ -1142,9 +1084,7 @@ class TestSearchMemories:
         mock_continuum.retrieve.return_value = [e1, e2]
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler._search_memories(
-                {"q": "test", "sort": "relevance"}
-            )
+            result = handler._search_memories({"q": "test", "sort": "relevance"})
 
         body = _body(result)
         assert body["filters"]["sort"] == "relevance"
@@ -1159,9 +1099,7 @@ class TestSearchMemories:
         mock_continuum.retrieve.return_value = [e1, e2]
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler._search_memories(
-                {"q": "test", "sort": "importance"}
-            )
+            result = handler._search_memories({"q": "test", "sort": "importance"})
 
         body = _body(result)
         assert body["filters"]["sort"] == "importance"
@@ -1218,27 +1156,21 @@ class TestSearchMemories:
         assert call_kwargs["tenant_id"] == "t-abc"
         assert call_kwargs["enforce_tenant_isolation"] is True
 
-    def test_search_tenant_enforcement_no_tenant_returns_400(
-        self, handler, mock_continuum
-    ):
+    def test_search_tenant_enforcement_no_tenant_returns_400(self, handler, mock_continuum):
         """When tenant enforcement is on but no tenant_id, returns 400."""
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             with patch(
                 "aragora.memory.access.tenant_enforcement_enabled",
                 return_value=True,
             ):
-                with patch(
-                    "aragora.memory.access.resolve_tenant_id", return_value=None
-                ):
+                with patch("aragora.memory.access.resolve_tenant_id", return_value=None):
                     result = handler._search_memories({"q": "test"})
 
         assert result.status_code == 400
 
     def test_search_importance_rounding(self, handler, mock_continuum):
         """importance and surprise_score are rounded to 3 decimal places."""
-        entry = MockMemory(
-            id="m1", importance=0.12345678, surprise_score=0.98765432
-        )
+        entry = MockMemory(id="m1", importance=0.12345678, surprise_score=0.98765432)
         mock_continuum.retrieve.return_value = [entry]
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
@@ -1274,8 +1206,7 @@ class TestSearchMemories:
     def test_search_multiple_results(self, handler, mock_continuum):
         """Multiple results are all returned."""
         entries = [
-            MockMemory(id=f"m{i}", content=f"Entry {i}", importance=i * 0.1)
-            for i in range(5)
+            MockMemory(id=f"m{i}", content=f"Entry {i}", importance=i * 0.1) for i in range(5)
         ]
         mock_continuum.retrieve.return_value = entries
 
@@ -1294,9 +1225,7 @@ class TestSearchMemories:
 
         # filter removes e2
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            with patch(
-                "aragora.memory.access.filter_entries", return_value=[e1]
-            ):
+            with patch("aragora.memory.access.filter_entries", return_value=[e1]):
                 result = handler._search_memories({"q": "test"})
 
         body = _body(result)
@@ -1317,9 +1246,7 @@ class TestProgressiveRouting:
         mock_continuum.retrieve.return_value = []
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler.handle(
-                "/api/v1/memory/search-index", {"q": "test"}, None
-            )
+            result = handler.handle("/api/v1/memory/search-index", {"q": "test"}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -1334,9 +1261,7 @@ class TestProgressiveRouting:
         }
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler.handle(
-                "/api/v1/memory/search-timeline", {"anchor_id": "a1"}, None
-            )
+            result = handler.handle("/api/v1/memory/search-timeline", {"anchor_id": "a1"}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -1347,9 +1272,7 @@ class TestProgressiveRouting:
         mock_continuum.get_many.return_value = [entry]
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler.handle(
-                "/api/v1/memory/entries", {"ids": "m1"}, None
-            )
+            result = handler.handle("/api/v1/memory/entries", {"ids": "m1"}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -1359,9 +1282,7 @@ class TestProgressiveRouting:
         mock_continuum.retrieve.return_value = []
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler.handle(
-                "/api/v1/memory/search", {"q": "test"}, None
-            )
+            result = handler.handle("/api/v1/memory/search", {"q": "test"}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -1389,9 +1310,7 @@ class TestProgressiveRouting:
         mock_continuum.retrieve.return_value = []
 
         with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
-            result = handler.handle(
-                "/api/memory/search", {"q": "test"}, None
-            )
+            result = handler.handle("/api/memory/search", {"q": "test"}, None)
 
         assert result is not None
         assert result.status_code == 200

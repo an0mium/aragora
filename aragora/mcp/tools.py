@@ -933,7 +933,7 @@ TOOLS_METADATA = [
             "weights": {
                 "type": "string",
                 "default": "",
-                "description": "Optional JSON string of source weights (e.g. '{\"scanner\": 0.4, \"metrics\": 0.3}')",
+                "description": 'Optional JSON string of source weights (e.g. \'{"scanner": 0.4, "metrics": 0.3}\')',
             },
         },
     },

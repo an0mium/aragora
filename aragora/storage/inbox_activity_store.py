@@ -508,7 +508,9 @@ class InboxActivityStore:
                 (cutoff,),
             )
             logger.info(
-                "Cleaned up %s inbox activity entries older than %s days", count, self.retention_days
+                "Cleaned up %s inbox activity entries older than %s days",
+                count,
+                self.retention_days,
             )
 
         return count

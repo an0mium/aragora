@@ -219,7 +219,9 @@ class TeamsTokenRefreshScheduler:
         self._running = True
         self._task = asyncio.create_task(self._refresh_loop())
         logger.info(
-            "Started Teams token refresh scheduler (interval=%smin, window=%sh)", self.interval_minutes, self.expiry_window_hours
+            "Started Teams token refresh scheduler (interval=%smin, window=%sh)",
+            self.interval_minutes,
+            self.expiry_window_hours,
         )
 
     async def stop(self) -> None:
@@ -248,10 +250,14 @@ class TeamsTokenRefreshScheduler:
 
                 if stats.failed > 0:
                     logger.warning(
-                        "Teams token refresh cycle completed with errors: %s refreshed, %s failed", stats.refreshed, stats.failed
+                        "Teams token refresh cycle completed with errors: %s refreshed, %s failed",
+                        stats.refreshed,
+                        stats.failed,
                     )
                 elif stats.refreshed > 0:
-                    logger.info("Teams token refresh cycle completed: %s refreshed", stats.refreshed)
+                    logger.info(
+                        "Teams token refresh cycle completed: %s refreshed", stats.refreshed
+                    )
 
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
                 logger.error("Error in Teams token refresh cycle: %s", e, exc_info=True)

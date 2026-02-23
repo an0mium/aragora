@@ -248,7 +248,6 @@ class TestTournamentHandlerImport:
 
     def test_tournament_available_flag(self):
         """TOURNAMENT_AVAILABLE flag is defined."""
-        from aragora.server.handlers.tournaments import TOURNAMENT_AVAILABLE
 
         assert isinstance(TOURNAMENT_AVAILABLE, bool)
 

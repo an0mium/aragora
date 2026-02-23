@@ -120,11 +120,41 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
         },
         "/api/analytics/agents": {
             "agents": [
-                {"agent_id": "claude-opus", "name": "Claude Opus", "debates": 42, "win_rate": 0.78, "elo": 1847},
-                {"agent_id": "gpt-4o", "name": "GPT-4o", "debates": 38, "win_rate": 0.71, "elo": 1792},
-                {"agent_id": "gemini-pro", "name": "Gemini Pro", "debates": 35, "win_rate": 0.65, "elo": 1734},
-                {"agent_id": "claude-sonnet", "name": "Claude Sonnet", "debates": 40, "win_rate": 0.62, "elo": 1715},
-                {"agent_id": "mistral-large", "name": "Mistral Large", "debates": 28, "win_rate": 0.58, "elo": 1688},
+                {
+                    "agent_id": "claude-opus",
+                    "name": "Claude Opus",
+                    "debates": 42,
+                    "win_rate": 0.78,
+                    "elo": 1847,
+                },
+                {
+                    "agent_id": "gpt-4o",
+                    "name": "GPT-4o",
+                    "debates": 38,
+                    "win_rate": 0.71,
+                    "elo": 1792,
+                },
+                {
+                    "agent_id": "gemini-pro",
+                    "name": "Gemini Pro",
+                    "debates": 35,
+                    "win_rate": 0.65,
+                    "elo": 1734,
+                },
+                {
+                    "agent_id": "claude-sonnet",
+                    "name": "Claude Sonnet",
+                    "debates": 40,
+                    "win_rate": 0.62,
+                    "elo": 1715,
+                },
+                {
+                    "agent_id": "mistral-large",
+                    "name": "Mistral Large",
+                    "debates": 28,
+                    "win_rate": 0.58,
+                    "elo": 1688,
+                },
             ]
         },
         "/api/analytics/cost": {
@@ -225,12 +255,32 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                 {"provider": "Mistral", "tokens": 22700, "pct": 5.3},
             ]
         },
-        "/api/analytics/flips/summary": {"summary": {"total": 14, "consistent": 11, "inconsistent": 3}},
+        "/api/analytics/flips/summary": {
+            "summary": {"total": 14, "consistent": 11, "inconsistent": 3}
+        },
         "/api/analytics/flips/recent": {
             "flips": [
-                {"agent": "gpt-4o", "topic": "Rate limiting", "from": "reject", "to": "approve", "date": "2026-02-19"},
-                {"agent": "gemini-pro", "topic": "Auth flow", "from": "approve", "to": "defer", "date": "2026-02-18"},
-                {"agent": "mistral-large", "topic": "Cost model", "from": "reject", "to": "approve", "date": "2026-02-17"},
+                {
+                    "agent": "gpt-4o",
+                    "topic": "Rate limiting",
+                    "from": "reject",
+                    "to": "approve",
+                    "date": "2026-02-19",
+                },
+                {
+                    "agent": "gemini-pro",
+                    "topic": "Auth flow",
+                    "from": "approve",
+                    "to": "defer",
+                    "date": "2026-02-18",
+                },
+                {
+                    "agent": "mistral-large",
+                    "topic": "Cost model",
+                    "from": "reject",
+                    "to": "approve",
+                    "date": "2026-02-17",
+                },
             ]
         },
         "/api/analytics/flips/consistency": {
@@ -251,9 +301,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                 {"date": "2026-02-20", "flips": 2},
             ]
         },
-        "/api/analytics/deliberations": {
-            "summary": {"total": 47, "consensus_rate": 72.3}
-        },
+        "/api/analytics/deliberations": {"summary": {"total": 47, "consensus_rate": 72.3}},
         "/api/analytics/deliberations/channels": {
             "channels": [
                 {"channel": "web", "count": 28, "consensus_rate": 75.0},

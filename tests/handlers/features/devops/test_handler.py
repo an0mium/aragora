@@ -212,9 +212,7 @@ def mock_connector():
     connector.list_notes = AsyncMock(return_value=[MockNote()])
     connector.add_note = AsyncMock(return_value=MockNote())
     connector.get_on_call = AsyncMock(return_value=[MockOnCallSchedule()])
-    connector.get_current_on_call_for_service = AsyncMock(
-        return_value=[MockOnCallSchedule()]
-    )
+    connector.get_current_on_call_for_service = AsyncMock(return_value=[MockOnCallSchedule()])
     connector.list_services = AsyncMock(return_value=([MockService()], False))
     connector.get_service = AsyncMock(return_value=MockService())
     connector.verify_webhook_signature = MagicMock(return_value=True)
@@ -371,13 +369,19 @@ class TestStatus:
     @pytest.mark.asyncio
     async def test_status_configured(self, handler):
         request = MockRequest()
-        with patch.dict("os.environ", {
-            "PAGERDUTY_API_KEY": "test-key",
-            "PAGERDUTY_EMAIL": "test@example.com",
-            "PAGERDUTY_WEBHOOK_SECRET": "secret",
-        }), patch(
-            "aragora.server.handlers.features.devops.handler.get_devops_circuit_breaker_status",
-            return_value={"state": "closed"},
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "PAGERDUTY_API_KEY": "test-key",
+                    "PAGERDUTY_EMAIL": "test@example.com",
+                    "PAGERDUTY_WEBHOOK_SECRET": "secret",
+                },
+            ),
+            patch(
+                "aragora.server.handlers.features.devops.handler.get_devops_circuit_breaker_status",
+                return_value={"state": "closed"},
+            ),
         ):
             result = await handler.handle(request, "/api/v1/devops/status", "GET")
         assert _status(result) == 200
@@ -391,9 +395,12 @@ class TestStatus:
     @pytest.mark.asyncio
     async def test_status_not_configured(self, handler):
         request = MockRequest()
-        with patch.dict("os.environ", {}, clear=True), patch(
-            "aragora.server.handlers.features.devops.handler.get_devops_circuit_breaker_status",
-            return_value={"state": "closed"},
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "aragora.server.handlers.features.devops.handler.get_devops_circuit_breaker_status",
+                return_value={"state": "closed"},
+            ),
         ):
             result = await handler.handle(request, "/api/v1/devops/status", "GET")
         assert _status(result) == 200
@@ -404,11 +411,18 @@ class TestStatus:
     @pytest.mark.asyncio
     async def test_status_partial_config(self, handler):
         request = MockRequest()
-        with patch.dict("os.environ", {
-            "PAGERDUTY_API_KEY": "test-key",
-        }, clear=True), patch(
-            "aragora.server.handlers.features.devops.handler.get_devops_circuit_breaker_status",
-            return_value={"state": "closed"},
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "PAGERDUTY_API_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch(
+                "aragora.server.handlers.features.devops.handler.get_devops_circuit_breaker_status",
+                return_value={"state": "closed"},
+            ),
         ):
             result = await handler.handle(request, "/api/v1/devops/status", "GET")
         assert _status(result) == 200
@@ -441,7 +455,9 @@ class TestListIncidents:
         mock_circuit_breaker.record_success.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_list_incidents_with_status_filter(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_with_status_filter(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"status": "triggered,acknowledged"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -450,7 +466,9 @@ class TestListIncidents:
         assert call_kwargs["statuses"] == ["triggered", "acknowledged"]
 
     @pytest.mark.asyncio
-    async def test_list_incidents_invalid_status(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_invalid_status(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"status": "invalid_status"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -458,7 +476,9 @@ class TestListIncidents:
         assert "invalid" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_list_incidents_with_urgency_filter(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_with_urgency_filter(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"urgency": "high"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -467,7 +487,9 @@ class TestListIncidents:
         assert call_kwargs["urgencies"] == ["high"]
 
     @pytest.mark.asyncio
-    async def test_list_incidents_invalid_urgency(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_invalid_urgency(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"urgency": "critical"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -475,7 +497,9 @@ class TestListIncidents:
         assert "invalid" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_list_incidents_with_service_ids(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_with_service_ids(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"service_ids": "PSVC001,PSVC002"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -484,7 +508,9 @@ class TestListIncidents:
         assert call_kwargs["service_ids"] == ["PSVC001", "PSVC002"]
 
     @pytest.mark.asyncio
-    async def test_list_incidents_with_pagination(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_with_pagination(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"limit": "10", "offset": "20"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -510,7 +536,9 @@ class TestListIncidents:
         assert "not configured" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_list_incidents_connector_error(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_connector_error(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         mock_connector.list_incidents.side_effect = ConnectionError("connection lost")
         request = MockRequest(query={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
@@ -520,7 +548,9 @@ class TestListIncidents:
         mock_circuit_breaker.record_failure.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_list_incidents_timeout_error(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_timeout_error(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         mock_connector.list_incidents.side_effect = TimeoutError("timed out")
         request = MockRequest(query={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
@@ -539,18 +569,25 @@ class TestCreateIncident:
 
     @pytest.mark.asyncio
     async def test_create_incident_success(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Critical DB failure",
-            "service_id": "PSVC001",
-            "urgency": "high",
-            "body": "Database is not responding",
-        })
-        with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker), patch(
-            "aragora.server.handlers.features.devops.handler.IncidentCreateRequest",
-            create=True,
-        ) as mock_req_cls, patch(
-            "aragora.server.handlers.features.devops.handler.IncidentUrgency",
-            create=True,
+        request = MockRequest(
+            _body={
+                "title": "Critical DB failure",
+                "service_id": "PSVC001",
+                "urgency": "high",
+                "body": "Database is not responding",
+            }
+        )
+        with (
+            _patch_connector(mock_connector),
+            _patch_cb(mock_circuit_breaker),
+            patch(
+                "aragora.server.handlers.features.devops.handler.IncidentCreateRequest",
+                create=True,
+            ) as mock_req_cls,
+            patch(
+                "aragora.server.handlers.features.devops.handler.IncidentUrgency",
+                create=True,
+            ),
         ):
             # The handler imports IncidentCreateRequest and IncidentUrgency inside the method,
             # so we patch the connector's create_incident directly
@@ -562,109 +599,145 @@ class TestCreateIncident:
         mock_circuit_breaker.record_success.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_incident_missing_title(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "service_id": "PSVC001",
-            "urgency": "high",
-        })
+    async def test_create_incident_missing_title(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "service_id": "PSVC001",
+                "urgency": "high",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
         assert "title" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_create_incident_missing_service_id(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Test Incident",
-        })
+    async def test_create_incident_missing_service_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "title": "Test Incident",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
         assert "service_id" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_create_incident_invalid_service_id(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Test Incident",
-            "service_id": "invalid id with spaces!",
-        })
+    async def test_create_incident_invalid_service_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "title": "Test Incident",
+                "service_id": "invalid id with spaces!",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_incident_too_long_title(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "x" * 501,
-            "service_id": "PSVC001",
-        })
+    async def test_create_incident_too_long_title(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "title": "x" * 501,
+                "service_id": "PSVC001",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
         assert "length" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_create_incident_invalid_escalation_policy_id(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Test",
-            "service_id": "PSVC001",
-            "escalation_policy_id": "invalid id!!!",
-        })
+    async def test_create_incident_invalid_escalation_policy_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "title": "Test",
+                "service_id": "PSVC001",
+                "escalation_policy_id": "invalid id!!!",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_incident_invalid_priority_id(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Test",
-            "service_id": "PSVC001",
-            "priority_id": "bad format!!",
-        })
+    async def test_create_incident_invalid_priority_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "title": "Test",
+                "service_id": "PSVC001",
+                "priority_id": "bad format!!",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_create_incident_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
-        request = MockRequest(_body={
-            "title": "Test",
-            "service_id": "PSVC001",
-        })
+        request = MockRequest(
+            _body={
+                "title": "Test",
+                "service_id": "PSVC001",
+            }
+        )
         with _patch_cb(mock_circuit_breaker_open):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_create_incident_no_connector(self, handler, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Test",
-            "service_id": "PSVC001",
-        })
+        request = MockRequest(
+            _body={
+                "title": "Test",
+                "service_id": "PSVC001",
+            }
+        )
         with _patch_connector(None), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_create_incident_connector_error(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_create_incident_connector_error(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         mock_connector.create_incident.side_effect = ConnectionError("failed")
-        request = MockRequest(_body={
-            "title": "Test",
-            "service_id": "PSVC001",
-            "urgency": "high",
-        })
+        request = MockRequest(
+            _body={
+                "title": "Test",
+                "service_id": "PSVC001",
+                "urgency": "high",
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_incident_too_long_body(self, handler, mock_connector, mock_circuit_breaker):
-        request = MockRequest(_body={
-            "title": "Test",
-            "service_id": "PSVC001",
-            "body": "x" * 10001,
-        })
+    async def test_create_incident_too_long_body(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
+        request = MockRequest(
+            _body={
+                "title": "Test",
+                "service_id": "PSVC001",
+                "body": "x" * 10001,
+            }
+        )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "POST")
         assert _status(result) == 400
@@ -702,9 +775,7 @@ class TestGetIncident:
     async def test_get_incident_id_too_long(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, f"/api/v1/incidents/{'A' * 21}", "GET"
-            )
+            result = await handler.handle(request, f"/api/v1/incidents/{'A' * 21}", "GET")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -715,7 +786,9 @@ class TestGetIncident:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_get_incident_connector_error(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_get_incident_connector_error(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         mock_connector.get_incident.side_effect = OSError("network error")
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
@@ -743,9 +816,7 @@ class TestAcknowledgeIncident:
     async def test_acknowledge_success(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/acknowledge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/acknowledge", "POST")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["message"] == "Incident acknowledged"
@@ -757,27 +828,21 @@ class TestAcknowledgeIncident:
     async def test_acknowledge_invalid_id(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/bad!id/acknowledge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/bad!id/acknowledge", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_acknowledge_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
         request = MockRequest()
         with _patch_cb(mock_circuit_breaker_open):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/acknowledge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/acknowledge", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_acknowledge_no_connector(self, handler, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(None), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/acknowledge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/acknowledge", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -785,9 +850,7 @@ class TestAcknowledgeIncident:
         mock_connector.acknowledge_incident.side_effect = ValueError("invalid state")
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/acknowledge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/acknowledge", "POST")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
@@ -804,9 +867,7 @@ class TestResolveIncident:
     async def test_resolve_success(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"resolution": "Fixed the issue"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/resolve", "POST")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["message"] == "Incident resolved"
@@ -817,9 +878,7 @@ class TestResolveIncident:
     async def test_resolve_without_resolution(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/resolve", "POST")
         assert _status(result) == 200
         mock_connector.resolve_incident.assert_awaited_once_with("PINC001", None)
 
@@ -827,9 +886,7 @@ class TestResolveIncident:
     async def test_resolve_too_long_resolution(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"resolution": "x" * 2001})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/resolve", "POST")
         assert _status(result) == 400
         assert "length" in _body(result)["error"].lower()
 
@@ -837,18 +894,14 @@ class TestResolveIncident:
     async def test_resolve_invalid_id(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/bad!id/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/bad!id/resolve", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_resolve_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
         request = MockRequest(_body={})
         with _patch_cb(mock_circuit_breaker_open):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/resolve", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -856,9 +909,7 @@ class TestResolveIncident:
         mock_connector.resolve_incident.side_effect = TimeoutError("timeout")
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/resolve", "POST")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
@@ -875,29 +926,25 @@ class TestReassignIncident:
     async def test_reassign_with_user_ids(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"user_ids": ["PUSR001"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["message"] == "Incident reassigned"
 
     @pytest.mark.asyncio
-    async def test_reassign_with_escalation_policy(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_reassign_with_escalation_policy(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(_body={"escalation_policy_id": "PESCPOL001"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_reassign_missing_both(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 400
         assert "required" in _body(result)["error"].lower()
 
@@ -905,36 +952,32 @@ class TestReassignIncident:
     async def test_reassign_invalid_user_ids(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"user_ids": "not-a-list"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_reassign_invalid_escalation_policy_id(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_reassign_invalid_escalation_policy_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(_body={"escalation_policy_id": "bad id!!"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_reassign_invalid_incident_id(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_reassign_invalid_incident_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(_body={"user_ids": ["PUSR001"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/bad!id/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/bad!id/reassign", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_reassign_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
         request = MockRequest(_body={"user_ids": ["PUSR001"]})
         with _patch_cb(mock_circuit_breaker_open):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -942,9 +985,7 @@ class TestReassignIncident:
         mock_connector.reassign_incident.side_effect = OSError("fail")
         request = MockRequest(_body={"user_ids": ["PUSR001"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/reassign", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/reassign", "POST")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
@@ -961,9 +1002,7 @@ class TestMergeIncidents:
     async def test_merge_success(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"source_incident_ids": ["PINC002", "PINC003"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/merge", "POST")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert "merged" in data["message"].lower()
@@ -974,9 +1013,7 @@ class TestMergeIncidents:
     async def test_merge_empty_source_ids(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"source_incident_ids": []})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/merge", "POST")
         assert _status(result) == 400
         assert "required" in _body(result)["error"].lower()
 
@@ -984,36 +1021,28 @@ class TestMergeIncidents:
     async def test_merge_missing_source_ids(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/merge", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_merge_invalid_incident_id(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"source_incident_ids": ["PINC002"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/bad!id/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/bad!id/merge", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_merge_invalid_source_ids(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"source_incident_ids": ["bad id!!"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/merge", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_merge_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
         request = MockRequest(_body={"source_incident_ids": ["PINC002"]})
         with _patch_cb(mock_circuit_breaker_open):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/merge", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1021,9 +1050,7 @@ class TestMergeIncidents:
         mock_connector.merge_incidents.side_effect = AttributeError("merge failed")
         request = MockRequest(_body={"source_incident_ids": ["PINC002"]})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/merge", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/merge", "POST")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
@@ -1040,9 +1067,7 @@ class TestListNotes:
     async def test_list_notes_success(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "GET")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["count"] == 1
@@ -1052,21 +1077,19 @@ class TestListNotes:
         mock_connector.list_notes.assert_awaited_once_with("PINC001")
 
     @pytest.mark.asyncio
-    async def test_list_notes_invalid_incident_id(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_notes_invalid_incident_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/bad!id/notes", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/bad!id/notes", "GET")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_list_notes_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
         request = MockRequest()
         with _patch_cb(mock_circuit_breaker_open):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "GET")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1074,9 +1097,7 @@ class TestListNotes:
         mock_connector.list_notes.side_effect = ConnectionError("fail")
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "GET")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
@@ -1093,9 +1114,7 @@ class TestAddNote:
     async def test_add_note_success(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"content": "Found root cause"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "POST")
         assert _status(result) == 201
         body = _body(result)
         assert body["message"] == "Note added"
@@ -1106,9 +1125,7 @@ class TestAddNote:
     async def test_add_note_missing_content(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "POST")
         assert _status(result) == 400
         assert "content" in _body(result)["error"].lower()
 
@@ -1116,28 +1133,24 @@ class TestAddNote:
     async def test_add_note_too_long_content(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={"content": "x" * 5001})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "POST")
         assert _status(result) == 400
         assert "length" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_add_note_invalid_incident_id(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_add_note_invalid_incident_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(_body={"content": "Note"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/bad!id/notes", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/bad!id/notes", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_add_note_circuit_breaker_open(self, handler, mock_circuit_breaker_open):
         request = MockRequest(_body={"content": "Note"})
         with _patch_cb(mock_circuit_breaker_open):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "POST")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1145,9 +1158,7 @@ class TestAddNote:
         mock_connector.add_note.side_effect = TimeoutError("timeout")
         request = MockRequest(_body={"content": "Note"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "POST")
         assert _status(result) == 500
         mock_circuit_breaker.record_failure.assert_called_once()
 
@@ -1173,7 +1184,9 @@ class TestGetOnCall:
         assert data["oncall"][0]["escalation_level"] == 1
 
     @pytest.mark.asyncio
-    async def test_get_oncall_with_schedule_ids(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_get_oncall_with_schedule_ids(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"schedule_ids": "PSCHED001,PSCHED002"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/oncall", "GET")
@@ -1182,7 +1195,9 @@ class TestGetOnCall:
         assert call_kwargs["schedule_ids"] == ["PSCHED001", "PSCHED002"]
 
     @pytest.mark.asyncio
-    async def test_get_oncall_invalid_schedule_id(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_get_oncall_invalid_schedule_id(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"schedule_ids": "bad id!!"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/oncall", "GET")
@@ -1224,9 +1239,7 @@ class TestGetOnCallForService:
     async def test_oncall_for_service_success(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/oncall/services/PSVC001", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/oncall/services/PSVC001", "GET")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["service_id"] == "PSVC001"
@@ -1237,19 +1250,17 @@ class TestGetOnCallForService:
     async def test_oncall_for_service_no_connector(self, handler, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(None), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/oncall/services/PSVC001", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/oncall/services/PSVC001", "GET")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_oncall_for_service_connector_error(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_oncall_for_service_connector_error(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         mock_connector.get_current_on_call_for_service.side_effect = ValueError("fail")
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/oncall/services/PSVC001", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/oncall/services/PSVC001", "GET")
         assert _status(result) == 500
 
 
@@ -1275,7 +1286,9 @@ class TestListServices:
         assert data["services"][0]["status"] == "active"
 
     @pytest.mark.asyncio
-    async def test_list_services_with_pagination(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_services_with_pagination(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={"limit": "5", "offset": "10"})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/services", "GET")
@@ -1292,7 +1305,9 @@ class TestListServices:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_list_services_connector_error(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_services_connector_error(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         mock_connector.list_services.side_effect = OSError("network error")
         request = MockRequest(query={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
@@ -1356,9 +1371,7 @@ class TestPagerDutyWebhook:
             headers={"X-PagerDuty-Signature": "valid-sig"},
         )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/webhooks/pagerduty", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/webhooks/pagerduty", "POST")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["received"] is True
@@ -1375,9 +1388,7 @@ class TestPagerDutyWebhook:
             },
         )
         with _patch_connector(None), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/webhooks/pagerduty", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/webhooks/pagerduty", "POST")
         # Webhook still returns 200 even without connector (fallback parsing)
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -1392,9 +1403,7 @@ class TestPagerDutyWebhook:
             headers={"X-PagerDuty-Signature": "bad-sig"},
         )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/webhooks/pagerduty", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/webhooks/pagerduty", "POST")
         # Handler logs warning but does not reject - still processes
         assert _status(result) == 200
 
@@ -1412,16 +1421,16 @@ class TestPagerDutyWebhook:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_webhook_error_still_returns_success(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_webhook_error_still_returns_success(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         """Webhook errors return 200 with error info to avoid PagerDuty retries."""
         mock_connector.parse_webhook.side_effect = ValueError("parse error")
         request = MockRequest(
             _body={"event": {"event_type": "incident.triggered"}},
         )
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/webhooks/pagerduty", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/webhooks/pagerduty", "POST")
         assert _status(result) == 200
         data = _body(result)["data"]
         assert data["received"] is True
@@ -1445,24 +1454,28 @@ class TestRoutingEdgeCases:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_post_to_list_incidents_wrong_method_on_action(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_post_to_list_incidents_wrong_method_on_action(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             # GET on acknowledge should 404
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/acknowledge", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/acknowledge", "GET")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_put_on_incidents_returns_404(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_put_on_incidents_returns_404(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "PUT")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_delete_on_incidents_returns_404(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_delete_on_incidents_returns_404(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "DELETE")
@@ -1476,7 +1489,9 @@ class TestRoutingEdgeCases:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_post_on_services_returns_404(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_post_on_services_returns_404(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/services", "POST")
@@ -1492,53 +1507,51 @@ class TestPathParameterExtraction:
     """Tests for correct path parameter extraction from URLs."""
 
     @pytest.mark.asyncio
-    async def test_incident_id_extracted_correctly(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_incident_id_extracted_correctly(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             await handler.handle(request, "/api/v1/incidents/ABCDEF123", "GET")
         mock_connector.get_incident.assert_awaited_once_with("ABCDEF123")
 
     @pytest.mark.asyncio
-    async def test_service_id_extracted_from_services_path(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_service_id_extracted_from_services_path(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             await handler.handle(request, "/api/v1/services/SVCXYZ789", "GET")
         mock_connector.get_service.assert_awaited_once_with("SVCXYZ789")
 
     @pytest.mark.asyncio
-    async def test_service_id_extracted_from_oncall_services_path(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_service_id_extracted_from_oncall_services_path(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            await handler.handle(
-                request, "/api/v1/oncall/services/SVCABC123", "GET"
-            )
+            await handler.handle(request, "/api/v1/oncall/services/SVCABC123", "GET")
         mock_connector.get_current_on_call_for_service.assert_awaited_once_with("SVCABC123")
 
     @pytest.mark.asyncio
     async def test_incident_id_for_acknowledge(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            await handler.handle(
-                request, "/api/v1/incidents/INC999/acknowledge", "POST"
-            )
+            await handler.handle(request, "/api/v1/incidents/INC999/acknowledge", "POST")
         mock_connector.acknowledge_incident.assert_awaited_once_with("INC999")
 
     @pytest.mark.asyncio
     async def test_incident_id_for_resolve(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(_body={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            await handler.handle(
-                request, "/api/v1/incidents/INC888/resolve", "POST"
-            )
+            await handler.handle(request, "/api/v1/incidents/INC888/resolve", "POST")
         mock_connector.resolve_incident.assert_awaited_once_with("INC888", None)
 
     @pytest.mark.asyncio
     async def test_incident_id_for_notes_list(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            await handler.handle(
-                request, "/api/v1/incidents/INC777/notes", "GET"
-            )
+            await handler.handle(request, "/api/v1/incidents/INC777/notes", "GET")
         mock_connector.list_notes.assert_awaited_once_with("INC777")
 
 
@@ -1553,7 +1566,10 @@ class TestTenantIdExtraction:
     @pytest.mark.asyncio
     async def test_tenant_id_from_request(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(tenant_id="tenant-42", query={})
-        with _patch_connector(mock_connector) as mock_get_connector, _patch_cb(mock_circuit_breaker):
+        with (
+            _patch_connector(mock_connector) as mock_get_connector,
+            _patch_cb(mock_circuit_breaker),
+        ):
             await handler.handle(request, "/api/v1/services", "GET")
         mock_get_connector.assert_awaited_once_with("tenant-42")
 
@@ -1562,7 +1578,10 @@ class TestTenantIdExtraction:
         request = MockRequest(query={})
         # Remove tenant_id attribute
         del request.tenant_id
-        with _patch_connector(mock_connector) as mock_get_connector, _patch_cb(mock_circuit_breaker):
+        with (
+            _patch_connector(mock_connector) as mock_get_connector,
+            _patch_cb(mock_circuit_breaker),
+        ):
             await handler.handle(request, "/api/v1/services", "GET")
         mock_get_connector.assert_awaited_once_with("default")
 
@@ -1588,7 +1607,9 @@ class TestHandleSignature:
             await handler.handle("/api/v1/services", {"key": "value"}, MagicMock())
 
     @pytest.mark.asyncio
-    async def test_handle_default_method_is_get(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_handle_default_method_is_get(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             # Pass None for method -- handler defaults to "GET"
@@ -1607,8 +1628,9 @@ class TestOuterErrorHandling:
     @pytest.mark.asyncio
     async def test_runtime_error_returns_500(self, handler, mock_circuit_breaker):
         request = MockRequest(query={})
-        with _patch_cb(mock_circuit_breaker), patch.object(
-            handler, "_get_tenant_id", side_effect=RuntimeError("unexpected")
+        with (
+            _patch_cb(mock_circuit_breaker),
+            patch.object(handler, "_get_tenant_id", side_effect=RuntimeError("unexpected")),
         ):
             result = await handler.handle(request, "/api/v1/services", "GET")
         assert _status(result) == 500
@@ -1617,8 +1639,9 @@ class TestOuterErrorHandling:
     @pytest.mark.asyncio
     async def test_key_error_returns_500(self, handler, mock_circuit_breaker):
         request = MockRequest(query={})
-        with _patch_cb(mock_circuit_breaker), patch.object(
-            handler, "_get_tenant_id", side_effect=KeyError("missing key")
+        with (
+            _patch_cb(mock_circuit_breaker),
+            patch.object(handler, "_get_tenant_id", side_effect=KeyError("missing key")),
         ):
             result = await handler.handle(request, "/api/v1/services", "GET")
         assert _status(result) == 500
@@ -1626,8 +1649,9 @@ class TestOuterErrorHandling:
     @pytest.mark.asyncio
     async def test_os_error_returns_500(self, handler, mock_circuit_breaker):
         request = MockRequest(query={})
-        with _patch_cb(mock_circuit_breaker), patch.object(
-            handler, "_get_tenant_id", side_effect=OSError("disk full")
+        with (
+            _patch_cb(mock_circuit_breaker),
+            patch.object(handler, "_get_tenant_id", side_effect=OSError("disk full")),
         ):
             result = await handler.handle(request, "/api/v1/services", "GET")
         assert _status(result) == 500
@@ -1642,7 +1666,9 @@ class TestResponseFormat:
     """Tests verifying correct response format for various endpoints."""
 
     @pytest.mark.asyncio
-    async def test_list_incidents_response_shape(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_incidents_response_shape(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={})
         incident = MockIncident()
         incident.created_at = None  # Override __post_init__ default
@@ -1664,7 +1690,9 @@ class TestResponseFormat:
         assert data["has_more"] is True
 
     @pytest.mark.asyncio
-    async def test_get_incident_response_has_extra_fields(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_get_incident_response_has_extra_fields(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents/PINC001", "GET")
@@ -1675,26 +1703,26 @@ class TestResponseFormat:
         assert "priority" in inc
 
     @pytest.mark.asyncio
-    async def test_list_notes_response_with_user(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_notes_response_with_user(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "GET")
         note = _body(result)["data"]["notes"][0]
         assert note["user"]["id"] == "PUSR001"
         assert note["user"]["name"] == "Test User"
 
     @pytest.mark.asyncio
-    async def test_list_notes_response_without_user(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_list_notes_response_without_user(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         note_without_user = MockNote()
         note_without_user.user = None  # Override __post_init__ default
         mock_connector.list_notes.return_value = [note_without_user]
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
-            result = await handler.handle(
-                request, "/api/v1/incidents/PINC001/notes", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/incidents/PINC001/notes", "GET")
         note = _body(result)["data"]["notes"][0]
         assert note["user"] is None
 
@@ -1713,7 +1741,9 @@ class TestResponseFormat:
         assert "created_at" in svc
 
     @pytest.mark.asyncio
-    async def test_get_service_response_without_created_at(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_get_service_response_without_created_at(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         service_without_created = MockService()
         service_without_created.created_at = None  # Override __post_init__ default
         mock_connector.get_service.return_value = service_without_created
@@ -1724,7 +1754,9 @@ class TestResponseFormat:
         assert svc["created_at"] is None
 
     @pytest.mark.asyncio
-    async def test_oncall_response_has_start_end(self, handler, mock_connector, mock_circuit_breaker):
+    async def test_oncall_response_has_start_end(
+        self, handler, mock_connector, mock_circuit_breaker
+    ):
         request = MockRequest(query={})
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/oncall", "GET")

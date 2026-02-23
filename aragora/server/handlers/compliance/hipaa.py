@@ -754,17 +754,13 @@ class HIPAAMixin:
                 IdentifierType,
             )
         except ImportError:
-            return error_response(
-                "Privacy anonymization module not available", 501
-            )
+            return error_response("Privacy anonymization module not available", 501)
 
         try:
             anon_method = AnonymizationMethod(method_str)
         except ValueError:
             valid = [m.value for m in AnonymizationMethod]
-            return error_response(
-                f"Invalid method '{method_str}'. Valid: {valid}", 400
-            )
+            return error_response(f"Invalid method '{method_str}'. Valid: {valid}", 400)
 
         # Parse identifier type filters
         id_types = None
@@ -824,9 +820,7 @@ class HIPAAMixin:
         try:
             from aragora.privacy.anonymization import HIPAAAnonymizer
         except ImportError:
-            return error_response(
-                "Privacy anonymization module not available", 501
-            )
+            return error_response("Privacy anonymization module not available", 501)
 
         anonymizer = HIPAAAnonymizer()
         result = anonymizer.verify_safe_harbor(content)
@@ -871,33 +865,31 @@ class HIPAAMixin:
         try:
             from aragora.privacy.anonymization import HIPAAAnonymizer
         except ImportError:
-            return error_response(
-                "Privacy anonymization module not available", 501
-            )
+            return error_response("Privacy anonymization module not available", 501)
 
         anonymizer = HIPAAAnonymizer()
         identifiers = anonymizer.detect_identifiers(content)
 
         # Filter by confidence and reverse to natural order
-        filtered = [
-            i for i in reversed(identifiers) if i.confidence >= min_confidence
-        ]
+        filtered = [i for i in reversed(identifiers) if i.confidence >= min_confidence]
 
-        return json_response({
-            "identifiers": [
-                {
-                    "type": ident.identifier_type.value,
-                    "value": ident.value,
-                    "start": ident.start_pos,
-                    "end": ident.end_pos,
-                    "confidence": ident.confidence,
-                }
-                for ident in filtered
-            ],
-            "count": len(filtered),
-            "min_confidence": min_confidence,
-            "hipaa_reference": "45 CFR 164.514 - HIPAA Safe Harbor Identifiers",
-        })
+        return json_response(
+            {
+                "identifiers": [
+                    {
+                        "type": ident.identifier_type.value,
+                        "value": ident.value,
+                        "start": ident.start_pos,
+                        "end": ident.end_pos,
+                        "confidence": ident.confidence,
+                    }
+                    for ident in filtered
+                ],
+                "count": len(filtered),
+                "min_confidence": min_confidence,
+                "hipaa_reference": "45 CFR 164.514 - HIPAA Safe Harbor Identifiers",
+            }
+        )
 
     # =========================================================================
     # Helper methods for HIPAA operations
@@ -928,6 +920,7 @@ class HIPAAMixin:
         anonymizer_available = False
         try:
             from aragora.privacy.anonymization import HIPAAAnonymizer  # noqa: F401
+
             anonymizer_available = True
         except ImportError:
             pass

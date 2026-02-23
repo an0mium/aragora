@@ -52,9 +52,7 @@ class SessionManifest:
         repo_root: Path | None = None,
     ):
         self.repo_root = repo_root or Path.cwd()
-        self.manifest_path = manifest_path or (
-            self.repo_root / ".aragora_sessions.yaml"
-        )
+        self.manifest_path = manifest_path or (self.repo_root / ".aragora_sessions.yaml")
 
     def _load(self) -> dict[str, Any]:
         """Load manifest from YAML file."""
@@ -134,10 +132,7 @@ class SessionManifest:
         )
 
         # Remove any existing entry for this track
-        data["sessions"] = [
-            s for s in data["sessions"]
-            if s.get("track") != track
-        ]
+        data["sessions"] = [s for s in data["sessions"] if s.get("track") != track]
         data["sessions"].append(asdict(entry))
 
         self._save(data)
@@ -155,10 +150,7 @@ class SessionManifest:
         """
         data = self._load()
         original_count = len(data["sessions"])
-        data["sessions"] = [
-            s for s in data["sessions"]
-            if s.get("track") != track
-        ]
+        data["sessions"] = [s for s in data["sessions"] if s.get("track") != track]
 
         if len(data["sessions"]) < original_count:
             self._save(data)
@@ -204,9 +196,7 @@ class SessionManifest:
             claimed = set(session.get("files_claimed", []))
             overlap = claimed & set(files)
             if overlap:
-                conflicts.extend(
-                    f"{f} (claimed by {session['track']})" for f in overlap
-                )
+                conflicts.extend(f"{f} (claimed by {session['track']})" for f in overlap)
 
         # Update the track's claimed files
         for session in data["sessions"]:
@@ -230,16 +220,18 @@ class SessionManifest:
         for s in data["sessions"]:
             if s.get("status", "active") != "active":
                 continue
-            entries.append(SessionEntry(
-                track=s.get("track", ""),
-                worktree=s.get("worktree", ""),
-                agent=s.get("agent", "claude"),
-                current_goal=s.get("current_goal", ""),
-                started_at=s.get("started_at", ""),
-                files_claimed=s.get("files_claimed", []),
-                status=s.get("status", "active"),
-                pid=s.get("pid", 0),
-            ))
+            entries.append(
+                SessionEntry(
+                    track=s.get("track", ""),
+                    worktree=s.get("worktree", ""),
+                    agent=s.get("agent", "claude"),
+                    current_goal=s.get("current_goal", ""),
+                    started_at=s.get("started_at", ""),
+                    files_claimed=s.get("files_claimed", []),
+                    status=s.get("status", "active"),
+                    pid=s.get("pid", 0),
+                )
+            )
 
         return entries
 
@@ -253,17 +245,19 @@ class SessionManifest:
         overlaps: list[tuple[str, str, str]] = []
 
         for i, a in enumerate(active):
-            for b in active[i + 1:]:
+            for b in active[i + 1 :]:
                 # Check file claim overlaps
                 a_files = set(a.files_claimed)
                 b_files = set(b.files_claimed)
                 shared = a_files & b_files
                 if shared:
-                    overlaps.append((
-                        a.track,
-                        b.track,
-                        f"Shared files: {', '.join(list(shared)[:3])}",
-                    ))
+                    overlaps.append(
+                        (
+                            a.track,
+                            b.track,
+                            f"Shared files: {', '.join(list(shared)[:3])}",
+                        )
+                    )
 
         return overlaps
 

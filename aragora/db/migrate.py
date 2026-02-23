@@ -282,7 +282,9 @@ def migrate_table(
 
     # Build INSERT statement
     placeholders = ", ".join(["%s"] * len(columns))
-    insert_sql = f"INSERT INTO {safe_table} ({safe_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+    insert_sql = (
+        f"INSERT INTO {safe_table} ({safe_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+    )
 
     # Fetch and insert in batches
     cursor = sqlite_conn.execute(f"SELECT * FROM {safe_table}")

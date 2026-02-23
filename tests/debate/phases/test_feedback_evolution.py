@@ -126,9 +126,7 @@ def population_manager():
     mgr = MagicMock()
     mgr.update_fitness = MagicMock()
     mgr.get_or_create_population = MagicMock(return_value=MockPopulation())
-    mgr.evolve_population = MagicMock(
-        return_value=MockEvolvedPopulation(genomes=["g1", "g2"])
-    )
+    mgr.evolve_population = MagicMock(return_value=MockEvolvedPopulation(genomes=["g1", "g2"]))
     return mgr
 
 
@@ -592,7 +590,9 @@ class TestUpdateGenomeFitness:
             assert c[0][0] == "genome-bbb"
 
     @patch("aragora.genesis.breeding.fitness_from_elo", return_value=0.0)
-    def test_no_winner_skips_outcome_delta(self, mock_fitness, feedback, population_manager, elo_system):
+    def test_no_winner_skips_outcome_delta(
+        self, mock_fitness, feedback, population_manager, elo_system
+    ):
         """When winner is None, outcome_delta call is skipped."""
         elo_system.get_rating.return_value = 1500.0
         ctx = MockDebateContext(
@@ -632,7 +632,9 @@ class TestUpdateGenomeFitness:
         )
 
     @patch("aragora.genesis.breeding.fitness_from_elo", return_value=0.0)
-    def test_exception_in_agent_loop_is_caught(self, mock_fitness, feedback, population_manager, elo_system):
+    def test_exception_in_agent_loop_is_caught(
+        self, mock_fitness, feedback, population_manager, elo_system
+    ):
         """Exceptions per agent are caught, other agents still processed."""
         elo_system.get_rating.return_value = 1500.0
         # Make first call raise, second succeed
@@ -658,7 +660,9 @@ class TestUpdateGenomeFitness:
         feedback.update_genome_fitness(ctx)
 
     @patch("aragora.genesis.breeding.fitness_from_elo", return_value=0.0)
-    def test_multiple_agents_all_processed(self, mock_fitness, feedback, population_manager, elo_system):
+    def test_multiple_agents_all_processed(
+        self, mock_fitness, feedback, population_manager, elo_system
+    ):
         """All agents with genome_id are processed."""
         elo_system.get_rating.return_value = 1500.0
         ctx = MockDebateContext(
@@ -673,9 +677,7 @@ class TestUpdateGenomeFitness:
 
         # Each agent: rate-based + loss delta (winner gets win delta)
         # All get 2 calls each (elo=0 skipped), total = 6
-        genome_ids_updated = [
-            c[0][0] for c in population_manager.update_fitness.call_args_list
-        ]
+        genome_ids_updated = [c[0][0] for c in population_manager.update_fitness.call_args_list]
         assert "genome-aaa" in genome_ids_updated
         assert "genome-bbb" in genome_ids_updated
         assert "genome-ccc" in genome_ids_updated

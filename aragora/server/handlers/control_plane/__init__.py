@@ -179,7 +179,10 @@ class ControlPlaneHandler(
                         await asyncio.sleep(delay)
 
             logger.warning(
-                "Stream emission failed after %s attempts for %s: %s", max_retries, emit_method, last_error
+                "Stream emission failed after %s attempts for %s: %s",
+                max_retries,
+                emit_method,
+                last_error,
             )
 
         # Schedule the emission task without blocking
@@ -188,7 +191,8 @@ class ControlPlaneHandler(
             task = loop.create_task(_do_emit_with_retry())
             task.add_done_callback(
                 lambda t: logger.error("Control plane emission failed: %s", t.exception())
-                if not t.cancelled() and t.exception() else None
+                if not t.cancelled() and t.exception()
+                else None
             )
         except RuntimeError:
             # No running event loop - use _run_async as fallback (single attempt)

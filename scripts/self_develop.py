@@ -109,7 +109,13 @@ def _validate_pipeline(goal: str) -> int:
     try:
         decomposer = TaskDecomposer()
         result = decomposer.analyze(goal)
-        checks.append(("TaskDecomposer", True, f"score={result.complexity_score}, subtasks={len(result.subtasks)}"))
+        checks.append(
+            (
+                "TaskDecomposer",
+                True,
+                f"score={result.complexity_score}, subtasks={len(result.subtasks)}",
+            )
+        )
     except Exception as e:
         checks.append(("TaskDecomposer", False, str(e)[:80]))
 
@@ -130,9 +136,13 @@ def _validate_pipeline(goal: str) -> int:
     try:
         from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
 
-        pipeline = SelfImprovePipeline(SelfImproveConfig(
-            enable_codebase_indexing=False, capture_metrics=False, persist_outcomes=False,
-        ))
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                enable_codebase_indexing=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+            )
+        )
         checks.append(("SelfImprovePipeline", True, "importable + configurable"))
     except Exception as e:
         checks.append(("SelfImprovePipeline", False, str(e)[:80]))
@@ -329,9 +339,7 @@ def print_pipeline_outcome(outcome: Any) -> None:
     print(f"Status: {'SUCCESS' if outcome.success else 'FAILED'}")
     print(f"Tasks completed: {outcome.tasks_completed}/{outcome.tasks_total}")
     if outcome.verification_passed or outcome.verification_total:
-        print(
-            f"Verification: {outcome.verification_passed}/{outcome.verification_total} passed"
-        )
+        print(f"Verification: {outcome.verification_passed}/{outcome.verification_total} passed")
     if outcome.total_cost_usd > 0:
         print(f"Cost: ${outcome.total_cost_usd:.4f}")
     print(f"Duration: {outcome.duration_seconds:.1f}s")
@@ -426,9 +434,7 @@ async def _enrich_abstract_goal(goal: str, tracks: list[str] | None) -> str:
     try:
         from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig, Track
 
-        available_tracks = (
-            [Track(t) for t in tracks] if tracks else list(Track)
-        )
+        available_tracks = [Track(t) for t in tracks] if tracks else list(Track)
 
         planner = MetaPlanner(MetaPlannerConfig(scan_mode=True))
         scan_goals = await planner._scan_prioritize(goal, available_tracks)
@@ -549,7 +555,7 @@ async def run_orchestration(
     if use_parallel:
         print(f"Worktree isolation: {use_worktree}")
         print(f"Gauntlet gate: {enable_gauntlet}")
-        print(f"Convoy tracking: enabled")
+        print("Convoy tracking: enabled")
     elif not use_standard:
         print(f"Worktree isolation: {use_worktree}")
         print(f"Meta-planning: {enable_meta_plan}")
@@ -937,8 +943,11 @@ Examples:
             # Run heuristic first; if the goal is abstract, auto-switch to debate
             result = run_heuristic_decomposition(enriched_goal)
             if result.recommend_debate:
-                print("[*] Abstract goal detected (score={}/10, no file hints)".format(
-                    result.complexity_score))
+                print(
+                    "[*] Abstract goal detected (score={}/10, no file hints)".format(
+                        result.complexity_score
+                    )
+                )
                 print("[*] Auto-switching to debate-based decomposition...\n")
                 use_debate = True
 
@@ -996,7 +1005,9 @@ Examples:
         elif event == "execution_complete":
             print(f"  [exec] {data['completed']} completed, {data['failed']} failed")
         elif event == "cycle_complete":
-            print(f"  [done] {data['completed']} completed, {data['failed']} failed, {data['duration']:.1f}s")
+            print(
+                f"  [done] {data['completed']} completed, {data['failed']} failed, {data['duration']:.1f}s"
+            )
 
     # Self-improve mode: unified pipeline with Claude Code dispatch
     if args.self_improve:
@@ -1034,15 +1045,17 @@ Examples:
                 print(f"Objective: {plan['objective']}")
                 print(f"\nGoals ({len(plan['goals'])}):")
                 for i, g in enumerate(plan["goals"]):
-                    print(f"  [{i+1}] {g['description'][:80]}")
+                    print(f"  [{i + 1}] {g['description'][:80]}")
                     print(f"      Track: {g['track']}  Priority: {g['priority']}")
                 print(f"\nSubtasks ({len(plan['subtasks'])}):")
                 for i, s in enumerate(plan["subtasks"]):
                     title = s.get("title", s.get("description", "???"))
-                    print(f"  [{i+1}] {str(title)[:80]}")
+                    print(f"  [{i + 1}] {str(title)[:80]}")
                     if s.get("file_hints"):
                         print(f"      Files: {', '.join(s['file_hints'][:3])}")
-                print(f"\nConfig: worktrees={config.use_worktrees} parallel={config.max_parallel} budget=${config.budget_limit_usd}")
+                print(
+                    f"\nConfig: worktrees={config.use_worktrees} parallel={config.max_parallel} budget=${config.budget_limit_usd}"
+                )
                 print(f"  safe_mode={config.safe_mode} risk_threshold={config.risk_threshold}")
 
                 # Display risk assessments if available
@@ -1050,14 +1063,20 @@ Examples:
                 if risk_assessments:
                     print(f"\nRisk Assessments ({len(risk_assessments)}):")
                     auto_count = sum(1 for r in risk_assessments if r["recommendation"] == "auto")
-                    review_count = sum(1 for r in risk_assessments if r["recommendation"] == "review")
+                    review_count = sum(
+                        1 for r in risk_assessments if r["recommendation"] == "review"
+                    )
                     block_count = sum(1 for r in risk_assessments if r["recommendation"] == "block")
-                    print(f"  Auto-approve: {auto_count}  Needs review: {review_count}  Blocked: {block_count}")
+                    print(
+                        f"  Auto-approve: {auto_count}  Needs review: {review_count}  Blocked: {block_count}"
+                    )
                     for i, ra in enumerate(risk_assessments):
                         category_label = ra["category"].upper()
                         rec_label = ra["recommendation"].upper()
                         goal_preview = ra.get("goal", "")[:60]
-                        print(f"  [{i+1}] score={ra['score']:.2f} [{category_label}] -> {rec_label}")
+                        print(
+                            f"  [{i + 1}] score={ra['score']:.2f} [{category_label}] -> {rec_label}"
+                        )
                         if goal_preview:
                             print(f"      {goal_preview}")
                         for factor in ra.get("factors", [])[:2]:
@@ -1067,6 +1086,7 @@ Examples:
                 if args.visual_pipeline and plan.get("goals"):
                     try:
                         from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
                         ideas = [g["description"][:200] for g in plan["goals"]]
                         pipe = IdeaToExecutionPipeline()
                         pipe_result = pipe.from_ideas(ideas, auto_advance=True)
@@ -1174,10 +1194,7 @@ Examples:
                     pipeline = IdeaToExecutionPipeline()
                     pipe_result = pipeline.from_ideas(ideas, auto_advance=True)
                     print(f"\n  Visual Pipeline: /pipeline?id={pipe_result.pipeline_id}")
-                    stages = [
-                        s for s, v in pipe_result.stage_status.items()
-                        if v == "complete"
-                    ]
+                    stages = [s for s, v in pipe_result.stage_status.items() if v == "complete"]
                     print(f"  Stages: {' -> '.join(stages)}")
                 else:
                     print("\n  Visual pipeline: no goals available to visualize")

@@ -124,7 +124,8 @@ class WooCommerceConnector(EnterpriseConnector):
                 if resp.status == 200:
                     data = await resp.json()
                     logger.info(
-                        "Connected to WooCommerce store: %s", data.get('environment', {}).get('site_url', 'unknown')
+                        "Connected to WooCommerce store: %s",
+                        data.get("environment", {}).get("site_url", "unknown"),
                     )
                     return True
                 else:

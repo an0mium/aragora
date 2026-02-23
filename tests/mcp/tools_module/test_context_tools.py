@@ -13,7 +13,6 @@ from aragora.mcp.tools_module.context_tools import (
 )
 
 
-
 class TestFetchChannelContextTool:
     """Tests for fetch_channel_context_tool."""
 

@@ -41,10 +41,12 @@ class TestGoalGenerator:
     def test_generate_goals_returns_prioritized_goals(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Fix 3 failing tests", 0.9, category="test"),
-            _make_candidate("Reduce lint violations", 0.5, category="lint"),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Fix 3 failing tests", 0.9, category="test"),
+                _make_candidate("Reduce lint violations", 0.5, category="lint"),
+            ]
+        )
 
         gen = GoalGenerator()
         goals = gen.generate_goals(report)
@@ -76,11 +78,13 @@ class TestGoalGenerator:
     def test_generate_goals_maps_category_to_track(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Test issue", category="test"),
-            _make_candidate("Lint issue", category="lint"),
-            _make_candidate("TODO cleanup", category="todo"),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Test issue", category="test"),
+                _make_candidate("Lint issue", category="lint"),
+                _make_candidate("TODO cleanup", category="todo"),
+            ]
+        )
 
         gen = GoalGenerator()
         goals = gen.generate_goals(report)
@@ -93,10 +97,12 @@ class TestGoalGenerator:
     def test_generate_goals_maps_category_to_impact(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Regression", category="regression"),
-            _make_candidate("TODO", category="todo"),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Regression", category="regression"),
+                _make_candidate("TODO", category="todo"),
+            ]
+        )
 
         gen = GoalGenerator()
         goals = gen.generate_goals(report)
@@ -107,9 +113,11 @@ class TestGoalGenerator:
     def test_generate_goals_includes_file_hints(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Fix tests", files=["tests/test_foo.py", "tests/test_bar.py"]),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Fix tests", files=["tests/test_foo.py", "tests/test_bar.py"]),
+            ]
+        )
 
         gen = GoalGenerator()
         goals = gen.generate_goals(report)
@@ -129,9 +137,11 @@ class TestGoalGenerator:
     def test_generate_goals_unknown_category_defaults_to_core(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Unknown thing", category="unknown_cat"),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Unknown thing", category="unknown_cat"),
+            ]
+        )
 
         gen = GoalGenerator()
         goals = gen.generate_goals(report)
@@ -145,9 +155,11 @@ class TestGoalGeneratorIdeas:
     def test_generate_ideas_returns_strings(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Fix tests", category="test"),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Fix tests", category="test"),
+            ]
+        )
 
         gen = GoalGenerator()
         ideas = gen.generate_ideas(report)
@@ -159,9 +171,11 @@ class TestGoalGeneratorIdeas:
     def test_generate_ideas_includes_files(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Fix foo", files=["foo.py"]),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Fix foo", files=["foo.py"]),
+            ]
+        )
 
         gen = GoalGenerator()
         ideas = gen.generate_ideas(report)
@@ -183,9 +197,11 @@ class TestGoalGeneratorObjective:
     def test_generate_objective_from_top_candidate(self):
         from aragora.nomic.goal_generator import GoalGenerator
 
-        report = _make_report(candidates=[
-            _make_candidate("Fix 5 failing tests", 0.9),
-        ])
+        report = _make_report(
+            candidates=[
+                _make_candidate("Fix 5 failing tests", 0.9),
+            ]
+        )
 
         gen = GoalGenerator()
         obj = gen.generate_objective(report)

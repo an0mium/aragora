@@ -480,7 +480,10 @@ class OAuthRateLimiter:
         is_backed_off, backoff_remaining = self._backoff.is_backed_off(client_ip)
         if is_backed_off:
             logger.warning(
-                "OAuth request blocked by backoff: ip=%s, remaining=%ss, provider=%s", client_ip, backoff_remaining, provider
+                "OAuth request blocked by backoff: ip=%s, remaining=%ss, provider=%s",
+                client_ip,
+                backoff_remaining,
+                provider,
             )
             return RateLimitResult(
                 allowed=False,
@@ -542,7 +545,11 @@ class OAuthRateLimiter:
     ) -> None:
         """Log security audit event for rate limit violation."""
         logger.warning(
-            "OAUTH RATE LIMIT: %s endpoint exceeded (ip=%s, provider=%s, backoff=%ss)", endpoint_type, client_ip, provider, backoff_seconds
+            "OAUTH RATE LIMIT: %s endpoint exceeded (ip=%s, provider=%s, backoff=%ss)",
+            endpoint_type,
+            client_ip,
+            provider,
+            backoff_seconds,
         )
 
         if not self.config.enable_audit_logging:

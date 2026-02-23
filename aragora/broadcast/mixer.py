@@ -165,7 +165,9 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
     # Enforce max file limit to prevent FFmpeg command overflow
     if len(audio_files) > MAX_AUDIO_FILES:
         logger.error(
-            "Too many audio files (%s > %s). Split into smaller batches.", len(audio_files), MAX_AUDIO_FILES
+            "Too many audio files (%s > %s). Split into smaller batches.",
+            len(audio_files),
+            MAX_AUDIO_FILES,
         )
         return False
 

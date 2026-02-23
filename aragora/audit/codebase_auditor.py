@@ -674,7 +674,10 @@ class CodebaseAuditor:
                     auditable_files.append(path)
 
         logger.info(
-            "[%s] Found %s changed files, %s auditable", session_id, len(changed_files), len(auditable_files)
+            "[%s] Found %s changed files, %s auditable",
+            session_id,
+            len(changed_files),
+            len(auditable_files),
         )
 
         # Audit the changed files

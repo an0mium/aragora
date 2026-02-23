@@ -310,7 +310,9 @@ class SelectionHandler(BaseHandler):
             logger.debug("Invalid JSON in select_team request: %s: %s", type(e).__name__, e)
             return error_response("Invalid JSON body", 400)
         except (AttributeError, TypeError, OSError) as e:
-            logger.warning("Unexpected error parsing select_team request: %s: %s", type(e).__name__, e)
+            logger.warning(
+                "Unexpected error parsing select_team request: %s: %s", type(e).__name__, e
+            )
             return error_response("Invalid JSON body", 400)
 
         task_description = body.get("task_description")

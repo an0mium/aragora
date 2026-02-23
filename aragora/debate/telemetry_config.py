@@ -126,7 +126,9 @@ class TelemetryConfig:
         if level is None:
             # Invalid value, log warning and default to CONTROLLED
             logger.warning(
-                "Invalid ARAGORA_TELEMETRY_LEVEL '%s', defaulting to CONTROLLED. Valid values: %s", env_value, list(_LEVEL_NAMES.keys())
+                "Invalid ARAGORA_TELEMETRY_LEVEL '%s', defaulting to CONTROLLED. Valid values: %s",
+                env_value,
+                list(_LEVEL_NAMES.keys()),
             )
             return TelemetryLevel.CONTROLLED
 

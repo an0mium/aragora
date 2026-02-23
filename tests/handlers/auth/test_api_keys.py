@@ -260,9 +260,7 @@ class TestGenerateAPIKey:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_generate_api_key(hi, http())
         assert _status(result) == 403
 
@@ -412,9 +410,7 @@ class TestRevokeAPIKey:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_revoke_api_key(hi, http(method="DELETE"))
         assert _status(result) == 403
 
@@ -546,9 +542,7 @@ class TestListAPIKeys:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_list_api_keys(hi, http(method="GET"))
         assert _status(result) == 403
 
@@ -631,9 +625,7 @@ class TestRevokeAPIKeyPrefix:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_revoke_api_key_prefix(hi, http(method="DELETE"), "ara_test1234")
         assert _status(result) == 403
 
@@ -771,9 +763,7 @@ class TestHandleRouting:
         hi, store = handler_instance
         user = MockUser(api_key_prefix="ara_test1234")
         store.get_user_by_id.return_value = user
-        result = await hi.handle(
-            "/api/v1/auth/api-keys", {}, http(method="GET"), method="GET"
-        )
+        result = await hi.handle("/api/v1/auth/api-keys", {}, http(method="GET"), method="GET")
         assert _status(result) == 200
         body = _body(result)
         assert "keys" in body
@@ -911,9 +901,7 @@ class TestSecurity:
         hi, store = handler_instance
         user = MockUser(api_key_prefix="ara_test1234")
         store.get_user_by_id.return_value = user
-        result = handle_revoke_api_key_prefix(
-            hi, http(method="DELETE"), "'; DROP TABLE users; --"
-        )
+        result = handle_revoke_api_key_prefix(hi, http(method="DELETE"), "'; DROP TABLE users; --")
         assert _status(result) == 404
 
     def test_xss_prefix(self, handler_instance, http):
@@ -931,9 +919,7 @@ class TestSecurity:
         hi, store = handler_instance
         user = MockUser(api_key_prefix="ara_test1234")
         store.get_user_by_id.return_value = user
-        result = handle_revoke_api_key_prefix(
-            hi, http(method="DELETE"), "ara_test1234\x00extra"
-        )
+        result = handle_revoke_api_key_prefix(hi, http(method="DELETE"), "ara_test1234\x00extra")
         assert _status(result) == 404
 
     def test_very_long_prefix(self, handler_instance, http):
@@ -941,9 +927,7 @@ class TestSecurity:
         hi, store = handler_instance
         user = MockUser(api_key_prefix="ara_test1234")
         store.get_user_by_id.return_value = user
-        result = handle_revoke_api_key_prefix(
-            hi, http(method="DELETE"), "A" * 10000
-        )
+        result = handle_revoke_api_key_prefix(hi, http(method="DELETE"), "A" * 10000)
         assert _status(result) == 404
 
     def test_unicode_prefix(self, handler_instance, http):
@@ -951,9 +935,7 @@ class TestSecurity:
         hi, store = handler_instance
         user = MockUser(api_key_prefix="ara_test1234")
         store.get_user_by_id.return_value = user
-        result = handle_revoke_api_key_prefix(
-            hi, http(method="DELETE"), "ara_\u00e9\u00e8\u00ea"
-        )
+        result = handle_revoke_api_key_prefix(hi, http(method="DELETE"), "ara_\u00e9\u00e8\u00ea")
         assert _status(result) == 404
 
 

@@ -243,7 +243,11 @@ class ImmutableAuditLog:
             self._last_entry = entry
 
             logger.debug(
-                "Audit entry appended: seq=%s type=%s resource=%s/%s", sequence, event_type, resource_type, resource_id
+                "Audit entry appended: seq=%s type=%s resource=%s/%s",
+                sequence,
+                event_type,
+                resource_type,
+                resource_id,
             )
 
             return entry

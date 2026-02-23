@@ -124,7 +124,12 @@ class AuthConfig:
                 )
                 if total_removed > 0:
                     _logger.debug(
-                        "auth_cleanup removed=%s tokens=%s ips=%s revoked=%s sessions=%s", total_removed, stats['token_entries_removed'], stats['ip_entries_removed'], stats['revoked_tokens_removed'], stats.get('sessions_removed', 0)
+                        "auth_cleanup removed=%s tokens=%s ips=%s revoked=%s sessions=%s",
+                        total_removed,
+                        stats["token_entries_removed"],
+                        stats["ip_entries_removed"],
+                        stats["revoked_tokens_removed"],
+                        stats.get("sessions_removed", 0),
                     )
             except (RuntimeError, OSError, ValueError, KeyError) as e:
                 _logger.warning("auth_cleanup_error error=%s", e)
@@ -702,7 +707,8 @@ def check_auth(
 
                     token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
                     _logger.warning(
-                        "[JWT_AUTH] Token validation failed for fingerprint=%s. Check JWT_DEBUG logs for details.", token_fingerprint
+                        "[JWT_AUTH] Token validation failed for fingerprint=%s. Check JWT_DEBUG logs for details.",
+                        token_fingerprint,
                     )
                     return False, -1
             except Exception as e:  # noqa: BLE001 - Must catch ConfigurationError, SecretNotFoundError from AWS Secrets Manager

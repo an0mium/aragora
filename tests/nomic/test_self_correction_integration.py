@@ -124,9 +124,7 @@ class TestApplySelfCorrection:
 
     def _build_orchestrator(self, self_correction=None, skip_init_sc: bool = False):
         """Construct an AutonomousOrchestrator with mocked internals."""
-        with patch(
-            "aragora.nomic.self_correction.SelfCorrectionEngine"
-        ) as MockEngine:
+        with patch("aragora.nomic.self_correction.SelfCorrectionEngine") as MockEngine:
             if skip_init_sc:
                 # Simulate ImportError during __init__ so _self_correction stays None
                 MockEngine.side_effect = ImportError("no engine")
@@ -270,12 +268,18 @@ class TestFeedbackLoopRecommendations:
         fl = FeedbackLoop(max_iterations=3)
         recs = [
             StrategyRecommendation(
-                track="qa", recommendation="Smaller PRs", reason="x",
-                confidence=0.7, action_type="decrease_scope",
+                track="qa",
+                recommendation="Smaller PRs",
+                reason="x",
+                confidence=0.7,
+                action_type="decrease_scope",
             ),
             StrategyRecommendation(
-                track="sme", recommendation="Rotate agent", reason="y",
-                confidence=0.5, action_type="rotate_agent",
+                track="sme",
+                recommendation="Rotate agent",
+                reason="y",
+                confidence=0.5,
+                action_type="rotate_agent",
             ),
         ]
         fl.apply_strategy_recommendations(recs)
@@ -284,43 +288,67 @@ class TestFeedbackLoopRecommendations:
     def test_apply_replaces_previous(self):
         """Calling apply_strategy_recommendations again replaces the old list."""
         fl = FeedbackLoop()
-        fl.apply_strategy_recommendations([
-            StrategyRecommendation(
-                track="qa", recommendation="A", reason="r",
-                confidence=0.6, action_type="decrease_scope",
-            ),
-        ])
+        fl.apply_strategy_recommendations(
+            [
+                StrategyRecommendation(
+                    track="qa",
+                    recommendation="A",
+                    reason="r",
+                    confidence=0.6,
+                    action_type="decrease_scope",
+                ),
+            ]
+        )
         assert len(fl._strategy_recommendations) == 1
 
-        fl.apply_strategy_recommendations([
-            StrategyRecommendation(
-                track="sme", recommendation="B", reason="r2",
-                confidence=0.8, action_type="rotate_agent",
-            ),
-            StrategyRecommendation(
-                track="core", recommendation="C", reason="r3",
-                confidence=0.9, action_type="deprioritize",
-            ),
-        ])
+        fl.apply_strategy_recommendations(
+            [
+                StrategyRecommendation(
+                    track="sme",
+                    recommendation="B",
+                    reason="r2",
+                    confidence=0.8,
+                    action_type="rotate_agent",
+                ),
+                StrategyRecommendation(
+                    track="core",
+                    recommendation="C",
+                    reason="r3",
+                    confidence=0.9,
+                    action_type="deprioritize",
+                ),
+            ]
+        )
         assert len(fl._strategy_recommendations) == 2
 
     def test_get_recommendation_returns_highest_confidence(self):
         """get_recommendation_for_track returns the recommendation with highest confidence."""
         fl = FeedbackLoop()
-        fl.apply_strategy_recommendations([
-            StrategyRecommendation(
-                track="qa", recommendation="Lower", reason="r1",
-                confidence=0.4, action_type="decrease_scope",
-            ),
-            StrategyRecommendation(
-                track="qa", recommendation="Higher", reason="r2",
-                confidence=0.9, action_type="rotate_agent",
-            ),
-            StrategyRecommendation(
-                track="sme", recommendation="Other", reason="r3",
-                confidence=0.95, action_type="deprioritize",
-            ),
-        ])
+        fl.apply_strategy_recommendations(
+            [
+                StrategyRecommendation(
+                    track="qa",
+                    recommendation="Lower",
+                    reason="r1",
+                    confidence=0.4,
+                    action_type="decrease_scope",
+                ),
+                StrategyRecommendation(
+                    track="qa",
+                    recommendation="Higher",
+                    reason="r2",
+                    confidence=0.9,
+                    action_type="rotate_agent",
+                ),
+                StrategyRecommendation(
+                    track="sme",
+                    recommendation="Other",
+                    reason="r3",
+                    confidence=0.95,
+                    action_type="deprioritize",
+                ),
+            ]
+        )
         got = fl.get_recommendation_for_track("qa")
         assert got is not None
         assert got["recommendation"] == "Higher"
@@ -330,12 +358,17 @@ class TestFeedbackLoopRecommendations:
     def test_get_recommendation_returns_none_for_missing_track(self):
         """get_recommendation_for_track returns None when no rec matches the track."""
         fl = FeedbackLoop()
-        fl.apply_strategy_recommendations([
-            StrategyRecommendation(
-                track="qa", recommendation="A", reason="r",
-                confidence=0.7, action_type="decrease_scope",
-            ),
-        ])
+        fl.apply_strategy_recommendations(
+            [
+                StrategyRecommendation(
+                    track="qa",
+                    recommendation="A",
+                    reason="r",
+                    confidence=0.7,
+                    action_type="decrease_scope",
+                ),
+            ]
+        )
         assert fl.get_recommendation_for_track("developer") is None
 
     def test_get_recommendation_returns_none_when_empty(self):
@@ -355,22 +388,28 @@ class TestMetaPlannerSelfCorrectionAdjustments:
     def _make_goals(self) -> list[PrioritizedGoal]:
         return [
             PrioritizedGoal(
-                id="goal_0", track=Track.SME,
+                id="goal_0",
+                track=Track.SME,
                 description="Improve SME dashboard",
                 rationale="Direct SME value",
-                estimated_impact="high", priority=1,
+                estimated_impact="high",
+                priority=1,
             ),
             PrioritizedGoal(
-                id="goal_1", track=Track.QA,
+                id="goal_1",
+                track=Track.QA,
                 description="Add E2E tests",
                 rationale="Reliability",
-                estimated_impact="medium", priority=2,
+                estimated_impact="medium",
+                priority=2,
             ),
             PrioritizedGoal(
-                id="goal_2", track=Track.DEVELOPER,
+                id="goal_2",
+                track=Track.DEVELOPER,
                 description="Improve SDK docs",
                 rationale="Developer experience",
-                estimated_impact="medium", priority=3,
+                estimated_impact="medium",
+                priority=3,
             ),
         ]
 
@@ -402,21 +441,25 @@ class TestMetaPlannerSelfCorrectionAdjustments:
         # DEVELOPER has highest boost -> priority decreases (better)
         # SME is penalized -> priority increases (worse)
         mock_engine.compute_priority_adjustments.return_value = {
-            "sme": 0.3,       # SME: round(1/0.3) = 3
-            "qa": 1.0,        # QA:  round(2/1.0) = 2
-            "developer": 2.0, # DEV: round(3/2.0) = 2 (tie, but stable-sort keeps QA first)
+            "sme": 0.3,  # SME: round(1/0.3) = 3
+            "qa": 1.0,  # QA:  round(2/1.0) = 2
+            "developer": 2.0,  # DEV: round(3/2.0) = 2 (tie, but stable-sort keeps QA first)
         }
 
         planner = MetaPlanner(config=MetaPlannerConfig(quick_mode=True))
         goals = self._make_goals()
 
         # Patch _get_past_outcomes to return some data
-        with patch.object(planner, "_get_past_outcomes", return_value=[
-            {"track": "qa", "success": True, "agent": "claude"},
-            {"track": "qa", "success": True, "agent": "claude"},
-            {"track": "developer", "success": True, "agent": "codex"},
-            {"track": "sme", "success": False, "agent": "claude"},
-        ]):
+        with patch.object(
+            planner,
+            "_get_past_outcomes",
+            return_value=[
+                {"track": "qa", "success": True, "agent": "claude"},
+                {"track": "qa", "success": True, "agent": "claude"},
+                {"track": "developer", "success": True, "agent": "codex"},
+                {"track": "sme", "success": False, "agent": "claude"},
+            ],
+        ):
             adjusted = planner._apply_self_correction_adjustments(goals)
 
         # SME should be last (penalized), QA or DEVELOPER first
@@ -449,9 +492,13 @@ class TestMetaPlannerSelfCorrectionAdjustments:
         goals = self._make_goals()
         original_order = [g.track for g in goals]
 
-        with patch.object(planner, "_get_past_outcomes", return_value=[
-            {"track": "qa", "success": True},
-        ]):
+        with patch.object(
+            planner,
+            "_get_past_outcomes",
+            return_value=[
+                {"track": "qa", "success": True},
+            ],
+        ):
             result = planner._apply_self_correction_adjustments(goals)
 
         assert [g.track for g in result] == original_order
@@ -482,9 +529,7 @@ class TestFullPipeline:
         mock_decomposer.analyze_with_debate = AsyncMock(return_value=mock_decomposition)
 
         # Mock the SelfCorrectionEngine at the import location
-        with patch(
-            "aragora.nomic.self_correction.SelfCorrectionEngine"
-        ) as MockEngineClass:
+        with patch("aragora.nomic.self_correction.SelfCorrectionEngine") as MockEngineClass:
             mock_engine = MockEngineClass.return_value
             mock_engine.analyze_patterns.return_value = CorrectionReport(
                 total_cycles=5,
@@ -538,7 +583,9 @@ class TestFullPipeline:
         assert result.after_metrics["self_correction_adjustments"] == {"qa": 1.2}
         assert "self_correction_recommendations" in result.after_metrics
         assert len(result.after_metrics["self_correction_recommendations"]) == 1
-        assert result.after_metrics["self_correction_recommendations"][0]["action"] == "increase_scope"
+        assert (
+            result.after_metrics["self_correction_recommendations"][0]["action"] == "increase_scope"
+        )
 
     @pytest.mark.asyncio
     async def test_execute_goal_succeeds_when_self_correction_disabled(self, tmp_path):

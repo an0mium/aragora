@@ -728,9 +728,7 @@ class TestHandleCallback:
                 return_value=user_store,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "auth-code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "auth-code", "state": "st"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -749,9 +747,7 @@ class TestHandleCallback:
                 return_value=user_store,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "code", "state": "st"})
         assert _status(result) == 200
         assert len(user_store._created) == 1
         assert user_store._created[0]["email"] == "newuser@example.com"
@@ -773,9 +769,7 @@ class TestHandleCallback:
                 return_value=user_store,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "code", "state": "st"})
         assert _status(result) == 200
         body = _body(result)
         # Token should use the aragora user id
@@ -889,9 +883,7 @@ class TestHandleCallback:
                 return_value=user_store,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "code", "state": "st"})
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -998,9 +990,7 @@ class TestHandleCallback:
                 return_value=None,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "code", "state": "st"})
         assert _status(result) == 200
         body = _body(result)
         # Token uses SSO user id since no aragora_user
@@ -1024,9 +1014,7 @@ class TestHandleCallback:
                 return_value=user_store,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "code", "state": "st"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1046,9 +1034,7 @@ class TestHandleCallback:
                 return_value=user_store,
             ),
         ):
-            result = await handler.handle_callback(
-                h, {"code": "code", "state": "st"}
-            )
+            result = await handler.handle_callback(h, {"code": "code", "state": "st"})
         body = _body(result)
         assert body.get("expires_in") == 7200
 
@@ -1399,7 +1385,9 @@ class TestProviderResolution:
 
     def test_get_provider_handles_import_error(self):
         h = SSOHandler(server_context={})
-        with patch("aragora.server.handlers.sso.get_sso_provider", side_effect=ImportError("no mod")):
+        with patch(
+            "aragora.server.handlers.sso.get_sso_provider", side_effect=ImportError("no mod")
+        ):
             provider = h._get_provider()
         assert provider is None
         assert h._initialized is True

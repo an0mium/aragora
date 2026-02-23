@@ -44,10 +44,30 @@ def sample_cartographer_data():
     """Sample ArgumentCartographer output."""
     return {
         "nodes": [
-            {"id": "n1", "type": "proposal", "summary": "Build a rate limiter", "content": "Token bucket rate limiter"},
-            {"id": "n2", "type": "evidence", "summary": "Rate limiting reduces 429 errors", "content": "Evidence"},
-            {"id": "n3", "type": "critique", "summary": "What about distributed rate limiting?", "content": "Question"},
-            {"id": "n4", "type": "consensus", "summary": "Rate limiter is critical", "content": "Agreement"},
+            {
+                "id": "n1",
+                "type": "proposal",
+                "summary": "Build a rate limiter",
+                "content": "Token bucket rate limiter",
+            },
+            {
+                "id": "n2",
+                "type": "evidence",
+                "summary": "Rate limiting reduces 429 errors",
+                "content": "Evidence",
+            },
+            {
+                "id": "n3",
+                "type": "critique",
+                "summary": "What about distributed rate limiting?",
+                "content": "Question",
+            },
+            {
+                "id": "n4",
+                "type": "consensus",
+                "summary": "Rate limiter is critical",
+                "content": "Agreement",
+            },
         ],
         "edges": [
             {"source_id": "n2", "target_id": "n1", "relation": "supports"},
@@ -143,9 +163,7 @@ class TestFromDebate:
         result = pipeline.from_debate(sample_cartographer_data, auto_advance=False)
 
         # Check that debate node types are mapped to idea types
-        node_data = {
-            nid: n.data for nid, n in result.ideas_canvas.nodes.items()
-        }
+        node_data = {nid: n.data for nid, n in result.ideas_canvas.nodes.items()}
         # proposal → concept
         assert node_data["n1"]["idea_type"] == "concept"
         # evidence → evidence
@@ -354,11 +372,16 @@ class TestDemoMode:
         assert result.goal_graph is not None
         assert len(result.goal_graph.goals) > 0
         for goal in result.goal_graph.goals:
-            assert "smart_scores" in goal.metadata, (
-                f"Goal '{goal.title}' missing SMART scores"
-            )
+            assert "smart_scores" in goal.metadata, f"Goal '{goal.title}' missing SMART scores"
             scores = goal.metadata["smart_scores"]
-            for dim in ("specific", "measurable", "achievable", "relevant", "time_bound", "overall"):
+            for dim in (
+                "specific",
+                "measurable",
+                "achievable",
+                "relevant",
+                "time_bound",
+                "overall",
+            ):
                 assert dim in scores, f"Missing SMART dimension: {dim}"
                 assert 0.0 <= scores[dim] <= 1.0
 
@@ -372,15 +395,10 @@ class TestDemoMode:
 
         assert result.goal_graph is not None
         conflicts = result.goal_graph.metadata.get("conflicts", [])
-        assert len(conflicts) >= 1, (
-            "Expected at least one conflict from contradictory demo ideas"
-        )
-        contradiction_found = any(
-            c["type"] == "contradiction" for c in conflicts
-        )
+        assert len(conflicts) >= 1, "Expected at least one conflict from contradictory demo ideas"
+        contradiction_found = any(c["type"] == "contradiction" for c in conflicts)
         assert contradiction_found, (
-            f"Expected a 'contradiction' conflict, got types: "
-            f"{[c['type'] for c in conflicts]}"
+            f"Expected a 'contradiction' conflict, got types: {[c['type'] for c in conflicts]}"
         )
 
     def test_from_demo_has_multiple_idea_nodes(self):
@@ -404,32 +422,42 @@ class TestAIGoalSynthesis:
         import json
 
         mock_agent = MagicMock()
-        mock_agent.generate.return_value = json.dumps([
-            {
-                "title": "Achieve API reliability",
-                "description": "Ensure API maintains high availability",
-                "type": "goal",
-                "priority": "critical",
-                "measurable": "99.9% uptime",
-                "source_ideas": [0, 1],
-            },
-            {
-                "title": "Implement caching strategy",
-                "description": "Add multi-layer caching",
-                "type": "strategy",
-                "priority": "high",
-                "measurable": "50% reduction in DB queries",
-                "source_ideas": [1],
-            },
-        ])
+        mock_agent.generate.return_value = json.dumps(
+            [
+                {
+                    "title": "Achieve API reliability",
+                    "description": "Ensure API maintains high availability",
+                    "type": "goal",
+                    "priority": "critical",
+                    "measurable": "99.9% uptime",
+                    "source_ideas": [0, 1],
+                },
+                {
+                    "title": "Implement caching strategy",
+                    "description": "Add multi-layer caching",
+                    "type": "strategy",
+                    "priority": "high",
+                    "measurable": "50% reduction in DB queries",
+                    "source_ideas": [1],
+                },
+            ]
+        )
 
         from aragora.goals.extractor import GoalExtractor
 
         extractor = GoalExtractor(agent=mock_agent)
         canvas_data = {
             "nodes": [
-                {"id": "idea-0", "label": "Rate limiting", "data": {"idea_type": "concept", "full_content": "Build rate limiter"}},
-                {"id": "idea-1", "label": "Caching", "data": {"idea_type": "concept", "full_content": "Add caching"}},
+                {
+                    "id": "idea-0",
+                    "label": "Rate limiting",
+                    "data": {"idea_type": "concept", "full_content": "Build rate limiter"},
+                },
+                {
+                    "id": "idea-1",
+                    "label": "Caching",
+                    "data": {"idea_type": "concept", "full_content": "Add caching"},
+                },
             ],
             "edges": [],
         }
@@ -562,9 +590,7 @@ class TestSmartGoalExtraction:
         result = pipeline.from_ideas(ideas, auto_advance=True)
         assert result.goal_graph is not None
         # Goals with specific metrics should score higher
-        scored_goals = [
-            g for g in result.goal_graph.goals if "smart_scores" in g.metadata
-        ]
+        scored_goals = [g for g in result.goal_graph.goals if "smart_scores" in g.metadata]
         assert len(scored_goals) > 0
 
     def test_from_debate_has_smart_goals(self, pipeline, sample_cartographer_data):
@@ -578,7 +604,14 @@ class TestSmartGoalExtraction:
         assert result.goal_graph is not None
         for goal in result.goal_graph.goals:
             scores = goal.metadata["smart_scores"]
-            for key in ("specific", "measurable", "achievable", "relevant", "time_bound", "overall"):
+            for key in (
+                "specific",
+                "measurable",
+                "achievable",
+                "relevant",
+                "time_bound",
+                "overall",
+            ):
                 assert key in scores
                 assert isinstance(scores[key], float)
 
@@ -683,7 +716,9 @@ class TestPipelineFeedbackLoop:
         ):
             pipeline._record_pipeline_outcome(result)
         call_kwargs = mock_planner.record_outcome.call_args
-        outcomes = call_kwargs.kwargs.get("goal_outcomes", call_kwargs.args[0] if call_kwargs.args else [])
+        outcomes = call_kwargs.kwargs.get(
+            "goal_outcomes", call_kwargs.args[0] if call_kwargs.args else []
+        )
         descriptions = [o["description"] for o in outcomes]
         assert "pipeline_stage_ideas" in descriptions
         assert "pipeline_stage_goals" in descriptions
@@ -763,7 +798,9 @@ class TestPipelineFeedbackLoop:
         ):
             pipeline._record_pipeline_outcome(result)
         call_kwargs = mock_planner.record_outcome.call_args
-        outcomes = call_kwargs.kwargs.get("goal_outcomes", call_kwargs.args[0] if call_kwargs.args else [])
+        outcomes = call_kwargs.kwargs.get(
+            "goal_outcomes", call_kwargs.args[0] if call_kwargs.args else []
+        )
         # ideas and goals should be marked complete
         ideas_outcome = next(o for o in outcomes if o["description"] == "pipeline_stage_ideas")
         goals_outcome = next(o for o in outcomes if o["description"] == "pipeline_stage_goals")

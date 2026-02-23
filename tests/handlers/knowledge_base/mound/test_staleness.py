@@ -144,13 +144,9 @@ class StalenessTestHandler(StalenessOperationsMixin):
 def mock_mound():
     """Create a mock KnowledgeMound with staleness methods."""
     mound = MagicMock()
-    mound.get_stale_knowledge = MagicMock(
-        return_value=[MockStalenessCheck()]
-    )
+    mound.get_stale_knowledge = MagicMock(return_value=[MockStalenessCheck()])
     mound.mark_validated = MagicMock(return_value=None)
-    mound.schedule_revalidation = MagicMock(
-        return_value=["node-001", "node-002"]
-    )
+    mound.schedule_revalidation = MagicMock(return_value=["node-001", "node-002"])
     return mound
 
 
@@ -167,9 +163,7 @@ def handler_no_mound():
 
 
 # Patch target for _run_async
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.staleness._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.staleness._run_async"
 
 
 # ============================================================================
@@ -229,11 +223,13 @@ class TestHandleGetStale:
     def test_success_all_custom_params(self, handler, mock_mound):
         """All custom params forwarded correctly."""
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
-            handler._handle_get_stale({
-                "workspace_id": "ws-abc",
-                "threshold": "0.9",
-                "limit": "25",
-            })
+            handler._handle_get_stale(
+                {
+                    "workspace_id": "ws-abc",
+                    "threshold": "0.9",
+                    "limit": "25",
+                }
+            )
         mock_mound.get_stale_knowledge.assert_called_once_with(
             threshold=0.9, limit=25, workspace_id="ws-abc"
         )
@@ -399,9 +395,7 @@ class TestHandleRevalidateNode:
 
     def test_success_with_body(self, handler, mock_mound):
         """Successful revalidation with validator and confidence in body."""
-        http_handler = MockHTTPHandler.post(
-            {"validator": "human-review", "confidence": 0.95}
-        )
+        http_handler = MockHTTPHandler.post({"validator": "human-review", "confidence": 0.95})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_revalidate_node("node-42", http_handler)
         assert _status(result) == 200
@@ -424,9 +418,7 @@ class TestHandleRevalidateNode:
 
     def test_success_calls_mark_validated(self, handler, mock_mound):
         """mark_validated is called with correct arguments."""
-        http_handler = MockHTTPHandler.post(
-            {"validator": "test-user", "confidence": 0.8}
-        )
+        http_handler = MockHTTPHandler.post({"validator": "test-user", "confidence": 0.8})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_revalidate_node("node-99", http_handler)
         mock_mound.mark_validated.assert_called_once_with("node-99", "test-user", 0.8)
@@ -526,9 +518,7 @@ class TestHandleScheduleRevalidation:
 
     def test_success_returns_202(self, handler, mock_mound):
         """Successful scheduling returns 202 Accepted."""
-        http_handler = MockHTTPHandler.post(
-            {"node_ids": ["n1", "n2"], "priority": "medium"}
-        )
+        http_handler = MockHTTPHandler.post({"node_ids": ["n1", "n2"], "priority": "medium"})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_schedule_revalidation(http_handler)
         assert _status(result) == 202
@@ -548,9 +538,7 @@ class TestHandleScheduleRevalidation:
 
     def test_success_priority_high(self, handler, mock_mound):
         """Priority 'high' is accepted."""
-        http_handler = MockHTTPHandler.post(
-            {"node_ids": ["n1"], "priority": "high"}
-        )
+        http_handler = MockHTTPHandler.post({"node_ids": ["n1"], "priority": "high"})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_schedule_revalidation(http_handler)
         body = _body(result)
@@ -558,9 +546,7 @@ class TestHandleScheduleRevalidation:
 
     def test_success_priority_low(self, handler, mock_mound):
         """Priority 'low' is accepted."""
-        http_handler = MockHTTPHandler.post(
-            {"node_ids": ["n1"], "priority": "low"}
-        )
+        http_handler = MockHTTPHandler.post({"node_ids": ["n1"], "priority": "low"})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_schedule_revalidation(http_handler)
         body = _body(result)
@@ -568,14 +554,10 @@ class TestHandleScheduleRevalidation:
 
     def test_success_calls_schedule_revalidation(self, handler, mock_mound):
         """schedule_revalidation is called with correct node_ids and priority."""
-        http_handler = MockHTTPHandler.post(
-            {"node_ids": ["a", "b", "c"], "priority": "high"}
-        )
+        http_handler = MockHTTPHandler.post({"node_ids": ["a", "b", "c"], "priority": "high"})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_schedule_revalidation(http_handler)
-        mock_mound.schedule_revalidation.assert_called_once_with(
-            ["a", "b", "c"], "high"
-        )
+        mock_mound.schedule_revalidation.assert_called_once_with(["a", "b", "c"], "high")
 
     def test_empty_body_returns_400(self, handler):
         """Empty body (Content-Length=0) returns 400 'Request body required'."""
@@ -603,9 +585,7 @@ class TestHandleScheduleRevalidation:
 
     def test_invalid_priority_returns_400(self, handler):
         """Invalid priority value returns 400."""
-        http_handler = MockHTTPHandler.post(
-            {"node_ids": ["n1"], "priority": "urgent"}
-        )
+        http_handler = MockHTTPHandler.post({"node_ids": ["n1"], "priority": "urgent"})
         result = handler._handle_schedule_revalidation(http_handler)
         assert _status(result) == 400
         body = _body(result)
@@ -614,9 +594,7 @@ class TestHandleScheduleRevalidation:
     def test_invalid_priority_values(self, handler):
         """Various invalid priority values return 400."""
         for bad_priority in ["critical", "none", "MEDIUM", "1", ""]:
-            http_handler = MockHTTPHandler.post(
-                {"node_ids": ["n1"], "priority": bad_priority}
-            )
+            http_handler = MockHTTPHandler.post({"node_ids": ["n1"], "priority": bad_priority})
             result = handler._handle_schedule_revalidation(http_handler)
             assert _status(result) == 400, f"Expected 400 for priority={bad_priority!r}"
 
@@ -668,9 +646,7 @@ class TestHandleScheduleRevalidation:
 
     def test_scheduled_count_matches_returned_list(self, handler, mock_mound):
         """Count field matches the length of the scheduled list."""
-        mock_mound.schedule_revalidation = MagicMock(
-            return_value=["a", "b", "c", "d", "e"]
-        )
+        mock_mound.schedule_revalidation = MagicMock(return_value=["a", "b", "c", "d", "e"])
         http_handler = MockHTTPHandler.post({"node_ids": ["a", "b", "c", "d", "e"]})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_schedule_revalidation(http_handler)

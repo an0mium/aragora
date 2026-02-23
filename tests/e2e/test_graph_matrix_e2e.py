@@ -489,7 +489,9 @@ class TestGraphDebateLifecycle:
         assert len(main_nodes) == 3
 
         # Full replay
-        all_branches = replay.full_replay() if hasattr(replay, "full_replay") else replay.replay_full()
+        all_branches = (
+            replay.full_replay() if hasattr(replay, "full_replay") else replay.replay_full()
+        )
         assert "main" in all_branches
 
         # Summary
@@ -603,10 +605,7 @@ class TestGraphDebateOrchestratorE2E:
         assert root.content == "Should we implement rate limiting at the gateway or service level?"
 
         # Should have conclusion node
-        conclusion_nodes = [
-            n for n in graph.nodes.values()
-            if n.node_type.value == "conclusion"
-        ]
+        conclusion_nodes = [n for n in graph.nodes.values() if n.node_type.value == "conclusion"]
         assert len(conclusion_nodes) >= 1
 
     @pytest.mark.asyncio
@@ -722,23 +721,29 @@ class TestGraphDebateOrchestratorE2E:
         orchestrator = GraphDebateOrchestrator(agents=[])
 
         # Low disagreement: similar confidence
-        disagreement, alt = orchestrator.evaluate_disagreement([
-            ("agent-1", "Approach A. Confidence: 80%", 0.8),
-            ("agent-2", "Also approach A. Confidence: 75%", 0.75),
-        ])
+        disagreement, alt = orchestrator.evaluate_disagreement(
+            [
+                ("agent-1", "Approach A. Confidence: 80%", 0.8),
+                ("agent-2", "Also approach A. Confidence: 75%", 0.75),
+            ]
+        )
         assert disagreement < 0.5
 
         # High disagreement: very different confidence
-        disagreement, alt = orchestrator.evaluate_disagreement([
-            ("agent-1", "Definitely A. Confidence: 95%", 0.95),
-            ("agent-2", "Maybe B. Confidence: 10%", 0.10),
-        ])
+        disagreement, alt = orchestrator.evaluate_disagreement(
+            [
+                ("agent-1", "Definitely A. Confidence: 95%", 0.95),
+                ("agent-2", "Maybe B. Confidence: 10%", 0.10),
+            ]
+        )
         assert disagreement > 0.3
 
         # Single response: no disagreement
-        disagreement, alt = orchestrator.evaluate_disagreement([
-            ("agent-1", "Only opinion", 0.5),
-        ])
+        disagreement, alt = orchestrator.evaluate_disagreement(
+            [
+                ("agent-1", "Only opinion", 0.5),
+            ]
+        )
         assert disagreement == 0.0
         assert alt is None
 
@@ -761,24 +766,28 @@ class TestMatrixDebateLifecycle:
 
         matrix = ScenarioMatrix(name="Architecture Decision Matrix")
 
-        matrix.add_scenario(Scenario(
-            id="small-scale",
-            name="Small Scale",
-            scenario_type=ScenarioType.SCALE,
-            description="10-100 users",
-            parameters={"users": 100, "budget": "low"},
-            constraints=["Single server", "Limited budget"],
-        ))
+        matrix.add_scenario(
+            Scenario(
+                id="small-scale",
+                name="Small Scale",
+                scenario_type=ScenarioType.SCALE,
+                description="10-100 users",
+                parameters={"users": 100, "budget": "low"},
+                constraints=["Single server", "Limited budget"],
+            )
+        )
 
-        matrix.add_scenario(Scenario(
-            id="enterprise",
-            name="Enterprise Scale",
-            scenario_type=ScenarioType.SCALE,
-            description="100K+ users",
-            parameters={"users": 100000, "budget": "high"},
-            constraints=["SLA required", "Multi-region"],
-            is_baseline=False,
-        ))
+        matrix.add_scenario(
+            Scenario(
+                id="enterprise",
+                name="Enterprise Scale",
+                scenario_type=ScenarioType.SCALE,
+                description="100K+ users",
+                parameters={"users": 100000, "budget": "high"},
+                constraints=["SLA required", "Multi-region"],
+                is_baseline=False,
+            )
+        )
 
         scenarios = matrix.get_scenarios()
         assert len(scenarios) == 2
@@ -798,10 +807,7 @@ class TestMatrixDebateLifecycle:
         assert len(scenarios) == 4  # 2x2 grid
 
         # Verify all combinations exist
-        param_combos = {
-            (s.parameters["scale"], s.parameters["risk"])
-            for s in scenarios
-        }
+        param_combos = {(s.parameters["scale"], s.parameters["risk"]) for s in scenarios}
         assert ("small", "low") in param_combos
         assert ("small", "high") in param_combos
         assert ("large", "low") in param_combos
@@ -996,20 +1002,24 @@ class TestMatrixDebateLifecycle:
         )
 
         matrix = ScenarioMatrix(name="Sequential Test")
-        matrix.add_scenario(Scenario(
-            id="scenario-1",
-            name="Low Budget",
-            scenario_type=ScenarioType.CONSTRAINT,
-            description="Budget under $10K",
-            parameters={"budget": 10000},
-        ))
-        matrix.add_scenario(Scenario(
-            id="scenario-2",
-            name="High Budget",
-            scenario_type=ScenarioType.CONSTRAINT,
-            description="Budget over $100K",
-            parameters={"budget": 100000},
-        ))
+        matrix.add_scenario(
+            Scenario(
+                id="scenario-1",
+                name="Low Budget",
+                scenario_type=ScenarioType.CONSTRAINT,
+                description="Budget under $10K",
+                parameters={"budget": 10000},
+            )
+        )
+        matrix.add_scenario(
+            Scenario(
+                id="scenario-2",
+                name="High Budget",
+                scenario_type=ScenarioType.CONSTRAINT,
+                description="Budget over $100K",
+                parameters={"budget": 100000},
+            )
+        )
 
         completed_scenarios = []
 
@@ -1060,12 +1070,14 @@ class TestMatrixDebateLifecycle:
 
         matrix = ScenarioMatrix(name="Parallel Test")
         for i in range(6):
-            matrix.add_scenario(Scenario(
-                id=f"scenario-{i}",
-                name=f"Scenario {i}",
-                scenario_type=ScenarioType.CUSTOM,
-                description=f"Test scenario {i}",
-            ))
+            matrix.add_scenario(
+                Scenario(
+                    id=f"scenario-{i}",
+                    name=f"Scenario {i}",
+                    scenario_type=ScenarioType.CUSTOM,
+                    description=f"Test scenario {i}",
+                )
+            )
 
         result = await runner.run_matrix(
             task="Parallel execution test for matrix debate scenarios",
@@ -1107,18 +1119,22 @@ class TestMatrixDebateLifecycle:
         )
 
         matrix = ScenarioMatrix(name="Error Handling Test")
-        matrix.add_scenario(Scenario(
-            id="ok",
-            name="OK Scenario",
-            scenario_type=ScenarioType.CUSTOM,
-            description="This should succeed",
-        ))
-        matrix.add_scenario(Scenario(
-            id="fail",
-            name="Fail Scenario",
-            scenario_type=ScenarioType.CUSTOM,
-            description="This will fail",
-        ))
+        matrix.add_scenario(
+            Scenario(
+                id="ok",
+                name="OK Scenario",
+                scenario_type=ScenarioType.CUSTOM,
+                description="This should succeed",
+            )
+        )
+        matrix.add_scenario(
+            Scenario(
+                id="fail",
+                name="Fail Scenario",
+                scenario_type=ScenarioType.CUSTOM,
+                description="This will fail",
+            )
+        )
 
         result = await runner.run_matrix(
             task="Error handling test for matrix debates",
@@ -1230,9 +1246,7 @@ class TestGraphDebateHandlerE2E:
         return handler
 
     @pytest.mark.asyncio
-    async def test_post_runs_graph_debate_end_to_end(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_post_runs_graph_debate_end_to_end(self, graph_handler, mock_http_handler):
         """POST /api/debates/graph runs a full graph debate and returns results."""
         from aragora.debate.graph import DebateGraph, NodeType
 
@@ -1249,9 +1263,7 @@ class TestGraphDebateHandlerE2E:
         with patch.object(
             graph_handler, "_load_agents", new_callable=AsyncMock, return_value=mock_agents
         ):
-            with patch(
-                "aragora.debate.graph.GraphDebateOrchestrator"
-            ) as MockOrch:
+            with patch("aragora.debate.graph.GraphDebateOrchestrator") as MockOrch:
                 mock_orchestrator = MagicMock()
                 mock_orchestrator.run_debate = AsyncMock(return_value=mock_graph)
                 MockOrch.return_value = mock_orchestrator
@@ -1274,9 +1286,7 @@ class TestGraphDebateHandlerE2E:
         assert data["node_count"] >= 1
 
     @pytest.mark.asyncio
-    async def test_post_with_custom_branch_policy(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_post_with_custom_branch_policy(self, graph_handler, mock_http_handler):
         """POST with branch_policy correctly configures the orchestrator."""
         from aragora.debate.graph import DebateGraph, NodeType
 
@@ -1292,9 +1302,7 @@ class TestGraphDebateHandlerE2E:
         with patch.object(
             graph_handler, "_load_agents", new_callable=AsyncMock, return_value=mock_agents
         ):
-            with patch(
-                "aragora.debate.graph.GraphDebateOrchestrator"
-            ) as MockOrch:
+            with patch("aragora.debate.graph.GraphDebateOrchestrator") as MockOrch:
                 mock_orchestrator = MagicMock()
                 mock_orchestrator.run_debate = AsyncMock(return_value=mock_graph)
                 MockOrch.return_value = mock_orchestrator
@@ -1412,9 +1420,7 @@ class TestMatrixDebateHandlerE2E:
         return handler
 
     @pytest.mark.asyncio
-    async def test_post_runs_matrix_debate_via_fallback(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_post_runs_matrix_debate_via_fallback(self, matrix_handler, mock_http_handler):
         """POST /api/debates/matrix runs via fallback when ScenarioConfig not available."""
         # The handler tries to import ScenarioConfig which does not exist,
         # so it falls back to _run_matrix_debate_fallback
@@ -1440,15 +1446,17 @@ class TestMatrixDebateHandlerE2E:
                     mock_fallback.return_value = HR(
                         status_code=200,
                         content_type="application/json",
-                        body=json.dumps({
-                            "matrix_id": "fallback-123",
-                            "task": "Test task",
-                            "scenario_count": 2,
-                            "results": [],
-                            "universal_conclusions": [],
-                            "conditional_conclusions": [],
-                            "comparison_matrix": {},
-                        }).encode(),
+                        body=json.dumps(
+                            {
+                                "matrix_id": "fallback-123",
+                                "task": "Test task",
+                                "scenario_count": 2,
+                                "results": [],
+                                "universal_conclusions": [],
+                                "conditional_conclusions": [],
+                                "comparison_matrix": {},
+                            }
+                        ).encode(),
                     )
 
                     result = await matrix_handler.handle_post(
@@ -1706,7 +1714,13 @@ class TestGraphMatrixIntegration:
 
     def test_convergence_scorer_with_different_thresholds(self):
         """ConvergenceScorer correctly identifies mergeable branches at various thresholds."""
-        from aragora.debate.graph import Branch, BranchReason, ConvergenceScorer, DebateNode, NodeType
+        from aragora.debate.graph import (
+            Branch,
+            BranchReason,
+            ConvergenceScorer,
+            DebateNode,
+            NodeType,
+        )
 
         # High overlap nodes
         nodes_a = [

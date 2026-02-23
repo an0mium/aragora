@@ -188,7 +188,9 @@ class TestGetScorer:
         defaults = json.loads(defaults_result.body)
         scorer_name = defaults["scorer"]
 
-        result = selection_handler.handle(f"/api/v1/selection/scorers/{scorer_name}", {}, mock_handler)
+        result = selection_handler.handle(
+            f"/api/v1/selection/scorers/{scorer_name}", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 200

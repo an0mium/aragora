@@ -88,10 +88,21 @@ class TestSyncEdgeToKM:
         assert "e1" in adapter._edge_map
 
     def test_edge_type_mapping(self, adapter):
-        for edge_type in ["supports", "refutes", "inspires", "refines",
-                          "challenges", "exemplifies", "requires"]:
-            edge = {"id": f"e-{edge_type}", "source_id": "a", "target_id": "b",
-                    "edge_type": edge_type}
+        for edge_type in [
+            "supports",
+            "refutes",
+            "inspires",
+            "refines",
+            "challenges",
+            "exemplifies",
+            "requires",
+        ]:
+            edge = {
+                "id": f"e-{edge_type}",
+                "source_id": "a",
+                "target_id": "b",
+                "edge_type": edge_type,
+            }
             kr_id = adapter.sync_edge_to_km(edge, "c1")
             assert kr_id.startswith("kr_idea_")
 

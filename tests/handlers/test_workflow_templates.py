@@ -89,6 +89,7 @@ def _make_handler(
 def handler_module():
     """Import the handler module lazily (after conftest patches)."""
     import aragora.server.handlers.workflow_templates as mod
+
     return mod
 
 
@@ -192,13 +193,24 @@ class TestWorkflowTemplatesCanHandle:
         assert templates_handler.can_handle("/api/v1/workflow/templates") is True
 
     def test_can_handle_template_id_path(self, templates_handler):
-        assert templates_handler.can_handle("/api/v1/workflow/templates/general/quick-decision") is True
+        assert (
+            templates_handler.can_handle("/api/v1/workflow/templates/general/quick-decision")
+            is True
+        )
 
     def test_can_handle_package_path(self, templates_handler):
-        assert templates_handler.can_handle("/api/v1/workflow/templates/general/quick-decision/package") is True
+        assert (
+            templates_handler.can_handle(
+                "/api/v1/workflow/templates/general/quick-decision/package"
+            )
+            is True
+        )
 
     def test_can_handle_run_path(self, templates_handler):
-        assert templates_handler.can_handle("/api/v1/workflow/templates/general/quick-decision/run") is True
+        assert (
+            templates_handler.can_handle("/api/v1/workflow/templates/general/quick-decision/run")
+            is True
+        )
 
     def test_cannot_handle_unrelated_path(self, templates_handler):
         assert templates_handler.can_handle("/api/v1/workflow/patterns") is False
@@ -223,7 +235,9 @@ class TestListTemplates:
     """Tests for GET /api/v1/workflow/templates."""
 
     @patch("aragora.workflow.templates.list_templates")
-    @patch("aragora.workflow.templates.WORKFLOW_TEMPLATES", {"general/quick-decision": SAMPLE_TEMPLATE})
+    @patch(
+        "aragora.workflow.templates.WORKFLOW_TEMPLATES", {"general/quick-decision": SAMPLE_TEMPLATE}
+    )
     def test_list_templates_basic(self, mock_list, templates_handler):
         mock_list.return_value = SAMPLE_TEMPLATE_LIST[:1]
         h = _make_handler(method="GET")
@@ -234,7 +248,9 @@ class TestListTemplates:
         assert "total" in body
 
     @patch("aragora.workflow.templates.list_templates")
-    @patch("aragora.workflow.templates.WORKFLOW_TEMPLATES", {"general/quick-decision": SAMPLE_TEMPLATE})
+    @patch(
+        "aragora.workflow.templates.WORKFLOW_TEMPLATES", {"general/quick-decision": SAMPLE_TEMPLATE}
+    )
     def test_list_templates_with_category_filter(self, mock_list, templates_handler):
         mock_list.return_value = SAMPLE_TEMPLATE_LIST[:1]
         h = _make_handler(method="GET")
@@ -333,7 +349,9 @@ class TestListTemplates:
         assert body["total"] == 0
 
     @patch("aragora.workflow.templates.list_templates")
-    @patch("aragora.workflow.templates.WORKFLOW_TEMPLATES", {"general/quick-decision": SAMPLE_TEMPLATE})
+    @patch(
+        "aragora.workflow.templates.WORKFLOW_TEMPLATES", {"general/quick-decision": SAMPLE_TEMPLATE}
+    )
     def test_list_templates_enrichment(self, mock_list, templates_handler):
         mock_list.return_value = [SAMPLE_TEMPLATE_LIST[0]]
         h = _make_handler(method="GET")
@@ -455,8 +473,19 @@ class TestGetTemplate:
             h,
         )
         body = _body(result)
-        expected_keys = {"id", "name", "description", "category", "pattern", "steps",
-                         "inputs", "outputs", "estimated_duration", "recommended_agents", "tags"}
+        expected_keys = {
+            "id",
+            "name",
+            "description",
+            "category",
+            "pattern",
+            "steps",
+            "inputs",
+            "outputs",
+            "estimated_duration",
+            "recommended_agents",
+            "tags",
+        }
         assert expected_keys == set(body.keys())
 
 
@@ -543,7 +572,9 @@ class TestRunTemplate:
 
             # Patch asyncio.run to return the mock result
             with patch("asyncio.run", return_value=mock_result):
-                h = _make_handler(method="POST", body={"template_id": "general/quick-decision", "inputs": {}})
+                h = _make_handler(
+                    method="POST", body={"template_id": "general/quick-decision", "inputs": {}}
+                )
                 result = templates_handler.handle("/api/v1/workflow/templates", {}, h)
 
         assert _status(result) == 200
@@ -734,11 +765,14 @@ class TestWorkflowCategoriesHandler:
     def test_cannot_handle_subpath(self, categories_handler):
         assert categories_handler.can_handle("/api/v1/workflow/categories/foo") is False
 
-    @patch("aragora.workflow.templates.WORKFLOW_TEMPLATES", {
-        "general/quick-decision": {},
-        "code/architecture": {},
-        "general/brainstorm": {},
-    })
+    @patch(
+        "aragora.workflow.templates.WORKFLOW_TEMPLATES",
+        {
+            "general/quick-decision": {},
+            "code/architecture": {},
+            "general/brainstorm": {},
+        },
+    )
     def test_list_categories(self, categories_handler):
         mock_category = MagicMock()
         mock_category.value = "general"
@@ -747,7 +781,10 @@ class TestWorkflowCategoriesHandler:
         mock_category3 = MagicMock()
         mock_category3.value = "devops"  # no templates for this
 
-        with patch("aragora.workflow.templates.package.TemplateCategory", [mock_category, mock_category2, mock_category3]):
+        with patch(
+            "aragora.workflow.templates.package.TemplateCategory",
+            [mock_category, mock_category2, mock_category3],
+        ):
             h = _make_handler(method="GET")
             result = categories_handler.handle("/api/v1/workflow/categories", {}, h)
 
@@ -850,7 +887,10 @@ class TestWorkflowPatternTemplatesHandler:
         assert pattern_templates_handler.can_handle("/api/v1/workflow/pattern-templates") is True
 
     def test_can_handle_specific_pattern(self, pattern_templates_handler):
-        assert pattern_templates_handler.can_handle("/api/v1/workflow/pattern-templates/hive-mind") is True
+        assert (
+            pattern_templates_handler.can_handle("/api/v1/workflow/pattern-templates/hive-mind")
+            is True
+        )
 
     def test_cannot_handle_unrelated(self, pattern_templates_handler):
         assert pattern_templates_handler.can_handle("/api/v1/workflow/templates") is False
@@ -1178,8 +1218,14 @@ class TestTemplateRecommendationsHandler:
         assert recommendations_handler.can_handle("/api/v1/templates/recommended") is True
 
     def test_can_handle_recommended_path_get_only(self, recommendations_handler):
-        assert recommendations_handler.can_handle("/api/v1/templates/recommended", method="GET") is True
-        assert recommendations_handler.can_handle("/api/v1/templates/recommended", method="POST") is False
+        assert (
+            recommendations_handler.can_handle("/api/v1/templates/recommended", method="GET")
+            is True
+        )
+        assert (
+            recommendations_handler.can_handle("/api/v1/templates/recommended", method="POST")
+            is False
+        )
 
     def test_cannot_handle_other_path(self, recommendations_handler):
         assert recommendations_handler.can_handle("/api/v1/templates") is False
@@ -1257,7 +1303,9 @@ class TestTemplateRecommendationsHandler:
         assert body["use_case"] == "technical_decisions"
 
     @patch("aragora.workflow.templates.get_template")
-    def test_get_recommendations_unknown_use_case_falls_back(self, mock_get, recommendations_handler):
+    def test_get_recommendations_unknown_use_case_falls_back(
+        self, mock_get, recommendations_handler
+    ):
         mock_get.return_value = {}
         h = _make_handler(method="GET")
         result = recommendations_handler.handle(
@@ -1284,7 +1332,11 @@ class TestTemplateRecommendationsHandler:
     @patch("aragora.workflow.templates.get_template")
     def test_get_recommendations_response_fields(self, mock_get, recommendations_handler):
         """Each recommendation should have specific fields."""
-        mock_get.return_value = {"recommended_agents": ["a1", "a2"], "config": {"rounds": 3}, "estimated_duration": 10}
+        mock_get.return_value = {
+            "recommended_agents": ["a1", "a2"],
+            "config": {"rounds": 3},
+            "estimated_duration": 10,
+        }
         h = _make_handler(method="GET")
         result = recommendations_handler.handle(
             "/api/v1/templates/recommended",
@@ -1310,8 +1362,14 @@ class TestTemplateRecommendationsHandler:
         h = _make_handler(method="GET")
         result = recommendations_handler.handle("/api/v1/templates/recommended", {}, h)
         body = _body(result)
-        expected_cases = {"team_decisions", "project_planning", "vendor_selection",
-                          "policy_review", "technical_decisions", "general"}
+        expected_cases = {
+            "team_decisions",
+            "project_planning",
+            "vendor_selection",
+            "policy_review",
+            "technical_decisions",
+            "general",
+        }
         assert expected_cases == set(body["available_use_cases"])
 
     def test_recommendations_rate_limit(self, handler_module, recommendations_handler):
@@ -1463,10 +1521,13 @@ class TestSMECreateWorkflow:
         mock_wf.steps = [MagicMock(), MagicMock()]
         mock_create.return_value = mock_wf
 
-        h = _make_handler(method="POST", body={
-            "customer_id": "cust-123",
-            "items": [{"name": "Widget", "quantity": 2, "unit_price": 10}],
-        })
+        h = _make_handler(
+            method="POST",
+            body={
+                "customer_id": "cust-123",
+                "items": [{"name": "Widget", "quantity": 2, "unit_price": 10}],
+            },
+        )
         result = sme_handler.handle("/api/v1/sme/workflows/invoice", {}, h)
         assert _status(result) == 201
         body = _body(result)
@@ -1550,10 +1611,13 @@ class TestSMECreateWorkflow:
         mock_create.return_value = mock_wf
         mock_start.return_value = "exec_abc123"
 
-        h = _make_handler(method="POST", body={
-            "customer_id": "cust-1",
-            "execute": True,
-        })
+        h = _make_handler(
+            method="POST",
+            body={
+                "customer_id": "cust-1",
+                "execute": True,
+            },
+        )
         result = sme_handler.handle("/api/v1/sme/workflows/invoice", {}, h)
         assert _status(result) == 201
         body = _body(result)
@@ -1615,14 +1679,17 @@ class TestSMECreateWorkflowFullParams:
         mock_wf.steps = []
         mock_create.return_value = mock_wf
 
-        h = _make_handler(method="POST", body={
-            "customer_id": "cust-42",
-            "items": [{"name": "A", "quantity": 1, "unit_price": 100}],
-            "tax_rate": 0.1,
-            "due_days": 45,
-            "send_email": True,
-            "notes": "Thank you for your business",
-        })
+        h = _make_handler(
+            method="POST",
+            body={
+                "customer_id": "cust-42",
+                "items": [{"name": "A", "quantity": 1, "unit_price": 100}],
+                "tax_rate": 0.1,
+                "due_days": 45,
+                "send_email": True,
+                "notes": "Thank you for your business",
+            },
+        )
         result = sme_handler.handle("/api/v1/sme/workflows/invoice", {}, h)
         assert _status(result) == 201
         mock_create.assert_called_once_with(
@@ -1642,13 +1709,16 @@ class TestSMECreateWorkflowFullParams:
         mock_wf.steps = []
         mock_create.return_value = mock_wf
 
-        h = _make_handler(method="POST", body={
-            "followup_type": "renewal",
-            "days_since_contact": 60,
-            "channel": "sms",
-            "auto_send": True,
-            "customer_id": "cust-99",
-        })
+        h = _make_handler(
+            method="POST",
+            body={
+                "followup_type": "renewal",
+                "days_since_contact": 60,
+                "channel": "sms",
+                "auto_send": True,
+                "customer_id": "cust-99",
+            },
+        )
         result = sme_handler.handle("/api/v1/sme/workflows/followup", {}, h)
         assert _status(result) == 201
 
@@ -1660,12 +1730,15 @@ class TestSMECreateWorkflowFullParams:
         mock_wf.steps = []
         mock_create.return_value = mock_wf
 
-        h = _make_handler(method="POST", body={
-            "alert_threshold": 5,
-            "auto_reorder": True,
-            "notification_channels": ["email", "slack"],
-            "categories": ["electronics", "clothing"],
-        })
+        h = _make_handler(
+            method="POST",
+            body={
+                "alert_threshold": 5,
+                "auto_reorder": True,
+                "notification_channels": ["email", "slack"],
+                "categories": ["electronics", "clothing"],
+            },
+        )
         result = sme_handler.handle("/api/v1/sme/workflows/inventory", {}, h)
         assert _status(result) == 201
 
@@ -1677,15 +1750,18 @@ class TestSMECreateWorkflowFullParams:
         mock_wf.steps = []
         mock_create.return_value = mock_wf
 
-        h = _make_handler(method="POST", body={
-            "report_type": "financial",
-            "frequency": "monthly",
-            "date_range": "last_month",
-            "format": "excel",
-            "recipients": ["boss@company.com"],
-            "include_charts": False,
-            "comparison": False,
-        })
+        h = _make_handler(
+            method="POST",
+            body={
+                "report_type": "financial",
+                "frequency": "monthly",
+                "date_range": "last_month",
+                "format": "excel",
+                "recipients": ["boss@company.com"],
+                "include_charts": False,
+                "comparison": False,
+            },
+        )
         result = sme_handler.handle("/api/v1/sme/workflows/report", {}, h)
         assert _status(result) == 201
         mock_create.assert_called_once_with(
@@ -1744,7 +1820,9 @@ class TestAsyncWorkflowExecution:
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
     @patch("aragora.server.handlers.workflow_templates._get_workflow_engine")
     @pytest.mark.asyncio
-    async def test_execute_workflow_async_success(self, mock_engine_fn, mock_store_fn, handler_module):
+    async def test_execute_workflow_async_success(
+        self, mock_engine_fn, mock_store_fn, handler_module
+    ):
         mock_store = MagicMock()
         mock_store_fn.return_value = mock_store
         mock_engine = MagicMock()
@@ -1758,6 +1836,7 @@ class TestAsyncWorkflowExecution:
         mock_result.total_duration_ms = 100
 
         from unittest.mock import AsyncMock
+
         mock_engine.execute = AsyncMock(return_value=mock_result)
 
         mock_execution = {"id": "exec-1", "status": "running"}
@@ -1773,21 +1852,22 @@ class TestAsyncWorkflowExecution:
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
     @patch("aragora.server.handlers.workflow_templates._get_workflow_engine")
     @pytest.mark.asyncio
-    async def test_execute_workflow_async_failure(self, mock_engine_fn, mock_store_fn, handler_module):
+    async def test_execute_workflow_async_failure(
+        self, mock_engine_fn, mock_store_fn, handler_module
+    ):
         mock_store = MagicMock()
         mock_store_fn.return_value = mock_store
         mock_engine = MagicMock()
         mock_engine_fn.return_value = mock_engine
 
         from unittest.mock import AsyncMock
+
         mock_engine.execute = AsyncMock(side_effect=RuntimeError("engine error"))
 
         mock_execution = {"id": "exec-2"}
         mock_store.get_execution.return_value = mock_execution
 
-        await handler_module._execute_workflow_async(
-            MagicMock(), "exec-2", None, "default"
-        )
+        await handler_module._execute_workflow_async(MagicMock(), "exec-2", None, "default")
 
         mock_store.save_execution.assert_called_once()
         assert mock_execution["status"] == "failed"
@@ -1795,7 +1875,9 @@ class TestAsyncWorkflowExecution:
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
     @patch("aragora.server.handlers.workflow_templates._get_workflow_engine")
     @pytest.mark.asyncio
-    async def test_execute_workflow_async_no_execution_record(self, mock_engine_fn, mock_store_fn, handler_module):
+    async def test_execute_workflow_async_no_execution_record(
+        self, mock_engine_fn, mock_store_fn, handler_module
+    ):
         """When execution record is not found after engine run, should not crash."""
         mock_store = MagicMock()
         mock_store_fn.return_value = mock_store
@@ -1803,6 +1885,7 @@ class TestAsyncWorkflowExecution:
         mock_engine_fn.return_value = mock_engine
 
         from unittest.mock import AsyncMock
+
         mock_result = MagicMock()
         mock_result.success = True
         mock_result.final_output = {}
@@ -1813,16 +1896,16 @@ class TestAsyncWorkflowExecution:
 
         mock_store.get_execution.return_value = None  # No record found
 
-        await handler_module._execute_workflow_async(
-            MagicMock(), "exec-3", None, "default"
-        )
+        await handler_module._execute_workflow_async(MagicMock(), "exec-3", None, "default")
         # Should not crash, save_execution should not be called
         mock_store.save_execution.assert_not_called()
 
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
     @patch("aragora.server.handlers.workflow_templates._get_workflow_engine")
     @pytest.mark.asyncio
-    async def test_execute_workflow_async_failure_no_record(self, mock_engine_fn, mock_store_fn, handler_module):
+    async def test_execute_workflow_async_failure_no_record(
+        self, mock_engine_fn, mock_store_fn, handler_module
+    ):
         """When failure occurs and no execution record, should not crash."""
         mock_store = MagicMock()
         mock_store_fn.return_value = mock_store
@@ -1830,12 +1913,11 @@ class TestAsyncWorkflowExecution:
         mock_engine_fn.return_value = mock_engine
 
         from unittest.mock import AsyncMock
+
         mock_engine.execute = AsyncMock(side_effect=ValueError("bad"))
         mock_store.get_execution.return_value = None
 
-        await handler_module._execute_workflow_async(
-            MagicMock(), "exec-4", None, "default"
-        )
+        await handler_module._execute_workflow_async(MagicMock(), "exec-4", None, "default")
         mock_store.save_execution.assert_not_called()
 
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
@@ -1866,7 +1948,9 @@ class TestAsyncWorkflowExecution:
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
     @patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop"))
     @patch("asyncio.create_task")
-    def test_start_workflow_execution_no_event_loop(self, mock_create, mock_loop_fn, mock_store_fn, handler_module):
+    def test_start_workflow_execution_no_event_loop(
+        self, mock_create, mock_loop_fn, mock_store_fn, handler_module
+    ):
         """When no running event loop, should use asyncio.create_task."""
         mock_store = MagicMock()
         mock_store_fn.return_value = mock_store

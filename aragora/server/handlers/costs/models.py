@@ -138,7 +138,8 @@ def record_cost(
                 task = asyncio.create_task(tracker.record(usage))
                 task.add_done_callback(
                     lambda t: logger.error(
-                        "Cost tracking record failed: %s", t.exception(),
+                        "Cost tracking record failed: %s",
+                        t.exception(),
                     )
                     if not t.cancelled() and t.exception()
                     else None
@@ -307,10 +308,19 @@ async def get_cost_summary(
                 alerts=_get_active_alerts(tracker, workspace_id),
             )
 
-        except (ImportError, RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+        except (
+            ImportError,
+            RuntimeError,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ) as e:
             if demo_mode:
                 logger.warning(
-                    "[CostHandler] CostTracker query failed, using mock (ARAGORA_DEMO_MODE=true): %s", e
+                    "[CostHandler] CostTracker query failed, using mock (ARAGORA_DEMO_MODE=true): %s",
+                    e,
                 )
                 return _generate_mock_summary(time_range)
             else:

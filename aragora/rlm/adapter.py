@@ -204,7 +204,11 @@ class RLMContextAdapter:
         )
 
         logger.debug(
-            "adapter_register id=%s type=%s size=%s sections=%s", content_id, content_type, len(content), list(sections.keys())
+            "adapter_register id=%s type=%s size=%s sections=%s",
+            content_id,
+            content_type,
+            len(content),
+            list(sections.keys()),
         )
 
         return content_id
@@ -962,7 +966,10 @@ class REPLContextAdapter(RLMContextAdapter):
             self._repl_environments[content_id] = env
 
             logger.info(
-                "repl_env_created type=debate id=%s rounds=%s agents=%s", content_id, debate_context.total_rounds, len(debate_context.agent_names)
+                "repl_env_created type=debate id=%s rounds=%s agents=%s",
+                content_id,
+                debate_context.total_rounds,
+                len(debate_context.agent_names),
             )
 
             return env

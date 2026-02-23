@@ -116,7 +116,9 @@ def _make_payload(
     return payload
 
 
-def _vote_action(debate_id: str = "abc-123", agent: str = "claude", action_id_prefix: str = "vote_") -> dict[str, Any]:
+def _vote_action(
+    debate_id: str = "abc-123", agent: str = "claude", action_id_prefix: str = "vote_"
+) -> dict[str, Any]:
     """Build a vote action dict."""
     return {
         "action_id": f"{action_id_prefix}{debate_id}_{agent}",
@@ -173,6 +175,7 @@ def _modal_view(
 def interactions_module():
     """Import the interactions module lazily."""
     import aragora.server.handlers.bots.slack.interactions as mod
+
     return mod
 
 
@@ -180,6 +183,7 @@ def interactions_module():
 def state_module():
     """Import the state module for direct inspection."""
     import aragora.server.handlers.bots.slack.state as mod
+
     return mod
 
 
@@ -199,17 +203,13 @@ def _patch_rbac_open(monkeypatch):
     # Make RBAC "available" with a permissive check_permission
     mock_decision = MagicMock()
     mock_decision.allowed = True
-    monkeypatch.setattr(
-        "aragora.server.handlers.bots.slack.constants.RBAC_AVAILABLE", True
-    )
+    monkeypatch.setattr("aragora.server.handlers.bots.slack.constants.RBAC_AVAILABLE", True)
     monkeypatch.setattr(
         "aragora.server.handlers.bots.slack.constants.check_permission",
         MagicMock(return_value=mock_decision),
     )
     # Also patch the module-level references used by interactions.py
-    monkeypatch.setattr(
-        "aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", True
-    )
+    monkeypatch.setattr("aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", True)
     monkeypatch.setattr(
         "aragora.server.handlers.bots.slack.interactions.check_permission",
         MagicMock(return_value=mock_decision),
@@ -306,7 +306,10 @@ class TestVoteAction:
     @pytest.mark.asyncio
     async def test_vote_invalid_debate_id_too_long(self, interactions_module):
         long_id = "x" * 101
-        action = {"action_id": "vote_x", "value": json.dumps({"debate_id": long_id, "agent": "claude"})}
+        action = {
+            "action_id": "vote_x",
+            "value": json.dumps({"debate_id": long_id, "agent": "claude"}),
+        }
         payload = _make_payload(actions=[action])
         request = MockSlackRequest(payload)
         result = await interactions_module.handle_slack_interactions.__wrapped__(request)
@@ -639,6 +642,7 @@ class TestViewSubmission:
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         debate = list(state_module._active_debates.values())[0]
         from aragora.config import DEFAULT_ROUNDS
+
         assert debate["rounds"] == DEFAULT_ROUNDS
 
     @pytest.mark.asyncio
@@ -649,6 +653,7 @@ class TestViewSubmission:
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         debate = list(state_module._active_debates.values())[0]
         from aragora.config import DEFAULT_ROUNDS
+
         assert debate["rounds"] == DEFAULT_ROUNDS
 
     @pytest.mark.asyncio
@@ -659,6 +664,7 @@ class TestViewSubmission:
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         debate = list(state_module._active_debates.values())[0]
         from aragora.config import DEFAULT_ROUNDS
+
         assert debate["rounds"] == DEFAULT_ROUNDS
 
     @pytest.mark.asyncio
@@ -873,9 +879,7 @@ class TestRBACPermissions:
 
     @pytest.mark.asyncio
     async def test_rbac_unavailable_fail_closed(self, interactions_module, monkeypatch):
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.interactions.check_permission", None
         )
@@ -891,9 +895,7 @@ class TestRBACPermissions:
 
     @pytest.mark.asyncio
     async def test_rbac_unavailable_fail_open(self, interactions_module, monkeypatch, state_module):
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.interactions.check_permission", None
         )
@@ -908,7 +910,9 @@ class TestRBACPermissions:
         assert state_module._user_votes["d1"]["U12345ABC"] == "claude"
 
     @pytest.mark.asyncio
-    async def test_rbac_check_exception_falls_through(self, interactions_module, monkeypatch, state_module):
+    async def test_rbac_check_exception_falls_through(
+        self, interactions_module, monkeypatch, state_module
+    ):
         """When RBAC check_permission raises, it is caught and permission is allowed."""
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.interactions.check_permission",
@@ -1100,6 +1104,7 @@ class TestRateLimitDecorator:
     def test_wrapped_is_async(self, interactions_module):
         """The wrapped function should be async."""
         import asyncio
+
         assert asyncio.iscoroutinefunction(
             interactions_module.handle_slack_interactions.__wrapped__
         )
@@ -1203,6 +1208,7 @@ class TestMissingFields:
         request = MockSlackRequest(payload)
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         from aragora.config import DEFAULT_ROUNDS
+
         debate = list(state_module._active_debates.values())[0]
         assert debate["rounds"] == DEFAULT_ROUNDS
 
@@ -1299,6 +1305,7 @@ class TestViewSubmissionEdgeCases:
         request = MockSlackRequest(payload)
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         from aragora.config import DEFAULT_ROUNDS
+
         debate = list(state_module._active_debates.values())[0]
         assert debate["rounds"] == DEFAULT_ROUNDS
 
@@ -1310,6 +1317,7 @@ class TestViewSubmissionEdgeCases:
         request = MockSlackRequest(payload)
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         from aragora.config import DEFAULT_ROUNDS
+
         debate = list(state_module._active_debates.values())[0]
         assert debate["rounds"] == DEFAULT_ROUNDS
 
@@ -1433,9 +1441,7 @@ class TestRBACEdgeCases:
     @pytest.mark.asyncio
     async def test_rbac_fail_closed_for_shortcut(self, interactions_module, monkeypatch):
         """Fail-closed RBAC blocks shortcut interactions."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.interactions.check_permission", None
         )
@@ -1455,9 +1461,7 @@ class TestRBACEdgeCases:
     @pytest.mark.asyncio
     async def test_rbac_fail_closed_for_summary(self, interactions_module, monkeypatch):
         """Fail-closed RBAC blocks summary requests."""
-        monkeypatch.setattr(
-            "aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False
-        )
+        monkeypatch.setattr("aragora.server.handlers.bots.slack.interactions.RBAC_AVAILABLE", False)
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.interactions.check_permission", None
         )
@@ -1472,7 +1476,9 @@ class TestRBACEdgeCases:
         assert "access control module not loaded" in body.get("text", "").lower()
 
     @pytest.mark.asyncio
-    async def test_authorization_context_none_skips_rbac(self, interactions_module, monkeypatch, state_module):
+    async def test_authorization_context_none_skips_rbac(
+        self, interactions_module, monkeypatch, state_module
+    ):
         """When AuthorizationContext is None, RBAC check is skipped."""
         monkeypatch.setattr(
             "aragora.server.handlers.bots.slack.interactions.AuthorizationContext", None

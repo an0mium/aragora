@@ -64,20 +64,24 @@ class TestFromIdeasContract:
 
     @pytest.mark.asyncio
     async def test_result_has_pipeline_id(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching", "Improve docs"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching", "Improve docs"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         assert isinstance(result["pipeline_id"], str)
         assert result["pipeline_id"].startswith("pipe-")
 
     @pytest.mark.asyncio
     async def test_result_has_stage_status(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         status = result["stage_status"]
         assert set(status.keys()) == {"ideas", "goals", "actions", "orchestration"}
@@ -86,30 +90,36 @@ class TestFromIdeasContract:
 
     @pytest.mark.asyncio
     async def test_result_has_integrity_hash(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         assert isinstance(result["integrity_hash"], str)
         assert len(result["integrity_hash"]) == 16
 
     @pytest.mark.asyncio
     async def test_result_has_provenance_count(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         assert isinstance(result["provenance_count"], int)
         assert result["provenance_count"] >= 0
 
     @pytest.mark.asyncio
     async def test_result_has_transitions_array(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         assert isinstance(result["transitions"], list)
         for transition in result["transitions"]:
@@ -121,10 +131,12 @@ class TestFromIdeasContract:
     @pytest.mark.asyncio
     async def test_ideas_is_react_flow_data(self, handler):
         """Ideas stage should be ReactFlowData: {nodes, edges, metadata}"""
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         ideas = result["ideas"]
         assert ideas is not None
@@ -145,10 +157,12 @@ class TestFromIdeasContract:
     @pytest.mark.asyncio
     async def test_goals_has_goals_list(self, handler):
         """Goals stage should have {goals: [...], provenance: [...]}"""
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         goals = result["goals"]
         assert goals is not None
@@ -163,10 +177,12 @@ class TestFromIdeasContract:
     @pytest.mark.asyncio
     async def test_actions_is_react_flow_data(self, handler):
         """Actions stage should be ReactFlowData: {nodes, edges, metadata}"""
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         actions = result["actions"]
         assert actions is not None
@@ -177,10 +193,12 @@ class TestFromIdeasContract:
     @pytest.mark.asyncio
     async def test_orchestration_is_react_flow_data(self, handler):
         """Orchestration stage should be ReactFlowData: {nodes, edges, metadata}"""
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         orch = result["orchestration"]
         assert orch is not None
@@ -199,18 +217,30 @@ class TestFromDebateContract:
 
     @pytest.mark.asyncio
     async def test_debate_result_shape(self, handler):
-        resp = await handler.handle_from_debate({
-            "cartographer_data": {
-                "nodes": [
-                    {"id": "n1", "type": "proposal", "summary": "Rate limiter", "content": "Build it"},
-                    {"id": "n2", "type": "evidence", "summary": "Reduces errors", "content": "Proof"},
-                ],
-                "edges": [
-                    {"source_id": "n2", "target_id": "n1", "relation": "supports"},
-                ],
-            },
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_debate(
+            {
+                "cartographer_data": {
+                    "nodes": [
+                        {
+                            "id": "n1",
+                            "type": "proposal",
+                            "summary": "Rate limiter",
+                            "content": "Build it",
+                        },
+                        {
+                            "id": "n2",
+                            "type": "evidence",
+                            "summary": "Reduces errors",
+                            "content": "Proof",
+                        },
+                    ],
+                    "edges": [
+                        {"source_id": "n2", "target_id": "n1", "relation": "supports"},
+                    ],
+                },
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
 
         # Top-level required fields
@@ -235,17 +265,21 @@ class TestAdvanceContract:
 
     @pytest.mark.asyncio
     async def test_advance_returns_result_dict(self, handler):
-        create_resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": False,
-        })
+        create_resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": False,
+            }
+        )
         create_data = _body(create_resp)
         pid = create_data["pipeline_id"]
 
-        advance_resp = await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "actions",
-        })
+        advance_resp = await handler.handle_advance(
+            {
+                "pipeline_id": pid,
+                "target_stage": "actions",
+            }
+        )
         advance_data = _body(advance_resp)
         assert "result" in advance_data
         assert advance_data["result"]["stage_status"]["actions"] == "complete"
@@ -266,10 +300,12 @@ class TestGetPipelineContract:
 
     @pytest.mark.asyncio
     async def test_get_returns_full_shape(self, handler):
-        create_resp = await handler.handle_from_ideas({
-            "ideas": ["Test idea"],
-            "auto_advance": True,
-        })
+        create_resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Test idea"],
+                "auto_advance": True,
+            }
+        )
         create_data = _body(create_resp)
         pid = create_data["pipeline_id"]
 
@@ -295,16 +331,26 @@ class TestGetPipelineContract:
 class TestNodeTypeContract:
     """Validate node types match what nodeTypes registry expects."""
 
-    VALID_IDEA_TYPES = {"concept", "cluster", "question", "insight", "evidence", "assumption", "constraint"}
+    VALID_IDEA_TYPES = {
+        "concept",
+        "cluster",
+        "question",
+        "insight",
+        "evidence",
+        "assumption",
+        "constraint",
+    }
     VALID_GOAL_TYPES = {"goal", "principle", "strategy", "milestone", "metric", "risk"}
     VALID_NODE_TYPES = {"ideaNode", "goalNode", "actionNode", "orchestrationNode"}
 
     @pytest.mark.asyncio
     async def test_idea_nodes_have_valid_types(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching", "Improve docs"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching", "Improve docs"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         ideas = result["ideas"]
         for node in ideas["nodes"]:
@@ -314,10 +360,12 @@ class TestNodeTypeContract:
 
     @pytest.mark.asyncio
     async def test_goals_have_required_fields(self, handler):
-        resp = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": True,
-        })
+        resp = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": True,
+            }
+        )
         result = _result(resp)
         goals = result["goals"]["goals"]
         for goal in goals:

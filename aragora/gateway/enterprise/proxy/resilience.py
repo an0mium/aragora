@@ -109,7 +109,9 @@ class FrameworkCircuitBreaker:
                     self._open_at = time.time()
                     self._half_open_calls = 0
                     logger.warning(
-                        "Circuit breaker OPEN for %s after %s failures", self.framework, self._failures
+                        "Circuit breaker OPEN for %s after %s failures",
+                        self.framework,
+                        self._failures,
                     )
                     return True
 

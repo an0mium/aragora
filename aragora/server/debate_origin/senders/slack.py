@@ -48,7 +48,7 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
                     logger.info("Slack result sent to %s", channel)
                     return True
                 else:
-                    logger.warning("Slack API error: %s", resp_data.get('error'))
+                    logger.warning("Slack API error: %s", resp_data.get("error"))
                     return False
             else:
                 logger.warning("Slack send failed: %s", response.status_code)

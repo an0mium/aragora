@@ -167,14 +167,10 @@ class TestCanHandle:
         assert handler_no_ctx.can_handle("/api/tournaments/abc123/advance") is True
 
     def test_handles_match_result(self, handler_no_ctx):
-        assert handler_no_ctx.can_handle(
-            "/api/tournaments/abc123/matches/m1/result"
-        ) is True
+        assert handler_no_ctx.can_handle("/api/tournaments/abc123/matches/m1/result") is True
 
     def test_handles_match_result_versioned(self, handler_no_ctx):
-        assert handler_no_ctx.can_handle(
-            "/api/v1/tournaments/abc123/matches/m1/result"
-        ) is True
+        assert handler_no_ctx.can_handle("/api/v1/tournaments/abc123/matches/m1/result") is True
 
     def test_rejects_unrelated_path(self, handler_no_ctx):
         assert handler_no_ctx.can_handle("/api/debates") is False
@@ -250,8 +246,12 @@ class TestListTournaments:
         mock_manager = MagicMock()
         mock_manager.get_current_standings.return_value = mock_standings
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -271,8 +271,12 @@ class TestListTournaments:
         mock_manager = MagicMock()
         mock_manager.get_current_standings.side_effect = RuntimeError("corrupt")
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -290,8 +294,12 @@ class TestListTournaments:
         mock_manager = MagicMock()
         mock_manager.get_current_standings.return_value = []
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -318,8 +326,12 @@ class TestListTournaments:
         mock_manager = MagicMock()
         mock_manager.get_current_standings.return_value = []
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -372,8 +384,12 @@ class TestGetTournament:
         mock_manager = MagicMock()
         mock_manager.get_tournament.return_value = mock_tournament
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments/abc", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -405,8 +421,12 @@ class TestGetTournament:
         mock_manager.get_tournament.return_value = None
         mock_manager.list_tournaments.return_value = [mock_tournament]
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments/abc", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -423,8 +443,12 @@ class TestGetTournament:
         mock_manager.get_tournament.return_value = None
         mock_manager.list_tournaments.return_value = []
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle("/api/tournaments/abc", {}, mock_http_handler)
 
         assert result.status_code == 404
@@ -432,7 +456,9 @@ class TestGetTournament:
     def test_get_versioned_path(self, handler_with_ctx, mock_http_handler):
         """Versioned path is handled correctly."""
         with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True):
-            result = handler_with_ctx.handle("/api/v1/tournaments/nonexistent", {}, mock_http_handler)
+            result = handler_with_ctx.handle(
+                "/api/v1/tournaments/nonexistent", {}, mock_http_handler
+            )
         assert result.status_code == 404
 
 
@@ -476,11 +502,13 @@ class TestGetStandings:
         mock_manager = MagicMock()
         mock_manager.get_current_standings.return_value = mock_standings
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t1/standings", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t1/standings", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = _parse_body(result)
@@ -547,11 +575,13 @@ class TestGetBracket:
         mock_manager.get_tournament.return_value = mock_tournament
         mock_manager.get_matches.return_value = mock_matches
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t2/bracket", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t2/bracket", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = _parse_body(result)
@@ -589,11 +619,13 @@ class TestGetBracket:
         mock_manager.list_tournaments.return_value = [mock_tournament]
         mock_manager.get_matches.return_value = []
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t3/bracket", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t3/bracket", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = _parse_body(result)
@@ -609,11 +641,13 @@ class TestGetBracket:
         mock_manager.get_tournament.return_value = None
         mock_manager.list_tournaments.return_value = []
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t4/bracket", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t4/bracket", {}, mock_http_handler)
 
         assert result.status_code == 404
 
@@ -658,11 +692,13 @@ class TestGetMatches:
         mock_manager = MagicMock()
         mock_manager.get_matches.return_value = mock_matches
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t5/matches", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t5/matches", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = _parse_body(result)
@@ -684,8 +720,12 @@ class TestGetMatches:
         mock_manager = MagicMock()
         mock_manager.get_matches.return_value = mock_matches
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/t6/matches", {"round": "2"}, mock_http_handler
             )
@@ -704,11 +744,13 @@ class TestGetMatches:
         mock_manager = MagicMock()
         mock_manager.get_matches.return_value = []
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t7/matches", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t7/matches", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = _parse_body(result)
@@ -805,8 +847,12 @@ class TestCreateTournament:
         mock_manager = MagicMock()
         mock_manager.create_tournament.return_value = mock_tournament
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments",
                 {"name": "My Tournament", "participants": ["a", "b", "c"]},
@@ -835,8 +881,12 @@ class TestCreateTournament:
         mock_manager = MagicMock()
         mock_manager.create_tournament.return_value = mock_tournament
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments",
                 {
@@ -866,8 +916,12 @@ class TestCreateTournament:
         mock_manager = MagicMock()
         mock_manager.create_tournament.return_value = mock_tournament
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments",
                 {
@@ -897,8 +951,12 @@ class TestCreateTournament:
         mock_manager = MagicMock()
         mock_manager.create_tournament.return_value = mock_tournament
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments",
                 {"name": "Default", "participants": ["a", "b"]},
@@ -971,8 +1029,12 @@ class TestAdvanceTournament:
         mock_manager.advance_round.return_value = True
         mock_manager.get_tournament.return_value = mock_tournament
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/t_adv/advance", {}, mock_http_handler
             )
@@ -992,11 +1054,13 @@ class TestAdvanceTournament:
         mock_manager = MagicMock()
         mock_manager.advance_round.return_value = False
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/t_no/advance", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/t_no/advance", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = _parse_body(result)
@@ -1012,8 +1076,12 @@ class TestAdvanceTournament:
         mock_manager = MagicMock()
         mock_manager.advance_round.return_value = False
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments/t_post/advance", {}, mock_http_handler
             )
@@ -1066,8 +1134,12 @@ class TestRecordMatchResult:
 
         mock_manager = MagicMock()
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/t_res/matches/m1/result",
                 {"winner": "agent_a", "score1": "1.0", "score2": "0.5", "debate_id": "d99"},
@@ -1097,8 +1169,12 @@ class TestRecordMatchResult:
 
         mock_manager = MagicMock()
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/t_draw/matches/m2/result",
                 {"score1": "0.5", "score2": "0.5"},
@@ -1117,8 +1193,12 @@ class TestRecordMatchResult:
 
         mock_manager = MagicMock()
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/t_def/matches/m3/result",
                 {"winner": "agent_b"},
@@ -1138,8 +1218,12 @@ class TestRecordMatchResult:
 
         mock_manager = MagicMock()
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments/t_post_r/matches/m5/result",
                 {"winner": "x", "score1": "3.0", "score2": "1.0"},
@@ -1162,18 +1246,14 @@ class TestPathTraversalValidation:
 
     def test_handle_rejects_double_dot(self, handler_with_ctx, mock_http_handler):
         with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/../etc", {}, mock_http_handler
-            )
+            result = handler_with_ctx.handle("/api/tournaments/../etc", {}, mock_http_handler)
         assert result.status_code == 400
         body = _parse_body(result)
         assert "Invalid" in body["error"]
 
     def test_handle_rejects_semicolon(self, handler_with_ctx, mock_http_handler):
         with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/abc;rm+-rf", {}, mock_http_handler
-            )
+            result = handler_with_ctx.handle("/api/tournaments/abc;rm+-rf", {}, mock_http_handler)
         assert result.status_code == 400
 
     def test_handle_post_rejects_double_dot(self, handler_with_ctx, mock_http_handler):
@@ -1248,7 +1328,9 @@ class TestHandleRouting:
         # so it falls through to the tournament_id check and returns 400
         assert result.status_code == 400
 
-    def test_handle_post_unknown_sub_resource_returns_none(self, handler_with_ctx, mock_http_handler):
+    def test_handle_post_unknown_sub_resource_returns_none(
+        self, handler_with_ctx, mock_http_handler
+    ):
         """POST to /api/tournaments/{id}/unknown returns None (no matching sub-route)."""
         with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True):
             result = handler_with_ctx.handle_post(
@@ -1303,8 +1385,12 @@ class TestExceptionHandling:
         mock_manager = MagicMock()
         mock_manager.get_current_standings.side_effect = RuntimeError("database error")
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/err/standings", {}, mock_http_handler
             )
@@ -1320,11 +1406,13 @@ class TestExceptionHandling:
         mock_manager = MagicMock()
         mock_manager.get_tournament.side_effect = RuntimeError("bad data")
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/err2/bracket", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/err2/bracket", {}, mock_http_handler)
 
         assert result.status_code == 500
 
@@ -1333,8 +1421,12 @@ class TestExceptionHandling:
         mock_manager = MagicMock()
         mock_manager.create_tournament.side_effect = RuntimeError("creation failed")
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle_post(
                 "/api/tournaments",
                 {"name": "T", "participants": ["a", "b"]},
@@ -1352,11 +1444,13 @@ class TestExceptionHandling:
         mock_manager = MagicMock()
         mock_manager.advance_round.side_effect = RuntimeError("advance failed")
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
-            result = handler_with_ctx.handle(
-                "/api/tournaments/err3/advance", {}, mock_http_handler
-            )
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
+            result = handler_with_ctx.handle("/api/tournaments/err3/advance", {}, mock_http_handler)
 
         assert result.status_code == 500
 
@@ -1369,8 +1463,12 @@ class TestExceptionHandling:
         mock_manager = MagicMock()
         mock_manager.record_match_result.side_effect = RuntimeError("record failed")
 
-        with patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True), \
-             patch("aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager):
+        with (
+            patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.tournaments._TournamentManager", return_value=mock_manager
+            ),
+        ):
             result = handler_with_ctx.handle(
                 "/api/tournaments/err4/matches/m1/result",
                 {"winner": "a"},

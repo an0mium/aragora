@@ -255,7 +255,9 @@ class TestSuggestEndpoint:
 
     def test_validates_category_parameter(self, handler):
         """Validates category parameter for security."""
-        result = handler.handle("/api/v1/pulse/suggest", {"category": ["../../../etc/passwd"]}, None)
+        result = handler.handle(
+            "/api/v1/pulse/suggest", {"category": ["../../../etc/passwd"]}, None
+        )
 
         assert result.status_code == 400
         data = json.loads(result.body)

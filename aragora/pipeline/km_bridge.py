@@ -64,9 +64,7 @@ class PipelineKMBridge:
                     {
                         "title": getattr(m, "title", str(m)),
                         "similarity": getattr(m, "similarity", 0.0),
-                        "outcome": getattr(m, "metadata", {}).get(
-                            "outcome", "unknown"
-                        ),
+                        "outcome": getattr(m, "metadata", {}).get("outcome", "unknown"),
                     }
                     for m in (matches if matches else [])
                 ]
@@ -74,9 +72,7 @@ class PipelineKMBridge:
                 results[goal.id] = []
         return results
 
-    def query_similar_actions(
-        self, actions_canvas: Any
-    ) -> dict[str, list[dict[str, Any]]]:
+    def query_similar_actions(self, actions_canvas: Any) -> dict[str, list[dict[str, Any]]]:
         """Query KM for similar past action plans.
 
         Args:
@@ -99,9 +95,7 @@ class PipelineKMBridge:
                     {
                         "title": getattr(m, "title", str(m)),
                         "similarity": getattr(m, "similarity", 0.0),
-                        "outcome": getattr(m, "metadata", {}).get(
-                            "outcome", "unknown"
-                        ),
+                        "outcome": getattr(m, "metadata", {}).get("outcome", "unknown"),
                     }
                     for m in (matches if matches else [])
                 ]
@@ -159,13 +153,15 @@ class PipelineKMBridge:
                         word in item_id.lower() or word in receipt_id.lower()
                         for word in goal_lower.split()[:5]
                     ):
-                        results.append({
-                            "source": "receipt",
-                            "receipt_id": receipt_id,
-                            "summary": f"Decision receipt {receipt_id}",
-                            "verdict": "unknown",
-                            "confidence": 0.5,
-                        })
+                        results.append(
+                            {
+                                "source": "receipt",
+                                "receipt_id": receipt_id,
+                                "summary": f"Decision receipt {receipt_id}",
+                                "verdict": "unknown",
+                                "confidence": 0.5,
+                            }
+                        )
                         break
                 if len(results) >= limit:
                     break
@@ -183,13 +179,15 @@ class PipelineKMBridge:
                         if meta.get("item_type") == "decision_summary" or "decision_receipt" in (
                             meta.get("tags") or []
                         ):
-                            results.append({
-                                "source": "receipt",
-                                "receipt_id": meta.get("receipt_id", ""),
-                                "summary": getattr(m, "content", str(m))[:200],
-                                "verdict": meta.get("verdict", "unknown"),
-                                "confidence": meta.get("confidence", 0.0),
-                            })
+                            results.append(
+                                {
+                                    "source": "receipt",
+                                    "receipt_id": meta.get("receipt_id", ""),
+                                    "summary": getattr(m, "content", str(m))[:200],
+                                    "verdict": meta.get("verdict", "unknown"),
+                                    "confidence": meta.get("confidence", 0.0),
+                                }
+                            )
                 except (AttributeError, TypeError, RuntimeError, ValueError):
                     pass
 
@@ -234,13 +232,15 @@ class PipelineKMBridge:
                         if meta.get("item_type") == "decision_outcome" or "decision_outcome" in (
                             meta.get("tags") or []
                         ):
-                            results.append({
-                                "source": "outcome",
-                                "outcome_id": meta.get("outcome_id", ""),
-                                "description": getattr(m, "content", str(m))[:200],
-                                "impact_score": meta.get("impact_score", 0.0),
-                                "lessons_learned": meta.get("lessons_learned", ""),
-                            })
+                            results.append(
+                                {
+                                    "source": "outcome",
+                                    "outcome_id": meta.get("outcome_id", ""),
+                                    "description": getattr(m, "content", str(m))[:200],
+                                    "impact_score": meta.get("impact_score", 0.0),
+                                    "lessons_learned": meta.get("lessons_learned", ""),
+                                }
+                            )
                 except (AttributeError, TypeError, RuntimeError, ValueError):
                     pass
 
@@ -248,17 +248,16 @@ class PipelineKMBridge:
             if len(results) < limit:
                 goal_lower = goal_description.lower()
                 for outcome_id, ingestion in adapter._ingested_outcomes.items():
-                    if any(
-                        word in outcome_id.lower()
-                        for word in goal_lower.split()[:5]
-                    ):
-                        results.append({
-                            "source": "outcome",
-                            "outcome_id": outcome_id,
-                            "description": f"Past outcome {outcome_id}",
-                            "impact_score": 0.5,
-                            "lessons_learned": "",
-                        })
+                    if any(word in outcome_id.lower() for word in goal_lower.split()[:5]):
+                        results.append(
+                            {
+                                "source": "outcome",
+                                "outcome_id": outcome_id,
+                                "description": f"Past outcome {outcome_id}",
+                                "impact_score": 0.5,
+                                "lessons_learned": "",
+                            }
+                        )
                     if len(results) >= limit:
                         break
 
@@ -300,14 +299,16 @@ class PipelineKMBridge:
                 if goal_lower in task_lower or any(
                     word in task_lower for word in goal_lower.split()[:5]
                 ):
-                    results.append({
-                        "source": "debate",
-                        "debate_id": outcome.debate_id,
-                        "task": outcome.task,
-                        "final_answer": outcome.final_answer[:200],
-                        "confidence": outcome.confidence,
-                        "consensus_reached": outcome.consensus_reached,
-                    })
+                    results.append(
+                        {
+                            "source": "debate",
+                            "debate_id": outcome.debate_id,
+                            "task": outcome.task,
+                            "final_answer": outcome.final_answer[:200],
+                            "confidence": outcome.confidence,
+                            "consensus_reached": outcome.consensus_reached,
+                        }
+                    )
                 if len(results) >= limit:
                     break
 
@@ -322,16 +323,18 @@ class PipelineKMBridge:
                     for m in matches or []:
                         meta = getattr(m, "metadata", {})
                         if meta.get("task") and meta.get("consensus_reached") is not None:
-                            results.append({
-                                "source": "debate",
-                                "debate_id": meta.get("debate_id", getattr(m, "source_id", "")),
-                                "task": meta.get("task", ""),
-                                "final_answer": getattr(m, "content", "")[:200],
-                                "confidence": meta.get("confidence", 0.0) if isinstance(
-                                    meta.get("confidence"), (int, float)
-                                ) else 0.0,
-                                "consensus_reached": meta.get("consensus_reached", False),
-                            })
+                            results.append(
+                                {
+                                    "source": "debate",
+                                    "debate_id": meta.get("debate_id", getattr(m, "source_id", "")),
+                                    "task": meta.get("task", ""),
+                                    "final_answer": getattr(m, "content", "")[:200],
+                                    "confidence": meta.get("confidence", 0.0)
+                                    if isinstance(meta.get("confidence"), (int, float))
+                                    else 0.0,
+                                    "consensus_reached": meta.get("consensus_reached", False),
+                                }
+                            )
                 except (AttributeError, TypeError, RuntimeError, ValueError):
                     pass
 
@@ -362,9 +365,7 @@ class PipelineKMBridge:
             "debates": self.query_debate_precedents(goal_description, limit=limit),
         }
 
-    def enrich_goals_with_adapter_precedents(
-        self, goal_graph: Any
-    ) -> Any:
+    def enrich_goals_with_adapter_precedents(self, goal_graph: Any) -> Any:
         """Enrich each goal in the graph with adapter-sourced precedents.
 
         For every goal, queries Receipt, Outcome, and Debate adapters and
@@ -442,9 +443,7 @@ class PipelineKMBridge:
             objective = result_dict.get("objective", "pipeline result")
             cycle_id = result_dict.get("cycle_id", "unknown")
             self._km.add(
-                content=(
-                    f"Pipeline cycle {cycle_id}: {objective}"
-                ),
+                content=(f"Pipeline cycle {cycle_id}: {objective}"),
                 metadata={
                     "item_type": "pipeline_result",
                     "cycle_id": cycle_id,

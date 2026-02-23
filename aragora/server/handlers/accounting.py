@@ -572,7 +572,9 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
                 )
                 end_date = datetime.fromisoformat(end_date_str) if end_date_str else datetime.now()
             except ValueError:
-                return web.json_response({"error": "Invalid date format. Use ISO 8601."}, status=400)
+                return web.json_response(
+                    {"error": "Invalid date format. Use ISO 8601."}, status=400
+                )
 
             transactions = []
 

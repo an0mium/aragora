@@ -37,8 +37,18 @@ def handler():
 def sample_cartographer_data():
     return {
         "nodes": [
-            {"id": "n1", "type": "proposal", "summary": "Build rate limiter", "content": "Token bucket"},
-            {"id": "n2", "type": "evidence", "summary": "Reduces 429 errors", "content": "Evidence"},
+            {
+                "id": "n1",
+                "type": "proposal",
+                "summary": "Build rate limiter",
+                "content": "Token bucket",
+            },
+            {
+                "id": "n2",
+                "type": "evidence",
+                "summary": "Reduces 429 errors",
+                "content": "Evidence",
+            },
             {"id": "n3", "type": "critique", "summary": "Distributed?", "content": "Question"},
         ],
         "edges": [
@@ -94,10 +104,12 @@ class TestHandleFromDebate:
 
     @pytest.mark.asyncio
     async def test_from_debate_returns_pipeline(self, handler, sample_cartographer_data):
-        result = await handler.handle_from_debate({
-            "cartographer_data": sample_cartographer_data,
-            "auto_advance": True,
-        })
+        result = await handler.handle_from_debate(
+            {
+                "cartographer_data": sample_cartographer_data,
+                "auto_advance": True,
+            }
+        )
         body = _body(result)
         assert "pipeline_id" in body
         assert body["pipeline_id"].startswith("pipe-")
@@ -106,9 +118,11 @@ class TestHandleFromDebate:
 
     @pytest.mark.asyncio
     async def test_from_debate_stores_result(self, handler, sample_cartographer_data):
-        result = await handler.handle_from_debate({
-            "cartographer_data": sample_cartographer_data,
-        })
+        result = await handler.handle_from_debate(
+            {
+                "cartographer_data": sample_cartographer_data,
+            }
+        )
         body = _body(result)
         pid = body["pipeline_id"]
         assert _get_store().get(pid) is not None
@@ -116,30 +130,36 @@ class TestHandleFromDebate:
 
     @pytest.mark.asyncio
     async def test_from_debate_no_auto_advance(self, handler, sample_cartographer_data):
-        result = await handler.handle_from_debate({
-            "cartographer_data": sample_cartographer_data,
-            "auto_advance": False,
-        })
+        result = await handler.handle_from_debate(
+            {
+                "cartographer_data": sample_cartographer_data,
+                "auto_advance": False,
+            }
+        )
         status = _body(result)["stage_status"]
         assert status.get("ideas") == "complete"
         assert status.get("goals") == "pending"
 
     @pytest.mark.asyncio
     async def test_from_debate_total_nodes(self, handler, sample_cartographer_data):
-        result = await handler.handle_from_debate({
-            "cartographer_data": sample_cartographer_data,
-            "auto_advance": True,
-        })
+        result = await handler.handle_from_debate(
+            {
+                "cartographer_data": sample_cartographer_data,
+                "auto_advance": True,
+            }
+        )
         body = _body(result)
         assert "total_nodes" in body
         assert body["total_nodes"] > 0
 
     @pytest.mark.asyncio
     async def test_from_debate_stages_completed(self, handler, sample_cartographer_data):
-        result = await handler.handle_from_debate({
-            "cartographer_data": sample_cartographer_data,
-            "auto_advance": True,
-        })
+        result = await handler.handle_from_debate(
+            {
+                "cartographer_data": sample_cartographer_data,
+                "auto_advance": True,
+            }
+        )
         assert _body(result)["stages_completed"] == 4
 
 
@@ -161,9 +181,11 @@ class TestHandleFromIdeas:
 
     @pytest.mark.asyncio
     async def test_from_ideas_returns_pipeline(self, handler):
-        result = await handler.handle_from_ideas({
-            "ideas": ["Build a rate limiter", "Add caching"],
-        })
+        result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build a rate limiter", "Add caching"],
+            }
+        )
         body = _body(result)
         assert "pipeline_id" in body
         assert body["pipeline_id"].startswith("pipe-")
@@ -172,29 +194,35 @@ class TestHandleFromIdeas:
 
     @pytest.mark.asyncio
     async def test_from_ideas_stores_result(self, handler):
-        result = await handler.handle_from_ideas({
-            "ideas": ["Idea one", "Idea two"],
-        })
+        result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Idea one", "Idea two"],
+            }
+        )
         pid = _body(result)["pipeline_id"]
         assert _get_store().get(pid) is not None
         assert pid in _pipeline_objects
 
     @pytest.mark.asyncio
     async def test_from_ideas_goals_count(self, handler):
-        result = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching layer", "Improve docs"],
-            "auto_advance": True,
-        })
+        result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching layer", "Improve docs"],
+                "auto_advance": True,
+            }
+        )
         body = _body(result)
         assert "goals_count" in body
         assert body["goals_count"] > 0
 
     @pytest.mark.asyncio
     async def test_from_ideas_no_auto_advance(self, handler):
-        result = await handler.handle_from_ideas({
-            "ideas": ["Some idea"],
-            "auto_advance": False,
-        })
+        result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Some idea"],
+                "auto_advance": False,
+            }
+        )
         status = _body(result)["stage_status"]
         assert status.get("ideas") == "complete"
         assert status.get("goals") == "complete"
@@ -220,40 +248,50 @@ class TestHandleAdvance:
 
     @pytest.mark.asyncio
     async def test_pipeline_not_found(self, handler):
-        result = await handler.handle_advance({
-            "pipeline_id": "nonexistent",
-            "target_stage": "goals",
-        })
+        result = await handler.handle_advance(
+            {
+                "pipeline_id": "nonexistent",
+                "target_stage": "goals",
+            }
+        )
         assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_invalid_stage(self, handler):
         # Create a pipeline first
-        ideas_result = await handler.handle_from_ideas({
-            "ideas": ["Test idea"],
-            "auto_advance": False,
-        })
+        ideas_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Test idea"],
+                "auto_advance": False,
+            }
+        )
         pid = _body(ideas_result)["pipeline_id"]
 
-        result = await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "invalid_stage",
-        })
+        result = await handler.handle_advance(
+            {
+                "pipeline_id": pid,
+                "target_stage": "invalid_stage",
+            }
+        )
         assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_advance_to_actions(self, handler):
         # Create pipeline with goals
-        ideas_result = await handler.handle_from_ideas({
-            "ideas": ["Build rate limiter", "Add caching"],
-            "auto_advance": False,
-        })
+        ideas_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Build rate limiter", "Add caching"],
+                "auto_advance": False,
+            }
+        )
         pid = _body(ideas_result)["pipeline_id"]
 
-        result = await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "actions",
-        })
+        result = await handler.handle_advance(
+            {
+                "pipeline_id": pid,
+                "target_stage": "actions",
+            }
+        )
         body = _body(result)
         assert body["pipeline_id"] == pid
         assert body["advanced_to"] == "actions"
@@ -261,16 +299,20 @@ class TestHandleAdvance:
 
     @pytest.mark.asyncio
     async def test_advance_updates_stores(self, handler):
-        ideas_result = await handler.handle_from_ideas({
-            "ideas": ["Test idea"],
-            "auto_advance": False,
-        })
+        ideas_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Test idea"],
+                "auto_advance": False,
+            }
+        )
         pid = _body(ideas_result)["pipeline_id"]
 
-        await handler.handle_advance({
-            "pipeline_id": pid,
-            "target_stage": "actions",
-        })
+        await handler.handle_advance(
+            {
+                "pipeline_id": pid,
+                "target_stage": "actions",
+            }
+        )
         # Both stores should be updated
         stored = _get_store().get(pid)
         assert stored is not None
@@ -290,10 +332,12 @@ class TestHandleGetPipeline:
 
     @pytest.mark.asyncio
     async def test_get_existing_pipeline(self, handler):
-        create_result = await handler.handle_from_ideas({
-            "ideas": ["Test idea"],
-            "auto_advance": True,
-        })
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Test idea"],
+                "auto_advance": True,
+            }
+        )
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_pipeline(pid)
@@ -316,10 +360,12 @@ class TestHandleGetStage:
 
     @pytest.mark.asyncio
     async def test_invalid_stage(self, handler):
-        create_result = await handler.handle_from_ideas({
-            "ideas": ["Test idea"],
-            "auto_advance": True,
-        })
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Test idea"],
+                "auto_advance": True,
+            }
+        )
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "nonexistent")
@@ -327,10 +373,12 @@ class TestHandleGetStage:
 
     @pytest.mark.asyncio
     async def test_get_ideas_stage(self, handler):
-        create_result = await handler.handle_from_ideas({
-            "ideas": ["Rate limiter", "Caching"],
-            "auto_advance": True,
-        })
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Rate limiter", "Caching"],
+                "auto_advance": True,
+            }
+        )
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "ideas")
@@ -340,10 +388,12 @@ class TestHandleGetStage:
 
     @pytest.mark.asyncio
     async def test_get_goals_stage(self, handler):
-        create_result = await handler.handle_from_ideas({
-            "ideas": ["Rate limiter", "Caching"],
-            "auto_advance": True,
-        })
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Rate limiter", "Caching"],
+                "auto_advance": True,
+            }
+        )
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "goals")
@@ -353,10 +403,12 @@ class TestHandleGetStage:
 
     @pytest.mark.asyncio
     async def test_get_actions_stage(self, handler):
-        create_result = await handler.handle_from_ideas({
-            "ideas": ["Rate limiter", "Caching"],
-            "auto_advance": True,
-        })
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Rate limiter", "Caching"],
+                "auto_advance": True,
+            }
+        )
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "actions")
@@ -364,10 +416,12 @@ class TestHandleGetStage:
 
     @pytest.mark.asyncio
     async def test_get_orchestration_stage(self, handler):
-        create_result = await handler.handle_from_ideas({
-            "ideas": ["Rate limiter", "Caching"],
-            "auto_advance": True,
-        })
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Rate limiter", "Caching"],
+                "auto_advance": True,
+            }
+        )
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "orchestration")
@@ -387,9 +441,11 @@ class TestHandleConvertDebate:
 
     @pytest.mark.asyncio
     async def test_convert_debate_returns_react_flow(self, handler, sample_cartographer_data):
-        result = await handler.handle_convert_debate({
-            "cartographer_data": sample_cartographer_data,
-        })
+        result = await handler.handle_convert_debate(
+            {
+                "cartographer_data": sample_cartographer_data,
+            }
+        )
         body = _body(result)
         assert "nodes" in body
         assert "edges" in body
@@ -419,9 +475,11 @@ class TestHandleConvertWorkflow:
                 {"from_step": "s1", "to_step": "s2"},
             ],
         }
-        result = await handler.handle_convert_workflow({
-            "workflow_data": workflow_data,
-        })
+        result = await handler.handle_convert_workflow(
+            {
+                "workflow_data": workflow_data,
+            }
+        )
         body = _body(result)
         assert "nodes" in body
         assert "edges" in body

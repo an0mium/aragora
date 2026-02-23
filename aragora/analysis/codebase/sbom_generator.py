@@ -361,7 +361,11 @@ class SBOMGenerator:
         license_count = len(set(lic for c in components for lic in c.licenses if lic))
 
         logger.info(
-            "[SBOM] Generated %s: %s components, %s vulnerabilities, %s licenses", format.value, len(components), vuln_count, license_count
+            "[SBOM] Generated %s: %s components, %s vulnerabilities, %s licenses",
+            format.value,
+            len(components),
+            vuln_count,
+            license_count,
         )
 
         return SBOMResult(

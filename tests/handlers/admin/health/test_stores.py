@@ -1013,18 +1013,20 @@ class TestDatabaseStoresHealth:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = []
 
-        h = _make_handler({
-            "storage": mock_storage,
-            "elo_system": mock_elo,
-            "insight_store": MagicMock(),
-            "flip_detector": MagicMock(),
-            "user_store": MagicMock(),
-            "nomic_dir": tmp_nomic_dir,
-            "integration_store": MagicMock(),
-            "gmail_token_store": MagicMock(),
-            "sync_store": MagicMock(),
-            "decision_result_store": MagicMock(),
-        })
+        h = _make_handler(
+            {
+                "storage": mock_storage,
+                "elo_system": mock_elo,
+                "insight_store": MagicMock(),
+                "flip_detector": MagicMock(),
+                "user_store": MagicMock(),
+                "nomic_dir": tmp_nomic_dir,
+                "integration_store": MagicMock(),
+                "gmail_token_store": MagicMock(),
+                "sync_store": MagicMock(),
+                "decision_result_store": MagicMock(),
+            }
+        )
         body = _body(h.database_stores_health())
         assert body["status"] == "healthy"
         # At least storage, elo, insight, flip, user, integration, gmail, sync, decision = 9 connected
@@ -1035,10 +1037,12 @@ class TestDatabaseStoresHealth:
         """Only debate_storage and elo_system affect overall status."""
         # Other stores failing should not degrade status because
         # they return only a dict (not a tuple with healthy bool)
-        h = _make_handler({
-            "insight_store": None,  # will be not_initialized
-            "flip_detector": None,
-        })
+        h = _make_handler(
+            {
+                "insight_store": None,  # will be not_initialized
+                "flip_detector": None,
+            }
+        )
         body = _body(h.database_stores_health())
         assert body["status"] == "healthy"
 

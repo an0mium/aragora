@@ -256,9 +256,7 @@ class TestGetCosts:
     @pytest.mark.asyncio
     async def test_custom_query_params(self, handler):
         """Custom range and workspace_id are forwarded."""
-        request = _make_request(
-            "GET", "/api/v1/costs", query="range=30d&workspace_id=ws-123"
-        )
+        request = _make_request("GET", "/api/v1/costs", query="range=30d&workspace_id=ws-123")
         summary = _make_cost_summary()
 
         with patch(
@@ -319,9 +317,7 @@ class TestGetBreakdown:
 
     @pytest.mark.asyncio
     async def test_breakdown_by_provider(self, handler):
-        request = _make_request(
-            "GET", "/api/v1/costs/breakdown", query="group_by=provider"
-        )
+        request = _make_request("GET", "/api/v1/costs/breakdown", query="group_by=provider")
         summary = _make_cost_summary()
 
         with patch(
@@ -338,9 +334,7 @@ class TestGetBreakdown:
 
     @pytest.mark.asyncio
     async def test_breakdown_by_feature(self, handler):
-        request = _make_request(
-            "GET", "/api/v1/costs/breakdown", query="group_by=feature"
-        )
+        request = _make_request("GET", "/api/v1/costs/breakdown", query="group_by=feature")
         summary = _make_cost_summary()
 
         with patch(
@@ -356,9 +350,7 @@ class TestGetBreakdown:
 
     @pytest.mark.asyncio
     async def test_breakdown_unknown_group_defaults_to_provider(self, handler):
-        request = _make_request(
-            "GET", "/api/v1/costs/breakdown", query="group_by=unknown"
-        )
+        request = _make_request("GET", "/api/v1/costs/breakdown", query="group_by=unknown")
         summary = _make_cost_summary()
 
         with patch(
@@ -454,14 +446,22 @@ class TestGetAlerts:
         mock_tracker = MagicMock()
         mock_tracker.query_km_workspace_alerts.return_value = []
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=[
-                {"id": "alert-1", "type": "budget_warning", "message": "80% usage", "severity": "warning"}
-            ],
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=[
+                    {
+                        "id": "alert-1",
+                        "type": "budget_warning",
+                        "message": "80% usage",
+                        "severity": "warning",
+                    }
+                ],
+            ),
         ):
             request = _make_request("GET", "/api/v1/costs/alerts")
             response = await handler.handle_get_alerts(request)
@@ -489,15 +489,24 @@ class TestGetAlerts:
     async def test_alerts_includes_km_alerts(self, handler):
         mock_tracker = MagicMock()
         mock_tracker.query_km_workspace_alerts.return_value = [
-            {"id": "km-1", "level": "warning", "message": "KM alert", "acknowledged": False, "created_at": "2026-02-20T00:00:00Z"},
+            {
+                "id": "km-1",
+                "level": "warning",
+                "message": "KM alert",
+                "acknowledged": False,
+                "created_at": "2026-02-20T00:00:00Z",
+            },
         ]
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             request = _make_request("GET", "/api/v1/costs/alerts")
             response = await handler.handle_get_alerts(request)
@@ -514,12 +523,15 @@ class TestGetAlerts:
             {"id": "km-1", "level": "warning", "message": "acknowledged", "acknowledged": True},
         ]
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             request = _make_request("GET", "/api/v1/costs/alerts")
             response = await handler.handle_get_alerts(request)
@@ -553,13 +565,16 @@ class TestSetBudget:
         request = _make_request("POST", "/api/v1/costs/budget", body=body)
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_set_budget(request)
 
@@ -604,13 +619,16 @@ class TestSetBudget:
         body = {"budget": 500}
         request = _make_request("POST", "/api/v1/costs/budget", body=body)
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_set_budget(request)
 
@@ -797,13 +815,17 @@ class TestGetRecommendations:
 
         request = _make_request("GET", "/api/v1/costs/recommendations")
 
-        with patch(
-            "aragora.billing.optimizer.get_cost_optimizer",
-            return_value=mock_optimizer,
-        ), patch(
-            "aragora.billing.recommendations.RecommendationStatus",
-        ), patch(
-            "aragora.billing.recommendations.RecommendationType",
+        with (
+            patch(
+                "aragora.billing.optimizer.get_cost_optimizer",
+                return_value=mock_optimizer,
+            ),
+            patch(
+                "aragora.billing.recommendations.RecommendationStatus",
+            ),
+            patch(
+                "aragora.billing.recommendations.RecommendationType",
+            ),
         ):
             response = await handler.handle_get_recommendations(request)
 
@@ -916,13 +938,16 @@ class TestApplyRecommendation:
             match_info={"recommendation_id": "rec-1"},
         )
 
-        with patch(
-            "aragora.billing.optimizer.get_cost_optimizer",
-            return_value=mock_optimizer,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.billing.optimizer.get_cost_optimizer",
+                return_value=mock_optimizer,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_apply_recommendation(request)
 
@@ -943,13 +968,16 @@ class TestApplyRecommendation:
             match_info={"recommendation_id": "rec-missing"},
         )
 
-        with patch(
-            "aragora.billing.optimizer.get_cost_optimizer",
-            return_value=mock_optimizer,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.billing.optimizer.get_cost_optimizer",
+                return_value=mock_optimizer,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_apply_recommendation(request)
 
@@ -1105,9 +1133,7 @@ class TestGetForecast:
         mock_forecaster = MagicMock()
         mock_forecaster.generate_forecast = AsyncMock(return_value=mock_report)
 
-        request = _make_request(
-            "GET", "/api/v1/costs/forecast", query="workspace_id=ws-1&days=60"
-        )
+        request = _make_request("GET", "/api/v1/costs/forecast", query="workspace_id=ws-1&days=60")
 
         with patch(
             "aragora.billing.forecaster.get_cost_forecaster",
@@ -1231,15 +1257,19 @@ class TestSimulateForecast:
         }
         request = _make_request("POST", "/api/v1/costs/forecast/simulate", body=body)
 
-        with patch(
-            "aragora.billing.forecaster.get_cost_forecaster",
-            return_value=mock_forecaster,
-        ), patch(
-            "aragora.billing.forecaster.SimulationScenario",
-        ) as mock_scenario_cls, patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.billing.forecaster.get_cost_forecaster",
+                return_value=mock_forecaster,
+            ),
+            patch(
+                "aragora.billing.forecaster.SimulationScenario",
+            ) as mock_scenario_cls,
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_simulate_forecast(request)
 
@@ -1250,13 +1280,16 @@ class TestSimulateForecast:
         body = {"scenario": {}}
         request = _make_request("POST", "/api/v1/costs/forecast/simulate", body=body)
 
-        with patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
-        ), patch(
-            "aragora.billing.forecaster.get_cost_forecaster",
-            side_effect=ImportError("no forecaster"),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
+            patch(
+                "aragora.billing.forecaster.get_cost_forecaster",
+                side_effect=ImportError("no forecaster"),
+            ),
         ):
             response = await handler.handle_simulate_forecast(request)
 
@@ -1296,9 +1329,7 @@ class TestExport:
     @pytest.mark.asyncio
     async def test_export_csv(self, handler):
         summary = _make_cost_summary()
-        request = _make_request(
-            "GET", "/api/v1/costs/export", query="format=csv&range=7d"
-        )
+        request = _make_request("GET", "/api/v1/costs/export", query="format=csv&range=7d")
 
         with patch(
             "aragora.server.handlers.costs.handler._models.get_cost_summary",
@@ -1312,9 +1343,7 @@ class TestExport:
 
     @pytest.mark.asyncio
     async def test_export_invalid_format(self, handler):
-        request = _make_request(
-            "GET", "/api/v1/costs/export", query="format=xml"
-        )
+        request = _make_request("GET", "/api/v1/costs/export", query="format=xml")
 
         response = await handler.handle_export(request)
 
@@ -1408,9 +1437,7 @@ class TestGetUsage:
         mock_tracker = MagicMock()
         mock_tracker.generate_report = AsyncMock(return_value=mock_report)
 
-        request = _make_request(
-            "GET", "/api/v1/costs/usage", query="group_by=operation"
-        )
+        request = _make_request("GET", "/api/v1/costs/usage", query="group_by=operation")
 
         with patch(
             "aragora.server.handlers.costs.handler._models._get_cost_tracker",
@@ -1512,13 +1539,16 @@ class TestCreateBudget:
         request = _make_request("POST", "/api/v1/costs/budgets", body=body)
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_create_budget(request)
 
@@ -1578,13 +1608,16 @@ class TestCheckConstraints:
         body = {"workspace_id": "ws-1", "estimated_cost_usd": 50, "operation": "debate"}
         request = _make_request("POST", "/api/v1/costs/constraints/check", body=body)
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_check_constraints(request)
 
@@ -1607,13 +1640,16 @@ class TestCheckConstraints:
         body = {"workspace_id": "ws-1", "estimated_cost_usd": 10}
         request = _make_request("POST", "/api/v1/costs/constraints/check", body=body)
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_check_constraints(request)
 
@@ -1635,13 +1671,16 @@ class TestCheckConstraints:
         body = {"estimated_cost_usd": 5}
         request = _make_request("POST", "/api/v1/costs/constraints/check", body=body)
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_check_constraints(request)
 
@@ -1669,13 +1708,16 @@ class TestCheckConstraints:
         body = {"estimated_cost_usd": 100}
         request = _make_request("POST", "/api/v1/costs/constraints/check", body=body)
 
-        with patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.costs.handler.parse_json_body",
-            new_callable=AsyncMock,
-            return_value=(body, None),
+        with (
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler.parse_json_body",
+                new_callable=AsyncMock,
+                return_value=(body, None),
+            ),
         ):
             response = await handler.handle_check_constraints(request)
 

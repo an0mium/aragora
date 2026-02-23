@@ -162,12 +162,8 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
 
         KnowledgeRelationship(
             id=kr_id,
-            from_node_id=self._node_map.get(
-                edge.get("source_id", edge.get("source", "")), ""
-            ),
-            to_node_id=self._node_map.get(
-                edge.get("target_id", edge.get("target", "")), ""
-            ),
+            from_node_id=self._node_map.get(edge.get("source_id", edge.get("source", "")), ""),
+            to_node_id=self._node_map.get(edge.get("target_id", edge.get("target", "")), ""),
             relationship_type=relationship_type,
             metadata={
                 "canvas_id": canvas_id,
@@ -237,10 +233,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
         Returns:
             Canvas-compatible dict or None if no matching nodes.
         """
-        matching = [
-            n for n in km_nodes
-            if n.get("metadata", {}).get("canvas_id") == canvas_id
-        ]
+        matching = [n for n in km_nodes if n.get("metadata", {}).get("canvas_id") == canvas_id]
         if not matching:
             return None
 
@@ -250,23 +243,25 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
             canvas_meta = meta.get("canvas", {})
             idea_type = meta.get("idea_type", "concept")
 
-            nodes.append({
-                "id": meta.get("canvas_node_id", km_node["id"]),
-                "type": "knowledge",
-                "position": canvas_meta.get("position", {"x": 0, "y": 0}),
-                "size": canvas_meta.get("size", {"width": 220, "height": 80}),
-                "label": km_node.get("content", "").split("\n")[0],
-                "data": {
-                    "idea_type": idea_type,
-                    "body": "\n".join(km_node.get("content", "").split("\n")[1:]),
-                    "confidence": km_node.get("confidence", 0.5),
-                    "tags": km_node.get("topics", []),
-                    "km_node_id": km_node["id"],
-                    "stage": "ideas",
-                    "rf_type": "ideaNode",
-                },
-                "style": canvas_meta.get("style", {}),
-            })
+            nodes.append(
+                {
+                    "id": meta.get("canvas_node_id", km_node["id"]),
+                    "type": "knowledge",
+                    "position": canvas_meta.get("position", {"x": 0, "y": 0}),
+                    "size": canvas_meta.get("size", {"width": 220, "height": 80}),
+                    "label": km_node.get("content", "").split("\n")[0],
+                    "data": {
+                        "idea_type": idea_type,
+                        "body": "\n".join(km_node.get("content", "").split("\n")[1:]),
+                        "confidence": km_node.get("confidence", 0.5),
+                        "tags": km_node.get("topics", []),
+                        "km_node_id": km_node["id"],
+                        "stage": "ideas",
+                        "rf_type": "ideaNode",
+                    },
+                    "style": canvas_meta.get("style", {}),
+                }
+            )
 
         return {
             "id": canvas_id,

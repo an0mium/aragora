@@ -236,9 +236,7 @@ class TeamsOAuthHandler(SecureHandler):
                         fallback_permission=CONNECTOR_AUTHORIZE,
                     )
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_install(query_params_dict)
             return error_response("Method not allowed", 405)
 
@@ -248,9 +246,7 @@ class TeamsOAuthHandler(SecureHandler):
                 try:
                     self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_refresh(body)
             return error_response("Method not allowed", 405)
 
@@ -260,9 +256,7 @@ class TeamsOAuthHandler(SecureHandler):
                 try:
                     self._check_permission(auth_context, PERM_TEAMS_OAUTH_DISCONNECT)
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_disconnect(body)
             return error_response("Method not allowed", 405)
 
@@ -272,9 +266,7 @@ class TeamsOAuthHandler(SecureHandler):
                 try:
                     self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_list_tenants()
             return error_response("Method not allowed", 405)
 
@@ -287,17 +279,13 @@ class TeamsOAuthHandler(SecureHandler):
                 try:
                     self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_get_tenant(tenant_id)
             if method == "DELETE":
                 try:
                     self._check_permission(auth_context, PERM_TEAMS_OAUTH_DISCONNECT)
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_disconnect({"tenant_id": tenant_id})
             return error_response("Method not allowed", 405)
 
@@ -309,9 +297,7 @@ class TeamsOAuthHandler(SecureHandler):
                 try:
                     self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
                 except ForbiddenError:
-                    return error_response(
-                        "Permission denied", 403
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_tenant_status(tenant_id)
             return error_response("Method not allowed", 405)
 

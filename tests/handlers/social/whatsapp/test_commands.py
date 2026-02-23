@@ -44,6 +44,7 @@ _CMD = "aragora.server.handlers.social.whatsapp.commands"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_handler_instance(perm_error: str | None = None, ctx: dict | None = None):
     """Create a mock handler instance with configurable permission checks."""
     handler = MagicMock()
@@ -53,8 +54,11 @@ def _make_handler_instance(perm_error: str | None = None, ctx: dict | None = Non
 
 
 def _make_mock_debate_result(
-    consensus=True, confidence=0.85, rounds=3,
-    final_answer="AI should be regulated.", debate_id="debate-123",
+    consensus=True,
+    confidence=0.85,
+    rounds=3,
+    final_answer="AI should be regulated.",
+    debate_id="debate-123",
 ):
     result = MagicMock()
     result.consensus_reached = consensus
@@ -106,6 +110,7 @@ def _gauntlet_response(status_code=200, run_id="gauntlet-001", score=0.9, passed
 # command_help
 # ---------------------------------------------------------------------------
 
+
 class TestCommandHelp:
     """Tests for command_help()."""
 
@@ -115,8 +120,18 @@ class TestCommandHelp:
 
     def test_contains_all_commands(self):
         result = command_help()
-        for cmd in ["help", "status", "agents", "debate", "plan", "implement",
-                     "gauntlet", "search", "recent", "receipt"]:
+        for cmd in [
+            "help",
+            "status",
+            "agents",
+            "debate",
+            "plan",
+            "implement",
+            "gauntlet",
+            "search",
+            "recent",
+            "receipt",
+        ]:
             assert cmd in result.lower(), f"Missing command: {cmd}"
 
     def test_contains_examples(self):
@@ -132,6 +147,7 @@ class TestCommandHelp:
 # ---------------------------------------------------------------------------
 # command_status
 # ---------------------------------------------------------------------------
+
 
 class TestCommandStatus:
     """Tests for command_status()."""
@@ -183,6 +199,7 @@ class TestCommandStatus:
 # ---------------------------------------------------------------------------
 # command_agents
 # ---------------------------------------------------------------------------
+
 
 class TestCommandAgents:
     """Tests for command_agents()."""
@@ -266,6 +283,7 @@ class TestCommandAgents:
 # ---------------------------------------------------------------------------
 # command_debate
 # ---------------------------------------------------------------------------
+
 
 class TestCommandDebate:
     """Tests for command_debate() synchronous dispatch."""
@@ -351,7 +369,9 @@ class TestCommandDebate:
     def test_decision_integrity_passed_through(self, mock_create_task):
         handler = _make_handler_instance()
         command_debate(
-            handler, "+1234567890", "Alice",
+            handler,
+            "+1234567890",
+            "Alice",
             "Should we adopt microservices?",
             decision_integrity={"mode": "full"},
         )
@@ -369,6 +389,7 @@ class TestCommandDebate:
 # ---------------------------------------------------------------------------
 # run_debate_async
 # ---------------------------------------------------------------------------
+
 
 class TestRunDebateAsync:
     """Tests for run_debate_async().
@@ -416,13 +437,16 @@ class TestRunDebateAsync:
         if agents_return is None:
             agents_return = ["agent1", "agent2"]
         mocks["agents_mod"].get_agents_by_names.return_value = agents_return
-        return patch.dict("sys.modules", {
-            "aragora": mocks["aragora_mod"],
-            "aragora.agents": mocks["agents_mod"],
-            "aragora.server.debate_origin": mocks["origin_mod"],
-            "aragora.server.bindings": mocks["bindings_mod"],
-            "aragora.server.decision_integrity_utils": mocks["integrity_mod"],
-        })
+        return patch.dict(
+            "sys.modules",
+            {
+                "aragora": mocks["aragora_mod"],
+                "aragora.agents": mocks["agents_mod"],
+                "aragora.server.debate_origin": mocks["origin_mod"],
+                "aragora.server.bindings": mocks["bindings_mod"],
+                "aragora.server.decision_integrity_utils": mocks["integrity_mod"],
+            },
+        )
 
     @pytest.mark.asyncio
     @patch(f"{_CMD}.emit_debate_completed")
@@ -431,8 +455,14 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_successful_debate(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks, mock_debate_result,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
+        mock_debate_result,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_debate_result)
@@ -452,7 +482,11 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_no_agents_available(
-        self, mock_send, mock_record_started, mock_record_failed, _debate_mocks,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_record_failed,
+        _debate_mocks,
     ):
         with self._patch_debate_imports(_debate_mocks, agents_return=[]):
             await run_debate_async("+1234567890", "Alice", "Should AI be regulated?")
@@ -466,7 +500,11 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_debate_runtime_error(
-        self, mock_send, mock_record_started, mock_record_failed, _debate_mocks,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_record_failed,
+        _debate_mocks,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(side_effect=RuntimeError("boom"))
@@ -484,7 +522,11 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_debate_value_error(
-        self, mock_send, mock_record_started, mock_record_failed, _debate_mocks,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_record_failed,
+        _debate_mocks,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(side_effect=ValueError("bad value"))
@@ -504,9 +546,15 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.send_voice_summary", new_callable=AsyncMock)
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_tts_voice_sent_when_enabled(
-        self, mock_send_buttons, mock_send_voice, mock_record_started,
-        mock_record_completed, mock_emit_started, mock_emit_completed,
-        _debate_mocks, mock_debate_result,
+        self,
+        mock_send_buttons,
+        mock_send_voice,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
+        mock_debate_result,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_debate_result)
@@ -526,9 +574,15 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.send_voice_summary", new_callable=AsyncMock)
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_tts_voice_not_sent_when_disabled(
-        self, mock_send_buttons, mock_send_voice, mock_record_started,
-        mock_record_completed, mock_emit_started, mock_emit_completed,
-        _debate_mocks, mock_debate_result,
+        self,
+        mock_send_buttons,
+        mock_send_voice,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
+        mock_debate_result,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_debate_result)
@@ -546,8 +600,14 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_long_topic_truncated_in_response(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks, mock_debate_result,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
+        mock_debate_result,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_debate_result)
@@ -566,8 +626,13 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_long_final_answer_truncated(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
     ):
         result = _make_mock_debate_result(final_answer="X" * 600, debate_id="debate-456")
         mock_arena_instance = MagicMock()
@@ -587,8 +652,13 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_none_final_answer(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
     ):
         result = _make_mock_debate_result(final_answer=None, debate_id="debate-789")
         mock_arena_instance = MagicMock()
@@ -608,8 +678,14 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_interactive_buttons_include_vote_options(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks, mock_debate_result,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
+        mock_debate_result,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_debate_result)
@@ -630,7 +706,11 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_connection_error(
-        self, mock_send, mock_record_started, mock_record_failed, _debate_mocks,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_record_failed,
+        _debate_mocks,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(side_effect=ConnectionError("network down"))
@@ -646,7 +726,11 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_os_error_during_debate(
-        self, mock_send, mock_record_started, mock_record_failed, _debate_mocks,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_record_failed,
+        _debate_mocks,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(side_effect=OSError("disk full"))
@@ -664,8 +748,13 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_consensus_no_in_response(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
     ):
         result = _make_mock_debate_result(consensus=False, confidence=0.3)
         mock_arena_instance = MagicMock()
@@ -685,8 +774,13 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_debate_id_in_response(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
     ):
         result = _make_mock_debate_result(debate_id="my-unique-debate-id")
         mock_arena_instance = MagicMock()
@@ -706,8 +800,14 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_interactive_buttons", new_callable=AsyncMock)
     async def test_profile_name_in_response(
-        self, mock_send_buttons, mock_record_started, mock_record_completed,
-        mock_emit_started, mock_emit_completed, _debate_mocks, mock_debate_result,
+        self,
+        mock_send_buttons,
+        mock_record_started,
+        mock_record_completed,
+        mock_emit_started,
+        mock_emit_completed,
+        _debate_mocks,
+        mock_debate_result,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_debate_result)
@@ -724,7 +824,11 @@ class TestRunDebateAsync:
     @patch(f"{_CMD}.record_debate_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_key_error_during_debate(
-        self, mock_send, mock_record_started, mock_record_failed, _debate_mocks,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_record_failed,
+        _debate_mocks,
     ):
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(side_effect=KeyError("missing"))
@@ -739,6 +843,7 @@ class TestRunDebateAsync:
 # ---------------------------------------------------------------------------
 # command_gauntlet
 # ---------------------------------------------------------------------------
+
 
 class TestCommandGauntlet:
     """Tests for command_gauntlet() synchronous dispatch."""
@@ -787,7 +892,9 @@ class TestCommandGauntlet:
     @patch(f"{_CMD}._config.create_tracked_task")
     def test_successful_gauntlet_creates_ack_and_run(self, mock_create_task):
         handler = _make_handler_instance()
-        command_gauntlet(handler, "+1234567890", "Alice", "We should migrate to microservices architecture")
+        command_gauntlet(
+            handler, "+1234567890", "Alice", "We should migrate to microservices architecture"
+        )
         assert mock_create_task.call_count == 2
         task_names = [call[1]["name"] for call in mock_create_task.call_args_list]
         assert any("ack" in name for name in task_names)
@@ -810,7 +917,9 @@ class TestCommandGauntlet:
     @patch(f"{_CMD}._config.create_tracked_task")
     def test_rbac_check_called_with_correct_permission(self, mock_create_task):
         handler = _make_handler_instance()
-        command_gauntlet(handler, "+1234567890", "Alice", "We should adopt microservices architecture")
+        command_gauntlet(
+            handler, "+1234567890", "Alice", "We should adopt microservices architecture"
+        )
         handler._check_whatsapp_permission.assert_called_once_with(
             "+1234567890", "gauntlet.run", "Alice"
         )
@@ -820,6 +929,7 @@ class TestCommandGauntlet:
 # run_gauntlet_async
 # ---------------------------------------------------------------------------
 
+
 class TestRunGauntletAsync:
     """Tests for run_gauntlet_async()."""
 
@@ -827,9 +937,12 @@ class TestRunGauntletAsync:
         """Patch get_http_pool at its source for inline import."""
         mock_http_mod = MagicMock()
         mock_http_mod.get_http_pool.return_value = pool
-        return patch.dict("sys.modules", {
-            "aragora.server.http_client_pool": mock_http_mod,
-        })
+        return patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.http_client_pool": mock_http_mod,
+            },
+        )
 
     @pytest.mark.asyncio
     @patch(f"{_CMD}.record_gauntlet_completed")
@@ -838,8 +951,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_passed(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         resp = _gauntlet_response(passed=True, score=0.9)
         pool, _ = _gauntlet_session(resp)
@@ -860,8 +977,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_failed_verdict(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         vulns = [
             {"description": "Logical inconsistency found"},
@@ -885,7 +1006,11 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_api_error_response(
-        self, mock_send, mock_record_started, mock_emit_started, mock_record_failed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_record_failed,
     ):
         resp = _gauntlet_response(status_code=500)
         pool, _ = _gauntlet_session(resp)
@@ -903,7 +1028,11 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_connection_error(
-        self, mock_send, mock_record_started, mock_emit_started, mock_record_failed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_record_failed,
     ):
         mock_session = AsyncMock()
         mock_session.post.side_effect = ConnectionError("network down")
@@ -925,7 +1054,11 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_timeout_error(
-        self, mock_send, mock_record_started, mock_emit_started, mock_record_failed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_record_failed,
     ):
         mock_session = AsyncMock()
         mock_session.post.side_effect = TimeoutError("request timed out")
@@ -946,8 +1079,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_many_vulnerabilities_truncated(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         vulns = [{"description": f"Vulnerability {i}"} for i in range(8)]
         resp = _gauntlet_response(passed=False, score=0.4, vulns=vulns)
@@ -966,8 +1103,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_response_includes_run_id(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         resp = _gauntlet_response(run_id="gauntlet-unique-id", score=0.75)
         pool, _ = _gauntlet_session(resp)
@@ -985,8 +1126,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_long_statement_truncated_in_response(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         resp = _gauntlet_response(score=0.8)
         pool, _ = _gauntlet_session(resp)
@@ -1004,8 +1149,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_no_vulnerabilities(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         resp = _gauntlet_response(passed=True, score=0.95, vulns=[])
         pool, _ = _gauntlet_session(resp)
@@ -1023,7 +1172,11 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_os_error(
-        self, mock_send, mock_record_started, mock_emit_started, mock_record_failed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_record_failed,
     ):
         mock_session = AsyncMock()
         mock_session.post.side_effect = OSError("broken pipe")
@@ -1044,8 +1197,12 @@ class TestRunGauntletAsync:
     @patch(f"{_CMD}.record_gauntlet_started")
     @patch(f"{_CMD}.send_text_message", new_callable=AsyncMock)
     async def test_gauntlet_profile_name_in_response(
-        self, mock_send, mock_record_started, mock_emit_started,
-        mock_emit_completed, mock_record_completed,
+        self,
+        mock_send,
+        mock_record_started,
+        mock_emit_started,
+        mock_emit_completed,
+        mock_record_completed,
     ):
         resp = _gauntlet_response(passed=True)
         pool, _ = _gauntlet_session(resp)
@@ -1060,6 +1217,7 @@ class TestRunGauntletAsync:
 # ---------------------------------------------------------------------------
 # command_search
 # ---------------------------------------------------------------------------
+
 
 class TestCommandSearch:
     """Tests for command_search()."""
@@ -1110,9 +1268,16 @@ class TestCommandSearch:
 
     def test_search_fallback_to_recent_debates(self):
         mock_db = MagicMock(spec=[])  # No search method
-        mock_db.get_recent_debates = MagicMock(return_value=[
-            {"topic": "AI Ethics", "id": "d3", "consensus_reached": True, "conclusion": "Be responsible"},
-        ])
+        mock_db.get_recent_debates = MagicMock(
+            return_value=[
+                {
+                    "topic": "AI Ethics",
+                    "id": "d3",
+                    "consensus_reached": True,
+                    "conclusion": "Be responsible",
+                },
+            ]
+        )
         assert not hasattr(mock_db, "search")
 
         mock_storage_mod = MagicMock()
@@ -1204,6 +1369,7 @@ class TestCommandSearch:
 # command_recent
 # ---------------------------------------------------------------------------
 
+
 class TestCommandRecent:
     """Tests for command_recent()."""
 
@@ -1294,6 +1460,7 @@ class TestCommandRecent:
 # command_receipt
 # ---------------------------------------------------------------------------
 
+
 class TestCommandReceipt:
     """Tests for command_receipt()."""
 
@@ -1347,24 +1514,29 @@ class TestCommandReceipt:
 
         mock_gauntlet_mod = MagicMock()
         mock_gauntlet_mod.DecisionReceipt.from_dict.return_value = MagicMock(
-            to_dict=MagicMock(return_value={
-                "receipt_id": "debate-001",
-                "topic": "Code Review Process",
-                "decision": "Adopt pair review",
-                "confidence": 0.9,
-                "timestamp": "2026-02-23",
-                "agents": [],
-            })
+            to_dict=MagicMock(
+                return_value={
+                    "receipt_id": "debate-001",
+                    "topic": "Code Review Process",
+                    "decision": "Adopt pair review",
+                    "confidence": 0.9,
+                    "timestamp": "2026-02-23",
+                    "agents": [],
+                }
+            )
         )
 
         mock_storage_mod = MagicMock()
         mock_storage_mod.get_storage.return_value = mock_db
 
-        with patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": None,
-            "aragora.storage": mock_storage_mod,
-            "aragora.gauntlet.receipt": mock_gauntlet_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": None,
+                "aragora.storage": mock_storage_mod,
+                "aragora.gauntlet.receipt": mock_gauntlet_mod,
+            },
+        ):
             result = command_receipt("debate-001")
         assert "Receipt" in result
 
@@ -1375,10 +1547,13 @@ class TestCommandReceipt:
         mock_storage_mod = MagicMock()
         mock_storage_mod.get_storage.return_value = mock_db
 
-        with patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": None,
-            "aragora.storage": mock_storage_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": None,
+                "aragora.storage": mock_storage_mod,
+            },
+        ):
             result = command_receipt("nonexistent-id")
         assert "No debate found" in result
 
@@ -1386,10 +1561,13 @@ class TestCommandReceipt:
         mock_storage_mod = MagicMock()
         mock_storage_mod.get_storage.return_value = None
 
-        with patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": None,
-            "aragora.storage": mock_storage_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": None,
+                "aragora.storage": mock_storage_mod,
+            },
+        ):
             result = command_receipt("some-id")
         assert "not available" in result
 
@@ -1415,11 +1593,14 @@ class TestCommandReceipt:
         mock_storage_mod = MagicMock()
         mock_storage_mod.get_storage.return_value = mock_db
 
-        with patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": None,
-            "aragora.storage": mock_storage_mod,
-            "aragora.gauntlet.receipt": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": None,
+                "aragora.storage": mock_storage_mod,
+                "aragora.gauntlet.receipt": None,
+            },
+        ):
             result = command_receipt("debate-002")
         assert "Debate Summary" in result
         assert "debate-002" in result
@@ -1438,10 +1619,13 @@ class TestCommandReceipt:
         mock_storage_mod = MagicMock()
         mock_storage_mod.get_storage.return_value = mock_db
 
-        with patch.dict("sys.modules", {
-            "aragora.storage.receipt_store": mock_receipt_store_mod,
-            "aragora.storage": mock_storage_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": mock_receipt_store_mod,
+                "aragora.storage": mock_storage_mod,
+            },
+        ):
             result = command_receipt("  debate-001  ")
         mock_receipt_store.get.assert_called_once_with("debate-001")
 
@@ -1453,6 +1637,7 @@ class TestCommandReceipt:
 # ---------------------------------------------------------------------------
 # _format_receipt
 # ---------------------------------------------------------------------------
+
 
 class TestFormatReceipt:
     """Tests for _format_receipt()."""
@@ -1596,6 +1781,7 @@ class TestFormatReceipt:
 # ---------------------------------------------------------------------------
 # _format_debate_as_receipt
 # ---------------------------------------------------------------------------
+
 
 class TestFormatDebateAsReceipt:
     """Tests for _format_debate_as_receipt()."""

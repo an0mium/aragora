@@ -26,22 +26,26 @@ def mock_registry():
     """Create a mock registry with test playbooks."""
     registry = PlaybookRegistry()
     registry._loaded_builtins = True  # Skip auto-loading
-    registry.register(Playbook(
-        id="test_pb",
-        name="Test Playbook",
-        description="A test playbook",
-        category="general",
-        steps=[PlaybookStep(name="s1", action="debate")],
-        tags=["test"],
-    ))
-    registry.register(Playbook(
-        id="finance_pb",
-        name="Finance Playbook",
-        description="Finance workflow",
-        category="finance",
-        steps=[PlaybookStep(name="s1", action="review")],
-        tags=["finance"],
-    ))
+    registry.register(
+        Playbook(
+            id="test_pb",
+            name="Test Playbook",
+            description="A test playbook",
+            category="general",
+            steps=[PlaybookStep(name="s1", action="debate")],
+            tags=["test"],
+        )
+    )
+    registry.register(
+        Playbook(
+            id="finance_pb",
+            name="Finance Playbook",
+            description="Finance workflow",
+            category="finance",
+            steps=[PlaybookStep(name="s1", action="review")],
+            tags=["finance"],
+        )
+    )
     return registry
 
 
@@ -61,7 +65,6 @@ def _make_handler_with_query(query: str = "") -> MagicMock:
 
 
 class TestCanHandle:
-
     def test_get_list(self, handler):
         assert handler.can_handle("/api/v1/playbooks") is True
 
@@ -76,7 +79,6 @@ class TestCanHandle:
 
 
 class TestListPlaybooks:
-
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_list_all(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
@@ -98,7 +100,6 @@ class TestListPlaybooks:
 
 
 class TestGetPlaybook:
-
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_get_existing(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
@@ -119,7 +120,6 @@ class TestGetPlaybook:
 
 
 class TestRunPlaybook:
-
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_run_success(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry

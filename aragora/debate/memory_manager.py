@@ -1040,9 +1040,7 @@ class MemoryManager:
                     updated_count += 1
 
                 except (AttributeError, TypeError, ValueError, KeyError) as e:
-                    logger.debug(
-                        "  [km_feedback] Failed to update KM item %s: %s", item_id, e
-                    )
+                    logger.debug("  [km_feedback] Failed to update KM item %s: %s", item_id, e)
                 except (OSError, RuntimeError) as e:
                     logger.warning(
                         "  [km_feedback] Unexpected error updating KM item %s: %s", item_id, e

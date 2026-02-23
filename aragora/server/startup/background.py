@@ -243,9 +243,7 @@ async def init_titans_memory_sweep() -> asyncio.Task | None:
         trigger_engine = MemoryTriggerEngine()
         controller = TitansMemoryController(trigger_engine=trigger_engine)
 
-        task = asyncio.create_task(
-            controller.run_sweep_loop(interval_seconds=float(interval))
-        )
+        task = asyncio.create_task(controller.run_sweep_loop(interval_seconds=float(interval)))
         task.add_done_callback(
             lambda t: logger.error("Titans memory sweep crashed: %s", t.exception())
             if not t.cancelled() and t.exception()
@@ -317,7 +315,13 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
                                 logger.warning(
                                     "Failed to refresh Slack token for %s", workspace.workspace_id
                                 )
-                        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
+                        except (
+                            ConnectionError,
+                            TimeoutError,
+                            OSError,
+                            ValueError,
+                            RuntimeError,
+                        ) as e:
                             logger.error(
                                 "Error refreshing token for %s: %s", workspace.workspace_id, e
                             )

@@ -140,7 +140,15 @@ class TestHealthCheck:
     def test_response_has_all_required_keys(self, _sec, _ai, _redis, _fs):
         """Response includes all required top-level fields."""
         body = _body(self._call(_make_handler()))
-        required = ["status", "version", "uptime_seconds", "demo_mode", "checks", "timestamp", "response_time_ms"]
+        required = [
+            "status",
+            "version",
+            "uptime_seconds",
+            "demo_mode",
+            "checks",
+            "timestamp",
+            "response_time_ms",
+        ]
         for key in required:
             assert key in body, f"Missing required key: {key}"
 
@@ -457,7 +465,10 @@ class TestHealthCheck:
     @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_redis_configured_and_failing_causes_503(self, _sec, _ai, _fs):
         """Redis configured but failing -> degraded."""
-        with patch(_P_REDIS, return_value={"healthy": False, "configured": True, "error": "Connection failed"}):
+        with patch(
+            _P_REDIS,
+            return_value={"healthy": False, "configured": True, "error": "Connection failed"},
+        ):
             result = self._call(_make_handler())
             assert _status(result) == 503
 
@@ -475,7 +486,10 @@ class TestHealthCheck:
     @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_redis_failing_not_configured_no_degrade(self, _sec, _ai, _fs):
         """Redis failing but not configured -> no degradation (edge case)."""
-        with patch(_P_REDIS, return_value={"healthy": False, "configured": False, "error": "Connection failed"}):
+        with patch(
+            _P_REDIS,
+            return_value={"healthy": False, "configured": False, "error": "Connection failed"},
+        ):
             result = self._call(_make_handler())
             assert _status(result) == 200
 
@@ -486,7 +500,9 @@ class TestHealthCheck:
     @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_no_ai_providers_adds_warning(self, _sec, _redis, _fs):
         """No AI providers -> warning but no degradation."""
-        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
+        with patch(
+            _P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}
+        ):
             result = self._call(_make_handler())
             body = _body(result)
             assert _status(result) == 200
@@ -614,7 +630,9 @@ class TestHealthCheck:
         """Rate limiter stats are included when available."""
         mock_auth_config = MagicMock()
         mock_auth_config.get_rate_limit_stats.return_value = {
-            "ip_entries": 15, "token_entries": 7, "revoked_tokens": 3,
+            "ip_entries": 15,
+            "token_entries": 7,
+            "revoked_tokens": 3,
         }
         mock_mod = MagicMock()
         mock_mod.auth_config = mock_auth_config
@@ -684,9 +702,17 @@ class TestHealthCheck:
         """Checks dict includes all expected sub-checks."""
         body = _body(self._call(_make_handler()))
         expected_keys = [
-            "degraded_mode", "database", "elo_system", "nomic_dir",
-            "filesystem", "redis", "ai_providers", "websocket",
-            "circuit_breakers", "rate_limiters", "security_services",
+            "degraded_mode",
+            "database",
+            "elo_system",
+            "nomic_dir",
+            "filesystem",
+            "redis",
+            "ai_providers",
+            "websocket",
+            "circuit_breakers",
+            "rate_limiters",
+            "security_services",
         ]
         for key in expected_keys:
             assert key in body["checks"], f"Missing check key: {key}"
@@ -922,7 +948,9 @@ class TestDetailedHealthCheck:
         assert body["database"]["production_ready"] is False
         assert body["database"]["type"] == "sqlite"
 
-    @patch.dict("os.environ", {"ARAGORA_ENV": "production", "DATABASE_URL": "postgresql://localhost/db"})
+    @patch.dict(
+        "os.environ", {"ARAGORA_ENV": "production", "DATABASE_URL": "postgresql://localhost/db"}
+    )
     def test_postgres_in_production_ok(self):
         """PostgreSQL in production -> no SQLite warning."""
         body = _body(self._call(_make_handler()))
@@ -1241,8 +1269,8 @@ class TestDeepHealthCheck:
         mock_client = MagicMock()
         mock_client.is_configured = True
         mock_client.client = MagicMock()
-        mock_client.client.table.return_value.select.return_value.limit.return_value.execute.side_effect = (
-            ConnectionError("timeout")
+        mock_client.client.table.return_value.select.return_value.limit.return_value.execute.side_effect = ConnectionError(
+            "timeout"
         )
         mock_mod = MagicMock()
         mock_mod.SupabaseClient.return_value = mock_client
@@ -1472,10 +1500,13 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_email_services_not_available(self, _slack, _stripe, _ai, _redis, _fs):
         """Email services modules missing -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.services.followup_tracker": None,
-            "aragora.services.snooze_recommender": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.services.followup_tracker": None,
+                "aragora.services.snooze_recommender": None,
+            },
+        ):
             body = _body(self._call(_make_handler()))
             assert body["checks"]["email_services"]["status"] == "not_available"
 
@@ -1500,7 +1531,9 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_stripe_configured_failing_degrades(self, _slack, _ai, _redis, _fs):
         """Stripe configured but failing -> degraded + warning."""
-        with patch(_P_STRIPE, return_value={"healthy": False, "configured": True, "error": "Auth failed"}):
+        with patch(
+            _P_STRIPE, return_value={"healthy": False, "configured": True, "error": "Auth failed"}
+        ):
             body = _body(self._call(_make_handler()))
             assert body["status"] == "degraded"
             warnings = body.get("warnings") or []
@@ -1524,7 +1557,10 @@ class TestDeepHealthCheck:
     @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
     def test_slack_configured_failing_degrades(self, _stripe, _ai, _redis, _fs):
         """Slack configured but failing -> degraded + warning."""
-        with patch(_P_SLACK, return_value={"healthy": False, "configured": True, "error": "Connection failed"}):
+        with patch(
+            _P_SLACK,
+            return_value={"healthy": False, "configured": True, "error": "Connection failed"},
+        ):
             body = _body(self._call(_make_handler()))
             assert body["status"] == "degraded"
             warnings = body.get("warnings") or []
@@ -1538,7 +1574,9 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_redis_configured_failing_degrades(self, _slack, _stripe, _ai, _fs):
         """Redis configured but unhealthy -> degrades."""
-        with patch(_P_REDIS, return_value={"healthy": False, "configured": True, "error": "Refused"}):
+        with patch(
+            _P_REDIS, return_value={"healthy": False, "configured": True, "error": "Refused"}
+        ):
             body = _body(self._call(_make_handler()))
             assert body["status"] == "degraded"
 
@@ -1550,7 +1588,9 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_healthy_with_warnings_status(self, _slack, _stripe, _redis, _fs):
         """Warnings but no failures -> healthy_with_warnings."""
-        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
+        with patch(
+            _P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}
+        ):
             body = _body(self._call(_make_handler()))
             assert body["status"] == "healthy_with_warnings"
             warnings = body.get("warnings") or []
@@ -1586,7 +1626,9 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_no_ai_providers_warning(self, _slack, _stripe, _redis, _fs):
         """No AI providers -> warning added."""
-        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
+        with patch(
+            _P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}
+        ):
             body = _body(self._call(_make_handler()))
             warnings = body.get("warnings") or []
             assert any("No AI providers" in w for w in warnings)

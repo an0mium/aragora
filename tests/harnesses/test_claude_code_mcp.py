@@ -43,8 +43,10 @@ class TestMCPConfigInCommand:
         mock_proc.returncode = 0
         mock_proc.kill = MagicMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
-             patch("asyncio.wait_for", return_value=(b"done", b"")):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+            patch("asyncio.wait_for", return_value=(b"done", b"")),
+        ):
             try:
                 await harness.execute_implementation(tmp_path, "fix the bug")
             except Exception:
@@ -52,8 +54,7 @@ class TestMCPConfigInCommand:
 
             if mock_exec.called:
                 cmd_args = [str(a) for a in mock_exec.call_args[0]]
-                assert any("--mcp-config" in a for a in cmd_args) or \
-                       "--mcp-config" in cmd_args
+                assert any("--mcp-config" in a for a in cmd_args) or "--mcp-config" in cmd_args
 
     @pytest.mark.asyncio
     async def test_no_mcp_config_when_disabled(self, harness_no_mcp, tmp_path):
@@ -63,8 +64,10 @@ class TestMCPConfigInCommand:
         mock_proc.returncode = 0
         mock_proc.kill = MagicMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
-             patch("asyncio.wait_for", return_value=(b"done", b"")):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+            patch("asyncio.wait_for", return_value=(b"done", b"")),
+        ):
             try:
                 await harness_no_mcp.execute_implementation(tmp_path, "fix the bug")
             except Exception:
@@ -111,12 +114,14 @@ class TestMCPConfigGeneration:
         mock_proc.returncode = 0
         mock_proc.kill = MagicMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
-             patch("asyncio.wait_for", return_value=(b"done", b"")), \
-             patch(
-                 "aragora.mcp.impl_config.generate_impl_mcp_config",
-                 side_effect=OSError("disk full"),
-             ):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("asyncio.wait_for", return_value=(b"done", b"")),
+            patch(
+                "aragora.mcp.impl_config.generate_impl_mcp_config",
+                side_effect=OSError("disk full"),
+            ),
+        ):
             # Should not raise
             try:
                 await harness.execute_implementation(tmp_path, "fix bug")

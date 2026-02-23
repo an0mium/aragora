@@ -439,7 +439,9 @@ class InboxSLAMonitor:
         ]
 
         if not applicable_rules:
-            logger.debug("[SLAMonitor] No escalation rules for level %s", violation.escalation_level)
+            logger.debug(
+                "[SLAMonitor] No escalation rules for level %s", violation.escalation_level
+            )
             return False
 
         # Mark as triggered
@@ -479,7 +481,9 @@ class InboxSLAMonitor:
             logger.debug("[SLAMonitor] Failed to log activity: %s", e)
 
         logger.info(
-            "[SLAMonitor] Triggered %s escalation for message %s", violation.escalation_level.value, violation.message_id
+            "[SLAMonitor] Triggered %s escalation for message %s",
+            violation.escalation_level.value,
+            violation.message_id,
         )
         return True
 

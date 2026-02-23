@@ -433,7 +433,9 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
             )
             return None
         except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
-            logger.warning("PostgreSQL email reply store not available: %s: %s", type(e).__name__, e)
+            logger.warning(
+                "PostgreSQL email reply store not available: %s: %s", type(e).__name__, e
+            )
             return None
 
 
@@ -889,7 +891,9 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
 
         if result.get("success"):
             logger.info(
-                "Email debate started: %s from %s", result.get('request_id', 'unknown'), email_data.from_email
+                "Email debate started: %s from %s",
+                result.get("request_id", "unknown"),
+                email_data.from_email,
             )
 
             # Register origin for bidirectional routing
@@ -913,7 +917,7 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
 
             return True
         else:
-            logger.warning("Email debate failed: %s", result.get('error', 'unknown error'))
+            logger.warning("Email debate failed: %s", result.get("error", "unknown error"))
             return False
 
     except ImportError as e:
@@ -962,7 +966,10 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         return False
 
     logger.info(
-        "Processing email reply for debate %s from %s: %s chars", debate_id, email_data.from_email, len(content)
+        "Processing email reply for debate %s from %s: %s chars",
+        debate_id,
+        email_data.from_email,
+        len(content),
     )
 
     # Route the reply to the debate system

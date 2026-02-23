@@ -430,7 +430,9 @@ class DecisionHandler(BaseHandler):
         # Persist the update
         _save_result(request_id, result)
 
-        logger.info("Decision %s cancelled by user. Reason: %s", request_id, reason or 'not provided')
+        logger.info(
+            "Decision %s cancelled by user. Reason: %s", request_id, reason or "not provided"
+        )
 
         return json_response(
             {

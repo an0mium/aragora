@@ -160,12 +160,8 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
 
         KnowledgeRelationship(
             id=kr_id,
-            from_node_id=self._node_map.get(
-                edge.get("source_id", edge.get("source", "")), ""
-            ),
-            to_node_id=self._node_map.get(
-                edge.get("target_id", edge.get("target", "")), ""
-            ),
+            from_node_id=self._node_map.get(edge.get("source_id", edge.get("source", "")), ""),
+            to_node_id=self._node_map.get(edge.get("target_id", edge.get("target", "")), ""),
             relationship_type=relationship_type,
             metadata={
                 "canvas_id": canvas_id,
@@ -232,10 +228,7 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
         Returns:
             Canvas-compatible dict or None if no matching nodes.
         """
-        matching = [
-            n for n in km_nodes
-            if n.get("metadata", {}).get("canvas_id") == canvas_id
-        ]
+        matching = [n for n in km_nodes if n.get("metadata", {}).get("canvas_id") == canvas_id]
         if not matching:
             return None
 
@@ -245,26 +238,28 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
             canvas_meta = meta.get("canvas", {})
             goal_type = meta.get("goal_type", "goal")
 
-            nodes.append({
-                "id": meta.get("canvas_node_id", km_node["id"]),
-                "type": "knowledge",
-                "position": canvas_meta.get("position", {"x": 0, "y": 0}),
-                "size": canvas_meta.get("size", {"width": 220, "height": 80}),
-                "label": km_node.get("content", "").split("\n")[0],
-                "data": {
-                    "goal_type": goal_type,
-                    "priority": meta.get("priority", "medium"),
-                    "measurable": meta.get("measurable", ""),
-                    "description": "\n".join(km_node.get("content", "").split("\n")[1:]),
-                    "confidence": km_node.get("confidence", 0.5),
-                    "tags": km_node.get("topics", []),
-                    "km_node_id": km_node["id"],
-                    "source_idea_ids": meta.get("source_idea_ids", []),
-                    "stage": "goals",
-                    "rf_type": "goalNode",
-                },
-                "style": canvas_meta.get("style", {}),
-            })
+            nodes.append(
+                {
+                    "id": meta.get("canvas_node_id", km_node["id"]),
+                    "type": "knowledge",
+                    "position": canvas_meta.get("position", {"x": 0, "y": 0}),
+                    "size": canvas_meta.get("size", {"width": 220, "height": 80}),
+                    "label": km_node.get("content", "").split("\n")[0],
+                    "data": {
+                        "goal_type": goal_type,
+                        "priority": meta.get("priority", "medium"),
+                        "measurable": meta.get("measurable", ""),
+                        "description": "\n".join(km_node.get("content", "").split("\n")[1:]),
+                        "confidence": km_node.get("confidence", 0.5),
+                        "tags": km_node.get("topics", []),
+                        "km_node_id": km_node["id"],
+                        "source_idea_ids": meta.get("source_idea_ids", []),
+                        "stage": "goals",
+                        "rf_type": "goalNode",
+                    },
+                    "style": canvas_meta.get("style", {}),
+                }
+            )
 
         return {
             "id": canvas_id,

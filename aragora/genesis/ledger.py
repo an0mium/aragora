@@ -225,9 +225,12 @@ class GenesisLedger:
                     "event_id": event.event_id,
                     "timestamp": event.timestamp.isoformat(),
                     "data": {
-                        k: v for k, v in event.data.items()
+                        k: v
+                        for k, v in event.data.items()
                         if isinstance(v, (str, int, float, bool, list))
-                    } if event.data else {},
+                    }
+                    if event.data
+                    else {},
                 },
             )
         except (ImportError, RuntimeError, AttributeError) as e:

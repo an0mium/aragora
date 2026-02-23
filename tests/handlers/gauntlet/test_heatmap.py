@@ -806,9 +806,7 @@ class TestGetStorageProxy:
     def test_returns_storage_instance(self):
         """_get_storage_proxy should call _get_storage from the package."""
         mock_storage = MagicMock()
-        with patch(
-            "aragora.server.handlers.gauntlet.heatmap._get_storage_proxy"
-        ) as mock_proxy:
+        with patch("aragora.server.handlers.gauntlet.heatmap._get_storage_proxy") as mock_proxy:
             mock_proxy.return_value = mock_storage
             result = mock_proxy()
             assert result is mock_storage

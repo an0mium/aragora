@@ -27,6 +27,7 @@ from aragora.debate.phases.judgment import JudgmentPhase
 # Lightweight stubs
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MockAgent:
     name: str
@@ -65,6 +66,7 @@ def make_elo_system(leaderboard=None, rating_elo=1000.0):
 # ---------------------------------------------------------------------------
 # TestInit
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     """JudgmentPhase stores constructor arguments."""
@@ -111,6 +113,7 @@ class TestInit:
 # TestRequireAgents
 # ---------------------------------------------------------------------------
 
+
 class TestRequireAgents:
     """_require_agents raises ValueError on empty agent list."""
 
@@ -129,6 +132,7 @@ class TestRequireAgents:
 # ---------------------------------------------------------------------------
 # TestSelectJudge — selection strategies
 # ---------------------------------------------------------------------------
+
 
 class TestSelectJudgeLast:
     """select_judge with 'last' selection."""
@@ -210,8 +214,10 @@ class TestSelectJudgeVoted:
         with patch("aragora.debate.phases.judgment.logger") as mock_logger:
             jp.select_judge({}, [], vote_for_judge_fn=vote_fn)
             mock_logger.warning.assert_called_once()
-            assert "voted" in mock_logger.warning.call_args[0][0].lower() or \
-                   "async" in mock_logger.warning.call_args[0][0].lower()
+            assert (
+                "voted" in mock_logger.warning.call_args[0][0].lower()
+                or "async" in mock_logger.warning.call_args[0][0].lower()
+            )
 
     def test_vote_fn_not_called(self):
         proto = make_protocol(judge_selection="voted")
@@ -300,9 +306,7 @@ class TestSelectJudgeCalibrated:
         random.seed(1)
         proto = make_protocol(judge_selection="calibrated")
         agents = [MockAgent("a1"), MockAgent("a2")]
-        jp = JudgmentPhase(
-            proto, agents, elo_system=None, composite_score_fn=lambda n: 1.0
-        )
+        jp = JudgmentPhase(proto, agents, elo_system=None, composite_score_fn=lambda n: 1.0)
         judge = jp.select_judge({}, [])
         assert judge in agents
 
@@ -362,6 +366,7 @@ class TestSelectJudgeDefault:
 # ---------------------------------------------------------------------------
 # TestShouldTerminate
 # ---------------------------------------------------------------------------
+
 
 class TestShouldTerminate:
     """should_terminate returns (continue, reason) tuples."""
@@ -453,6 +458,7 @@ class TestShouldTerminate:
 # TestGetJudgeStats
 # ---------------------------------------------------------------------------
 
+
 class TestGetJudgeStats:
     """get_judge_stats returns correct dict."""
 
@@ -493,9 +499,7 @@ class TestGetJudgeStats:
     def test_includes_calibration_weight_when_fn_provided(self):
         proto = make_protocol(judge_selection="calibrated")
         agent = MockAgent("a1")
-        jp = JudgmentPhase(
-            proto, [agent], calibration_weight_fn=lambda name: 0.85
-        )
+        jp = JudgmentPhase(proto, [agent], calibration_weight_fn=lambda name: 0.85)
         stats = jp.get_judge_stats(agent)
         assert "calibration_weight" in stats
         assert stats["calibration_weight"] == pytest.approx(0.85)
@@ -537,6 +541,7 @@ class TestGetJudgeStats:
 # TestSelectLast (unit-level)
 # ---------------------------------------------------------------------------
 
+
 class TestSelectLast:
     """_select_last selects synthesizer or last agent."""
 
@@ -558,6 +563,7 @@ class TestSelectLast:
 # ---------------------------------------------------------------------------
 # TestSelectEloRanked (unit-level)
 # ---------------------------------------------------------------------------
+
 
 class TestSelectEloRanked:
     """_select_elo_ranked returns highest-ELO agent."""
@@ -587,6 +593,7 @@ class TestSelectEloRanked:
 # TestSelectCalibrated (unit-level)
 # ---------------------------------------------------------------------------
 
+
 class TestSelectCalibrated:
     """_select_calibrated returns highest composite-score agent."""
 
@@ -595,9 +602,7 @@ class TestSelectCalibrated:
         agents = [MockAgent("low"), MockAgent("high")]
         elo = make_elo_system(leaderboard=[])
         scores = {"low": 0.3, "high": 0.8}
-        jp = JudgmentPhase(
-            proto, agents, elo_system=elo, composite_score_fn=lambda n: scores[n]
-        )
+        jp = JudgmentPhase(proto, agents, elo_system=elo, composite_score_fn=lambda n: scores[n])
         result = jp._select_calibrated()
         assert result.name == "high"
 

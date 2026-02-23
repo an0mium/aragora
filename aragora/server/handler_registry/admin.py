@@ -280,9 +280,7 @@ DependencyAnalysisHandler = _safe_import(
 RepositoryHandler = _safe_import("aragora.server.handlers.repository", "RepositoryHandler")
 SchedulerHandler = _safe_import("aragora.server.handlers.features.scheduler", "SchedulerHandler")
 ThreatIntelHandler = _safe_import("aragora.server.handlers.threat_intel", "ThreatIntelHandler")
-FeedbackRoutesHandler = _safe_import(
-    "aragora.server.handlers.feedback", "FeedbackRoutesHandler"
-)
+FeedbackRoutesHandler = _safe_import("aragora.server.handlers.feedback", "FeedbackRoutesHandler")
 PaymentRoutesHandler = _safe_import(
     "aragora.server.handlers.payments.handler", "PaymentRoutesHandler"
 )
@@ -325,9 +323,7 @@ FederationStatusHandler = _safe_import(
 )
 
 # Self-improvement
-SelfImproveHandler = _safe_import(
-    "aragora.server.handlers.self_improve", "SelfImproveHandler"
-)
+SelfImproveHandler = _safe_import("aragora.server.handlers.self_improve", "SelfImproveHandler")
 
 # Observability dashboard
 ObservabilityDashboardHandler = _safe_import(

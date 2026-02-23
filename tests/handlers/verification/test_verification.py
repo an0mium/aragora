@@ -272,7 +272,9 @@ class TestHandleGetRouting:
 
     def test_status_route_dispatches(self, handler):
         """GET to /api/v1/verification/status returns a result."""
-        with patch.object(handler, "_get_status", return_value=MagicMock(status_code=200)) as mock_fn:
+        with patch.object(
+            handler, "_get_status", return_value=MagicMock(status_code=200)
+        ) as mock_fn:
             result = handler.handle("/api/v1/verification/status", {}, MagicMock())
             mock_fn.assert_called_once()
 
@@ -298,7 +300,9 @@ class TestHandlePostRouting:
     def test_formal_verify_route_dispatches(self, handler, mock_http_with_body):
         """POST to /api/v1/verification/formal-verify dispatches to _verify_claim."""
         mock_http = mock_http_with_body({"claim": "test"})
-        with patch.object(handler, "_verify_claim", return_value=MagicMock(status_code=200)) as mock_fn:
+        with patch.object(
+            handler, "_verify_claim", return_value=MagicMock(status_code=200)
+        ) as mock_fn:
             result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
 
@@ -500,7 +504,9 @@ class TestVerifyClaim:
     def test_context_too_long_fails_schema_validation(self, handler):
         """When context exceeds max_length=10000, schema validation fails."""
         long_context = "y" * 10001
-        mock_http = _MockHTTPHandler(method="POST", body={"claim": "valid claim", "context": long_context})
+        mock_http = _MockHTTPHandler(
+            method="POST", body={"claim": "valid claim", "context": long_context}
+        )
 
         with patch(
             "aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE",
@@ -1000,12 +1006,14 @@ class TestVerificationManagerInvocation:
 
     def test_all_params_passed_to_manager(self, handler, mock_http_with_body):
         """All parameters are correctly passed to manager."""
-        mock_http = mock_http_with_body({
-            "claim": "A implies B",
-            "claim_type": "logical",
-            "context": "boolean logic",
-            "timeout": 45,
-        })
+        mock_http = mock_http_with_body(
+            {
+                "claim": "A implies B",
+                "claim_type": "logical",
+                "context": "boolean logic",
+                "timeout": 45,
+            }
+        )
 
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"status": "proof_found", "is_verified": True}
@@ -1103,7 +1111,9 @@ class TestEndToEnd:
                     "aragora.server.handlers.verification.verification.run_async",
                     return_value=mock_result,
                 ):
-                    result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_http)
+                    result = handler.handle_post(
+                        "/api/v1/verification/formal-verify", {}, mock_http
+                    )
                     assert _status(result) == 200
                     data = _body(result)
                     assert data["is_verified"] is True
@@ -1321,11 +1331,13 @@ class TestEdgeCases:
 
     def test_extra_fields_in_body_ignored(self, handler, mock_http_with_body):
         """Extra fields not in schema are ignored gracefully."""
-        mock_http = mock_http_with_body({
-            "claim": "test",
-            "extra_field": "should be ignored",
-            "another": 123,
-        })
+        mock_http = mock_http_with_body(
+            {
+                "claim": "test",
+                "extra_field": "should be ignored",
+                "another": 123,
+            }
+        )
 
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"status": "proof_found", "is_verified": True}
@@ -1364,7 +1376,9 @@ class TestModuleConstants:
         assert isinstance(FORMAL_VERIFICATION_AVAILABLE, bool)
 
     def test_get_formal_verification_manager_exists(self):
-        from aragora.server.handlers.verification.verification import get_formal_verification_manager
+        from aragora.server.handlers.verification.verification import (
+            get_formal_verification_manager,
+        )
 
         # It may be None if the module is not available, or a function
         assert get_formal_verification_manager is None or callable(get_formal_verification_manager)

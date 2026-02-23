@@ -142,7 +142,9 @@ class TestCodebaseStructureIngestion:
         assert stats.items_ingested == 0
 
     @pytest.mark.asyncio
-    async def test_remember_metadata_contains_file_path(self, tmp_path: Path, mock_fabric: AsyncMock) -> None:
+    async def test_remember_metadata_contains_file_path(
+        self, tmp_path: Path, mock_fabric: AsyncMock
+    ) -> None:
         (tmp_path / "main.py").write_text("x = 1\n")
         builder = CodebaseKnowledgeBuilder(mock_fabric, tmp_path)
         await builder.ingest_structure()
@@ -278,7 +280,9 @@ class TestCodebaseTestResults:
         assert "2 failed" in content
 
     @pytest.mark.asyncio
-    async def test_failure_details_ingested(self, mock_fabric: AsyncMock, mock_scorer: MagicMock) -> None:
+    async def test_failure_details_ingested(
+        self, mock_fabric: AsyncMock, mock_scorer: MagicMock
+    ) -> None:
         builder = CodebaseKnowledgeBuilder(mock_fabric, Path("/fake"), mock_scorer)
         results = {
             "passed": 5,
@@ -293,7 +297,9 @@ class TestCodebaseTestResults:
         assert mock_fabric.remember.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_passing_tests_not_individually_stored(self, mock_fabric: AsyncMock, mock_scorer: MagicMock) -> None:
+    async def test_passing_tests_not_individually_stored(
+        self, mock_fabric: AsyncMock, mock_scorer: MagicMock
+    ) -> None:
         builder = CodebaseKnowledgeBuilder(mock_fabric, Path("/fake"), mock_scorer)
         results = {
             "passed": 5,
@@ -314,7 +320,9 @@ class TestCodebaseTestResults:
         assert stats.items_ingested >= 0  # summary still created for 0/0
 
     @pytest.mark.asyncio
-    async def test_error_status_ingested(self, mock_fabric: AsyncMock, mock_scorer: MagicMock) -> None:
+    async def test_error_status_ingested(
+        self, mock_fabric: AsyncMock, mock_scorer: MagicMock
+    ) -> None:
         builder = CodebaseKnowledgeBuilder(mock_fabric, Path("/fake"), mock_scorer)
         results = {
             "passed": 0,
@@ -329,7 +337,9 @@ class TestCodebaseTestResults:
         assert mock_fabric.remember.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_surprise_score_in_metadata(self, mock_fabric: AsyncMock, mock_scorer: MagicMock) -> None:
+    async def test_surprise_score_in_metadata(
+        self, mock_fabric: AsyncMock, mock_scorer: MagicMock
+    ) -> None:
         builder = CodebaseKnowledgeBuilder(mock_fabric, Path("/fake"), mock_scorer)
         results = {
             "passed": 0,
@@ -356,7 +366,9 @@ class TestCodebaseTestResults:
         assert meta["total"] == 6
 
     @pytest.mark.asyncio
-    async def test_skipped_failure_counted(self, mock_fabric: AsyncMock, mock_scorer: MagicMock) -> None:
+    async def test_skipped_failure_counted(
+        self, mock_fabric: AsyncMock, mock_scorer: MagicMock
+    ) -> None:
         # First call (summary) stored, second call (failure detail) not stored
         mock_fabric.remember = AsyncMock(
             side_effect=[

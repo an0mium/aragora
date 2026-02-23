@@ -248,7 +248,7 @@ async def _deliver_via_email(
                 server.send_message(msg)
         else:
             # Log email for local development
-            logger.info("[DEV] Would send receipt email to %s: %s", recipient, msg['Subject'])
+            logger.info("[DEV] Would send receipt email to %s: %s", recipient, msg["Subject"])
 
         delivery_id = str(uuid.uuid4())
         logger.info("Receipt %s delivered via email to %s", receipt.receipt_id, recipient)

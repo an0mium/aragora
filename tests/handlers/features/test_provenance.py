@@ -273,8 +273,17 @@ class TestBuildGraphNodes:
         nodes = _build_graph_nodes(populated_manager)
         node = nodes[0]
         expected_fields = {
-            "id", "type", "label", "content", "source_type", "source_id",
-            "timestamp", "content_hash", "verified", "confidence", "transformation",
+            "id",
+            "type",
+            "label",
+            "content",
+            "source_type",
+            "source_id",
+            "timestamp",
+            "content_hash",
+            "verified",
+            "confidence",
+            "transformation",
         }
         assert expected_fields.issubset(set(node.keys()))
 
@@ -465,7 +474,8 @@ class TestHandleGetDebateProvenance:
     async def test_populated_debate(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_debate_provenance(populated_manager.debate_id)
@@ -481,7 +491,8 @@ class TestHandleGetDebateProvenance:
     async def test_includes_genesis_hash(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_debate_provenance(populated_manager.debate_id)
@@ -492,7 +503,8 @@ class TestHandleGetDebateProvenance:
     async def test_verified_field(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_debate_provenance(populated_manager.debate_id)
@@ -523,7 +535,8 @@ class TestHandleGetProvenanceTimeline:
     async def test_populated_timeline(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id)
@@ -536,7 +549,8 @@ class TestHandleGetProvenanceTimeline:
     async def test_filter_by_round(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id, round_number=1)
@@ -550,7 +564,8 @@ class TestHandleGetProvenanceTimeline:
     async def test_filter_nonexistent_round(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id, round_number=99)
@@ -562,7 +577,8 @@ class TestHandleGetProvenanceTimeline:
     async def test_agent_positions_tracked(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id)
@@ -572,10 +588,13 @@ class TestHandleGetProvenanceTimeline:
         assert "agent-beta" in body["agent_positions"]
 
     @pytest.mark.asyncio
-    async def test_agent_positions_content_preview(self, monkeypatch, populated_manager, mock_store):
+    async def test_agent_positions_content_preview(
+        self, monkeypatch, populated_manager, mock_store
+    ):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id)
@@ -589,7 +608,8 @@ class TestHandleGetProvenanceTimeline:
     async def test_consensus_evolution_empty(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id)
@@ -600,7 +620,8 @@ class TestHandleGetProvenanceTimeline:
     async def test_round_record_fields(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_provenance_timeline(populated_manager.debate_id)
@@ -639,7 +660,8 @@ class TestHandleVerifyProvenanceChain:
     async def test_valid_chain(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_verify_provenance_chain(populated_manager.debate_id)
@@ -653,7 +675,8 @@ class TestHandleVerifyProvenanceChain:
     async def test_tampered_content_detected(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         # Tamper with content
@@ -703,7 +726,8 @@ class TestHandleExportProvenanceReport:
     async def test_json_format_default(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(populated_manager.debate_id)
@@ -720,11 +744,14 @@ class TestHandleExportProvenanceReport:
     async def test_json_format_with_evidence(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="json", include_evidence=True,
+            populated_manager.debate_id,
+            format="json",
+            include_evidence=True,
         )
         body = _body(result)
         assert len(body["records"]) == 4
@@ -734,11 +761,14 @@ class TestHandleExportProvenanceReport:
     async def test_json_format_without_evidence(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="json", include_evidence=False,
+            populated_manager.debate_id,
+            format="json",
+            include_evidence=False,
         )
         body = _body(result)
         assert "records" not in body
@@ -749,12 +779,15 @@ class TestHandleExportProvenanceReport:
     async def test_json_format_without_chain(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="json",
-            include_evidence=False, include_chain=False,
+            populated_manager.debate_id,
+            format="json",
+            include_evidence=False,
+            include_chain=False,
         )
         body = _body(result)
         assert "hash_chain" not in body
@@ -764,11 +797,13 @@ class TestHandleExportProvenanceReport:
     async def test_audit_format(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="audit",
+            populated_manager.debate_id,
+            format="audit",
         )
         body = _body(result)
         assert body["format"] == "audit"
@@ -779,11 +814,13 @@ class TestHandleExportProvenanceReport:
     async def test_audit_hash_chain_fields(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="audit",
+            populated_manager.debate_id,
+            format="audit",
         )
         body = _body(result)
         for entry in body["hash_chain"]:
@@ -797,11 +834,13 @@ class TestHandleExportProvenanceReport:
     async def test_summary_format(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="summary",
+            populated_manager.debate_id,
+            format="summary",
         )
         body = _body(result)
         assert body["format"] == "summary"
@@ -817,11 +856,13 @@ class TestHandleExportProvenanceReport:
     async def test_summary_format_time_span(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(
-            populated_manager.debate_id, format="summary",
+            populated_manager.debate_id,
+            format="summary",
         )
         body = _body(result)
         time_span = body["summary"]["time_span"]
@@ -840,7 +881,8 @@ class TestHandleExportProvenanceReport:
     async def test_verification_status_verified(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(populated_manager.debate_id)
@@ -864,7 +906,8 @@ class TestHandleExportProvenanceReport:
     async def test_chain_genesis_present(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(populated_manager.debate_id)
@@ -875,7 +918,8 @@ class TestHandleExportProvenanceReport:
     async def test_chain_tip_present(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_export_provenance_report(populated_manager.debate_id)
@@ -918,7 +962,8 @@ class TestHandleGetClaimProvenance:
     async def test_claim_with_evidence(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         claim_id = populated_manager.chain.records[0].id
@@ -934,7 +979,8 @@ class TestHandleGetClaimProvenance:
     async def test_claim_text_populated(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         claim_id = populated_manager.chain.records[0].id
@@ -947,11 +993,13 @@ class TestHandleGetClaimProvenance:
     async def test_nonexistent_claim(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_claim_provenance(
-            populated_manager.debate_id, "nonexistent-claim",
+            populated_manager.debate_id,
+            "nonexistent-claim",
         )
         body = _body(result)
         assert _status(result) == 200
@@ -965,7 +1013,8 @@ class TestHandleGetClaimProvenance:
     async def test_supporting_evidence_fields(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         claim_id = populated_manager.chain.records[0].id
@@ -973,8 +1022,14 @@ class TestHandleGetClaimProvenance:
         body = _body(result)
         evidence = body["supporting_evidence"][0]
         expected_fields = {
-            "evidence_id", "content", "source_type", "source_id",
-            "relevance", "citation_text", "verified", "content_hash",
+            "evidence_id",
+            "content",
+            "source_type",
+            "source_id",
+            "relevance",
+            "citation_text",
+            "verified",
+            "content_hash",
         }
         assert expected_fields.issubset(set(evidence.keys()))
 
@@ -982,7 +1037,8 @@ class TestHandleGetClaimProvenance:
     async def test_verification_status(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         claim_id = populated_manager.chain.records[0].id
@@ -997,7 +1053,8 @@ class TestHandleGetClaimProvenance:
     async def test_synthesis_parents(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         # The synthesis record (rec4) has parent_ids
@@ -1010,7 +1067,8 @@ class TestHandleGetClaimProvenance:
     async def test_round_number_from_metadata(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         claim_id = populated_manager.chain.records[0].id
@@ -1022,7 +1080,8 @@ class TestHandleGetClaimProvenance:
     async def test_content_hash_truncated(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         claim_id = populated_manager.chain.records[0].id
@@ -1044,7 +1103,8 @@ class TestHandleGetAgentContributions:
     async def test_all_agents(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_agent_contributions(populated_manager.debate_id)
@@ -1061,11 +1121,13 @@ class TestHandleGetAgentContributions:
     async def test_filter_by_agent_id(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_agent_contributions(
-            populated_manager.debate_id, agent_id="agent-beta",
+            populated_manager.debate_id,
+            agent_id="agent-beta",
         )
         body = _body(result)
         assert _status(result) == 200
@@ -1077,11 +1139,13 @@ class TestHandleGetAgentContributions:
     async def test_nonexistent_agent_empty(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_agent_contributions(
-            populated_manager.debate_id, agent_id="agent-nonexistent",
+            populated_manager.debate_id,
+            agent_id="agent-nonexistent",
         )
         body = _body(result)
         assert body["contributions"] == []
@@ -1091,7 +1155,8 @@ class TestHandleGetAgentContributions:
     async def test_summary_statistics(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_agent_contributions(populated_manager.debate_id)
@@ -1108,11 +1173,13 @@ class TestHandleGetAgentContributions:
     async def test_contribution_fields(self, monkeypatch, populated_manager, mock_store):
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_agent_contributions(
-            populated_manager.debate_id, agent_id="agent-alpha",
+            populated_manager.debate_id,
+            agent_id="agent-alpha",
         )
         body = _body(result)
         contrib = body["contributions"][0]["contributions"][0]
@@ -1166,7 +1233,8 @@ class TestHandleGetAgentContributions:
         """Synthesis (aggregated) contributions are counted in total_syntheses."""
         monkeypatch.setattr(prov_mod, "_provenance_store", mock_store)
         monkeypatch.setattr(
-            prov_mod, "_provenance_managers",
+            prov_mod,
+            "_provenance_managers",
             {populated_manager.debate_id: populated_manager},
         )
         result = await handle_get_agent_contributions(populated_manager.debate_id)

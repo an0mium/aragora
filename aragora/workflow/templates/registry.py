@@ -429,7 +429,9 @@ class TemplateRegistry:
         if listing is None:
             raise ValueError(f"Template not found: {listing_id}")
 
-        status_val = listing.status.value if isinstance(listing.status, TemplateStatus) else listing.status
+        status_val = (
+            listing.status.value if isinstance(listing.status, TemplateStatus) else listing.status
+        )
         if status_val != TemplateStatus.APPROVED.value and not listing.is_builtin:
             raise ValueError(f"Template is not approved: {listing_id}")
 
@@ -554,7 +556,9 @@ class TemplateRegistry:
             "SELECT user_id, installed_at FROM template_installs WHERE template_id = ? ORDER BY installed_at DESC LIMIT 10",
             (listing_id,),
         )
-        recent = [{"user_id": r["user_id"], "installed_at": r["installed_at"]} for r in cursor.fetchall()]
+        recent = [
+            {"user_id": r["user_id"], "installed_at": r["installed_at"]} for r in cursor.fetchall()
+        ]
 
         return {
             "listing_id": listing_id,

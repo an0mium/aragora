@@ -434,9 +434,7 @@ class LangExtractAdapter(KnowledgeMoundAdapter):
             return await self._langextract_extract(document_path, schema)
 
         # Fallback: no extraction backend available
-        logger.warning(
-            "no_extraction_backend: install langextract or provide extractor"
-        )
+        logger.warning("no_extraction_backend: install langextract or provide extractor")
         return []
 
     async def _langextract_extract(

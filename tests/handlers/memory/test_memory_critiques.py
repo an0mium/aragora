@@ -182,9 +182,7 @@ def mock_http_handler():
 class TestGetCritiquesStoreUnavailable:
     """Tests for when critique store is not available."""
 
-    def test_critique_store_not_available_returns_503(
-        self, handler, mock_http_handler
-    ):
+    def test_critique_store_not_available_returns_503(self, handler, mock_http_handler):
         """Returns 503 when CRITIQUE_STORE_AVAILABLE is False."""
         with patch(_CRITIQUE_AVAILABLE, False):
             result = handler._get_critiques({})
@@ -222,15 +220,9 @@ class TestGetCritiquesStoreUnavailable:
             result = h._get_critiques({})
             assert _status(result) == 503
 
-    def test_get_critique_store_and_class_both_none_returns_503(
-        self, handler, mock_http_handler
-    ):
+    def test_get_critique_store_and_class_both_none_returns_503(self, handler, mock_http_handler):
         """Returns 503 when both get_critique_store and CritiqueStore are None."""
-        with patch(
-            _GET_CRITIQUE_STORE, return_value=None
-        ), patch(
-            _CRITIQUE_STORE_CLS, None
-        ):
+        with patch(_GET_CRITIQUE_STORE, return_value=None), patch(_CRITIQUE_STORE_CLS, None):
             result = handler._get_critiques({})
             assert _status(result) == 503
             assert "not available" in _body(result)["error"]
@@ -244,9 +236,7 @@ class TestGetCritiquesStoreUnavailable:
 class TestGetCritiquesBasic:
     """Tests for basic _get_critiques functionality."""
 
-    def test_empty_store_returns_empty_list(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_empty_store_returns_empty_list(self, handler, mock_http_handler, mock_critique_store):
         """Returns empty results when store has no critiques."""
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
             result = handler._get_critiques({})
@@ -256,9 +246,7 @@ class TestGetCritiquesBasic:
             assert body["count"] == 0
             assert body["total"] == 0
 
-    def test_single_critique_returned(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_single_critique_returned(self, handler, mock_http_handler, mock_critique_store):
         """Returns properly formatted single critique."""
         crit = _make_critique(
             agent="claude",
@@ -280,9 +268,7 @@ class TestGetCritiquesBasic:
             assert "Issue 1" in entry["content"]
             assert "Suggestion 1" in entry["content"]
 
-    def test_critique_fields_structure(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_critique_fields_structure(self, handler, mock_http_handler, mock_critique_store):
         """Each critique has all expected fields."""
         crit = _make_critique()
         mock_critique_store.get_recent.return_value = [crit]
@@ -302,9 +288,7 @@ class TestGetCritiquesBasic:
             }
             assert set(entry.keys()) == expected_keys
 
-    def test_null_fields_in_critique(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_null_fields_in_critique(self, handler, mock_http_handler, mock_critique_store):
         """Fields not available from Critique dataclass are None."""
         crit = _make_critique()
         mock_critique_store.get_recent.return_value = [crit]
@@ -317,9 +301,7 @@ class TestGetCritiquesBasic:
             assert entry["accepted"] is None
             assert entry["created_at"] is None
 
-    def test_multiple_critiques_returned(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_multiple_critiques_returned(self, handler, mock_http_handler, mock_critique_store):
         """Returns multiple critiques from the store."""
         crits = [
             _make_critique(agent="claude", severity=3.0),
@@ -343,9 +325,7 @@ class TestGetCritiquesBasic:
 class TestGetCritiquesContent:
     """Tests for content building from issues and suggestions."""
 
-    def test_content_from_issues_only(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_content_from_issues_only(self, handler, mock_http_handler, mock_critique_store):
         """Content is built from issues when no suggestions present."""
         crit = _make_critique(issues=["Bad logic", "Wrong format"], suggestions=[])
         mock_critique_store.get_recent.return_value = [crit]
@@ -355,9 +335,7 @@ class TestGetCritiquesContent:
             assert "Bad logic" in content
             assert "Wrong format" in content
 
-    def test_content_from_suggestions_only(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_content_from_suggestions_only(self, handler, mock_http_handler, mock_critique_store):
         """Content is built from suggestions when no issues present."""
         crit = _make_critique(issues=[], suggestions=["Use caching", "Add logging"])
         mock_critique_store.get_recent.return_value = [crit]
@@ -394,9 +372,7 @@ class TestGetCritiquesContent:
             content = _body(result)["critiques"][0]["content"]
             assert content == ""
 
-    def test_content_truncated_at_300_chars(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_content_truncated_at_300_chars(self, handler, mock_http_handler, mock_critique_store):
         """Content longer than 300 characters is truncated."""
         long_issue = "x" * 350
         crit = _make_critique(issues=[long_issue], suggestions=[])
@@ -406,9 +382,7 @@ class TestGetCritiquesContent:
             content = _body(result)["critiques"][0]["content"]
             assert len(content) <= 300
 
-    def test_issues_limited_to_first_two(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_issues_limited_to_first_two(self, handler, mock_http_handler, mock_critique_store):
         """Only the first 2 issues are included in content."""
         crit = _make_critique(
             issues=["Issue 1", "Issue 2", "Issue 3", "Issue 4"],
@@ -466,9 +440,7 @@ class TestGetCritiquesContent:
 class TestGetCritiquesAgentFilter:
     """Tests for agent-based filtering."""
 
-    def test_filter_by_agent(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_filter_by_agent(self, handler, mock_http_handler, mock_critique_store):
         """Filters critiques by agent name."""
         crits = [
             _make_critique(agent="claude"),
@@ -482,9 +454,7 @@ class TestGetCritiquesAgentFilter:
             assert body["count"] == 2
             assert all(c["agent"] == "claude" for c in body["critiques"])
 
-    def test_filter_by_agent_no_match(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_filter_by_agent_no_match(self, handler, mock_http_handler, mock_critique_store):
         """Returns empty when no critiques match agent filter."""
         crits = [_make_critique(agent="claude"), _make_critique(agent="gpt4")]
         mock_critique_store.get_recent.return_value = crits
@@ -514,9 +484,7 @@ class TestGetCritiquesAgentFilter:
             body = _body(result)
             assert body["filters"]["agent"] is None
 
-    def test_agent_filter_fetch_limit_extra(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_agent_filter_fetch_limit_extra(self, handler, mock_http_handler, mock_critique_store):
         """When agent filter is set, fetch_limit includes +100 extra."""
         crits = [_make_critique(agent="claude") for _ in range(5)]
         mock_critique_store.get_recent.return_value = crits
@@ -547,9 +515,7 @@ class TestGetCritiquesAgentFilter:
 class TestGetCritiquesPagination:
     """Tests for limit and offset pagination."""
 
-    def test_default_limit_is_20(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_default_limit_is_20(self, handler, mock_http_handler, mock_critique_store):
         """Default limit is 20."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -557,9 +523,7 @@ class TestGetCritiquesPagination:
             body = _body(result)
             assert body["limit"] == 20
 
-    def test_default_offset_is_0(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_default_offset_is_0(self, handler, mock_http_handler, mock_critique_store):
         """Default offset is 0."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -567,9 +531,7 @@ class TestGetCritiquesPagination:
             body = _body(result)
             assert body["offset"] == 0
 
-    def test_custom_limit(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_custom_limit(self, handler, mock_http_handler, mock_critique_store):
         """Custom limit is respected."""
         crits = [_make_critique(agent=f"agent_{i}") for i in range(50)]
         mock_critique_store.get_recent.return_value = crits
@@ -579,9 +541,7 @@ class TestGetCritiquesPagination:
             assert body["count"] == 5
             assert body["limit"] == 5
 
-    def test_custom_offset(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_custom_offset(self, handler, mock_http_handler, mock_critique_store):
         """Custom offset skips first N results."""
         crits = [_make_critique(agent=f"agent_{i}") for i in range(10)]
         mock_critique_store.get_recent.return_value = crits
@@ -594,9 +554,7 @@ class TestGetCritiquesPagination:
             assert body["critiques"][0]["agent"] == "agent_3"
             assert body["critiques"][1]["agent"] == "agent_4"
 
-    def test_limit_clamped_to_max_100(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_limit_clamped_to_max_100(self, handler, mock_http_handler, mock_critique_store):
         """Limit is clamped to maximum 100."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -604,9 +562,7 @@ class TestGetCritiquesPagination:
             body = _body(result)
             assert body["limit"] == 100
 
-    def test_limit_clamped_to_min_1(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_limit_clamped_to_min_1(self, handler, mock_http_handler, mock_critique_store):
         """Limit is clamped to minimum 1."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -614,9 +570,7 @@ class TestGetCritiquesPagination:
             body = _body(result)
             assert body["limit"] == 1
 
-    def test_offset_clamped_to_min_0(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_offset_clamped_to_min_0(self, handler, mock_http_handler, mock_critique_store):
         """Offset is clamped to minimum 0."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -624,9 +578,7 @@ class TestGetCritiquesPagination:
             body = _body(result)
             assert body["offset"] == 0
 
-    def test_offset_clamped_to_max_10000(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_offset_clamped_to_max_10000(self, handler, mock_http_handler, mock_critique_store):
         """Offset is clamped to maximum 10000."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -647,9 +599,7 @@ class TestGetCritiquesPagination:
             body = _body(result)
             assert body["total"] == 25
 
-    def test_total_count_with_agent_filter(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_total_count_with_agent_filter(self, handler, mock_http_handler, mock_critique_store):
         """Total count is based on filtered results when agent filter is set."""
         crits = [
             _make_critique(agent="claude"),
@@ -685,18 +635,15 @@ class TestGetCritiquesPagination:
 class TestGetCritiquesStoreFallback:
     """Tests for critique store fallback logic."""
 
-    def test_fallback_to_critique_store_class(
-        self, handler, mock_http_handler
-    ):
+    def test_fallback_to_critique_store_class(self, handler, mock_http_handler):
         """Falls back to CritiqueStore(nomic_dir) when get_critique_store returns None."""
         mock_store = MagicMock()
         mock_store.get_recent.return_value = []
         mock_cs_class = MagicMock(return_value=mock_store)
 
-        with patch(
-            _GET_CRITIQUE_STORE, return_value=None
-        ), patch(
-            _CRITIQUE_STORE_CLS, mock_cs_class
+        with (
+            patch(_GET_CRITIQUE_STORE, return_value=None),
+            patch(_CRITIQUE_STORE_CLS, mock_cs_class),
         ):
             result = handler._get_critiques({})
             assert _status(result) == 200
@@ -711,13 +658,9 @@ class TestGetCritiquesStoreFallback:
             result = handler._get_critiques({})
             assert _status(result) == 200
 
-    def test_get_critique_store_none_and_class_none_returns_503(
-        self, handler, mock_http_handler
-    ):
+    def test_get_critique_store_none_and_class_none_returns_503(self, handler, mock_http_handler):
         """Returns 503 when get_critique_store returns None and CritiqueStore is None."""
-        with patch(_GET_CRITIQUE_STORE, return_value=None), patch(
-            _CRITIQUE_STORE_CLS, None
-        ):
+        with patch(_GET_CRITIQUE_STORE, return_value=None), patch(_CRITIQUE_STORE_CLS, None):
             result = handler._get_critiques({})
             assert _status(result) == 503
 
@@ -778,9 +721,7 @@ class TestGetCritiquesErrorHandling:
             result = handler._get_critiques({})
             assert _status(result) == 500
 
-    def test_error_response_uses_safe_error_message(
-        self, handler, mock_http_handler
-    ):
+    def test_error_response_uses_safe_error_message(self, handler, mock_http_handler):
         """Error responses use safe_error_message (no internal details)."""
         mock_store = MagicMock()
         mock_store.get_recent.side_effect = OSError("/secret/path/leaked")
@@ -799,27 +740,19 @@ class TestGetCritiquesErrorHandling:
 class TestGetCritiquesRouting:
     """Tests for routing through the main MemoryHandler."""
 
-    def test_route_via_handler_handle(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_route_via_handler_handle(self, handler, mock_http_handler, mock_critique_store):
         """Routing through handle() for /api/v1/memory/critiques works."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
-            result = handler.handle(
-                "/api/v1/memory/critiques", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/memory/critiques", {}, mock_http_handler)
             assert result is not None
             assert _status(result) == 200
 
-    def test_legacy_route_normalization(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_legacy_route_normalization(self, handler, mock_http_handler, mock_critique_store):
         """Legacy /api/memory/critiques normalizes to /api/v1/memory/critiques."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
-            result = handler.handle(
-                "/api/memory/critiques", {}, mock_http_handler
-            )
+            result = handler.handle("/api/memory/critiques", {}, mock_http_handler)
             assert result is not None
             assert _status(result) == 200
 
@@ -853,9 +786,7 @@ class TestGetCritiquesParamBoundaries:
             # The filter value should be truncated
             assert len(body["filters"]["agent"]) <= 100
 
-    def test_non_numeric_limit_uses_default(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_non_numeric_limit_uses_default(self, handler, mock_http_handler, mock_critique_store):
         """Non-numeric limit parameter falls back to default 20."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -863,9 +794,7 @@ class TestGetCritiquesParamBoundaries:
             body = _body(result)
             assert body["limit"] == 20
 
-    def test_non_numeric_offset_uses_default(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_non_numeric_offset_uses_default(self, handler, mock_http_handler, mock_critique_store):
         """Non-numeric offset parameter falls back to default 0."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -873,9 +802,7 @@ class TestGetCritiquesParamBoundaries:
             body = _body(result)
             assert body["offset"] == 0
 
-    def test_negative_limit_clamped_to_1(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_negative_limit_clamped_to_1(self, handler, mock_http_handler, mock_critique_store):
         """Negative limit is clamped to minimum of 1."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -892,9 +819,7 @@ class TestGetCritiquesParamBoundaries:
 class TestGetCritiquesResponseStructure:
     """Tests for the overall response structure."""
 
-    def test_response_has_all_top_level_keys(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_response_has_all_top_level_keys(self, handler, mock_http_handler, mock_critique_store):
         """Response contains all expected top-level keys."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
@@ -907,18 +832,14 @@ class TestGetCritiquesResponseStructure:
             assert "limit" in body
             assert "filters" in body
 
-    def test_response_content_type_is_json(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_response_content_type_is_json(self, handler, mock_http_handler, mock_critique_store):
         """Response content type is application/json."""
         mock_critique_store.get_recent.return_value = []
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
             result = handler._get_critiques({})
             assert "json" in result.content_type
 
-    def test_count_matches_critiques_length(
-        self, handler, mock_http_handler, mock_critique_store
-    ):
+    def test_count_matches_critiques_length(self, handler, mock_http_handler, mock_critique_store):
         """Count field matches actual number of critiques returned."""
         crits = [_make_critique() for _ in range(7)]
         mock_critique_store.get_recent.return_value = crits

@@ -48,7 +48,15 @@ class UnifiedApprovalsHandler(BaseHandler):
             from aragora.approvals.inbox import collect_pending_approvals
 
             approvals = collect_pending_approvals(limit=limit, sources=sources)
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             logger.error("Failed to collect approvals: %s", exc)
             return error_response("Failed to collect approvals", 500)
 

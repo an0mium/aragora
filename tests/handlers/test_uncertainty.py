@@ -61,6 +61,7 @@ def _make_http_handler(body_data: dict | None = None) -> MagicMock:
 @dataclass
 class MockMetrics:
     """Minimal stand-in for uncertainty metrics returned by the estimator."""
+
     disagreement_level: float = 0.4
     entropy: float = 0.6
     confidence: float = 0.8
@@ -76,6 +77,7 @@ class MockMetrics:
 @dataclass
 class MockFollowup:
     """Minimal stand-in for a follow-up suggestion."""
+
     suggestion_id: str = "s1"
     description: str = "Explore sub-topic"
 
@@ -86,6 +88,7 @@ class MockFollowup:
 @dataclass
 class MockConfidenceScore:
     """Mock for a single confidence score entry."""
+
     value: float = 0.75
     round_num: int = 1
 
@@ -96,6 +99,7 @@ class MockConfidenceScore:
 @dataclass
 class MockDebate:
     """Minimal stand-in for a debate record retrieved from storage."""
+
     debate_id: str = "debate-1"
     messages: list = field(default_factory=list)
     votes: list = field(default_factory=list)
@@ -187,18 +191,14 @@ class TestHandleDispatch:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_default_method_is_get(self, handler):
         """When query_params is a dict the default method is GET."""
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/abc", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/abc", {}, None)
         # Should attempt GET path (returns 503 since no storage)
         # The handler will try the GET path
         assert result is not None or result is None  # Either an error or None
@@ -217,21 +217,26 @@ class TestEstimateUncertainty:
         mock_estimator = MagicMock()
         mock_estimator.analyze_disagreement.return_value = MockMetrics()
 
-        http = _make_http_handler({
-            "messages": [
-                {"content": "We should do X", "agent": "claude", "role": "agent", "round": 1},
-                {"content": "I disagree", "agent": "gpt4", "role": "agent", "round": 1},
-            ],
-            "votes": [
-                {"agent": "claude", "choice": "approve", "reasoning": "good", "confidence": 0.9},
-            ],
-            "proposals": {"claude": "proposal text"},
-        })
+        http = _make_http_handler(
+            {
+                "messages": [
+                    {"content": "We should do X", "agent": "claude", "role": "agent", "round": 1},
+                    {"content": "I disagree", "agent": "gpt4", "role": "agent", "round": 1},
+                ],
+                "votes": [
+                    {
+                        "agent": "claude",
+                        "choice": "approve",
+                        "reasoning": "good",
+                        "confidence": 0.9,
+                    },
+                ],
+                "proposals": {"claude": "proposal text"},
+            }
+        )
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -246,9 +251,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
 
@@ -257,9 +260,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": []})
 
         with patch(ESTIMATOR_PATCH, return_value=None):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 503
         assert "not available" in _body(result)["error"]
@@ -272,9 +273,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler(None)
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         # Empty body returns {} from read_json_body, which means empty messages/votes
         assert _status(result) == 200
@@ -288,9 +287,7 @@ class TestEstimateUncertainty:
         http.rfile = io.BytesIO(b"notjs")
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 400
         assert "Invalid" in _body(result)["error"]
@@ -303,9 +300,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 400
 
@@ -317,9 +312,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 500
 
@@ -331,9 +324,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 500
 
@@ -345,9 +336,7 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 400
 
@@ -357,15 +346,15 @@ class TestEstimateUncertainty:
         mock_estimator = MagicMock()
         mock_estimator.analyze_disagreement.return_value = MockMetrics()
 
-        http = _make_http_handler({
-            "messages": ["not-a-dict", 42, None, {"content": "valid", "agent": "a"}],
-            "votes": [],
-        })
+        http = _make_http_handler(
+            {
+                "messages": ["not-a-dict", 42, None, {"content": "valid", "agent": "a"}],
+                "votes": [],
+            }
+        )
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
 
@@ -375,15 +364,15 @@ class TestEstimateUncertainty:
         mock_estimator = MagicMock()
         mock_estimator.analyze_disagreement.return_value = MockMetrics()
 
-        http = _make_http_handler({
-            "messages": [],
-            "votes": ["not-a-dict", True],
-        })
+        http = _make_http_handler(
+            {
+                "messages": [],
+                "votes": ["not-a-dict", True],
+            }
+        )
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
 
@@ -393,15 +382,15 @@ class TestEstimateUncertainty:
         mock_estimator = MagicMock()
         mock_estimator.analyze_disagreement.return_value = MockMetrics()
 
-        http = _make_http_handler({
-            "messages": [{}],  # all defaults
-            "votes": [{}],     # all defaults
-        })
+        http = _make_http_handler(
+            {
+                "messages": [{}],  # all defaults
+                "votes": [{}],  # all defaults
+            }
+        )
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
 
@@ -414,13 +403,15 @@ class TestEstimateUncertainty:
         http = _make_http_handler({"messages": [], "votes": [], "proposals": proposals})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 200
         call_args = mock_estimator.analyze_disagreement.call_args
-        assert call_args[1].get("proposals", call_args[0][2] if len(call_args[0]) > 2 else None) is not None or True
+        assert (
+            call_args[1].get("proposals", call_args[0][2] if len(call_args[0]) > 2 else None)
+            is not None
+            or True
+        )
 
     @pytest.mark.asyncio
     async def test_body_too_large(self, handler):
@@ -431,9 +422,7 @@ class TestEstimateUncertainty:
 
         mock_estimator = MagicMock()
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         assert _status(result) == 400
 
@@ -444,9 +433,7 @@ class TestEstimateUncertainty:
 
         http = _make_http_handler({"messages": [], "votes": []})
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -456,9 +443,7 @@ class TestEstimateUncertainty:
 
         http = _make_http_handler({"messages": [], "votes": []})
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
         assert _status(result) == 500
 
 
@@ -478,24 +463,24 @@ class TestGenerateFollowups:
             MockFollowup("s2", "Clarify Y"),
         ]
 
-        http = _make_http_handler({
-            "cruxes": [
-                {
-                    "description": "Crux 1",
-                    "divergent_agents": ["a", "b"],
-                    "evidence_needed": "stats",
-                    "severity": 0.8,
-                    "id": "c1",
-                }
-            ],
-            "parent_debate_id": "parent-1",
-            "available_agents": ["a", "b", "c"],
-        })
+        http = _make_http_handler(
+            {
+                "cruxes": [
+                    {
+                        "description": "Crux 1",
+                        "divergent_agents": ["a", "b"],
+                        "evidence_needed": "stats",
+                        "severity": 0.8,
+                        "id": "c1",
+                    }
+                ],
+                "parent_debate_id": "parent-1",
+                "available_agents": ["a", "b", "c"],
+            }
+        )
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -507,9 +492,7 @@ class TestGenerateFollowups:
         http = _make_http_handler({"cruxes": [{"description": "x"}]})
 
         with patch(ANALYZER_PATCH, return_value=None):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 503
 
@@ -521,9 +504,7 @@ class TestGenerateFollowups:
         http.rfile = io.BytesIO(b"bad")
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 400
 
@@ -534,9 +515,7 @@ class TestGenerateFollowups:
         http = _make_http_handler({"cruxes": []})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 400
         assert "No cruxes" in _body(result)["error"]
@@ -548,9 +527,7 @@ class TestGenerateFollowups:
         http = _make_http_handler({})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 400
 
@@ -560,14 +537,10 @@ class TestGenerateFollowups:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.return_value = []
 
-        http = _make_http_handler({
-            "cruxes": ["not-a-dict", 42, {"description": "ok"}]
-        })
+        http = _make_http_handler({"cruxes": ["not-a-dict", 42, {"description": "ok"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         # Only one valid dict crux -> not empty -> calls suggest_followups
         assert _status(result) == 200
@@ -577,14 +550,10 @@ class TestGenerateFollowups:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.side_effect = ValueError("bad")
 
-        http = _make_http_handler({
-            "cruxes": [{"description": "c1"}]
-        })
+        http = _make_http_handler({"cruxes": [{"description": "c1"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 400
 
@@ -593,14 +562,10 @@ class TestGenerateFollowups:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.side_effect = RuntimeError("fail")
 
-        http = _make_http_handler({
-            "cruxes": [{"description": "c1"}]
-        })
+        http = _make_http_handler({"cruxes": [{"description": "c1"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 500
 
@@ -610,14 +575,14 @@ class TestGenerateFollowups:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.return_value = [MockFollowup()]
 
-        http = _make_http_handler({
-            "cruxes": [{}]  # all defaults
-        })
+        http = _make_http_handler(
+            {
+                "cruxes": [{}]  # all defaults
+            }
+        )
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 200
 
@@ -627,14 +592,10 @@ class TestGenerateFollowups:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.return_value = []
 
-        http = _make_http_handler({
-            "cruxes": [{"description": "crux"}]
-        })
+        http = _make_http_handler({"cruxes": [{"description": "crux"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 200
         call_kwargs = mock_analyzer.suggest_followups.call_args[1]
@@ -649,9 +610,7 @@ class TestGenerateFollowups:
         http = _make_http_handler({"cruxes": [{"description": "c"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 500
 
@@ -663,9 +622,7 @@ class TestGenerateFollowups:
         http = _make_http_handler({"cruxes": [{"description": "c"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 500
 
@@ -677,9 +634,7 @@ class TestGenerateFollowups:
         http.rfile = io.BytesIO(b"{}")
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 400
 
@@ -970,9 +925,7 @@ class TestGetAgentCalibration:
         mock_estimator.agent_confidences = {
             "a1": [MockConfidenceScore(i * 0.1, i) for i in range(20)]
         }
-        mock_estimator.calibration_history = {
-            "a1": [(i * 0.05, i % 2 == 0) for i in range(20)]
-        }
+        mock_estimator.calibration_history = {"a1": [(i * 0.05, i % 2 == 0) for i in range(20)]}
         mock_estimator.brier_scores = {"a1": 0.2}
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
@@ -993,9 +946,7 @@ class TestPathValidation:
 
     @pytest.mark.asyncio
     async def test_invalid_debate_id_path_traversal(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/../../../etc/passwd", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/../../../etc/passwd", {}, None)
         # Path has more than 6 segments, so len(parts) != 6 -> returns None
         assert result is None
 
@@ -1012,9 +963,7 @@ class TestPathValidation:
 
     @pytest.mark.asyncio
     async def test_invalid_agent_id_sql_injection(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/'; DROP TABLE--", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/'; DROP TABLE--", {}, None)
         if result is not None:
             assert _status(result) == 400
 
@@ -1022,9 +971,7 @@ class TestPathValidation:
     async def test_valid_debate_id_alphanumeric(self, handler):
         """Alphanumeric IDs pass validation."""
         handler._ctx = {}
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/abc123", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/abc123", {}, None)
         # Passes validation but no storage -> 503
         if result is not None:
             assert _status(result) == 503
@@ -1032,18 +979,14 @@ class TestPathValidation:
     @pytest.mark.asyncio
     async def test_valid_debate_id_with_hyphens(self, handler):
         handler._ctx = {}
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/my-debate-1", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/my-debate-1", {}, None)
         if result is not None:
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_valid_debate_id_with_underscores(self, handler):
         handler._ctx = {}
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/my_debate_1", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/my_debate_1", {}, None)
         if result is not None:
             assert _status(result) == 503
 
@@ -1051,35 +994,27 @@ class TestPathValidation:
     async def test_debate_id_too_long(self, handler):
         """IDs longer than 64 chars fail SAFE_ID_PATTERN."""
         long_id = "a" * 65
-        result = await handler.handle(
-            f"/api/v1/uncertainty/debate/{long_id}", {}, None
-        )
+        result = await handler.handle(f"/api/v1/uncertainty/debate/{long_id}", {}, None)
         if result is not None:
             assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_agent_id_path_traversal(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/../../etc/passwd", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/../../etc/passwd", {}, None)
         # More than 6 parts, so len(parts) != 6 -> falls through -> returns None
         assert result is None
 
     @pytest.mark.asyncio
     async def test_agent_id_with_dots(self, handler):
         """Dots are not allowed in SAFE_ID_PATTERN."""
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/agent.v2", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/agent.v2", {}, None)
         if result is not None:
             assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_debate_id(self, handler):
         """Trailing slash makes parts[5] empty -> validation fails."""
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/", {}, None)
         # Parts: ["", "api", "v1", "uncertainty", "debate", ""] -> len == 6
         # validate_path_segment("", ...) -> False -> 400
         if result is not None:
@@ -1087,9 +1022,7 @@ class TestPathValidation:
 
     @pytest.mark.asyncio
     async def test_empty_agent_id(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/", {}, None)
         if result is not None:
             assert _status(result) == 400
 
@@ -1151,9 +1084,7 @@ class TestHandlePost:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle_post(
-                "/api/v1/uncertainty/estimate", {}, http
-            )
+            result = await handler.handle_post("/api/v1/uncertainty/estimate", {}, http)
 
         assert _status(result) == 200
 
@@ -1162,22 +1093,16 @@ class TestHandlePost:
         mock_analyzer = MagicMock()
         mock_analyzer.suggest_followups.return_value = [MockFollowup()]
 
-        http = _make_http_handler({
-            "cruxes": [{"description": "c"}]
-        })
+        http = _make_http_handler({"cruxes": [{"description": "c"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle_post(
-                "/api/v1/uncertainty/followups", {}, http
-            )
+            result = await handler.handle_post("/api/v1/uncertainty/followups", {}, http)
 
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_unknown_path_returns_none(self, handler):
-        result = await handler.handle_post(
-            "/api/v1/uncertainty/unknown", {}, None
-        )
+        result = await handler.handle_post("/api/v1/uncertainty/unknown", {}, None)
         assert result is None
 
 
@@ -1192,23 +1117,17 @@ class TestHandleGet:
     @pytest.mark.asyncio
     async def test_debate_with_extra_segments_returns_none(self, handler):
         """Path with more than 6 segments is not matched."""
-        result = await handler._handle_get(
-            "/api/v1/uncertainty/debate/d1/extra", {}, None
-        )
+        result = await handler._handle_get("/api/v1/uncertainty/debate/d1/extra", {}, None)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_agent_with_extra_segments_returns_none(self, handler):
-        result = await handler._handle_get(
-            "/api/v1/uncertainty/agent/a1/extra", {}, None
-        )
+        result = await handler._handle_get("/api/v1/uncertainty/agent/a1/extra", {}, None)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_unrelated_get_returns_none(self, handler):
-        result = await handler._handle_get(
-            "/api/v1/uncertainty/other", {}, None
-        )
+        result = await handler._handle_get("/api/v1/uncertainty/other", {}, None)
         assert result is None
 
 
@@ -1227,9 +1146,7 @@ class TestInternalHandlePost:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler._handle_post(
-                "/api/v1/uncertainty/estimate", {}, http
-            )
+            result = await handler._handle_post("/api/v1/uncertainty/estimate", {}, http)
 
         assert _status(result) == 200
 
@@ -1241,17 +1158,13 @@ class TestInternalHandlePost:
         http = _make_http_handler({"cruxes": [{"description": "x"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler._handle_post(
-                "/api/v1/uncertainty/followups", {}, http
-            )
+            result = await handler._handle_post("/api/v1/uncertainty/followups", {}, http)
 
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_unmatched_post_path(self, handler):
-        result = await handler._handle_post(
-            "/api/v1/uncertainty/something", {}, None
-        )
+        result = await handler._handle_post("/api/v1/uncertainty/something", {}, None)
         assert result is None
 
 
@@ -1309,9 +1222,7 @@ class TestEdgeCases:
         mock_estimator.brier_scores = {}
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/agent/agent1", {}, None
-            )
+            result = await handler.handle("/api/v1/uncertainty/agent/agent1", {}, None)
 
         assert result is not None
         assert _status(result) == 200
@@ -1324,9 +1235,7 @@ class TestEdgeCases:
         http = _make_http_handler({"cruxes": [{"description": "c"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 400
 
@@ -1338,9 +1247,7 @@ class TestEdgeCases:
         http = _make_http_handler({"cruxes": [{"description": "c"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         assert _status(result) == 500
 
@@ -1363,9 +1270,7 @@ class TestHandleGetIntegration:
         handler._ctx = {"storage": mock_storage}
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/debate/d42", {}, None
-            )
+            result = await handler.handle("/api/v1/uncertainty/debate/d42", {}, None)
 
         assert _status(result) == 200
         assert _body(result)["debate_id"] == "d42"
@@ -1380,25 +1285,19 @@ class TestHandleGetIntegration:
         mock_estimator.brier_scores = {}
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/agent/claude", {}, None
-            )
+            result = await handler.handle("/api/v1/uncertainty/agent/claude", {}, None)
 
         assert _status(result) == 200
         assert _body(result)["agent_id"] == "claude"
 
     @pytest.mark.asyncio
     async def test_get_debate_invalid_id_via_handle(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/$$$", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/$$$", {}, None)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_get_agent_invalid_id_via_handle(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/!@#", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/!@#", {}, None)
         assert _status(result) == 400
 
 
@@ -1412,34 +1311,26 @@ class TestSecurityAdditional:
 
     @pytest.mark.asyncio
     async def test_null_byte_in_debate_id(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/test%00id", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/test%00id", {}, None)
         # URL-encoded null byte creates non-matching ID
         if result is not None:
             assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_unicode_in_agent_id(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/\u00e9l\u00e8ve", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/\u00e9l\u00e8ve", {}, None)
         if result is not None:
             assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_spaces_in_debate_id(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/debate/has space", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/debate/has space", {}, None)
         # "has space" is treated as a single segment with a space -> fails SAFE_ID_PATTERN
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_backslash_in_agent_id(self, handler):
-        result = await handler.handle(
-            "/api/v1/uncertainty/agent/test\\path", {}, None
-        )
+        result = await handler.handle("/api/v1/uncertainty/agent/test\\path", {}, None)
         if result is not None:
             assert _status(result) == 400
 
@@ -1448,9 +1339,7 @@ class TestSecurityAdditional:
         """64-char ID is within SAFE_ID_PATTERN limit."""
         handler._ctx = {}
         max_id = "a" * 64
-        result = await handler.handle(
-            f"/api/v1/uncertainty/debate/{max_id}", {}, None
-        )
+        result = await handler.handle(f"/api/v1/uncertainty/debate/{max_id}", {}, None)
         # Should pass validation but fail on storage -> 503
         if result is not None:
             assert _status(result) == 503
@@ -1465,9 +1354,7 @@ class TestSecurityAdditional:
         mock_estimator.brier_scores = {}
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/agent/a", {}, None
-            )
+            result = await handler.handle("/api/v1/uncertainty/agent/a", {}, None)
 
         assert _status(result) == 200
 
@@ -1490,9 +1377,7 @@ class TestResponseContent:
         http = _make_http_handler({"messages": [], "votes": []})
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
-            result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/estimate", "POST", http)
 
         body = _body(result)
         assert body["metrics"]["disagreement_level"] == 0.3
@@ -1508,14 +1393,10 @@ class TestResponseContent:
             MockFollowup("s3", "Do Z"),
         ]
 
-        http = _make_http_handler({
-            "cruxes": [{"description": "crux", "id": "c1"}]
-        })
+        http = _make_http_handler({"cruxes": [{"description": "crux", "id": "c1"}]})
 
         with patch(ANALYZER_PATCH, return_value=mock_analyzer):
-            result = await handler.handle(
-                "/api/v1/uncertainty/followups", "POST", http
-            )
+            result = await handler.handle("/api/v1/uncertainty/followups", "POST", http)
 
         body = _body(result)
         assert body["total"] == 3
@@ -1525,12 +1406,8 @@ class TestResponseContent:
     def test_agent_calibration_response_shape(self, handler):
         mock_estimator = MagicMock()
         mock_estimator.get_agent_calibration_quality.return_value = 0.92
-        mock_estimator.agent_confidences = {
-            "bob": [MockConfidenceScore(0.95, 1)]
-        }
-        mock_estimator.calibration_history = {
-            "bob": [(0.95, True)]
-        }
+        mock_estimator.agent_confidences = {"bob": [MockConfidenceScore(0.95, 1)]}
+        mock_estimator.calibration_history = {"bob": [(0.95, True)]}
         mock_estimator.brier_scores = {"bob": 0.05}
 
         with patch(ESTIMATOR_PATCH, return_value=mock_estimator):
@@ -1565,7 +1442,8 @@ class TestResponseContent:
     async def test_error_response_has_error_key(self, handler):
         with patch(ESTIMATOR_PATCH, return_value=None):
             result = await handler.handle(
-                "/api/v1/uncertainty/estimate", "POST",
+                "/api/v1/uncertainty/estimate",
+                "POST",
                 _make_http_handler({"messages": []}),
             )
 

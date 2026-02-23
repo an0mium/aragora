@@ -111,7 +111,9 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             sample = len(debates[-100:])
             return {
                 "total_debates": total,
-                "avg_duration_seconds": round(sum(durations) / len(durations), 1) if durations else 0,
+                "avg_duration_seconds": round(sum(durations) / len(durations), 1)
+                if durations
+                else 0,
                 "consensus_rate": round(consensus_count / sample, 3) if sample else 0,
                 "available": True,
             }
@@ -129,23 +131,31 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
         if not self._elo:
             return fallback
         try:
-            lb = self._elo.get_leaderboard(limit=10) if hasattr(self._elo, "get_leaderboard") else []
+            lb = (
+                self._elo.get_leaderboard(limit=10) if hasattr(self._elo, "get_leaderboard") else []
+            )
             agents = []
             for entry in lb:
                 if isinstance(entry, dict):
-                    agents.append({
-                        "name": entry.get("agent") or entry.get("name", "unknown"),
-                        "rating": entry.get("rating") or entry.get("elo", 1500),
-                        "matches": entry.get("matches") or entry.get("total_matches", 0),
-                        "win_rate": entry.get("win_rate", 0),
-                    })
+                    agents.append(
+                        {
+                            "name": entry.get("agent") or entry.get("name", "unknown"),
+                            "rating": entry.get("rating") or entry.get("elo", 1500),
+                            "matches": entry.get("matches") or entry.get("total_matches", 0),
+                            "win_rate": entry.get("win_rate", 0),
+                        }
+                    )
                 else:
-                    agents.append({
-                        "name": getattr(entry, "agent", getattr(entry, "name", "unknown")),
-                        "rating": getattr(entry, "rating", getattr(entry, "elo", 1500)),
-                        "matches": getattr(entry, "matches", getattr(entry, "total_matches", 0)),
-                        "win_rate": getattr(entry, "win_rate", 0),
-                    })
+                    agents.append(
+                        {
+                            "name": getattr(entry, "agent", getattr(entry, "name", "unknown")),
+                            "rating": getattr(entry, "rating", getattr(entry, "elo", 1500)),
+                            "matches": getattr(
+                                entry, "matches", getattr(entry, "total_matches", 0)
+                            ),
+                            "win_rate": getattr(entry, "win_rate", 0),
+                        }
+                    )
             return {"top_agents": agents, "available": True}
         except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError):
             logger.debug("Failed to collect agent rankings", exc_info=True)
@@ -164,12 +174,14 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             registry = get_registry()
             breakers = []
             for name, cb in registry.get_all().items():
-                breakers.append({
-                    "name": name,
-                    "state": cb.state if hasattr(cb, "state") else "unknown",
-                    "failure_count": getattr(cb, "failure_count", 0),
-                    "success_count": getattr(cb, "success_count", 0),
-                })
+                breakers.append(
+                    {
+                        "name": name,
+                        "state": cb.state if hasattr(cb, "state") else "unknown",
+                        "failure_count": getattr(cb, "failure_count", 0),
+                        "success_count": getattr(cb, "success_count", 0),
+                    }
+                )
             return {"breakers": breakers, "available": True}
         except (ImportError, AttributeError):
             pass
@@ -180,11 +192,13 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             if hasattr(CircuitBreaker, "_instances"):
                 breakers = []
                 for name, cb in CircuitBreaker._instances.items():
-                    breakers.append({
-                        "name": name,
-                        "state": cb.state if hasattr(cb, "state") else "unknown",
-                        "failure_count": getattr(cb, "failure_count", 0),
-                    })
+                    breakers.append(
+                        {
+                            "name": name,
+                            "state": cb.state if hasattr(cb, "state") else "unknown",
+                            "failure_count": getattr(cb, "failure_count", 0),
+                        }
+                    )
                 return {"breakers": breakers, "available": True}
         except (ImportError, AttributeError):
             pass
@@ -209,25 +223,39 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
 
             store = SelfImproveRunStore()
             runs = store.list_runs() if hasattr(store, "list_runs") else []
-            successful = sum(1 for r in runs if (r.get("status") if isinstance(r, dict) else getattr(r, "status", "")) == "completed")
-            failed = sum(1 for r in runs if (r.get("status") if isinstance(r, dict) else getattr(r, "status", "")) == "failed")
+            successful = sum(
+                1
+                for r in runs
+                if (r.get("status") if isinstance(r, dict) else getattr(r, "status", ""))
+                == "completed"
+            )
+            failed = sum(
+                1
+                for r in runs
+                if (r.get("status") if isinstance(r, dict) else getattr(r, "status", ""))
+                == "failed"
+            )
 
             recent = []
             for r in runs[-5:]:
                 if isinstance(r, dict):
-                    recent.append({
-                        "id": r.get("id", ""),
-                        "goal": r.get("goal", ""),
-                        "status": r.get("status", ""),
-                        "started_at": r.get("started_at", ""),
-                    })
+                    recent.append(
+                        {
+                            "id": r.get("id", ""),
+                            "goal": r.get("goal", ""),
+                            "status": r.get("status", ""),
+                            "started_at": r.get("started_at", ""),
+                        }
+                    )
                 else:
-                    recent.append({
-                        "id": getattr(r, "id", ""),
-                        "goal": getattr(r, "goal", ""),
-                        "status": getattr(r, "status", ""),
-                        "started_at": str(getattr(r, "started_at", "")),
-                    })
+                    recent.append(
+                        {
+                            "id": getattr(r, "id", ""),
+                            "goal": getattr(r, "goal", ""),
+                            "status": getattr(r, "status", ""),
+                            "started_at": str(getattr(r, "started_at", "")),
+                        }
+                    )
 
             return {
                 "total_cycles": len(runs),
@@ -250,6 +278,7 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
 
         try:
             import psutil
+
             mem = psutil.virtual_memory()
             cpu = psutil.cpu_percent(interval=0)
             return {

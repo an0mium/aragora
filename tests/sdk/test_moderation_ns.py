@@ -44,8 +44,12 @@ class TestModerationAPI:
 
     def test_approve_item(self, api, mock_client):
         api.approve_item("item-1")
-        mock_client.request.assert_called_once_with("POST", "/api/v1/moderation/queue/item-1/approve")
+        mock_client.request.assert_called_once_with(
+            "POST", "/api/v1/moderation/queue/item-1/approve"
+        )
 
     def test_reject_item(self, api, mock_client):
         api.reject_item("item-2")
-        mock_client.request.assert_called_once_with("POST", "/api/v1/moderation/queue/item-2/reject")
+        mock_client.request.assert_called_once_with(
+            "POST", "/api/v1/moderation/queue/item-2/reject"
+        )

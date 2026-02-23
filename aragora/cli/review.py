@@ -1049,7 +1049,10 @@ def cmd_review(args: argparse.Namespace) -> int:
         except subprocess.TimeoutExpired:
             print("Warning: Timeout posting PR comment", file=sys.stderr)
         except FileNotFoundError:
-            print("Warning: 'gh' CLI not found. Install GitHub CLI to use --post-comment.", file=sys.stderr)
+            print(
+                "Warning: 'gh' CLI not found. Install GitHub CLI to use --post-comment.",
+                file=sys.stderr,
+            )
 
     # CI mode exit codes
     if getattr(args, "ci", False):

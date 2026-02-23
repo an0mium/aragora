@@ -88,7 +88,9 @@ class MockDependencyTree:
     total_direct: int = 3
     total_transitive: int = 5
     total_dev: int = 2
-    analyzed_at: datetime = field(default_factory=lambda: datetime(2026, 2, 23, tzinfo=timezone.utc))
+    analyzed_at: datetime = field(
+        default_factory=lambda: datetime(2026, 2, 23, tzinfo=timezone.utc)
+    )
 
 
 @dataclass
@@ -432,7 +434,11 @@ class TestGetDependencyAnalyzer:
             mock_instance = MagicMock()
             with patch.dict(
                 "sys.modules",
-                {"aragora.audit.dependency_analyzer": MagicMock(DependencyAnalyzer=lambda: mock_instance)},
+                {
+                    "aragora.audit.dependency_analyzer": MagicMock(
+                        DependencyAnalyzer=lambda: mock_instance
+                    )
+                },
             ):
                 result = get_dependency_analyzer()
                 assert result is mock_instance
@@ -522,7 +528,9 @@ class TestHandleAnalyzeDependencies:
         assert body["data"]["from_cache"] is False
 
     @pytest.mark.asyncio
-    async def test_cache_key_varies_by_include_dev(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_cache_key_varies_by_include_dev(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
 
         data_dev = {"repo_path": str(real_path), "include_dev": True, "use_cache": True}
@@ -561,12 +569,15 @@ class TestHandleAnalyzeDependencies:
             assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_default_include_dev_true(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_default_include_dev_true(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         data = {"repo_path": str(real_path), "use_cache": False}
         await handle_analyze_dependencies(auth_context, data)
         patch_analyzer.resolve_dependencies.assert_called_once_with(
-            repo_path=real_path, include_dev=True,
+            repo_path=real_path,
+            include_dev=True,
         )
 
     @pytest.mark.asyncio
@@ -575,11 +586,14 @@ class TestHandleAnalyzeDependencies:
         data = {"repo_path": str(real_path), "include_dev": False, "use_cache": False}
         await handle_analyze_dependencies(auth_context, data)
         patch_analyzer.resolve_dependencies.assert_called_once_with(
-            repo_path=real_path, include_dev=False,
+            repo_path=real_path,
+            include_dev=False,
         )
 
     @pytest.mark.asyncio
-    async def test_result_includes_correct_fields(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_result_includes_correct_fields(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         data = {"repo_path": str(real_path), "use_cache": False}
         result = await handle_analyze_dependencies(auth_context, data)
@@ -673,7 +687,9 @@ class TestHandleGenerateSbom:
         assert body["data"]["format"] == "spdx"
 
     @pytest.mark.asyncio
-    async def test_default_format_cyclonedx(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_default_format_cyclonedx(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         sbom_data = {"bomFormat": "CycloneDX"}
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         patch_analyzer.generate_sbom = AsyncMock(return_value=json.dumps(sbom_data))
@@ -697,7 +713,9 @@ class TestHandleGenerateSbom:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_include_vulnerabilities_true(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_include_vulnerabilities_true(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         sbom_data = {"bomFormat": "CycloneDX"}
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         patch_analyzer.generate_sbom = AsyncMock(return_value=json.dumps(sbom_data))
@@ -705,11 +723,15 @@ class TestHandleGenerateSbom:
         data = {"repo_path": str(real_path), "include_vulnerabilities": True}
         await handle_generate_sbom(auth_context, data)
         patch_analyzer.generate_sbom.assert_called_once_with(
-            tree=mock_tree, format="cyclonedx", include_vulnerabilities=True,
+            tree=mock_tree,
+            format="cyclonedx",
+            include_vulnerabilities=True,
         )
 
     @pytest.mark.asyncio
-    async def test_include_vulnerabilities_false(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_include_vulnerabilities_false(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         sbom_data = {"bomFormat": "CycloneDX"}
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         patch_analyzer.generate_sbom = AsyncMock(return_value=json.dumps(sbom_data))
@@ -717,7 +739,9 @@ class TestHandleGenerateSbom:
         data = {"repo_path": str(real_path), "include_vulnerabilities": False}
         await handle_generate_sbom(auth_context, data)
         patch_analyzer.generate_sbom.assert_called_once_with(
-            tree=mock_tree, format="cyclonedx", include_vulnerabilities=False,
+            tree=mock_tree,
+            format="cyclonedx",
+            include_vulnerabilities=False,
         )
 
     @pytest.mark.asyncio
@@ -731,7 +755,9 @@ class TestHandleGenerateSbom:
             assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_json_decode_error_returns_500(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_json_decode_error_returns_500(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         patch_analyzer.generate_sbom = AsyncMock(return_value="not valid json {{{")
 
@@ -826,7 +852,9 @@ class TestHandleScanVulnerabilities:
         assert d["scan_summary"]["packages_with_vulnerabilities"] == 2
 
     @pytest.mark.asyncio
-    async def test_unknown_severity_grouped(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_unknown_severity_grouped(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         vulns = [
             MockVulnerability(
                 id="CVE-2024-9999",
@@ -872,7 +900,9 @@ class TestHandleScanVulnerabilities:
             assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_vuln_fields_serialized_correctly(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_vuln_fields_serialized_correctly(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         vulns = [
             MockVulnerability(
                 id="CVE-2024-1234",
@@ -930,17 +960,33 @@ class TestHandleScanVulnerabilities:
         assert len(body["data"]["vulnerabilities_by_severity"]["low"]) == 1
 
     @pytest.mark.asyncio
-    async def test_multiple_vulns_same_package(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_multiple_vulns_same_package(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         vulns = [
             MockVulnerability(
-                id="CVE-A", title="A", description="A", affected_package="requests",
-                affected_versions="*", fixed_version=None, cvss_score=9.0,
-                cwe_id=None, references=[], severity=MockSeverity.CRITICAL,
+                id="CVE-A",
+                title="A",
+                description="A",
+                affected_package="requests",
+                affected_versions="*",
+                fixed_version=None,
+                cvss_score=9.0,
+                cwe_id=None,
+                references=[],
+                severity=MockSeverity.CRITICAL,
             ),
             MockVulnerability(
-                id="CVE-B", title="B", description="B", affected_package="requests",
-                affected_versions="*", fixed_version=None, cvss_score=7.0,
-                cwe_id=None, references=[], severity=MockSeverity.HIGH,
+                id="CVE-B",
+                title="B",
+                description="B",
+                affected_package="requests",
+                affected_versions="*",
+                fixed_version=None,
+                cvss_score=7.0,
+                cwe_id=None,
+                references=[],
+                severity=MockSeverity.HIGH,
             ),
         ]
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
@@ -1010,7 +1056,9 @@ class TestHandleCheckLicenses:
         assert d["conflicts"][0]["severity"] == "error"
 
     @pytest.mark.asyncio
-    async def test_default_project_license_mit(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_default_project_license_mit(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         patch_analyzer.check_license_compatibility = AsyncMock(return_value=[])
 
@@ -1019,7 +1067,8 @@ class TestHandleCheckLicenses:
         body = json.loads(result.body)
         assert body["data"]["project_license"] == "MIT"
         patch_analyzer.check_license_compatibility.assert_called_once_with(
-            tree=mock_tree, project_license="MIT",
+            tree=mock_tree,
+            project_license="MIT",
         )
 
     @pytest.mark.asyncio
@@ -1081,7 +1130,9 @@ class TestHandleCheckLicenses:
             assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_warnings_only_still_compatible(self, auth_context, patch_analyzer, mock_tree, real_path):
+    async def test_warnings_only_still_compatible(
+        self, auth_context, patch_analyzer, mock_tree, real_path
+    ):
         conflicts = [
             MockLicenseConflict(
                 package_b="warn-pkg",
@@ -1211,7 +1262,9 @@ class TestDependencyAnalysisHandler:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_handle_post_analyze_dependencies(self, handler, real_path, patch_analyzer, mock_tree):
+    async def test_handle_post_analyze_dependencies(
+        self, handler, real_path, patch_analyzer, mock_tree
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         data = {"repo_path": str(real_path), "use_cache": False}
         result = await handler.handle_post("/api/v1/codebase/analyze-dependencies", data)
@@ -1227,7 +1280,9 @@ class TestDependencyAnalysisHandler:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_handle_post_scan_vulnerabilities(self, handler, real_path, patch_analyzer, mock_tree):
+    async def test_handle_post_scan_vulnerabilities(
+        self, handler, real_path, patch_analyzer, mock_tree
+    ):
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         patch_analyzer.check_vulnerabilities = AsyncMock(return_value=[])
         data = {"repo_path": str(real_path)}
@@ -1253,15 +1308,22 @@ class TestDependencyAnalysisHandler:
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_handle_post_with_handler_object(self, handler, real_path, patch_analyzer, mock_tree):
+    async def test_handle_post_with_handler_object(
+        self, handler, real_path, patch_analyzer, mock_tree
+    ):
         """When handler is provided, read_json_body is called."""
         patch_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
         mock_http_handler = MagicMock()
-        handler.read_json_body = MagicMock(return_value={
-            "repo_path": str(real_path), "use_cache": False,
-        })
+        handler.read_json_body = MagicMock(
+            return_value={
+                "repo_path": str(real_path),
+                "use_cache": False,
+            }
+        )
         result = await handler.handle_post(
-            "/api/v1/codebase/analyze-dependencies", {}, mock_http_handler,
+            "/api/v1/codebase/analyze-dependencies",
+            {},
+            mock_http_handler,
         )
         handler.read_json_body.assert_called_once_with(mock_http_handler)
         assert result.status_code == 200
@@ -1278,6 +1340,8 @@ class TestDependencyAnalysisHandler:
         mock_http_handler = MagicMock()
         handler.read_json_body = MagicMock(return_value=None)
         result = await handler.handle_post(
-            "/api/v1/codebase/clear-cache", {}, mock_http_handler,
+            "/api/v1/codebase/clear-cache",
+            {},
+            mock_http_handler,
         )
         assert result.status_code == 200

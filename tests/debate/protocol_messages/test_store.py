@@ -54,6 +54,7 @@ from aragora.debate.protocol_messages.store import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_message(
     debate_id: str = "debate-001",
     agent_id: str | None = "agent-alpha",
@@ -431,50 +432,74 @@ class TestQueryFilters:
         now = datetime.now(timezone.utc)
 
         # debate-A messages
-        store.record_sync(make_message(
-            debate_id="debate-A", agent_id="agent-1",
-            message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
-            round_number=1, correlation_id="corr-A",
-            ts=now - timedelta(minutes=10),
-        ))
-        store.record_sync(make_message(
-            debate_id="debate-A", agent_id="agent-2",
-            message_type=ProtocolMessageType.CRITIQUE_SUBMITTED,
-            round_number=1, parent_message_id=None,
-            ts=now - timedelta(minutes=9),
-        ))
-        store.record_sync(make_message(
-            debate_id="debate-A", agent_id="agent-1",
-            message_type=ProtocolMessageType.VOTE_CAST,
-            round_number=2,
-            ts=now - timedelta(minutes=5),
-        ))
-        store.record_sync(make_message(
-            debate_id="debate-A", agent_id="agent-2",
-            message_type=ProtocolMessageType.VOTE_CAST,
-            round_number=2,
-            ts=now - timedelta(minutes=4),
-        ))
-        store.record_sync(make_message(
-            debate_id="debate-A", agent_id=None,
-            message_type=ProtocolMessageType.CONSENSUS_REACHED,
-            round_number=3, correlation_id="corr-A",
-            ts=now - timedelta(minutes=1),
-        ))
+        store.record_sync(
+            make_message(
+                debate_id="debate-A",
+                agent_id="agent-1",
+                message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
+                round_number=1,
+                correlation_id="corr-A",
+                ts=now - timedelta(minutes=10),
+            )
+        )
+        store.record_sync(
+            make_message(
+                debate_id="debate-A",
+                agent_id="agent-2",
+                message_type=ProtocolMessageType.CRITIQUE_SUBMITTED,
+                round_number=1,
+                parent_message_id=None,
+                ts=now - timedelta(minutes=9),
+            )
+        )
+        store.record_sync(
+            make_message(
+                debate_id="debate-A",
+                agent_id="agent-1",
+                message_type=ProtocolMessageType.VOTE_CAST,
+                round_number=2,
+                ts=now - timedelta(minutes=5),
+            )
+        )
+        store.record_sync(
+            make_message(
+                debate_id="debate-A",
+                agent_id="agent-2",
+                message_type=ProtocolMessageType.VOTE_CAST,
+                round_number=2,
+                ts=now - timedelta(minutes=4),
+            )
+        )
+        store.record_sync(
+            make_message(
+                debate_id="debate-A",
+                agent_id=None,
+                message_type=ProtocolMessageType.CONSENSUS_REACHED,
+                round_number=3,
+                correlation_id="corr-A",
+                ts=now - timedelta(minutes=1),
+            )
+        )
 
         # debate-B messages
-        store.record_sync(make_message(
-            debate_id="debate-B", agent_id="agent-3",
-            message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
-            round_number=1,
-            ts=now - timedelta(minutes=8),
-        ))
-        store.record_sync(make_message(
-            debate_id="debate-B", agent_id="agent-3",
-            message_type=ProtocolMessageType.ROUND_STARTED,
-            round_number=2,
-            ts=now - timedelta(minutes=6),
-        ))
+        store.record_sync(
+            make_message(
+                debate_id="debate-B",
+                agent_id="agent-3",
+                message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
+                round_number=1,
+                ts=now - timedelta(minutes=8),
+            )
+        )
+        store.record_sync(
+            make_message(
+                debate_id="debate-B",
+                agent_id="agent-3",
+                message_type=ProtocolMessageType.ROUND_STARTED,
+                round_number=2,
+                ts=now - timedelta(minutes=6),
+            )
+        )
 
         return store
 
@@ -494,9 +519,7 @@ class TestQueryFilters:
 
     def test_filter_by_message_type(self):
         store = self._make_store_with_messages()
-        results = store._query_sync_impl(
-            QueryFilters(message_type=ProtocolMessageType.VOTE_CAST)
-        )
+        results = store._query_sync_impl(QueryFilters(message_type=ProtocolMessageType.VOTE_CAST))
         assert len(results) == 2
         assert all(r.message_type == ProtocolMessageType.VOTE_CAST for r in results)
         store.close()
@@ -504,39 +527,38 @@ class TestQueryFilters:
     def test_filter_by_message_types_list(self):
         store = self._make_store_with_messages()
         results = store._query_sync_impl(
-            QueryFilters(message_types=[
-                ProtocolMessageType.PROPOSAL_SUBMITTED,
-                ProtocolMessageType.CONSENSUS_REACHED,
-            ])
+            QueryFilters(
+                message_types=[
+                    ProtocolMessageType.PROPOSAL_SUBMITTED,
+                    ProtocolMessageType.CONSENSUS_REACHED,
+                ]
+            )
         )
         assert len(results) == 3
         types = {r.message_type for r in results}
-        assert types == {ProtocolMessageType.PROPOSAL_SUBMITTED, ProtocolMessageType.CONSENSUS_REACHED}
+        assert types == {
+            ProtocolMessageType.PROPOSAL_SUBMITTED,
+            ProtocolMessageType.CONSENSUS_REACHED,
+        }
         store.close()
 
     def test_filter_by_round_number(self):
         store = self._make_store_with_messages()
-        results = store._query_sync_impl(
-            QueryFilters(debate_id="debate-A", round_number=2)
-        )
+        results = store._query_sync_impl(QueryFilters(debate_id="debate-A", round_number=2))
         assert len(results) == 2
         assert all(r.round_number == 2 for r in results)
         store.close()
 
     def test_filter_by_min_round(self):
         store = self._make_store_with_messages()
-        results = store._query_sync_impl(
-            QueryFilters(debate_id="debate-A", min_round=2)
-        )
+        results = store._query_sync_impl(QueryFilters(debate_id="debate-A", min_round=2))
         assert len(results) == 3
         assert all(r.round_number >= 2 for r in results)
         store.close()
 
     def test_filter_by_max_round(self):
         store = self._make_store_with_messages()
-        results = store._query_sync_impl(
-            QueryFilters(debate_id="debate-A", max_round=1)
-        )
+        results = store._query_sync_impl(QueryFilters(debate_id="debate-A", max_round=1))
         assert len(results) == 2
         assert all(r.round_number <= 1 for r in results)
         store.close()
@@ -597,9 +619,7 @@ class TestQueryFilters:
         )
         store.record_sync(parent)
         store.record_sync(child)
-        results = store._query_sync_impl(
-            QueryFilters(parent_message_id=parent.message_id)
-        )
+        results = store._query_sync_impl(QueryFilters(parent_message_id=parent.message_id))
         assert len(results) == 1
         assert results[0].parent_message_id == parent.message_id
         store.close()
@@ -783,9 +803,10 @@ class TestCountSync:
         store.record_sync(make_message(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED))
         store.record_sync(make_message(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED))
         store.record_sync(make_message(message_type=ProtocolMessageType.VOTE_CAST))
-        assert store._count_sync(
-            QueryFilters(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED)
-        ) == 2
+        assert (
+            store._count_sync(QueryFilters(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED))
+            == 2
+        )
         store.close()
 
     def test_count_empty_store_returns_zero(self):
@@ -845,7 +866,9 @@ class TestCleanupOldSync:
         # cutoff.replace(day=cutoff.day - days) month boundary bug.
         now = datetime.now(timezone.utc)
         if now.day < 3:
-            pytest.skip("Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync")
+            pytest.skip(
+                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
+            )
         store = fresh_store()
         old_ts = now - timedelta(days=2)
         store.record_sync(make_message(debate_id="d-old", ts=old_ts))
@@ -860,7 +883,9 @@ class TestCleanupOldSync:
     def test_cleanup_old_no_old_messages(self):
         now = datetime.now(timezone.utc)
         if now.day < 3:
-            pytest.skip("Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync")
+            pytest.skip(
+                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
+            )
         store = fresh_store()
         store.record_sync(make_message(debate_id="d-recent"))
         deleted = store._cleanup_old_sync(days=1)
@@ -870,7 +895,9 @@ class TestCleanupOldSync:
     def test_cleanup_old_empty_store(self):
         now = datetime.now(timezone.utc)
         if now.day < 3:
-            pytest.skip("Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync")
+            pytest.skip(
+                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
+            )
         store = fresh_store()
         deleted = store._cleanup_old_sync(days=1)
         assert deleted == 0
@@ -1147,14 +1174,18 @@ class TestAsyncProtocolMessageStoreTimeline:
 
     async def test_get_debate_timeline_with_type_filter(self):
         store = fresh_store()
-        store.record_sync(make_message(
-            debate_id="d-tl-typed",
-            message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
-        ))
-        store.record_sync(make_message(
-            debate_id="d-tl-typed",
-            message_type=ProtocolMessageType.VOTE_CAST,
-        ))
+        store.record_sync(
+            make_message(
+                debate_id="d-tl-typed",
+                message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
+            )
+        )
+        store.record_sync(
+            make_message(
+                debate_id="d-tl-typed",
+                message_type=ProtocolMessageType.VOTE_CAST,
+            )
+        )
         results = await store.get_debate_timeline(
             "d-tl-typed",
             include_types=[ProtocolMessageType.PROPOSAL_SUBMITTED],
@@ -1289,9 +1320,7 @@ class TestAsyncProtocolMessageStoreClass:
         await store.record(make_message(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED))
         await store.record(make_message(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED))
         await store.record(make_message(message_type=ProtocolMessageType.VOTE_CAST))
-        n = await store.count(
-            QueryFilters(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED)
-        )
+        n = await store.count(QueryFilters(message_type=ProtocolMessageType.PROPOSAL_SUBMITTED))
         assert n == 2
         store.close()
 
@@ -1359,7 +1388,9 @@ class TestAsyncProtocolMessageStoreClass:
         store = fresh_async_store()
         now = datetime.now(timezone.utc)
         if now.day < 3:
-            pytest.skip("Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync")
+            pytest.skip(
+                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
+            )
         old_ts = now - timedelta(days=2)
         store._sync_store.record_sync(make_message(debate_id="d-aclean", ts=old_ts))
         store._sync_store.record_sync(make_message(debate_id="d-aclean"))
@@ -1392,12 +1423,14 @@ class TestGetProtocolStore:
     def setup_method(self):
         """Reset the singleton before each test."""
         import aragora.debate.protocol_messages.store as store_module
+
         with store_module._store_lock:
             store_module._protocol_store = None
 
     def teardown_method(self):
         """Reset the singleton after each test."""
         import aragora.debate.protocol_messages.store as store_module
+
         with store_module._store_lock:
             if store_module._protocol_store is not None:
                 store_module._protocol_store.close()
@@ -1419,6 +1452,7 @@ class TestGetProtocolStore:
 
     def test_get_protocol_store_creates_fresh_after_reset(self):
         import aragora.debate.protocol_messages.store as store_module
+
         store1 = get_protocol_store(":memory:")
         # Reset singleton
         with store_module._store_lock:
@@ -1541,6 +1575,7 @@ class TestEdgeCases:
         each pooled connection would see an empty database if using ':memory:'.
         """
         import asyncio
+
         db_path = str(tmp_path / "concurrent.db")
         store = ProtocolMessageStore(db_path=db_path, max_connections=5)
         msgs = [make_message(debate_id="d-concurrent") for _ in range(10)]

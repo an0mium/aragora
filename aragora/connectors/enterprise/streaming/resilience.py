@@ -353,7 +353,10 @@ class StreamingCircuitBreaker:
         self._state_changes.append((datetime.now(timezone.utc), old_state, new_state))
 
         logger.info(
-            "[CircuitBreaker:%s] State transition: %s -> %s", self.name, old_state.value, new_state.value
+            "[CircuitBreaker:%s] State transition: %s -> %s",
+            self.name,
+            old_state.value,
+            new_state.value,
         )
 
         # Reset counters on state change
@@ -607,7 +610,11 @@ class DLQHandler(Generic[T]):
 
         if retry_count < self.config.dlq_max_retries:
             logger.warning(
-                "[DLQ] Message %s failed (attempt %s/%s): %s", message_id, retry_count, self.config.dlq_max_retries, error
+                "[DLQ] Message %s failed (attempt %s/%s): %s",
+                message_id,
+                retry_count,
+                self.config.dlq_max_retries,
+                error,
             )
             return False
 
@@ -887,7 +894,9 @@ class HealthMonitor:
             if self._consecutive_failures >= self.config.unhealthy_threshold:
                 self._healthy = False
                 logger.warning(
-                    "[HealthMonitor:%s] Marked unhealthy after %s consecutive failures", self.name, self._consecutive_failures
+                    "[HealthMonitor:%s] Marked unhealthy after %s consecutive failures",
+                    self.name,
+                    self._consecutive_failures,
                 )
 
     async def get_status(self) -> HealthStatus:

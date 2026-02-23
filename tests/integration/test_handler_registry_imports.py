@@ -37,9 +37,8 @@ class TestDeferredImportResolution:
                         f"{handler_ref._module_path}:{handler_ref._class_name}"
                     )
 
-        assert not failures, (
-            f"{len(failures)} handler(s) failed to resolve:\n"
-            + "\n".join(f"  - {f}" for f in failures)
+        assert not failures, f"{len(failures)} handler(s) failed to resolve:\n" + "\n".join(
+            f"  - {f}" for f in failures
         )
 
     def test_all_deferred_imports_resolve_to_classes(self):
@@ -53,8 +52,7 @@ class TestDeferredImportResolution:
                 resolved = handler_ref.resolve()
                 if resolved is not None and not isinstance(resolved, type):
                     non_classes.append(
-                        f"{attr_name}: resolved to {type(resolved).__name__} "
-                        f"instead of a class"
+                        f"{attr_name}: resolved to {type(resolved).__name__} instead of a class"
                     )
 
         assert not non_classes, (
@@ -136,15 +134,15 @@ class TestResolvedHandlerMethods:
                 if not attr.startswith("__")
             )
 
-            if not (has_can_handle or has_routes or has_register or has_handle or has_handle_methods):
+            if not (
+                has_can_handle or has_routes or has_register or has_handle or has_handle_methods
+            ):
                 missing.append(
-                    f"{attr_name} ({handler_class.__name__}): "
-                    "no dispatch mechanism found"
+                    f"{attr_name} ({handler_class.__name__}): no dispatch mechanism found"
                 )
 
-        assert not missing, (
-            f"{len(missing)} handler(s) missing any dispatch method:\n"
-            + "\n".join(f"  - {m}" for m in missing)
+        assert not missing, f"{len(missing)} handler(s) missing any dispatch method:\n" + "\n".join(
+            f"  - {m}" for m in missing
         )
 
     def test_all_handlers_have_handle_method(self):
@@ -177,9 +175,8 @@ class TestResolvedHandlerMethods:
                     "missing handle, handle_*, register_routes, or ROUTES"
                 )
 
-        assert not missing, (
-            f"{len(missing)} handler(s) missing handle dispatch:\n"
-            + "\n".join(f"  - {m}" for m in missing)
+        assert not missing, f"{len(missing)} handler(s) missing handle dispatch:\n" + "\n".join(
+            f"  - {m}" for m in missing
         )
 
     def test_handlers_instantiate_with_empty_ctx(self):
@@ -229,12 +226,9 @@ class TestResolvedHandlerMethods:
         max_failures = max(3, len(HANDLER_REGISTRY) // 20)
         assert len(failures) <= max_failures, (
             f"{len(failures)} handler(s) failed to instantiate "
-            f"(max allowed: {max_failures}):\n"
-            + "\n".join(f"  - {f}" for f in failures[:20])
+            f"(max allowed: {max_failures}):\n" + "\n".join(f"  - {f}" for f in failures[:20])
         )
-        assert instantiated > 100, (
-            f"Only {instantiated} handlers instantiated, expected 100+"
-        )
+        assert instantiated > 100, f"Only {instantiated} handlers instantiated, expected 100+"
 
     def test_can_handle_returns_bool(self):
         """can_handle() must return a bool for all instantiated handlers."""
@@ -263,9 +257,7 @@ class TestResolvedHandlerMethods:
 
                 result = instance.can_handle("/api/test-path")
                 if not isinstance(result, bool):
-                    non_bool.append(
-                        f"{attr_name}: can_handle returned {type(result).__name__}"
-                    )
+                    non_bool.append(f"{attr_name}: can_handle returned {type(result).__name__}")
             except Exception:
                 # Instantiation failures tested separately
                 pass
@@ -339,11 +331,7 @@ class TestRouteCollisionDetection:
                     continue
                 route_owners[path].append(attr_name)
 
-        collisions = {
-            path: owners
-            for path, owners in route_owners.items()
-            if len(owners) > 1
-        }
+        collisions = {path: owners for path, owners in route_owners.items() if len(owners) > 1}
 
         # Known collision count as of Feb 2026.
         # If this grows, investigate whether new collisions are intentional.
@@ -352,8 +340,7 @@ class TestRouteCollisionDetection:
             f"{len(collisions)} route collisions exceeds known bound "
             f"of {max_known_collisions}. New collisions:\n"
             + "\n".join(
-                f"  - {path}: {', '.join(owners)}"
-                for path, owners in sorted(collisions.items())
+                f"  - {path}: {', '.join(owners)}" for path, owners in sorted(collisions.items())
             )
         )
 
@@ -397,9 +384,7 @@ class TestRouteCollisionDetection:
                 except Exception:
                     pass
 
-            assert len(matching_handlers) >= 1, (
-                f"No handler matches path '{path}'"
-            )
+            assert len(matching_handlers) >= 1, f"No handler matches path '{path}'"
 
 
 class TestHandlerTierConsistency:
@@ -414,9 +399,7 @@ class TestHandlerTierConsistency:
         # This test just ensures the mapping exists for known critical handlers.
         critical = ["_health_handler", "_debates_handler", "_agents_handler"]
         for name in critical:
-            assert name in HANDLER_TIERS, (
-                f"Critical handler {name} missing from HANDLER_TIERS"
-            )
+            assert name in HANDLER_TIERS, f"Critical handler {name} missing from HANDLER_TIERS"
 
     def test_handler_tiers_values_valid(self):
         """All HANDLER_TIERS values must be valid tier names."""
@@ -424,9 +407,7 @@ class TestHandlerTierConsistency:
 
         valid = {"core", "extended", "enterprise", "experimental", "optional"}
         for attr_name, tier in HANDLER_TIERS.items():
-            assert tier in valid, (
-                f"{attr_name} has invalid tier '{tier}', must be one of {valid}"
-            )
+            assert tier in valid, f"{attr_name} has invalid tier '{tier}', must be one of {valid}"
 
     def test_core_tier_has_health_handler(self):
         """Health handler must always be in core tier."""
@@ -471,9 +452,7 @@ class TestValidateAllHandlers:
 
         assert results["status"] in ("ok", "validation_errors")
         total_checked = len(results["valid"]) + len(results["invalid"])
-        assert total_checked > 100, (
-            f"Only {total_checked} handlers checked, expected 100+"
-        )
+        assert total_checked > 100, f"Only {total_checked} handlers checked, expected 100+"
         if total_checked > 0:
             valid_ratio = len(results["valid"]) / total_checked
             assert valid_ratio >= 0.70, (

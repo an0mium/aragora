@@ -567,7 +567,9 @@ class SourceReputationManager:
             self.debate_sources[did] = set(sources)
 
         logger.info(
-            "Imported %s reputations, %s verifications", len(self.reputations), sum(len(v) for v in self.verifications.values())
+            "Imported %s reputations, %s verifications",
+            len(self.reputations),
+            sum(len(v) for v in self.verifications.values()),
         )
 
 

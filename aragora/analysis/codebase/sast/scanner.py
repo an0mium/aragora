@@ -299,7 +299,9 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             filtered_count = original_count - len(result.findings)
             if filtered_count > 0:
                 logger.debug(
-                    "Filtered %s low-confidence findings (threshold: %s)", filtered_count, confidence_threshold
+                    "Filtered %s low-confidence findings (threshold: %s)",
+                    filtered_count,
+                    confidence_threshold,
                 )
 
         # Add fix recommendations based on CWE
@@ -397,7 +399,9 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 
                 await self._security_emitter.emit(event)
                 logger.info(
-                    "Emitted SAST_CRITICAL security event for %s critical findings (scan_id=%s)", len(critical_findings), scan_id
+                    "Emitted SAST_CRITICAL security event for %s critical findings (scan_id=%s)",
+                    len(critical_findings),
+                    scan_id,
                 )
 
             except ImportError:
@@ -441,7 +445,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             # Add target
             cmd.append(repo_path)
 
-            logger.info("Running Semgrep scan: %s...", ' '.join(cmd[:5]))
+            logger.info("Running Semgrep scan: %s...", " ".join(cmd[:5]))
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,

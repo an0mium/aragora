@@ -78,7 +78,9 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
+class OpenClawAdapter(
+    OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter
+):
     """
     Adapter that bridges OpenClaw to the Knowledge Mound.
 
@@ -464,7 +466,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
                 action_data["km_node_id"] = km_id
 
                 result.items_synced += 1
-                logger.debug("Synced OpenClaw action to KM: %s -> %s", action_data['id'], km_id)
+                logger.debug("Synced OpenClaw action to KM: %s -> %s", action_data["id"], km_id)
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 error_msg = f"Error syncing action {action_data.get('id')}: {e}"
@@ -475,7 +477,10 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
         result.duration_ms = (time.time() - start_time) * 1000
 
         logger.info(
-            "OpenClaw to KM sync complete: synced=%s, skipped=%s, failed=%s", result.items_synced, result.items_skipped, result.items_failed
+            "OpenClaw to KM sync complete: synced=%s, skipped=%s, failed=%s",
+            result.items_synced,
+            result.items_skipped,
+            result.items_failed,
         )
 
         return result
@@ -618,7 +623,14 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
                         )
                         update.applied = True
                         update.applied_at = datetime.now(timezone.utc)
-                except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    ConnectionError,
+                    OSError,
+                ) as e:
                     logger.warning("Failed to push priority update to OpenClaw: %s", e)
 
             pushed_count += 1

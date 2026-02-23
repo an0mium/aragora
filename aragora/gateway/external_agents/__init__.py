@@ -133,7 +133,10 @@ def create_gateway(
     )
 
     logger.info(
-        "External Agent Gateway created: vault=%s, policy=%s, max_concurrent=%s", 'enabled' if credential_vault else 'disabled', 'enabled' if policy_engine else 'disabled', gateway_config.max_concurrent_agents
+        "External Agent Gateway created: vault=%s, policy=%s, max_concurrent=%s",
+        "enabled" if credential_vault else "disabled",
+        "enabled" if policy_engine else "disabled",
+        gateway_config.max_concurrent_agents,
     )
 
     return gateway

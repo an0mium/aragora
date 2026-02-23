@@ -106,7 +106,10 @@ async def handle_scan_secrets(
                     repo_scans[scan_id] = result
 
                 logger.info(
-                    "[Security] Completed secrets scan %s for %s: %s secrets found", scan_id, repo_id, len(result.secrets)
+                    "[Security] Completed secrets scan %s for %s: %s secrets found",
+                    scan_id,
+                    repo_id,
+                    len(result.secrets),
                 )
 
                 # Emit security events for findings (triggers debate for critical secrets)

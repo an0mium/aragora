@@ -137,7 +137,7 @@ class EventsMixin:
                 )
                 result = response.json()
                 if not result.get("ok"):
-                    logger.warning("Slack API error: %s", result.get('error'))
+                    logger.warning("Slack API error: %s", result.get("error"))
                     return None
                 # Return message timestamp for thread tracking
                 return result.get("ts")

@@ -566,6 +566,7 @@ class TestEdgeCases:
     def test_default_preferences_not_mutated_by_update(self, handler):
         """Updating a user's prefs should never change _DEFAULT_PREFERENCES."""
         import copy
+
         original = copy.deepcopy(_DEFAULT_PREFERENCES)
         body = {
             "preferences": {

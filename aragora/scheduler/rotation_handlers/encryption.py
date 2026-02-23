@@ -132,7 +132,10 @@ class EncryptionKeyRotationHandler(RotationHandler):
             expected_length = metadata.get("key_length", self.key_length)
             if len(key_bytes) != expected_length:
                 logger.error(
-                    "Key length mismatch for %s: expected %s, got %s", secret_id, expected_length, len(key_bytes)
+                    "Key length mismatch for %s: expected %s, got %s",
+                    secret_id,
+                    expected_length,
+                    len(key_bytes),
                 )
                 return False
 
@@ -225,7 +228,9 @@ class EncryptionKeyRotationHandler(RotationHandler):
             # Archive the old key (in production, store in secure archive)
             key_id = metadata.get("key_id", "unknown")
             logger.info(
-                "Archiving old encryption key %s for %s. Key removed from active rotation.", key_id, secret_id
+                "Archiving old encryption key %s for %s. Key removed from active rotation.",
+                key_id,
+                secret_id,
             )
 
             # In production, you might:

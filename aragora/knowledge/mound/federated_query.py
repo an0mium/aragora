@@ -585,7 +585,9 @@ class FederatedQueryAggregator:
                 items = await self._query_single(source, query, limit, **kwargs)
                 results[source] = (items, None)
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.debug("Sequential query to %s failed with expected error: %s", source.value, e)
+                logger.debug(
+                    "Sequential query to %s failed with expected error: %s", source.value, e
+                )
                 results[source] = ([], f"Query failed: {type(e).__name__}")
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning(

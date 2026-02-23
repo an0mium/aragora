@@ -708,7 +708,9 @@ class MemoryCoordinator:
                             "debate_id": transaction.debate_id,
                             "success": transaction.success,
                             "operations_count": len(transaction.operations),
-                            "skipped_count": len(transaction.skipped_operations) if transaction.skipped_operations else 0,
+                            "skipped_count": len(transaction.skipped_operations)
+                            if transaction.skipped_operations
+                            else 0,
                         },
                     )
                 except (ImportError, RuntimeError, AttributeError) as e:
@@ -1199,10 +1201,7 @@ class MemoryCoordinator:
             # Check for high-confidence items that should be forgotten
             # (indicates contradiction — a previously confident belief is now wrong)
             for decision in decisions:
-                if (
-                    decision.action == "forget"
-                    and self.options.enable_contradiction_propagation
-                ):
+                if decision.action == "forget" and self.options.enable_contradiction_propagation:
                     content = ""
                     for op in transaction.get_successful_operations():
                         if str(op.result) == decision.item_id:
@@ -1248,9 +1247,7 @@ class MemoryCoordinator:
 
                 # Use content-aware surprise if available
                 if hasattr(self.retention_gate, "score_content_surprise"):
-                    item_surprise = self.retention_gate.score_content_surprise(
-                        content, op.target
-                    )
+                    item_surprise = self.retention_gate.score_content_surprise(content, op.target)
                 else:
                     item_surprise = surprise_score
 
@@ -1433,7 +1430,9 @@ class MemoryCoordinator:
                     self.continuum_memory.update_importance(entry_id, new_importance)
                     affected_ids.append(entry_id)
             except (RuntimeError, ValueError, AttributeError) as e:
-                logger.warning("Failed to apply contradiction penalty to continuum %s: %s", entry_id, e)
+                logger.warning(
+                    "Failed to apply contradiction penalty to continuum %s: %s", entry_id, e
+                )
 
         return affected_ids
 

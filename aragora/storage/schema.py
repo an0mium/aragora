@@ -334,7 +334,10 @@ class SchemaManager:
 
         if current > self.current_version:
             logger.warning(
-                "[%s] Database version (%s) is newer than code version (%s). Skipping migrations.", self.module_name, current, self.current_version
+                "[%s] Database version (%s) is newer than code version (%s). Skipping migrations.",
+                self.module_name,
+                current,
+                self.current_version,
             )
             return False
 
@@ -359,7 +362,10 @@ class SchemaManager:
                 except (sqlite3.Error, ValueError) as e:
                     self.conn.rollback()
                     logger.error(
-                        "[%s] Migration to v%s failed: %s", self.module_name, migration.to_version, e
+                        "[%s] Migration to v%s failed: %s",
+                        self.module_name,
+                        migration.to_version,
+                        e,
                     )
                     raise
 
@@ -657,7 +663,9 @@ class DatabaseManager:
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
-                "Non-database exception in DatabaseManager.connection(), rolling back: %s: %s", type(e).__name__, e
+                "Non-database exception in DatabaseManager.connection(), rolling back: %s: %s",
+                type(e).__name__,
+                e,
             )
             conn.rollback()
             raise
@@ -683,7 +691,9 @@ class DatabaseManager:
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
-                "Non-database exception in transaction context, rolling back: %s: %s", type(e).__name__, e
+                "Non-database exception in transaction context, rolling back: %s: %s",
+                type(e).__name__,
+                e,
             )
             conn.execute("ROLLBACK")
             raise
@@ -713,7 +723,9 @@ class DatabaseManager:
             raise
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             logger.warning(
-                "Non-database exception in fresh_connection context, rolling back: %s: %s", type(e).__name__, e
+                "Non-database exception in fresh_connection context, rolling back: %s: %s",
+                type(e).__name__,
+                e,
             )
             conn.rollback()
             raise
@@ -1051,7 +1063,10 @@ class ConnectionPool:
                     conn = get_wal_connection(self.db_path, self.timeout, check_same_thread=False)
                     self._active.add(id(conn))
                     logger.debug(
-                        "Created new pooled connection to %s (active: %s/%s)", self.db_path, len(self._active), self.max_connections
+                        "Created new pooled connection to %s (active: %s/%s)",
+                        self.db_path,
+                        len(self._active),
+                        self.max_connections,
                     )
                     return conn
 
@@ -1111,7 +1126,9 @@ class ConnectionPool:
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
-                "Non-database exception in ConnectionPool.connection(), rolling back: %s: %s", type(e).__name__, e
+                "Non-database exception in ConnectionPool.connection(), rolling back: %s: %s",
+                type(e).__name__,
+                e,
             )
             conn.rollback()
             raise

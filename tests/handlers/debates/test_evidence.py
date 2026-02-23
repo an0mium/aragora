@@ -214,7 +214,9 @@ class TestGetImpasse:
         body = _body(result)
         assert body["indicators"]["high_severity_critiques"] is False
 
-    def test_impasse_severity_boundary_at_0_7(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_impasse_severity_boundary_at_0_7(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """Severity exactly 0.7 does not trigger high_severity (requires > 0.7)."""
         mock_storage.get_debate.return_value = _make_debate(
             consensus_reached=False,
@@ -234,7 +236,9 @@ class TestGetImpasse:
         body = _body(result)
         assert body["indicators"]["high_severity_critiques"] is True
 
-    def test_impasse_critique_missing_severity(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_impasse_critique_missing_severity(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """Critique without severity key defaults to 0 (not high severity)."""
         mock_storage.get_debate.return_value = _make_debate(
             consensus_reached=False,
@@ -244,7 +248,9 @@ class TestGetImpasse:
         body = _body(result)
         assert body["indicators"]["high_severity_critiques"] is False
 
-    def test_impasse_storage_exception_handled(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_impasse_storage_exception_handled(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """Unexpected storage exception is caught by handle_errors decorator."""
         mock_storage.get_debate.side_effect = RuntimeError("DB down")
         result = evidence_mixin._get_impasse(mock_http_handler, "debate-1")
@@ -444,7 +450,9 @@ class TestGetSummary:
             assert body["confidence"] == 0.92
             assert body["summary"]["one_liner"] == "Sliding window is the recommended approach"
 
-    def test_summary_defaults_for_missing_fields(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_summary_defaults_for_missing_fields(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """Missing task and confidence use defaults."""
         mock_storage.get_debate.return_value = {"id": "d-1"}
 
@@ -547,7 +555,9 @@ class TestGetCitations:
         assert body["grounding_score"] == 0.7
         assert body["verdict"] == "Some verdict"
 
-    def test_grounded_verdict_unparseable_string(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_grounded_verdict_unparseable_string(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """Unparseable grounded_verdict returns has_citations=False."""
         mock_storage.get_debate.return_value = _make_debate(
             grounded_verdict="not valid json {{{",
@@ -568,7 +578,9 @@ class TestGetCitations:
         # Therefore has_citations should be False
         assert body["has_citations"] is False
 
-    def test_citations_record_not_found_error(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_citations_record_not_found_error(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """RecordNotFoundError returns 404."""
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "d-1")
         result = evidence_mixin._get_citations(mock_http_handler, "d-1")
@@ -670,7 +682,9 @@ class TestGetEvidence:
         assert len(body["claims"]) == 2
         assert len(body["citations"]) == 1
 
-    def test_evidence_with_json_string_verdict(self, evidence_mixin, mock_storage, mock_http_handler):
+    def test_evidence_with_json_string_verdict(
+        self, evidence_mixin, mock_storage, mock_http_handler
+    ):
         """Grounded verdict as JSON string is parsed via safe_json_parse."""
         verdict = {
             "grounding_score": 0.5,

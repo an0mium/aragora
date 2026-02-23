@@ -210,9 +210,7 @@ class ExecutionBridge:
         # SubTask.success_criteria is a dict, extract values as list
         raw_criteria = getattr(subtask, "success_criteria", {}) or {}
         if isinstance(raw_criteria, dict):
-            success_criteria = [
-                f"{key}: {value}" for key, value in raw_criteria.items()
-            ]
+            success_criteria = [f"{key}: {value}" for key, value in raw_criteria.items()]
         elif isinstance(raw_criteria, list):
             success_criteria = list(raw_criteria)
         else:
@@ -296,9 +294,7 @@ class ExecutionBridge:
                 loop.create_task(adapter.ingest_cycle_outcome(cycle_outcome))
             except RuntimeError:
                 # No running event loop, skip async ingestion
-                logger.debug(
-                    "No event loop available for KM ingestion, result stored locally"
-                )
+                logger.debug("No event loop available for KM ingestion, result stored locally")
 
             logger.info(
                 "execution_result_ingested subtask=%s success=%s files=%d",

@@ -589,7 +589,9 @@ class SQLiteEmailCredentialStore(EmailCredentialStoreBackend):
             conn.commit()
             deleted = cursor.rowcount > 0
             if deleted:
-                logger.debug("Deleted email credential for %s:%s:%s", tenant_id, provider, email_address)
+                logger.debug(
+                    "Deleted email credential for %s:%s:%s", tenant_id, provider, email_address
+                )
             return deleted
 
     async def list_for_tenant(self, tenant_id: str) -> list[EmailCredential]:
@@ -716,11 +718,15 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
                     return EmailCredential.from_json(data)
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(
-                    "Redis get connection error, falling back to SQLite: %s: %s", type(e).__name__, e
+                    "Redis get connection error, falling back to SQLite: %s: %s",
+                    type(e).__name__,
+                    e,
                 )
             except (ValueError, TypeError) as e:
                 logger.debug(
-                    "Redis get deserialization error, falling back to SQLite: %s: %s", type(e).__name__, e
+                    "Redis get deserialization error, falling back to SQLite: %s: %s",
+                    type(e).__name__,
+                    e,
                 )
 
         credential = await self._sqlite.get(tenant_id, provider, email_address)
@@ -958,7 +964,9 @@ class PostgresEmailCredentialStore(EmailCredentialStoreBackend):
             )
             deleted = result != "DELETE 0"
             if deleted:
-                logger.debug("Deleted email credential for %s:%s:%s", tenant_id, provider, email_address)
+                logger.debug(
+                    "Deleted email credential for %s:%s:%s", tenant_id, provider, email_address
+                )
             return deleted
 
     async def list_for_tenant(self, tenant_id: str) -> list[EmailCredential]:

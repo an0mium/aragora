@@ -209,21 +209,43 @@ class UnifiedHandler(  # type: ignore[misc]
                 RBACMiddlewareConfig(
                     route_permissions=DEFAULT_ROUTE_PERMISSIONS,
                     bypass_paths={
-                        "/health", "/healthz", "/ready", "/readyz",
+                        "/health",
+                        "/healthz",
+                        "/ready",
+                        "/readyz",
                         "/metrics",
-                        "/api/docs", "/api/docs/", "/api/redoc", "/api/redoc/",
-                        "/openapi.json", "/api/openapi", "/api/openapi.json",
-                        "/api/openapi.yaml", "/api/postman.json",
-                        "/api/v1/docs", "/api/v1/docs/",
-                        "/api/v1/openapi", "/api/v1/openapi.json",
-                        "/graphql", "/graphiql", "/api/graphql", "/api/v1/graphql",
-                        "/graphql/schema", "/api/graphql/schema", "/api/v1/graphql/schema",
-                        "/api/v1/auth/register", "/api/v1/auth/login",
-                        "/api/v1/auth/refresh", "/api/v1/auth/signup",
-                        "/api/v1/auth/verify-email", "/api/v1/auth/resend-verification",
-                        "/api/v1/auth/accept-invite", "/api/v1/auth/check-invite",
-                        "/api/v1/auth/oauth/", "/api/auth/oauth/",
-                        "/api/v1/auth/sso/", "/auth/sso/",
+                        "/api/docs",
+                        "/api/docs/",
+                        "/api/redoc",
+                        "/api/redoc/",
+                        "/openapi.json",
+                        "/api/openapi",
+                        "/api/openapi.json",
+                        "/api/openapi.yaml",
+                        "/api/postman.json",
+                        "/api/v1/docs",
+                        "/api/v1/docs/",
+                        "/api/v1/openapi",
+                        "/api/v1/openapi.json",
+                        "/graphql",
+                        "/graphiql",
+                        "/api/graphql",
+                        "/api/v1/graphql",
+                        "/graphql/schema",
+                        "/api/graphql/schema",
+                        "/api/v1/graphql/schema",
+                        "/api/v1/auth/register",
+                        "/api/v1/auth/login",
+                        "/api/v1/auth/refresh",
+                        "/api/v1/auth/signup",
+                        "/api/v1/auth/verify-email",
+                        "/api/v1/auth/resend-verification",
+                        "/api/v1/auth/accept-invite",
+                        "/api/v1/auth/check-invite",
+                        "/api/v1/auth/oauth/",
+                        "/api/auth/oauth/",
+                        "/api/v1/auth/sso/",
+                        "/auth/sso/",
                         "/api/public/",
                         "/api/v1/playground/",
                     },
@@ -242,6 +264,7 @@ class UnifiedHandler(  # type: ignore[misc]
     def rbac(self) -> RBACMiddleware:
         """Lazy-init RBAC middleware on first access."""
         return self._get_rbac()
+
     nomic_state_file: Path | None = None
     persistence: Optional["SupabaseClient"] = None
     insight_store: Optional["InsightStore"] = None
@@ -950,7 +973,9 @@ class UnifiedServer:
                 else:
                     protocol = "HTTP"
 
-                logger.info("%s server listening on %s:%s", protocol, self.http_host, self.http_port)
+                logger.info(
+                    "%s server listening on %s:%s", protocol, self.http_host, self.http_port
+                )
                 server.serve_forever()
                 break  # Normal exit
             except ssl.SSLError as e:
@@ -960,7 +985,11 @@ class UnifiedServer:
                 if e.errno == 98 or "Address already in use" in str(e):  # EADDRINUSE
                     if attempt < max_retries - 1:
                         logger.warning(
-                            "Port %s in use, retrying in %ss (attempt %s/%s)", self.http_port, retry_delay, attempt + 1, max_retries
+                            "Port %s in use, retrying in %ss (attempt %s/%s)",
+                            self.http_port,
+                            retry_delay,
+                            attempt + 1,
+                            max_retries,
                         )
                         # Using time.sleep is correct here: this method runs in a dedicated
                         # thread (see Thread(target=self._run_http_server)), not the async event loop
@@ -968,7 +997,10 @@ class UnifiedServer:
                         retry_delay *= 2  # Exponential backoff
                     else:
                         logger.error(
-                            "Failed to bind HTTP server to port %s after %s attempts: %s", self.http_port, max_retries, e
+                            "Failed to bind HTTP server to port %s after %s attempts: %s",
+                            self.http_port,
+                            max_retries,
+                            e,
                         )
                 else:
                     logger.error("HTTP server failed to start: %s", e)
@@ -1102,7 +1134,7 @@ class UnifiedServer:
         validation_mode = os.environ.get("ARAGORA_VALIDATION_MODE", "blocking")
         ssrf_strict = os.environ.get("ARAGORA_SSRF_STRICT", "true").lower() in ("true", "1", "yes")
         logger.info("  Validation: %s", validation_mode)
-        logger.info("  SSRF:       %s", 'strict' if ssrf_strict else 'permissive')
+        logger.info("  SSRF:       %s", "strict" if ssrf_strict else "permissive")
 
         # Set up signal handlers for graceful shutdown
         self._setup_signal_handlers()
@@ -1176,7 +1208,8 @@ class UnifiedServer:
             task = asyncio.create_task(self.graceful_shutdown())
             task.add_done_callback(
                 lambda t: logger.critical(
-                    "Graceful shutdown failed: %s", t.exception(),
+                    "Graceful shutdown failed: %s",
+                    t.exception(),
                 )
                 if not t.cancelled() and t.exception()
                 else None
@@ -1287,7 +1320,11 @@ async def run_unified_server(
         # Auto-create a default data directory so storage works without --nomic-dir
         import os as _os
 
-        default_data = Path(_os.environ.get("ARAGORA_DATA_DIR", "/app/data" if Path("/app").exists() else ".aragora"))
+        default_data = Path(
+            _os.environ.get(
+                "ARAGORA_DATA_DIR", "/app/data" if Path("/app").exists() else ".aragora"
+            )
+        )
         try:
             default_data.mkdir(parents=True, exist_ok=True)
             nomic_dir = default_data

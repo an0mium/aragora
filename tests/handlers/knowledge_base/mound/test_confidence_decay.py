@@ -142,9 +142,7 @@ def mock_mound():
     """Create a mock KnowledgeMound with confidence decay methods."""
     mound = MagicMock()
     mound.apply_confidence_decay = AsyncMock(return_value=MockDecayReport())
-    mound.record_confidence_event = AsyncMock(
-        return_value=MockConfidenceAdjustment()
-    )
+    mound.record_confidence_event = AsyncMock(return_value=MockConfidenceAdjustment())
     mound.get_confidence_history = AsyncMock(return_value=[])
     mound.get_decay_stats = MagicMock(
         return_value={
@@ -181,9 +179,7 @@ class TestApplyConfidenceDecayEndpoint:
     @pytest.mark.asyncio
     async def test_success_returns_decay_report(self, handler, mock_mound):
         """Successful decay returns report data from mound."""
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         assert _status(result) == 200
         body = _body(result)
         assert body["workspace_id"] == "ws-001"
@@ -196,9 +192,7 @@ class TestApplyConfidenceDecayEndpoint:
     @pytest.mark.asyncio
     async def test_success_with_force_flag(self, handler, mock_mound):
         """Force flag is forwarded to mound."""
-        await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001", force=True
-        )
+        await handler.apply_confidence_decay_endpoint(workspace_id="ws-001", force=True)
         mock_mound.apply_confidence_decay.assert_awaited_once_with(
             workspace_id="ws-001", force=True
         )
@@ -214,9 +208,7 @@ class TestApplyConfidenceDecayEndpoint:
     @pytest.mark.asyncio
     async def test_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = await handler_no_mound.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler_no_mound.apply_confidence_decay_endpoint(workspace_id="ws-001")
         assert _status(result) == 503
         body = _body(result)
         assert "not available" in body["error"].lower()
@@ -232,57 +224,49 @@ class TestApplyConfidenceDecayEndpoint:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.apply_confidence_decay = AsyncMock(
-            side_effect=KeyError("missing key")
-        )
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        mock_mound.apply_confidence_decay = AsyncMock(side_effect=KeyError("missing key"))
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.apply_confidence_decay = AsyncMock(
-            side_effect=ValueError("bad value")
-        )
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        mock_mound.apply_confidence_decay = AsyncMock(side_effect=ValueError("bad value"))
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.apply_confidence_decay = AsyncMock(
-            side_effect=OSError("disk failure")
-        )
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        mock_mound.apply_confidence_decay = AsyncMock(side_effect=OSError("disk failure"))
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.apply_confidence_decay = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        mock_mound.apply_confidence_decay = AsyncMock(side_effect=TypeError("wrong type"))
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_report_with_adjustments(self, handler, mock_mound):
         """Report with adjustments serializes them correctly."""
         adj1 = MockConfidenceAdjustment(
-            id="adj-1", item_id="item-1", event=ConfidenceEvent.DECAYED,
-            old_confidence=0.9, new_confidence=0.85, reason="time decay",
+            id="adj-1",
+            item_id="item-1",
+            event=ConfidenceEvent.DECAYED,
+            old_confidence=0.9,
+            new_confidence=0.85,
+            reason="time decay",
         )
         adj2 = MockConfidenceAdjustment(
-            id="adj-2", item_id="item-2", event=ConfidenceEvent.ACCESSED,
-            old_confidence=0.6, new_confidence=0.65, reason="recent access",
+            id="adj-2",
+            item_id="item-2",
+            event=ConfidenceEvent.ACCESSED,
+            old_confidence=0.6,
+            new_confidence=0.65,
+            reason="recent access",
         )
         report = MockDecayReport(
             workspace_id="ws-001",
@@ -293,9 +277,7 @@ class TestApplyConfidenceDecayEndpoint:
             adjustments=[adj1, adj2],
         )
         mock_mound.apply_confidence_decay = AsyncMock(return_value=report)
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         body = _body(result)
         assert _status(result) == 200
         assert len(body["adjustments"]) == 2
@@ -309,18 +291,14 @@ class TestApplyConfidenceDecayEndpoint:
         """Report with no adjustments returns empty list."""
         report = MockDecayReport(adjustments=[])
         mock_mound.apply_confidence_decay = AsyncMock(return_value=report)
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         body = _body(result)
         assert body["adjustments"] == []
 
     @pytest.mark.asyncio
     async def test_processed_at_is_serialized(self, handler, mock_mound):
         """processed_at datetime is serialized to ISO format string."""
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         body = _body(result)
         assert "processed_at" in body
         assert isinstance(body["processed_at"], str)
@@ -329,9 +307,7 @@ class TestApplyConfidenceDecayEndpoint:
     @pytest.mark.asyncio
     async def test_force_true_passed_to_mound(self, handler, mock_mound):
         """force=True is correctly passed through."""
-        await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-test", force=True
-        )
+        await handler.apply_confidence_decay_endpoint(workspace_id="ws-test", force=True)
         call_kwargs = mock_mound.apply_confidence_decay.call_args.kwargs
         assert call_kwargs["force"] is True
         assert call_kwargs["workspace_id"] == "ws-test"
@@ -340,13 +316,13 @@ class TestApplyConfidenceDecayEndpoint:
     async def test_zero_items_processed(self, handler, mock_mound):
         """Report with zero items processed is valid."""
         report = MockDecayReport(
-            items_processed=0, items_decayed=0, items_boosted=0,
+            items_processed=0,
+            items_decayed=0,
+            items_boosted=0,
             average_confidence_change=0.0,
         )
         mock_mound.apply_confidence_decay = AsyncMock(return_value=report)
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         body = _body(result)
         assert _status(result) == 200
         assert body["items_processed"] == 0
@@ -379,9 +355,7 @@ class TestRecordConfidenceEvent:
     async def test_success_no_adjustment(self, handler, mock_mound):
         """Event that does not change confidence returns adjusted=False."""
         mock_mound.record_confidence_event = AsyncMock(return_value=None)
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -401,9 +375,7 @@ class TestRecordConfidenceEvent:
     @pytest.mark.asyncio
     async def test_empty_item_id_returns_400(self, handler):
         """Empty item_id returns 400."""
-        result = await handler.record_confidence_event(
-            item_id="", event="accessed"
-        )
+        result = await handler.record_confidence_event(item_id="", event="accessed")
         assert _status(result) == 400
         body = _body(result)
         assert "item_id" in body["error"].lower()
@@ -411,9 +383,7 @@ class TestRecordConfidenceEvent:
     @pytest.mark.asyncio
     async def test_empty_event_returns_400(self, handler):
         """Empty event returns 400."""
-        result = await handler.record_confidence_event(
-            item_id="item-001", event=""
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="")
         assert _status(result) == 400
         body = _body(result)
         assert "event" in body["error"].lower()
@@ -432,9 +402,7 @@ class TestRecordConfidenceEvent:
     @pytest.mark.asyncio
     async def test_invalid_event_includes_valid_values(self, handler):
         """Invalid event error message lists all valid event values."""
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="bad_event"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="bad_event")
         body = _body(result)
         # Check that at least some known events are listed
         error_msg = body["error"].lower()
@@ -447,9 +415,7 @@ class TestRecordConfidenceEvent:
             mock_mound.record_confidence_event = AsyncMock(
                 return_value=MockConfidenceAdjustment(event=event)
             )
-            result = await handler.record_confidence_event(
-                item_id="item-001", event=event.value
-            )
+            result = await handler.record_confidence_event(item_id="item-001", event=event.value)
             assert _status(result) == 200, f"Event {event.value} should be accepted"
 
     @pytest.mark.asyncio
@@ -458,9 +424,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.CREATED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="created"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="created")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -469,9 +433,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.CITED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="cited"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="cited")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -480,9 +442,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.VALIDATED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="validated"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="validated")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -491,9 +451,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.INVALIDATED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="invalidated"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="invalidated")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -502,9 +460,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.CONTRADICTED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="contradicted"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="contradicted")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -513,9 +469,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.UPDATED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="updated"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="updated")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -524,9 +478,7 @@ class TestRecordConfidenceEvent:
         mock_mound.record_confidence_event = AsyncMock(
             return_value=MockConfidenceAdjustment(event=ConfidenceEvent.DECAYED)
         )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="decayed"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="decayed")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -541,72 +493,50 @@ class TestRecordConfidenceEvent:
     @pytest.mark.asyncio
     async def test_default_reason_is_empty_string(self, handler, mock_mound):
         """Default reason is empty string."""
-        await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        await handler.record_confidence_event(item_id="item-001", event="accessed")
         call_kwargs = mock_mound.record_confidence_event.call_args.kwargs
         assert call_kwargs["reason"] == ""
 
     @pytest.mark.asyncio
     async def test_event_enum_forwarded_to_mound(self, handler, mock_mound):
         """Event string is converted to ConfidenceEvent enum before passing to mound."""
-        await handler.record_confidence_event(
-            item_id="item-001", event="validated"
-        )
+        await handler.record_confidence_event(item_id="item-001", event="validated")
         call_kwargs = mock_mound.record_confidence_event.call_args.kwargs
         assert call_kwargs["event"] == ConfidenceEvent.VALIDATED
 
     @pytest.mark.asyncio
     async def test_item_id_forwarded_to_mound(self, handler, mock_mound):
         """item_id is correctly forwarded to mound."""
-        await handler.record_confidence_event(
-            item_id="my-item-42", event="accessed"
-        )
+        await handler.record_confidence_event(item_id="my-item-42", event="accessed")
         call_kwargs = mock_mound.record_confidence_event.call_args.kwargs
         assert call_kwargs["item_id"] == "my-item-42"
 
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.record_confidence_event = AsyncMock(
-            side_effect=KeyError("item not found")
-        )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        mock_mound.record_confidence_event = AsyncMock(side_effect=KeyError("item not found"))
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.record_confidence_event = AsyncMock(
-            side_effect=ValueError("invalid")
-        )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        mock_mound.record_confidence_event = AsyncMock(side_effect=ValueError("invalid"))
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.record_confidence_event = AsyncMock(
-            side_effect=OSError("storage error")
-        )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        mock_mound.record_confidence_event = AsyncMock(side_effect=OSError("storage error"))
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.record_confidence_event = AsyncMock(
-            side_effect=TypeError("bad type")
-        )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        mock_mound.record_confidence_event = AsyncMock(side_effect=TypeError("bad type"))
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -622,9 +552,7 @@ class TestRecordConfidenceEvent:
             metadata={"source": "report-123"},
         )
         mock_mound.record_confidence_event = AsyncMock(return_value=custom_adj)
-        result = await handler.record_confidence_event(
-            item_id="item-custom", event="cited"
-        )
+        result = await handler.record_confidence_event(item_id="item-custom", event="cited")
         body = _body(result)
         adj = body["adjustment"]
         assert adj["id"] == "adj-custom"
@@ -658,10 +586,14 @@ class TestGetConfidenceHistory:
     async def test_success_returns_history_entries(self, handler, mock_mound):
         """Successful call returns history with adjustments."""
         adj1 = MockConfidenceAdjustment(
-            id="adj-1", item_id="item-1", event=ConfidenceEvent.DECAYED,
+            id="adj-1",
+            item_id="item-1",
+            event=ConfidenceEvent.DECAYED,
         )
         adj2 = MockConfidenceAdjustment(
-            id="adj-2", item_id="item-2", event=ConfidenceEvent.ACCESSED,
+            id="adj-2",
+            item_id="item-2",
+            event=ConfidenceEvent.ACCESSED,
         )
         mock_mound.get_confidence_history = AsyncMock(return_value=[adj1, adj2])
         result = await handler.get_confidence_history()
@@ -705,9 +637,7 @@ class TestGetConfidenceHistory:
     @pytest.mark.asyncio
     async def test_invalid_event_type_returns_400(self, handler):
         """Invalid event_type returns 400 with valid types listed."""
-        result = await handler.get_confidence_history(
-            event_type="nonexistent_type"
-        )
+        result = await handler.get_confidence_history(event_type="nonexistent_type")
         assert _status(result) == 400
         body = _body(result)
         assert "invalid event_type" in body["error"].lower()
@@ -726,9 +656,7 @@ class TestGetConfidenceHistory:
         """Every valid ConfidenceEvent is accepted as event_type filter."""
         for event in ConfidenceEvent:
             mock_mound.get_confidence_history = AsyncMock(return_value=[])
-            result = await handler.get_confidence_history(
-                event_type=event.value
-            )
+            result = await handler.get_confidence_history(event_type=event.value)
             assert _status(result) == 200, f"Event type {event.value} should be accepted"
 
     @pytest.mark.asyncio
@@ -767,10 +695,7 @@ class TestGetConfidenceHistory:
     @pytest.mark.asyncio
     async def test_count_matches_adjustments_length(self, handler, mock_mound):
         """Count field matches the number of adjustments."""
-        adjustments = [
-            MockConfidenceAdjustment(id=f"adj-{i}")
-            for i in range(5)
-        ]
+        adjustments = [MockConfidenceAdjustment(id=f"adj-{i}") for i in range(5)]
         mock_mound.get_confidence_history = AsyncMock(return_value=adjustments)
         result = await handler.get_confidence_history()
         body = _body(result)
@@ -802,36 +727,28 @@ class TestGetConfidenceHistory:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.get_confidence_history = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_confidence_history = AsyncMock(side_effect=KeyError("missing"))
         result = await handler.get_confidence_history()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.get_confidence_history = AsyncMock(
-            side_effect=ValueError("bad data")
-        )
+        mock_mound.get_confidence_history = AsyncMock(side_effect=ValueError("bad data"))
         result = await handler.get_confidence_history()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.get_confidence_history = AsyncMock(
-            side_effect=OSError("disk fail")
-        )
+        mock_mound.get_confidence_history = AsyncMock(side_effect=OSError("disk fail"))
         result = await handler.get_confidence_history()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.get_confidence_history = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.get_confidence_history = AsyncMock(side_effect=TypeError("wrong type"))
         result = await handler.get_confidence_history()
         assert _status(result) == 500
 
@@ -839,9 +756,7 @@ class TestGetConfidenceHistory:
     async def test_both_filters_applied(self, handler, mock_mound):
         """Both item_id and event_type filters are applied together."""
         mock_mound.get_confidence_history = AsyncMock(return_value=[])
-        result = await handler.get_confidence_history(
-            item_id="item-42", event_type="cited"
-        )
+        result = await handler.get_confidence_history(item_id="item-42", event_type="cited")
         body = _body(result)
         assert body["filters"]["item_id"] == "item-42"
         assert body["filters"]["event_type"] == "cited"
@@ -853,9 +768,7 @@ class TestGetConfidenceHistory:
     async def test_both_filters_and_limit(self, handler, mock_mound):
         """All three parameters (item_id, event_type, limit) work together."""
         mock_mound.get_confidence_history = AsyncMock(return_value=[])
-        await handler.get_confidence_history(
-            item_id="item-1", event_type="accessed", limit=25
-        )
+        await handler.get_confidence_history(item_id="item-1", event_type="accessed", limit=25)
         call_kwargs = mock_mound.get_confidence_history.call_args.kwargs
         assert call_kwargs["item_id"] == "item-1"
         assert call_kwargs["event_type"] == ConfidenceEvent.ACCESSED
@@ -1010,17 +923,13 @@ class TestConfidenceDecayEdgeCases:
     @pytest.mark.asyncio
     async def test_record_event_none_item_id_returns_400(self, handler):
         """None item_id (falsy) returns 400 for record_confidence_event."""
-        result = await handler.record_confidence_event(
-            item_id=None, event="accessed"
-        )
+        result = await handler.record_confidence_event(item_id=None, event="accessed")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_record_event_none_event_returns_400(self, handler):
         """None event (falsy) returns 400 for record_confidence_event."""
-        result = await handler.record_confidence_event(
-            item_id="item-001", event=None
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event=None)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1059,9 +968,7 @@ class TestConfidenceDecayEdgeCases:
             duration_ms=99.9,
         )
         mock_mound.apply_confidence_decay = AsyncMock(return_value=report)
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-special"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-special")
         body = _body(result)
         assert body["workspace_id"] == "ws-special"
         assert body["items_processed"] == 42
@@ -1081,9 +988,7 @@ class TestConfidenceDecayEdgeCases:
             metadata={"validator": "expert-1"},
         )
         mock_mound.record_confidence_event = AsyncMock(return_value=adj)
-        result = await handler.record_confidence_event(
-            item_id="item-full", event="validated"
-        )
+        result = await handler.record_confidence_event(item_id="item-full", event="validated")
         body = _body(result)
         assert body["success"] is True
         assert body["adjusted"] is True
@@ -1117,9 +1022,7 @@ class TestConfidenceDecayEdgeCases:
         r1 = await handler_no_mound.apply_confidence_decay_endpoint(workspace_id="ws")
         assert _status(r1) == 503
 
-        r2 = await handler_no_mound.record_confidence_event(
-            item_id="item", event="accessed"
-        )
+        r2 = await handler_no_mound.record_confidence_event(item_id="item", event="accessed")
         assert _status(r2) == 503
 
         r3 = await handler_no_mound.get_confidence_history()
@@ -1132,8 +1035,7 @@ class TestConfidenceDecayEdgeCases:
     async def test_decay_report_with_many_adjustments(self, handler, mock_mound):
         """Report with many adjustments serializes all of them."""
         adjustments = [
-            MockConfidenceAdjustment(id=f"adj-{i}", item_id=f"item-{i}")
-            for i in range(20)
+            MockConfidenceAdjustment(id=f"adj-{i}", item_id=f"item-{i}") for i in range(20)
         ]
         report = MockDecayReport(
             adjustments=adjustments,
@@ -1141,9 +1043,7 @@ class TestConfidenceDecayEdgeCases:
             items_decayed=20,
         )
         mock_mound.apply_confidence_decay = AsyncMock(return_value=report)
-        result = await handler.apply_confidence_decay_endpoint(
-            workspace_id="ws-001"
-        )
+        result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-001")
         body = _body(result)
         assert len(body["adjustments"]) == 20
         assert body["adjustments"][0]["id"] == "adj-0"
@@ -1152,10 +1052,7 @@ class TestConfidenceDecayEdgeCases:
     @pytest.mark.asyncio
     async def test_history_large_result_set(self, handler, mock_mound):
         """History endpoint handles large result sets."""
-        adjustments = [
-            MockConfidenceAdjustment(id=f"adj-{i}")
-            for i in range(100)
-        ]
+        adjustments = [MockConfidenceAdjustment(id=f"adj-{i}") for i in range(100)]
         mock_mound.get_confidence_history = AsyncMock(return_value=adjustments)
         result = await handler.get_confidence_history()
         body = _body(result)
@@ -1163,9 +1060,7 @@ class TestConfidenceDecayEdgeCases:
         assert len(body["adjustments"]) == 100
 
     @pytest.mark.asyncio
-    async def test_apply_decay_error_message_sanitized_for_os_error(
-        self, handler, mock_mound
-    ):
+    async def test_apply_decay_error_message_sanitized_for_os_error(self, handler, mock_mound):
         """OSError produces a sanitized error message (no internal paths)."""
         mock_mound.apply_confidence_decay = AsyncMock(
             side_effect=OSError("/internal/path/db.sqlite: permission denied")
@@ -1177,9 +1072,7 @@ class TestConfidenceDecayEdgeCases:
         assert "/internal" not in body["error"]
 
     @pytest.mark.asyncio
-    async def test_apply_decay_error_message_sanitized_for_value_error(
-        self, handler, mock_mound
-    ):
+    async def test_apply_decay_error_message_sanitized_for_value_error(self, handler, mock_mound):
         """ValueError produces a sanitized error message."""
         mock_mound.apply_confidence_decay = AsyncMock(
             side_effect=ValueError("SQL injection attempt; DROP TABLE items;")
@@ -1193,12 +1086,8 @@ class TestConfidenceDecayEdgeCases:
     @pytest.mark.asyncio
     async def test_record_event_error_message_sanitized(self, handler, mock_mound):
         """Error from record_confidence_event is sanitized."""
-        mock_mound.record_confidence_event = AsyncMock(
-            side_effect=KeyError("secret_column_name")
-        )
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        mock_mound.record_confidence_event = AsyncMock(side_effect=KeyError("secret_column_name"))
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         body = _body(result)
         assert _status(result) == 500
         assert "secret_column_name" not in body["error"]
@@ -1273,9 +1162,7 @@ class TestConfidenceDecayEdgeCases:
     @pytest.mark.asyncio
     async def test_record_event_mound_called_exactly_once(self, handler, mock_mound):
         """Mound's record_confidence_event is called exactly once."""
-        await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert mock_mound.record_confidence_event.await_count == 1
 
     @pytest.mark.asyncio
@@ -1299,9 +1186,7 @@ class TestConfidenceDecayEdgeCases:
     @pytest.mark.asyncio
     async def test_record_event_response_content_type_is_json(self, handler, mock_mound):
         """Record event endpoint returns JSON content type."""
-        result = await handler.record_confidence_event(
-            item_id="item-001", event="accessed"
-        )
+        result = await handler.record_confidence_event(item_id="item-001", event="accessed")
         assert "json" in result.content_type.lower()
 
     @pytest.mark.asyncio

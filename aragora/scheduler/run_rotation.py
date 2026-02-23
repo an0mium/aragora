@@ -397,7 +397,10 @@ async def main(args: argparse.Namespace) -> int:
     skipped_count = sum(1 for r in results if r["status"] in ("skipped", "would_rotate"))
 
     logger.info(
-        "Rotation complete: %s succeeded, %s failed, %s skipped", success_count, failed_count, skipped_count
+        "Rotation complete: %s succeeded, %s failed, %s skipped",
+        success_count,
+        failed_count,
+        skipped_count,
     )
 
     # Print results

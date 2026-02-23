@@ -337,7 +337,15 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 limit_exceeded_type = ResourceType.API_CALLS
             final_output = None
 
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            KeyError,
+            AttributeError,
+        ) as e:
             logger.exception("Workflow execution failed: %s", e)
             success = False
             error = "Workflow execution failed"
@@ -572,7 +580,15 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 last_error = f"Timed out after {step_def.timeout_seconds}s"
                 retry_count += 1
 
-            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                KeyError,
+                AttributeError,
+            ) as e:
                 logger.warning("Workflow step failed: %s", e)
                 last_error = "Step execution failed"
                 retry_count += 1

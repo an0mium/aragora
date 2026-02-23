@@ -148,16 +148,12 @@ class TestOptionalImports:
         from aragora.debate.optional_imports import OptionalImports
 
         # First call should cache
-        result1 = OptionalImports._get_cached(
-            "test_key", "aragora.nonexistent_module_xyz", "Fake"
-        )
+        result1 = OptionalImports._get_cached("test_key", "aragora.nonexistent_module_xyz", "Fake")
         assert result1 is None
         assert "test_key" in OptionalImports._cache
 
         # Second call should use cache
-        result2 = OptionalImports._get_cached(
-            "test_key", "aragora.nonexistent_module_xyz", "Fake"
-        )
+        result2 = OptionalImports._get_cached("test_key", "aragora.nonexistent_module_xyz", "Fake")
         assert result2 is None
 
     def test_get_position_tracker(self):
@@ -255,8 +251,11 @@ class TestOrchestratorFactory:
         mock_config.to_arena_kwargs.return_value = {"rounds": 3, "timeout": 60}
 
         create(
-            mock_cls, mock_env, mock_agents,
-            config=mock_config, debate_config="override",
+            mock_cls,
+            mock_env,
+            mock_agents,
+            config=mock_config,
+            debate_config="override",
         )
 
         mock_cls.assert_called_once()

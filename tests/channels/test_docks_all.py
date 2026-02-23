@@ -28,9 +28,9 @@ def _make_message(**kwargs):
         content=kwargs.get("content", "Test message"),
         message_type=kwargs.get("message_type", "notification"),
         format=kwargs.get("format", MessageFormat.MARKDOWN),
-        title=kwargs.get("title", None),
-        thread_id=kwargs.get("thread_id", None),
-        reply_to=kwargs.get("reply_to", None),
+        title=kwargs.get("title"),
+        thread_id=kwargs.get("thread_id"),
+        reply_to=kwargs.get("reply_to"),
         metadata=kwargs.get("metadata", {}),
     )
 

@@ -754,7 +754,9 @@ class SDPOLearner:
         min_t = min_trajectories or self.config.min_trajectories_for_update
 
         if len(self.buffer) < min_t:
-            logger.info("Not enough trajectories for batch update (%s < %s)", len(self.buffer), min_t)
+            logger.info(
+                "Not enough trajectories for batch update (%s < %s)", len(self.buffer), min_t
+            )
             return 0
 
         # Evaluate recent trajectories

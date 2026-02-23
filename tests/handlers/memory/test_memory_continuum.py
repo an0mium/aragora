@@ -26,6 +26,7 @@ import pytest
 # Mock MemoryTier used in the handler (mirrors aragora.memory.tier_manager)
 # ---------------------------------------------------------------------------
 
+
 class _MockMemoryTier(str, Enum):
     FAST = "fast"
     MEDIUM = "medium"
@@ -36,6 +37,7 @@ class _MockMemoryTier(str, Enum):
 # ---------------------------------------------------------------------------
 # Helper to build a mock memory entry
 # ---------------------------------------------------------------------------
+
 
 def _make_memory(
     *,
@@ -66,6 +68,7 @@ def _make_memory(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_continuum():
     """Create a mock continuum memory backend."""
@@ -93,14 +96,14 @@ def mock_continuum():
 @pytest.fixture
 def handler(mock_continuum):
     """Create a MemoryHandler backed by mock continuum."""
-    with patch(
-        "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
-    ), patch(
-        "aragora.server.handlers.memory.memory.MemoryTier", _MockMemoryTier
-    ), patch(
-        "aragora.server.handlers.memory.memory_continuum.MemoryContinuumMixin.__init_subclass__",
-        lambda **kw: None,
-        create=True,
+    with (
+        patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
+        patch("aragora.server.handlers.memory.memory.MemoryTier", _MockMemoryTier),
+        patch(
+            "aragora.server.handlers.memory.memory_continuum.MemoryContinuumMixin.__init_subclass__",
+            lambda **kw: None,
+            create=True,
+        ),
     ):
         from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -122,10 +125,9 @@ def mock_http_handler():
 @pytest.fixture(autouse=True)
 def _patch_continuum_available():
     """Ensure CONTINUUM_AVAILABLE is True in the mixin module."""
-    with patch(
-        "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
-    ), patch(
-        "aragora.server.handlers.memory.memory.MemoryTier", _MockMemoryTier
+    with (
+        patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
+        patch("aragora.server.handlers.memory.memory.MemoryTier", _MockMemoryTier),
     ):
         yield
 
@@ -151,6 +153,7 @@ def _reset_rate_limiters():
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse_body(result) -> dict[str, Any]:
     """Decode a HandlerResult.body to dict."""
     return json.loads(result.body)
@@ -167,18 +170,14 @@ class TestGetContinuumMemories:
     def test_basic_retrieve_empty(self, handler, mock_http_handler, mock_continuum):
         """Returns empty list when no memories found."""
         mock_continuum.retrieve.return_value = []
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
         assert body["memories"] == []
         assert body["count"] == 0
 
-    def test_retrieve_returns_formatted_memories(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_retrieve_returns_formatted_memories(self, handler, mock_http_handler, mock_continuum):
         """Returns properly formatted memory entries."""
         mem = _make_memory(
             id="m1",
@@ -188,9 +187,7 @@ class TestGetContinuumMemories:
         )
         mock_continuum.retrieve.return_value = [mem]
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         assert result.status_code == 200
         body = _parse_body(result)
         assert body["count"] == 1
@@ -206,9 +203,7 @@ class TestGetContinuumMemories:
         mem = _make_memory(content=long_text)
         mock_continuum.retrieve.return_value = [mem]
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         body = _parse_body(result)
         content = body["memories"][0]["content"]
         assert content.endswith("...")
@@ -222,7 +217,9 @@ class TestGetContinuumMemories:
             mock_http_handler,
         )
         call_kwargs = mock_continuum.retrieve.call_args
-        assert call_kwargs[1]["query"] == "search term" or call_kwargs.kwargs["query"] == "search term"
+        assert (
+            call_kwargs[1]["query"] == "search term" or call_kwargs.kwargs["query"] == "search term"
+        )
 
     def test_limit_param(self, handler, mock_http_handler, mock_continuum):
         """Limit parameter is forwarded to continuum.retrieve."""
@@ -274,9 +271,7 @@ class TestGetContinuumMemories:
         assert "FAST" in tier_names
         assert "SLOW" in tier_names
 
-    def test_all_invalid_tiers_defaults_to_all(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_all_invalid_tiers_defaults_to_all(self, handler, mock_http_handler, mock_continuum):
         """When all tier names are invalid, defaults to all tiers."""
         handler.handle(
             "/api/v1/memory/continuum/retrieve",
@@ -287,9 +282,7 @@ class TestGetContinuumMemories:
         tiers = call_kwargs.kwargs.get("tiers") or call_kwargs[1].get("tiers")
         assert len(tiers) == 4  # all four tiers
 
-    def test_response_includes_tiers_list(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_response_includes_tiers_list(self, handler, mock_http_handler, mock_continuum):
         """Response includes list of requested tier names."""
         mock_continuum.retrieve.return_value = []
         result = handler.handle(
@@ -314,17 +307,13 @@ class TestGetContinuumMemories:
 
     def test_continuum_unavailable(self, handler, mock_http_handler):
         """Returns 503 when continuum memory system not available."""
-        with patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False):
             # Must re-create handler so the mixin's local import picks up the flag
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": MagicMock()})
             h._auth_context = None
-            result = h.handle(
-                "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-            )
+            result = h.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
@@ -334,9 +323,7 @@ class TestGetContinuumMemories:
 
         h = MemoryHandler(server_context={})
         h._auth_context = None
-        result = h.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = h.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
@@ -356,12 +343,12 @@ class TestGetContinuumMemories:
 
         import aragora.memory.access as access_mod
 
-        with patch.object(access_mod, "tenant_enforcement_enabled", mock_tenant_enabled), \
-             patch.object(access_mod, "resolve_tenant_id", mock_resolve), \
-             patch.object(access_mod, "filter_entries", mock_filter):
-            result = handler.handle(
-                "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-            )
+        with (
+            patch.object(access_mod, "tenant_enforcement_enabled", mock_tenant_enabled),
+            patch.object(access_mod, "resolve_tenant_id", mock_resolve),
+            patch.object(access_mod, "filter_entries", mock_filter),
+        ):
+            result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 400
 
@@ -375,12 +362,12 @@ class TestGetContinuumMemories:
 
         import aragora.memory.access as access_mod
 
-        with patch.object(access_mod, "tenant_enforcement_enabled", MagicMock(return_value=True)), \
-             patch.object(access_mod, "resolve_tenant_id", MagicMock(return_value=None)), \
-             patch.object(access_mod, "filter_entries", MagicMock(return_value=[])):
-            result = handler.handle(
-                "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-            )
+        with (
+            patch.object(access_mod, "tenant_enforcement_enabled", MagicMock(return_value=True)),
+            patch.object(access_mod, "resolve_tenant_id", MagicMock(return_value=None)),
+            patch.object(access_mod, "filter_entries", MagicMock(return_value=[])),
+        ):
+            result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
@@ -389,24 +376,18 @@ class TestGetContinuumMemories:
         mem = _make_memory(created_at="2026-01-01", updated_at="2026-02-01")
         mock_continuum.retrieve.return_value = [mem]
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         body = _parse_body(result)
         entry = body["memories"][0]
         assert entry["created_at"] == "2026-01-01"
         assert entry["updated_at"] == "2026-02-01"
 
-    def test_memory_entry_optional_attrs(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_memory_entry_optional_attrs(self, handler, mock_http_handler, mock_continuum):
         """Memory entries include surprise_score, consolidation_score, update_count."""
         mem = _make_memory(surprise_score=0.8, consolidation_score=0.9, update_count=5)
         mock_continuum.retrieve.return_value = [mem]
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         body = _parse_body(result)
         entry = body["memories"][0]
         assert entry["surprise_score"] == 0.8
@@ -424,25 +405,19 @@ class TestTriggerConsolidation:
 
     def test_get_returns_405(self, handler, mock_http_handler):
         """GET to consolidate endpoint returns 405 with Allow header."""
-        result = handler.handle(
-            "/api/v1/memory/continuum/consolidate", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/consolidate", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 405
         assert result.headers.get("Allow") == "POST"
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_consolidation_success(
-        self, mock_extract, handler, mock_http_handler, mock_continuum
-    ):
+    def test_consolidation_success(self, mock_extract, handler, mock_http_handler, mock_continuum):
         """Successful consolidation returns processed/promoted/consolidated counts."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
         mock_extract.return_value = mock_auth
 
-        result = handler.handle_post(
-            "/api/v1/memory/continuum/consolidate", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/v1/memory/continuum/consolidate", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
@@ -453,24 +428,18 @@ class TestTriggerConsolidation:
         assert "duration_seconds" in body
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_consolidation_continuum_unavailable(
-        self, mock_extract, mock_http_handler
-    ):
+    def test_consolidation_continuum_unavailable(self, mock_extract, mock_http_handler):
         """Returns 503 when continuum not available."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
         mock_extract.return_value = mock_auth
 
-        with patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": MagicMock()})
             h._auth_context = None
-            result = h.handle_post(
-                "/api/v1/memory/continuum/consolidate", {}, mock_http_handler
-            )
+            result = h.handle_post("/api/v1/memory/continuum/consolidate", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
@@ -485,9 +454,7 @@ class TestTriggerConsolidation:
 
         h = MemoryHandler(server_context={})
         h._auth_context = None
-        result = h.handle_post(
-            "/api/v1/memory/continuum/consolidate", {}, mock_http_handler
-        )
+        result = h.handle_post("/api/v1/memory/continuum/consolidate", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
@@ -502,16 +469,12 @@ class TestTriggerCleanup:
 
     def test_get_returns_405(self, handler, mock_http_handler):
         """GET to cleanup endpoint returns 405."""
-        result = handler.handle(
-            "/api/v1/memory/continuum/cleanup", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/cleanup", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 405
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_cleanup_success(
-        self, mock_extract, handler, mock_http_handler, mock_continuum
-    ):
+    def test_cleanup_success(self, mock_extract, handler, mock_http_handler, mock_continuum):
         """Successful cleanup returns expired/tier_limits/duration."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
@@ -567,9 +530,7 @@ class TestTriggerCleanup:
         assert result.status_code == 400
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_cleanup_archive_param(
-        self, mock_extract, handler, mock_http_handler, mock_continuum
-    ):
+    def test_cleanup_archive_param(self, mock_extract, handler, mock_http_handler, mock_continuum):
         """Archive parameter is forwarded as boolean."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
@@ -581,12 +542,12 @@ class TestTriggerCleanup:
             mock_http_handler,
         )
         cleanup_call = mock_continuum.cleanup_expired_memories.call_args
-        assert cleanup_call.kwargs.get("archive") is False or cleanup_call[1].get("archive") is False
+        assert (
+            cleanup_call.kwargs.get("archive") is False or cleanup_call[1].get("archive") is False
+        )
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_cleanup_max_age_param(
-        self, mock_extract, handler, mock_http_handler, mock_continuum
-    ):
+    def test_cleanup_max_age_param(self, mock_extract, handler, mock_http_handler, mock_continuum):
         """Max age parameter is forwarded."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
@@ -608,16 +569,12 @@ class TestTriggerCleanup:
         mock_auth.is_authenticated = True
         mock_extract.return_value = mock_auth
 
-        with patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": MagicMock()})
             h._auth_context = None
-            result = h.handle_post(
-                "/api/v1/memory/continuum/cleanup", {}, mock_http_handler
-            )
+            result = h.handle_post("/api/v1/memory/continuum/cleanup", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
@@ -650,9 +607,7 @@ class TestGetTierStats:
 
     def test_tier_stats_success(self, handler, mock_http_handler, mock_continuum):
         """Returns tier stats from continuum."""
-        result = handler.handle(
-            "/api/v1/memory/tier-stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tier-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
@@ -682,9 +637,7 @@ class TestGetArchiveStats:
 
     def test_archive_stats_success(self, handler, mock_http_handler, mock_continuum):
         """Returns archive stats from continuum."""
-        result = handler.handle(
-            "/api/v1/memory/archive-stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/archive-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
@@ -713,9 +666,7 @@ class TestGetMemoryPressure:
     def test_pressure_normal(self, handler, mock_http_handler, mock_continuum):
         """Pressure < 0.5 yields 'normal' status."""
         mock_continuum.get_memory_pressure.return_value = 0.3
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
@@ -726,9 +677,7 @@ class TestGetMemoryPressure:
     def test_pressure_elevated(self, handler, mock_http_handler, mock_continuum):
         """Pressure between 0.5 and 0.8 yields 'elevated' status."""
         mock_continuum.get_memory_pressure.return_value = 0.6
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "elevated"
         assert body["cleanup_recommended"] is False
@@ -736,9 +685,7 @@ class TestGetMemoryPressure:
     def test_pressure_high(self, handler, mock_http_handler, mock_continuum):
         """Pressure between 0.8 and 0.9 yields 'high' status."""
         mock_continuum.get_memory_pressure.return_value = 0.85
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "high"
         assert body["cleanup_recommended"] is False
@@ -746,20 +693,14 @@ class TestGetMemoryPressure:
     def test_pressure_critical(self, handler, mock_http_handler, mock_continuum):
         """Pressure >= 0.9 yields 'critical' status and cleanup_recommended."""
         mock_continuum.get_memory_pressure.return_value = 0.95
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "critical"
         assert body["cleanup_recommended"] is True
 
-    def test_pressure_includes_tier_utilization(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_pressure_includes_tier_utilization(self, handler, mock_http_handler, mock_continuum):
         """Response includes per-tier utilization breakdown."""
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert "tier_utilization" in body
         util = body["tier_utilization"]
@@ -770,9 +711,7 @@ class TestGetMemoryPressure:
 
     def test_pressure_total_memories(self, handler, mock_http_handler, mock_continuum):
         """Response includes total_memories count."""
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["total_memories"] == 370
 
@@ -786,53 +725,37 @@ class TestGetMemoryPressure:
         assert result is not None
         assert result.status_code == 503
 
-    def test_pressure_boundary_exactly_0_5(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_pressure_boundary_exactly_0_5(self, handler, mock_http_handler, mock_continuum):
         """Pressure exactly at 0.5 yields 'elevated'."""
         mock_continuum.get_memory_pressure.return_value = 0.5
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "elevated"
 
-    def test_pressure_boundary_exactly_0_8(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_pressure_boundary_exactly_0_8(self, handler, mock_http_handler, mock_continuum):
         """Pressure exactly at 0.8 yields 'high'."""
         mock_continuum.get_memory_pressure.return_value = 0.8
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "high"
 
-    def test_pressure_boundary_exactly_0_9(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_pressure_boundary_exactly_0_9(self, handler, mock_http_handler, mock_continuum):
         """Pressure exactly at 0.9 yields 'critical' but cleanup_recommended requires > 0.9."""
         mock_continuum.get_memory_pressure.return_value = 0.9
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "critical"
         # cleanup_recommended is `pressure > 0.9`, so exactly 0.9 is False
         assert body["cleanup_recommended"] is False
 
-    def test_pressure_tier_unknown_defaults_limit(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_pressure_tier_unknown_defaults_limit(self, handler, mock_http_handler, mock_continuum):
         """Unknown tier names in stats get default limit of 1000."""
         mock_continuum.get_stats.return_value = {
             "by_tier": {"UNKNOWN_TIER": {"count": 50}},
             "total_memories": 50,
             "transitions": [],
         }
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         util = body["tier_utilization"]
         assert util["UNKNOWN_TIER"]["limit"] == 1000
@@ -848,36 +771,28 @@ class TestDeleteMemory:
     """Tests for _delete_memory."""
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_delete_success(
-        self, mock_extract, handler, mock_http_handler, mock_continuum
-    ):
+    def test_delete_success(self, mock_extract, handler, mock_http_handler, mock_continuum):
         """Successfully deletes a memory and returns 200."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
         mock_extract.return_value = mock_auth
         mock_continuum.delete.return_value = True
 
-        result = handler.handle_delete(
-            "/api/v1/memory/continuum/mem-001", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/v1/memory/continuum/mem-001", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
         assert body["success"] is True
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_delete_not_found(
-        self, mock_extract, handler, mock_http_handler, mock_continuum
-    ):
+    def test_delete_not_found(self, mock_extract, handler, mock_http_handler, mock_continuum):
         """Returns 404 when memory not found."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = True
         mock_extract.return_value = mock_auth
         mock_continuum.delete.return_value = False
 
-        result = handler.handle_delete(
-            "/api/v1/memory/continuum/mem-999", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/v1/memory/continuum/mem-999", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 404
 
@@ -891,9 +806,7 @@ class TestDeleteMemory:
         mock_extract.return_value = mock_auth
         del mock_continuum.delete  # Remove the delete method
 
-        result = handler.handle_delete(
-            "/api/v1/memory/continuum/mem-001", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/v1/memory/continuum/mem-001", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 501
 
@@ -907,9 +820,7 @@ class TestDeleteMemory:
         mock_extract.return_value = mock_auth
         mock_continuum.delete.side_effect = RuntimeError("storage failure")
 
-        result = handler.handle_delete(
-            "/api/v1/memory/continuum/mem-001", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/v1/memory/continuum/mem-001", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 500
 
@@ -926,8 +837,10 @@ class TestDeleteMemory:
 
         import aragora.memory.access as access_mod
 
-        with patch.object(access_mod, "tenant_enforcement_enabled", MagicMock(return_value=True)), \
-             patch.object(access_mod, "resolve_tenant_id", MagicMock(return_value=None)):
+        with (
+            patch.object(access_mod, "tenant_enforcement_enabled", MagicMock(return_value=True)),
+            patch.object(access_mod, "resolve_tenant_id", MagicMock(return_value=None)),
+        ):
             result = handler.handle_delete(
                 "/api/v1/memory/continuum/mem-001", {}, mock_http_handler
             )
@@ -941,31 +854,23 @@ class TestDeleteMemory:
         mock_auth.is_authenticated = True
         mock_extract.return_value = mock_auth
 
-        with patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": MagicMock()})
             h._auth_context = None
-            result = h.handle_delete(
-                "/api/v1/memory/continuum/mem-001", {}, mock_http_handler
-            )
+            result = h.handle_delete("/api/v1/memory/continuum/mem-001", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 503
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_delete_unauthenticated_returns_401(
-        self, mock_extract, handler, mock_http_handler
-    ):
+    def test_delete_unauthenticated_returns_401(self, mock_extract, handler, mock_http_handler):
         """Returns 401 when user is not authenticated."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = False
         mock_extract.return_value = mock_auth
 
-        result = handler.handle_delete(
-            "/api/v1/memory/continuum/mem-001", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/v1/memory/continuum/mem-001", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 401
 
@@ -980,9 +885,7 @@ class TestGetAllTiers:
 
     def test_all_tiers_success(self, handler, mock_http_handler, mock_continuum):
         """Returns comprehensive tier information."""
-        result = handler.handle(
-            "/api/v1/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tiers", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = _parse_body(result)
@@ -992,9 +895,7 @@ class TestGetAllTiers:
 
     def test_all_tiers_tier_details(self, handler, mock_http_handler, mock_continuum):
         """Each tier has expected metadata fields."""
-        result = handler.handle(
-            "/api/v1/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tiers", {}, mock_http_handler)
         body = _parse_body(result)
         fast = next(t for t in body["tiers"] if t["id"] == "fast")
         assert fast["name"] == "Fast"
@@ -1009,9 +910,7 @@ class TestGetAllTiers:
 
     def test_all_tiers_medium_details(self, handler, mock_http_handler, mock_continuum):
         """Medium tier has correct metadata."""
-        result = handler.handle(
-            "/api/v1/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tiers", {}, mock_http_handler)
         body = _parse_body(result)
         medium = next(t for t in body["tiers"] if t["id"] == "medium")
         assert medium["ttl_seconds"] == 3600
@@ -1020,22 +919,16 @@ class TestGetAllTiers:
 
     def test_all_tiers_slow_details(self, handler, mock_http_handler, mock_continuum):
         """Slow tier has correct metadata."""
-        result = handler.handle(
-            "/api/v1/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tiers", {}, mock_http_handler)
         body = _parse_body(result)
         slow = next(t for t in body["tiers"] if t["id"] == "slow")
         assert slow["ttl_seconds"] == 86400
         assert slow["ttl_human"] == "1d"
         assert slow["limit"] == 1000
 
-    def test_all_tiers_glacial_details(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_all_tiers_glacial_details(self, handler, mock_http_handler, mock_continuum):
         """Glacial tier has correct metadata."""
-        result = handler.handle(
-            "/api/v1/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tiers", {}, mock_http_handler)
         body = _parse_body(result)
         glacial = next(t for t in body["tiers"] if t["id"] == "glacial")
         assert glacial["ttl_seconds"] == 604800
@@ -1051,9 +944,7 @@ class TestGetAllTiers:
             "total_memories": 0,
             "transitions": [],
         }
-        result = handler.handle(
-            "/api/v1/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/tiers", {}, mock_http_handler)
         body = _parse_body(result)
         for tier in body["tiers"]:
             assert tier["count"] == 0
@@ -1114,41 +1005,31 @@ class TestLegacyRouteNormalization:
     def test_legacy_retrieve(self, handler, mock_http_handler, mock_continuum):
         """Legacy /api/memory/continuum/retrieve normalizes to /api/v1/memory/continuum/retrieve."""
         mock_continuum.retrieve.return_value = []
-        result = handler.handle(
-            "/api/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/memory/continuum/retrieve", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
     def test_legacy_tier_stats(self, handler, mock_http_handler, mock_continuum):
         """Legacy /api/memory/tier-stats normalizes correctly."""
-        result = handler.handle(
-            "/api/memory/tier-stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/memory/tier-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
     def test_legacy_archive_stats(self, handler, mock_http_handler, mock_continuum):
         """Legacy /api/memory/archive-stats normalizes correctly."""
-        result = handler.handle(
-            "/api/memory/archive-stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/memory/archive-stats", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
     def test_legacy_pressure(self, handler, mock_http_handler, mock_continuum):
         """Legacy /api/memory/pressure normalizes correctly."""
-        result = handler.handle(
-            "/api/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/memory/pressure", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
     def test_legacy_tiers(self, handler, mock_http_handler, mock_continuum):
         """Legacy /api/memory/tiers normalizes correctly."""
-        result = handler.handle(
-            "/api/memory/tiers", {}, mock_http_handler
-        )
+        result = handler.handle("/api/memory/tiers", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
@@ -1200,30 +1081,19 @@ class TestCanHandle:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_empty_query_defaults_to_empty_string(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_empty_query_defaults_to_empty_string(self, handler, mock_http_handler, mock_continuum):
         """Empty query parameter defaults to ''."""
         mock_continuum.retrieve.return_value = []
-        handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         call_kwargs = mock_continuum.retrieve.call_args
         assert call_kwargs.kwargs.get("query") == "" or call_kwargs[1].get("query") == ""
 
-    def test_retrieve_multiple_memories(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_retrieve_multiple_memories(self, handler, mock_http_handler, mock_continuum):
         """Multiple memories are returned correctly."""
-        mems = [
-            _make_memory(id=f"m{i}", tier=_MockMemoryTier.FAST)
-            for i in range(5)
-        ]
+        mems = [_make_memory(id=f"m{i}", tier=_MockMemoryTier.FAST) for i in range(5)]
         mock_continuum.retrieve.return_value = mems
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["count"] == 5
         ids = [m["id"] for m in body["memories"]]
@@ -1237,9 +1107,7 @@ class TestEdgeCases:
         mem = _make_memory(content=text)
         mock_continuum.retrieve.return_value = [mem]
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["memories"][0]["content"] == text
         assert not body["memories"][0]["content"].endswith("...")
@@ -1256,9 +1124,7 @@ class TestEdgeCases:
         with patch(
             "aragora.server.handlers.memory.memory_continuum.emit_handler_event"
         ) as mock_emit:
-            handler.handle_post(
-                "/api/v1/memory/continuum/consolidate", {}, mock_http_handler
-            )
+            handler.handle_post("/api/v1/memory/continuum/consolidate", {}, mock_http_handler)
             mock_emit.assert_called_once()
             args = mock_emit.call_args
             assert args[0][0] == "memory"
@@ -1266,16 +1132,12 @@ class TestEdgeCases:
     def test_pressure_zero(self, handler, mock_http_handler, mock_continuum):
         """Pressure of 0.0 yields 'normal' status."""
         mock_continuum.get_memory_pressure.return_value = 0.0
-        result = handler.handle(
-            "/api/v1/memory/pressure", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/pressure", {}, mock_http_handler)
         body = _parse_body(result)
         assert body["status"] == "normal"
         assert body["pressure"] == 0.0
 
-    def test_memory_without_optional_attributes(
-        self, handler, mock_http_handler, mock_continuum
-    ):
+    def test_memory_without_optional_attributes(self, handler, mock_http_handler, mock_continuum):
         """Memory entries without optional attributes use defaults."""
         mem = MagicMock()
         mem.id = "m1"
@@ -1290,9 +1152,7 @@ class TestEdgeCases:
         del mem.updated_at
         mock_continuum.retrieve.return_value = [mem]
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/retrieve", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/memory/continuum/retrieve", {}, mock_http_handler)
         body = _parse_body(result)
         entry = body["memories"][0]
         assert entry["surprise_score"] == 0.0

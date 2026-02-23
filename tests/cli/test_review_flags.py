@@ -796,9 +796,7 @@ class TestPostCommentFlag:
     @patch("aragora.cli.review.run_review_debate")
     @patch("aragora.cli.review.extract_review_findings")
     @patch("aragora.cli.review.get_available_agents")
-    def test_post_comment_requires_pr_url(
-        self, mock_agents, mock_extract, mock_debate, tmp_path
-    ):
+    def test_post_comment_requires_pr_url(self, mock_agents, mock_extract, mock_debate, tmp_path):
         """--post-comment without a PR URL returns error."""
         mock_agents.return_value = "anthropic-api,openai-api"
         mock_debate.return_value = MockDebateResult()

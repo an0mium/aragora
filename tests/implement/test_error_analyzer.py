@@ -14,7 +14,7 @@ class TestErrorAnalyzerClassification:
     def test_classify_syntax_error(self) -> None:
         """SyntaxError maps to category 'syntax' and is retryable."""
         analysis = self.analyzer.analyze(
-            'File "main.py", line 10\n    if True\n         ^\nSyntaxError: expected \':\'',
+            "File \"main.py\", line 10\n    if True\n         ^\nSyntaxError: expected ':'",
         )
         assert analysis.category == "syntax"
         assert analysis.retryable is True
@@ -68,12 +68,12 @@ class TestErrorAnalyzerFileExtraction:
     def test_extract_file_references(self) -> None:
         """File paths in 'File "path.py"' patterns are extracted into relevant_files."""
         error = (
-            'Traceback (most recent call last):\n'
+            "Traceback (most recent call last):\n"
             '  File "aragora/foo.py", line 42, in bar\n'
-            '    return baz()\n'
+            "    return baz()\n"
             '  File "aragora/baz.py", line 7, in baz\n'
-            '    raise ValueError\n'
-            'ValueError'
+            "    raise ValueError\n"
+            "ValueError"
         )
         analysis = self.analyzer.analyze(error)
         assert "aragora/foo.py" in analysis.relevant_files

@@ -343,7 +343,8 @@ class AuditSessionsHandler(SecureHandler):
         task = asyncio.create_task(self._run_audit_background(session_id))
         task.add_done_callback(
             lambda t: logger.error("Background audit %s failed: %s", session_id, t.exception())
-            if not t.cancelled() and t.exception() else None
+            if not t.cancelled() and t.exception()
+            else None
         )
 
         logger.info("Started audit session %s", session_id)
@@ -823,7 +824,8 @@ class AuditSessionsHandler(SecureHandler):
                 )
                 _emit_task.add_done_callback(
                     lambda t: logger.warning("Audit progress emission failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
 
             # Try to use DocumentAuditor
@@ -844,7 +846,8 @@ class AuditSessionsHandler(SecureHandler):
                     _finding_task = asyncio.create_task(on_finding(f))
                     _finding_task.add_done_callback(
                         lambda t: logger.warning("Audit finding callback failed: %s", t.exception())
-                        if not t.cancelled() and t.exception() else None
+                        if not t.cancelled() and t.exception()
+                        else None
                     )
 
                 auditor = DocumentAuditor(

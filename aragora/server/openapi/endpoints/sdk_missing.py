@@ -42,9 +42,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Support"],
             "summary": "Delete support integration",
             "operationId": "deleteSupportIntegration",
-            "parameters": [
-                {"name": "support_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "support_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"200": _ok_response("Deleted")},
         },
     },
@@ -53,9 +51,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Support"],
             "summary": "Create support ticket",
             "operationId": "createSupportTicket",
-            "parameters": [
-                {"name": "support_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "support_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"201": _ok_response("Ticket created", _obj)},
         },
     },
@@ -123,9 +119,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Services"],
             "summary": "Get service health",
             "operationId": "getServiceHealth",
-            "parameters": [
-                {"name": "service_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "service_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"200": _ok_response("Service health", _obj)},
         },
     },
@@ -134,9 +128,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Services"],
             "summary": "Get service metrics",
             "operationId": "getServiceMetrics",
-            "parameters": [
-                {"name": "service_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "service_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"200": _ok_response("Service metrics", _obj)},
         },
     },
@@ -146,9 +138,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Flips"],
             "summary": "Get flip details",
             "operationId": "getFlip",
-            "parameters": [
-                {"name": "flip_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "flip_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"200": _ok_response("Flip details", _obj)},
         },
     },
@@ -238,9 +228,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Matches"],
             "summary": "Get match details",
             "operationId": "getMatch",
-            "parameters": [
-                {"name": "match_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "match_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"200": _ok_response("Match details", _obj)},
         },
     },
@@ -275,9 +263,7 @@ SDK_MISSING_ENDPOINTS: dict = {
             "tags": ["Reputation"],
             "summary": "Get agent reputation",
             "operationId": "getReputationByAgentId",
-            "parameters": [
-                {"name": "agent_id", "in": "path", "required": True, "schema": _str}
-            ],
+            "parameters": [{"name": "agent_id", "in": "path", "required": True, "schema": _str}],
             "responses": {"200": _ok_response("Agent reputation", _obj)},
         },
     },

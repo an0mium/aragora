@@ -101,7 +101,10 @@ class TestRankGoals:
     def test_ranks_highest_first(self, ctx: BusinessContext):
         goals = [
             {"goal": "Improve docs", "file_paths": ["docs/README.md"]},
-            {"goal": "Fix billing UI", "file_paths": ["aragora/live/x.tsx", "aragora/billing/y.py"]},
+            {
+                "goal": "Fix billing UI",
+                "file_paths": ["aragora/live/x.tsx", "aragora/billing/y.py"],
+            },
             {"goal": "Refactor legacy code"},
         ]
         ranked = ctx.rank_goals(goals)

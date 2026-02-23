@@ -158,7 +158,11 @@ def get_km_config_from_env() -> "MoundConfig":
     )
 
     logger.info(
-        "KM config: backend=%s, postgres=%s, redis=%s, weaviate=%s", backend.value, 'configured' if config.postgres_url else 'none', 'configured' if config.redis_url else 'none', 'configured' if config.weaviate_url else 'none'
+        "KM config: backend=%s, postgres=%s, redis=%s, weaviate=%s",
+        backend.value,
+        "configured" if config.postgres_url else "none",
+        "configured" if config.redis_url else "none",
+        "configured" if config.weaviate_url else "none",
     )
 
     return config

@@ -124,7 +124,9 @@ class TestVerificationHandlerEdge:
 
     def test_status_when_unavailable(self, handler):
         """Status should report unavailable when Z3 not installed."""
-        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", False):
+        with patch(
+            "aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", False
+        ):
             result = handler._get_status()
 
         assert result.status_code == 200

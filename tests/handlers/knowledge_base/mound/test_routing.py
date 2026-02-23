@@ -131,32 +131,22 @@ class StubHandler(RoutingMixin):
         # NOTE: name= must match the attribute name so _invoke_handler can
         # look up the correct call-signature in _HANDLER_SIGNATURES.
         # POST /query
-        self._handle_mound_query = MagicMock(
-            name="_handle_mound_query", return_value=self._ok
-        )
+        self._handle_mound_query = MagicMock(name="_handle_mound_query", return_value=self._ok)
         # GET/POST /nodes router
-        self._handle_list_nodes = MagicMock(
-            name="_handle_list_nodes", return_value=self._ok
-        )
-        self._handle_create_node = MagicMock(
-            name="_handle_create_node", return_value=self._ok
-        )
+        self._handle_list_nodes = MagicMock(name="_handle_list_nodes", return_value=self._ok)
+        self._handle_create_node = MagicMock(name="_handle_create_node", return_value=self._ok)
         # POST /relationships
         self._handle_create_relationship = MagicMock(
             name="_handle_create_relationship", return_value=self._ok
         )
         # GET /stats
-        self._handle_mound_stats = MagicMock(
-            name="_handle_mound_stats", return_value=self._ok
-        )
+        self._handle_mound_stats = MagicMock(name="_handle_mound_stats", return_value=self._ok)
         # POST /index/repository
         self._handle_index_repository = MagicMock(
             name="_handle_index_repository", return_value=self._ok
         )
         # GET /culture
-        self._handle_get_culture = MagicMock(
-            name="_handle_get_culture", return_value=self._ok
-        )
+        self._handle_get_culture = MagicMock(name="_handle_get_culture", return_value=self._ok)
         # POST /culture/documents
         self._handle_add_culture_document = MagicMock(
             name="_handle_add_culture_document", return_value=self._ok
@@ -166,9 +156,7 @@ class StubHandler(RoutingMixin):
             name="_handle_promote_to_culture", return_value=self._ok
         )
         # GET /stale
-        self._handle_get_stale = MagicMock(
-            name="_handle_get_stale", return_value=self._ok
-        )
+        self._handle_get_stale = MagicMock(name="_handle_get_stale", return_value=self._ok)
         # POST /schedule-revalidation
         self._handle_schedule_revalidation = MagicMock(
             name="_handle_schedule_revalidation", return_value=self._ok
@@ -180,39 +168,25 @@ class StubHandler(RoutingMixin):
         self._handle_sync_consensus = MagicMock(
             name="_handle_sync_consensus", return_value=self._ok
         )
-        self._handle_sync_facts = MagicMock(
-            name="_handle_sync_facts", return_value=self._ok
-        )
+        self._handle_sync_facts = MagicMock(name="_handle_sync_facts", return_value=self._ok)
         # GET /export/*
-        self._handle_export_d3 = MagicMock(
-            name="_handle_export_d3", return_value=self._ok
-        )
+        self._handle_export_d3 = MagicMock(name="_handle_export_d3", return_value=self._ok)
         self._handle_export_graphml = MagicMock(
             name="_handle_export_graphml", return_value=self._ok
         )
         # Sharing stubs
-        self._handle_share_item = MagicMock(
-            name="_handle_share_item", return_value=self._ok
-        )
-        self._handle_revoke_share = MagicMock(
-            name="_handle_revoke_share", return_value=self._ok
-        )
-        self._handle_update_share = MagicMock(
-            name="_handle_update_share", return_value=self._ok
-        )
+        self._handle_share_item = MagicMock(name="_handle_share_item", return_value=self._ok)
+        self._handle_revoke_share = MagicMock(name="_handle_revoke_share", return_value=self._ok)
+        self._handle_update_share = MagicMock(name="_handle_update_share", return_value=self._ok)
         self._handle_shared_with_me = MagicMock(
             name="_handle_shared_with_me", return_value=self._ok
         )
-        self._handle_my_shares = MagicMock(
-            name="_handle_my_shares", return_value=self._ok
-        )
+        self._handle_my_shares = MagicMock(name="_handle_my_shares", return_value=self._ok)
         # Global knowledge stubs
         self._handle_store_verified_fact = MagicMock(
             name="_handle_store_verified_fact", return_value=self._ok
         )
-        self._handle_query_global = MagicMock(
-            name="_handle_query_global", return_value=self._ok
-        )
+        self._handle_query_global = MagicMock(name="_handle_query_global", return_value=self._ok)
         self._handle_promote_to_global = MagicMock(
             name="_handle_promote_to_global", return_value=self._ok
         )
@@ -226,9 +200,7 @@ class StubHandler(RoutingMixin):
         self._handle_register_region = MagicMock(
             name="_handle_register_region", return_value=self._ok
         )
-        self._handle_list_regions = MagicMock(
-            name="_handle_list_regions", return_value=self._ok
-        )
+        self._handle_list_regions = MagicMock(name="_handle_list_regions", return_value=self._ok)
         self._handle_sync_to_region = MagicMock(
             name="_handle_sync_to_region", return_value=self._ok
         )
@@ -242,9 +214,7 @@ class StubHandler(RoutingMixin):
             name="_handle_get_federation_status", return_value=self._ok
         )
         # Dynamic route handler stubs
-        self._handle_get_node = MagicMock(
-            name="_handle_get_node", return_value=self._ok
-        )
+        self._handle_get_node = MagicMock(name="_handle_get_node", return_value=self._ok)
         self._handle_get_node_relationships = MagicMock(
             name="_handle_get_node_relationships", return_value=self._ok
         )
@@ -257,12 +227,8 @@ class StubHandler(RoutingMixin):
         self._handle_get_visibility = MagicMock(
             name="_handle_get_visibility", return_value=self._ok
         )
-        self._handle_grant_access = MagicMock(
-            name="_handle_grant_access", return_value=self._ok
-        )
-        self._handle_revoke_access = MagicMock(
-            name="_handle_revoke_access", return_value=self._ok
-        )
+        self._handle_grant_access = MagicMock(name="_handle_grant_access", return_value=self._ok)
+        self._handle_revoke_access = MagicMock(name="_handle_revoke_access", return_value=self._ok)
         self._handle_list_access_grants = MagicMock(
             name="_handle_list_access_grants", return_value=self._ok
         )
@@ -273,12 +239,8 @@ class StubHandler(RoutingMixin):
         # and _handle_get_user_activity are real methods on RoutingMixin --
         # do NOT shadow them with MagicMock stubs here.
         # Graph stubs
-        self._handle_graph_lineage = MagicMock(
-            name="_handle_graph_lineage", return_value=self._ok
-        )
-        self._handle_graph_related = MagicMock(
-            name="_handle_graph_related", return_value=self._ok
-        )
+        self._handle_graph_lineage = MagicMock(name="_handle_graph_lineage", return_value=self._ok)
+        self._handle_graph_related = MagicMock(name="_handle_graph_related", return_value=self._ok)
         self._handle_graph_traversal = MagicMock(
             name="_handle_graph_traversal", return_value=self._ok
         )
@@ -345,9 +307,7 @@ class StubHandler(RoutingMixin):
         self._handle_curation_status = MagicMock(
             name="_handle_curation_status", return_value=self._ok
         )
-        self._handle_curation_run = MagicMock(
-            name="_handle_curation_run", return_value=self._ok
-        )
+        self._handle_curation_run = MagicMock(name="_handle_curation_run", return_value=self._ok)
         self._handle_curation_history = MagicMock(
             name="_handle_curation_history", return_value=self._ok
         )
@@ -417,9 +377,7 @@ class TestRouteEntry:
         assert entry.is_regex is False
 
     def test_dynamic_route_entry(self):
-        entry = RouteEntry(
-            r"^/api/v1/test/([^/]+)$", "_handle_test_id", ("GET",), is_regex=True
-        )
+        entry = RouteEntry(r"^/api/v1/test/([^/]+)$", "_handle_test_id", ("GET",), is_regex=True)
         assert entry.is_regex is True
 
     def test_multi_method_route(self):
@@ -539,57 +497,39 @@ class TestDispatchStaticRoutes:
 
     def test_dispatch_query_post(self, handler):
         h = MockHTTPHandler.with_method("POST")
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/query", {}, h
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/query", {}, h)
         assert result is not None
 
     def test_dispatch_stats_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/stats", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/stats", {}, http_get)
         assert result is not None
 
     def test_dispatch_culture_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/culture", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/culture", {}, http_get)
         assert result is not None
 
     def test_dispatch_stale_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/stale", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/stale", {}, http_get)
         assert result is not None
 
     def test_dispatch_export_d3_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/export/d3", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/export/d3", {}, http_get)
         assert result is not None
 
     def test_dispatch_export_graphml_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/export/graphml", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/export/graphml", {}, http_get)
         assert result is not None
 
     def test_dispatch_shared_with_me_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/shared-with-me", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/shared-with-me", {}, http_get)
         assert result is not None
 
     def test_dispatch_my_shares_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/my-shares", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/my-shares", {}, http_get)
         assert result is not None
 
     def test_dispatch_global_facts_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/global/facts", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/global/facts", {}, http_get)
         assert result is not None
 
     def test_dispatch_global_workspace_id_get(self, handler, http_get):
@@ -599,39 +539,27 @@ class TestDispatchStaticRoutes:
         assert result is not None
 
     def test_dispatch_federation_status_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/federation/status", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/federation/status", {}, http_get)
         assert result is not None
 
     def test_dispatch_dedup_clusters_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/dedup/clusters", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/dedup/clusters", {}, http_get)
         assert result is not None
 
     def test_dispatch_dedup_report_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/dedup/report", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/dedup/report", {}, http_get)
         assert result is not None
 
     def test_dispatch_pruning_items_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/pruning/items", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/pruning/items", {}, http_get)
         assert result is not None
 
     def test_dispatch_pruning_history_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/pruning/history", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/pruning/history", {}, http_get)
         assert result is not None
 
     def test_dispatch_contradictions_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/contradictions", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/contradictions", {}, http_get)
         assert result is not None
 
     def test_dispatch_contradictions_stats_get(self, handler, http_get):
@@ -641,27 +569,19 @@ class TestDispatchStaticRoutes:
         assert result is not None
 
     def test_dispatch_governance_audit_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/governance/audit", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/governance/audit", {}, http_get)
         assert result is not None
 
     def test_dispatch_governance_stats_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/governance/stats", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/governance/stats", {}, http_get)
         assert result is not None
 
     def test_dispatch_analytics_coverage_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/analytics/coverage", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/analytics/coverage", {}, http_get)
         assert result is not None
 
     def test_dispatch_analytics_usage_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/analytics/usage", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/analytics/usage", {}, http_get)
         assert result is not None
 
     def test_dispatch_analytics_quality_trend_get(self, handler, http_get):
@@ -671,64 +591,44 @@ class TestDispatchStaticRoutes:
         assert result is not None
 
     def test_dispatch_analytics_stats_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/analytics/stats", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/analytics/stats", {}, http_get)
         assert result is not None
 
     def test_dispatch_extraction_stats_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/extraction/stats", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/extraction/stats", {}, http_get)
         assert result is not None
 
     def test_dispatch_confidence_history_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/confidence/history", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/confidence/history", {}, http_get)
         assert result is not None
 
     def test_dispatch_confidence_stats_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/confidence/stats", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/confidence/stats", {}, http_get)
         assert result is not None
 
     def test_dispatch_curation_status_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/curation/status", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/curation/status", {}, http_get)
         assert result is not None
 
     def test_dispatch_curation_history_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/curation/history", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/curation/history", {}, http_get)
         assert result is not None
 
     def test_dispatch_curation_scores_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/curation/scores", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/curation/scores", {}, http_get)
         assert result is not None
 
     def test_dispatch_curation_tiers_get(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/curation/tiers", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/curation/tiers", {}, http_get)
         assert result is not None
 
     def test_dispatch_wrong_method_returns_none(self, handler, http_get):
         """GET on a POST-only route should return None."""
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/query", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/query", {}, http_get)
         assert result is None
 
     def test_dispatch_unknown_path_returns_none(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/nonexistent", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/nonexistent", {}, http_get)
         assert result is None
 
 
@@ -741,27 +641,19 @@ class TestDispatchStaticPostRoutes:
     """Tests for POST static route dispatching."""
 
     def test_dispatch_relationships_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/relationships", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/relationships", {}, http_post)
         assert result is not None
 
     def test_dispatch_index_repository_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/index/repository", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/index/repository", {}, http_post)
         assert result is not None
 
     def test_dispatch_culture_documents_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/culture/documents", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/culture/documents", {}, http_post)
         assert result is not None
 
     def test_dispatch_culture_promote_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/culture/promote", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/culture/promote", {}, http_post)
         assert result is not None
 
     def test_dispatch_schedule_revalidation_post(self, handler, http_post):
@@ -771,27 +663,19 @@ class TestDispatchStaticPostRoutes:
         assert result is not None
 
     def test_dispatch_sync_continuum_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/sync/continuum", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/sync/continuum", {}, http_post)
         assert result is not None
 
     def test_dispatch_sync_consensus_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/sync/consensus", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/sync/consensus", {}, http_post)
         assert result is not None
 
     def test_dispatch_sync_facts_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/sync/facts", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/sync/facts", {}, http_post)
         assert result is not None
 
     def test_dispatch_global_promote_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/global/promote", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/global/promote", {}, http_post)
         assert result is not None
 
     def test_dispatch_federation_sync_push_post(self, handler, http_post):
@@ -849,9 +733,7 @@ class TestDispatchStaticPostRoutes:
         assert result is not None
 
     def test_dispatch_extraction_debate_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/extraction/debate", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/extraction/debate", {}, http_post)
         assert result is not None
 
     def test_dispatch_extraction_promote_post(self, handler, http_post):
@@ -861,15 +743,11 @@ class TestDispatchStaticPostRoutes:
         assert result is not None
 
     def test_dispatch_confidence_decay_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/confidence/decay", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/confidence/decay", {}, http_post)
         assert result is not None
 
     def test_dispatch_confidence_event_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/confidence/event", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/confidence/event", {}, http_post)
         assert result is not None
 
     def test_dispatch_dashboard_metrics_reset_post(self, handler, http_post):
@@ -879,45 +757,31 @@ class TestDispatchStaticPostRoutes:
         assert result is not None
 
     def test_dispatch_dedup_merge_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/dedup/merge", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/dedup/merge", {}, http_post)
         assert result is not None
 
     def test_dispatch_dedup_auto_merge_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/dedup/auto-merge", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/dedup/auto-merge", {}, http_post)
         assert result is not None
 
     def test_dispatch_pruning_execute_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/pruning/execute", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/pruning/execute", {}, http_post)
         assert result is not None
 
     def test_dispatch_pruning_auto_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/pruning/auto", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/pruning/auto", {}, http_post)
         assert result is not None
 
     def test_dispatch_pruning_restore_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/pruning/restore", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/pruning/restore", {}, http_post)
         assert result is not None
 
     def test_dispatch_pruning_decay_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/pruning/decay", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/pruning/decay", {}, http_post)
         assert result is not None
 
     def test_dispatch_curation_run_post(self, handler, http_post):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/curation/run", {}, http_post
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/curation/run", {}, http_post)
         assert result is not None
 
 
@@ -930,9 +794,7 @@ class TestDispatchDynamicRoutes:
     """Tests for dynamic (regex) route dispatching."""
 
     def test_dispatch_get_node_by_id(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/node-123", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/nodes/node-123", {}, http_get)
         assert result is not None
 
     def test_dispatch_get_node_relationships(self, handler, http_get):
@@ -984,9 +846,7 @@ class TestDispatchDynamicRoutes:
         assert result is not None
 
     def test_dispatch_graph_traversal(self, handler, http_get):
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/graph/node-123", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/graph/node-123", {}, http_get)
         assert result is not None
 
     def test_dispatch_revalidate_node(self, handler, http_post):
@@ -1042,42 +902,30 @@ class TestPathParameterExtraction:
     """Tests that dynamic routes correctly extract entity IDs."""
 
     def test_node_id_extracted(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/my-node-42", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/my-node-42", {}, http_get)
         handler._handle_get_node.assert_called_once_with("my-node-42")
 
     def test_graph_traversal_id_extracted(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/graph/graph-node-99", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/graph/graph-node-99", {}, http_get)
         handler._handle_graph_traversal.assert_called_once_with("graph-node-99", {})
 
     def test_graph_lineage_id_extracted(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/graph/abc/lineage", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/graph/abc/lineage", {}, http_get)
         handler._handle_graph_lineage.assert_called_once_with("abc", {})
 
     def test_graph_related_id_extracted(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/graph/xyz/related", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/graph/xyz/related", {}, http_get)
         handler._handle_graph_related.assert_called_once_with("xyz", {})
 
     def test_node_relationships_id_extracted(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/n1/relationships", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/n1/relationships", {}, http_get)
         handler._handle_get_node_relationships.assert_called_once_with("n1", {})
 
     def test_revalidate_id_extracted(self, handler, http_post):
         handler._dispatch_route(
             "/api/v1/knowledge/mound/revalidate/node-to-revalidate", {}, http_post
         )
-        handler._handle_revalidate_node.assert_called_once_with(
-            "node-to-revalidate", http_post
-        )
+        handler._handle_revalidate_node.assert_called_once_with("node-to-revalidate", http_post)
 
     def test_user_permissions_id_extracted(self, handler, http_get):
         handler._dispatch_route(
@@ -1105,9 +953,7 @@ class TestPathParameterExtraction:
         handler._dispatch_route(
             "/api/v1/knowledge/mound/federation/regions/eu-west-1", {}, http_delete
         )
-        handler._handle_unregister_region.assert_called_once_with(
-            "eu-west-1", http_delete
-        )
+        handler._handle_unregister_region.assert_called_once_with("eu-west-1", http_delete)
 
 
 # ===========================================================================
@@ -1119,15 +965,11 @@ class TestRouteNodes:
     """Tests for the _route_nodes multi-method dispatcher."""
 
     def test_get_lists_nodes(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes", {"limit": "10"}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes", {"limit": "10"}, http_get)
         handler._handle_list_nodes.assert_called_once_with({"limit": "10"})
 
     def test_post_creates_node(self, handler, http_post):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes", {}, http_post
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes", {}, http_post)
         handler._handle_create_node.assert_called_once_with(http_post)
 
 
@@ -1140,28 +982,20 @@ class TestRouteShare:
     """Tests for the _route_share multi-method dispatcher."""
 
     def test_post_shares_item(self, handler, http_post):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/share", {}, http_post
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/share", {}, http_post)
         handler._handle_share_item.assert_called_once_with(http_post)
 
     def test_delete_revokes_share(self, handler, http_delete):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/share", {}, http_delete
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/share", {}, http_delete)
         handler._handle_revoke_share.assert_called_once_with(http_delete)
 
     def test_patch_updates_share(self, handler, http_patch):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/share", {}, http_patch
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/share", {}, http_patch)
         handler._handle_update_share.assert_called_once_with(http_patch)
 
     def test_get_not_in_methods(self, handler, http_get):
         """GET is not in the allowed methods for /share, so returns None."""
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/share", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/share", {}, http_get)
         assert result is None
 
 
@@ -1174,15 +1008,11 @@ class TestRouteGlobal:
     """Tests for the _route_global multi-method dispatcher."""
 
     def test_post_stores_verified_fact(self, handler, http_post):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/global", {}, http_post
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/global", {}, http_post)
         handler._handle_store_verified_fact.assert_called_once_with(http_post)
 
     def test_get_queries_global(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/global", {"q": "test"}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/global", {"q": "test"}, http_get)
         handler._handle_query_global.assert_called_once_with({"q": "test"})
 
 
@@ -1195,15 +1025,11 @@ class TestRouteFederationRegions:
     """Tests for the _route_federation_regions multi-method dispatcher."""
 
     def test_post_registers_region(self, handler, http_post):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/federation/regions", {}, http_post
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/federation/regions", {}, http_post)
         handler._handle_register_region.assert_called_once_with(http_post)
 
     def test_get_lists_regions(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/federation/regions", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/federation/regions", {}, http_get)
         handler._handle_list_regions.assert_called_once_with({})
 
 
@@ -1216,9 +1042,7 @@ class TestRouteGovernanceRoles:
     """Tests for the _route_governance_roles multi-method dispatcher."""
 
     def test_post_creates_role(self, handler, http_post):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/governance/roles", {}, http_post
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/governance/roles", {}, http_post)
         # _route_governance_roles calls self._handle_create_role
         # which is a method that the governance mixin provides
 
@@ -1239,15 +1063,11 @@ class TestRouteNodeVisibility:
     """Tests for the _route_node_visibility multi-method dispatcher."""
 
     def test_get_returns_visibility(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/n1/visibility", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/n1/visibility", {}, http_get)
         handler._handle_get_visibility.assert_called_once_with("n1")
 
     def test_put_sets_visibility(self, handler, http_put):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/n1/visibility", {}, http_put
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/n1/visibility", {}, http_put)
         handler._handle_set_visibility.assert_called_once_with("n1", http_put)
 
 
@@ -1260,21 +1080,15 @@ class TestRouteNodeAccess:
     """Tests for the _route_node_access multi-method dispatcher."""
 
     def test_get_lists_access_grants(self, handler, http_get):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/n1/access", {}, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/n1/access", {}, http_get)
         handler._handle_list_access_grants.assert_called_once_with("n1", {})
 
     def test_post_grants_access(self, handler, http_post):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/n1/access", {}, http_post
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/n1/access", {}, http_post)
         handler._handle_grant_access.assert_called_once_with("n1", http_post)
 
     def test_delete_revokes_access(self, handler, http_delete):
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/n1/access", {}, http_delete
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/n1/access", {}, http_delete)
         handler._handle_revoke_access.assert_called_once_with("n1", http_delete)
 
 
@@ -1290,20 +1104,14 @@ class TestRouteCurationPolicy:
         handler._route_curation_policy(
             "/api/v1/knowledge/mound/curation/policy", {"workspace_id": "ws1"}, http_get
         )
-        handler._handle_get_curation_policy.assert_called_once_with(
-            {"workspace_id": "ws1"}
-        )
+        handler._handle_get_curation_policy.assert_called_once_with({"workspace_id": "ws1"})
 
     def test_post_creates_policy(self, handler, http_post):
-        handler._route_curation_policy(
-            "/api/v1/knowledge/mound/curation/policy", {}, http_post
-        )
+        handler._route_curation_policy("/api/v1/knowledge/mound/curation/policy", {}, http_post)
         handler._handle_create_curation_policy.assert_called_once_with(http_post)
 
     def test_put_updates_policy(self, handler, http_put):
-        handler._route_curation_policy(
-            "/api/v1/knowledge/mound/curation/policy", {}, http_put
-        )
+        handler._route_curation_policy("/api/v1/knowledge/mound/curation/policy", {}, http_put)
         handler._handle_update_curation_policy.assert_called_once_with(http_put)
 
 
@@ -1387,11 +1195,13 @@ class TestDedupHandlers:
         )
 
     def test_get_duplicate_clusters_custom_params(self, handler):
-        handler._handle_get_duplicate_clusters({
-            "workspace_id": "ws-1",
-            "similarity_threshold": "0.8",
-            "limit": "50",
-        })
+        handler._handle_get_duplicate_clusters(
+            {
+                "workspace_id": "ws-1",
+                "similarity_threshold": "0.8",
+                "limit": "50",
+            }
+        )
         handler.get_duplicate_clusters.assert_called_once_with(
             workspace_id="ws-1",
             similarity_threshold=0.8,
@@ -1410,12 +1220,14 @@ class TestDedupHandlers:
         return_value=None,
     )
     def test_merge_duplicate_cluster_success(self, mock_validate, handler):
-        h = MockHTTPHandler.with_body({
-            "workspace_id": "default",
-            "cluster_id": "cl-1",
-            "primary_node_id": "n-1",
-            "archive": False,
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "default",
+                "cluster_id": "cl-1",
+                "primary_node_id": "n-1",
+                "archive": False,
+            }
+        )
         result = handler._handle_merge_duplicate_cluster(h)
         assert result is not None
         handler.merge_duplicate_cluster.assert_called_once_with(
@@ -1445,10 +1257,12 @@ class TestDedupHandlers:
             body=json.dumps({"error": "Access denied"}).encode(),
         )
         mock_validate.return_value = deny_result
-        h = MockHTTPHandler.with_body({
-            "workspace_id": "restricted",
-            "cluster_id": "cl-1",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "restricted",
+                "cluster_id": "cl-1",
+            }
+        )
         result = handler._handle_merge_duplicate_cluster(h)
         assert _status(result) == 403
 
@@ -1457,10 +1271,12 @@ class TestDedupHandlers:
         return_value=None,
     )
     def test_auto_merge_exact_duplicates_success(self, mock_validate, handler):
-        h = MockHTTPHandler.with_body({
-            "workspace_id": "default",
-            "dry_run": False,
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "default",
+                "dry_run": False,
+            }
+        )
         result = handler._handle_auto_merge_exact_duplicates(h)
         assert result is not None
         handler.auto_merge_exact_duplicates.assert_called_once_with(
@@ -1499,12 +1315,14 @@ class TestPruningHandlers:
         )
 
     def test_get_prunable_items_custom_params(self, handler):
-        handler._handle_get_prunable_items({
-            "workspace_id": "ws-2",
-            "staleness_threshold": "0.5",
-            "min_age_days": "60",
-            "limit": "200",
-        })
+        handler._handle_get_prunable_items(
+            {
+                "workspace_id": "ws-2",
+                "staleness_threshold": "0.5",
+                "min_age_days": "60",
+                "limit": "200",
+            }
+        )
         handler.get_prunable_items.assert_called_once_with(
             workspace_id="ws-2",
             staleness_threshold=0.5,
@@ -1517,12 +1335,14 @@ class TestPruningHandlers:
         return_value=None,
     )
     def test_execute_prune_success(self, mock_validate, handler):
-        h = MockHTTPHandler.with_body({
-            "workspace_id": "default",
-            "item_ids": ["n1", "n2"],
-            "action": "delete",
-            "reason": "cleanup",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "default",
+                "item_ids": ["n1", "n2"],
+                "action": "delete",
+                "reason": "cleanup",
+            }
+        )
         result = handler._handle_execute_prune(h)
         assert result is not None
         handler.execute_prune.assert_called_once_with(
@@ -1547,9 +1367,11 @@ class TestPruningHandlers:
         return_value=None,
     )
     def test_execute_prune_defaults(self, mock_validate, handler):
-        h = MockHTTPHandler.with_body({
-            "item_ids": ["n1"],
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "item_ids": ["n1"],
+            }
+        )
         handler._handle_execute_prune(h)
         handler.execute_prune.assert_called_once_with(
             workspace_id="default",
@@ -1579,11 +1401,13 @@ class TestPruningHandlers:
         )
 
     def test_get_prune_history_with_since(self, handler):
-        handler._handle_get_prune_history({
-            "workspace_id": "ws-1",
-            "limit": "10",
-            "since": "2026-01-01",
-        })
+        handler._handle_get_prune_history(
+            {
+                "workspace_id": "ws-1",
+                "limit": "10",
+                "since": "2026-01-01",
+            }
+        )
         handler.get_prune_history.assert_called_once_with(
             workspace_id="ws-1",
             limit=10,
@@ -1624,10 +1448,12 @@ class TestContradictionHandlers:
     """Tests for contradiction handler methods."""
 
     def test_detect_contradictions(self, handler):
-        h = MockHTTPHandler.with_body({
-            "workspace_id": "ws-1",
-            "item_ids": ["a", "b"],
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "ws-1",
+                "item_ids": ["a", "b"],
+            }
+        )
         handler._handle_detect_contradictions(h)
         handler.detect_contradictions.assert_called_once_with(
             workspace_id="ws-1",
@@ -1642,21 +1468,25 @@ class TestContradictionHandlers:
         )
 
     def test_list_contradictions_with_filters(self, handler):
-        handler._handle_list_contradictions({
-            "workspace_id": "ws-1",
-            "min_severity": "HIGH",
-        })
+        handler._handle_list_contradictions(
+            {
+                "workspace_id": "ws-1",
+                "min_severity": "HIGH",
+            }
+        )
         handler.list_contradictions.assert_called_once_with(
             workspace_id="ws-1",
             min_severity="HIGH",
         )
 
     def test_resolve_contradiction_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "strategy": "merge",
-            "resolved_by": "admin",
-            "notes": "Merged A into B",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "strategy": "merge",
+                "resolved_by": "admin",
+                "notes": "Merged A into B",
+            }
+        )
         handler._handle_resolve_contradiction("ctr-1", h)
         handler.resolve_contradiction.assert_called_once_with(
             contradiction_id="ctr-1",
@@ -1681,13 +1511,15 @@ class TestGovernanceHandlers:
     """Tests for governance handler methods."""
 
     def test_create_role_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "name": "editor",
-            "permissions": ["read", "write"],
-            "description": "Can edit",
-            "workspace_id": "ws-1",
-            "created_by": "admin",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "name": "editor",
+                "permissions": ["read", "write"],
+                "description": "Can edit",
+                "workspace_id": "ws-1",
+                "created_by": "admin",
+            }
+        )
         handler._handle_create_role(h)
         handler.create_role.assert_called_once_with(
             name="editor",
@@ -1704,12 +1536,14 @@ class TestGovernanceHandlers:
         assert "name" in _body(result).get("error", "")
 
     def test_assign_role_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "user_id": "user-1",
-            "role_id": "role-1",
-            "workspace_id": "ws-1",
-            "assigned_by": "admin",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "user_id": "user-1",
+                "role_id": "role-1",
+                "workspace_id": "ws-1",
+                "assigned_by": "admin",
+            }
+        )
         handler._handle_assign_role(h)
         handler.assign_role.assert_called_once_with(
             user_id="user-1",
@@ -1729,11 +1563,13 @@ class TestGovernanceHandlers:
         assert _status(result) == 400
 
     def test_revoke_role_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "user_id": "user-1",
-            "role_id": "role-1",
-            "workspace_id": "ws-1",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "user_id": "user-1",
+                "role_id": "role-1",
+                "workspace_id": "ws-1",
+            }
+        )
         handler._handle_revoke_role(h)
         handler.revoke_role.assert_called_once_with(
             user_id="user-1",
@@ -1754,11 +1590,13 @@ class TestGovernanceHandlers:
         )
 
     def test_check_permission_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "user_id": "user-1",
-            "permission": "knowledge:write",
-            "workspace_id": "ws-1",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "user_id": "user-1",
+                "permission": "knowledge:write",
+                "workspace_id": "ws-1",
+            }
+        )
         handler._handle_check_permission(h)
         handler.check_permission.assert_called_once_with(
             user_id="user-1",
@@ -1786,12 +1624,14 @@ class TestGovernanceHandlers:
         )
 
     def test_query_audit_with_filters(self, handler):
-        handler._handle_query_audit({
-            "actor_id": "user-1",
-            "action": "create",
-            "workspace_id": "ws-1",
-            "limit": "50",
-        })
+        handler._handle_query_audit(
+            {
+                "actor_id": "user-1",
+                "action": "create",
+                "workspace_id": "ws-1",
+                "limit": "50",
+            }
+        )
         handler.query_audit_trail.assert_called_once_with(
             actor_id="user-1",
             action="create",
@@ -1837,13 +1677,15 @@ class TestAnalyticsHandlers:
         )
 
     def test_record_usage_event_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "event_type": "query",
-            "item_id": "n-1",
-            "user_id": "user-1",
-            "workspace_id": "ws-1",
-            "query": "test query",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "event_type": "query",
+                "item_id": "n-1",
+                "user_id": "user-1",
+                "workspace_id": "ws-1",
+                "query": "test query",
+            }
+        )
         handler._handle_record_usage_event(h)
         handler.record_usage_event.assert_called_once_with(
             event_type="query",
@@ -1883,12 +1725,14 @@ class TestExtractionHandlers:
     """Tests for extraction handler methods."""
 
     def test_extract_from_debate_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "debate_id": "dbt-1",
-            "messages": [{"role": "agent", "content": "Hello"}],
-            "consensus_text": "We agree",
-            "topic": "Test topic",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "debate_id": "dbt-1",
+                "messages": [{"role": "agent", "content": "Hello"}],
+                "consensus_text": "We agree",
+                "topic": "Test topic",
+            }
+        )
         handler._handle_extract_from_debate(h)
         handler.extract_from_debate.assert_called_once_with(
             debate_id="dbt-1",
@@ -1898,9 +1742,11 @@ class TestExtractionHandlers:
         )
 
     def test_extract_from_debate_missing_debate_id(self, handler):
-        h = MockHTTPHandler.with_body({
-            "messages": [{"role": "agent", "content": "Hello"}],
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "messages": [{"role": "agent", "content": "Hello"}],
+            }
+        )
         result = handler._handle_extract_from_debate(h)
         assert _status(result) == 400
         assert "debate_id" in _body(result).get("error", "")
@@ -1912,10 +1758,12 @@ class TestExtractionHandlers:
         assert "messages" in _body(result).get("error", "")
 
     def test_extract_from_debate_empty_messages(self, handler):
-        h = MockHTTPHandler.with_body({
-            "debate_id": "dbt-1",
-            "messages": [],
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "debate_id": "dbt-1",
+                "messages": [],
+            }
+        )
         result = handler._handle_extract_from_debate(h)
         assert _status(result) == 400
 
@@ -1945,10 +1793,12 @@ class TestConfidenceDecayHandlers:
         )
 
     def test_apply_confidence_decay_new_force(self, handler):
-        h = MockHTTPHandler.with_body({
-            "workspace_id": "ws-1",
-            "force": True,
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "ws-1",
+                "force": True,
+            }
+        )
         handler._handle_apply_confidence_decay_new(h)
         handler.apply_confidence_decay_endpoint.assert_called_once_with(
             workspace_id="ws-1",
@@ -1956,11 +1806,13 @@ class TestConfidenceDecayHandlers:
         )
 
     def test_record_confidence_event_success(self, handler):
-        h = MockHTTPHandler.with_body({
-            "item_id": "n-1",
-            "event": "validation_pass",
-            "reason": "Passed all checks",
-        })
+        h = MockHTTPHandler.with_body(
+            {
+                "item_id": "n-1",
+                "event": "validation_pass",
+                "reason": "Passed all checks",
+            }
+        )
         handler._handle_record_confidence_event(h)
         handler.record_confidence_event.assert_called_once_with(
             item_id="n-1",
@@ -1989,11 +1841,13 @@ class TestConfidenceDecayHandlers:
         )
 
     def test_get_confidence_history_with_filters(self, handler):
-        handler._handle_get_confidence_history({
-            "item_id": "n-1",
-            "event_type": "decay",
-            "limit": "25",
-        })
+        handler._handle_get_confidence_history(
+            {
+                "item_id": "n-1",
+                "event_type": "decay",
+                "limit": "25",
+            }
+        )
         handler.get_confidence_history.assert_called_once_with(
             item_id="n-1",
             event_type="decay",
@@ -2019,44 +1873,34 @@ class TestInvokeHandlerSignatures:
     def test_signature_q_gets_query_params(self, handler):
         """Handlers with 'q' signature get called with (query_params)."""
         qp = {"workspace_id": "ws-1"}
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/stats", qp, MockHTTPHandler()
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/stats", qp, MockHTTPHandler())
         handler._handle_mound_stats.assert_called_once_with(qp)
 
     def test_signature_h_gets_handler(self, handler):
         """Handlers with default 'h' signature get called with (handler)."""
         h = MockHTTPHandler.with_method("POST")
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/query", {}, h
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/query", {}, h)
         handler._handle_mound_query.assert_called_once_with(h)
 
     def test_signature_qh_gets_query_and_handler(self, handler):
         """Handlers with 'qh' signature get called with (query_params, handler)."""
         qp = {"limit": "10"}
         h = MockHTTPHandler()
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/shared-with-me", qp, h
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/shared-with-me", qp, h)
         handler._handle_shared_with_me.assert_called_once_with(qp, h)
 
     def test_signature_pqh_gets_path_query_handler(self, handler):
         """Handlers with 'pqh' signature get (path, query_params, handler)."""
         qp = {"limit": "10"}
         h = MockHTTPHandler.with_method("POST")
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes", qp, h
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes", qp, h)
         # _route_nodes has 'pqh' signature, so it gets (path, qp, handler)
         # internally it then dispatches to _handle_create_node
         handler._handle_create_node.assert_called_once_with(h)
 
     def test_signature_id_gets_entity_id(self, handler):
         """Handlers with 'id' signature get called with (entity_id)."""
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/test-node-id", {}, MockHTTPHandler()
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/nodes/test-node-id", {}, MockHTTPHandler())
         handler._handle_get_node.assert_called_once_with("test-node-id")
 
     def test_signature_id_q_gets_entity_and_query(self, handler):
@@ -2070,9 +1914,7 @@ class TestInvokeHandlerSignatures:
     def test_signature_id_h_gets_entity_and_handler(self, handler):
         """Handlers with 'id_h' signature get (entity_id, handler)."""
         h = MockHTTPHandler.with_method("POST")
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/revalidate/reval-node", {}, h
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/revalidate/reval-node", {}, h)
         handler._handle_revalidate_node.assert_called_once_with("reval-node", h)
 
 
@@ -2147,9 +1989,7 @@ class TestEdgeCases:
 
     def test_trailing_slash_not_matched(self, handler, http_get):
         """Routes without trailing slash should not match paths with one."""
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/stats/", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/stats/", {}, http_get)
         assert result is None
 
     def test_dynamic_node_id_with_special_chars(self, handler, http_get):
@@ -2162,18 +2002,14 @@ class TestEdgeCases:
 
     def test_dynamic_node_id_cannot_contain_slashes(self, handler, http_get):
         """IDs with slashes should not match the [^/]+ pattern."""
-        result = handler._dispatch_route(
-            "/api/v1/knowledge/mound/nodes/a/b", {}, http_get
-        )
+        result = handler._dispatch_route("/api/v1/knowledge/mound/nodes/a/b", {}, http_get)
         # This should not match ^/nodes/([^/]+)$ since "a/b" has a slash
         assert result is None
 
     def test_query_params_passed_through(self, handler, http_get):
         """Query params are forwarded to handler methods."""
         qp = {"workspace_id": "ws-1", "min_severity": "HIGH"}
-        handler._dispatch_route(
-            "/api/v1/knowledge/mound/contradictions", qp, http_get
-        )
+        handler._dispatch_route("/api/v1/knowledge/mound/contradictions", qp, http_get)
         # _handle_list_contradictions is a real RoutingMixin method, so
         # verify the underlying async stub received the correct args.
         handler.list_contradictions.assert_called_once_with(
@@ -2205,10 +2041,12 @@ class TestEdgeCases:
             "aragora.server.handlers.knowledge_base.mound.routing.validate_workspace_access_sync",
             return_value=deny,
         ):
-            h = MockHTTPHandler.with_body({
-                "workspace_id": "restricted-ws",
-                "cluster_id": "cl-1",
-            })
+            h = MockHTTPHandler.with_body(
+                {
+                    "workspace_id": "restricted-ws",
+                    "cluster_id": "cl-1",
+                }
+            )
             result = handler._handle_merge_duplicate_cluster(h)
             assert _status(result) == 403
             # The actual merge method should NOT have been called
@@ -2224,10 +2062,12 @@ class TestEdgeCases:
             "aragora.server.handlers.knowledge_base.mound.routing.validate_workspace_access_sync",
             return_value=deny,
         ):
-            h = MockHTTPHandler.with_body({
-                "workspace_id": "restricted-ws",
-                "item_ids": ["n1"],
-            })
+            h = MockHTTPHandler.with_body(
+                {
+                    "workspace_id": "restricted-ws",
+                    "item_ids": ["n1"],
+                }
+            )
             result = handler._handle_execute_prune(h)
             assert _status(result) == 403
             handler.execute_prune.assert_not_called()

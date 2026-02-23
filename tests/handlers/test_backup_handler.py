@@ -305,7 +305,9 @@ class TestListBackups:
     async def test_list_pagination_offset(self, handler, mock_manager):
         backups = [_make_backup(f"bk-{i}") for i in range(5)]
         mock_manager.list_backups.return_value = backups
-        result = await handler.handle("/api/v2/backups", {"limit": "2", "offset": "3"}, _http("GET"))
+        result = await handler.handle(
+            "/api/v2/backups", {"limit": "2", "offset": "3"}, _http("GET")
+        )
         data = _body(result)
         assert len(data["backups"]) == 2
         assert data["pagination"]["offset"] == 3
@@ -332,9 +334,7 @@ class TestListBackups:
     @pytest.mark.asyncio
     async def test_list_filter_by_status(self, handler, mock_manager):
         mock_manager.list_backups.return_value = []
-        result = await handler.handle(
-            "/api/v2/backups", {"status": "completed"}, _http("GET")
-        )
+        result = await handler.handle("/api/v2/backups", {"status": "completed"}, _http("GET"))
         assert result.status_code == 200
         call_kwargs = mock_manager.list_backups.call_args
         status_val = call_kwargs.kwargs.get("status")
@@ -343,9 +343,7 @@ class TestListBackups:
 
     @pytest.mark.asyncio
     async def test_list_invalid_status(self, handler, mock_manager):
-        result = await handler.handle(
-            "/api/v2/backups", {"status": "bogus"}, _http("GET")
-        )
+        result = await handler.handle("/api/v2/backups", {"status": "bogus"}, _http("GET"))
         assert result.status_code == 400
         data = _body(result)
         assert "Invalid status" in data.get("error", "")
@@ -353,9 +351,7 @@ class TestListBackups:
     @pytest.mark.asyncio
     async def test_list_filter_by_since_unix(self, handler, mock_manager):
         mock_manager.list_backups.return_value = []
-        result = await handler.handle(
-            "/api/v2/backups", {"since": "1700000000"}, _http("GET")
-        )
+        result = await handler.handle("/api/v2/backups", {"since": "1700000000"}, _http("GET"))
         assert result.status_code == 200
         call_kwargs = mock_manager.list_backups.call_args
         since_val = call_kwargs.kwargs.get("since")
@@ -373,9 +369,7 @@ class TestListBackups:
     async def test_list_filter_since_invalid_string_ignored(self, handler, mock_manager):
         """An unparseable since value results in since=None (no filter)."""
         mock_manager.list_backups.return_value = []
-        result = await handler.handle(
-            "/api/v2/backups", {"since": "not-a-date"}, _http("GET")
-        )
+        result = await handler.handle("/api/v2/backups", {"since": "not-a-date"}, _http("GET"))
         assert result.status_code == 200
         call_kwargs = mock_manager.list_backups.call_args
         assert call_kwargs.kwargs.get("since") is None
@@ -432,12 +426,15 @@ class TestCreateBackup:
 
     @pytest.mark.asyncio
     async def test_create_invalid_backup_type(self, handler):
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/var/aragora/data/main.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/var/aragora/data/main.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -449,12 +446,15 @@ class TestCreateBackup:
 
     @pytest.mark.asyncio
     async def test_create_success(self, handler, mock_manager):
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/var/aragora/data/main.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/var/aragora/data/main.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -468,21 +468,27 @@ class TestCreateBackup:
 
     @pytest.mark.asyncio
     async def test_create_with_metadata(self, handler, mock_manager):
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/var/aragora/data/main.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/var/aragora/data/main.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
                 {},
-                _http("POST", body={
-                    "source_path": "main.db",
-                    "backup_type": "incremental",
-                    "metadata": {"triggered_by": "cron"},
-                }),
+                _http(
+                    "POST",
+                    body={
+                        "source_path": "main.db",
+                        "backup_type": "incremental",
+                        "metadata": {"triggered_by": "cron"},
+                    },
+                ),
             )
         assert result.status_code == 201
 
@@ -491,12 +497,15 @@ class TestCreateBackup:
         """Path traversal attempts should be rejected."""
         from aragora.utils.paths import PathTraversalError
 
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            side_effect=PathTraversalError("traversal"),
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                side_effect=PathTraversalError("traversal"),
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -510,12 +519,15 @@ class TestCreateBackup:
     async def test_create_source_not_found(self, handler, mock_manager):
         """safe_path succeeds but manager raises FileNotFoundError."""
         mock_manager.create_backup.side_effect = FileNotFoundError("gone")
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/var/aragora/data/main.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/var/aragora/data/main.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -527,12 +539,15 @@ class TestCreateBackup:
     @pytest.mark.asyncio
     async def test_create_manager_runtime_error(self, handler, mock_manager):
         mock_manager.create_backup.side_effect = RuntimeError("disk full")
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/var/aragora/data/main.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/var/aragora/data/main.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -558,12 +573,15 @@ class TestCreateBackup:
     @pytest.mark.asyncio
     async def test_create_file_not_found_in_safe_path(self, handler):
         """safe_path raises FileNotFoundError -- try next base, then fail."""
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            side_effect=FileNotFoundError("no file"),
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                side_effect=FileNotFoundError("no file"),
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -575,12 +593,15 @@ class TestCreateBackup:
     @pytest.mark.asyncio
     async def test_create_os_error_from_manager(self, handler, mock_manager):
         mock_manager.create_backup.side_effect = OSError("permission denied")
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/var/aragora/data/main.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/var/aragora/data/main.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_BACKUP_SOURCE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups",
@@ -600,9 +621,7 @@ class TestVerifyBackup:
 
     @pytest.mark.asyncio
     async def test_verify_success(self, handler, mock_manager):
-        result = await handler.handle(
-            "/api/v2/backups/bk-001/verify", {}, _http("POST")
-        )
+        result = await handler.handle("/api/v2/backups/bk-001/verify", {}, _http("POST"))
         assert result.status_code == 200
         data = _body(result)
         assert data["backup_id"] == "bk-001"
@@ -627,9 +646,7 @@ class TestVerifyBackup:
             row_counts_valid=False,
             errors=["checksum mismatch"],
         )
-        result = await handler.handle(
-            "/api/v2/backups/bk-bad/verify", {}, _http("POST")
-        )
+        result = await handler.handle("/api/v2/backups/bk-bad/verify", {}, _http("POST"))
         assert result.status_code == 200
         data = _body(result)
         assert data["verified"] is False
@@ -661,9 +678,7 @@ class TestVerifyComprehensive:
 
     @pytest.mark.asyncio
     async def test_comprehensive_passes_backup_id(self, handler, mock_manager):
-        await handler.handle(
-            "/api/v2/backups/comp-42/verify-comprehensive", {}, _http("POST")
-        )
+        await handler.handle("/api/v2/backups/comp-42/verify-comprehensive", {}, _http("POST"))
         mock_manager.verify_restore_comprehensive.assert_called_once_with("comp-42")
 
 
@@ -677,16 +692,17 @@ class TestRestoreTest:
 
     @pytest.mark.asyncio
     async def test_restore_test_success(self, handler, mock_manager):
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/tmp/aragora_restore/restore_test.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/tmp/aragora_restore/restore_test.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
-            result = await handler.handle(
-                "/api/v2/backups/bk-001/restore-test", {}, _http("POST")
-            )
+            result = await handler.handle("/api/v2/backups/bk-001/restore-test", {}, _http("POST"))
         assert result.status_code == 200
         data = _body(result)
         assert data["backup_id"] == "bk-001"
@@ -695,12 +711,15 @@ class TestRestoreTest:
 
     @pytest.mark.asyncio
     async def test_restore_test_with_custom_target(self, handler, mock_manager):
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/tmp/aragora_restore/custom.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/tmp/aragora_restore/custom.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups/bk-001/restore-test",
@@ -718,12 +737,15 @@ class TestRestoreTest:
     async def test_restore_test_path_traversal_blocked(self, handler):
         from aragora.utils.paths import PathTraversalError
 
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            side_effect=PathTraversalError("traversal"),
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                side_effect=PathTraversalError("traversal"),
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
             result = await handler.handle(
                 "/api/v2/backups/bk-001/restore-test",
@@ -736,46 +758,53 @@ class TestRestoreTest:
     @pytest.mark.asyncio
     async def test_restore_test_value_error(self, handler, mock_manager):
         mock_manager.restore_backup.side_effect = ValueError("bad input")
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/tmp/aragora_restore/test.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/tmp/aragora_restore/test.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
-            result = await handler.handle(
-                "/api/v2/backups/bk-001/restore-test", {}, _http("POST")
-            )
+            result = await handler.handle("/api/v2/backups/bk-001/restore-test", {}, _http("POST"))
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_restore_test_file_not_found(self, handler, mock_manager):
         mock_manager.restore_backup.side_effect = FileNotFoundError("missing")
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/tmp/aragora_restore/test.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=True))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/tmp/aragora_restore/test.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [MagicMock(exists=MagicMock(return_value=True))],
+            ),
         ):
-            result = await handler.handle(
-                "/api/v2/backups/bk-001/restore-test", {}, _http("POST")
-            )
+            result = await handler.handle("/api/v2/backups/bk-001/restore-test", {}, _http("POST"))
         assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_restore_no_allowed_dirs(self, handler):
         """All allowed restore dirs fail validation."""
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            side_effect=OSError("cannot create"),
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [MagicMock(exists=MagicMock(return_value=False), mkdir=MagicMock(side_effect=OSError))],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                side_effect=OSError("cannot create"),
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [
+                    MagicMock(
+                        exists=MagicMock(return_value=False), mkdir=MagicMock(side_effect=OSError)
+                    )
+                ],
+            ),
         ):
-            result = await handler.handle(
-                "/api/v2/backups/bk-001/restore-test", {}, _http("POST")
-            )
+            result = await handler.handle("/api/v2/backups/bk-001/restore-test", {}, _http("POST"))
         assert result.status_code == 400
 
     @pytest.mark.asyncio
@@ -785,16 +814,17 @@ class TestRestoreTest:
         mock_dir.exists.return_value = False
         mock_dir.mkdir.return_value = None  # mkdir succeeds
 
-        with patch(
-            "aragora.server.handlers.backup_handler.safe_path",
-            return_value="/tmp/aragora_restore/test.db",
-        ), patch(
-            "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
-            [mock_dir],
+        with (
+            patch(
+                "aragora.server.handlers.backup_handler.safe_path",
+                return_value="/tmp/aragora_restore/test.db",
+            ),
+            patch(
+                "aragora.server.handlers.backup_handler._ALLOWED_RESTORE_DIRS",
+                [mock_dir],
+            ),
         ):
-            result = await handler.handle(
-                "/api/v2/backups/bk-001/restore-test", {}, _http("POST")
-            )
+            result = await handler.handle("/api/v2/backups/bk-001/restore-test", {}, _http("POST"))
         assert result.status_code == 200
         mock_dir.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
@@ -813,8 +843,7 @@ class TestDeleteBackup:
         mock_manager.list_backups.return_value = [bk]
         mock_manager._backups = {"bk-del": bk}
 
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.unlink"):
+        with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.unlink"):
             http = _http("DELETE")
             result = await handler.handle("/api/v2/backups/bk-del", {}, http)
 
@@ -849,8 +878,10 @@ class TestDeleteBackup:
         mock_manager.list_backups.return_value = [bk]
         mock_manager._backups = {"bk-err": bk}
 
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.unlink", side_effect=OSError("perm denied")):
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.unlink", side_effect=OSError("perm denied")),
+        ):
             result = await handler.handle("/api/v2/backups/bk-err", {}, _http("DELETE"))
 
         assert result.status_code == 500
@@ -929,9 +960,7 @@ class TestStats:
     async def test_stats_with_backups(self, handler, mock_manager):
         bk1 = _make_backup("bk-1", verified=True, compressed_size=1024 * 1024)
         bk2 = _make_backup("bk-2", verified=False, compressed_size=2 * 1024 * 1024)
-        bk3 = _make_backup(
-            "bk-3", status=_BackupStatus.FAILED, compressed_size=0
-        )
+        bk3 = _make_backup("bk-3", status=_BackupStatus.FAILED, compressed_size=0)
         mock_manager.list_backups.return_value = [bk1, bk2, bk3]
         mock_manager.get_latest_backup.return_value = bk2
 
@@ -977,9 +1006,7 @@ class TestNotFound:
     @pytest.mark.asyncio
     async def test_unknown_sub_route(self, handler):
         """Unknown action under a backup_id returns 404."""
-        result = await handler.handle(
-            "/api/v2/backups/bk-001/unknown-action", {}, _http("POST")
-        )
+        result = await handler.handle("/api/v2/backups/bk-001/unknown-action", {}, _http("POST"))
         assert result.status_code == 404
 
 
@@ -1006,17 +1033,13 @@ class TestGenericErrorHandling:
     @pytest.mark.asyncio
     async def test_type_error_in_verify(self, handler, mock_manager):
         mock_manager.verify_backup.side_effect = TypeError("bad type")
-        result = await handler.handle(
-            "/api/v2/backups/bk-001/verify", {}, _http("POST")
-        )
+        result = await handler.handle("/api/v2/backups/bk-001/verify", {}, _http("POST"))
         assert result.status_code == 500
 
     @pytest.mark.asyncio
     async def test_runtime_error_in_cleanup(self, handler, mock_manager):
         mock_manager.apply_retention_policy.side_effect = RuntimeError("oops")
-        result = await handler.handle(
-            "/api/v2/backups/cleanup", {}, _http("POST")
-        )
+        result = await handler.handle("/api/v2/backups/cleanup", {}, _http("POST"))
         assert result.status_code == 500
 
     @pytest.mark.asyncio

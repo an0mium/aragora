@@ -121,7 +121,9 @@ class SpecialistRegistry:
                 del self._registry[key]
                 logger.info(
                     "specialist_demoted agent=%s domain=%s elo=%.0f",
-                    agent_name, domain, elo_rating,
+                    agent_name,
+                    domain,
+                    elo_rating,
                 )
                 return False
             return True
@@ -143,35 +145,28 @@ class SpecialistRegistry:
         )
         logger.info(
             "specialist_promoted agent=%s domain=%s elo=%.0f matches=%d",
-            agent_name, domain, elo_rating, match_count,
+            agent_name,
+            domain,
+            elo_rating,
+            match_count,
         )
         return True
 
-    def get_specialists(
-        self, domain: str, limit: int = 5
-    ) -> list[SpecialistEntry]:
+    def get_specialists(self, domain: str, limit: int = 5) -> list[SpecialistEntry]:
         """Get top specialists for a domain, sorted by ELO rating."""
-        entries = [
-            e for e in self._registry.values()
-            if e.domain == domain
-        ]
+        entries = [e for e in self._registry.values() if e.domain == domain]
         entries.sort(key=lambda e: e.elo_rating, reverse=True)
         return entries[:limit]
 
     def get_agent_specialties(self, agent_name: str) -> list[SpecialistEntry]:
         """Get all domains where an agent is a registered specialist."""
-        return [
-            e for e in self._registry.values()
-            if e.agent_name == agent_name
-        ]
+        return [e for e in self._registry.values() if e.agent_name == agent_name]
 
     def is_specialist(self, agent_name: str, domain: str) -> bool:
         """Check if an agent is a specialist in a given domain."""
         return (agent_name, domain) in self._registry
 
-    def score_bonus(
-        self, agent_name: str, domain: str, weight: float = 0.25
-    ) -> float:
+    def score_bonus(self, agent_name: str, domain: str, weight: float = 0.25) -> float:
         """Compute selection score bonus for a specialist.
 
         Returns a bonus in [0, weight] proportional to how far above

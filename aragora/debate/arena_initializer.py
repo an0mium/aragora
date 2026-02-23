@@ -655,7 +655,8 @@ class ArenaInitializer:
                     stability_conflict_confidence=stability_conflict_confidence,
                 )
                 logger.debug(
-                    "[ml] Initialized ConsensusEstimator with threshold=%s", consensus_early_termination_threshold
+                    "[ml] Initialized ConsensusEstimator with threshold=%s",
+                    consensus_early_termination_threshold,
                 )
 
         except ImportError as e:

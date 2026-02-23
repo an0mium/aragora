@@ -35,6 +35,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result: object) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:
@@ -56,6 +57,7 @@ def _status(result: object) -> int:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
@@ -203,6 +205,7 @@ def mock_task_result():
 # Initialization and ROUTES
 # ---------------------------------------------------------------------------
 
+
 class TestExternalAgentsInit:
     """Tests for handler construction and ROUTES."""
 
@@ -241,6 +244,7 @@ class TestExternalAgentsInit:
 # ---------------------------------------------------------------------------
 # can_handle
 # ---------------------------------------------------------------------------
+
 
 class TestCanHandle:
     """Tests for can_handle path matching."""
@@ -288,6 +292,7 @@ class TestCanHandle:
 # ---------------------------------------------------------------------------
 # GET /api/external-agents/adapters
 # ---------------------------------------------------------------------------
+
 
 class TestListAdapters:
     """Tests for list adapters endpoint."""
@@ -361,6 +366,7 @@ class TestListAdapters:
 # GET /api/external-agents/health
 # ---------------------------------------------------------------------------
 
+
 class TestHealthCheck:
     """Tests for health check endpoint."""
 
@@ -368,12 +374,8 @@ class TestHealthCheck:
         self, handler, mock_http_handler, mock_adapter_spec, mock_health_status
     ):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.list_specs.return_value = [mock_adapter_spec]
             mock_run_coro.return_value = mock_health_status
@@ -389,12 +391,8 @@ class TestHealthCheck:
         self, handler, mock_http_handler, mock_adapter_spec, mock_adapter_spec_b, mock_health_status
     ):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.list_specs.return_value = [mock_adapter_spec, mock_adapter_spec_b]
             mock_run_coro.return_value = mock_health_status
@@ -423,9 +421,7 @@ class TestHealthCheck:
             assert body["total"] == 0
             assert body["health"] == []
 
-    def test_health_check_adapter_failure(
-        self, handler, mock_http_handler, mock_adapter_spec
-    ):
+    def test_health_check_adapter_failure(self, handler, mock_http_handler, mock_adapter_spec):
         """Individual adapter failures are reported but don't cause 500."""
         with patch(
             "aragora.server.handlers.external_agents.ExternalAgentRegistry"
@@ -451,9 +447,7 @@ class TestHealthCheck:
 
             assert _status(result) == 500
 
-    def test_health_check_versioned(
-        self, handler, mock_http_handler
-    ):
+    def test_health_check_versioned(self, handler, mock_http_handler):
         with patch(
             "aragora.server.handlers.external_agents.ExternalAgentRegistry"
         ) as mock_registry:
@@ -468,6 +462,7 @@ class TestHealthCheck:
 # GET /api/external-agents/tasks/{id}
 # ---------------------------------------------------------------------------
 
+
 class TestGetTask:
     """Tests for get task status endpoint."""
 
@@ -475,12 +470,8 @@ class TestGetTask:
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -496,96 +487,66 @@ class TestGetTask:
             assert body["status"] == "running"
             assert "result" not in body
 
-    def test_get_task_completed_includes_result(
-        self, handler, mock_http_handler, mock_task_result
-    ):
+    def test_get_task_completed_includes_result(self, handler, mock_http_handler, mock_task_result):
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = [TaskStatus.COMPLETED, mock_task_result]
 
-            result = handler.handle(
-                "/api/external-agents/tasks/task-abc", {}, mock_http_handler
-            )
+            result = handler.handle("/api/external-agents/tasks/task-abc", {}, mock_http_handler)
 
             assert _status(result) == 200
             body = _body(result)
             assert body["status"] == "completed"
             assert "result" in body
 
-    def test_get_task_failed_includes_result(
-        self, handler, mock_http_handler, mock_task_result
-    ):
+    def test_get_task_failed_includes_result(self, handler, mock_http_handler, mock_task_result):
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = [TaskStatus.FAILED, mock_task_result]
 
-            result = handler.handle(
-                "/api/external-agents/tasks/task-fail", {}, mock_http_handler
-            )
+            result = handler.handle("/api/external-agents/tasks/task-fail", {}, mock_http_handler)
 
             assert _status(result) == 200
             body = _body(result)
             assert body["status"] == "failed"
             assert "result" in body
 
-    def test_get_task_cancelled_includes_result(
-        self, handler, mock_http_handler, mock_task_result
-    ):
+    def test_get_task_cancelled_includes_result(self, handler, mock_http_handler, mock_task_result):
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = [TaskStatus.CANCELLED, mock_task_result]
 
-            result = handler.handle(
-                "/api/external-agents/tasks/task-cancel", {}, mock_http_handler
-            )
+            result = handler.handle("/api/external-agents/tasks/task-cancel", {}, mock_http_handler)
 
             assert _status(result) == 200
             body = _body(result)
             assert body["status"] == "cancelled"
             assert "result" in body
 
-    def test_get_task_timeout_includes_result(
-        self, handler, mock_http_handler, mock_task_result
-    ):
+    def test_get_task_timeout_includes_result(self, handler, mock_http_handler, mock_task_result):
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -604,12 +565,8 @@ class TestGetTask:
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -625,56 +582,40 @@ class TestGetTask:
             assert "result" not in body
 
     def test_get_task_invalid_id_with_slash(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/external-agents/tasks/bad/id/here", {}, mock_http_handler
-        )
+        result = handler.handle("/api/external-agents/tasks/bad/id/here", {}, mock_http_handler)
 
         assert _status(result) == 400
 
     def test_get_task_empty_id(self, handler, mock_http_handler):
         """Trailing slash means empty task ID."""
-        result = handler.handle(
-            "/api/external-agents/tasks/", {}, mock_http_handler
-        )
+        result = handler.handle("/api/external-agents/tasks/", {}, mock_http_handler)
         # Empty task ID should return 400
         assert result is not None
         assert _status(result) == 400
 
     def test_get_task_not_found(self, handler, mock_http_handler):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = KeyError("not found")
 
-            result = handler.handle(
-                "/api/external-agents/tasks/nonexistent", {}, mock_http_handler
-            )
+            result = handler.handle("/api/external-agents/tasks/nonexistent", {}, mock_http_handler)
 
             assert _status(result) == 404
 
     def test_get_task_internal_error(self, handler, mock_http_handler):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = RuntimeError("boom")
 
-            result = handler.handle(
-                "/api/external-agents/tasks/task-err", {}, mock_http_handler
-            )
+            result = handler.handle("/api/external-agents/tasks/task-err", {}, mock_http_handler)
 
             assert _status(result) == 500
 
@@ -696,12 +637,8 @@ class TestGetTask:
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
 
             def is_reg(name):
@@ -731,12 +668,8 @@ class TestGetTask:
             return name == "openhands"
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.side_effect = is_reg
             mock_registry.create.return_value = MagicMock()
@@ -753,12 +686,8 @@ class TestGetTask:
         from aragora.agents.external.models import TaskStatus
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -776,6 +705,7 @@ class TestGetTask:
 # POST /api/external-agents/tasks
 # ---------------------------------------------------------------------------
 
+
 class TestSubmitTask:
     """Tests for task submission endpoint."""
 
@@ -783,12 +713,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -799,9 +725,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-new-123"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
             body = _body(result)
@@ -813,12 +737,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -829,9 +749,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "autogpt-task-456"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
             body = _body(result)
@@ -847,9 +765,7 @@ class TestSubmitTask:
                 None,
             )
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
 
@@ -863,9 +779,7 @@ class TestSubmitTask:
                 None,
             )
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
 
@@ -876,9 +790,7 @@ class TestSubmitTask:
         ):
             mock_read_body.return_value = ({}, None)
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
 
@@ -892,9 +804,7 @@ class TestSubmitTask:
                 None,
             )
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
             assert "too long" in _body(result).get("error", "").lower()
@@ -904,12 +814,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -920,9 +826,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-ok"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
 
@@ -930,9 +834,7 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
         ):
             mock_read_body.return_value = (
                 {"task_type": "code", "prompt": "Fix bug", "adapter": "unknown"},
@@ -941,9 +843,7 @@ class TestSubmitTask:
             mock_registry.is_registered.return_value = False
             mock_registry.get_registered_names.return_value = ["openhands"]
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
             assert "unknown" in _body(result).get("error", "").lower()
@@ -952,9 +852,7 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
         ):
             mock_read_body.return_value = (
                 {
@@ -966,9 +864,7 @@ class TestSubmitTask:
             )
             mock_registry.is_registered.return_value = True
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
             assert "permission" in _body(result).get("error", "").lower()
@@ -977,12 +873,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -997,9 +889,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-perms"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
 
@@ -1009,12 +899,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_read_body.return_value = (
                 {"task_type": "code", "prompt": "Fix bug"},
@@ -1024,9 +910,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = PolicyDeniedError("Not allowed")
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 403
             assert "denied" in _body(result).get("error", "").lower()
@@ -1035,12 +919,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_read_body.return_value = (
                 {"task_type": "code", "prompt": "Fix bug"},
@@ -1050,9 +930,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = RuntimeError("connection failed")
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 500
 
@@ -1066,16 +944,12 @@ class TestSubmitTask:
         ):
             mock_read_body.return_value = (None, error_response("Invalid JSON", 400))
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 400
 
     def test_submit_task_unmatched_path_returns_none(self, handler, mock_http_handler):
-        result = handler.handle_post(
-            "/api/external-agents/adapters", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/external-agents/adapters", {}, mock_http_handler)
         assert result is None
 
     def test_submit_task_timeout_clamped_to_7200(self, handler, mock_http_handler):
@@ -1083,12 +957,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -1103,9 +973,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-clamp"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
 
@@ -1114,12 +982,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -1134,9 +998,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-steps"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
 
@@ -1144,12 +1006,8 @@ class TestSubmitTask:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -1166,9 +1024,7 @@ class TestSubmitTask:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-meta"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
 
@@ -1184,17 +1040,14 @@ class TestSubmitTask:
 # DELETE /api/external-agents/tasks/{id}
 # ---------------------------------------------------------------------------
 
+
 class TestCancelTask:
     """Tests for task cancellation endpoint."""
 
     def test_cancel_task_success(self, handler, mock_http_handler):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -1211,12 +1064,8 @@ class TestCancelTask:
 
     def test_cancel_task_already_completed(self, handler, mock_http_handler):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -1231,15 +1080,11 @@ class TestCancelTask:
             assert body["cancelled"] is False
 
     def test_cancel_task_invalid_id(self, handler, mock_http_handler):
-        result = handler.handle_delete(
-            "/api/external-agents/tasks/bad/id", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/external-agents/tasks/bad/id", {}, mock_http_handler)
         assert _status(result) == 400
 
     def test_cancel_task_empty_id(self, handler, mock_http_handler):
-        result = handler.handle_delete(
-            "/api/external-agents/tasks/", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/external-agents/tasks/", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 400
 
@@ -1257,12 +1102,8 @@ class TestCancelTask:
 
     def test_cancel_task_internal_error(self, handler, mock_http_handler):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -1275,19 +1116,13 @@ class TestCancelTask:
             assert _status(result) == 500
 
     def test_cancel_task_unmatched_path_returns_none(self, handler, mock_http_handler):
-        result = handler.handle_delete(
-            "/api/external-agents/adapters", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/external-agents/adapters", {}, mock_http_handler)
         assert result is None
 
     def test_cancel_task_versioned_path(self, handler, mock_http_handler):
         with (
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
@@ -1303,6 +1138,7 @@ class TestCancelTask:
 # ---------------------------------------------------------------------------
 # Rate Limiting
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimiting:
     """Tests for rate limiting enforcement."""
@@ -1331,9 +1167,7 @@ class TestRateLimiting:
         for _ in range(70):
             _read_limiter.is_allowed("127.0.0.1")
 
-        result = handler.handle(
-            "/api/external-agents/tasks/task-123", {}, mock_http_handler
-        )
+        result = handler.handle("/api/external-agents/tasks/task-123", {}, mock_http_handler)
         assert _status(result) == 429
 
     def test_submit_rate_limit(self, handler, mock_http_handler):
@@ -1342,9 +1176,7 @@ class TestRateLimiting:
         for _ in range(15):
             _submit_limiter.is_allowed("127.0.0.1")
 
-        result = handler.handle_post(
-            "/api/external-agents/tasks", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
         assert _status(result) == 429
 
     def test_delete_rate_limit(self, handler, mock_http_handler):
@@ -1353,15 +1185,14 @@ class TestRateLimiting:
         for _ in range(70):
             _read_limiter.is_allowed("127.0.0.1")
 
-        result = handler.handle_delete(
-            "/api/external-agents/tasks/task-123", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/external-agents/tasks/task-123", {}, mock_http_handler)
         assert _status(result) == 429
 
 
 # ---------------------------------------------------------------------------
 # Authentication
 # ---------------------------------------------------------------------------
+
 
 class TestAuthentication:
     """Tests for authentication enforcement."""
@@ -1370,31 +1201,30 @@ class TestAuthentication:
         from aragora.server.handlers.base import error_response
 
         with patch.object(
-            handler, "require_auth_or_error",
+            handler,
+            "require_auth_or_error",
             return_value=(None, error_response("Unauthorized", 401)),
         ):
-            result = handler.handle(
-                "/api/external-agents/adapters", {}, mock_http_handler
-            )
+            result = handler.handle("/api/external-agents/adapters", {}, mock_http_handler)
             assert _status(result) == 401
 
     def test_handle_post_auth_error(self, handler, mock_http_handler):
         from aragora.server.handlers.base import error_response
 
         with patch.object(
-            handler, "require_auth_or_error",
+            handler,
+            "require_auth_or_error",
             return_value=(None, error_response("Unauthorized", 401)),
         ):
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
             assert _status(result) == 401
 
     def test_handle_delete_auth_error(self, handler, mock_http_handler):
         from aragora.server.handlers.base import error_response
 
         with patch.object(
-            handler, "require_auth_or_error",
+            handler,
+            "require_auth_or_error",
             return_value=(None, error_response("Unauthorized", 401)),
         ):
             result = handler.handle_delete(
@@ -1406,6 +1236,7 @@ class TestAuthentication:
 # ---------------------------------------------------------------------------
 # Circuit Breaker
 # ---------------------------------------------------------------------------
+
 
 class TestCircuitBreaker:
     """Tests for circuit breaker behavior on task submission."""
@@ -1429,9 +1260,7 @@ class TestCircuitBreaker:
                 None,
             )
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 503
             assert "unavailable" in _body(result).get("error", "").lower()
@@ -1447,12 +1276,8 @@ class TestCircuitBreaker:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_read_body.return_value = (
@@ -1463,9 +1288,7 @@ class TestCircuitBreaker:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.return_value = "task-ok"
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 201
 
@@ -1477,12 +1300,8 @@ class TestCircuitBreaker:
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
         ):
             mock_read_body.return_value = (
                 {"task_type": "code", "prompt": "Test"},
@@ -1492,9 +1311,7 @@ class TestCircuitBreaker:
             mock_registry.create.return_value = MagicMock()
             mock_run_coro.side_effect = ConnectionError("timeout")
 
-            result = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            result = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
 
             assert _status(result) == 500
 
@@ -1525,6 +1342,7 @@ class TestCircuitBreaker:
 # _run_coro and _call_run_coro
 # ---------------------------------------------------------------------------
 
+
 class TestRunCoroHelpers:
     """Tests for async helper functions."""
 
@@ -1550,6 +1368,7 @@ class TestRunCoroHelpers:
 # ---------------------------------------------------------------------------
 # _record_metrics
 # ---------------------------------------------------------------------------
+
 
 class TestRecordMetrics:
     """Tests for metrics recording."""
@@ -1604,12 +1423,8 @@ class TestRecordMetrics:
         from aragora.server.handlers.external_agents import _record_metrics
 
         with (
-            patch(
-                "aragora.server.handlers.external_agents.record_external_agent_task", None
-            ),
-            patch(
-                "aragora.server.handlers.external_agents.record_external_agent_duration", None
-            ),
+            patch("aragora.server.handlers.external_agents.record_external_agent_task", None),
+            patch("aragora.server.handlers.external_agents.record_external_agent_duration", None),
         ):
             # Should not raise
             _record_metrics("submit", "openhands", "code", 1.0)
@@ -1629,6 +1444,7 @@ class TestRecordMetrics:
 # RBAC Permission Constants
 # ---------------------------------------------------------------------------
 
+
 class TestPermissionConstants:
     """Tests for RBAC permission constants."""
 
@@ -1647,6 +1463,7 @@ class TestPermissionConstants:
 # Unmatched Paths
 # ---------------------------------------------------------------------------
 
+
 class TestUnmatchedPaths:
     """Tests for unmatched paths returning None."""
 
@@ -1655,21 +1472,18 @@ class TestUnmatchedPaths:
         assert result is None
 
     def test_handle_post_non_tasks_returns_none(self, handler, mock_http_handler):
-        result = handler.handle_post(
-            "/api/external-agents/health", {}, mock_http_handler
-        )
+        result = handler.handle_post("/api/external-agents/health", {}, mock_http_handler)
         assert result is None
 
     def test_handle_delete_non_tasks_returns_none(self, handler, mock_http_handler):
-        result = handler.handle_delete(
-            "/api/external-agents/health", {}, mock_http_handler
-        )
+        result = handler.handle_delete("/api/external-agents/health", {}, mock_http_handler)
         assert result is None
 
 
 # ---------------------------------------------------------------------------
 # _set_auth_context
 # ---------------------------------------------------------------------------
+
 
 class TestSetAuthContext:
     """Tests for auth context population."""
@@ -1705,23 +1519,18 @@ class TestSetAuthContext:
 # Integration-style: Full Task Lifecycle
 # ---------------------------------------------------------------------------
 
+
 class TestFullTaskLifecycle:
     """Integration-style test for submit -> status -> cancel."""
 
-    def test_complete_lifecycle(
-        self, handler, mock_http_handler, mock_task_result
-    ):
+    def test_complete_lifecycle(self, handler, mock_http_handler, mock_task_result):
         from aragora.agents.external.models import TaskStatus
 
         with (
             patch.object(handler, "set_request_context"),
             patch.object(handler, "read_json_body_validated") as mock_read_body,
-            patch(
-                "aragora.server.handlers.external_agents.ExternalAgentRegistry"
-            ) as mock_registry,
-            patch(
-                "aragora.server.handlers.external_agents._run_coro"
-            ) as mock_run_coro,
+            patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
+            patch("aragora.server.handlers.external_agents._run_coro") as mock_run_coro,
             patch("aragora.server.handlers.external_agents._record_metrics"),
         ):
             mock_registry.is_registered.return_value = True
@@ -1734,9 +1543,7 @@ class TestFullTaskLifecycle:
             )
             mock_run_coro.return_value = "lifecycle-task-1"
 
-            submit = handler.handle_post(
-                "/api/external-agents/tasks", {}, mock_http_handler
-            )
+            submit = handler.handle_post("/api/external-agents/tasks", {}, mock_http_handler)
             assert _status(submit) == 201
 
             # Step 2: Check status (running)

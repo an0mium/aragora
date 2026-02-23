@@ -300,9 +300,7 @@ def _webhook_patches(event, is_duplicate=False, mark_processed_fn=None):
 def user_store():
     """Create a user store with standard test data."""
     store = MockUserStore()
-    auth_user = MockUser(
-        id="test-user-001", email="test@example.com", role="owner", org_id="org_1"
-    )
+    auth_user = MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_1")
     store.add_user(auth_user)
 
     org = MockOrganization(
@@ -339,9 +337,13 @@ def _clear_rate_limiter():
     _billing_limiter._buckets.clear()
 
 
-def _make_webhook_http(signature: str = "valid_sig", content_length: str | None = None) -> MockHTTPHandler:
+def _make_webhook_http(
+    signature: str = "valid_sig", content_length: str | None = None
+) -> MockHTTPHandler:
     """Create a standard webhook HTTP handler."""
-    return MockHTTPHandler(command="POST", signature=signature, content_length=content_length or "200")
+    return MockHTTPHandler(
+        command="POST", signature=signature, content_length=content_length or "200"
+    )
 
 
 # ===========================================================================
@@ -375,9 +377,7 @@ class TestWebhookDispatch:
 
     def test_invalid_webhook_signature_returns_400(self, handler):
         http = _make_webhook_http(signature="invalid")
-        with patch(
-            "aragora.billing.stripe_client.parse_webhook_event", return_value=None
-        ):
+        with patch("aragora.billing.stripe_client.parse_webhook_event", return_value=None):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 400
         assert "signature" in _body(result).get("error", "").lower()
@@ -783,9 +783,12 @@ class TestSubscriptionUpdated:
 
         event = self._make_sub_updated_event(price_id="price_professional")
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=SubscriptionTier.PROFESSIONAL,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=SubscriptionTier.PROFESSIONAL,
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -798,9 +801,12 @@ class TestSubscriptionUpdated:
 
         event = self._make_sub_updated_event(price_id="price_starter")
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=SubscriptionTier.STARTER,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=SubscriptionTier.STARTER,
+            ),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         audit = store._audit_entries[-1]
@@ -816,13 +822,18 @@ class TestSubscriptionUpdated:
 
         event = self._make_sub_updated_event(price_id="price_starter")
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=SubscriptionTier.STARTER,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=SubscriptionTier.STARTER,
+            ),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         # No tier_changed audit since old == new
-        tier_audits = [a for a in store._audit_entries if a["action"] == "subscription.tier_changed"]
+        tier_audits = [
+            a for a in store._audit_entries if a["action"] == "subscription.tier_changed"
+        ]
         assert len(tier_audits) == 0
 
     def test_past_due_status_logs_degradation_audit(self, handler):
@@ -895,9 +906,12 @@ class TestSubscriptionUpdated:
 
         event = self._make_sub_updated_event(status="active", price_id="price_starter")
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=SubscriptionTier.STARTER,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=SubscriptionTier.STARTER,
+            ),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert org.tier == SubscriptionTier.STARTER
@@ -970,17 +984,18 @@ class TestSubscriptionUpdated:
 
         event = self._make_sub_updated_event(price_id="price_unknown")
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=None,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=None,
+            ),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert org.tier == old_tier
 
     def test_degradation_audit_includes_cancel_at_period_end(self, handler):
-        event = self._make_sub_updated_event(
-            status="past_due", cancel_at_period_end=True
-        )
+        event = self._make_sub_updated_event(status="past_due", cancel_at_period_end=True)
         http = _make_webhook_http()
         store = handler.ctx["user_store"]
         with _webhook_patches(event):
@@ -1118,9 +1133,10 @@ class TestInvoicePaid:
 
         event = self._make_paid_event()
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ) as mock_recovery:
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery,
+        ):
             mock_recovery.return_value.mark_recovered.return_value = False
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1133,9 +1149,12 @@ class TestInvoicePaid:
         mock_recovery_store = MagicMock()
         mock_recovery_store.mark_recovered.return_value = True
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store",
-            return_value=mock_recovery_store,
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store",
+                return_value=mock_recovery_store,
+            ),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         mock_recovery_store.mark_recovered.assert_called_once_with("org_1")
@@ -1144,9 +1163,12 @@ class TestInvoicePaid:
         event = self._make_paid_event()
         http = _make_webhook_http()
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store",
-            side_effect=OSError("connection failed"),
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store",
+                side_effect=OSError("connection failed"),
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1161,9 +1183,10 @@ class TestInvoicePaid:
         event = self._make_paid_event()
         http = _make_webhook_http()
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ) as mock_recovery:
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery,
+        ):
             mock_recovery.return_value.mark_recovered.return_value = False
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1183,9 +1206,7 @@ class TestInvoicePaid:
     def test_no_org_for_customer_still_returns_200(self, handler):
         event = self._make_paid_event(customer="cus_unknown")
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ):
+        with _webhook_patches(event), patch("aragora.billing.payment_recovery.get_recovery_store"):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
 
@@ -1204,9 +1225,10 @@ class TestInvoicePaid:
             object_data={"customer": "cus_test_123", "amount_paid": None},
         )
         http = _make_webhook_http()
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ) as mock_recovery:
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery,
+        ):
             mock_recovery.return_value.mark_recovered.return_value = False
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1257,14 +1279,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = self._mock_failure()
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1278,14 +1300,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = self._mock_failure()
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
 
@@ -1302,14 +1324,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = failure
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
 
@@ -1326,14 +1348,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = failure
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         # Should succeed regardless
@@ -1345,15 +1367,15 @@ class TestInvoiceFailed:
         http = _make_webhook_http()
 
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store",
-            side_effect=OSError("store down"),
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store",
+                side_effect=OSError("store down"),
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1365,15 +1387,15 @@ class TestInvoiceFailed:
         http = _make_webhook_http()
 
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store",
-            side_effect=AttributeError("no store"),
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store",
+                side_effect=AttributeError("no store"),
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1386,11 +1408,15 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = self._mock_failure()
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier",
-            side_effect=OSError("notifier down"),
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch(
+                "aragora.billing.notifications.get_billing_notifier",
+                side_effect=OSError("notifier down"),
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1410,10 +1436,12 @@ class TestInvoiceFailed:
         mock_recovery.record_failure.return_value = self._mock_failure()
         mock_notifier = MagicMock()
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1447,14 +1475,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = self._mock_failure()
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
 
@@ -1469,14 +1497,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.return_value = failure
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
 
@@ -1491,14 +1519,14 @@ class TestInvoiceFailed:
         mock_recovery = MagicMock()
         mock_recovery.record_failure.side_effect = OSError("store down")
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
 
@@ -1538,8 +1566,9 @@ class TestInvoiceFinalized:
         mock_sync = MagicMock()
         mock_sync.flush_period.return_value = [{"id": "rec_1"}, {"id": "rec_2"}]
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1553,8 +1582,9 @@ class TestInvoiceFinalized:
         mock_sync = MagicMock()
         mock_sync.flush_period.return_value = []
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         mock_sync.flush_period.assert_called_once_with(org_id="org_1")
@@ -1566,8 +1596,9 @@ class TestInvoiceFinalized:
         mock_sync = MagicMock()
         mock_sync.flush_period.return_value = []
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync
+        with (
+            _webhook_patches(event),
+            patch("aragora.billing.usage_sync.get_usage_sync_service", return_value=mock_sync),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1577,9 +1608,12 @@ class TestInvoiceFinalized:
         event = self._make_finalized_event()
         http = _make_webhook_http()
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.usage_sync.get_usage_sync_service",
-            side_effect=OSError("sync service down"),
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.usage_sync.get_usage_sync_service",
+                side_effect=OSError("sync service down"),
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
             body = _body(result)
@@ -1590,9 +1624,12 @@ class TestInvoiceFinalized:
         event = self._make_finalized_event()
         http = _make_webhook_http()
 
-        with _webhook_patches(event), patch(
-            "aragora.billing.usage_sync.get_usage_sync_service",
-            side_effect=AttributeError("no flush"),
+        with (
+            _webhook_patches(event),
+            patch(
+                "aragora.billing.usage_sync.get_usage_sync_service",
+                side_effect=AttributeError("no flush"),
+            ),
         ):
             result = handler.handle("/api/v1/webhooks/stripe", {}, http, method="POST")
         assert _status(result) == 200
@@ -1838,9 +1875,12 @@ class TestWebhookMixinIntegration:
             },
         )
         http2 = _make_webhook_http()
-        with _webhook_patches(sub_update_event), patch(
-            "aragora.billing.stripe_client.get_tier_from_price_id",
-            return_value=SubscriptionTier.PROFESSIONAL,
+        with (
+            _webhook_patches(sub_update_event),
+            patch(
+                "aragora.billing.stripe_client.get_tier_from_price_id",
+                return_value=SubscriptionTier.PROFESSIONAL,
+            ),
         ):
             handler.handle("/api/v1/webhooks/stripe", {}, http2, method="POST")
         assert org.tier == SubscriptionTier.PROFESSIONAL
@@ -1905,14 +1945,14 @@ class TestWebhookMixinIntegration:
             attempt_count=1, days_failing=0, days_until_downgrade=14
         )
         mock_notifier = MagicMock()
-        mock_notifier.notify_payment_failed.return_value = MagicMock(
-            method="email", success=True
-        )
+        mock_notifier.notify_payment_failed.return_value = MagicMock(method="email", success=True)
 
-        with _webhook_patches(fail_event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
-        ), patch(
-            "aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier
+        with (
+            _webhook_patches(fail_event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery
+            ),
+            patch("aragora.billing.notifications.get_billing_notifier", return_value=mock_notifier),
         ):
             result1 = handler.handle("/api/v1/webhooks/stripe", {}, http1, method="POST")
         assert _body(result1)["failure_tracked"] is True
@@ -1932,8 +1972,11 @@ class TestWebhookMixinIntegration:
         mock_recovery2 = MagicMock()
         mock_recovery2.mark_recovered.return_value = True
 
-        with _webhook_patches(paid_event), patch(
-            "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery2
+        with (
+            _webhook_patches(paid_event),
+            patch(
+                "aragora.billing.payment_recovery.get_recovery_store", return_value=mock_recovery2
+            ),
         ):
             result2 = handler.handle("/api/v1/webhooks/stripe", {}, http2, method="POST")
         assert _status(result2) == 200

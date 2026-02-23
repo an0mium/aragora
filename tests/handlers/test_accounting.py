@@ -256,15 +256,11 @@ def mock_qbo_connector():
     connector.list_customers = AsyncMock(return_value=[MockQBOCustomer()])
     connector.list_invoices = AsyncMock(return_value=[MockQBOInvoice()])
     connector.list_expenses = AsyncMock(return_value=[MockQBOExpense()])
-    connector.get_authorization_url = MagicMock(
-        return_value="https://oauth.intuit.com/authorize"
-    )
+    connector.get_authorization_url = MagicMock(return_value="https://oauth.intuit.com/authorize")
     connector.exchange_code = AsyncMock(return_value={"access_token": "test_token"})
     connector.revoke_token = AsyncMock()
     connector.get_profit_loss_report = AsyncMock(return_value={"title": "P&L"})
-    connector.get_balance_sheet_report = AsyncMock(
-        return_value={"title": "Balance Sheet"}
-    )
+    connector.get_balance_sheet_report = AsyncMock(return_value={"title": "Balance Sheet"})
     connector.get_ar_aging_report = AsyncMock(return_value={"title": "AR Aging"})
     connector.get_ap_aging_report = AsyncMock(return_value={"title": "AP Aging"})
     return connector
@@ -418,9 +414,7 @@ class TestGetConnectorHelpers:
 
     @pytest.mark.asyncio
     async def test_get_qbo_connector_returns_from_app(self, mock_qbo_connector):
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         result = await get_qbo_connector(request)
         assert result is mock_qbo_connector
 
@@ -433,9 +427,7 @@ class TestGetConnectorHelpers:
     @pytest.mark.asyncio
     async def test_get_gusto_connector_creates_new_if_missing(self):
         request = create_mock_request(app_state={})
-        with patch(
-            "aragora.server.handlers.accounting.GustoConnector"
-        ) as MockGusto:
+        with patch("aragora.server.handlers.accounting.GustoConnector") as MockGusto:
             mock_instance = MagicMock()
             MockGusto.return_value = mock_instance
             result = await get_gusto_connector(request)
@@ -443,9 +435,7 @@ class TestGetConnectorHelpers:
 
     @pytest.mark.asyncio
     async def test_get_gusto_connector_reuses_existing(self, mock_gusto_connector):
-        request = create_mock_request(
-            app_state={"gusto_connector": mock_gusto_connector}
-        )
+        request = create_mock_request(app_state={"gusto_connector": mock_gusto_connector})
         result = await get_gusto_connector(request)
         assert result is mock_gusto_connector
 
@@ -473,9 +463,7 @@ class TestAccountingStatusHandler:
 
     @pytest.mark.asyncio
     async def test_status_connected_returns_real_data(self, mock_qbo_connector):
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 200
         data = json.loads(response.text)
@@ -500,9 +488,7 @@ class TestAccountingStatusHandler:
     async def test_status_connector_not_connected(self):
         connector = MagicMock()
         connector.is_connected = MagicMock(return_value=False)
-        request = create_mock_request(
-            app_state={"qbo_connector": connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": connector})
         response = await handle_accounting_status(request)
         assert response.status == 200
         data = json.loads(response.text)
@@ -513,9 +499,7 @@ class TestAccountingStatusHandler:
         mock_qbo_connector.get_company_info = AsyncMock(
             side_effect=RuntimeError("Connection failed")
         )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 500
         data = json.loads(response.text)
@@ -523,9 +507,7 @@ class TestAccountingStatusHandler:
 
     @pytest.mark.asyncio
     async def test_status_customers_in_real_data(self, mock_qbo_connector):
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         data = json.loads(response.text)
         assert len(data["customers"]) == 1
@@ -533,9 +515,7 @@ class TestAccountingStatusHandler:
 
     @pytest.mark.asyncio
     async def test_status_transactions_in_real_data(self, mock_qbo_connector):
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         data = json.loads(response.text)
         assert len(data["transactions"]) == 1
@@ -546,9 +526,7 @@ class TestAccountingStatusHandler:
         """Open invoices (balance > 0) are counted in stats."""
         open_invoice = MockQBOInvoice(balance=500.00)
         mock_qbo_connector.list_invoices = AsyncMock(return_value=[open_invoice])
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         data = json.loads(response.text)
         assert data["stats"]["openInvoices"] == 1
@@ -565,9 +543,7 @@ class TestAccountingConnectHandler:
 
     @pytest.mark.asyncio
     async def test_connect_redirects_to_oauth(self, mock_qbo_connector):
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         with pytest.raises(web.HTTPFound) as exc_info:
             await handle_accounting_connect(request)
         assert "oauth.intuit.com" in str(exc_info.value.location)
@@ -585,9 +561,7 @@ class TestAccountingConnectHandler:
         mock_qbo_connector.get_authorization_url = MagicMock(
             side_effect=RuntimeError("OAuth config error")
         )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_connect(request)
         assert response.status == 500
 
@@ -610,9 +584,7 @@ class TestAccountingCallbackHandler:
         with pytest.raises(web.HTTPFound) as exc_info:
             await handle_accounting_callback(request)
         assert "connected=true" in str(exc_info.value.location)
-        mock_qbo_connector.exchange_code.assert_awaited_once_with(
-            "auth_code_123", "realm_456"
-        )
+        mock_qbo_connector.exchange_code.assert_awaited_once_with("auth_code_123", "realm_456")
 
     @pytest.mark.asyncio
     async def test_callback_with_oauth_error(self):
@@ -725,9 +697,7 @@ class TestAccountingDisconnectHandler:
 
     @pytest.mark.asyncio
     async def test_disconnect_revoke_error_returns_500(self, mock_qbo_connector):
-        mock_qbo_connector.revoke_token = AsyncMock(
-            side_effect=ConnectionError("Cannot reach QBO")
-        )
+        mock_qbo_connector.revoke_token = AsyncMock(side_effect=ConnectionError("Cannot reach QBO"))
         request = create_mock_request(
             app_state={
                 "qbo_connector": mock_qbo_connector,
@@ -782,12 +752,8 @@ class TestAccountingCustomersHandler:
 
     @pytest.mark.asyncio
     async def test_customers_error_returns_500(self, mock_qbo_connector):
-        mock_qbo_connector.list_customers = AsyncMock(
-            side_effect=RuntimeError("API error")
-        )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        mock_qbo_connector.list_customers = AsyncMock(side_effect=RuntimeError("API error"))
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_customers(request)
         assert response.status == 500
 
@@ -795,9 +761,7 @@ class TestAccountingCustomersHandler:
     async def test_customers_connector_not_connected(self):
         connector = MagicMock()
         connector.is_connected = MagicMock(return_value=False)
-        request = create_mock_request(
-            app_state={"qbo_connector": connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": connector})
         response = await handle_accounting_customers(request)
         assert response.status == 200
         data = json.loads(response.text)
@@ -884,9 +848,7 @@ class TestAccountingTransactionsHandler:
 
     @pytest.mark.asyncio
     async def test_transactions_error_returns_500(self, mock_qbo_connector):
-        mock_qbo_connector.list_invoices = AsyncMock(
-            side_effect=OSError("Network error")
-        )
+        mock_qbo_connector.list_invoices = AsyncMock(side_effect=OSError("Network error"))
         request = create_mock_request(
             query={"type": "all"},
             app_state={"qbo_connector": mock_qbo_connector},
@@ -1144,9 +1106,7 @@ class TestGustoConnectHandler:
 
     @pytest.mark.asyncio
     async def test_gusto_connect_error_returns_500(self, mock_gusto_connector):
-        mock_gusto_connector.get_authorization_url = MagicMock(
-            side_effect=ValueError("Bad config")
-        )
+        mock_gusto_connector.get_authorization_url = MagicMock(side_effect=ValueError("Bad config"))
         request = create_mock_request(app_state={})
         with patch(
             "aragora.server.handlers.accounting.get_gusto_connector",
@@ -1217,9 +1177,7 @@ class TestGustoCallbackHandler:
 
     @pytest.mark.asyncio
     async def test_gusto_callback_exchange_error(self, mock_gusto_connector):
-        mock_gusto_connector.exchange_code = AsyncMock(
-            side_effect=ConnectionError("Network error")
-        )
+        mock_gusto_connector.exchange_code = AsyncMock(side_effect=ConnectionError("Network error"))
         request = create_mock_request(
             query={"code": "gusto_auth_code"},
             app_state={},
@@ -1296,9 +1254,7 @@ class TestGustoEmployeesHandler:
         ):
             response = await handle_gusto_employees(request)
         assert response.status == 200
-        mock_gusto_connector.list_employees.assert_awaited_once_with(
-            active_only=False
-        )
+        mock_gusto_connector.list_employees.assert_awaited_once_with(active_only=False)
 
     @pytest.mark.asyncio
     async def test_gusto_employees_not_connected(self):
@@ -1316,9 +1272,7 @@ class TestGustoEmployeesHandler:
 
     @pytest.mark.asyncio
     async def test_gusto_employees_error_returns_500(self, mock_gusto_connector):
-        mock_gusto_connector.list_employees = AsyncMock(
-            side_effect=TypeError("Unexpected error")
-        )
+        mock_gusto_connector.list_employees = AsyncMock(side_effect=TypeError("Unexpected error"))
         request = create_mock_request(app_state={})
         with patch(
             "aragora.server.handlers.accounting.get_gusto_connector",
@@ -1484,9 +1438,7 @@ class TestGustoPayrollDetailHandler:
 
     @pytest.mark.asyncio
     async def test_gusto_payroll_detail_error_returns_500(self, mock_gusto_connector):
-        mock_gusto_connector.get_payroll = AsyncMock(
-            side_effect=AttributeError("Bad data")
-        )
+        mock_gusto_connector.get_payroll = AsyncMock(side_effect=AttributeError("Bad data"))
         request = create_mock_request(
             match_info={"payroll_id": "payroll_123"},
             app_state={},
@@ -1724,56 +1676,36 @@ class TestErrorHandlingEdgeCases:
 
     @pytest.mark.asyncio
     async def test_status_value_error(self, mock_qbo_connector):
-        mock_qbo_connector.list_invoices = AsyncMock(
-            side_effect=ValueError("Bad value")
-        )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        mock_qbo_connector.list_invoices = AsyncMock(side_effect=ValueError("Bad value"))
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 500
 
     @pytest.mark.asyncio
     async def test_status_key_error(self, mock_qbo_connector):
-        mock_qbo_connector.get_company_info = AsyncMock(
-            side_effect=KeyError("missing_key")
-        )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        mock_qbo_connector.get_company_info = AsyncMock(side_effect=KeyError("missing_key"))
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 500
 
     @pytest.mark.asyncio
     async def test_status_type_error(self, mock_qbo_connector):
-        mock_qbo_connector.list_customers = AsyncMock(
-            side_effect=TypeError("Wrong type")
-        )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        mock_qbo_connector.list_customers = AsyncMock(side_effect=TypeError("Wrong type"))
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 500
 
     @pytest.mark.asyncio
     async def test_status_os_error(self, mock_qbo_connector):
-        mock_qbo_connector.list_expenses = AsyncMock(
-            side_effect=OSError("Disk error")
-        )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        mock_qbo_connector.list_expenses = AsyncMock(side_effect=OSError("Disk error"))
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 500
 
     @pytest.mark.asyncio
     async def test_status_connection_error(self, mock_qbo_connector):
-        mock_qbo_connector.get_company_info = AsyncMock(
-            side_effect=ConnectionError("Network down")
-        )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        mock_qbo_connector.get_company_info = AsyncMock(side_effect=ConnectionError("Network down"))
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_status(request)
         assert response.status == 500
 
@@ -1782,17 +1714,13 @@ class TestErrorHandlingEdgeCases:
         mock_qbo_connector.get_authorization_url = MagicMock(
             side_effect=ValueError("Bad URL config")
         )
-        request = create_mock_request(
-            app_state={"qbo_connector": mock_qbo_connector}
-        )
+        request = create_mock_request(app_state={"qbo_connector": mock_qbo_connector})
         response = await handle_accounting_connect(request)
         assert response.status == 500
 
     @pytest.mark.asyncio
     async def test_gusto_payrolls_key_error(self, mock_gusto_connector):
-        mock_gusto_connector.list_payrolls = AsyncMock(
-            side_effect=KeyError("missing_key")
-        )
+        mock_gusto_connector.list_payrolls = AsyncMock(side_effect=KeyError("missing_key"))
         request = create_mock_request(app_state={})
         with patch(
             "aragora.server.handlers.accounting.get_gusto_connector",

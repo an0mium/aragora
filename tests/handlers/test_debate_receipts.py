@@ -72,9 +72,7 @@ class TestAutoReceiptGeneration:
         """Receipt should be generated for a regular (non-onboarding) debate."""
         mock_debate_config.metadata = {}  # No is_onboarding flag
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
@@ -97,9 +95,7 @@ class TestAutoReceiptGeneration:
         """Receipt should still be generated for onboarding debates."""
         mock_debate_config.metadata = {"is_onboarding": True}
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
@@ -114,15 +110,12 @@ class TestAutoReceiptGeneration:
             receipt_dict = mock_store.save.call_args[0][0]
             assert receipt_dict["is_onboarding"] is True
 
-    def test_receipt_id_in_status_update(
-        self, controller, mock_debate_config, mock_debate_result
-    ):
+    def test_receipt_id_in_status_update(self, controller, mock_debate_config, mock_debate_result):
         """receipt_id should be added to the debate status update."""
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store, patch(
-            "aragora.server.debate_controller.update_debate_status"
-        ) as mock_update:
+        with (
+            patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store,
+            patch("aragora.server.debate_controller.update_debate_status") as mock_update,
+        ):
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
@@ -145,9 +138,7 @@ class TestAutoReceiptGeneration:
         """RECEIPT_GENERATED stream event should be emitted."""
         from aragora.events.types import StreamEventType
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
@@ -161,9 +152,7 @@ class TestAutoReceiptGeneration:
             # Find the RECEIPT_GENERATED emit call
             emit_calls = controller.emitter.emit.call_args_list
             receipt_events = [
-                c
-                for c in emit_calls
-                if c.args[0].type == StreamEventType.RECEIPT_GENERATED
+                c for c in emit_calls if c.args[0].type == StreamEventType.RECEIPT_GENERATED
             ]
             assert len(receipt_events) == 1
             event_data = receipt_events[0].args[0].data
@@ -191,9 +180,7 @@ class TestAutoReceiptGeneration:
         self, controller, mock_debate_config, mock_debate_result
     ):
         """Receipt should include the debate question and a verdict."""
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
@@ -220,9 +207,7 @@ class TestAutoReceiptGeneration:
         mock_debate_result.confidence = 0.9
         mock_debate_result.consensus_reached = True
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
@@ -244,9 +229,7 @@ class TestAutoReceiptGeneration:
         mock_debate_result.confidence = 0.4
         mock_debate_result.consensus_reached = False
 
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store"
-        ) as mock_get_store:
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 

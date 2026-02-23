@@ -214,7 +214,8 @@ def _schedule_chat_dispatch(coro: Any) -> None:
         task = loop.create_task(coro)
         task.add_done_callback(
             lambda t: logger.error("Workflow chat dispatch failed: %s", t.exception())
-            if not t.cancelled() and t.exception() else None
+            if not t.cancelled() and t.exception()
+            else None
         )
         return
 

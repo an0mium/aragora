@@ -24,6 +24,7 @@ def handler():
 @pytest.fixture
 def mock_request():
     """Create a mock HTTP handler object."""
+
     def _make(method: str = "GET", body: dict | None = None):
         h = MagicMock()
         h.command = method
@@ -37,6 +38,7 @@ def mock_request():
         h.auth_user.org_id = "test-org"
         h.auth_user.roles = {"admin"}
         return h
+
     return _make
 
 
@@ -73,7 +75,11 @@ class TestRouteMatching:
     def test_routes_unknown_path(self, handler):
         result = handler._route_request(
             "/api/v1/ideas/test/unknown/path",
-            "GET", {}, {}, "u1", "ws1",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
             MagicMock(),
         )
         assert result is None
@@ -128,7 +134,10 @@ class TestCreateCanvas:
 
         ctx = MagicMock()
         result = handler._create_canvas(
-            ctx, {"name": "Test Canvas"}, "u1", "ws1",
+            ctx,
+            {"name": "Test Canvas"},
+            "u1",
+            "ws1",
         )
         assert result is not None
         mock_store.save_canvas.assert_called_once()
@@ -198,7 +207,10 @@ class TestAddNode:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_node(
-                ctx, "c1", {"idea_type": "INVALID_TYPE"}, "u1",
+                ctx,
+                "c1",
+                {"idea_type": "INVALID_TYPE"},
+                "u1",
             )
             assert result is not None
             # Should be 400
@@ -214,7 +226,10 @@ class TestAddEdge:
         with patch.object(handler, "_get_canvas_manager"):
             ctx = MagicMock()
             result = handler._add_edge(
-                ctx, "c1", {"target_id": "n2"}, "u1",
+                ctx,
+                "c1",
+                {"target_id": "n2"},
+                "u1",
             )
             assert result is not None
             status = getattr(result, "status_code", getattr(result, "status", None))
@@ -256,7 +271,10 @@ class TestPromoteNodes:
             with patch.object(handler, "_run_async", return_value=None):
                 ctx = MagicMock()
                 result = handler._promote_nodes(
-                    ctx, "missing", {"node_ids": ["n1"]}, "u1",
+                    ctx,
+                    "missing",
+                    {"node_ids": ["n1"]},
+                    "u1",
                 )
                 assert result is not None
 

@@ -451,27 +451,35 @@ class TestGenerateSOC2:
     def test_control_evidence_includes_hash(self, generator, sample_receipt_dict):
         artifact = generator.generate_soc2(sample_receipt_dict)
 
-        hash_evidence = [e for e in artifact.control_evidence if e["evidence_type"] == "artifact_hash"]
+        hash_evidence = [
+            e for e in artifact.control_evidence if e["evidence_type"] == "artifact_hash"
+        ]
         assert len(hash_evidence) == 1
         assert hash_evidence[0]["control"] == "CC6.1 - Integrity Controls"
 
     def test_control_evidence_includes_signature(self, generator, sample_receipt_dict):
         artifact = generator.generate_soc2(sample_receipt_dict)
 
-        sig_evidence = [e for e in artifact.control_evidence if e["evidence_type"] == "digital_signature"]
+        sig_evidence = [
+            e for e in artifact.control_evidence if e["evidence_type"] == "digital_signature"
+        ]
         assert len(sig_evidence) == 1
 
     def test_control_evidence_includes_provenance(self, generator, sample_receipt_dict):
         artifact = generator.generate_soc2(sample_receipt_dict)
 
-        prov_evidence = [e for e in artifact.control_evidence if e["evidence_type"] == "provenance_chain"]
+        prov_evidence = [
+            e for e in artifact.control_evidence if e["evidence_type"] == "provenance_chain"
+        ]
         assert len(prov_evidence) == 1
         assert prov_evidence[0]["event_count"] == 3
 
     def test_control_evidence_includes_consensus(self, generator, sample_receipt_dict):
         artifact = generator.generate_soc2(sample_receipt_dict)
 
-        cons_evidence = [e for e in artifact.control_evidence if e["evidence_type"] == "consensus_proof"]
+        cons_evidence = [
+            e for e in artifact.control_evidence if e["evidence_type"] == "consensus_proof"
+        ]
         assert len(cons_evidence) == 1
 
     def test_exceptions_for_high_risk(self, generator, sample_receipt_dict):
@@ -761,23 +769,17 @@ class TestDecisionReceiptIntegration:
 
     def test_receipt_eu_risk_classification(self, decision_receipt_object):
         # "loan application" + "credit scoring" => high risk
-        result = decision_receipt_object.generate_compliance_artifacts(
-            frameworks=["eu_ai_act"]
-        )
+        result = decision_receipt_object.generate_compliance_artifacts(frameworks=["eu_ai_act"])
         # "credit scoring" is in the input_summary => high risk
         assert result.eu_ai_act.risk_classification == "high"
 
     def test_receipt_soc2_has_control_evidence(self, decision_receipt_object):
-        result = decision_receipt_object.generate_compliance_artifacts(
-            frameworks=["soc2"]
-        )
+        result = decision_receipt_object.generate_compliance_artifacts(frameworks=["soc2"])
         assert len(result.soc2.control_evidence) > 0
 
     def test_receipt_hipaa_detects_no_phi(self, decision_receipt_object):
         # "loan application" doesn't contain PHI keywords
-        result = decision_receipt_object.generate_compliance_artifacts(
-            frameworks=["hipaa"]
-        )
+        result = decision_receipt_object.generate_compliance_artifacts(frameworks=["hipaa"])
         assert result.hipaa.phi_handling["phi_detected_in_summary"] is False
 
     def test_receipt_custom_org_name(self, decision_receipt_object):

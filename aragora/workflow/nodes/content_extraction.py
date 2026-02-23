@@ -88,11 +88,15 @@ class ContentExtractionStep(BaseStep):
             if extraction_type == "structured":
                 result = await self._extract_structured(text, schema, config)
             elif extraction_type == "entities":
-                result = await self._extract_entities(text, max_entities, confidence_threshold, config)
+                result = await self._extract_entities(
+                    text, max_entities, confidence_threshold, config
+                )
             elif extraction_type == "relationships":
                 result = await self._extract_relationships(text, max_entities, config)
             else:
-                warnings.append(f"Unknown extraction type '{extraction_type}', falling back to structured")
+                warnings.append(
+                    f"Unknown extraction type '{extraction_type}', falling back to structured"
+                )
                 result = await self._extract_structured(text, schema, config)
         except ImportError as e:
             logger.warning("Extraction adapter not available: %s", e)
@@ -105,9 +109,7 @@ class ContentExtractionStep(BaseStep):
 
         # Optionally store in Knowledge Mound
         if store_in_km and result.get("success"):
-            km_result = await self._store_in_knowledge_mound(
-                result, workspace_id, output_format
-            )
+            km_result = await self._store_in_knowledge_mound(result, workspace_id, output_format)
             if km_result:
                 result["km_stored"] = True
                 result["km_item_count"] = km_result.get("count", 0)
@@ -205,7 +207,8 @@ class ContentExtractionStep(BaseStep):
         # Filter by confidence and limit
         if isinstance(entities, list):
             filtered = [
-                e for e in entities
+                e
+                for e in entities
                 if not isinstance(e, dict) or e.get("confidence", 1.0) >= confidence_threshold
             ][:max_entities]
         else:
@@ -241,6 +244,7 @@ class ContentExtractionStep(BaseStep):
         """Store extraction results in Knowledge Mound."""
         try:
             from aragora.knowledge.mound import get_knowledge_mound
+
             km = get_knowledge_mound()
         except ImportError:
             logger.debug("Knowledge Mound not available for storage")
@@ -269,6 +273,7 @@ class ContentExtractionStep(BaseStep):
         """Fetch content from URL (sync wrapper)."""
         try:
             from aragora.connectors.web import WebConnector
+
             connector = WebConnector()
             results = connector.search(url, max_results=1)
             if results:
@@ -281,6 +286,7 @@ class ContentExtractionStep(BaseStep):
         """Read content from a local file."""
         try:
             from pathlib import Path
+
             path = Path(file_path)
             if path.exists() and path.is_file():
                 return path.read_text(encoding="utf-8", errors="replace")

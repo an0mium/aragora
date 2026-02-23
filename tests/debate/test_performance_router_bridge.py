@@ -294,19 +294,23 @@ class TestRoutingQueries:
         assert result is None
 
     def test_best_agent_with_data(self):
-        monitor = make_monitor({
-            "claude": make_metrics(avg_response_time=0.5, quality_score=0.9, total_calls=10),
-            "gpt": make_metrics(avg_response_time=5.0, quality_score=0.5, total_calls=10),
-        })
+        monitor = make_monitor(
+            {
+                "claude": make_metrics(avg_response_time=0.5, quality_score=0.9, total_calls=10),
+                "gpt": make_metrics(avg_response_time=5.0, quality_score=0.5, total_calls=10),
+            }
+        )
         bridge = PerformanceRouterBridge(performance_monitor=monitor)
         best = bridge.get_best_agent_for_task(["claude", "gpt"])
         assert best == "claude"
 
     def test_rank_agents(self):
-        monitor = make_monitor({
-            "claude": make_metrics(avg_response_time=0.5, quality_score=0.9, total_calls=10),
-            "gpt": make_metrics(avg_response_time=5.0, quality_score=0.5, total_calls=10),
-        })
+        monitor = make_monitor(
+            {
+                "claude": make_metrics(avg_response_time=0.5, quality_score=0.9, total_calls=10),
+                "gpt": make_metrics(avg_response_time=5.0, quality_score=0.5, total_calls=10),
+            }
+        )
         bridge = PerformanceRouterBridge(performance_monitor=monitor)
         rankings = bridge.rank_agents_for_task(["claude", "gpt"])
         assert rankings[0][0] == "claude"
@@ -320,25 +324,31 @@ class TestRoutingQueries:
 
 class TestSpeedTier:
     def test_fast_tier(self):
-        monitor = make_monitor({
-            "claude": make_metrics(avg_response_time=0.5, total_calls=10),
-        })
+        monitor = make_monitor(
+            {
+                "claude": make_metrics(avg_response_time=0.5, total_calls=10),
+            }
+        )
         bridge = PerformanceRouterBridge(performance_monitor=monitor)
         bridge.compute_routing_score("claude")
         assert bridge.get_speed_tier("claude") == "fast"
 
     def test_slow_tier(self):
-        monitor = make_monitor({
-            "claude": make_metrics(avg_response_time=15.0, total_calls=10),
-        })
+        monitor = make_monitor(
+            {
+                "claude": make_metrics(avg_response_time=15.0, total_calls=10),
+            }
+        )
         bridge = PerformanceRouterBridge(performance_monitor=monitor)
         bridge.compute_routing_score("claude")
         assert bridge.get_speed_tier("claude") == "slow"
 
     def test_medium_tier(self):
-        monitor = make_monitor({
-            "claude": make_metrics(avg_response_time=5.0, total_calls=10),
-        })
+        monitor = make_monitor(
+            {
+                "claude": make_metrics(avg_response_time=5.0, total_calls=10),
+            }
+        )
         bridge = PerformanceRouterBridge(performance_monitor=monitor)
         bridge.compute_routing_score("claude")
         assert bridge.get_speed_tier("claude") == "medium"

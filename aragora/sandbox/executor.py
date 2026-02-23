@@ -484,7 +484,8 @@ def build_worktree_docker_args(
         "--rm",
         f"--memory={memory_mb}m",
         "--security-opt=no-new-privileges",
-        "--pids-limit", "256",
+        "--pids-limit",
+        "256",
     ]
 
     if not network:

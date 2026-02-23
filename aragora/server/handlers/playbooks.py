@@ -103,10 +103,12 @@ class PlaybookHandler:
 
         playbooks = registry.list(category=category, tags=tags)
 
-        return json_response({
-            "playbooks": [p.to_dict() for p in playbooks],
-            "count": len(playbooks),
-        })
+        return json_response(
+            {
+                "playbooks": [p.to_dict() for p in playbooks],
+                "count": len(playbooks),
+            }
+        )
 
     @rate_limit(requests_per_minute=60)
     def _handle_get_playbook(self, path: str, handler: Any) -> HandlerResult:

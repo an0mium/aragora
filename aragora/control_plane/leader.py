@@ -677,7 +677,9 @@ class RegionalLeaderElection(LeaderElection):
         self._config.key_prefix = self._regional_config.get_region_key_prefix()
 
         logger.info(
-            "[regional-leader] Starting election for node %s in region %s", self._config.node_id, self.region_id
+            "[regional-leader] Starting election for node %s in region %s",
+            self._config.node_id,
+            self.region_id,
         )
 
         await super().start()
@@ -724,7 +726,9 @@ class RegionalLeaderElection(LeaderElection):
             last_heartbeat=time.time(),
             is_global_coordinator=event.data.get("is_global_coordinator", False),
         )
-        logger.debug("[regional-leader] Region %s elected leader: %s", source_region, event.entity_id)
+        logger.debug(
+            "[regional-leader] Region %s elected leader: %s", source_region, event.entity_id
+        )
 
     async def _handle_remote_leader_resigned(self, event: Any) -> None:
         """Handle leader resignation from another region."""
@@ -808,7 +812,7 @@ class RegionalLeaderElection(LeaderElection):
             )
             await self._event_bus.publish(event)
             logger.debug(
-                "[regional-leader] Broadcast leadership %s", 'elected' if elected else 'resigned'
+                "[regional-leader] Broadcast leadership %s", "elected" if elected else "resigned"
             )
         except (ImportError, ConnectionError, OSError, RuntimeError, ValueError, TypeError) as e:
             logger.warning("[regional-leader] Failed to broadcast leadership: %s", e)

@@ -118,7 +118,7 @@ class TestPushSpectatorEvent:
 
         push_spectator_event("debate-a", "proposal")
 
-        assert not q2.empty() is False  # q2 should be empty
+        assert q2.empty() is not False  # q2 should be empty
         assert q2.qsize() == 0
         assert q1.qsize() == 1
 

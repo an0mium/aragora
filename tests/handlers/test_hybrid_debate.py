@@ -100,9 +100,7 @@ def reset_cb():
 @pytest.fixture(autouse=True)
 def patch_hybrid_available():
     """Ensure HYBRID_AVAILABLE is True for all tests (unless overridden)."""
-    with patch(
-        "aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True
-    ):
+    with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
         yield
 
 
@@ -235,16 +233,26 @@ class TestListDebates:
 
     def test_status_filter_completed(self, handler, mock_http_handler):
         handler._debates["d1"] = {
-            "debate_id": "d1", "task": "t1", "status": "completed",
-            "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+            "debate_id": "d1",
+            "task": "t1",
+            "status": "completed",
+            "consensus_reached": True,
+            "confidence": 0.9,
+            "started_at": "x",
         }
         handler._debates["d2"] = {
-            "debate_id": "d2", "task": "t2", "status": "pending",
-            "consensus_reached": False, "confidence": 0.0, "started_at": "y",
+            "debate_id": "d2",
+            "task": "t2",
+            "status": "pending",
+            "consensus_reached": False,
+            "confidence": 0.0,
+            "started_at": "y",
         }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"status": "completed"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"status": "completed"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 1
@@ -252,16 +260,26 @@ class TestListDebates:
 
     def test_status_filter_pending(self, handler, mock_http_handler):
         handler._debates["d1"] = {
-            "debate_id": "d1", "task": "t1", "status": "completed",
-            "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+            "debate_id": "d1",
+            "task": "t1",
+            "status": "completed",
+            "consensus_reached": True,
+            "confidence": 0.9,
+            "started_at": "x",
         }
         handler._debates["d2"] = {
-            "debate_id": "d2", "task": "t2", "status": "pending",
-            "consensus_reached": False, "confidence": 0.0, "started_at": "y",
+            "debate_id": "d2",
+            "task": "t2",
+            "status": "pending",
+            "consensus_reached": False,
+            "confidence": 0.0,
+            "started_at": "y",
         }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"status": "pending"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"status": "pending"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 1
@@ -269,12 +287,18 @@ class TestListDebates:
 
     def test_status_filter_no_match(self, handler, mock_http_handler):
         handler._debates["d1"] = {
-            "debate_id": "d1", "task": "t1", "status": "completed",
-            "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+            "debate_id": "d1",
+            "task": "t1",
+            "status": "completed",
+            "consensus_reached": True,
+            "confidence": 0.9,
+            "started_at": "x",
         }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"status": "nonexistent"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"status": "nonexistent"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 0
@@ -283,8 +307,12 @@ class TestListDebates:
         """Default limit is 20."""
         for i in range(25):
             handler._debates[f"d{i}"] = {
-                "debate_id": f"d{i}", "task": f"t{i}", "status": "completed",
-                "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+                "debate_id": f"d{i}",
+                "task": f"t{i}",
+                "status": "completed",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "started_at": "x",
             }
 
         result = handler.handle("/api/v1/debates/hybrid", {}, mock_http_handler)
@@ -294,12 +322,18 @@ class TestListDebates:
     def test_limit_custom(self, handler, mock_http_handler):
         for i in range(10):
             handler._debates[f"d{i}"] = {
-                "debate_id": f"d{i}", "task": f"t{i}", "status": "completed",
-                "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+                "debate_id": f"d{i}",
+                "task": f"t{i}",
+                "status": "completed",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "started_at": "x",
             }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "5"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"limit": "5"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 5
@@ -308,12 +342,18 @@ class TestListDebates:
         """Limit is capped at 100."""
         for i in range(105):
             handler._debates[f"d{i}"] = {
-                "debate_id": f"d{i}", "task": f"t{i}", "status": "completed",
-                "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+                "debate_id": f"d{i}",
+                "task": f"t{i}",
+                "status": "completed",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "started_at": "x",
             }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "200"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"limit": "200"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 100
@@ -321,12 +361,18 @@ class TestListDebates:
     def test_limit_min_cap(self, handler, mock_http_handler):
         """Limit cannot go below 1."""
         handler._debates["d1"] = {
-            "debate_id": "d1", "task": "t1", "status": "completed",
-            "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+            "debate_id": "d1",
+            "task": "t1",
+            "status": "completed",
+            "consensus_reached": True,
+            "confidence": 0.9,
+            "started_at": "x",
         }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "0"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"limit": "0"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 1  # min(1, ...) = 1
@@ -334,12 +380,18 @@ class TestListDebates:
     def test_limit_negative(self, handler, mock_http_handler):
         """Negative limit clamps to 1."""
         handler._debates["d1"] = {
-            "debate_id": "d1", "task": "t1", "status": "completed",
-            "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+            "debate_id": "d1",
+            "task": "t1",
+            "status": "completed",
+            "consensus_reached": True,
+            "confidence": 0.9,
+            "started_at": "x",
         }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "-5"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"limit": "-5"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 1
@@ -348,12 +400,18 @@ class TestListDebates:
         """Invalid limit string falls back to default (20)."""
         for i in range(25):
             handler._debates[f"d{i}"] = {
-                "debate_id": f"d{i}", "task": f"t{i}", "status": "completed",
-                "consensus_reached": True, "confidence": 0.9, "started_at": "x",
+                "debate_id": f"d{i}",
+                "task": f"t{i}",
+                "status": "completed",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "started_at": "x",
             }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "abc"}, mock_http_handler,
+            "/api/v1/debates/hybrid",
+            {"limit": "abc"},
+            mock_http_handler,
         )
         data = _body(result)
         assert data["total"] == 20
@@ -393,7 +451,9 @@ class TestGetDebate:
         }
 
         result = handler.handle(
-            "/api/v1/debates/hybrid/hybrid_abc123", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/hybrid_abc123",
+            {},
+            mock_http_handler,
         )
         assert _status(result) == 200
         data = _body(result)
@@ -403,7 +463,9 @@ class TestGetDebate:
 
     def test_get_nonexistent_debate(self, handler, mock_http_handler):
         result = handler.handle(
-            "/api/v1/debates/hybrid/nonexistent_id", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/nonexistent_id",
+            {},
+            mock_http_handler,
         )
         assert _status(result) == 404
         data = _body(result)
@@ -430,7 +492,9 @@ class TestGetDebate:
         handler._debates["hybrid_xyz"] = record
 
         result = handler.handle(
-            "/api/v1/debates/hybrid/hybrid_xyz", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/hybrid_xyz",
+            {},
+            mock_http_handler,
         )
         data = _body(result)
         for key, val in record.items():
@@ -438,10 +502,14 @@ class TestGetDebate:
 
     def test_get_debate_trailing_slash(self, handler, mock_http_handler):
         handler._debates["d1"] = {
-            "debate_id": "d1", "task": "t", "status": "pending",
+            "debate_id": "d1",
+            "task": "t",
+            "status": "pending",
         }
         result = handler.handle(
-            "/api/v1/debates/hybrid/d1/", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/d1/",
+            {},
+            mock_http_handler,
         )
         assert _status(result) == 200
 
@@ -458,14 +526,19 @@ class TestCreateDebate:
         """Helper to POST a debate creation request."""
         http_handler = _make_http_handler(body)
         return handler.handle_post(
-            "/api/v1/debates/hybrid", {}, http_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            http_handler,
         )
 
     def test_create_success(self, handler):
-        result = self._post(handler, {
-            "task": "Evaluate API design",
-            "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Evaluate API design",
+                "external_agent": "crewai-agent",
+            },
+        )
         assert _status(result) == 201
         data = _body(result)
         assert data["debate_id"].startswith("hybrid_")
@@ -478,33 +551,42 @@ class TestCreateDebate:
         assert data["completed_at"] is not None
 
     def test_create_stores_debate(self, handler):
-        self._post(handler, {
-            "task": "Test storing",
-            "external_agent": "crewai-agent",
-        })
+        self._post(
+            handler,
+            {
+                "task": "Test storing",
+                "external_agent": "crewai-agent",
+            },
+        )
         assert len(handler._debates) == 1
         debate = list(handler._debates.values())[0]
         assert debate["task"] == "Test storing"
 
     def test_create_debate_id_format(self, handler):
-        result = self._post(handler, {
-            "task": "Test id format",
-            "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test id format",
+                "external_agent": "crewai-agent",
+            },
+        )
         data = _body(result)
         assert data["debate_id"].startswith("hybrid_")
         assert len(data["debate_id"]) == len("hybrid_") + 12
 
     def test_create_with_all_optional_fields(self, handler):
-        result = self._post(handler, {
-            "task": "Full create",
-            "external_agent": "crewai-agent",
-            "consensus_threshold": 0.9,
-            "max_rounds": 5,
-            "verification_agents": ["v1", "v2"],
-            "domain": "healthcare",
-            "config": {"strict_mode": True},
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Full create",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": 0.9,
+                "max_rounds": 5,
+                "verification_agents": ["v1", "v2"],
+                "domain": "healthcare",
+                "config": {"strict_mode": True},
+            },
+        )
         assert _status(result) == 201
         data = _body(result)
         assert data["consensus_threshold"] == 0.9
@@ -514,10 +596,13 @@ class TestCreateDebate:
         assert data["config"] == {"strict_mode": True}
 
     def test_create_default_optional_values(self, handler):
-        result = self._post(handler, {
-            "task": "Defaults test",
-            "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Defaults test",
+                "external_agent": "crewai-agent",
+            },
+        )
         data = _body(result)
         assert data["consensus_threshold"] == 0.7
         assert data["verification_agents"] == []
@@ -526,10 +611,13 @@ class TestCreateDebate:
 
     def test_create_multiple_debates(self, handler):
         for i in range(3):
-            self._post(handler, {
-                "task": f"Task {i}",
-                "external_agent": "crewai-agent",
-            })
+            self._post(
+                handler,
+                {
+                    "task": f"Task {i}",
+                    "external_agent": "crewai-agent",
+                },
+            )
         assert len(handler._debates) == 3
 
 
@@ -551,40 +639,64 @@ class TestCreateValidationRequired:
         assert "task" in _body(result)["error"].lower()
 
     def test_empty_task(self, handler):
-        result = self._post(handler, {
-            "task": "", "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "",
+                "external_agent": "crewai-agent",
+            },
+        )
         assert _status(result) == 400
 
     def test_whitespace_only_task(self, handler):
-        result = self._post(handler, {
-            "task": "   ", "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "   ",
+                "external_agent": "crewai-agent",
+            },
+        )
         assert _status(result) == 400
 
     def test_task_not_string(self, handler):
-        result = self._post(handler, {
-            "task": 123, "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": 123,
+                "external_agent": "crewai-agent",
+            },
+        )
         assert _status(result) == 400
 
     def test_task_too_long(self, handler):
-        result = self._post(handler, {
-            "task": "x" * 5001, "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "x" * 5001,
+                "external_agent": "crewai-agent",
+            },
+        )
         assert _status(result) == 400
         assert "5000" in _body(result)["error"]
 
     def test_task_at_max_length(self, handler):
-        result = self._post(handler, {
-            "task": "x" * 5000, "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "x" * 5000,
+                "external_agent": "crewai-agent",
+            },
+        )
         assert _status(result) == 201
 
     def test_task_stripped(self, handler):
-        result = self._post(handler, {
-            "task": "  Trim me  ", "external_agent": "crewai-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "  Trim me  ",
+                "external_agent": "crewai-agent",
+            },
+        )
         data = _body(result)
         assert data["task"] == "Trim me"
 
@@ -594,27 +706,43 @@ class TestCreateValidationRequired:
         assert "external_agent" in _body(result)["error"].lower()
 
     def test_empty_external_agent(self, handler):
-        result = self._post(handler, {
-            "task": "A task", "external_agent": "",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "A task",
+                "external_agent": "",
+            },
+        )
         assert _status(result) == 400
 
     def test_whitespace_external_agent(self, handler):
-        result = self._post(handler, {
-            "task": "A task", "external_agent": "   ",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "A task",
+                "external_agent": "   ",
+            },
+        )
         assert _status(result) == 400
 
     def test_external_agent_not_string(self, handler):
-        result = self._post(handler, {
-            "task": "A task", "external_agent": 42,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "A task",
+                "external_agent": 42,
+            },
+        )
         assert _status(result) == 400
 
     def test_external_agent_not_registered(self, handler):
-        result = self._post(handler, {
-            "task": "A task", "external_agent": "unknown-agent",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "A task",
+                "external_agent": "unknown-agent",
+            },
+        )
         assert _status(result) == 400
         assert "not found" in _body(result)["error"].lower()
         assert "unknown-agent" in _body(result)["error"]
@@ -649,99 +777,151 @@ class TestCreateValidationOptional:
         return handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
 
     def test_consensus_threshold_invalid_string(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "consensus_threshold": "not_a_number",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": "not_a_number",
+            },
+        )
         assert _status(result) == 400
         assert "consensus_threshold" in _body(result)["error"].lower()
 
     def test_consensus_threshold_too_low(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "consensus_threshold": -0.1,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": -0.1,
+            },
+        )
         assert _status(result) == 400
 
     def test_consensus_threshold_too_high(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "consensus_threshold": 1.1,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": 1.1,
+            },
+        )
         assert _status(result) == 400
 
     def test_consensus_threshold_boundary_zero(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "consensus_threshold": 0.0,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": 0.0,
+            },
+        )
         assert _status(result) == 201
 
     def test_consensus_threshold_boundary_one(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "consensus_threshold": 1.0,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": 1.0,
+            },
+        )
         assert _status(result) == 201
 
     def test_max_rounds_invalid_string(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "max_rounds": "abc",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": "abc",
+            },
+        )
         assert _status(result) == 400
         assert "max_rounds" in _body(result)["error"].lower()
 
     def test_max_rounds_too_low(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "max_rounds": 0,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": 0,
+            },
+        )
         assert _status(result) == 400
 
     def test_max_rounds_too_high(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "max_rounds": 11,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": 11,
+            },
+        )
         assert _status(result) == 400
 
     def test_max_rounds_boundary_one(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "max_rounds": 1,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": 1,
+            },
+        )
         assert _status(result) == 201
 
     def test_max_rounds_boundary_ten(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "max_rounds": 10,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": 10,
+            },
+        )
         assert _status(result) == 201
 
     def test_verification_agents_not_list(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "verification_agents": "not-a-list",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "verification_agents": "not-a-list",
+            },
+        )
         assert _status(result) == 400
         assert "verification_agents" in _body(result)["error"].lower()
 
     def test_domain_non_string_falls_back(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "domain": 123,
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "domain": 123,
+            },
+        )
         assert _status(result) == 201
         data = _body(result)
         assert data["domain"] == "general"
 
     def test_config_non_dict_falls_back(self, handler):
-        result = self._post(handler, {
-            "task": "Test", "external_agent": "crewai-agent",
-            "config": "not-a-dict",
-        })
+        result = self._post(
+            handler,
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "config": "not-a-dict",
+            },
+        )
         assert _status(result) == 201
         data = _body(result)
         assert data["config"] == {}
@@ -757,23 +937,32 @@ class TestHybridNotAvailable:
 
     def test_get_returns_503(self, handler, mock_http_handler):
         with patch(
-            "aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", False,
+            "aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE",
+            False,
         ):
             result = handler.handle(
-                "/api/v1/debates/hybrid", {}, mock_http_handler,
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler,
             )
             assert _status(result) == 503
             assert "not available" in _body(result)["error"].lower()
 
     def test_post_returns_503(self, handler):
         with patch(
-            "aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", False,
+            "aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE",
+            False,
         ):
-            http_handler = _make_http_handler({
-                "task": "Test", "external_agent": "crewai-agent",
-            })
+            http_handler = _make_http_handler(
+                {
+                    "task": "Test",
+                    "external_agent": "crewai-agent",
+                }
+            )
             result = handler.handle_post(
-                "/api/v1/debates/hybrid", {}, http_handler,
+                "/api/v1/debates/hybrid",
+                {},
+                http_handler,
             )
             assert _status(result) == 503
 
@@ -802,9 +991,12 @@ class TestCircuitBreaker:
 
     def test_create_debate_records_success(self, handler):
         cb = get_hybrid_debate_circuit_breaker()
-        http_handler = _make_http_handler({
-            "task": "Test", "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+            }
+        )
         handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         # After success, circuit breaker should still be closed
         assert cb.can_proceed()
@@ -815,9 +1007,12 @@ class TestCircuitBreaker:
         for _ in range(10):
             cb.record_failure()
 
-        http_handler = _make_http_handler({
-            "task": "Test", "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 503
         assert "temporarily unavailable" in _body(result)["error"].lower()
@@ -825,11 +1020,16 @@ class TestCircuitBreaker:
     def test_debate_execution_failure_records_failure(self, handler):
         cb = get_hybrid_debate_circuit_breaker()
         with patch.object(
-            handler, "_run_debate", side_effect=RuntimeError("execution failed"),
+            handler,
+            "_run_debate",
+            side_effect=RuntimeError("execution failed"),
         ):
-            http_handler = _make_http_handler({
-                "task": "Test", "external_agent": "crewai-agent",
-            })
+            http_handler = _make_http_handler(
+                {
+                    "task": "Test",
+                    "external_agent": "crewai-agent",
+                }
+            )
             # The handle_errors decorator should catch the re-raised exception
             result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
             # The handle_errors decorator catches and returns 500
@@ -900,31 +1100,45 @@ class TestRoutingDispatch:
 
     def test_handle_routes_get_specific(self, handler, mock_http_handler):
         handler._debates["my-id"] = {
-            "debate_id": "my-id", "task": "t", "status": "done",
+            "debate_id": "my-id",
+            "task": "t",
+            "status": "done",
         }
         result = handler.handle(
-            "/api/v1/debates/hybrid/my-id", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/my-id",
+            {},
+            mock_http_handler,
         )
         assert result is not None
         assert _status(result) == 200
 
     def test_handle_post_routes_create(self, handler):
-        http_handler = _make_http_handler({
-            "task": "Test", "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, http_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            http_handler,
         )
         assert result is not None
         assert _status(result) == 201
 
     def test_handle_post_specific_id_returns_none(self, handler):
         """POST to a specific debate ID is not supported (returns None)."""
-        http_handler = _make_http_handler({
-            "task": "Test", "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post(
-            "/api/v1/debates/hybrid/some-id", {}, http_handler,
+            "/api/v1/debates/hybrid/some-id",
+            {},
+            http_handler,
         )
         assert result is None
 
@@ -940,7 +1154,9 @@ class TestSecurity:
     def test_path_traversal_in_debate_id(self, handler, mock_http_handler):
         """Path traversal in debate ID should not crash."""
         result = handler.handle(
-            "/api/v1/debates/hybrid/../../etc/passwd", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/../../etc/passwd",
+            {},
+            mock_http_handler,
         )
         # Should return 404 (not found) rather than leaking info
         if result is not None:
@@ -948,18 +1164,24 @@ class TestSecurity:
 
     def test_sql_injection_in_debate_id(self, handler, mock_http_handler):
         result = handler.handle(
-            "/api/v1/debates/hybrid/' OR 1=1 --", {}, mock_http_handler,
+            "/api/v1/debates/hybrid/' OR 1=1 --",
+            {},
+            mock_http_handler,
         )
         if result is not None:
             assert _status(result) == 404
 
     def test_xss_in_task(self, handler):
-        http_handler = _make_http_handler({
-            "task": "<script>alert('xss')</script>",
-            "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "<script>alert('xss')</script>",
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, http_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            http_handler,
         )
         # Should succeed (task is stored as-is, XSS prevention is at render layer)
         assert _status(result) == 201
@@ -967,29 +1189,39 @@ class TestSecurity:
     def test_very_long_debate_id(self, handler, mock_http_handler):
         long_id = "a" * 10000
         result = handler.handle(
-            f"/api/v1/debates/hybrid/{long_id}", {}, mock_http_handler,
+            f"/api/v1/debates/hybrid/{long_id}",
+            {},
+            mock_http_handler,
         )
         if result is not None:
             assert _status(result) == 404
 
     def test_null_bytes_in_task(self, handler):
-        http_handler = _make_http_handler({
-            "task": "test\x00task",
-            "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "test\x00task",
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, http_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            http_handler,
         )
         # Should succeed - null bytes in string don't cause issues
         assert _status(result) == 201
 
     def test_unicode_in_task(self, handler):
-        http_handler = _make_http_handler({
-            "task": "Evaluate: \u2603 \ud83d\ude00 design decision",
-            "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Evaluate: \u2603 \ud83d\ude00 design decision",
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, http_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            http_handler,
         )
         assert _status(result) == 201
 
@@ -1020,10 +1252,12 @@ class TestEdgeCases:
     def test_empty_external_agents_context(self):
         """Handler with no external agents registered."""
         h = HybridDebateHandler({"external_agents": {}})
-        http_handler = _make_http_handler({
-            "task": "Test",
-            "external_agent": "any-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "any-agent",
+            }
+        )
         result = h.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 400
         assert "not found" in _body(result)["error"].lower()
@@ -1031,42 +1265,54 @@ class TestEdgeCases:
     def test_no_external_agents_key_in_context(self):
         """Handler with no external_agents key in server context."""
         h = HybridDebateHandler({})
-        http_handler = _make_http_handler({
-            "task": "Test",
-            "external_agent": "any-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "any-agent",
+            }
+        )
         result = h.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 400
 
     def test_created_debate_accessible_via_get(self, handler):
         """Debate created via POST is immediately accessible via GET."""
-        http_handler = _make_http_handler({
-            "task": "Round trip",
-            "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Round trip",
+                "external_agent": "crewai-agent",
+            }
+        )
         post_result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, http_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            http_handler,
         )
         debate_id = _body(post_result)["debate_id"]
 
         get_handler = _make_http_handler()
         get_result = handler.handle(
-            f"/api/v1/debates/hybrid/{debate_id}", {}, get_handler,
+            f"/api/v1/debates/hybrid/{debate_id}",
+            {},
+            get_handler,
         )
         assert _status(get_result) == 200
         assert _body(get_result)["debate_id"] == debate_id
 
     def test_list_then_get_consistency(self, handler):
         """Debates listed should be gettable individually."""
-        http_handler = _make_http_handler({
-            "task": "Consistency test",
-            "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Consistency test",
+                "external_agent": "crewai-agent",
+            }
+        )
         handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
 
         list_handler = _make_http_handler()
         list_result = handler.handle(
-            "/api/v1/debates/hybrid", {}, list_handler,
+            "/api/v1/debates/hybrid",
+            {},
+            list_handler,
         )
         debates = _body(list_result)["debates"]
         assert len(debates) == 1
@@ -1074,58 +1320,69 @@ class TestEdgeCases:
         get_handler = _make_http_handler()
         get_result = handler.handle(
             f"/api/v1/debates/hybrid/{debates[0]['debate_id']}",
-            {}, get_handler,
+            {},
+            get_handler,
         )
         assert _status(get_result) == 200
         assert _body(get_result)["task"] == "Consistency test"
 
     def test_task_none_value(self, handler):
-        http_handler = _make_http_handler({
-            "task": None,
-            "external_agent": "crewai-agent",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": None,
+                "external_agent": "crewai-agent",
+            }
+        )
         result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 400
 
     def test_consensus_threshold_as_string_number(self, handler):
         """consensus_threshold should accept string numbers via float()."""
-        http_handler = _make_http_handler({
-            "task": "Test",
-            "external_agent": "crewai-agent",
-            "consensus_threshold": "0.5",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": "0.5",
+            }
+        )
         result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 201
         assert _body(result)["consensus_threshold"] == 0.5
 
     def test_max_rounds_as_string_number(self, handler):
         """max_rounds should accept string numbers via int()."""
-        http_handler = _make_http_handler({
-            "task": "Test",
-            "external_agent": "crewai-agent",
-            "max_rounds": "7",
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": "7",
+            }
+        )
         result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 201
         assert _body(result)["max_rounds"] == 7
 
     def test_consensus_threshold_none_value(self, handler):
         """None consensus_threshold should fail validation."""
-        http_handler = _make_http_handler({
-            "task": "Test",
-            "external_agent": "crewai-agent",
-            "consensus_threshold": None,
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "consensus_threshold": None,
+            }
+        )
         result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 400
 
     def test_max_rounds_none_value(self, handler):
         """None max_rounds should fail validation."""
-        http_handler = _make_http_handler({
-            "task": "Test",
-            "external_agent": "crewai-agent",
-            "max_rounds": None,
-        })
+        http_handler = _make_http_handler(
+            {
+                "task": "Test",
+                "external_agent": "crewai-agent",
+                "max_rounds": None,
+            }
+        )
         result = handler.handle_post("/api/v1/debates/hybrid", {}, http_handler)
         assert _status(result) == 400
 
@@ -1141,15 +1398,21 @@ class TestFilterAndLimit:
     def _populate(self, handler, n_completed=5, n_pending=5):
         for i in range(n_completed):
             handler._debates[f"c{i}"] = {
-                "debate_id": f"c{i}", "task": f"completed {i}",
-                "status": "completed", "consensus_reached": True,
-                "confidence": 0.9, "started_at": "x",
+                "debate_id": f"c{i}",
+                "task": f"completed {i}",
+                "status": "completed",
+                "consensus_reached": True,
+                "confidence": 0.9,
+                "started_at": "x",
             }
         for i in range(n_pending):
             handler._debates[f"p{i}"] = {
-                "debate_id": f"p{i}", "task": f"pending {i}",
-                "status": "pending", "consensus_reached": False,
-                "confidence": 0.0, "started_at": "y",
+                "debate_id": f"p{i}",
+                "task": f"pending {i}",
+                "status": "pending",
+                "consensus_reached": False,
+                "confidence": 0.0,
+                "started_at": "y",
             }
 
     def test_filter_with_limit(self, handler, mock_http_handler):

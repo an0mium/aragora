@@ -261,9 +261,7 @@ class TestSlackBlocksResponse:
 
     def test_fallback_text_included(self):
         """Non-empty text should appear as a fallback."""
-        result = slack_blocks_response(
-            [{"type": "divider"}], text="Fallback notification text"
-        )
+        result = slack_blocks_response([{"type": "divider"}], text="Fallback notification text")
         body = _body(result)
         assert body["text"] == "Fallback notification text"
 
@@ -329,18 +327,14 @@ class TestSlackBlocksResponse:
 
     def test_unicode_in_blocks(self):
         """Unicode in block text should be properly serialized."""
-        blocks = [
-            {"type": "section", "text": {"type": "mrkdwn", "text": "Caf\u00e9 \u2603"}}
-        ]
+        blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "Caf\u00e9 \u2603"}}]
         result = slack_blocks_response(blocks)
         body = _body(result)
         assert "Caf\u00e9" in body["blocks"][0]["text"]["text"]
 
     def test_custom_response_type(self):
         """An arbitrary response_type string is passed through for blocks."""
-        result = slack_blocks_response(
-            [{"type": "divider"}], response_type="custom_value"
-        )
+        result = slack_blocks_response([{"type": "divider"}], response_type="custom_value")
         body = _body(result)
         assert body["response_type"] == "custom_value"
 

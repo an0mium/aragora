@@ -232,11 +232,13 @@ class TestTemplateInstallFlow:
 
         # Multiple users rate
         for i, score in enumerate([5, 4, 3, 5, 4]):
-            registry.rate(TemplateRating(
-                user_id=f"user-{i}",
-                template_id="rated-agent",
-                score=score,
-            ))
+            registry.rate(
+                TemplateRating(
+                    user_id=f"user-{i}",
+                    template_id="rated-agent",
+                    score=score,
+                )
+            )
 
         avg = registry.get_average_rating("rated-agent")
         assert avg is not None
@@ -248,20 +250,24 @@ class TestTemplateInstallFlow:
     def test_search_filters_combined(self, registry):
         """Search with multiple filters applied."""
         # Register templates in different categories
-        for i, cat in enumerate([TemplateCategory.CODING, TemplateCategory.RESEARCH, TemplateCategory.CODING]):
-            registry.register(AgentTemplate(
-                metadata=TemplateMetadata(
-                    id=f"filter-test-{i}",
-                    name=f"Filter Test {i}",
-                    description="For filter testing",
-                    version="1.0.0",
-                    author="test-author",
-                    category=cat,
-                    tags=["filter-test"],
-                ),
-                agent_type="claude",
-                system_prompt="Test.",
-            ))
+        for i, cat in enumerate(
+            [TemplateCategory.CODING, TemplateCategory.RESEARCH, TemplateCategory.CODING]
+        ):
+            registry.register(
+                AgentTemplate(
+                    metadata=TemplateMetadata(
+                        id=f"filter-test-{i}",
+                        name=f"Filter Test {i}",
+                        description="For filter testing",
+                        version="1.0.0",
+                        author="test-author",
+                        category=cat,
+                        tags=["filter-test"],
+                    ),
+                    agent_type="claude",
+                    system_prompt="Test.",
+                )
+            )
 
         # Filter by category + author
         results = registry.search(

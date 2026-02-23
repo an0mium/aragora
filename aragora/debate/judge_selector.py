@@ -480,7 +480,14 @@ class VotedStrategy(JudgeSelectionStrategy):
                     if other.name.lower() in response.lower():
                         vote_counts[other.name] = vote_counts.get(other.name, 0) + 1
                         break
-            except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                TimeoutError,
+                ConnectionError,
+                OSError,
+            ) as e:
                 logger.warning("Judge vote error for %s: %s", agent.name, e)
 
         # Select agent with most votes, random tiebreaker
@@ -1111,7 +1118,14 @@ class JudgePanel:
                     "recommendation": recommendation,
                     "confidence": 0.7,  # Default confidence
                 }
-            except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                TimeoutError,
+                ConnectionError,
+                OSError,
+            ) as e:
                 logger.warning("assessment_error judge=%s: %s", judge.name, e)
                 return judge.name, None
 
@@ -1124,7 +1138,9 @@ class JudgePanel:
                 name, assessment = result
                 assessments[name] = assessment
                 logger.debug(
-                    "judge_initial_assessment judge=%s recommendation=%s", name, assessment['recommendation']
+                    "judge_initial_assessment judge=%s recommendation=%s",
+                    name,
+                    assessment["recommendation"],
                 )
 
         return assessments
@@ -1197,7 +1213,14 @@ class JudgePanel:
                     "confidence": confidence,
                     "deliberation_round": round_num,
                 }
-            except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                TimeoutError,
+                ConnectionError,
+                OSError,
+            ) as e:
                 logger.warning("deliberation_error judge=%s round=%s: %s", judge.name, round_num, e)
                 # Keep previous assessment
                 return judge.name, assessments.get(judge.name)
@@ -1359,7 +1382,10 @@ def create_judge_panel(
         weights = {}
 
     logger.info(
-        "create_judge_panel domain=%s count=%s excluded=%s participants", domain, len(judges), len(participant_names)
+        "create_judge_panel domain=%s count=%s excluded=%s participants",
+        domain,
+        len(judges),
+        len(participant_names),
     )
 
     return JudgePanel(judges=judges, strategy=strategy, judge_weights=weights)

@@ -273,15 +273,15 @@ class TestFormatSizeGB:
     """Tests for sizes in the gigabyte range."""
 
     def test_exactly_1_gb(self):
-        result = format_size(1024 ** 3)
+        result = format_size(1024**3)
         assert result == "1.0 GB"
 
     def test_2_5_gb(self):
-        result = format_size(int(2.5 * 1024 ** 3))
+        result = format_size(int(2.5 * 1024**3))
         assert result == "2.5 GB"
 
     def test_512_gb(self):
-        result = format_size(512 * 1024 ** 3)
+        result = format_size(512 * 1024**3)
         assert result == "512.0 GB"
 
 
@@ -294,21 +294,21 @@ class TestFormatSizeTB:
     """Tests for sizes that exceed GB and fall into TB."""
 
     def test_exactly_1_tb(self):
-        result = format_size(1024 ** 4)
+        result = format_size(1024**4)
         assert result == "1.0 TB"
 
     def test_2_tb(self):
-        result = format_size(2 * 1024 ** 4)
+        result = format_size(2 * 1024**4)
         assert result == "2.0 TB"
 
     def test_large_tb_value(self):
         # 10 TB
-        result = format_size(10 * 1024 ** 4)
+        result = format_size(10 * 1024**4)
         assert result == "10.0 TB"
 
     def test_very_large_value(self):
         # 1 PB = 1024 TB, format_size doesn't have PB so it shows 1024.0 TB
-        result = format_size(1024 ** 5)
+        result = format_size(1024**5)
         assert result == "1024.0 TB"
 
 
@@ -325,13 +325,13 @@ class TestFormatSizeEdgeCases:
         assert format_size(1024) == "1.0 KB"
 
     def test_exact_boundary_mb(self):
-        assert format_size(1024 ** 2) == "1.0 MB"
+        assert format_size(1024**2) == "1.0 MB"
 
     def test_exact_boundary_gb(self):
-        assert format_size(1024 ** 3) == "1.0 GB"
+        assert format_size(1024**3) == "1.0 GB"
 
     def test_exact_boundary_tb(self):
-        assert format_size(1024 ** 4) == "1.0 TB"
+        assert format_size(1024**4) == "1.0 TB"
 
     def test_negative_is_handled_as_bytes(self):
         # Negative values: -1 < 1024 so stays in B loop

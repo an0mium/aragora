@@ -499,9 +499,7 @@ class TestInitPhasesWiring:
 
             init_phases(mock_arena)
 
-            mock_pb_instance.warm_introspection_cache.assert_called_once_with(
-                mock_arena.agents
-            )
+            mock_pb_instance.warm_introspection_cache.assert_called_once_with(mock_arena.agents)
 
     def test_feedback_phase_receives_pulse_manager(self):
         """FeedbackPhase receives pulse_manager from arena."""

@@ -102,6 +102,7 @@ def reset_rate_limiters():
         pass
     try:
         from aragora.auth.lockout import reset_lockout_tracker
+
         reset_lockout_tracker()
     except ImportError:
         pass
@@ -115,6 +116,7 @@ def reset_rate_limiters():
         pass
     try:
         from aragora.auth.lockout import reset_lockout_tracker
+
         reset_lockout_tracker()
     except ImportError:
         pass
@@ -496,7 +498,9 @@ class TestOAuthFlow:
 
         handler = OAuthHandler({})
 
-        assert hasattr(handler, "_handle_list_providers"), "OAuth handler should support listing providers"
+        assert hasattr(handler, "_handle_list_providers"), (
+            "OAuth handler should support listing providers"
+        )
 
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 54321)

@@ -190,9 +190,7 @@ class SecureEndpointMixin:
                     errors.append("Permission denied")
 
             # All permissions denied
-            return None, _get_error_response()(
-                "Permission denied", 403
-            )
+            return None, _get_error_response()("Permission denied", 403)
 
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)

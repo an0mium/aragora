@@ -142,9 +142,7 @@ class TestBuildStartingBlocks:
 
     def test_header_block(self, slack_handler):
         """First block is a header with 'Debate Starting...'."""
-        blocks = slack_handler._build_starting_blocks(
-            topic="topic", user_id="U1", debate_id="d-1"
-        )
+        blocks = slack_handler._build_starting_blocks(topic="topic", user_id="U1", debate_id="d-1")
         header = blocks[0]
         assert header["type"] == "header"
         assert header["text"]["type"] == "plain_text"
@@ -210,9 +208,7 @@ class TestBuildStartingBlocks:
 
     def test_no_agents_no_rounds_context(self, slack_handler):
         """Without agents or rounds, context only has user and ID."""
-        blocks = slack_handler._build_starting_blocks(
-            topic="topic", user_id="U1", debate_id="d-1"
-        )
+        blocks = slack_handler._build_starting_blocks(topic="topic", user_id="U1", debate_id="d-1")
         text = blocks[2]["elements"][0]["text"]
         assert "Agents:" not in text
         assert "Rounds:" not in text
@@ -251,9 +247,7 @@ class TestBuildStartingBlocks:
     def test_long_topic(self, slack_handler):
         """A very long topic is passed through without truncation at this layer."""
         topic = "A" * 5000
-        blocks = slack_handler._build_starting_blocks(
-            topic=topic, user_id="U1", debate_id="d-1"
-        )
+        blocks = slack_handler._build_starting_blocks(topic=topic, user_id="U1", debate_id="d-1")
         assert topic in blocks[1]["text"]["text"]
 
     def test_many_agents(self, slack_handler):
@@ -297,9 +291,7 @@ class TestBuildStartingBlocks:
 
     def test_returns_list_of_dicts(self, slack_handler):
         """Return type is a list of dicts."""
-        blocks = slack_handler._build_starting_blocks(
-            topic="x", user_id="U", debate_id="d"
-        )
+        blocks = slack_handler._build_starting_blocks(topic="x", user_id="U", debate_id="d")
         assert all(isinstance(b, dict) for b in blocks)
 
 
@@ -354,9 +346,7 @@ class TestPostRoundUpdate:
         slack_handler._post_message_async.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_falls_back_no_channel_id(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_falls_back_no_channel_id(self, slack_handler, blocks_module, monkeypatch):
         """Falls back to response_url when no channel_id."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", "xoxb-token")
         slack_handler._post_message_async = AsyncMock()
@@ -376,9 +366,7 @@ class TestPostRoundUpdate:
         slack_handler._post_message_async.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_falls_back_no_thread_ts(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_falls_back_no_thread_ts(self, slack_handler, blocks_module, monkeypatch):
         """Falls back to response_url when no thread_ts."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", "xoxb-token")
         slack_handler._post_message_async = AsyncMock()
@@ -398,9 +386,7 @@ class TestPostRoundUpdate:
         slack_handler._post_message_async.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_progress_bar_visual(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_progress_bar_visual(self, slack_handler, blocks_module, monkeypatch):
         """Progress bar uses filled/empty squares proportionally."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -419,9 +405,7 @@ class TestPostRoundUpdate:
         assert block_text.count(":white_large_square:") == 2
 
     @pytest.mark.asyncio
-    async def test_progress_bar_complete(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_progress_bar_complete(self, slack_handler, blocks_module, monkeypatch):
         """When round_num == total_rounds, all squares are filled."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -440,9 +424,7 @@ class TestPostRoundUpdate:
         assert ":white_large_square:" not in block_text
 
     @pytest.mark.asyncio
-    async def test_progress_bar_start(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_progress_bar_start(self, slack_handler, blocks_module, monkeypatch):
         """At round 0, all squares are empty."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -491,9 +473,7 @@ class TestPostRoundUpdate:
         assert expected_emoji in block_text
 
     @pytest.mark.asyncio
-    async def test_unknown_phase_fallback_emoji(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_unknown_phase_fallback_emoji(self, slack_handler, blocks_module, monkeypatch):
         """Unknown phase uses hourglass emoji."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -512,9 +492,7 @@ class TestPostRoundUpdate:
         assert ":hourglass_flowing_sand:" in block_text
 
     @pytest.mark.asyncio
-    async def test_default_phase_is_analyzing(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_default_phase_is_analyzing(self, slack_handler, blocks_module, monkeypatch):
         """Default phase is 'analyzing'."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -532,9 +510,7 @@ class TestPostRoundUpdate:
         assert ":mag:" in block_text
 
     @pytest.mark.asyncio
-    async def test_agent_name_in_block(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_agent_name_in_block(self, slack_handler, blocks_module, monkeypatch):
         """Agent name appears in the block text."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -552,9 +528,7 @@ class TestPostRoundUpdate:
         assert "gemini-pro responded" in block_text
 
     @pytest.mark.asyncio
-    async def test_round_info_in_text(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_round_info_in_text(self, slack_handler, blocks_module, monkeypatch):
         """Round info appears in both text and block."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -573,9 +547,7 @@ class TestPostRoundUpdate:
         assert "Round 3/7" in block_text
 
     @pytest.mark.asyncio
-    async def test_response_url_payload_structure(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_response_url_payload_structure(self, slack_handler, blocks_module, monkeypatch):
         """Response URL payload has correct structure."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -595,9 +567,7 @@ class TestPostRoundUpdate:
         assert "text" in payload
 
     @pytest.mark.asyncio
-    async def test_web_api_passes_thread_ts(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_web_api_passes_thread_ts(self, slack_handler, blocks_module, monkeypatch):
         """Web API call includes thread_ts for threading."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", "xoxb-token")
         slack_handler._post_message_async = AsyncMock()
@@ -647,9 +617,7 @@ class TestPostAgentResponse:
         slack_handler._post_to_response_url.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_response_url(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_falls_back_to_response_url(self, slack_handler, blocks_module, monkeypatch):
         """Falls back to response_url without token."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -701,9 +669,7 @@ class TestPostAgentResponse:
         assert expected_emoji in context_text
 
     @pytest.mark.asyncio
-    async def test_unknown_agent_default_emoji(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_unknown_agent_default_emoji(self, slack_handler, blocks_module, monkeypatch):
         """Unknown agent gets the default speech_balloon emoji."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -720,9 +686,7 @@ class TestPostAgentResponse:
         assert ":speech_balloon:" in context_text
 
     @pytest.mark.asyncio
-    async def test_agent_name_case_insensitive(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_agent_name_case_insensitive(self, slack_handler, blocks_module, monkeypatch):
         """Agent name matching is case-insensitive."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -739,9 +703,7 @@ class TestPostAgentResponse:
         assert ":robot_face:" in context_text
 
     @pytest.mark.asyncio
-    async def test_response_truncation_long(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_response_truncation_long(self, slack_handler, blocks_module, monkeypatch):
         """Responses longer than 2800 chars are truncated with '...'."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -761,9 +723,7 @@ class TestPostAgentResponse:
         assert section_text.endswith("...")
 
     @pytest.mark.asyncio
-    async def test_response_not_truncated_short(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_response_not_truncated_short(self, slack_handler, blocks_module, monkeypatch):
         """Responses under 2800 chars are not truncated."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -783,9 +743,7 @@ class TestPostAgentResponse:
         assert not section_text.endswith("...")
 
     @pytest.mark.asyncio
-    async def test_response_exactly_2800(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_response_exactly_2800(self, slack_handler, blocks_module, monkeypatch):
         """Responses of exactly 2800 chars are not truncated."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -804,9 +762,7 @@ class TestPostAgentResponse:
         assert section_text == response
 
     @pytest.mark.asyncio
-    async def test_response_exactly_2801(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_response_exactly_2801(self, slack_handler, blocks_module, monkeypatch):
         """Responses of exactly 2801 chars are truncated."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -826,9 +782,7 @@ class TestPostAgentResponse:
         assert section_text.endswith("...")
 
     @pytest.mark.asyncio
-    async def test_blocks_structure(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_blocks_structure(self, slack_handler, blocks_module, monkeypatch):
         """Blocks contain context, section, and divider in order."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -848,9 +802,7 @@ class TestPostAgentResponse:
         assert blocks[2]["type"] == "divider"
 
     @pytest.mark.asyncio
-    async def test_text_field(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_text_field(self, slack_handler, blocks_module, monkeypatch):
         """Fallback text field contains agent and round info."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -866,9 +818,7 @@ class TestPostAgentResponse:
         assert payload["text"] == "claude (Round 3)"
 
     @pytest.mark.asyncio
-    async def test_response_url_payload_structure(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_response_url_payload_structure(self, slack_handler, blocks_module, monkeypatch):
         """Response URL payload has correct in_channel structure."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -885,9 +835,7 @@ class TestPostAgentResponse:
         assert payload["replace_original"] is False
 
     @pytest.mark.asyncio
-    async def test_web_api_passes_thread_ts(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_web_api_passes_thread_ts(self, slack_handler, blocks_module, monkeypatch):
         """Web API call passes thread_ts."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", "xoxb-token")
         slack_handler._post_message_async = AsyncMock()
@@ -906,9 +854,7 @@ class TestPostAgentResponse:
         assert call_kwargs["channel"] == "C123"
 
     @pytest.mark.asyncio
-    async def test_context_block_agent_and_round(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_context_block_agent_and_round(self, slack_handler, blocks_module, monkeypatch):
         """Context block shows agent name and round number."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -937,18 +883,14 @@ class TestBuildResultBlocks:
     def test_consensus_reached(self, slack_handler):
         """Consensus reached uses check mark emoji."""
         result = _make_debate_result(consensus_reached=True)
-        blocks = slack_handler._build_result_blocks(
-            topic="Topic", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="Topic", result=result, user_id="U1")
         header = blocks[1]
         assert ":white_check_mark:" in header["text"]["text"]
 
     def test_no_consensus(self, slack_handler):
         """No consensus uses warning emoji."""
         result = _make_debate_result(consensus_reached=False)
-        blocks = slack_handler._build_result_blocks(
-            topic="Topic", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="Topic", result=result, user_id="U1")
         header = blocks[1]
         assert ":warning:" in header["text"]["text"]
 
@@ -957,12 +899,8 @@ class TestBuildResultBlocks:
         result_yes = _make_debate_result(consensus_reached=True)
         result_no = _make_debate_result(consensus_reached=False)
 
-        blocks_yes = slack_handler._build_result_blocks(
-            topic="T", result=result_yes, user_id="U1"
-        )
-        blocks_no = slack_handler._build_result_blocks(
-            topic="T", result=result_no, user_id="U1"
-        )
+        blocks_yes = slack_handler._build_result_blocks(topic="T", result=result_yes, user_id="U1")
+        blocks_no = slack_handler._build_result_blocks(topic="T", result=result_no, user_id="U1")
 
         fields_yes = blocks_yes[2]["fields"]
         fields_no = blocks_no[2]["fields"]
@@ -980,14 +918,10 @@ class TestBuildResultBlocks:
             (1.0, 5),
         ],
     )
-    def test_confidence_visualization(
-        self, slack_handler, confidence, expected_filled
-    ):
+    def test_confidence_visualization(self, slack_handler, confidence, expected_filled):
         """Confidence bar maps correctly to filled circles."""
         result = _make_debate_result(confidence=confidence)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         confidence_field = blocks[2]["fields"][1]["text"]
         assert confidence_field.count(":large_blue_circle:") == expected_filled
         assert confidence_field.count(":white_circle:") == 5 - expected_filled
@@ -995,40 +929,28 @@ class TestBuildResultBlocks:
     def test_confidence_percentage_display(self, slack_handler):
         """Confidence percentage is displayed."""
         result = _make_debate_result(confidence=0.75)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         confidence_field = blocks[2]["fields"][1]["text"]
         assert "75%" in confidence_field
 
     def test_rounds_used_field(self, slack_handler):
         """Rounds field shows correct number."""
         result = _make_debate_result(rounds_used=7)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         rounds_field = blocks[2]["fields"][2]["text"]
         assert "7" in rounds_field
 
     def test_participants_up_to_four(self, slack_handler):
         """Shows up to 4 participant names."""
-        result = _make_debate_result(
-            participants=["a", "b", "c", "d"]
-        )
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        result = _make_debate_result(participants=["a", "b", "c", "d"])
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         participants_field = blocks[2]["fields"][3]["text"]
         assert "a, b, c, d" in participants_field
 
     def test_participants_more_than_four(self, slack_handler):
         """Shows 4 names and +N for extras."""
-        result = _make_debate_result(
-            participants=["a", "b", "c", "d", "e", "f"]
-        )
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        result = _make_debate_result(participants=["a", "b", "c", "d", "e", "f"])
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         participants_field = blocks[2]["fields"][3]["text"]
         assert "a, b, c, d" in participants_field
         assert "+2" in participants_field
@@ -1036,9 +958,7 @@ class TestBuildResultBlocks:
     def test_participants_fewer_than_four(self, slack_handler):
         """Fewer than 4 participants shown without +N."""
         result = _make_debate_result(participants=["claude", "gpt"])
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         participants_field = blocks[2]["fields"][3]["text"]
         assert "claude, gpt" in participants_field
         assert "+" not in participants_field
@@ -1046,15 +966,12 @@ class TestBuildResultBlocks:
     def test_winner_present(self, slack_handler):
         """Winner block added when result has a winner."""
         result = _make_debate_result(winner="claude")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         # Find the winner block
         winner_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and ":trophy:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and ":trophy:" in b.get("text", {}).get("text", "")
         ]
         assert len(winner_blocks) == 1
         assert "claude" in winner_blocks[0]["text"]["text"]
@@ -1062,28 +979,22 @@ class TestBuildResultBlocks:
     def test_no_winner(self, slack_handler):
         """No winner block when winner is None."""
         result = _make_debate_result(winner=None)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         winner_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and ":trophy:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and ":trophy:" in b.get("text", {}).get("text", "")
         ]
         assert len(winner_blocks) == 0
 
     def test_final_answer_displayed(self, slack_handler):
         """Final answer appears in result blocks."""
         result = _make_debate_result(final_answer="Use Kubernetes for orchestration.")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         assert len(answer_blocks) == 1
         assert "Use Kubernetes" in answer_blocks[0]["text"]["text"]
@@ -1092,14 +1003,11 @@ class TestBuildResultBlocks:
         """Long final answers are truncated at 500 characters."""
         long_answer = "Z" * 600
         result = _make_debate_result(final_answer=long_answer)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         answer_text = answer_blocks[0]["text"]["text"]
         # The answer part: "*Answer:*\n" + truncated content
@@ -1110,37 +1018,29 @@ class TestBuildResultBlocks:
     def test_no_final_answer(self, slack_handler):
         """None final_answer shows 'No conclusion reached'."""
         result = _make_debate_result(final_answer=None)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         assert "No conclusion reached" in answer_blocks[0]["text"]["text"]
 
     def test_empty_final_answer(self, slack_handler):
         """Empty string final_answer shows 'No conclusion reached'."""
         result = _make_debate_result(final_answer="")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         assert "No conclusion reached" in answer_blocks[0]["text"]["text"]
 
     def test_action_buttons_agree_disagree_details(self, slack_handler):
         """Actions block has Agree, Disagree, Details buttons."""
         result = _make_debate_result(debate_id="d-42")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         actions_blocks = [b for b in blocks if b.get("type") == "actions"]
         assert len(actions_blocks) == 1
         elements = actions_blocks[0]["elements"]
@@ -1154,9 +1054,7 @@ class TestBuildResultBlocks:
     def test_agree_button_action_id(self, slack_handler):
         """Agree button has correct action_id pattern."""
         result = _make_debate_result(debate_id="d-42")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         actions = [b for b in blocks if b.get("type") == "actions"][0]
         agree_btn = [e for e in actions["elements"] if e["text"]["text"] == "Agree"][0]
         assert agree_btn["action_id"] == "vote_d-42_agree"
@@ -1166,13 +1064,9 @@ class TestBuildResultBlocks:
     def test_disagree_button_action_id(self, slack_handler):
         """Disagree button has correct action_id pattern."""
         result = _make_debate_result(debate_id="d-42")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         actions = [b for b in blocks if b.get("type") == "actions"][0]
-        disagree_btn = [
-            e for e in actions["elements"] if e["text"]["text"] == "Disagree"
-        ][0]
+        disagree_btn = [e for e in actions["elements"] if e["text"]["text"] == "Disagree"][0]
         assert disagree_btn["action_id"] == "vote_d-42_disagree"
         assert disagree_btn["value"] == "d-42"
         assert "style" not in disagree_btn  # No style for disagree
@@ -1180,13 +1074,9 @@ class TestBuildResultBlocks:
     def test_details_button_action_id(self, slack_handler):
         """Details button has view_details action_id."""
         result = _make_debate_result(debate_id="d-42")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         actions = [b for b in blocks if b.get("type") == "actions"][0]
-        details_btn = [
-            e for e in actions["elements"] if e["text"]["text"] == "Details"
-        ][0]
+        details_btn = [e for e in actions["elements"] if e["text"]["text"] == "Details"][0]
         assert details_btn["action_id"] == "view_details"
         assert details_btn["value"] == "d-42"
 
@@ -1218,9 +1108,7 @@ class TestBuildResultBlocks:
     def test_context_block_at_end(self, slack_handler):
         """Context block with debate ID and user is last block."""
         result = _make_debate_result(debate_id="d-99")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U42"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U42")
         last_block = blocks[-1]
         assert last_block["type"] == "context"
         text = last_block["elements"][0]["text"]
@@ -1230,26 +1118,20 @@ class TestBuildResultBlocks:
     def test_divider_at_start(self, slack_handler):
         """First block is a divider."""
         result = _make_debate_result()
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         assert blocks[0]["type"] == "divider"
 
     def test_header_debate_complete(self, slack_handler):
         """Header says 'Debate Complete'."""
         result = _make_debate_result()
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         header = blocks[1]
         assert "Debate Complete" in header["text"]["text"]
 
     def test_fields_section_structure(self, slack_handler):
         """Fields section has exactly 4 fields."""
         result = _make_debate_result()
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         fields_section = blocks[2]
         assert fields_section["type"] == "section"
         assert len(fields_section["fields"]) == 4
@@ -1257,25 +1139,19 @@ class TestBuildResultBlocks:
     def test_total_block_count_without_winner(self, slack_handler):
         """Without winner: divider, header, fields, answer, actions, context = 6."""
         result = _make_debate_result(winner=None)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         assert len(blocks) == 6
 
     def test_total_block_count_with_winner(self, slack_handler):
         """With winner: divider, header, fields, winner, answer, actions, context = 7."""
         result = _make_debate_result(winner="claude")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         assert len(blocks) == 7
 
     def test_confidence_zero(self, slack_handler):
         """Zero confidence = 0 filled circles, 5 empty."""
         result = _make_debate_result(confidence=0.0)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         conf_field = blocks[2]["fields"][1]["text"]
         assert conf_field.count(":large_blue_circle:") == 0
         assert conf_field.count(":white_circle:") == 5
@@ -1283,9 +1159,7 @@ class TestBuildResultBlocks:
     def test_confidence_full(self, slack_handler):
         """Full confidence = 5 filled circles, 0 empty."""
         result = _make_debate_result(confidence=1.0)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         conf_field = blocks[2]["fields"][1]["text"]
         assert conf_field.count(":large_blue_circle:") == 5
         assert conf_field.count(":white_circle:") == 0
@@ -1293,9 +1167,7 @@ class TestBuildResultBlocks:
     def test_single_participant(self, slack_handler):
         """Single participant shown without +N."""
         result = _make_debate_result(participants=["solo"])
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         pf = blocks[2]["fields"][3]["text"]
         assert "solo" in pf
         assert "+" not in pf
@@ -1303,37 +1175,29 @@ class TestBuildResultBlocks:
     def test_empty_participants_list(self, slack_handler):
         """Empty participants list doesn't crash."""
         result = _make_debate_result(participants=[])
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         pf = blocks[2]["fields"][3]["text"]
         assert "*Participants:*" in pf
 
     def test_special_chars_in_answer(self, slack_handler):
         """Special characters in answer are preserved."""
         result = _make_debate_result(final_answer="<b>bold</b> & 'quotes' \"double\"")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         assert "<b>bold</b>" in answer_blocks[0]["text"]["text"]
 
     def test_winner_with_special_chars(self, slack_handler):
         """Winner name with special characters is preserved."""
         result = _make_debate_result(winner="<script>alert(1)</script>")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         winner_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and ":trophy:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and ":trophy:" in b.get("text", {}).get("text", "")
         ]
         assert "<script>" in winner_blocks[0]["text"]["text"]
 
@@ -1375,9 +1239,7 @@ class TestBlocksIntegration:
         assert len(result_blocks) == 7  # With winner
 
     @pytest.mark.asyncio
-    async def test_post_round_then_agent_response(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_post_round_then_agent_response(self, slack_handler, blocks_module, monkeypatch):
         """Can post a round update then agent response in sequence."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -1399,9 +1261,7 @@ class TestBlocksIntegration:
         assert slack_handler._post_to_response_url.await_count == 2
 
     @pytest.mark.asyncio
-    async def test_multiple_round_updates(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_multiple_round_updates(self, slack_handler, blocks_module, monkeypatch):
         """Multiple round updates with increasing round numbers."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -1427,9 +1287,7 @@ class TestBlocksIntegration:
     def test_result_blocks_all_fields_mrkdwn(self, slack_handler):
         """All field blocks use mrkdwn type."""
         result = _make_debate_result()
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         fields = blocks[2]["fields"]
         for field in fields:
             assert field["type"] == "mrkdwn"
@@ -1437,9 +1295,7 @@ class TestBlocksIntegration:
     def test_result_blocks_five_exactly_participants(self, slack_handler):
         """5 participants: show 4 + '+1'."""
         result = _make_debate_result(participants=["a", "b", "c", "d", "e"])
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         pf = blocks[2]["fields"][3]["text"]
         assert "a, b, c, d" in pf
         assert "+1" in pf
@@ -1447,9 +1303,7 @@ class TestBlocksIntegration:
     def test_confidence_percentage_format(self, slack_handler):
         """Confidence shown as whole percentage."""
         result = _make_debate_result(confidence=0.333)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         conf_field = blocks[2]["fields"][1]["text"]
         # 0.333 formatted as 33%
         assert "33%" in conf_field
@@ -1457,18 +1311,14 @@ class TestBlocksIntegration:
     def test_confidence_100_percent(self, slack_handler):
         """100% confidence shows correctly."""
         result = _make_debate_result(confidence=1.0)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         conf_field = blocks[2]["fields"][1]["text"]
         assert "100%" in conf_field
 
     def test_confidence_0_percent(self, slack_handler):
         """0% confidence shows correctly."""
         result = _make_debate_result(confidence=0.0)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         conf_field = blocks[2]["fields"][1]["text"]
         assert "0%" in conf_field
 
@@ -1484,11 +1334,11 @@ class TestEdgeCasesAndSecurity:
     def test_unicode_in_topic(self, slack_handler):
         """Unicode characters in topic are preserved."""
         blocks = slack_handler._build_starting_blocks(
-            topic="Should we use emojis? \U0001F914\U0001F4A1",
+            topic="Should we use emojis? \U0001f914\U0001f4a1",
             user_id="U1",
             debate_id="d-1",
         )
-        assert "\U0001F914" in blocks[1]["text"]["text"]
+        assert "\U0001f914" in blocks[1]["text"]["text"]
 
     def test_newlines_in_topic(self, slack_handler):
         """Newlines in topic are preserved."""
@@ -1511,22 +1361,16 @@ class TestEdgeCasesAndSecurity:
 
     def test_empty_topic(self, slack_handler):
         """Empty topic string does not crash."""
-        blocks = slack_handler._build_starting_blocks(
-            topic="", user_id="U1", debate_id="d-1"
-        )
+        blocks = slack_handler._build_starting_blocks(topic="", user_id="U1", debate_id="d-1")
         assert blocks[1]["text"]["text"] == "*Topic:* "
 
     def test_empty_debate_id(self, slack_handler):
         """Empty debate_id does not crash."""
-        blocks = slack_handler._build_starting_blocks(
-            topic="t", user_id="U1", debate_id=""
-        )
+        blocks = slack_handler._build_starting_blocks(topic="t", user_id="U1", debate_id="")
         assert "``" in blocks[2]["elements"][0]["text"]
 
     @pytest.mark.asyncio
-    async def test_empty_response_text(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_empty_response_text(self, slack_handler, blocks_module, monkeypatch):
         """Empty response text does not crash agent response."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()
@@ -1544,14 +1388,11 @@ class TestEdgeCasesAndSecurity:
     def test_winner_empty_string(self, slack_handler):
         """Empty string winner is falsy, so no winner block."""
         result = _make_debate_result(winner="")
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         winner_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and ":trophy:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and ":trophy:" in b.get("text", {}).get("text", "")
         ]
         assert len(winner_blocks) == 0
 
@@ -1592,14 +1433,11 @@ class TestEdgeCasesAndSecurity:
         """Answer of exactly 500 chars is NOT truncated."""
         answer = "X" * 500
         result = _make_debate_result(final_answer=answer)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         answer_text = answer_blocks[0]["text"]["text"]
         assert "X" * 500 in answer_text
@@ -1608,14 +1446,11 @@ class TestEdgeCasesAndSecurity:
         """Answer of 501 chars IS truncated."""
         answer = "Y" * 501
         result = _make_debate_result(final_answer=answer)
-        blocks = slack_handler._build_result_blocks(
-            topic="T", result=result, user_id="U1"
-        )
+        blocks = slack_handler._build_result_blocks(topic="T", result=result, user_id="U1")
         answer_blocks = [
             b
             for b in blocks
-            if b.get("type") == "section"
-            and "Answer:" in b.get("text", {}).get("text", "")
+            if b.get("type") == "section" and "Answer:" in b.get("text", {}).get("text", "")
         ]
         answer_text = answer_blocks[0]["text"]["text"]
         # Only first 500 Y's in the answer portion
@@ -1623,9 +1458,7 @@ class TestEdgeCasesAndSecurity:
         assert "Y" * 501 not in answer_text
 
     @pytest.mark.asyncio
-    async def test_round_update_single_round(
-        self, slack_handler, blocks_module, monkeypatch
-    ):
+    async def test_round_update_single_round(self, slack_handler, blocks_module, monkeypatch):
         """Single round debate (1/1) works correctly."""
         monkeypatch.setattr(blocks_module, "SLACK_BOT_TOKEN", None)
         slack_handler._post_to_response_url = AsyncMock()

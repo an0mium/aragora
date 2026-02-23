@@ -596,7 +596,9 @@ class OneDriveConnector(EnterpriseConnector):
                     redirect_count += 1
                     if redirect_count > MAX_REDIRECTS:
                         logger.warning(
-                            "SSRF protection: Too many redirects (%s) for file %s", redirect_count, file_id
+                            "SSRF protection: Too many redirects (%s) for file %s",
+                            redirect_count,
+                            file_id,
                         )
                         raise ConnectorAPIError(
                             "Too many redirects during download",
@@ -616,7 +618,10 @@ class OneDriveConnector(EnterpriseConnector):
                     is_safe, reason = _is_safe_redirect_url(redirect_url)
                     if not is_safe:
                         logger.warning(
-                            "SSRF protection: Blocked redirect to %s for file %s: %s", redirect_url, file_id, reason
+                            "SSRF protection: Blocked redirect to %s for file %s: %s",
+                            redirect_url,
+                            file_id,
+                            reason,
                         )
                         raise ConnectorAPIError(
                             f"Blocked unsafe redirect: {reason}",

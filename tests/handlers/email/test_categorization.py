@@ -118,12 +118,15 @@ class TestGetCategorizer:
         """get_categorizer lazily creates an EmailCategorizer."""
         cat_module._categorizer = None
         mock_cls = MagicMock()
-        with patch(
-            "aragora.server.handlers.email.categorization.get_gmail_connector",
-            return_value=MagicMock(),
-        ), patch(
-            "aragora.services.email_categorizer.EmailCategorizer",
-            mock_cls,
+        with (
+            patch(
+                "aragora.server.handlers.email.categorization.get_gmail_connector",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.services.email_categorizer.EmailCategorizer",
+                mock_cls,
+            ),
         ):
             result = get_categorizer()
         assert result is not None
@@ -146,12 +149,15 @@ class TestGetCategorizer:
             call_count += 1
             return created_instance
 
-        with patch(
-            "aragora.server.handlers.email.categorization.get_gmail_connector",
-            return_value=MagicMock(),
-        ), patch(
-            "aragora.services.email_categorizer.EmailCategorizer",
-            side_effect=fake_init,
+        with (
+            patch(
+                "aragora.server.handlers.email.categorization.get_gmail_connector",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.services.email_categorizer.EmailCategorizer",
+                side_effect=fake_init,
+            ),
         ):
             threads = [threading.Thread(target=get_categorizer) for _ in range(10)]
             for t in threads:
@@ -287,9 +293,7 @@ class TestHandleCategorizeEmail:
         mock_result = _make_mock_result()
         patch_categorizer.categorize_email.return_value = mock_result
 
-        result = await handle_categorize_email(
-            _make_email_data(), user_id="user-42"
-        )
+        result = await handle_categorize_email(_make_email_data(), user_id="user-42")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -298,9 +302,7 @@ class TestHandleCategorizeEmail:
         mock_result = _make_mock_result()
         patch_categorizer.categorize_email.return_value = mock_result
 
-        result = await handle_categorize_email(
-            _make_email_data(), workspace_id="ws-99"
-        )
+        result = await handle_categorize_email(_make_email_data(), workspace_id="ws-99")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -427,7 +429,9 @@ class TestHandleCategorizeBatch:
         await handle_categorize_batch([_make_email_data()])
 
         call_kwargs = patch_categorizer.categorize_batch.call_args
-        assert call_kwargs.kwargs.get("concurrency") == 10 or call_kwargs[1].get("concurrency") == 10
+        assert (
+            call_kwargs.kwargs.get("concurrency") == 10 or call_kwargs[1].get("concurrency") == 10
+        )
 
     @pytest.mark.asyncio
     async def test_batch_empty_emails_list(self, patch_categorizer):
@@ -519,9 +523,7 @@ class TestHandleCategorizeBatch:
         patch_categorizer.categorize_batch.return_value = []
         patch_categorizer.get_category_stats.return_value = {}
 
-        result = await handle_categorize_batch(
-            [_make_email_data()], user_id="user-batch"
-        )
+        result = await handle_categorize_batch([_make_email_data()], user_id="user-batch")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -769,9 +771,7 @@ class TestHandleFeedbackBatch:
             "aragora.server.handlers.email.categorization.get_prioritizer",
             side_effect=RuntimeError("init failed"),
         ):
-            result = await handle_feedback_batch(
-                [{"email_id": "msg_1", "action": "archived"}]
-            )
+            result = await handle_feedback_batch([{"email_id": "msg_1", "action": "archived"}])
             assert result["success"] is False
             assert result["error"] == "Internal server error"
 
@@ -920,16 +920,17 @@ class TestHandleApplyCategoryLabel:
         mock_auth = MagicMock()
         patch_categorizer.apply_gmail_label.return_value = True
 
-        with patch(
-            "aragora.server.handlers.email.categorization._check_email_permission",
-            return_value=None,
-        ) as mock_check, patch(
-            "aragora.services.email_categorizer.EmailCategory",
-            side_effect=lambda v: MagicMock(value=v),
+        with (
+            patch(
+                "aragora.server.handlers.email.categorization._check_email_permission",
+                return_value=None,
+            ) as mock_check,
+            patch(
+                "aragora.services.email_categorizer.EmailCategory",
+                side_effect=lambda v: MagicMock(value=v),
+            ),
         ):
-            await handle_apply_category_label(
-                "msg_001", "invoices", auth_context=mock_auth
-            )
+            await handle_apply_category_label("msg_001", "invoices", auth_context=mock_auth)
             mock_check.assert_called_once_with(mock_auth, PERM_EMAIL_UPDATE)
 
     @pytest.mark.asyncio
@@ -954,11 +955,14 @@ class TestHandleApplyCategoryLabel:
         """When auth_context is _AUTH_CONTEXT_UNSET, permission check is skipped."""
         patch_categorizer.apply_gmail_label.return_value = True
 
-        with patch(
-            "aragora.server.handlers.email.categorization._check_email_permission",
-        ) as mock_check, patch(
-            "aragora.services.email_categorizer.EmailCategory",
-            side_effect=lambda v: MagicMock(value=v),
+        with (
+            patch(
+                "aragora.server.handlers.email.categorization._check_email_permission",
+            ) as mock_check,
+            patch(
+                "aragora.services.email_categorizer.EmailCategory",
+                side_effect=lambda v: MagicMock(value=v),
+            ),
         ):
             await handle_apply_category_label(
                 "msg_001", "invoices", auth_context=_AUTH_CONTEXT_UNSET
@@ -1096,9 +1100,7 @@ class TestSecurityConcerns:
             "aragora.services.email_categorizer.EmailCategory",
             side_effect=ValueError("invalid category"),
         ):
-            result = await handle_apply_category_label(
-                "msg_001", "invoices'; DROP TABLE --"
-            )
+            result = await handle_apply_category_label("msg_001", "invoices'; DROP TABLE --")
         assert result["success"] is False
         assert "Invalid category" in result["error"]
 
@@ -1157,9 +1159,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_feedback_large_batch(self, patch_prioritizer):
         """Large feedback batch processes correctly."""
-        items = [
-            {"email_id": f"msg_{i}", "action": "archived"} for i in range(50)
-        ]
+        items = [{"email_id": f"msg_{i}", "action": "archived"} for i in range(50)]
         result = await handle_feedback_batch(items)
 
         assert result["recorded"] == 50

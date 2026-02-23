@@ -32,6 +32,7 @@ from aragora.server.handlers.readiness_check import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def parse_body(result: Any) -> dict[str, Any]:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
@@ -40,6 +41,7 @@ def parse_body(result: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def handler() -> ReadinessCheckHandler:
@@ -75,6 +77,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
 # Route Matching
 # ============================================================================
 
+
 class TestCanHandle:
     """Tests for route matching."""
 
@@ -97,6 +100,7 @@ class TestCanHandle:
 # ============================================================================
 # Full Endpoint Response
 # ============================================================================
+
 
 class TestEndpointResponse:
     """Tests for the full GET /api/v1/readiness response."""
@@ -188,6 +192,7 @@ class TestEndpointResponse:
 # ready_to_debate Logic
 # ============================================================================
 
+
 class TestReadyToDebate:
     """Tests for the ready_to_debate flag."""
 
@@ -271,6 +276,7 @@ class TestReadyToDebate:
 # Missing Keys Reporting
 # ============================================================================
 
+
 class TestMissingKeys:
     """Tests for missing_required and missing_optional lists."""
 
@@ -347,6 +353,7 @@ class TestMissingKeys:
 # Provider Details
 # ============================================================================
 
+
 class TestProviderDetails:
     """Tests for individual provider info in the response."""
 
@@ -382,6 +389,7 @@ class TestProviderDetails:
 # ============================================================================
 # Storage Detection
 # ============================================================================
+
 
 class TestStorageDetection:
     """Tests for _detect_storage."""
@@ -436,6 +444,7 @@ class TestStorageDetection:
 # Feature Detection
 # ============================================================================
 
+
 class TestFeatureDetection:
     """Tests for _detect_features."""
 
@@ -478,6 +487,7 @@ class TestFeatureDetection:
 # Handler Construction
 # ============================================================================
 
+
 class TestHandlerConstruction:
     """Tests for handler initialization."""
 
@@ -499,6 +509,7 @@ class TestHandlerConstruction:
 # ============================================================================
 # Lazy Import Registration
 # ============================================================================
+
 
 class TestRegistration:
     """Tests that the handler is properly registered in the module system."""

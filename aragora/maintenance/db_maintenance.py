@@ -269,7 +269,10 @@ class DatabaseMaintenance:
                                 conn.commit()
                                 results[f"{db_name}:{table_name}"] = deleted
                                 logger.info(
-                                    "[maintenance] Cleaned %s old records from %s:%s", deleted, db_name, table_name
+                                    "[maintenance] Cleaned %s old records from %s:%s",
+                                    deleted,
+                                    db_name,
+                                    table_name,
                                 )
                             break
                         except sqlite3.OperationalError:

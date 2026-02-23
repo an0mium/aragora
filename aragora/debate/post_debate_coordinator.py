@@ -174,9 +174,7 @@ class PostDebateCoordinator:
 
         # Step 5: Build decision integrity package
         if self.config.auto_build_integrity_package:
-            result.integrity_package = self._step_build_integrity_package(
-                debate_id, debate_result
-            )
+            result.integrity_package = self._step_build_integrity_package(debate_id, debate_result)
 
         # Step 6: Persist receipt to Knowledge Mound (the flywheel)
         if self.config.auto_persist_receipt:
@@ -185,7 +183,10 @@ class PostDebateCoordinator:
             )
 
         # Step 7: Queue improvement suggestion
-        if self.config.auto_queue_improvement and confidence >= self.config.improvement_min_confidence:
+        if (
+            self.config.auto_queue_improvement
+            and confidence >= self.config.improvement_min_confidence
+        ):
             result.improvement_queued = self._step_queue_improvement(
                 debate_id, debate_result, task, confidence
             )
@@ -200,22 +201,30 @@ class PostDebateCoordinator:
 
         # Step 8.5: Canvas pipeline — auto-trigger idea-to-execution visualization
         if self.config.auto_trigger_canvas and confidence >= self.config.canvas_min_confidence:
-            result.canvas_result = self._step_trigger_canvas(
-                debate_id, debate_result, task
-            )
+            result.canvas_result = self._step_trigger_canvas(debate_id, debate_result, task)
             if result.canvas_result:
                 result.pipeline_id = result.canvas_result.get("pipeline_id")
 
         # Step 8.7: LLM-as-Judge — evaluate agent contributions
         if self.config.auto_llm_judge:
             result.llm_judge_scores = self._step_llm_judge(
-                debate_id, debate_result, task, agents,
+                debate_id,
+                debate_result,
+                task,
+                agents,
             )
 
         # Step 8: Execution bridge — auto-trigger downstream actions
-        if self.config.auto_execution_bridge and confidence >= self.config.execution_bridge_min_confidence:
+        if (
+            self.config.auto_execution_bridge
+            and confidence >= self.config.execution_bridge_min_confidence
+        ):
             bridge_results = self._step_execution_bridge(
-                debate_id, debate_result, task, confidence, agents,
+                debate_id,
+                debate_result,
+                task,
+                confidence,
+                agents,
             )
             result.bridge_results = bridge_results
 
@@ -357,7 +366,15 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("PlanExecutor not available")
             return None
-        except (ValueError, TypeError, AttributeError, RuntimeError, OSError, ConnectionError, KeyError) as e:
+        except (
+            ValueError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ConnectionError,
+            KeyError,
+        ) as e:
             logger.warning("Plan execution failed: %s", e)
             return None
 
@@ -402,7 +419,11 @@ class PostDebateCoordinator:
                 dr = DebateResult(
                     debate_id=debate_id,
                     task=str(getattr(debate_result, "task", "")),
-                    final_answer=str(getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))),
+                    final_answer=str(
+                        getattr(
+                            debate_result, "final_answer", getattr(debate_result, "consensus", "")
+                        )
+                    ),
                     confidence=float(getattr(debate_result, "confidence", 0.0)),
                     consensus_reached=bool(getattr(debate_result, "consensus", None)),
                     participants=[
@@ -424,7 +445,6 @@ class PostDebateCoordinator:
         except (ValueError, TypeError, AttributeError, RuntimeError, KeyError) as e:
             logger.warning("Integrity package generation failed: %s", e)
             return None
-
 
     def _step_persist_receipt(
         self,
@@ -458,8 +478,7 @@ class PostDebateCoordinator:
                     )
                 ),
                 "participants": [
-                    str(a)
-                    for a in (getattr(debate_result, "participants", []) or [])
+                    str(a) for a in (getattr(debate_result, "participants", []) or [])
                 ],
             }
 
@@ -486,13 +505,19 @@ class PostDebateCoordinator:
 
             runner = GauntletRunner()
             verdict = runner.run(
-                claim=str(getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))),
+                claim=str(
+                    getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))
+                ),
                 context=task,
                 categories=["logic", "assumptions"],
                 attacks_per_category=2,
             )
 
-            logger.info("Gauntlet validation completed for %s: %s", debate_id, verdict.get("verdict", "unknown"))
+            logger.info(
+                "Gauntlet validation completed for %s: %s",
+                debate_id,
+                verdict.get("verdict", "unknown"),
+            )
             return {
                 "debate_id": debate_id,
                 "verdict": verdict,
@@ -555,7 +580,9 @@ class PostDebateCoordinator:
             verification_result = asyncio.run(verifier.verify(graph))
 
             logger.info(
-                "Argument verification completed for %s: soundness=%s", debate_id, verification_result.soundness_score
+                "Argument verification completed for %s: soundness=%s",
+                debate_id,
+                verification_result.soundness_score,
             )
             return {
                 "debate_id": debate_id,
@@ -625,9 +652,7 @@ class PostDebateCoordinator:
             from aragora.debate.execution_bridge import create_default_bridge
 
             bridge = create_default_bridge()
-            agent_names = [
-                getattr(a, "name", str(a)) for a in (agents or [])
-            ]
+            agent_names = [getattr(a, "name", str(a)) for a in (agents or [])]
             domain = "general"
             if hasattr(debate_result, "domain"):
                 domain = debate_result.domain
@@ -672,7 +697,7 @@ class PostDebateCoordinator:
             adapter = ERC8004Adapter()
             pushed = 0
 
-            for agent in (agents or []):
+            for agent in agents or []:
                 agent_name = getattr(agent, "name", str(agent))
                 calibration_tracker = getattr(agent, "calibration_tracker", None)
                 if calibration_tracker is None:
@@ -683,7 +708,9 @@ class PostDebateCoordinator:
                 if hasattr(calibration_tracker, "get_calibration"):
                     cal_data = calibration_tracker.get_calibration(agent_name)
                 elif hasattr(calibration_tracker, "get_calibration_score"):
-                    cal_data = {"brier_score": calibration_tracker.get_calibration_score(agent_name)}
+                    cal_data = {
+                        "brier_score": calibration_tracker.get_calibration_score(agent_name)
+                    }
 
                 if not cal_data:
                     continue
@@ -824,7 +851,8 @@ class PostDebateCoordinator:
                 "debate_id": debate_id,
                 "pipeline_id": pipeline_id,
                 "stages_completed": [
-                    k for k, v in getattr(pipeline_result, "stage_status", {}).items()
+                    k
+                    for k, v in getattr(pipeline_result, "stage_status", {}).items()
                     if v == "complete"
                 ],
             }
@@ -945,14 +973,16 @@ class PostDebateCoordinator:
                     node_type = "consensus"
 
             node_id = f"debate-msg-{i}"
-            nodes.append({
-                "id": node_id,
-                "type": node_type,
-                "summary": content[:100] if content else "",
-                "content": content or "",
-                "agent": agent,
-                "round": round_num,
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "type": node_type,
+                    "summary": content[:100] if content else "",
+                    "content": content or "",
+                    "agent": agent,
+                    "round": round_num,
+                }
+            )
 
         # Extract from consensus/final decision
         consensus = getattr(debate_result, "consensus", None)
@@ -962,20 +992,24 @@ class PostDebateCoordinator:
                 or getattr(consensus, "summary", None)
                 or str(consensus)
             )
-            nodes.append({
-                "id": "debate-consensus",
-                "type": "consensus",
-                "summary": consensus_text[:100],
-                "content": consensus_text,
-            })
+            nodes.append(
+                {
+                    "id": "debate-consensus",
+                    "type": "consensus",
+                    "summary": consensus_text[:100],
+                    "content": consensus_text,
+                }
+            )
 
         # Build edges: sequential message flow
         for i in range(1, len(nodes)):
-            edges.append({
-                "source_id": nodes[i - 1]["id"],
-                "target_id": nodes[i]["id"],
-                "relation": "responds_to",
-            })
+            edges.append(
+                {
+                    "source_id": nodes[i - 1]["id"],
+                    "target_id": nodes[i]["id"],
+                    "relation": "responds_to",
+                }
+            )
 
         return {"nodes": nodes, "edges": edges}
 

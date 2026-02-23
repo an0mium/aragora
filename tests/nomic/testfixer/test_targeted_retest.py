@@ -107,7 +107,9 @@ class TestPatternLearnerInFixLoop:
         proposal = _make_proposal(confidence=0.9)
         test_result = _make_test_result(success=True)
 
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = test_result
@@ -127,7 +129,9 @@ class TestPatternLearnerInFixLoop:
         proposal = _make_proposal(confidence=0.9)
         test_result = _make_test_result(success=True)
 
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = test_result
@@ -146,7 +150,9 @@ class TestPatternLearnerInFixLoop:
         original_approach = analysis.suggested_approach
         proposal = _make_proposal(confidence=0.9)
 
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = _make_test_result(success=True)
@@ -165,7 +171,9 @@ class TestPatternLearnerInFixLoop:
         analysis = _make_analysis()
         proposal = _make_proposal(confidence=0.9)
 
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = _make_test_result(success=True)
@@ -185,7 +193,9 @@ class TestTargetedRetest:
         analysis = _make_analysis()
         proposal = _make_proposal(confidence=0.9)
 
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = _make_test_result(success=True)
@@ -203,7 +213,9 @@ class TestTargetedRetest:
         proposal = _make_proposal(confidence=0.9)
 
         targeted_fail = _make_test_result(success=False, first_failure=failure)
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = targeted_fail
@@ -222,7 +234,9 @@ class TestTargetedRetest:
         analysis = _make_analysis()
         proposal = _make_proposal(confidence=0.9)
 
-        orchestrator.runner.run.return_value = _make_test_result(success=False, first_failure=failure)
+        orchestrator.runner.run.return_value = _make_test_result(
+            success=False, first_failure=failure
+        )
         orchestrator.analyzer.analyze.return_value = analysis
         orchestrator.proposer.propose_fix.return_value = proposal
         orchestrator.runner.run_single_test.return_value = _make_test_result(success=True)

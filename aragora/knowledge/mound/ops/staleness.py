@@ -139,7 +139,8 @@ class StalenessOperationsMixin(_StalenessOperationsMixinBase):
             except ImportError:
                 # Control plane not available, just log
                 logger.warning(
-                    "Control plane not available, revalidation for %s marked but not queued", node_id
+                    "Control plane not available, revalidation for %s marked but not queued",
+                    node_id,
                 )
                 task_ids.append(f"pending_{node_id}")
 

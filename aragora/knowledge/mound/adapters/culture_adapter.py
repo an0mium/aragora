@@ -507,7 +507,10 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 stored_count += 1
 
         logger.info(
-            "Synced %s/%s culture patterns to KM for workspace %s", stored_count, len(patterns), workspace_id
+            "Synced %s/%s culture patterns to KM for workspace %s",
+            stored_count,
+            len(patterns),
+            workspace_id,
         )
         return stored_count
 

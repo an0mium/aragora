@@ -385,7 +385,9 @@ class EmailNotificationChannel(NotificationChannel):
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._send_email_sync, alert, rule)
             logger.info(
-                "Email notification sent for alert %s to %s recipients", alert.rule_name, len(self.recipients)
+                "Email notification sent for alert %s to %s recipients",
+                alert.rule_name,
+                len(self.recipients),
             )
             return True
         except (OSError, smtplib.SMTPException, ConnectionError) as e:
@@ -805,7 +807,10 @@ class AlertManager:
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
         logger.info(
-            "Alert monitoring started (interval: %ss, rules: %s, channels: %s)", self.check_interval, len(self._rules), len(self._channels)
+            "Alert monitoring started (interval: %ss, rules: %s, channels: %s)",
+            self.check_interval,
+            len(self._rules),
+            len(self._channels),
         )
 
     async def stop_monitoring(self) -> None:
@@ -1013,7 +1018,10 @@ class AlertManager:
 
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 logger.error(
-                    "Failed to send notification via %s for alert %s: %s", channel_name, rule.name, e
+                    "Failed to send notification via %s for alert %s: %s",
+                    channel_name,
+                    rule.name,
+                    e,
                 )
 
 
@@ -1276,7 +1284,9 @@ def init_alerting(
             _global_manager.add_rule(rule)
 
     logger.info(
-        "Alerting initialized: rules=%s, channels=%s", len(_global_manager.get_rules()), list(_global_manager._channels.keys())
+        "Alerting initialized: rules=%s, channels=%s",
+        len(_global_manager.get_rules()),
+        list(_global_manager._channels.keys()),
     )
 
     return _global_manager

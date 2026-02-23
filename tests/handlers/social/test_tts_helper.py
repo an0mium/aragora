@@ -405,7 +405,9 @@ class TestSynthesizeResponse:
         )
 
     @pytest.mark.asyncio
-    async def test_truncates_long_text(self, helper, enable_tts, mock_bridge, audio_file, monkeypatch):
+    async def test_truncates_long_text(
+        self, helper, enable_tts, mock_bridge, audio_file, monkeypatch
+    ):
         """Text longer than TTS_MAX_TEXT_LENGTH is truncated with ellipsis."""
         monkeypatch.setattr(tts_mod, "TTS_MAX_TEXT_LENGTH", 50)
         mock_bridge.synthesize.return_value = audio_file
@@ -424,7 +426,9 @@ class TestSynthesizeResponse:
         assert result.text_length == 50
 
     @pytest.mark.asyncio
-    async def test_text_exactly_at_limit_not_truncated(self, helper, enable_tts, mock_bridge, audio_file, monkeypatch):
+    async def test_text_exactly_at_limit_not_truncated(
+        self, helper, enable_tts, mock_bridge, audio_file, monkeypatch
+    ):
         """Text exactly at TTS_MAX_TEXT_LENGTH is not truncated."""
         monkeypatch.setattr(tts_mod, "TTS_MAX_TEXT_LENGTH", 20)
         mock_bridge.synthesize.return_value = audio_file
@@ -440,7 +444,9 @@ class TestSynthesizeResponse:
         assert not actual_text.endswith("...")
 
     @pytest.mark.asyncio
-    async def test_returns_none_when_bridge_returns_none_path(self, helper, enable_tts, mock_bridge):
+    async def test_returns_none_when_bridge_returns_none_path(
+        self, helper, enable_tts, mock_bridge
+    ):
         """Returns None when bridge returns None audio path."""
         mock_bridge.synthesize.return_value = None
         helper._available = True
@@ -450,7 +456,9 @@ class TestSynthesizeResponse:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_returns_none_when_bridge_returns_empty_string(self, helper, enable_tts, mock_bridge):
+    async def test_returns_none_when_bridge_returns_empty_string(
+        self, helper, enable_tts, mock_bridge
+    ):
         """Returns None when bridge returns empty string audio path."""
         mock_bridge.synthesize.return_value = ""
         helper._available = True
@@ -483,7 +491,9 @@ class TestSynthesizeResponse:
         assert not Path(audio_file).exists()
 
     @pytest.mark.asyncio
-    async def test_handles_unlink_failure_gracefully(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_handles_unlink_failure_gracefully(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Continues even if temp file cleanup fails."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -571,7 +581,9 @@ class TestSynthesizeResponse:
         assert result.duration_seconds == pytest.approx(2.0)
 
     @pytest.mark.asyncio
-    async def test_uses_default_voice_when_none(self, helper, enable_tts, mock_bridge, audio_file, monkeypatch):
+    async def test_uses_default_voice_when_none(
+        self, helper, enable_tts, mock_bridge, audio_file, monkeypatch
+    ):
         """Uses TTS_DEFAULT_VOICE when voice parameter is None."""
         monkeypatch.setattr(tts_mod, "TTS_DEFAULT_VOICE", "custom_narrator")
         mock_bridge.synthesize.return_value = audio_file
@@ -641,7 +653,9 @@ class TestSynthesizeDebateResult:
         assert call_args.kwargs["voice"] == "narrator"
 
     @pytest.mark.asyncio
-    async def test_consensus_reached_without_answer(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_consensus_reached_without_answer(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Builds summary when consensus is reached but no final answer."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -754,8 +768,11 @@ class TestSynthesizeDebateResult:
     async def test_returns_none_when_not_available(self, helper, disable_tts):
         """Returns None when TTS is not available."""
         result = await helper.synthesize_debate_result(
-            task="Test", final_answer="Answer",
-            consensus_reached=True, confidence=0.9, rounds_used=1,
+            task="Test",
+            final_answer="Answer",
+            consensus_reached=True,
+            confidence=0.9,
+            rounds_used=1,
         )
         assert result is None
 
@@ -767,8 +784,11 @@ class TestSynthesizeDebateResult:
         helper._bridge = mock_bridge
 
         await helper.synthesize_debate_result(
-            task="Test", final_answer=None,
-            consensus_reached=False, confidence=0.0, rounds_used=10,
+            task="Test",
+            final_answer=None,
+            consensus_reached=False,
+            confidence=0.0,
+            rounds_used=10,
         )
 
         call_args = mock_bridge.synthesize.call_args
@@ -783,8 +803,11 @@ class TestSynthesizeDebateResult:
         helper._bridge = mock_bridge
 
         await helper.synthesize_debate_result(
-            task="Test", final_answer="Yes",
-            consensus_reached=True, confidence=1.0, rounds_used=1,
+            task="Test",
+            final_answer="Yes",
+            consensus_reached=True,
+            confidence=1.0,
+            rounds_used=1,
         )
 
         call_args = mock_bridge.synthesize.call_args
@@ -801,7 +824,9 @@ class TestSynthesizeGauntletResult:
     """Tests for TTSHelper.synthesize_gauntlet_result."""
 
     @pytest.mark.asyncio
-    async def test_gauntlet_passed_no_vulnerabilities(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_gauntlet_passed_no_vulnerabilities(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Builds summary for a passed gauntlet with no vulnerabilities."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -825,7 +850,9 @@ class TestSynthesizeGauntletResult:
         assert call_args.kwargs["voice"] == "moderator"
 
     @pytest.mark.asyncio
-    async def test_gauntlet_failed_with_vulnerabilities(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_gauntlet_failed_with_vulnerabilities(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Builds summary for a failed gauntlet with vulnerabilities."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -846,7 +873,9 @@ class TestSynthesizeGauntletResult:
         assert "5 vulnerabilities were found" in text
 
     @pytest.mark.asyncio
-    async def test_gauntlet_passed_with_vulnerabilities(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_gauntlet_passed_with_vulnerabilities(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Builds summary for a passed gauntlet that still found vulnerabilities."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -889,7 +918,10 @@ class TestSynthesizeGauntletResult:
     async def test_returns_none_when_not_available(self, helper, disable_tts):
         """Returns None when TTS is not available."""
         result = await helper.synthesize_gauntlet_result(
-            statement="Test", passed=True, score=0.9, vulnerability_count=0,
+            statement="Test",
+            passed=True,
+            score=0.9,
+            vulnerability_count=0,
         )
         assert result is None
 
@@ -901,7 +933,10 @@ class TestSynthesizeGauntletResult:
         helper._bridge = mock_bridge
 
         await helper.synthesize_gauntlet_result(
-            statement="Bad statement", passed=False, score=0.0, vulnerability_count=10,
+            statement="Bad statement",
+            passed=False,
+            score=0.0,
+            vulnerability_count=10,
         )
 
         call_args = mock_bridge.synthesize.call_args
@@ -916,7 +951,10 @@ class TestSynthesizeGauntletResult:
         helper._bridge = mock_bridge
 
         await helper.synthesize_gauntlet_result(
-            statement="Perfect", passed=True, score=1.0, vulnerability_count=0,
+            statement="Perfect",
+            passed=True,
+            score=1.0,
+            vulnerability_count=0,
         )
 
         call_args = mock_bridge.synthesize.call_args
@@ -931,7 +969,10 @@ class TestSynthesizeGauntletResult:
         helper._bridge = mock_bridge
 
         await helper.synthesize_gauntlet_result(
-            statement="Test", passed=False, score=0.5, vulnerability_count=1,
+            statement="Test",
+            passed=False,
+            score=0.5,
+            vulnerability_count=1,
         )
 
         call_args = mock_bridge.synthesize.call_args
@@ -1058,7 +1099,9 @@ class TestEdgeCases:
     """Edge cases and integration tests."""
 
     @pytest.mark.asyncio
-    async def test_synthesize_response_with_special_characters(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_synthesize_response_with_special_characters(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Handles text with special characters."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -1069,7 +1112,9 @@ class TestEdgeCases:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_synthesize_response_with_newlines(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_synthesize_response_with_newlines(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Handles text with newline characters."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -1081,7 +1126,9 @@ class TestEdgeCases:
         assert result.text_length == len(text)
 
     @pytest.mark.asyncio
-    async def test_synthesize_response_with_unicode(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_synthesize_response_with_unicode(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """Handles text with unicode characters."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -1099,8 +1146,11 @@ class TestEdgeCases:
         helper._bridge = mock_bridge
 
         await helper.synthesize_debate_result(
-            task="Quick debate", final_answer="Yes",
-            consensus_reached=True, confidence=0.99, rounds_used=1,
+            task="Quick debate",
+            final_answer="Yes",
+            consensus_reached=True,
+            confidence=0.99,
+            rounds_used=1,
         )
 
         call_args = mock_bridge.synthesize.call_args
@@ -1183,7 +1233,9 @@ class TestEdgeCases:
         assert result.duration_seconds == pytest.approx(1 / 16000)
 
     @pytest.mark.asyncio
-    async def test_text_one_char_over_limit_gets_truncated(self, helper, enable_tts, mock_bridge, audio_file, monkeypatch):
+    async def test_text_one_char_over_limit_gets_truncated(
+        self, helper, enable_tts, mock_bridge, audio_file, monkeypatch
+    ):
         """Text that is exactly one char over limit gets truncated."""
         monkeypatch.setattr(tts_mod, "TTS_MAX_TEXT_LENGTH", 10)
         mock_bridge.synthesize.return_value = audio_file
@@ -1199,7 +1251,9 @@ class TestEdgeCases:
         assert actual_text == "xxxxxxx..."
 
     @pytest.mark.asyncio
-    async def test_synthesize_response_ogg_format(self, helper, enable_tts, mock_bridge, audio_file):
+    async def test_synthesize_response_ogg_format(
+        self, helper, enable_tts, mock_bridge, audio_file
+    ):
         """ogg format is passed through correctly."""
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -1214,36 +1268,58 @@ class TestEdgeCases:
         """synthesize_debate_result calls synthesize_response internally."""
         helper._available = True
         mock_result = SynthesisResult(
-            audio_bytes=b"audio", format="mp3",
-            duration_seconds=1.0, voice="narrator", text_length=50,
+            audio_bytes=b"audio",
+            format="mp3",
+            duration_seconds=1.0,
+            voice="narrator",
+            text_length=50,
         )
-        with patch.object(helper, "synthesize_response", new_callable=AsyncMock, return_value=mock_result) as mock_synth:
+        with patch.object(
+            helper, "synthesize_response", new_callable=AsyncMock, return_value=mock_result
+        ) as mock_synth:
             result = await helper.synthesize_debate_result(
-                task="Test", final_answer="Answer",
-                consensus_reached=True, confidence=0.9, rounds_used=2,
+                task="Test",
+                final_answer="Answer",
+                consensus_reached=True,
+                confidence=0.9,
+                rounds_used=2,
             )
             assert result is mock_result
             mock_synth.assert_called_once()
             # Verify the voice is "narrator"
             call_kwargs = mock_synth.call_args
-            assert call_kwargs.kwargs.get("voice") == "narrator" or call_kwargs[1].get("voice") == "narrator"
+            assert (
+                call_kwargs.kwargs.get("voice") == "narrator"
+                or call_kwargs[1].get("voice") == "narrator"
+            )
 
     @pytest.mark.asyncio
     async def test_gauntlet_result_delegates_to_synthesize_response(self, helper, enable_tts):
         """synthesize_gauntlet_result calls synthesize_response internally."""
         helper._available = True
         mock_result = SynthesisResult(
-            audio_bytes=b"audio", format="mp3",
-            duration_seconds=1.0, voice="moderator", text_length=50,
+            audio_bytes=b"audio",
+            format="mp3",
+            duration_seconds=1.0,
+            voice="moderator",
+            text_length=50,
         )
-        with patch.object(helper, "synthesize_response", new_callable=AsyncMock, return_value=mock_result) as mock_synth:
+        with patch.object(
+            helper, "synthesize_response", new_callable=AsyncMock, return_value=mock_result
+        ) as mock_synth:
             result = await helper.synthesize_gauntlet_result(
-                statement="Test", passed=True, score=0.9, vulnerability_count=0,
+                statement="Test",
+                passed=True,
+                score=0.9,
+                vulnerability_count=0,
             )
             assert result is mock_result
             mock_synth.assert_called_once()
             call_kwargs = mock_synth.call_args
-            assert call_kwargs.kwargs.get("voice") == "moderator" or call_kwargs[1].get("voice") == "moderator"
+            assert (
+                call_kwargs.kwargs.get("voice") == "moderator"
+                or call_kwargs[1].get("voice") == "moderator"
+            )
 
 
 # ============================================================================
@@ -1262,6 +1338,7 @@ class TestLogging:
     async def test_logs_debug_when_not_available(self, helper, disable_tts, caplog):
         """Logs debug message when TTS not available for synthesis."""
         import logging
+
         with caplog.at_level(logging.DEBUG, logger="aragora.server.handlers.social.tts_helper"):
             result = await helper.synthesize_response("Hello")
             assert result is None
@@ -1271,6 +1348,7 @@ class TestLogging:
     async def test_logs_warning_when_no_audio_file(self, helper, enable_tts, mock_bridge, caplog):
         """Logs warning when synthesis returns no audio file."""
         import logging
+
         mock_bridge.synthesize.return_value = None
         helper._available = True
         helper._bridge = mock_bridge
@@ -1284,6 +1362,7 @@ class TestLogging:
     async def test_logs_error_on_synthesis_failure(self, helper, enable_tts, mock_bridge, caplog):
         """Logs error when synthesis raises an exception."""
         import logging
+
         mock_bridge.synthesize.side_effect = RuntimeError("boom")
         helper._available = True
         helper._bridge = mock_bridge
@@ -1294,9 +1373,12 @@ class TestLogging:
             assert "TTS synthesis failed" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_logs_info_on_successful_synthesis(self, helper, enable_tts, mock_bridge, audio_file, caplog):
+    async def test_logs_info_on_successful_synthesis(
+        self, helper, enable_tts, mock_bridge, audio_file, caplog
+    ):
         """Logs info message on successful synthesis."""
         import logging
+
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
         helper._bridge = mock_bridge
@@ -1307,9 +1389,12 @@ class TestLogging:
             assert "TTS synthesized" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_logs_debug_on_truncation(self, helper, enable_tts, mock_bridge, audio_file, monkeypatch, caplog):
+    async def test_logs_debug_on_truncation(
+        self, helper, enable_tts, mock_bridge, audio_file, monkeypatch, caplog
+    ):
         """Logs debug message when text is truncated."""
         import logging
+
         monkeypatch.setattr(tts_mod, "TTS_MAX_TEXT_LENGTH", 10)
         mock_bridge.synthesize.return_value = audio_file
         helper._available = True
@@ -1364,7 +1449,9 @@ class TestStateTransitions:
         assert helper._bridge is mock_bridge
 
     @pytest.mark.asyncio
-    async def test_fresh_helper_full_lifecycle(self, enable_tts, mock_bridge, mock_backend, audio_file):
+    async def test_fresh_helper_full_lifecycle(
+        self, enable_tts, mock_bridge, mock_backend, audio_file
+    ):
         """Full lifecycle: create helper, check availability, synthesize, verify result."""
         h = TTSHelper()
 
@@ -1380,7 +1467,9 @@ class TestStateTransitions:
         assert result.text_length == len("Full lifecycle test")
 
     @pytest.mark.asyncio
-    async def test_debate_then_gauntlet_sequentially(self, helper, enable_tts, mock_bridge, tmp_path):
+    async def test_debate_then_gauntlet_sequentially(
+        self, helper, enable_tts, mock_bridge, tmp_path
+    ):
         """Can run debate synthesis followed by gauntlet synthesis."""
         helper._available = True
         helper._bridge = mock_bridge
@@ -1390,8 +1479,11 @@ class TestStateTransitions:
         audio1.write_bytes(b"\x01" * 100)
         mock_bridge.synthesize.return_value = str(audio1)
         r1 = await helper.synthesize_debate_result(
-            task="Q", final_answer="A", consensus_reached=True,
-            confidence=0.9, rounds_used=2,
+            task="Q",
+            final_answer="A",
+            consensus_reached=True,
+            confidence=0.9,
+            rounds_used=2,
         )
         assert r1 is not None
 
@@ -1400,7 +1492,10 @@ class TestStateTransitions:
         audio2.write_bytes(b"\x02" * 200)
         mock_bridge.synthesize.return_value = str(audio2)
         r2 = await helper.synthesize_gauntlet_result(
-            statement="S", passed=True, score=0.8, vulnerability_count=0,
+            statement="S",
+            passed=True,
+            score=0.8,
+            vulnerability_count=0,
         )
         assert r2 is not None
         assert r2.audio_bytes != r1.audio_bytes

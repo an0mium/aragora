@@ -51,16 +51,19 @@ def _status(result: HandlerResult) -> int:
 
 class PaginatedHandler(PaginatedHandlerMixin):
     """Concrete class using PaginatedHandlerMixin."""
+
     pass
 
 
 class CachedHandler(CachedHandlerMixin):
     """Concrete class using CachedHandlerMixin."""
+
     pass
 
 
 class AuthHandler(AuthenticatedHandlerMixin):
     """Concrete class using AuthenticatedHandlerMixin (no BaseHandler)."""
+
     pass
 
 
@@ -96,6 +99,7 @@ def cached():
 def clear_handler_cache():
     """Clear the global handler cache before each test to avoid cross-test pollution."""
     from aragora.server.handlers.admin.cache import clear_cache
+
     clear_cache()
     yield
     clear_cache()
@@ -193,16 +197,12 @@ class TestGetPagination:
 
     def test_custom_default_and_max_limit(self, paginated):
         """Both default_limit and max_limit overridden."""
-        limit, offset = paginated.get_pagination(
-            {}, default_limit=30, max_limit=50
-        )
+        limit, offset = paginated.get_pagination({}, default_limit=30, max_limit=50)
         assert limit == 30
 
     def test_custom_max_limit_exceeded(self, paginated):
         """Explicit limit exceeding custom max_limit gets clamped."""
-        limit, offset = paginated.get_pagination(
-            {"limit": "80"}, max_limit=50
-        )
+        limit, offset = paginated.get_pagination({"limit": "80"}, max_limit=50)
         assert limit == 50
 
     def test_limit_exactly_at_max(self, paginated):
@@ -248,33 +248,25 @@ class TestPaginatedResponse:
 
     def test_has_more_true(self, paginated):
         """has_more is True when more items exist."""
-        result = paginated.paginated_response(
-            [1, 2, 3], total=10, limit=3, offset=0
-        )
+        result = paginated.paginated_response([1, 2, 3], total=10, limit=3, offset=0)
         body = _body(result)
         assert body["has_more"] is True
 
     def test_has_more_false_last_page(self, paginated):
         """has_more is False on last page."""
-        result = paginated.paginated_response(
-            [8, 9, 10], total=10, limit=3, offset=7
-        )
+        result = paginated.paginated_response([8, 9, 10], total=10, limit=3, offset=7)
         body = _body(result)
         assert body["has_more"] is False
 
     def test_has_more_false_exact_boundary(self, paginated):
         """has_more is False when offset + items == total."""
-        result = paginated.paginated_response(
-            [1, 2, 3, 4, 5], total=5, limit=5, offset=0
-        )
+        result = paginated.paginated_response([1, 2, 3, 4, 5], total=5, limit=5, offset=0)
         body = _body(result)
         assert body["has_more"] is False
 
     def test_has_more_with_offset(self, paginated):
         """has_more with offset correctly calculates remaining items."""
-        result = paginated.paginated_response(
-            [4, 5], total=10, limit=2, offset=3
-        )
+        result = paginated.paginated_response([4, 5], total=10, limit=2, offset=3)
         body = _body(result)
         # offset=3, len(items)=2, total=10: 3+2 < 10 -> True
         assert body["has_more"] is True
@@ -319,9 +311,7 @@ class TestPaginatedResponse:
 
     def test_single_item(self, paginated):
         """Single item response."""
-        result = paginated.paginated_response(
-            [{"id": "only"}], total=1, limit=20, offset=0
-        )
+        result = paginated.paginated_response([{"id": "only"}], total=1, limit=20, offset=0)
         body = _body(result)
         assert len(body["items"]) == 1
         assert body["total"] == 1
@@ -329,9 +319,7 @@ class TestPaginatedResponse:
 
     def test_large_total(self, paginated):
         """Large total with small page."""
-        result = paginated.paginated_response(
-            [1, 2], total=100000, limit=2, offset=0
-        )
+        result = paginated.paginated_response([1, 2], total=100000, limit=2, offset=0)
         body = _body(result)
         assert body["total"] == 100000
         assert body["has_more"] is True
@@ -458,6 +446,7 @@ class TestCachedResponse:
 
     def test_generator_exception_propagates(self, cached):
         """Generator exceptions propagate to caller."""
+
         def bad_generator():
             raise ValueError("generator failed")
 
@@ -502,6 +491,7 @@ class TestAsyncCachedResponse:
     @pytest.mark.asyncio
     async def test_async_cache_miss(self, cached):
         """Async cache miss calls generator and returns value."""
+
         async def generator():
             return {"async": "data"}
 
@@ -548,13 +538,12 @@ class TestAsyncCachedResponse:
     @pytest.mark.asyncio
     async def test_async_generator_exception(self, cached):
         """Async generator exceptions propagate."""
+
         async def bad_generator():
             raise RuntimeError("async fail")
 
         with pytest.raises(RuntimeError, match="async fail"):
-            await cached.async_cached_response(
-                "async_err", ttl_seconds=60, generator=bad_generator
-            )
+            await cached.async_cached_response("async_err", ttl_seconds=60, generator=bad_generator)
 
     @pytest.mark.asyncio
     async def test_async_none_cached(self, cached):
@@ -774,9 +763,7 @@ class TestCombinedMixins:
     def test_all_three_mixins(self, mock_http_handler):
         """A handler class can combine all three mixins."""
 
-        class FullHandler(
-            PaginatedHandlerMixin, CachedHandlerMixin, AuthenticatedHandlerMixin
-        ):
+        class FullHandler(PaginatedHandlerMixin, CachedHandlerMixin, AuthenticatedHandlerMixin):
             def require_auth_or_error(self, handler):
                 mock_user = MagicMock()
                 mock_user.user_id = "all-three"

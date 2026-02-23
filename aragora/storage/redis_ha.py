@@ -490,7 +490,9 @@ def _create_sentinel_client(config: RedisHAConfig) -> Any:
     # Verify connection
     master.ping()
     logger.info(
-        "Connected to Redis via Sentinel (master=%s, sentinels=%s)", config.sentinel_master, len(sentinel_hosts)
+        "Connected to Redis via Sentinel (master=%s, sentinels=%s)",
+        config.sentinel_master,
+        len(sentinel_hosts),
     )
 
     return master
@@ -571,12 +573,16 @@ async def get_async_redis_client(config: RedisHAConfig | None = None) -> Any | N
         return None
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(
-            "Failed to create async Redis client (%s mode) - connection error: %s", config.mode.value, e
+            "Failed to create async Redis client (%s mode) - connection error: %s",
+            config.mode.value,
+            e,
         )
         return None
     except ValueError as e:
         logger.error(
-            "Failed to create async Redis client (%s mode) - invalid config: %s", config.mode.value, e
+            "Failed to create async Redis client (%s mode) - invalid config: %s",
+            config.mode.value,
+            e,
         )
         return None
 
@@ -686,7 +692,9 @@ async def _create_async_sentinel_client(config: RedisHAConfig) -> Any:
     # Verify connection
     await master.ping()
     logger.info(
-        "Connected to async Redis via Sentinel (master=%s, sentinels=%s)", config.sentinel_master, len(sentinel_hosts)
+        "Connected to async Redis via Sentinel (master=%s, sentinels=%s)",
+        config.sentinel_master,
+        len(sentinel_hosts),
     )
 
     return master

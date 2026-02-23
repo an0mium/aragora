@@ -387,7 +387,11 @@ class QuickBooksConnector(QBOOperationsMixin):
                     if response.status_code in retryable_statuses and attempt < max_retries:
                         delay = base_delay * (2**attempt)
                         logger.warning(
-                            "QBO request failed (%s), retrying in %ss (attempt %s/%s)", response.status_code, delay, attempt + 1, max_retries
+                            "QBO request failed (%s), retrying in %ss (attempt %s/%s)",
+                            response.status_code,
+                            delay,
+                            attempt + 1,
+                            max_retries,
                         )
                         await asyncio.sleep(delay)
                         continue
@@ -416,7 +420,11 @@ class QuickBooksConnector(QBOOperationsMixin):
                 if attempt < max_retries:
                     delay = base_delay * (2**attempt)
                     logger.warning(
-                        "QBO connection error: %s, retrying in %ss (attempt %s/%s)", e, delay, attempt + 1, max_retries
+                        "QBO connection error: %s, retrying in %ss (attempt %s/%s)",
+                        e,
+                        delay,
+                        attempt + 1,
+                        max_retries,
                     )
                     await asyncio.sleep(delay)
                     continue
@@ -433,7 +441,10 @@ class QuickBooksConnector(QBOOperationsMixin):
                 if attempt < max_retries:
                     delay = base_delay * (2**attempt)
                     logger.warning(
-                        "QBO request timeout, retrying in %ss (attempt %s/%s)", delay, attempt + 1, max_retries
+                        "QBO request timeout, retrying in %ss (attempt %s/%s)",
+                        delay,
+                        attempt + 1,
+                        max_retries,
                     )
                     await asyncio.sleep(delay)
                     continue

@@ -85,9 +85,7 @@ class MockHTTPHandler:
             self.headers = {"Content-Length": "2"}
 
 
-def _make_handler(
-    body: dict[str, Any] | None = None, method: str = "GET"
-) -> MockHTTPHandler:
+def _make_handler(body: dict[str, Any] | None = None, method: str = "GET") -> MockHTTPHandler:
     """Create a MockHTTPHandler with optional body and method."""
     h = MockHTTPHandler(body=body)
     h.command = method
@@ -109,9 +107,7 @@ def handler():
     h._backend.download_file = AsyncMock(return_value=b"file content")
     h._backend.delete_file = AsyncMock(return_value=True)
     h._backend.file_exists = AsyncMock(return_value=True)
-    h._backend.get_presigned_url = AsyncMock(
-        return_value="https://presigned.example.com/file"
-    )
+    h._backend.get_presigned_url = AsyncMock(return_value="https://presigned.example.com/file")
     h._backend.list_files = AsyncMock(return_value=([], None))
     return h
 
@@ -428,9 +424,7 @@ class TestListFiles:
         fm2 = _add_sample_file(handler, "file_2")
         fm2.path = "docs/readme.txt"
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files", {"prefix": "images/"}, h
-        )
+        result = await handler.handle("/api/v2/storage/files", {"prefix": "images/"}, h)
         body = _body(result)
         assert len(body["files"]) == 1
 
@@ -448,9 +442,7 @@ class TestListFiles:
         for i in range(5):
             _add_sample_file(handler, f"file_{i}")
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files", {"limit": "2"}, h
-        )
+        result = await handler.handle("/api/v2/storage/files", {"limit": "2"}, h)
         body = _body(result)
         assert len(body["files"]) == 2
         assert body["pagination"]["total"] == 5
@@ -461,9 +453,7 @@ class TestListFiles:
         for i in range(5):
             _add_sample_file(handler, f"file_{i}")
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files", {"offset": "3", "limit": "10"}, h
-        )
+        result = await handler.handle("/api/v2/storage/files", {"offset": "3", "limit": "10"}, h)
         body = _body(result)
         assert len(body["files"]) == 2
 
@@ -535,9 +525,7 @@ class TestDownloadFile:
     async def test_download_success(self, handler):
         _add_sample_file(handler, "file_dl")
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/file_dl/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/file_dl/download", {}, h)
         assert _status(result) == 200
         assert result.content_type == "text/plain"
         assert result.body == b"file content"
@@ -546,18 +534,14 @@ class TestDownloadFile:
     @pytest.mark.asyncio
     async def test_download_nonexistent(self, handler):
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/nonexistent/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/nonexistent/download", {}, h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_download_unavailable_status(self, handler):
         _add_sample_file(handler, "file_pending", status=FileStatus.PENDING)
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/file_pending/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/file_pending/download", {}, h)
         assert _status(result) == 400
         assert "not available" in _body(result).get("error", "").lower()
 
@@ -565,9 +549,7 @@ class TestDownloadFile:
     async def test_download_deleted_file(self, handler):
         _add_sample_file(handler, "file_del", status=FileStatus.DELETED)
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/file_del/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/file_del/download", {}, h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -575,9 +557,7 @@ class TestDownloadFile:
         _add_sample_file(handler, "file_miss")
         handler._backend.download_file.side_effect = FileNotFoundError("gone")
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/file_miss/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/file_miss/download", {}, h)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -586,9 +566,7 @@ class TestDownloadFile:
         _add_sample_file(handler, "file_err")
         handler._backend.download_file.side_effect = OSError("disk failure")
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/file_err/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/file_err/download", {}, h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -596,9 +574,7 @@ class TestDownloadFile:
         _add_sample_file(handler, "file_cl")
         handler._backend.download_file.return_value = b"12345"
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/files/file_cl/download", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/files/file_cl/download", {}, h)
         assert result.headers["Content-Length"] == "5"
 
 
@@ -670,9 +646,7 @@ class TestUploadFile:
     @pytest.mark.asyncio
     async def test_upload_file_too_large(self, handler):
         # Create data larger than MAX_FILE_SIZE_BYTES
-        with patch(
-            "aragora.server.handlers.cloud_storage.MAX_FILE_SIZE_BYTES", 10
-        ):
+        with patch("aragora.server.handlers.cloud_storage.MAX_FILE_SIZE_BYTES", 10):
             body = {
                 "filename": "big.txt",
                 "content": _sample_b64_content(b"x" * 100),
@@ -781,9 +755,7 @@ class TestDeleteFile:
     async def test_delete_success(self, handler):
         _add_sample_file(handler, "file_del")
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/files/file_del", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/files/file_del", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["deleted"] is True
@@ -793,17 +765,13 @@ class TestDeleteFile:
     async def test_delete_marks_as_deleted(self, handler):
         _add_sample_file(handler, "file_del")
         h = _make_handler(method="DELETE")
-        await handler.handle_delete(
-            "/api/v2/storage/files/file_del", {}, h
-        )
+        await handler.handle_delete("/api/v2/storage/files/file_del", {}, h)
         assert handler._files["file_del"].status == FileStatus.DELETED
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent(self, handler):
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/files/nonexistent", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/files/nonexistent", {}, h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -811,18 +779,14 @@ class TestDeleteFile:
         _add_sample_file(handler, "file_berr")
         handler._backend.delete_file.side_effect = OSError("backend down")
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/files/file_berr", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/files/file_berr", {}, h)
         assert _status(result) == 200
         assert handler._files["file_berr"].status == FileStatus.DELETED
 
     @pytest.mark.asyncio
     async def test_delete_invalid_path(self, handler):
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/files", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/files", {}, h)
         # Path doesn't match /api/v2/storage/files/* (no file_id), returns None
         assert result is None
 
@@ -840,9 +804,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_ps")
         body = {"expires_in_seconds": 600, "method": "GET"}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_ps/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_ps/presign", {}, h)
         assert _status(result) == 200
         data = _body(result)
         assert data["file_id"] == "file_ps"
@@ -854,9 +816,7 @@ class TestPresignedUrl:
     async def test_presign_default_values(self, handler):
         _add_sample_file(handler, "file_ps2")
         h = _make_handler(body={}, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_ps2/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_ps2/presign", {}, h)
         assert _status(result) == 200
         data = _body(result)
         assert data["expires_in_seconds"] == 3600
@@ -867,9 +827,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_ps3")
         body = {"method": "PUT"}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_ps3/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_ps3/presign", {}, h)
         assert _status(result) == 200
         data = _body(result)
         assert data["method"] == "PUT"
@@ -877,9 +835,7 @@ class TestPresignedUrl:
     @pytest.mark.asyncio
     async def test_presign_nonexistent_file(self, handler):
         h = _make_handler(body={}, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/nonexistent/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/nonexistent/presign", {}, h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -887,9 +843,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_short")
         body = {"expires_in_seconds": 30}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_short/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_short/presign", {}, h)
         assert _status(result) == 400
         assert "between" in _body(result).get("error", "").lower()
 
@@ -898,9 +852,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_long")
         body = {"expires_in_seconds": 100000}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_long/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_long/presign", {}, h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -908,9 +860,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_badm")
         body = {"method": "DELETE"}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_badm/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_badm/presign", {}, h)
         assert _status(result) == 400
         assert "must be GET or PUT" in _body(result).get("error", "")
 
@@ -919,9 +869,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_pserr")
         handler._backend.get_presigned_url.side_effect = OSError("fail")
         h = _make_handler(body={}, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_pserr/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_pserr/presign", {}, h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -929,9 +877,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_b60")
         body = {"expires_in_seconds": 60}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_b60/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_b60/presign", {}, h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -939,9 +885,7 @@ class TestPresignedUrl:
         _add_sample_file(handler, "file_b86400")
         body = {"expires_in_seconds": 86400}
         h = _make_handler(body=body, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_b86400/presign", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_b86400/presign", {}, h)
         assert _status(result) == 200
 
 
@@ -1034,9 +978,7 @@ class TestGetBucket:
     @pytest.mark.asyncio
     async def test_get_default_bucket(self, handler):
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/buckets/default", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/buckets/default", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "default"
@@ -1046,9 +988,7 @@ class TestGetBucket:
     async def test_get_custom_bucket(self, handler):
         _add_sample_bucket(handler, "b123", "my-bucket")
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/buckets/b123", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/buckets/b123", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "my-bucket"
@@ -1056,9 +996,7 @@ class TestGetBucket:
     @pytest.mark.asyncio
     async def test_get_nonexistent_bucket(self, handler):
         h = _make_handler()
-        result = await handler.handle(
-            "/api/v2/storage/buckets/nonexistent", {}, h
-        )
+        result = await handler.handle("/api/v2/storage/buckets/nonexistent", {}, h)
         assert _status(result) == 404
 
 
@@ -1188,9 +1126,7 @@ class TestDeleteBucket:
     async def test_delete_success(self, handler):
         _add_sample_bucket(handler, "b_del", "deletable")
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/buckets/b_del", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/buckets/b_del", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["deleted"] is True
@@ -1199,18 +1135,14 @@ class TestDeleteBucket:
     @pytest.mark.asyncio
     async def test_delete_default_bucket_forbidden(self, handler):
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/buckets/default", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/buckets/default", {}, h)
         assert _status(result) == 400
         assert "default" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_bucket(self, handler):
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/buckets/nonexistent", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/buckets/nonexistent", {}, h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1219,9 +1151,7 @@ class TestDeleteBucket:
         # Add a file in this bucket
         fm = _add_sample_file(handler, "file_in_bucket", bucket="full-bucket")
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/buckets/b_full", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/buckets/b_full", {}, h)
         assert _status(result) == 400
         assert "files" in _body(result).get("error", "").lower()
 
@@ -1230,18 +1160,14 @@ class TestDeleteBucket:
         _add_sample_bucket(handler, "b_delf", "del-bucket")
         _add_sample_file(handler, "file_df", bucket="del-bucket", status=FileStatus.DELETED)
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/buckets/b_delf", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/buckets/b_delf", {}, h)
         # Deleted files don't count
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_delete_bucket_invalid_path(self, handler):
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/buckets", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/buckets", {}, h)
         assert result is None
 
 
@@ -1281,9 +1207,7 @@ class TestCircuitBreakerIntegration:
         for _ in range(cb.failure_threshold + 1):
             cb.record_failure()
         h = _make_handler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/v2/storage/files/file_cb", {}, h
-        )
+        result = await handler.handle_delete("/api/v2/storage/files/file_cb", {}, h)
         assert _status(result) == 503
 
     def test_circuit_breaker_caches(self, handler):
@@ -1353,9 +1277,7 @@ class TestHandleErrorPaths:
         """POST to /api/v2/storage/files/:id without /presign should return None."""
         _add_sample_file(handler, "file_nop")
         h = _make_handler(body={}, method="POST")
-        result = await handler.handle_post(
-            "/api/v2/storage/files/file_nop", {}, h
-        )
+        result = await handler.handle_post("/api/v2/storage/files/file_nop", {}, h)
         assert result is None
 
 
@@ -1399,10 +1321,18 @@ class TestDataclasses:
     def test_file_metadata_no_tenant_no_expires(self):
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
         fm = FileMetadata(
-            id="f1", filename="a.txt", original_filename="a.txt",
-            content_type="text/plain", size_bytes=0, checksum="sha256:x",
-            bucket="b", path="p", status=FileStatus.PENDING,
-            created_at=now, updated_at=now, owner_id="u",
+            id="f1",
+            filename="a.txt",
+            original_filename="a.txt",
+            content_type="text/plain",
+            size_bytes=0,
+            checksum="sha256:x",
+            bucket="b",
+            path="p",
+            status=FileStatus.PENDING,
+            created_at=now,
+            updated_at=now,
+            owner_id="u",
         )
         d = fm.to_dict()
         assert d["tenant_id"] is None
@@ -1449,7 +1379,9 @@ class TestDataclasses:
 
     def test_storage_quota_zero_total(self):
         sq = StorageQuota(
-            total_bytes=0, used_bytes=0, file_count=0,
+            total_bytes=0,
+            used_bytes=0,
+            file_count=0,
             max_file_size_bytes=100,
         )
         assert sq.usage_percent == 0.0
@@ -1457,7 +1389,9 @@ class TestDataclasses:
 
     def test_storage_quota_full(self):
         sq = StorageQuota(
-            total_bytes=100, used_bytes=100, file_count=5,
+            total_bytes=100,
+            used_bytes=100,
+            file_count=5,
             max_file_size_bytes=50,
         )
         assert sq.usage_percent == 100.0
@@ -1465,7 +1399,9 @@ class TestDataclasses:
 
     def test_storage_quota_over_limit(self):
         sq = StorageQuota(
-            total_bytes=100, used_bytes=150, file_count=10,
+            total_bytes=100,
+            used_bytes=150,
+            file_count=10,
             max_file_size_bytes=50,
         )
         assert sq.available_bytes == 0  # max(0, negative)

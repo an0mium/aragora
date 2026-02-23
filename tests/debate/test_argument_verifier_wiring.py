@@ -130,9 +130,7 @@ class TestArgumentVerificationStep:
         coordinator = PostDebateCoordinator(config=config)
         mock_result = self._make_debate_result()
 
-        with patch.object(
-            coordinator, "_step_argument_verification"
-        ) as mock_step:
+        with patch.object(coordinator, "_step_argument_verification") as mock_step:
             result = coordinator.run("d1", mock_result, confidence=0.9, task="test")
 
         mock_step.assert_not_called()
@@ -143,9 +141,7 @@ class TestArgumentVerificationStep:
         coordinator = self._make_coordinator()
 
         with patch("builtins.__import__", side_effect=ImportError("no verifier")):
-            result = coordinator._step_argument_verification(
-                "d1", MagicMock(), "test task"
-            )
+            result = coordinator._step_argument_verification("d1", MagicMock(), "test task")
 
         assert result is None
 
@@ -153,7 +149,9 @@ class TestArgumentVerificationStep:
         """Simulate import failure for argument_verifier specifically."""
         coordinator = self._make_coordinator()
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def selective_import(name, *args, **kwargs):
             if "argument_verifier" in name:
@@ -190,13 +188,13 @@ class TestArgumentVerificationStep:
         )
         mock_result = self._make_debate_result()
 
-        with patch.object(
-            coordinator, "_step_explain", return_value={"explanation": "test"}
-        ) as mock_explain, patch.object(
-            coordinator, "_step_argument_verification", return_value=None
-        ), patch.object(
-            coordinator, "_step_persist_receipt", return_value=True
-        ) as mock_receipt:
+        with (
+            patch.object(
+                coordinator, "_step_explain", return_value={"explanation": "test"}
+            ) as mock_explain,
+            patch.object(coordinator, "_step_argument_verification", return_value=None),
+            patch.object(coordinator, "_step_persist_receipt", return_value=True) as mock_receipt,
+        ):
             result = coordinator.run("d1", mock_result, confidence=0.9, task="test")
 
         mock_explain.assert_called_once()
@@ -216,15 +214,14 @@ class TestArgumentVerificationStep:
         mock_graph_instance.nodes = {}
         mock_graph_cls.return_value = mock_graph_instance
 
-        with patch(
-            "aragora.verification.argument_verifier.ArgumentStructureVerifier"
-        ), patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            mock_graph_cls,
+        with (
+            patch("aragora.verification.argument_verifier.ArgumentStructureVerifier"),
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                mock_graph_cls,
+            ),
         ):
-            result = coordinator._step_argument_verification(
-                "d1", mock_result, "test task"
-            )
+            result = coordinator._step_argument_verification("d1", mock_result, "test task")
 
         assert result is None
 
@@ -243,19 +240,21 @@ class TestArgumentVerificationStep:
         mock_verifier.verify.side_effect = RuntimeError("verification engine broken")
         mock_verifier_cls.return_value = mock_verifier
 
-        with patch(
-            "aragora.verification.argument_verifier.ArgumentStructureVerifier",
-            mock_verifier_cls,
-        ), patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            mock_graph_cls,
-        ), patch(
-            "asyncio.run",
-            side_effect=RuntimeError("verification engine broken"),
+        with (
+            patch(
+                "aragora.verification.argument_verifier.ArgumentStructureVerifier",
+                mock_verifier_cls,
+            ),
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                mock_graph_cls,
+            ),
+            patch(
+                "asyncio.run",
+                side_effect=RuntimeError("verification engine broken"),
+            ),
         ):
-            result = coordinator._step_argument_verification(
-                "d1", mock_result, "test task"
-            )
+            result = coordinator._step_argument_verification("d1", mock_result, "test task")
 
         assert result is None
 
@@ -285,15 +284,19 @@ class TestArgumentVerificationStep:
         mock_verifier = MagicMock()
         mock_verifier_cls.return_value = mock_verifier
 
-        with patch(
-            "aragora.verification.argument_verifier.ArgumentStructureVerifier",
-            mock_verifier_cls,
-        ), patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            mock_graph_cls,
-        ), patch(
-            "asyncio.run",
-            return_value=mock_verification_result,
+        with (
+            patch(
+                "aragora.verification.argument_verifier.ArgumentStructureVerifier",
+                mock_verifier_cls,
+            ),
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                mock_graph_cls,
+            ),
+            patch(
+                "asyncio.run",
+                return_value=mock_verification_result,
+            ),
         ):
             result = coordinator._step_argument_verification(
                 "d1", mock_result, "Decide on architecture"
@@ -330,10 +333,12 @@ class TestArgumentVerificationStep:
             call_order.append("notify")
             return False
 
-        with patch.object(coordinator, "_step_gauntlet_validate", side_effect=track_gauntlet), \
-             patch.object(coordinator, "_step_argument_verification", side_effect=track_verify), \
-             patch.object(coordinator, "_step_notify", side_effect=track_notify), \
-             patch.object(coordinator, "_step_execution_bridge", return_value=[]):
+        with (
+            patch.object(coordinator, "_step_gauntlet_validate", side_effect=track_gauntlet),
+            patch.object(coordinator, "_step_argument_verification", side_effect=track_verify),
+            patch.object(coordinator, "_step_notify", side_effect=track_notify),
+            patch.object(coordinator, "_step_execution_bridge", return_value=[]),
+        ):
             coordinator.run("d1", mock_result, confidence=0.95, task="test")
 
         assert call_order == ["gauntlet", "argument_verification", "notify"]

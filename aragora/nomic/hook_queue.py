@@ -198,7 +198,10 @@ class HookQueue:
             [e for e in self._entries.values() if e.status == HookEntryStatus.QUEUED]
         )
         logger.info(
-            "HookQueue initialized for %s: %s entries, %s pending", self.agent_id, len(self._entries), pending_count
+            "HookQueue initialized for %s: %s entries, %s pending",
+            self.agent_id,
+            len(self._entries),
+            pending_count,
         )
 
     def _load_entries_sync(self) -> dict[str, HookEntry]:
@@ -399,7 +402,10 @@ class HookQueue:
                 entry.status = HookEntryStatus.QUEUED
                 await self._save_entries()
                 logger.info(
-                    "Bead %s failed (attempt %s/%s), will retry", bead_id, entry.attempt_count, entry.max_attempts
+                    "Bead %s failed (attempt %s/%s), will retry",
+                    bead_id,
+                    entry.attempt_count,
+                    entry.max_attempts,
                 )
                 return True
             else:

@@ -431,7 +431,7 @@ class MatrixIntegration:
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.info("Matrix connected as: %s", data.get('user_id'))
+                    logger.info("Matrix connected as: %s", data.get("user_id"))
                     return True
                 else:
                     logger.error("Matrix auth failed: %s", response.status)

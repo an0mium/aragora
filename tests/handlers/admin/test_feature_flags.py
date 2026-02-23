@@ -167,9 +167,7 @@ class MockFlagRegistry:
     def get_stats(self) -> MockRegistryStats:
         return MockRegistryStats(
             total_flags=len(self._flags),
-            active_flags=sum(
-                1 for f in self._flags.values() if f.status == MockFlagStatus.ACTIVE
-            ),
+            active_flags=sum(1 for f in self._flags.values() if f.status == MockFlagStatus.ACTIVE),
             deprecated_flags=sum(
                 1 for f in self._flags.values() if f.status == MockFlagStatus.DEPRECATED
             ),
@@ -635,25 +633,19 @@ class TestGetSingleFlag:
 
     def test_get_nonexistent_flag(self, handler, mock_http, mock_registry):
         with _patch_flags_available(mock_registry):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/nonexistent_flag", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/nonexistent_flag", {}, mock_http)
         assert _status(result) == 404
         assert "not found" in _body(result)["error"].lower()
 
     def test_get_flag_without_version_prefix(self, handler, mock_http, mock_registry):
         with _patch_flags_available(mock_registry):
-            result = handler.handle(
-                "/api/admin/feature-flags/enable_checkpointing", {}, mock_http
-            )
+            result = handler.handle("/api/admin/feature-flags/enable_checkpointing", {}, mock_http)
         assert _status(result) == 200
         assert _body(result)["name"] == "enable_checkpointing"
 
     def test_get_int_flag(self, handler, mock_http, mock_registry):
         with _patch_flags_available(mock_registry):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/max_agent_retries", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/max_agent_retries", {}, mock_http)
         body = _body(result)
         assert body["type"] == "int"
         assert body["default"] == 3
@@ -661,9 +653,7 @@ class TestGetSingleFlag:
 
     def test_get_flag_int_flag_with_usage(self, handler, mock_http, mock_registry):
         with _patch_flags_available(mock_registry):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/max_agent_retries", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/max_agent_retries", {}, mock_http)
         body = _body(result)
         assert body["usage"]["access_count"] == 5
         assert "runner.py" in body["usage"]["access_locations"]
@@ -671,9 +661,7 @@ class TestGetSingleFlag:
     def test_get_flag_empty_name_returns_400(self, handler, mock_http, mock_registry):
         """Path /api/admin/feature-flags/ with trailing slash has empty name."""
         with _patch_flags_available(mock_registry):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/", {}, mock_http)
         assert _status(result) == 400
         assert "required" in _body(result)["error"].lower()
 
@@ -689,9 +677,7 @@ class TestSetFlag:
     def test_set_bool_flag(self, handler, mock_registry):
         h = _make_http_handler(body={"value": True})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "enable_checkpointing"
@@ -702,9 +688,7 @@ class TestSetFlag:
     def test_set_int_flag(self, handler, mock_registry):
         h = _make_http_handler(body={"value": 5})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/max_agent_retries", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/max_agent_retries", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["value"] == 5
@@ -729,9 +713,7 @@ class TestSetFlag:
     def test_set_flag_nonexistent(self, handler, mock_registry):
         h = _make_http_handler(body={"value": True})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/nonexistent_flag", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/nonexistent_flag", {}, h)
         assert _status(result) == 404
         assert "not found" in _body(result)["error"].lower()
 
@@ -746,27 +728,21 @@ class TestSetFlag:
         }
         h.rfile.read.return_value = b"not-json!!!"
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         assert "json" in _body(result)["error"].lower()
 
     def test_set_flag_missing_value_field(self, handler, mock_registry):
         h = _make_http_handler(body={"not_value": True})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         assert "'value'" in _body(result)["error"]
 
     def test_set_flag_wrong_type_str_for_bool(self, handler, mock_registry):
         h = _make_http_handler(body={"value": "true"})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         body = _body(result)
         assert "bool" in body["error"]
@@ -775,9 +751,7 @@ class TestSetFlag:
     def test_set_flag_wrong_type_str_for_int(self, handler, mock_registry):
         h = _make_http_handler(body={"value": "five"})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/max_agent_retries", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/max_agent_retries", {}, h)
         assert _status(result) == 400
         body = _body(result)
         assert "int" in body["error"]
@@ -787,9 +761,7 @@ class TestSetFlag:
         """In JSON, 1 is int, not bool."""
         h = _make_http_handler(body={"value": 1})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         body = _body(result)
         assert "bool" in body["error"]
@@ -798,18 +770,14 @@ class TestSetFlag:
     def test_set_flag_empty_name_returns_400(self, handler, mock_registry):
         h = _make_http_handler(body={"value": True})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/", {}, h)
         assert _status(result) == 400
         assert "required" in _body(result)["error"].lower()
 
     def test_set_flag_without_version_prefix(self, handler, mock_registry):
         h = _make_http_handler(body={"value": True})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 200
 
     def test_set_flag_false_value(self, handler, mock_registry):
@@ -828,9 +796,7 @@ class TestSetFlag:
         """Setting int flag to 0 is valid."""
         h = _make_http_handler(body={"value": 0})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/max_agent_retries", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/max_agent_retries", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["value"] == 0
@@ -847,9 +813,7 @@ class TestSetFlag:
         reg = MockFlagRegistry([flag_no_env])
         h = _make_http_handler(body={"value": True})
         with _patch_flags_available(reg):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/no_env_flag", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/no_env_flag", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["updated"] is True
@@ -858,9 +822,7 @@ class TestSetFlag:
         """Empty body ({}) should return 400 for missing 'value'."""
         h = _make_http_handler(body={})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         assert "'value'" in _body(result)["error"]
 
@@ -868,9 +830,7 @@ class TestSetFlag:
         """Setting value to null (None) should fail type validation for bool."""
         h = _make_http_handler(body={"value": None})
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         body = _body(result)
         assert "bool" in body["error"]
@@ -1049,9 +1009,7 @@ class TestIntegrationWithRealEnums:
         os.environ.pop(env_key, None)
         try:
             h = _make_http_handler(body={"value": True})
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
             assert _status(result) == 200
             body = _body(result)
             assert body["updated"] is True
@@ -1067,9 +1025,7 @@ class TestIntegrationWithRealEnums:
         reset_flag_registry()
         try:
             h = _make_http_handler(body={"value": "not_a_bool"})
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
             assert _status(result) == 400
             assert "bool" in _body(result)["error"]
         finally:
@@ -1096,9 +1052,7 @@ class TestEdgeCases:
         reg = MockFlagRegistry([flag])
         reg._values["my-flag.v2"] = True
         with _patch_flags_available(reg):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/my-flag.v2", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/my-flag.v2", {}, mock_http)
         assert _status(result) == 200
         assert _body(result)["name"] == "my-flag.v2"
 
@@ -1106,8 +1060,11 @@ class TestEdgeCases:
         """Multiple flags in the same category are all returned."""
         flags = [
             MockFlagDefinition(
-                name=f"flag_{i}", flag_type=bool, default=False,
-                description=f"Flag {i}", category=MockFlagCategory.CORE,
+                name=f"flag_{i}",
+                flag_type=bool,
+                default=False,
+                description=f"Flag {i}",
+                category=MockFlagCategory.CORE,
             )
             for i in range(5)
         ]
@@ -1133,9 +1090,7 @@ class TestEdgeCases:
         reg = MockFlagRegistry([flag])
         reg._values["nullable_flag"] = None
         with _patch_flags_available(reg):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/nullable_flag", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/nullable_flag", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["default"] is None
@@ -1153,9 +1108,7 @@ class TestEdgeCases:
         reg = MockFlagRegistry([flag])
         reg._values["overridden_flag"] = True
         with _patch_flags_available(reg):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/overridden_flag", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/overridden_flag", {}, mock_http)
         body = _body(result)
         assert body["value"] is True
         assert body["default"] is False
@@ -1164,16 +1117,25 @@ class TestEdgeCases:
         """Flags should be sorted by category then name."""
         flags = [
             MockFlagDefinition(
-                name="z_flag", flag_type=bool, default=False,
-                description="Z", category=MockFlagCategory.CORE,
+                name="z_flag",
+                flag_type=bool,
+                default=False,
+                description="Z",
+                category=MockFlagCategory.CORE,
             ),
             MockFlagDefinition(
-                name="a_flag", flag_type=bool, default=False,
-                description="A", category=MockFlagCategory.CORE,
+                name="a_flag",
+                flag_type=bool,
+                default=False,
+                description="A",
+                category=MockFlagCategory.CORE,
             ),
             MockFlagDefinition(
-                name="m_flag", flag_type=bool, default=False,
-                description="M", category=MockFlagCategory.EXPERIMENTAL,
+                name="m_flag",
+                flag_type=bool,
+                default=False,
+                description="M",
+                category=MockFlagCategory.EXPERIMENTAL,
             ),
         ]
         reg = MockFlagRegistry(flags)
@@ -1192,9 +1154,7 @@ class TestEdgeCases:
         h.headers = {"Content-Type": "application/json", "Content-Length": "0"}
         h.rfile.read.return_value = b""
         with _patch_flags_available(mock_registry):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/enable_checkpointing", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         # read_json_body returns {} for Content-Length: 0, so "value" is missing
         assert "'value'" in _body(result)["error"]
@@ -1238,9 +1198,7 @@ class TestStringFlags:
         os.environ.pop(env_key, None)
         try:
             with _patch_flags_available(reg):
-                result = handler.handle_put(
-                    "/api/v1/admin/feature-flags/log_level", {}, h
-                )
+                result = handler.handle_put("/api/v1/admin/feature-flags/log_level", {}, h)
             assert _status(result) == 200
             body = _body(result)
             assert body["value"] == "DEBUG"
@@ -1259,9 +1217,7 @@ class TestStringFlags:
         reg = MockFlagRegistry([flag])
         h = _make_http_handler(body={"value": 42})
         with _patch_flags_available(reg):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/log_level", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/log_level", {}, h)
         assert _status(result) == 400
         assert "str" in _body(result)["error"]
         assert "int" in _body(result)["error"]
@@ -1277,9 +1233,7 @@ class TestStringFlags:
         reg = MockFlagRegistry([flag])
         reg._values["log_level"] = "WARNING"
         with _patch_flags_available(reg):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/log_level", {}, mock_http
-            )
+            result = handler.handle("/api/v1/admin/feature-flags/log_level", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["type"] == "str"
@@ -1308,9 +1262,7 @@ class TestFloatFlags:
         os.environ.pop(env_key, None)
         try:
             with _patch_flags_available(reg):
-                result = handler.handle_put(
-                    "/api/v1/admin/feature-flags/threshold", {}, h
-                )
+                result = handler.handle_put("/api/v1/admin/feature-flags/threshold", {}, h)
             assert _status(result) == 200
             assert _body(result)["value"] == 0.75
             assert os.environ.get(env_key) == "0.75"
@@ -1330,8 +1282,6 @@ class TestFloatFlags:
         reg = MockFlagRegistry([flag])
         h = _make_http_handler(body={"value": 1})
         with _patch_flags_available(reg):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/threshold", {}, h
-            )
+            result = handler.handle_put("/api/v1/admin/feature-flags/threshold", {}, h)
         assert _status(result) == 400
         assert "float" in _body(result)["error"]

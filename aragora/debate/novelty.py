@@ -114,7 +114,9 @@ class NoveltyTracker:
         self.scores: list[NoveltyResult] = []
 
         logger.info(
-            "NoveltyTracker initialized with %s, threshold=%s", self.backend.__class__.__name__, low_novelty_threshold
+            "NoveltyTracker initialized with %s, threshold=%s",
+            self.backend.__class__.__name__,
+            low_novelty_threshold,
         )
 
     def compute_novelty(
@@ -137,7 +139,10 @@ class NoveltyTracker:
         """
         # Debug logging for novelty computation
         logger.debug(
-            "compute_novelty round=%s history_rounds=%s current_agents=%s", round_num, len(self.history), list(current_proposals.keys())
+            "compute_novelty round=%s history_rounds=%s current_agents=%s",
+            round_num,
+            len(self.history),
+            list(current_proposals.keys()),
         )
 
         # Flatten history into list of (agent, proposal) tuples
@@ -147,7 +152,10 @@ class NoveltyTracker:
                 prior_proposals.append((agent, text))
 
         logger.debug(
-            "novelty_history_check round=%s prior_proposal_count=%s should_be_novel=%s", round_num, len(prior_proposals), len(prior_proposals) == 0
+            "novelty_history_check round=%s prior_proposal_count=%s should_be_novel=%s",
+            round_num,
+            len(prior_proposals),
+            len(prior_proposals) == 0,
         )
 
         # Compute novelty for each current proposal
@@ -370,7 +378,9 @@ class CodebaseNoveltyChecker:
         self.features = self._extract_features(codebase_context)
 
         logger.info(
-            "CodebaseNoveltyChecker initialized with %s features, threshold=%s", len(self.features), novelty_threshold
+            "CodebaseNoveltyChecker initialized with %s features, threshold=%s",
+            len(self.features),
+            novelty_threshold,
         )
 
     def _extract_features(self, context: str) -> list[dict]:

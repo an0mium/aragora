@@ -295,7 +295,9 @@ class SecurityEventEmitter:
             try:
                 await handler(event)
             except Exception as e:  # noqa: BLE001 - intentional broad catch for event handler isolation
-                logger.warning("Security event handler failed for %s: %s", event.event_type.value, e)
+                logger.warning(
+                    "Security event handler failed for %s: %s", event.event_type.value, e
+                )
 
         # Notify global handlers
         for handler in self._global_handlers:

@@ -152,23 +152,20 @@ class StrategicScanner:
         )
 
         complexity_findings = [f for f in ranked if f.category == CATEGORY_COMPLEX]
-        avg_complexity = (
-            round(len(complexity_findings) / max(total_modules, 1) * 100, 1)
-        )
+        avg_complexity = round(len(complexity_findings) / max(total_modules, 1) * 100, 1)
         stale_count = sum(1 for f in ranked if f.category == CATEGORY_STALE)
 
+        findings_by_cat: dict[str, int] = {}
+        for f in ranked:
+            findings_by_cat[f.category] = findings_by_cat.get(f.category, 0) + 1
         metrics = {
             "total_modules": total_modules,
             "total_test_files": len(test_files),
             "tested_pct": tested_pct,
             "avg_complexity": avg_complexity,
             "stale_count": stale_count,
-            "findings_by_category": {},
+            "findings_by_category": findings_by_cat,
         }
-        for f in ranked:
-            metrics["findings_by_category"][f.category] = (
-                metrics["findings_by_category"].get(f.category, 0) + 1
-            )
 
         # Top 5 focus areas: group by track + category, pick highest-severity clusters
         focus_areas = self._compute_focus_areas(ranked)
@@ -293,9 +290,7 @@ class StrategicScanner:
                 if m:
                     tag = m.group(1).upper()
                     text = m.group(2).strip().rstrip(".")
-                    days_old = (
-                        int((now - last_mod) / 86400) if last_mod else STALE_DAYS_THRESHOLD
-                    )
+                    days_old = int((now - last_mod) / 86400) if last_mod else STALE_DAYS_THRESHOLD
                     severity = SEVERITY_HIGH if tag == "FIXME" else SEVERITY_MEDIUM
                     findings.append(
                         StrategicFinding(
@@ -326,9 +321,7 @@ class StrategicScanner:
                 continue
 
             # Look for __all__ lists
-            all_match = re.search(
-                r"__all__\s*=\s*\[([^\]]*)\]", content, re.DOTALL
-            )
+            all_match = re.search(r"__all__\s*=\s*\[([^\]]*)\]", content, re.DOTALL)
             if all_match:
                 names = re.findall(r'"([^"]+)"|\'([^\']+)\'', all_match.group(1))
                 exported = [n[0] or n[1] for n in names]
@@ -418,12 +411,8 @@ class StrategicScanner:
         sorted_areas = sorted(area_scores.items(), key=lambda x: -x[1])
         result: list[str] = []
         for (track, category), score in sorted_areas[:5]:
-            count = sum(
-                1 for f in findings if f.track == track and f.category == category
-            )
-            result.append(
-                f"[{track}] {category}: {count} findings (score {score:.0f})"
-            )
+            count = sum(1 for f in findings if f.track == track and f.category == category)
+            result.append(f"[{track}] {category}: {count} findings (score {score:.0f})")
         return result
 
     # ------------------------------------------------------------------

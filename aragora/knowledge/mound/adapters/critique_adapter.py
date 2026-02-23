@@ -593,7 +593,9 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
             self._km_boosts_applied += 1
 
             logger.info(
-                "Applied KM boost to pattern %s: +%s successes", validation.pattern_id, validation.boost_amount
+                "Applied KM boost to pattern %s: +%s successes",
+                validation.pattern_id,
+                validation.boost_amount,
             )
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("KM boost application failed: %s", e)

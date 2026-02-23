@@ -399,7 +399,9 @@ class EvidenceGrounder:
 
             if verified_count > 0 or disproven_count > 0:
                 logger.info(
-                    "Formal verification: %s verified, %s disproven", verified_count, disproven_count
+                    "Formal verification: %s verified, %s disproven",
+                    verified_count,
+                    disproven_count,
                 )
 
             return verified_count, disproven_count

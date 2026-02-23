@@ -620,7 +620,9 @@ class AnomalyDetector:
         self._request_counts: dict[str, list[datetime]] = defaultdict(list)
         self._last_cleanup = datetime.now(timezone.utc)
 
-    def _emit_anomaly_event(self, result: AnomalyResult, user_id: str | None = None, ip_address: str | None = None) -> None:
+    def _emit_anomaly_event(
+        self, result: AnomalyResult, user_id: str | None = None, ip_address: str | None = None
+    ) -> None:
         """Emit a risk warning event for a detected anomaly."""
         if not result.is_anomalous:
             return

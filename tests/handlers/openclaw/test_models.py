@@ -287,9 +287,15 @@ class TestSession:
         s = self._make_session()
         keys = set(s.to_dict().keys())
         expected = {
-            "id", "user_id", "tenant_id", "status",
-            "created_at", "updated_at", "last_activity_at",
-            "config", "metadata",
+            "id",
+            "user_id",
+            "tenant_id",
+            "status",
+            "created_at",
+            "updated_at",
+            "last_activity_at",
+            "config",
+            "metadata",
         }
         assert keys == expected
 
@@ -441,9 +447,16 @@ class TestAction:
         a = self._make_action()
         keys = set(a.to_dict().keys())
         expected = {
-            "id", "session_id", "action_type", "status",
-            "input_data", "output_data", "error",
-            "created_at", "started_at", "completed_at",
+            "id",
+            "session_id",
+            "action_type",
+            "status",
+            "input_data",
+            "output_data",
+            "error",
+            "created_at",
+            "started_at",
+            "completed_at",
             "metadata",
         }
         assert keys == expected
@@ -609,8 +622,15 @@ class TestCredential:
         c = self._make_credential()
         keys = set(c.to_dict().keys())
         expected = {
-            "id", "name", "credential_type", "user_id", "tenant_id",
-            "created_at", "updated_at", "last_rotated_at", "expires_at",
+            "id",
+            "name",
+            "credential_type",
+            "user_id",
+            "tenant_id",
+            "created_at",
+            "updated_at",
+            "last_rotated_at",
+            "expires_at",
             "metadata",
         }
         assert keys == expected
@@ -725,8 +745,14 @@ class TestAuditEntry:
         ae = self._make_audit_entry()
         keys = set(ae.to_dict().keys())
         expected = {
-            "id", "timestamp", "action", "actor_id",
-            "resource_type", "resource_id", "result", "details",
+            "id",
+            "timestamp",
+            "action",
+            "actor_id",
+            "resource_type",
+            "resource_id",
+            "result",
+            "details",
         }
         assert keys == expected
 
@@ -741,34 +767,42 @@ class TestModuleExports:
 
     def test_session_status_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "SessionStatus" in mod.__all__
 
     def test_action_status_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "ActionStatus" in mod.__all__
 
     def test_credential_type_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "CredentialType" in mod.__all__
 
     def test_session_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "Session" in mod.__all__
 
     def test_action_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "Action" in mod.__all__
 
     def test_credential_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "Credential" in mod.__all__
 
     def test_audit_entry_exported(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert "AuditEntry" in mod.__all__
 
     def test_all_count(self):
         import aragora.server.handlers.openclaw.models as mod
+
         assert len(mod.__all__) == 7
 
 
@@ -782,9 +816,13 @@ class TestCrossModelEdgeCases:
 
     def test_session_with_empty_string_id(self):
         s = Session(
-            id="", user_id="", tenant_id=None,
+            id="",
+            user_id="",
+            tenant_id=None,
             status=SessionStatus.ACTIVE,
-            created_at=NOW, updated_at=NOW, last_activity_at=NOW,
+            created_at=NOW,
+            updated_at=NOW,
+            last_activity_at=NOW,
         )
         d = s.to_dict()
         assert d["id"] == ""
@@ -792,10 +830,16 @@ class TestCrossModelEdgeCases:
 
     def test_action_with_empty_input_data(self):
         a = Action(
-            id="a1", session_id="s1", action_type="noop",
+            id="a1",
+            session_id="s1",
+            action_type="noop",
             status=ActionStatus.COMPLETED,
-            input_data={}, output_data={}, error=None,
-            created_at=NOW, started_at=NOW, completed_at=NOW,
+            input_data={},
+            output_data={},
+            error=None,
+            created_at=NOW,
+            started_at=NOW,
+            completed_at=NOW,
         )
         d = a.to_dict()
         assert d["input_data"] == {}
@@ -804,10 +848,15 @@ class TestCrossModelEdgeCases:
     def test_credential_with_all_optional_datetimes(self):
         future = NOW + timedelta(days=30)
         c = Credential(
-            id="c1", name="key", credential_type=CredentialType.CERTIFICATE,
-            user_id="u1", tenant_id="t1",
-            created_at=NOW, updated_at=NOW,
-            last_rotated_at=EARLIER, expires_at=future,
+            id="c1",
+            name="key",
+            credential_type=CredentialType.CERTIFICATE,
+            user_id="u1",
+            tenant_id="t1",
+            created_at=NOW,
+            updated_at=NOW,
+            last_rotated_at=EARLIER,
+            expires_at=future,
         )
         d = c.to_dict()
         assert d["last_rotated_at"] == EARLIER.isoformat()
@@ -816,9 +865,13 @@ class TestCrossModelEdgeCases:
     def test_audit_entry_with_large_details(self):
         details = {f"field_{i}": f"value_{i}" for i in range(100)}
         ae = AuditEntry(
-            id="ae1", timestamp=NOW, action="bulk.op",
-            actor_id="system", resource_type="batch",
-            resource_id=None, result="partial",
+            id="ae1",
+            timestamp=NOW,
+            action="bulk.op",
+            actor_id="system",
+            resource_type="batch",
+            resource_id=None,
+            result="partial",
             details=details,
         )
         d = ae.to_dict()
@@ -828,9 +881,13 @@ class TestCrossModelEdgeCases:
         """to_dict should work with naive datetimes too."""
         naive = datetime(2026, 1, 1, 0, 0, 0)
         s = Session(
-            id="s1", user_id="u1", tenant_id=None,
+            id="s1",
+            user_id="u1",
+            tenant_id=None,
             status=SessionStatus.IDLE,
-            created_at=naive, updated_at=naive, last_activity_at=naive,
+            created_at=naive,
+            updated_at=naive,
+            last_activity_at=naive,
         )
         d = s.to_dict()
         assert d["created_at"] == "2026-01-01T00:00:00"
@@ -841,10 +898,16 @@ class TestCrossModelEdgeCases:
             "usage": {"tokens": 42},
         }
         a = Action(
-            id="a1", session_id="s1", action_type="chat",
+            id="a1",
+            session_id="s1",
+            action_type="chat",
             status=ActionStatus.COMPLETED,
-            input_data={"prompt": "hi"}, output_data=output, error=None,
-            created_at=NOW, started_at=EARLIER, completed_at=LATER,
+            input_data={"prompt": "hi"},
+            output_data=output,
+            error=None,
+            created_at=NOW,
+            started_at=EARLIER,
+            completed_at=LATER,
         )
         d = a.to_dict()
         assert d["output_data"]["messages"][0]["content"] == "hello"
@@ -853,10 +916,15 @@ class TestCrossModelEdgeCases:
     def test_to_dict_does_not_mutate_original(self):
         """Calling to_dict should not alter the dataclass instance."""
         s = Session(
-            id="s1", user_id="u1", tenant_id="t1",
+            id="s1",
+            user_id="u1",
+            tenant_id="t1",
             status=SessionStatus.ACTIVE,
-            created_at=NOW, updated_at=NOW, last_activity_at=NOW,
-            config={"a": 1}, metadata={"b": 2},
+            created_at=NOW,
+            updated_at=NOW,
+            last_activity_at=NOW,
+            config={"a": 1},
+            metadata={"b": 2},
         )
         d = s.to_dict()
         d["config"]["c"] = 3
@@ -867,10 +935,15 @@ class TestCrossModelEdgeCases:
     def test_session_to_dict_roundtrip_values(self):
         """All values from to_dict() should match the original fields."""
         s = Session(
-            id="s1", user_id="u1", tenant_id="t1",
+            id="s1",
+            user_id="u1",
+            tenant_id="t1",
             status=SessionStatus.ERROR,
-            created_at=NOW, updated_at=EARLIER, last_activity_at=LATER,
-            config={"x": [1, 2]}, metadata={"y": True},
+            created_at=NOW,
+            updated_at=EARLIER,
+            last_activity_at=LATER,
+            config={"x": [1, 2]},
+            metadata={"y": True},
         )
         d = s.to_dict()
         assert d["id"] == s.id

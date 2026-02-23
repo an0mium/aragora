@@ -147,7 +147,7 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
                     demo.get("strength", "medium"), ConsensusStrength.MODERATE
                 )
 
-                logger.debug("Seeding demo %s: %s...", i + 1, demo['topic'][:50])
+                logger.debug("Seeding demo %s: %s...", i + 1, demo["topic"][:50])
                 consensus_memory.store_consensus(
                     topic=demo["topic"],
                     conclusion=demo["conclusion"],
@@ -161,7 +161,7 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
                 logger.debug("Successfully seeded demo %s", i + 1)
             except (KeyError, TypeError, ValueError, OSError) as e:
                 logger.warning(
-                    "Failed to seed demo %s '%s': %s", i + 1, demo.get('topic', 'unknown')[:30], e
+                    "Failed to seed demo %s '%s': %s", i + 1, demo.get("topic", "unknown")[:30], e
                 )
 
         logger.info("Seeded %s/%s demo consensus records", seeded, len(demos))

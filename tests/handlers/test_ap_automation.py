@@ -179,9 +179,7 @@ def _reset_ap_singleton():
 def mock_ap():
     """Provide a mocked AP automation service and patch get_ap_automation."""
     ap = _make_mock_ap()
-    with patch(
-        "aragora.server.handlers.ap_automation.get_ap_automation", return_value=ap
-    ):
+    with patch("aragora.server.handlers.ap_automation.get_ap_automation", return_value=ap):
         yield ap
 
 
@@ -215,8 +213,13 @@ class TestAPAutomationHandlerClass:
             assert route in APAutomationHandler._ROUTE_MAP, f"Missing route: {route}"
 
     def test_dynamic_routes_contain_parameterized_endpoints(self):
-        assert "GET /api/v1/accounting/ap/invoices/{invoice_id}" in APAutomationHandler.DYNAMIC_ROUTES
-        assert "POST /api/v1/accounting/ap/invoices/{invoice_id}/payment" in APAutomationHandler.DYNAMIC_ROUTES
+        assert (
+            "GET /api/v1/accounting/ap/invoices/{invoice_id}" in APAutomationHandler.DYNAMIC_ROUTES
+        )
+        assert (
+            "POST /api/v1/accounting/ap/invoices/{invoice_id}/payment"
+            in APAutomationHandler.DYNAMIC_ROUTES
+        )
 
     def test_routes_list_has_entries(self):
         assert len(APAutomationHandler.ROUTES) > 0
@@ -234,7 +237,9 @@ class TestAPAutomationHandlerClass:
     def test_dynamic_routes_point_to_correct_handlers(self):
         dr = APAutomationHandler.DYNAMIC_ROUTES
         assert dr["GET /api/v1/accounting/ap/invoices/{invoice_id}"] is handle_get_invoice
-        assert dr["POST /api/v1/accounting/ap/invoices/{invoice_id}/payment"] is handle_record_payment
+        assert (
+            dr["POST /api/v1/accounting/ap/invoices/{invoice_id}/payment"] is handle_record_payment
+        )
 
 
 # ============================================================================
@@ -273,9 +278,7 @@ class TestAPSingleton:
     """Test the thread-safe AP automation singleton."""
 
     def test_get_ap_automation_creates_instance(self):
-        with patch(
-            "aragora.services.ap_automation.APAutomation"
-        ) as mock_cls:
+        with patch("aragora.services.ap_automation.APAutomation") as mock_cls:
             mock_cls.return_value = MagicMock()
             result = get_ap_automation()
             assert result is not None
@@ -618,9 +621,7 @@ class TestListInvoices:
     @pytest.mark.asyncio
     async def test_list_invoices_pagination_applied(self, mock_ap):
         # Return 5 invoices, but request limit=2, offset=1
-        mock_ap.list_invoices.return_value = [
-            MockInvoice(f"inv-{i}") for i in range(5)
-        ]
+        mock_ap.list_invoices.return_value = [MockInvoice(f"inv-{i}") for i in range(5)]
         data = {"limit": 2, "offset": 1}
         result = await handle_list_invoices(data)
         body = _body(result)

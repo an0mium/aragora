@@ -61,29 +61,31 @@ MAX_QUERY_LENGTH = 1000
 
 # Tools allowed in implementation mode (ARAGORA_MCP_IMPL_MODE=1)
 # Scoped to codebase exploration, knowledge query, and memory — no debate/audit/control
-IMPL_MODE_TOOLS = frozenset({
-    "search_codebase",
-    "get_symbol",
-    "get_dependencies",
-    "get_codebase_structure",
-    "query_knowledge",
-    "store_knowledge",
-    "get_knowledge_stats",
-    "query_memory",
-    "store_memory",
-    "get_memory_pressure",
-    "search_evidence",
-    "cite_evidence",
-    "run_pipeline",
-    "extract_goals",
-    "get_pipeline_status",
-    "advance_pipeline_stage",
-    "assess_codebase",
-    "generate_improvement_goals",
-    "run_self_improvement",
-    "get_daemon_status",
-    "trigger_improvement_cycle",
-})
+IMPL_MODE_TOOLS = frozenset(
+    {
+        "search_codebase",
+        "get_symbol",
+        "get_dependencies",
+        "get_codebase_structure",
+        "query_knowledge",
+        "store_knowledge",
+        "get_knowledge_stats",
+        "query_memory",
+        "store_memory",
+        "get_memory_pressure",
+        "search_evidence",
+        "cite_evidence",
+        "run_pipeline",
+        "extract_goals",
+        "get_pipeline_status",
+        "advance_pipeline_stage",
+        "assess_codebase",
+        "generate_improvement_goals",
+        "run_self_improvement",
+        "get_daemon_status",
+        "trigger_improvement_cycle",
+    }
+)
 
 
 # =============================================================================

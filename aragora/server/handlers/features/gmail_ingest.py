@@ -350,7 +350,9 @@ class GmailIngestHandler(SecureHandler):
         # State should contain user_id for verification, but we ALWAYS use JWT user_id
         if state and state != user_id:
             logger.warning(
-                "OAuth state mismatch: state=%s, jwt_user=%s. Using JWT user_id for security.", state, user_id
+                "OAuth state mismatch: state=%s, jwt_user=%s. Using JWT user_id for security.",
+                state,
+                user_id,
             )
 
         return await self._complete_oauth(
@@ -378,7 +380,9 @@ class GmailIngestHandler(SecureHandler):
         # SECURITY: Validate state matches authenticated user to prevent CSRF
         if state and state != user_id:
             logger.warning(
-                "OAuth state mismatch: state=%s, jwt_user=%s. Using JWT user_id for security.", state, user_id
+                "OAuth state mismatch: state=%s, jwt_user=%s. Using JWT user_id for security.",
+                state,
+                user_id,
             )
 
         return await self._complete_oauth(code, redirect_uri, user_id, org_id)
@@ -433,7 +437,15 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            AttributeError,
+        ) as e:
             logger.error("[Gmail] OAuth completion failed: %s", e)
             return error_response(safe_error_message(e, "Authentication"), 500)
 
@@ -658,7 +670,15 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            AttributeError,
+        ) as e:
             logger.error("[Gmail] List messages failed: %s", e)
             return error_response(safe_error_message(e, "Failed to list messages"), 500)
 
@@ -683,7 +703,15 @@ class GmailIngestHandler(SecureHandler):
 
             return json_response(msg.to_dict())
 
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            AttributeError,
+        ) as e:
             logger.error("[Gmail] Get message failed: %s", e)
             return error_response(safe_error_message(e, "Failed to get message"), 500)
 
@@ -730,7 +758,15 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            AttributeError,
+        ) as e:
             logger.error("[Gmail] Search failed: %s", e)
             return error_response(safe_error_message(e, "Search"), 500)
 

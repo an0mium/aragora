@@ -284,8 +284,9 @@ class TestHandleRouting:
         mock_security = MagicMock(
             return_value=MagicMock(spec=HandlerResult, status_code=403, body=b'{"error":"denied"}')
         )
-        with patch.object(handler, "_activate", side_effect=PermissionDeniedError("test")), patch.object(
-            handler, "handle_security_error", mock_security
+        with (
+            patch.object(handler, "_activate", side_effect=PermissionDeniedError("test")),
+            patch.object(handler, "handle_security_error", mock_security),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             mock_security.assert_called_once()
@@ -315,12 +316,15 @@ class TestActivate:
         )
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -431,12 +435,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -452,12 +459,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -475,12 +485,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -498,12 +511,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -521,12 +537,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -549,12 +568,15 @@ class TestActivate:
             # We just return the access_id; the coro was already formed
             return "emerg-abc123"
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=capture_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=capture_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -570,12 +592,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -590,12 +615,15 @@ class TestActivate:
 
         mock_emergency = MagicMock()
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=ValueError("Duration cannot exceed 1440 minutes"),
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=ValueError("Duration cannot exceed 1440 minutes"),
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -613,12 +641,15 @@ class TestActivate:
         # _all_records does NOT contain the access_id
         mock_emergency._all_records = {}
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-missing",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-missing",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -637,12 +668,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123", expires_at=expires)
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -660,12 +694,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -682,12 +719,15 @@ class TestActivate:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -712,12 +752,15 @@ class TestDeactivate:
             actions_taken=[{"action": "read_db"}, {"action": "update_config"}],
         )
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value=mock_record,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value=mock_record,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/deactivate", {}, mock_http)
             body = _body(result)
@@ -775,12 +818,15 @@ class TestDeactivate:
 
         mock_emergency = MagicMock()
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=ValueError("Access record not found"),
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=ValueError("Access record not found"),
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/deactivate", {}, mock_http)
             body = _body(result)
@@ -794,12 +840,15 @@ class TestDeactivate:
 
         mock_emergency = MagicMock()
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=ValueError("Access is not active: deactivated"),
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=ValueError("Access is not active: deactivated"),
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/deactivate", {}, mock_http)
             assert _status(result) == 404
@@ -814,12 +863,15 @@ class TestDeactivate:
             status=MockEmergencyAccessStatus("deactivated"),
         )
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value=mock_record,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value=mock_record,
+            ),
         ):
             result = handler.handle("/api/admin/emergency/deactivate", {}, mock_http)
             assert _status(result) == 200
@@ -835,12 +887,15 @@ class TestDeactivate:
             deactivated_by="admin-user-001",
         )
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value=mock_record,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value=mock_record,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/deactivate", {}, mock_http)
             body = _body(result)
@@ -859,12 +914,15 @@ class TestDeactivate:
             actions_taken=[],
         )
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value=mock_record,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value=mock_record,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/deactivate", {}, mock_http)
             body = _body(result)
@@ -893,12 +951,15 @@ class TestStatus:
                 return 0  # expire_old_access returns count
             return []  # get_history returns list
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/status", {}, mock_http)
             body = _body(result)
@@ -927,12 +988,15 @@ class TestStatus:
                 return 0
             return []
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/status", {}, mock_http)
             body = _body(result)
@@ -960,12 +1024,15 @@ class TestStatus:
                 return 0
             return []
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/status", {}, mock_http)
             body = _body(result)
@@ -991,12 +1058,15 @@ class TestStatus:
                 return 0
             return [history_record]
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/status", {}, mock_http)
             body = _body(result)
@@ -1017,12 +1087,15 @@ class TestStatus:
                 return 0
             return []
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/status", {}, mock_http)
             body = _body(result)
@@ -1041,12 +1114,15 @@ class TestStatus:
                 return 0
             return []
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/admin/emergency/status", {}, mock_http)
             assert _status(result) == 200
@@ -1137,12 +1213,15 @@ class TestEdgeCases:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -1160,12 +1239,15 @@ class TestEdgeCases:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -1180,12 +1262,15 @@ class TestEdgeCases:
             status=MockEmergencyAccessStatus("deactivated"),
         )
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value=mock_record,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value=mock_record,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/deactivate", {}, mock_http)
             body = _body(result)
@@ -1208,12 +1293,15 @@ class TestEdgeCases:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200
@@ -1240,12 +1328,15 @@ class TestEdgeCases:
                 return 0
             return []
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            side_effect=mock_run_async,
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                side_effect=mock_run_async,
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/status", {}, mock_http)
             body = _body(result)
@@ -1264,12 +1355,15 @@ class TestEdgeCases:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             body = _body(result)
@@ -1287,12 +1381,15 @@ class TestEdgeCases:
         mock_record = MockEmergencyAccessRecord(id="emerg-abc123")
         mock_emergency._all_records["emerg-abc123"] = mock_record
 
-        with patch(
-            "aragora.rbac.emergency.get_break_glass_access",
-            return_value=mock_emergency,
-        ), patch(
-            "aragora.server.http_utils.run_async",
-            return_value="emerg-abc123",
+        with (
+            patch(
+                "aragora.rbac.emergency.get_break_glass_access",
+                return_value=mock_emergency,
+            ),
+            patch(
+                "aragora.server.http_utils.run_async",
+                return_value="emerg-abc123",
+            ),
         ):
             result = handler.handle("/api/v1/admin/emergency/activate", {}, mock_http)
             assert _status(result) == 200

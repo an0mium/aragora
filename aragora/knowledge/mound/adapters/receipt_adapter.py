@@ -226,11 +226,14 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
             )
             self._ingested_receipts[debate_id] = result
 
-            self._emit_event("receipt_ingested", {
-                "debate_id": debate_id,
-                "item_id": item_id,
-                "confidence": confidence,
-            })
+            self._emit_event(
+                "receipt_ingested",
+                {
+                    "debate_id": debate_id,
+                    "item_id": item_id,
+                    "confidence": confidence,
+                },
+            )
 
             logger.info(
                 "[receipt_adapter] Ingested receipt %s as KM item %s",

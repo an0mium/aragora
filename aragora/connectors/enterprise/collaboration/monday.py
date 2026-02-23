@@ -529,7 +529,7 @@ class MondayConnector(EnterpriseConnector):
         try:
             result = await self._graphql_request("query { me { id name } }")
             if result.get("me"):
-                logger.info("Monday.com authenticated as: %s", result['me'].get('name'))
+                logger.info("Monday.com authenticated as: %s", result["me"].get("name"))
                 return True
         except (ValueError, OSError, KeyError) as e:
             logger.error("Monday.com authentication failed: %s", e)

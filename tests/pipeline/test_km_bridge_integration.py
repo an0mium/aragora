@@ -16,6 +16,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_mock_result(pipeline_id: str = "pipe-test123") -> MagicMock:
     """Create a minimal mock PipelineResult."""
     result = MagicMock()
@@ -36,6 +37,7 @@ def _make_mock_result(pipeline_id: str = "pipe-test123") -> MagicMock:
 # ---------------------------------------------------------------------------
 # Handler integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestPersistCalledFromHandlerFromDebate:
     @pytest.mark.asyncio
@@ -209,6 +211,7 @@ class TestPersistGracefulDegradationRuntimeError:
 # MCP tool integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestPersistCalledFromMCPSyncPath:
     @pytest.mark.asyncio
     async def test_persist_called_from_mcp_sync_path(self):
@@ -275,6 +278,7 @@ class TestPersistCalledFromMCPAsyncPath:
 # ---------------------------------------------------------------------------
 # Bridge unit test
 # ---------------------------------------------------------------------------
+
 
 class TestBridgeStorePipelineResultDelegatesToAdapter:
     def test_bridge_store_pipeline_result_delegates_to_adapter(self):

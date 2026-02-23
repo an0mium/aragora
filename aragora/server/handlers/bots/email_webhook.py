@@ -187,7 +187,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             email_data = parse_sendgrid_webhook(form_data)
 
             logger.info(
-                "SendGrid inbound email from %s: subject='%s'", email_data.from_email, email_data.subject[:50]
+                "SendGrid inbound email from %s: subject='%s'",
+                email_data.from_email,
+                email_data.subject[:50],
             )
 
             audit_data(
@@ -207,7 +209,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 _task = asyncio.create_task(handle_email_reply(email_data))
                 _task.add_done_callback(
                     lambda t: logger.error("Email reply processing failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
@@ -220,7 +223,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("SendGrid webhook error: %s", e)
             # Return 200 to prevent retries
-            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
+            return json_response(
+                {"status": "error", "message": "An error occurred processing the webhook"}
+            )
 
     def _handle_mailgun_webhook(self, handler: Any) -> HandlerResult:
         """
@@ -354,7 +359,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             )
 
             logger.info(
-                "Mailgun inbound email from %s: subject='%s'", email_data.from_email, email_data.subject[:50]
+                "Mailgun inbound email from %s: subject='%s'",
+                email_data.from_email,
+                email_data.subject[:50],
             )
 
             audit_data(
@@ -374,7 +381,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 _task = asyncio.create_task(handle_email_reply(email_data))
                 _task.add_done_callback(
                     lambda t: logger.error("Email reply processing failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
@@ -387,7 +395,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Mailgun webhook error: %s", e)
             # Return 200 to prevent retries
-            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
+            return json_response(
+                {"status": "error", "message": "An error occurred processing the webhook"}
+            )
 
     def _handle_ses_webhook(self, handler: Any) -> HandlerResult:
         """
@@ -451,7 +461,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 return json_response({"status": "ignored"})
 
             logger.info(
-                "SES inbound email from %s: subject='%s'", email_data.from_email, email_data.subject[:50]
+                "SES inbound email from %s: subject='%s'",
+                email_data.from_email,
+                email_data.subject[:50],
             )
 
             audit_data(
@@ -471,7 +483,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 _task = asyncio.create_task(handle_email_reply(email_data))
                 _task.add_done_callback(
                     lambda t: logger.error("Email reply processing failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
@@ -483,7 +496,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("SES webhook error: %s", e)
-            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
+            return json_response(
+                {"status": "error", "message": "An error occurred processing the webhook"}
+            )
 
     def _parse_form_data(self, body: bytes, content_type: str) -> dict[str, Any]:
         """Parse multipart form data or urlencoded data."""

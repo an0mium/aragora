@@ -356,7 +356,8 @@ class QueryOperationsMixin(_QueryMixinBase):
                 filters=filters,
                 execution_time_ms=execution_time,
                 sources_queried=[
-                    KnowledgeSource(s) for s in sources
+                    KnowledgeSource(s)
+                    for s in sources
                     if s != "all" and s in KnowledgeSource._value2member_map_
                 ],
             )

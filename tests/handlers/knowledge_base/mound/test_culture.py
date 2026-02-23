@@ -59,9 +59,7 @@ class MockHTTPHandler:
     """Lightweight mock HTTP handler for culture tests."""
 
     command: str = "GET"
-    headers: dict[str, str] = field(
-        default_factory=lambda: {"Content-Length": "0"}
-    )
+    headers: dict[str, str] = field(default_factory=lambda: {"Content-Length": "0"})
     rfile: Any = field(default_factory=lambda: io.BytesIO(b""))
 
     @classmethod
@@ -333,12 +331,14 @@ class TestAddCultureDocument:
 
     def test_add_document_success(self, handler, mock_mound):
         """Successfully adding a culture document returns 201 with node_id."""
-        http = MockHTTPHandler.with_body({
-            "content": "Our company values collaboration and transparency.",
-            "workspace_id": "ws-001",
-            "document_type": "values",
-            "metadata": {"source": "hr"},
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Our company values collaboration and transparency.",
+                "workspace_id": "ws-001",
+                "document_type": "values",
+                "metadata": {"source": "hr"},
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 201
         body = _body(result)
@@ -349,9 +349,11 @@ class TestAddCultureDocument:
 
     def test_add_document_default_workspace(self, handler, mock_mound):
         """Default workspace_id is 'default' when not provided."""
-        http = MockHTTPHandler.with_body({
-            "content": "Test content",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Test content",
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 201
         body = _body(result)
@@ -359,9 +361,11 @@ class TestAddCultureDocument:
 
     def test_add_document_default_document_type(self, handler, mock_mound):
         """Default document_type is 'policy' when not provided."""
-        http = MockHTTPHandler.with_body({
-            "content": "Test content",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Test content",
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 201
         body = _body(result)
@@ -385,9 +389,11 @@ class TestAddCultureDocument:
 
     def test_add_document_missing_content_returns_400(self, handler):
         """Missing content field returns 400."""
-        http = MockHTTPHandler.with_body({
-            "workspace_id": "ws-001",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "ws-001",
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 400
         body = _body(result)
@@ -395,9 +401,11 @@ class TestAddCultureDocument:
 
     def test_add_document_empty_content_returns_400(self, handler):
         """Empty string content returns 400."""
-        http = MockHTTPHandler.with_body({
-            "content": "",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "",
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 400
         body = _body(result)
@@ -405,9 +413,11 @@ class TestAddCultureDocument:
 
     def test_add_document_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some content",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some content",
+            }
+        )
         result = handler_no_mound._handle_add_culture_document(http)
         assert _status(result) == 503
         body = _body(result)
@@ -415,11 +425,13 @@ class TestAddCultureDocument:
 
     def test_add_document_mound_called_with_node(self, handler, mock_mound):
         """mound.add_node is called with a KnowledgeNode."""
-        http = MockHTTPHandler.with_body({
-            "content": "Culture content here",
-            "workspace_id": "ws-test",
-            "document_type": "values",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Culture content here",
+                "workspace_id": "ws-test",
+                "document_type": "values",
+            }
+        )
         handler._handle_add_culture_document(http)
         mock_mound.add_node.assert_called_once()
         node = mock_mound.add_node.call_args[0][0]
@@ -431,20 +443,24 @@ class TestAddCultureDocument:
 
     def test_add_document_node_metadata_includes_document_type(self, handler, mock_mound):
         """Node metadata includes document_type."""
-        http = MockHTTPHandler.with_body({
-            "content": "Content",
-            "document_type": "mission",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Content",
+                "document_type": "mission",
+            }
+        )
         handler._handle_add_culture_document(http)
         node = mock_mound.add_node.call_args[0][0]
         assert node.metadata["document_type"] == "mission"
 
     def test_add_document_custom_metadata_merged(self, handler, mock_mound):
         """Custom metadata is merged into node metadata."""
-        http = MockHTTPHandler.with_body({
-            "content": "Content",
-            "metadata": {"author": "CEO", "version": "2.0"},
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Content",
+                "metadata": {"author": "CEO", "version": "2.0"},
+            }
+        )
         handler._handle_add_culture_document(http)
         node = mock_mound.add_node.call_args[0][0]
         assert node.metadata["author"] == "CEO"
@@ -499,9 +515,11 @@ class TestAddCultureDocument:
 
     def test_add_document_no_metadata_defaults_to_empty(self, handler, mock_mound):
         """When metadata is not provided, it defaults to empty dict."""
-        http = MockHTTPHandler.with_body({
-            "content": "Content",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Content",
+            }
+        )
         handler._handle_add_culture_document(http)
         node = mock_mound.add_node.call_args[0][0]
         # metadata should have document_type but no extra keys
@@ -525,10 +543,12 @@ class TestAddCultureDocument:
         """Various document_type values are accepted and returned."""
         for doc_type in ["policy", "values", "guidelines", "mission"]:
             mock_mound.add_node = AsyncMock(return_value=f"node-{doc_type}")
-            http = MockHTTPHandler.with_body({
-                "content": f"Content for {doc_type}",
-                "document_type": doc_type,
-            })
+            http = MockHTTPHandler.with_body(
+                {
+                    "content": f"Content for {doc_type}",
+                    "document_type": doc_type,
+                }
+            )
             result = handler._handle_add_culture_document(http)
             assert _status(result) == 201
             body = _body(result)
@@ -741,9 +761,11 @@ class TestCultureEdgeCases:
 
     def test_add_document_with_unicode_content(self, handler, mock_mound):
         """Unicode content is handled correctly."""
-        http = MockHTTPHandler.with_body({
-            "content": "Wir schaetzen Zusammenarbeit und Transparenz. \u2764\ufe0f",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Wir schaetzen Zusammenarbeit und Transparenz. \u2764\ufe0f",
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 201
         node = mock_mound.add_node.call_args[0][0]
@@ -760,11 +782,13 @@ class TestCultureEdgeCases:
 
     def test_promote_with_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in promote request body are ignored."""
-        http = MockHTTPHandler.with_body({
-            "node_id": "node-123",
-            "extra_field": "should be ignored",
-            "another": 42,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "node_id": "node-123",
+                "extra_field": "should be ignored",
+                "another": 42,
+            }
+        )
         result = handler._handle_promote_to_culture(http)
         assert _status(result) == 200
         body = _body(result)
@@ -772,10 +796,12 @@ class TestCultureEdgeCases:
 
     def test_add_document_with_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in add document request are ignored gracefully."""
-        http = MockHTTPHandler.with_body({
-            "content": "Content",
-            "extra_field": "ignored",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Content",
+                "extra_field": "ignored",
+            }
+        )
         result = handler._handle_add_culture_document(http)
         assert _status(result) == 201
 

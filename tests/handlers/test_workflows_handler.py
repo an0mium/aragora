@@ -260,9 +260,7 @@ class TestListWorkflows:
 
     def test_list_workflows_returns_json(self, handler, monkeypatch):
         mock_result = {"workflows": [], "total_count": 0, "limit": 50, "offset": 0}
-        monkeypatch.setattr(
-            _handler_mod, "list_workflows", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "list_workflows", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows", {}, http)
         assert result is not None
@@ -271,9 +269,7 @@ class TestListWorkflows:
 
     def test_list_workflows_with_query_params(self, handler, monkeypatch):
         mock_result = {"workflows": [], "total_count": 0, "limit": 10, "offset": 5}
-        monkeypatch.setattr(
-            _handler_mod, "list_workflows", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "list_workflows", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler()
         result = handler.handle(
             "/api/v1/workflows",
@@ -303,9 +299,7 @@ class TestGetWorkflow:
 
     def test_get_workflow_found(self, handler, monkeypatch):
         mock_wf = {"id": "wf_123", "name": "Test Workflow"}
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(return_value=mock_wf)
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(return_value=mock_wf))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows/wf_123", {}, http)
         assert result is not None
@@ -313,9 +307,7 @@ class TestGetWorkflow:
         assert body["id"] == "wf_123"
 
     def test_get_workflow_not_found(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(return_value=None)
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(return_value=None))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows/wf_missing", {}, http)
         assert _status(result) == 404
@@ -339,9 +331,7 @@ class TestCreateWorkflow:
 
     def test_create_workflow_success(self, handler, monkeypatch):
         mock_result = {"id": "wf_new", "name": "New Workflow"}
-        monkeypatch.setattr(
-            _handler_mod, "create_workflow", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "create_workflow", AsyncMock(return_value=mock_result))
         body_data = {"name": "New Workflow", "steps": []}
         http = MockHTTPHandler(body=body_data, command="POST")
         result = handler.handle_post("/api/v1/workflows", {}, http)
@@ -385,9 +375,7 @@ class TestUpdateWorkflow:
 
     def test_update_workflow_success(self, handler, monkeypatch):
         mock_result = {"id": "wf_123", "name": "Updated"}
-        monkeypatch.setattr(
-            _handler_mod, "update_workflow", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "update_workflow", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler(body={"name": "Updated"}, command="PATCH")
         result = handler.handle_patch("/api/v1/workflows/wf_123", {}, http)
         assert result is not None
@@ -395,9 +383,7 @@ class TestUpdateWorkflow:
         assert body["name"] == "Updated"
 
     def test_update_workflow_not_found(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "update_workflow", AsyncMock(return_value=None)
-        )
+        monkeypatch.setattr(_handler_mod, "update_workflow", AsyncMock(return_value=None))
         http = MockHTTPHandler(body={"name": "test"}, command="PATCH")
         result = handler.handle_patch("/api/v1/workflows/wf_missing", {}, http)
         assert _status(result) == 404
@@ -411,9 +397,7 @@ class TestUpdateWorkflow:
         assert _status(result) == 400
 
     def test_update_workflow_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "update_workflow", AsyncMock(side_effect=OSError("disk"))
-        )
+        monkeypatch.setattr(_handler_mod, "update_workflow", AsyncMock(side_effect=OSError("disk")))
         http = MockHTTPHandler(body={"name": "test"}, command="PATCH")
         result = handler.handle_patch("/api/v1/workflows/wf_123", {}, http)
         assert _status(result) == 503
@@ -437,9 +421,7 @@ class TestPutWorkflow:
 
     def test_put_delegates_to_patch(self, handler, monkeypatch):
         mock_result = {"id": "wf_123", "name": "Via PUT"}
-        monkeypatch.setattr(
-            _handler_mod, "update_workflow", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "update_workflow", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler(body={"name": "Via PUT"}, command="PUT")
         result = handler.handle_put("/api/v1/workflows/wf_123", {}, http)
         assert result is not None
@@ -456,9 +438,7 @@ class TestDeleteWorkflow:
     """Tests for DELETE /api/v1/workflows/{id}."""
 
     def test_delete_workflow_success(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "delete_workflow", AsyncMock(return_value=True)
-        )
+        monkeypatch.setattr(_handler_mod, "delete_workflow", AsyncMock(return_value=True))
         http = MockHTTPHandler(command="DELETE")
         result = handler.handle_delete("/api/v1/workflows/wf_123", {}, http)
         assert result is not None
@@ -467,17 +447,13 @@ class TestDeleteWorkflow:
         assert body["id"] == "wf_123"
 
     def test_delete_workflow_not_found(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "delete_workflow", AsyncMock(return_value=False)
-        )
+        monkeypatch.setattr(_handler_mod, "delete_workflow", AsyncMock(return_value=False))
         http = MockHTTPHandler(command="DELETE")
         result = handler.handle_delete("/api/v1/workflows/wf_missing", {}, http)
         assert _status(result) == 404
 
     def test_delete_workflow_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "delete_workflow", AsyncMock(side_effect=OSError("boom"))
-        )
+        monkeypatch.setattr(_handler_mod, "delete_workflow", AsyncMock(side_effect=OSError("boom")))
         http = MockHTTPHandler(command="DELETE")
         result = handler.handle_delete("/api/v1/workflows/wf_123", {}, http)
         assert _status(result) == 503
@@ -501,9 +477,7 @@ class TestExecuteWorkflow:
 
     def test_execute_success(self, handler, monkeypatch):
         mock_result = {"id": "exec_001", "status": "completed"}
-        monkeypatch.setattr(
-            _handler_mod, "execute_workflow", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "execute_workflow", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler(body={"inputs": {"key": "val"}}, command="POST")
         result = handler.handle_post("/api/v1/workflows/wf_123/execute", {}, http)
         assert result is not None
@@ -512,7 +486,8 @@ class TestExecuteWorkflow:
 
     def test_execute_not_found(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "execute_workflow",
+            _handler_mod,
+            "execute_workflow",
             AsyncMock(side_effect=ValueError("Workflow not found: wf_missing")),
         )
         http = MockHTTPHandler(body={}, command="POST")
@@ -527,7 +502,8 @@ class TestExecuteWorkflow:
 
     def test_execute_connection_error(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "execute_workflow",
+            _handler_mod,
+            "execute_workflow",
             AsyncMock(side_effect=ConnectionError("timeout")),
         )
         http = MockHTTPHandler(body={}, command="POST")
@@ -536,7 +512,8 @@ class TestExecuteWorkflow:
 
     def test_execute_timeout_error(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "execute_workflow",
+            _handler_mod,
+            "execute_workflow",
             AsyncMock(side_effect=TimeoutError("timed out")),
         )
         http = MockHTTPHandler(body={}, command="POST")
@@ -552,9 +529,7 @@ class TestExecuteWorkflow:
         assert _status(result) == 503
 
     def test_execute_data_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "execute_workflow", AsyncMock(side_effect=KeyError("x"))
-        )
+        monkeypatch.setattr(_handler_mod, "execute_workflow", AsyncMock(side_effect=KeyError("x")))
         http = MockHTTPHandler(body={}, command="POST")
         result = handler.handle_post("/api/v1/workflows/wf_123/execute", {}, http)
         assert _status(result) == 500
@@ -562,9 +537,7 @@ class TestExecuteWorkflow:
     def test_execute_flat_payload(self, handler, monkeypatch):
         """Flat payload (no 'inputs' key) should be treated as inputs."""
         mock_result = {"id": "exec_002", "status": "completed"}
-        monkeypatch.setattr(
-            _handler_mod, "execute_workflow", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "execute_workflow", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler(body={"task": "do stuff"}, command="POST")
         result = handler.handle_post("/api/v1/workflows/wf_123/execute", {}, http)
         assert result is not None
@@ -574,9 +547,7 @@ class TestExecuteWorkflow:
     def test_execute_with_event_emitter_in_ctx(self, handler, monkeypatch):
         """Execute should pass event_emitter from ctx."""
         mock_result = {"id": "exec_x", "status": "completed"}
-        monkeypatch.setattr(
-            _handler_mod, "execute_workflow", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "execute_workflow", AsyncMock(return_value=mock_result))
         emitter = MagicMock()
         handler.ctx = {"event_emitter": emitter}
         http = MockHTTPHandler(body={}, command="POST")
@@ -611,9 +582,7 @@ class TestSimulateWorkflow:
 
     def test_simulate_success(self, handler, monkeypatch):
         mock_wf_dict = {"id": "wf_123", "name": "Test"}
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(return_value=mock_wf_dict)
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(return_value=mock_wf_dict))
         mock_wf = self._make_mock_workflow()
         monkeypatch.setattr(
             _handler_mod.WorkflowDefinition,
@@ -630,18 +599,14 @@ class TestSimulateWorkflow:
         assert len(body["execution_plan"]) == 1
 
     def test_simulate_workflow_not_found(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(return_value=None)
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(return_value=None))
         http = MockHTTPHandler(body={}, command="POST")
         result = handler.handle_post("/api/v1/workflows/wf_missing/simulate", {}, http)
         assert _status(result) == 404
 
     def test_simulate_with_validation_errors(self, handler, monkeypatch):
         mock_wf_dict = {"id": "wf_123", "name": "Bad"}
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(return_value=mock_wf_dict)
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(return_value=mock_wf_dict))
         mock_wf = self._make_mock_workflow()
         mock_wf.validate.return_value = (False, ["missing entry step"])
         monkeypatch.setattr(
@@ -657,17 +622,13 @@ class TestSimulateWorkflow:
         assert "missing entry step" in body["validation_errors"]
 
     def test_simulate_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(side_effect=OSError("boom"))
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(side_effect=OSError("boom")))
         http = MockHTTPHandler(body={}, command="POST")
         result = handler.handle_post("/api/v1/workflows/wf_123/simulate", {}, http)
         assert _status(result) == 503
 
     def test_simulate_data_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "get_workflow", AsyncMock(side_effect=TypeError("bad"))
-        )
+        monkeypatch.setattr(_handler_mod, "get_workflow", AsyncMock(side_effect=TypeError("bad")))
         http = MockHTTPHandler(body={}, command="POST")
         result = handler.handle_post("/api/v1/workflows/wf_123/simulate", {}, http)
         assert _status(result) == 500
@@ -683,9 +644,7 @@ class TestGetWorkflowStatus:
 
     def test_status_with_execution(self, handler, monkeypatch):
         mock_exec = [{"id": "exec_001", "status": "running"}]
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(return_value=mock_exec)
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(return_value=mock_exec))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows/wf_123/status", {}, http)
         assert result is not None
@@ -693,9 +652,7 @@ class TestGetWorkflowStatus:
         assert body["status"] == "running"
 
     def test_status_no_executions(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(return_value=[])
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(return_value=[]))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows/wf_123/status", {}, http)
         assert result is not None
@@ -711,9 +668,7 @@ class TestGetWorkflowStatus:
         assert _status(result) == 503
 
     def test_status_data_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(side_effect=KeyError("x"))
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(side_effect=KeyError("x")))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows/wf_123/status", {}, http)
         assert _status(result) == 500
@@ -730,7 +685,8 @@ class TestGetVersions:
     def test_get_versions_success(self, handler, monkeypatch):
         mock_versions = [{"version": "1.0.0"}, {"version": "1.0.1"}]
         monkeypatch.setattr(
-            _handler_mod, "get_workflow_versions",
+            _handler_mod,
+            "get_workflow_versions",
             AsyncMock(return_value=mock_versions),
         )
         http = MockHTTPHandler()
@@ -742,7 +698,8 @@ class TestGetVersions:
 
     def test_get_versions_storage_error(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "get_workflow_versions",
+            _handler_mod,
+            "get_workflow_versions",
             AsyncMock(side_effect=OSError("disk")),
         )
         http = MockHTTPHandler()
@@ -751,7 +708,8 @@ class TestGetVersions:
 
     def test_get_versions_data_error(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "get_workflow_versions",
+            _handler_mod,
+            "get_workflow_versions",
             AsyncMock(side_effect=TypeError("bad")),
         )
         http = MockHTTPHandler()
@@ -770,48 +728,44 @@ class TestRestoreVersion:
     def test_restore_version_success(self, handler, monkeypatch):
         mock_result = {"id": "wf_123", "version": "1.0.0"}
         monkeypatch.setattr(
-            _handler_mod, "restore_workflow_version",
+            _handler_mod,
+            "restore_workflow_version",
             AsyncMock(return_value=mock_result),
         )
         http = MockHTTPHandler(body={}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflows/wf_123/versions/1.0.0/restore", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflows/wf_123/versions/1.0.0/restore", {}, http)
         assert result is not None
         body = _body(result)
         assert body["restored"] is True
 
     def test_restore_version_not_found(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "restore_workflow_version",
+            _handler_mod,
+            "restore_workflow_version",
             AsyncMock(return_value=None),
         )
         http = MockHTTPHandler(body={}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflows/wf_123/versions/0.0.0/restore", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflows/wf_123/versions/0.0.0/restore", {}, http)
         assert _status(result) == 404
 
     def test_restore_version_storage_error(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "restore_workflow_version",
+            _handler_mod,
+            "restore_workflow_version",
             AsyncMock(side_effect=OSError("disk")),
         )
         http = MockHTTPHandler(body={}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflows/wf_123/versions/1.0.0/restore", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflows/wf_123/versions/1.0.0/restore", {}, http)
         assert _status(result) == 503
 
     def test_restore_version_data_error(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "restore_workflow_version",
+            _handler_mod,
+            "restore_workflow_version",
             AsyncMock(side_effect=TypeError("bad")),
         )
         http = MockHTTPHandler(body={}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflows/wf_123/versions/1.0.0/restore", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflows/wf_123/versions/1.0.0/restore", {}, http)
         assert _status(result) == 500
 
 
@@ -825,9 +779,7 @@ class TestListTemplates:
 
     def test_list_templates_success(self, handler, monkeypatch):
         mock_templates = [{"id": "tpl_1", "name": "Contract Review"}]
-        monkeypatch.setattr(
-            _handler_mod, "list_templates", AsyncMock(return_value=mock_templates)
-        )
+        monkeypatch.setattr(_handler_mod, "list_templates", AsyncMock(return_value=mock_templates))
         # Also mock the catalog import to avoid real imports
         with patch(
             "aragora.workflow.templates.list_templates",
@@ -842,9 +794,7 @@ class TestListTemplates:
         assert body["count"] >= 1
 
     def test_list_templates_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "list_templates", AsyncMock(side_effect=OSError("db"))
-        )
+        monkeypatch.setattr(_handler_mod, "list_templates", AsyncMock(side_effect=OSError("db")))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflow-templates", {}, http)
         assert _status(result) == 503
@@ -860,9 +810,7 @@ class TestListTemplates:
     def test_list_templates_via_alias_path(self, handler, monkeypatch):
         """GET /api/v1/workflows/templates should rewrite to /api/v1/workflow-templates."""
         mock_templates = [{"id": "tpl_2"}]
-        monkeypatch.setattr(
-            _handler_mod, "list_templates", AsyncMock(return_value=mock_templates)
-        )
+        monkeypatch.setattr(_handler_mod, "list_templates", AsyncMock(return_value=mock_templates))
         with patch(
             "aragora.workflow.templates.list_templates",
             return_value=[],
@@ -922,56 +870,39 @@ class TestResolveApproval:
     """Tests for POST /api/v1/workflow-approvals/{id}/resolve."""
 
     def test_resolve_approval_success(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "resolve_approval", AsyncMock(return_value=True)
-        )
+        monkeypatch.setattr(_handler_mod, "resolve_approval", AsyncMock(return_value=True))
         http = MockHTTPHandler(body={"status": "approved", "notes": "LGTM"}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflow-approvals/req_001/resolve", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflow-approvals/req_001/resolve", {}, http)
         assert result is not None
         body = _body(result)
         assert body["resolved"] is True
 
     def test_resolve_approval_not_found(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "resolve_approval", AsyncMock(return_value=False)
-        )
+        monkeypatch.setattr(_handler_mod, "resolve_approval", AsyncMock(return_value=False))
         http = MockHTTPHandler(body={"status": "approved"}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflow-approvals/req_missing/resolve", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflow-approvals/req_missing/resolve", {}, http)
         assert _status(result) == 404
 
     def test_resolve_approval_invalid_status(self, handler, monkeypatch):
         monkeypatch.setattr(
-            _handler_mod, "resolve_approval",
+            _handler_mod,
+            "resolve_approval",
             AsyncMock(side_effect=ValueError("Invalid status: WRONG")),
         )
         http = MockHTTPHandler(body={"status": "WRONG"}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflow-approvals/req_001/resolve", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflow-approvals/req_001/resolve", {}, http)
         assert _status(result) == 400
 
     def test_resolve_approval_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "resolve_approval", AsyncMock(side_effect=OSError("db"))
-        )
+        monkeypatch.setattr(_handler_mod, "resolve_approval", AsyncMock(side_effect=OSError("db")))
         http = MockHTTPHandler(body={"status": "approved"}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflow-approvals/req_001/resolve", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflow-approvals/req_001/resolve", {}, http)
         assert _status(result) == 503
 
     def test_resolve_approval_data_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "resolve_approval", AsyncMock(side_effect=KeyError("x"))
-        )
+        monkeypatch.setattr(_handler_mod, "resolve_approval", AsyncMock(side_effect=KeyError("x")))
         http = MockHTTPHandler(body={"status": "approved"}, command="POST")
-        result = handler.handle_post(
-            "/api/v1/workflow-approvals/req_001/resolve", {}, http
-        )
+        result = handler.handle_post("/api/v1/workflow-approvals/req_001/resolve", {}, http)
         assert _status(result) == 500
 
 
@@ -988,9 +919,7 @@ class TestListExecutions:
             {"id": "exec_1", "status": "completed"},
             {"id": "exec_2", "status": "running"},
         ]
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(return_value=mock_execs)
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(return_value=mock_execs))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflow-executions", {}, http)
         assert result is not None
@@ -1002,22 +931,16 @@ class TestListExecutions:
             {"id": "exec_1", "status": "completed"},
             {"id": "exec_2", "status": "running"},
         ]
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(return_value=mock_execs)
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(return_value=mock_execs))
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/workflow-executions", {"status": "running"}, http
-        )
+        result = handler.handle("/api/v1/workflow-executions", {"status": "running"}, http)
         assert result is not None
         body = _body(result)
         assert body["count"] == 1
         assert body["executions"][0]["status"] == "running"
 
     def test_list_executions_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(side_effect=OSError("db"))
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(side_effect=OSError("db")))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflow-executions", {}, http)
         assert _status(result) == 503
@@ -1025,9 +948,7 @@ class TestListExecutions:
     def test_list_executions_via_alias_path(self, handler, monkeypatch):
         """GET /api/v1/workflows/executions -> rewritten to /api/v1/workflow-executions."""
         mock_execs = [{"id": "exec_1", "status": "completed"}]
-        monkeypatch.setattr(
-            _handler_mod, "list_executions", AsyncMock(return_value=mock_execs)
-        )
+        monkeypatch.setattr(_handler_mod, "list_executions", AsyncMock(return_value=mock_execs))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows/executions", {}, http)
         assert result is not None
@@ -1053,9 +974,7 @@ class TestGetExecution:
 
     def test_get_execution_found(self, handler, monkeypatch):
         mock_exec = {"id": "exec_001", "status": "completed", "outputs": {}}
-        monkeypatch.setattr(
-            _handler_mod, "get_execution", AsyncMock(return_value=mock_exec)
-        )
+        monkeypatch.setattr(_handler_mod, "get_execution", AsyncMock(return_value=mock_exec))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflow-executions/exec_001", {}, http)
         assert result is not None
@@ -1063,17 +982,13 @@ class TestGetExecution:
         assert body["id"] == "exec_001"
 
     def test_get_execution_not_found(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "get_execution", AsyncMock(return_value=None)
-        )
+        monkeypatch.setattr(_handler_mod, "get_execution", AsyncMock(return_value=None))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflow-executions/exec_missing", {}, http)
         assert _status(result) == 404
 
     def test_get_execution_storage_error(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "get_execution", AsyncMock(side_effect=OSError("db"))
-        )
+        monkeypatch.setattr(_handler_mod, "get_execution", AsyncMock(side_effect=OSError("db")))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflow-executions/exec_001", {}, http)
         assert _status(result) == 503
@@ -1096,9 +1011,7 @@ class TestTerminateExecution:
     """Tests for DELETE /api/v1/workflow-executions/{id}."""
 
     def test_terminate_success(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "terminate_execution", AsyncMock(return_value=True)
-        )
+        monkeypatch.setattr(_handler_mod, "terminate_execution", AsyncMock(return_value=True))
         http = MockHTTPHandler(command="DELETE")
         result = handler.handle_delete("/api/v1/workflow-executions/exec_001", {}, http)
         assert result is not None
@@ -1107,9 +1020,7 @@ class TestTerminateExecution:
         assert body["execution_id"] == "exec_001"
 
     def test_terminate_cannot_terminate(self, handler, monkeypatch):
-        monkeypatch.setattr(
-            _handler_mod, "terminate_execution", AsyncMock(return_value=False)
-        )
+        monkeypatch.setattr(_handler_mod, "terminate_execution", AsyncMock(return_value=False))
         http = MockHTTPHandler(command="DELETE")
         result = handler.handle_delete("/api/v1/workflow-executions/exec_001", {}, http)
         assert _status(result) == 400
@@ -1143,10 +1054,14 @@ class TestExtractId:
         assert handler._extract_id("/api/v1/workflows/wf_abc123") == "wf_abc123"
 
     def test_extract_id_with_suffix(self, handler):
-        assert handler._extract_id("/api/v1/workflows/wf_123/execute", suffix="/execute") == "wf_123"
+        assert (
+            handler._extract_id("/api/v1/workflows/wf_123/execute", suffix="/execute") == "wf_123"
+        )
 
     def test_extract_id_with_versions_suffix(self, handler):
-        assert handler._extract_id("/api/v1/workflows/wf_123/versions", suffix="/versions") == "wf_123"
+        assert (
+            handler._extract_id("/api/v1/workflows/wf_123/versions", suffix="/versions") == "wf_123"
+        )
 
     def test_extract_id_returns_none_for_short_path(self, handler):
         assert handler._extract_id("/api/v1/workflows") is None
@@ -1275,9 +1190,7 @@ class TestWorkflowHandlersLegacy:
 
     @pytest.mark.asyncio
     async def test_handle_resolve_approval(self):
-        result = await WorkflowHandlers.handle_resolve_approval(
-            "req_1", {"status": "approved"}, {}
-        )
+        result = await WorkflowHandlers.handle_resolve_approval("req_1", {"status": "approved"}, {})
         assert result is True
 
 
@@ -1292,9 +1205,7 @@ class TestEdgeCases:
     def test_handle_get_with_root_path_lists(self, handler, monkeypatch):
         """Requesting /api/v1/workflows with no ID should list, not get."""
         mock_result = {"workflows": [], "total_count": 0, "limit": 50, "offset": 0}
-        monkeypatch.setattr(
-            _handler_mod, "list_workflows", AsyncMock(return_value=mock_result)
-        )
+        monkeypatch.setattr(_handler_mod, "list_workflows", AsyncMock(return_value=mock_result))
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/workflows", {}, http)
         assert result is not None
@@ -1315,13 +1226,9 @@ class TestEdgeCases:
 
     def test_delete_via_executions_alias(self, handler, monkeypatch):
         """DELETE /api/v1/workflows/executions/{id} should rewrite and terminate."""
-        monkeypatch.setattr(
-            _handler_mod, "terminate_execution", AsyncMock(return_value=True)
-        )
+        monkeypatch.setattr(_handler_mod, "terminate_execution", AsyncMock(return_value=True))
         http = MockHTTPHandler(command="DELETE")
-        result = handler.handle_delete(
-            "/api/v1/workflows/executions/exec_001", {}, http
-        )
+        result = handler.handle_delete("/api/v1/workflows/executions/exec_001", {}, http)
         assert result is not None
         body = _body(result)
         assert body["terminated"] is True

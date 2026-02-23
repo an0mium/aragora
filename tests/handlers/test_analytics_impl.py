@@ -179,13 +179,9 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded_returns_429(self, handler, mock_http_handler):
         """When the rate limiter denies a request, handler returns 429."""
-        with patch(
-            "aragora.server.handlers._analytics_impl._analytics_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers._analytics_impl._analytics_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = await handler.handle(
-                "/api/analytics/disagreements", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/analytics/disagreements", {}, mock_http_handler)
 
         assert _status(result) == 429
         body = _body(result)
@@ -217,9 +213,7 @@ class TestAuthRBAC:
             raise UnauthorizedError("Not authenticated")
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
-            result = await h.handle(
-                "/api/analytics/disagreements", {}, mock_http_handler
-            )
+            result = await h.handle("/api/analytics/disagreements", {}, mock_http_handler)
 
         assert _status(result) == 401
 
@@ -249,9 +243,7 @@ class TestAuthRBAC:
             patch.object(SecureHandler, "get_auth_context", get_ctx),
             patch.object(SecureHandler, "check_permission", check_perm),
         ):
-            result = await h.handle(
-                "/api/analytics/disagreements", {}, mock_http_handler
-            )
+            result = await h.handle("/api/analytics/disagreements", {}, mock_http_handler)
 
         assert _status(result) == 403
 
@@ -282,9 +274,7 @@ class TestDisagreementStats:
     @pytest.mark.asyncio
     async def test_no_storage_returns_empty_stats(self, handler, mock_http_handler):
         """Without storage, returns empty stats dict."""
-        result = await handler.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/analytics/disagreements", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["stats"] == {}
@@ -295,9 +285,7 @@ class TestDisagreementStats:
         h, storage = handler_with_storage
         storage.list_debates.return_value = []
 
-        result = await h.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/disagreements", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["stats"]["total_debates"] == 0
@@ -305,9 +293,7 @@ class TestDisagreementStats:
         assert body["stats"]["unanimous"] == 0
 
     @pytest.mark.asyncio
-    async def test_debates_with_disagreements(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_debates_with_disagreements(self, handler_with_storage, mock_http_handler):
         """Debates with disagreement reports are counted correctly."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
@@ -326,9 +312,7 @@ class TestDisagreementStats:
             {"result": {}},  # No disagreement report
         ]
 
-        result = await h.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/disagreements", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["stats"]["total_debates"] == 3
@@ -338,16 +322,12 @@ class TestDisagreementStats:
         assert body["stats"]["disagreement_types"]["methodological"] == 1
 
     @pytest.mark.asyncio
-    async def test_non_dict_debate_is_skipped(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_non_dict_debate_is_skipped(self, handler_with_storage, mock_http_handler):
         """Non-dict debate entries should be handled gracefully."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = ["not_a_dict", 42, None]
 
-        result = await h.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/disagreements", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["stats"]["total_debates"] == 3
@@ -364,9 +344,7 @@ class TestRoleRotationStats:
 
     @pytest.mark.asyncio
     async def test_no_storage_returns_empty(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/analytics/role-rotation", {}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["stats"] == {}
 
@@ -375,17 +353,13 @@ class TestRoleRotationStats:
         h, storage = handler_with_storage
         storage.list_debates.return_value = []
 
-        result = await h.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/role-rotation", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["total_debates"] == 0
         assert body["stats"]["role_assignments"] == {}
 
     @pytest.mark.asyncio
-    async def test_role_assignments_counted(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_role_assignments_counted(self, handler_with_storage, mock_http_handler):
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
             {
@@ -402,9 +376,7 @@ class TestRoleRotationStats:
             },
         ]
 
-        result = await h.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/role-rotation", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["total_debates"] == 2
         assert body["stats"]["role_assignments"]["critic"] == 2
@@ -412,17 +384,13 @@ class TestRoleRotationStats:
         assert body["stats"]["role_assignments"]["judge"] == 1
 
     @pytest.mark.asyncio
-    async def test_missing_role_defaults_to_unknown(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_missing_role_defaults_to_unknown(self, handler_with_storage, mock_http_handler):
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
             {"messages": [{}]},  # No cognitive_role or role
         ]
 
-        result = await h.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/role-rotation", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["role_assignments"].get("unknown") == 1
 
@@ -437,9 +405,7 @@ class TestEarlyStopStats:
 
     @pytest.mark.asyncio
     async def test_no_storage_returns_empty(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/analytics/early-stops", {}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["stats"] == {}
 
@@ -448,17 +414,13 @@ class TestEarlyStopStats:
         h, storage = handler_with_storage
         storage.list_debates.return_value = []
 
-        result = await h.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/early-stops", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["total_debates"] == 0
         assert body["stats"]["average_rounds"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_mixed_early_stopped_and_full(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_mixed_early_stopped_and_full(self, handler_with_storage, mock_http_handler):
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
             {"result": {"early_stopped": True, "rounds_used": 2}},
@@ -466,9 +428,7 @@ class TestEarlyStopStats:
             {"result": {"rounds_used": 3}},  # early_stopped not set (falsy)
         ]
 
-        result = await h.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/early-stops", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["total_debates"] == 3
         assert body["stats"]["early_stopped"] == 1
@@ -476,16 +436,12 @@ class TestEarlyStopStats:
         assert abs(body["stats"]["average_rounds"] - (10 / 3)) < 0.01
 
     @pytest.mark.asyncio
-    async def test_non_dict_debate_safe(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_non_dict_debate_safe(self, handler_with_storage, mock_http_handler):
         """Non-dict debates should not cause errors."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = ["string_debate"]
 
-        result = await h.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/early-stops", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["total_debates"] == 1
 
@@ -500,79 +456,63 @@ class TestConsensusQuality:
 
     @pytest.mark.asyncio
     async def test_no_storage_returns_defaults(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["quality_score"] == 0
         assert body["alert"] is None
 
     @pytest.mark.asyncio
-    async def test_empty_debates_insufficient_data(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_empty_debates_insufficient_data(self, handler_with_storage, mock_http_handler):
         h, storage = handler_with_storage
         storage.list_debates.return_value = []
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["trend"] == "insufficient_data"
         assert body["quality_score"] == 0
 
     @pytest.mark.asyncio
-    async def test_high_confidence_high_consensus(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_high_confidence_high_consensus(self, handler_with_storage, mock_http_handler):
         """High confidence + high consensus should give a high quality score."""
         h, storage = handler_with_storage
         # 6 debates all with high confidence and consensus
         storage.list_debates.return_value = [
             {
                 "id": f"debate-{i}",
-                "timestamp": f"2026-01-0{i+1}T00:00:00Z",
+                "timestamp": f"2026-01-0{i + 1}T00:00:00Z",
                 "result": {"confidence": 0.9, "consensus_reached": True},
             }
             for i in range(6)
         ]
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["quality_score"] > 60
         assert body["stats"]["consensus_rate"] == 1.0
         assert body["stats"]["average_confidence"] == 0.9
 
     @pytest.mark.asyncio
-    async def test_low_confidence_triggers_alert(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_low_confidence_triggers_alert(self, handler_with_storage, mock_http_handler):
         """Low confidence scores should produce a critical or warning alert."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
             {
                 "id": f"debate-{i}",
-                "timestamp": f"2026-01-0{i+1}T00:00:00Z",
+                "timestamp": f"2026-01-0{i + 1}T00:00:00Z",
                 "result": {"confidence": 0.1, "consensus_reached": False},
             }
             for i in range(6)
         ]
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["quality_score"] < 40
         assert body["alert"] is not None
         assert body["alert"]["level"] in ("critical", "warning")
 
     @pytest.mark.asyncio
-    async def test_improving_trend_detected(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_improving_trend_detected(self, handler_with_storage, mock_http_handler):
         """When second half has higher confidence, trend should be 'improving'."""
         h, storage = handler_with_storage
         debates = []
@@ -581,22 +521,18 @@ class TestConsensusQuality:
             debates.append(
                 {
                     "id": f"debate-{i}",
-                    "timestamp": f"2026-01-{i+1:02d}T00:00:00Z",
+                    "timestamp": f"2026-01-{i + 1:02d}T00:00:00Z",
                     "result": {"confidence": conf, "consensus_reached": True},
                 }
             )
         storage.list_debates.return_value = debates
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["trend"] == "improving"
 
     @pytest.mark.asyncio
-    async def test_declining_trend_detected(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_declining_trend_detected(self, handler_with_storage, mock_http_handler):
         """When second half has lower confidence, trend should be 'declining'."""
         h, storage = handler_with_storage
         debates = []
@@ -605,22 +541,18 @@ class TestConsensusQuality:
             debates.append(
                 {
                     "id": f"debate-{i}",
-                    "timestamp": f"2026-01-{i+1:02d}T00:00:00Z",
+                    "timestamp": f"2026-01-{i + 1:02d}T00:00:00Z",
                     "result": {"confidence": conf, "consensus_reached": False},
                 }
             )
         storage.list_debates.return_value = debates
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["trend"] == "declining"
 
     @pytest.mark.asyncio
-    async def test_stable_trend_with_small_diff(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_stable_trend_with_small_diff(self, handler_with_storage, mock_http_handler):
         """When halves are close, trend should be 'stable'."""
         h, storage = handler_with_storage
         debates = []
@@ -628,22 +560,18 @@ class TestConsensusQuality:
             debates.append(
                 {
                     "id": f"debate-{i}",
-                    "timestamp": f"2026-01-{i+1:02d}T00:00:00Z",
+                    "timestamp": f"2026-01-{i + 1:02d}T00:00:00Z",
                     "result": {"confidence": 0.6, "consensus_reached": True},
                 }
             )
         storage.list_debates.return_value = debates
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["trend"] == "stable"
 
     @pytest.mark.asyncio
-    async def test_fewer_than_5_debates_no_trend(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_fewer_than_5_debates_no_trend(self, handler_with_storage, mock_http_handler):
         """With fewer than 5 debates, trend is 'stable' (default, no regression)."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
@@ -654,16 +582,12 @@ class TestConsensusQuality:
             },
         ]
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["trend"] == "stable"
 
     @pytest.mark.asyncio
-    async def test_confidence_history_capped_at_20(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_confidence_history_capped_at_20(self, handler_with_storage, mock_http_handler):
         """confidence_history in response is capped to 20 entries for the UI."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
@@ -675,9 +599,7 @@ class TestConsensusQuality:
             for i in range(30)
         ]
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert len(body["stats"]["confidence_history"]) == 20
 
@@ -693,15 +615,13 @@ class TestConsensusQuality:
             debates.append(
                 {
                     "id": f"debate-{i}",
-                    "timestamp": f"2026-01-{i+1:02d}T00:00:00Z",
+                    "timestamp": f"2026-01-{i + 1:02d}T00:00:00Z",
                     "result": {"confidence": conf, "consensus_reached": True},
                 }
             )
         storage.list_debates.return_value = debates
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         # With average < 0.7 and declining trend and quality_score >= 60
         # it might be info alert; depends on exact score
@@ -709,9 +629,7 @@ class TestConsensusQuality:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_debate_id_truncated_to_8_chars(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_debate_id_truncated_to_8_chars(self, handler_with_storage, mock_http_handler):
         """Debate IDs in confidence_history are truncated to first 8 chars."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
@@ -722,9 +640,7 @@ class TestConsensusQuality:
             }
         ]
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["confidence_history"][0]["debate_id"] == "abcdefgh"
 
@@ -811,9 +727,7 @@ class TestMemoryStats:
         assert body["stats"]["continuum_memory"] is False
 
     @pytest.mark.asyncio
-    async def test_embeddings_db_detected(
-        self, handler_with_nomic_dir, mock_http_handler
-    ):
+    async def test_embeddings_db_detected(self, handler_with_nomic_dir, mock_http_handler):
         h, nomic_dir = handler_with_nomic_dir
         (nomic_dir / "debate_embeddings.db").write_text("")
 
@@ -824,9 +738,7 @@ class TestMemoryStats:
         assert body["stats"]["continuum_memory"] is False
 
     @pytest.mark.asyncio
-    async def test_continuum_memory_db_detected(
-        self, handler_with_nomic_dir, mock_http_handler
-    ):
+    async def test_continuum_memory_db_detected(self, handler_with_nomic_dir, mock_http_handler):
         h, nomic_dir = handler_with_nomic_dir
         (nomic_dir / "continuum_memory.db").write_text("")
 
@@ -835,9 +747,7 @@ class TestMemoryStats:
         assert body["stats"]["continuum_memory"] is True
 
     @pytest.mark.asyncio
-    async def test_insights_db_detected(
-        self, handler_with_nomic_dir, mock_http_handler
-    ):
+    async def test_insights_db_detected(self, handler_with_nomic_dir, mock_http_handler):
         """Insights DB uses the configured DB_INSIGHTS_PATH constant."""
         from aragora.config import DB_INSIGHTS_PATH
 
@@ -879,11 +789,11 @@ class TestCrossPollinationStats:
             patch(
                 "aragora.server.handlers._analytics_impl.RLMHierarchyCache",
                 side_effect=ImportError,
-            ) if False else patch.dict("sys.modules", {}),
-        ):
-            result = await handler.handle(
-                "/api/analytics/cross-pollination", {}, mock_http_handler
             )
+            if False
+            else patch.dict("sys.modules", {}),
+        ):
+            result = await handler.handle("/api/analytics/cross-pollination", {}, mock_http_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -905,9 +815,7 @@ class TestCrossPollinationStats:
             "sys.modules",
             {"aragora.rlm.bridge": MagicMock(RLMHierarchyCache=mock_cls)},
         ):
-            result = await handler.handle(
-                "/api/analytics/cross-pollination", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/analytics/cross-pollination", {}, mock_http_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -925,9 +833,7 @@ class TestCrossPollinationStats:
             "sys.modules",
             {"aragora.ranking.elo": MagicMock(get_elo_store=mock_elo_fn)},
         ):
-            result = await handler.handle(
-                "/api/analytics/cross-pollination", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/analytics/cross-pollination", {}, mock_http_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -985,9 +891,7 @@ class TestLearningEfficiencyStats:
         assert body["agent"] == "claude"
         assert body["domain"] == "coding"
         assert body["efficiency"]["learning_rate"] == 0.85
-        mock_elo.get_learning_efficiency.assert_called_once_with(
-            "claude", domain="coding"
-        )
+        mock_elo.get_learning_efficiency.assert_called_once_with("claude", domain="coding")
 
     @pytest.mark.asyncio
     async def test_all_agents_batch_query(self, handler, mock_http_handler):
@@ -1074,9 +978,7 @@ class TestVotingAccuracyStats:
             "aragora.ranking.elo.get_elo_store",
             side_effect=ImportError,
         ):
-            result = await handler.handle(
-                "/api/analytics/voting-accuracy", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/analytics/voting-accuracy", {}, mock_http_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1147,9 +1049,7 @@ class TestCalibrationStats:
             "aragora.ranking.elo.get_elo_store",
             side_effect=ImportError,
         ):
-            result = await handler.handle(
-                "/api/analytics/calibration", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/analytics/calibration", {}, mock_http_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1370,9 +1270,7 @@ class TestVersionedPaths:
         h, storage = handler_with_storage
         storage.list_debates.return_value = []
 
-        result = await h.handle(
-            "/api/v1/analytics/disagreements", {}, mock_http_handler
-        )
+        result = await h.handle("/api/v1/analytics/disagreements", {}, mock_http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1416,58 +1314,44 @@ class TestEdgeCases:
             {"messages": []},  # No 'result' key
         ]
 
-        result = await h.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/disagreements", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["stats"]["total_debates"] == 1
 
     @pytest.mark.asyncio
-    async def test_early_stops_with_zero_rounds(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_early_stops_with_zero_rounds(self, handler_with_storage, mock_http_handler):
         """Debates with zero rounds_used should be handled."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
             {"result": {"rounds_used": 0}},
         ]
 
-        result = await h.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/early-stops", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["average_rounds"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_consensus_quality_missing_fields(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_consensus_quality_missing_fields(self, handler_with_storage, mock_http_handler):
         """Debates with missing confidence/consensus fields use defaults."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = [
             {"id": "", "timestamp": "", "result": {}},
         ]
 
-        result = await h.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
         body = _body(result)
         # confidence defaults to 0.0, consensus_reached defaults to False
         assert body["stats"]["average_confidence"] == 0.0
         assert body["stats"]["consensus_rate"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_role_rotation_non_dict_debate(
-        self, handler_with_storage, mock_http_handler
-    ):
+    async def test_role_rotation_non_dict_debate(self, handler_with_storage, mock_http_handler):
         """Non-dict debates in role rotation should not crash."""
         h, storage = handler_with_storage
         storage.list_debates.return_value = ["not_a_dict"]
 
-        result = await h.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
+        result = await h.handle("/api/analytics/role-rotation", {}, mock_http_handler)
         body = _body(result)
         assert body["stats"]["total_debates"] == 1
         assert body["stats"]["role_assignments"] == {}

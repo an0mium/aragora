@@ -264,7 +264,9 @@ class CCPAMixin:
                 retain_exceptions=retain_exceptions,
             )
 
-            logger.info("CCPA deletion request scheduled: user=%s, request_id=%s", user_id, request_id)
+            logger.info(
+                "CCPA deletion request scheduled: user=%s, request_id=%s", user_id, request_id
+            )
             emit_handler_event(
                 "compliance",
                 DELETED,

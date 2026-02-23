@@ -363,7 +363,9 @@ def with_webhook_metrics(platform: str) -> Callable:
                 return result
             except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
                 status = "error"
-                logger.warning("Webhook handler exception on %s: %s: %s", platform, type(e).__name__, e)
+                logger.warning(
+                    "Webhook handler exception on %s: %s: %s", platform, type(e).__name__, e
+                )
                 record_error(platform, "handler_exception")
                 raise
             finally:
@@ -389,7 +391,9 @@ def with_api_metrics(platform: str, method: str) -> Callable:
                 return result
             except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
                 status = "error"
-                logger.warning("API call exception (%s.%s): %s: %s", platform, method, type(e).__name__, e)
+                logger.warning(
+                    "API call exception (%s.%s): %s: %s", platform, method, type(e).__name__, e
+                )
                 raise
             finally:
                 latency = time.time() - start_time

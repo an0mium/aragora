@@ -135,6 +135,7 @@ _AGENT_STYLES: list[Literal["supportive", "critical", "balanced", "contrarian"]]
 # Inline mock debate (fallback when aragora-debate is not installed)
 # ---------------------------------------------------------------------------
 
+
 def _build_mock_proposals(topic: str, question: str | None = None) -> dict[str, list[str]]:
     """Build topic-aware mock proposals instead of canned microservices text."""
     # If a raw question was provided (e.g. from Oracle mode), use it for the snippet
@@ -255,9 +256,11 @@ def _get_api_key(name: str) -> str | None:
     """Get an API key from AWS Secrets Manager (production) or env vars (dev)."""
     try:
         from aragora.config.secrets import get_secret
+
         return get_secret(name)
     except ImportError:
         return os.environ.get(name)
+
 
 # ---------------------------------------------------------------------------
 # Multi-model tentacles — each tentacle is a genuinely different AI
@@ -265,12 +268,42 @@ def _get_api_key(name: str) -> str | None:
 
 _TENTACLE_MODELS: list[dict[str, str]] = [
     # All tentacles route through OpenRouter for unified billing and latest models
-    {"provider": "openrouter", "model": "anthropic/claude-opus-4.6", "name": "claude", "env": "OPENROUTER_API_KEY"},
-    {"provider": "openrouter", "model": "openai/gpt-5.2", "name": "gpt", "env": "OPENROUTER_API_KEY"},
-    {"provider": "openrouter", "model": "x-ai/grok-4.1-fast", "name": "grok", "env": "OPENROUTER_API_KEY"},
-    {"provider": "openrouter", "model": "deepseek/deepseek-v3.2", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
-    {"provider": "openrouter", "model": "google/gemini-3.1-pro-preview", "name": "gemini", "env": "OPENROUTER_API_KEY"},
-    {"provider": "openrouter", "model": "mistralai/mistral-large-2512", "name": "mistral", "env": "OPENROUTER_API_KEY"},
+    {
+        "provider": "openrouter",
+        "model": "anthropic/claude-opus-4.6",
+        "name": "claude",
+        "env": "OPENROUTER_API_KEY",
+    },
+    {
+        "provider": "openrouter",
+        "model": "openai/gpt-5.2",
+        "name": "gpt",
+        "env": "OPENROUTER_API_KEY",
+    },
+    {
+        "provider": "openrouter",
+        "model": "x-ai/grok-4.1-fast",
+        "name": "grok",
+        "env": "OPENROUTER_API_KEY",
+    },
+    {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2",
+        "name": "deepseek",
+        "env": "OPENROUTER_API_KEY",
+    },
+    {
+        "provider": "openrouter",
+        "model": "google/gemini-3.1-pro-preview",
+        "name": "gemini",
+        "env": "OPENROUTER_API_KEY",
+    },
+    {
+        "provider": "openrouter",
+        "model": "mistralai/mistral-large-2512",
+        "name": "mistral",
+        "env": "OPENROUTER_API_KEY",
+    },
 ]
 
 
@@ -301,14 +334,24 @@ def _call_provider_llm(
             return None
         try:
             import anthropic
+
             client = anthropic.Anthropic(api_key=key, timeout=timeout)
             resp = client.messages.create(
-                model=model, max_tokens=max_tokens,
+                model=model,
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
             if resp.content and resp.content[0].text:
                 return resp.content[0].text
-        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+        except (
+            ImportError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
             logger.warning("Anthropic tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -318,14 +361,24 @@ def _call_provider_llm(
             return None
         try:
             import openai
+
             client = openai.OpenAI(api_key=key, timeout=timeout)
             resp = client.chat.completions.create(
-                model=model, max_tokens=max_tokens,
+                model=model,
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
             if resp.choices and resp.choices[0].message.content:
                 return resp.choices[0].message.content
-        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+        except (
+            ImportError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
             logger.warning("OpenAI tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -335,14 +388,24 @@ def _call_provider_llm(
             return None
         try:
             import openai
+
             client = openai.OpenAI(api_key=key, base_url="https://api.x.ai/v1", timeout=timeout)
             resp = client.chat.completions.create(
-                model=model, max_tokens=max_tokens,
+                model=model,
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
             if resp.choices and resp.choices[0].message.content:
                 return resp.choices[0].message.content
-        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+        except (
+            ImportError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
             logger.warning("xAI tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -352,16 +415,28 @@ def _call_provider_llm(
             return None
         try:
             import openai
+
             client = openai.OpenAI(
-                api_key=key, base_url="https://openrouter.ai/api/v1", timeout=timeout,
+                api_key=key,
+                base_url="https://openrouter.ai/api/v1",
+                timeout=timeout,
             )
             resp = client.chat.completions.create(
-                model=model, max_tokens=max_tokens,
+                model=model,
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
             if resp.choices and resp.choices[0].message.content:
                 return resp.choices[0].message.content
-        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+        except (
+            ImportError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
             logger.warning("OpenRouter tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -371,16 +446,26 @@ def _call_provider_llm(
             return None
         try:
             import google.generativeai as genai
+
             genai.configure(api_key=key)
             gmodel = genai.GenerativeModel(model)
             resp = gmodel.generate_content(prompt)
             if resp.text:
                 return resp.text
-        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+        except (
+            ImportError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
             logger.warning("Google tentacle call failed (%s)", model, exc_info=True)
         return None
 
     return None
+
 
 # Load the essay at module init.  We load TWO versions:
 # 1. The full essay (~48K words, ~88K tokens) — kept for reference/future use
@@ -427,7 +512,11 @@ if _ORACLE_ESSAY_CONDENSED:
         if any(sec.startswith(k) for k in _keep):
             _focused_parts.append("## " + sec)
     _ORACLE_ESSAY_FOCUSED = "\n\n".join(_focused_parts)
-    logger.info("Oracle essay focused: %d chars (from %d condensed)", len(_ORACLE_ESSAY_FOCUSED), len(_ORACLE_ESSAY_CONDENSED))
+    logger.info(
+        "Oracle essay focused: %d chars (from %d condensed)",
+        len(_ORACLE_ESSAY_FOCUSED),
+        len(_ORACLE_ESSAY_CONDENSED),
+    )
 
 
 def _build_oracle_prompt(mode: str, question: str) -> str:
@@ -438,11 +527,7 @@ def _build_oracle_prompt(mode: str, question: str) -> str:
     """
     essay_block = ""
     if _ORACLE_ESSAY_FOCUSED:
-        essay_block = (
-            "\n\n<essay>\n"
-            + _ORACLE_ESSAY_FOCUSED
-            + "\n</essay>\n"
-        )
+        essay_block = "\n\n<essay>\n" + _ORACLE_ESSAY_FOCUSED + "\n</essay>\n"
 
     if mode == "consult":
         return (
@@ -488,7 +573,7 @@ def _build_oracle_prompt(mode: str, question: str) -> str:
             "does it look like when they stop asking this question and start asking a "
             "better one?\n\n"
             "Be specific, be strange, be honest. No platitudes.\n"
-            "End with: \"The palantir dims. Which thread do you pull?\"\n\n"
+            'End with: "The palantir dims. Which thread do you pull?"\n\n'
             f"The seeker asks: {question}"
         )
 
@@ -538,7 +623,9 @@ def _call_llm(
 
 
 def _try_oracle_response(
-    mode: str, question: str, topic: str | None = None,
+    mode: str,
+    question: str,
+    topic: str | None = None,
 ) -> dict[str, Any] | None:
     """Generate a real LLM response for Oracle Phase 1 (initial take).
 
@@ -547,19 +634,21 @@ def _try_oracle_response(
     Returns a debate-shaped result dict, or None on failure.
     """
     start = time.monotonic()
-    prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY_CONDENSED else (topic or question)
+    prompt = (
+        _build_oracle_prompt(mode, question) if _ORACLE_ESSAY_CONDENSED else (topic or question)
+    )
     text = _call_llm(prompt, max_tokens=2000)
     if not text:
-        logger.warning("Oracle Phase 1: all LLM providers failed after %.1fs", time.monotonic() - start)
+        logger.warning(
+            "Oracle Phase 1: all LLM providers failed after %.1fs", time.monotonic() - start
+        )
         return None
 
     duration = time.monotonic() - start
     debate_id = uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"OR-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
-    receipt_hash = hashlib.sha256(
-        f"{receipt_id}:{question}:approved:0.85".encode()
-    ).hexdigest()
+    receipt_hash = hashlib.sha256(f"{receipt_id}:{question}:approved:0.85".encode()).hexdigest()
 
     return {
         "id": debate_id,
@@ -640,7 +729,9 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
 ]
 
 
-def _build_tentacle_prompt(mode: str, question: str, role_prompt: str, *, source: str = "oracle") -> str:
+def _build_tentacle_prompt(
+    mode: str, question: str, role_prompt: str, *, source: str = "oracle"
+) -> str:
     """Build a lightweight prompt for tentacle calls (NO full essay).
 
     Phase 1 already gave the deep essay-informed answer.  Phase 2 tentacles
@@ -684,11 +775,7 @@ def _build_tentacle_prompt(mode: str, question: str, role_prompt: str, *, source
             "over agreement."
         )
 
-    return (
-        f"{context}\n\n"
-        f"YOUR ROLE: {role_prompt}\n\n"
-        f"The question: {question}"
-    )
+    return f"{context}\n\nYOUR ROLE: {role_prompt}\n\nThe question: {question}"
 
 
 def _try_oracle_tentacles(
@@ -722,12 +809,16 @@ def _try_oracle_tentacles(
     )
 
     def _call_tentacle(
-        model_cfg: dict[str, str], role_prompt: str,
+        model_cfg: dict[str, str],
+        role_prompt: str,
     ) -> tuple[str, str | None]:
         prompt = _build_tentacle_prompt(mode, question, role_prompt, source=source)
         text = _call_provider_llm(
-            model_cfg["provider"], model_cfg["model"], prompt,
-            max_tokens=800, timeout=45.0,
+            model_cfg["provider"],
+            model_cfg["model"],
+            prompt,
+            max_tokens=800,
+            timeout=45.0,
         )
         return model_cfg["name"], text
 
@@ -741,7 +832,15 @@ def _try_oracle_tentacles(
                     logger.info("Tentacle %s responded (%d chars)", name, len(text))
                 else:
                     logger.warning("Tentacle %s returned empty response", name)
-            except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError, TimeoutError):
+            except (
+                OSError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                TimeoutError,
+            ):
                 logger.warning("Tentacle future failed", exc_info=True)
 
     if not results:
@@ -751,11 +850,15 @@ def _try_oracle_tentacles(
     duration = time.monotonic() - start
     logger.info(
         "Tentacles complete: %d/%d succeeded in %.1fs",
-        len(results), count, duration,
+        len(results),
+        count,
+        duration,
     )
     participants = list(results.keys())
     # Last respondent synthesizes; prefer the synthesizer model if available
-    final = results.get(available[min(2, len(available) - 1)]["name"]) or next(iter(results.values()))
+    final = results.get(available[min(2, len(available) - 1)]["name"]) or next(
+        iter(results.values())
+    )
     debate_id = uuid.uuid4().hex[:16]
 
     return {
@@ -1173,23 +1276,27 @@ class PlaygroundHandler(BaseHandler):
             # Return an Oracle-themed placeholder instead of a generic mock debate
             # (the generic mock talks about microservices which is nonsensical for Oracle)
             debate_id = uuid.uuid4().hex[:16]
-            return json_response({
-                "id": debate_id,
-                "topic": question,
-                "status": "completed",
-                "rounds_used": 1,
-                "consensus_reached": True,
-                "confidence": 0.5,
-                "verdict": "pending",
-                "duration_seconds": 0.1,
-                "participants": ["oracle"],
-                "proposals": {"oracle": "The Oracle is gathering its thoughts... The tentacles will speak momentarily."},
-                "critiques": [],
-                "votes": [],
-                "dissenting_views": [],
-                "final_answer": "The Oracle is gathering its thoughts... The tentacles will speak momentarily.",
-                "receipt_hash": None,
-            })
+            return json_response(
+                {
+                    "id": debate_id,
+                    "topic": question,
+                    "status": "completed",
+                    "rounds_used": 1,
+                    "consensus_reached": True,
+                    "confidence": 0.5,
+                    "verdict": "pending",
+                    "duration_seconds": 0.1,
+                    "participants": ["oracle"],
+                    "proposals": {
+                        "oracle": "The Oracle is gathering its thoughts... The tentacles will speak momentarily."
+                    },
+                    "critiques": [],
+                    "votes": [],
+                    "dissenting_views": [],
+                    "final_answer": "The Oracle is gathering its thoughts... The tentacles will speak momentarily.",
+                    "receipt_hash": None,
+                }
+            )
         else:
             # Normal playground: try aragora-debate package
             try:
@@ -1201,7 +1308,9 @@ class PlaygroundHandler(BaseHandler):
 
         # Last resort: inline mock debate (question-aware when question provided)
         try:
-            return json_response(_run_inline_mock_debate(topic, rounds, agent_count, question=question))
+            return json_response(
+                _run_inline_mock_debate(topic, rounds, agent_count, question=question)
+            )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
             return error_response("Debate failed unexpectedly", 500)
@@ -1428,7 +1537,9 @@ class PlaygroundHandler(BaseHandler):
         # Multi-perspective LLM calls with source-appropriate prompts:
         # "oracle" source uses tentacle language, "landing" uses neutral debate language.
         if question:
-            tentacle_result = _try_oracle_tentacles(mode=mode, question=question, agent_count=agent_count, topic=topic, source=source)
+            tentacle_result = _try_oracle_tentacles(
+                mode=mode, question=question, agent_count=agent_count, topic=topic, source=source
+            )
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()
                 return json_response(tentacle_result)
@@ -1462,6 +1573,7 @@ class PlaygroundHandler(BaseHandler):
         """Execute a live debate using real agents with budget/timeout caps."""
         try:
             import importlib.util
+
             if importlib.util.find_spec("aragora.server.debate_controller") is None:
                 raise ImportError("debate_controller not found")
         except ImportError:

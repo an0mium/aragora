@@ -337,7 +337,7 @@ class TestProcessBatchExport:
     async def test_process_export_debate_not_found(self, export_handler, mock_storage):
         """Test processing when debate not found."""
         # Override get_debates_batch to return None for missing debate
-        mock_storage.get_debates_batch = lambda ids: {did: None for did in ids}
+        mock_storage.get_debates_batch = lambda ids: dict.fromkeys(ids)
 
         items = [BatchExportItem(debate_id="missing-debate", format="json")]
         job = BatchExportJob(job_id="not_found_job", items=items)

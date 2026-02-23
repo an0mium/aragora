@@ -71,9 +71,14 @@ class TestDaemonDecisionLogic:
         config = DaemonConfig(health_threshold=0.9, min_candidates=5)
         daemon = SelfImprovementDaemon(config)
 
-        report = _make_report(health_score=0.5, candidates=[
-            SimpleNamespace(description="one", priority=0.5, source="s", files=[], category="c"),
-        ])
+        report = _make_report(
+            health_score=0.5,
+            candidates=[
+                SimpleNamespace(
+                    description="one", priority=0.5, source="s", files=[], category="c"
+                ),
+            ],
+        )
         with patch.object(daemon, "_assess", new_callable=AsyncMock, return_value=report):
             result = await daemon.trigger_cycle()
 

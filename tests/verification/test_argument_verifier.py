@@ -45,6 +45,7 @@ from aragora.visualization.mapper import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_graph() -> ArgumentCartographer:
     """Create an empty ArgumentCartographer for testing."""
     graph = ArgumentCartographer()
@@ -96,6 +97,7 @@ def _add_edge(
 # ---------------------------------------------------------------------------
 # Dataclass Tests
 # ---------------------------------------------------------------------------
+
 
 class TestArgumentVerificationResult:
     """Tests for ArgumentVerificationResult dataclass."""
@@ -151,9 +153,7 @@ class TestArgumentVerificationResult:
 
     def test_result_with_circular_deps_is_not_sound(self):
         """Result with circular dependencies should not be sound."""
-        result = ArgumentVerificationResult(
-            circular_dependencies=[["a", "b", "a"]]
-        )
+        result = ArgumentVerificationResult(circular_dependencies=[["a", "b", "a"]])
         assert result.is_sound is False
 
     def test_soundness_score_perfect(self):
@@ -161,7 +161,8 @@ class TestArgumentVerificationResult:
         result = ArgumentVerificationResult(
             valid_chains=[
                 VerifiedChain(
-                    chain_id="c1", name="c1",
+                    chain_id="c1",
+                    name="c1",
                     premise_node_ids=["p1"],
                     conclusion_node_id="q1",
                     confidence=0.9,
@@ -176,7 +177,8 @@ class TestArgumentVerificationResult:
         result = ArgumentVerificationResult(
             valid_chains=[
                 VerifiedChain(
-                    chain_id="c1", name="c1",
+                    chain_id="c1",
+                    name="c1",
                     premise_node_ids=["p1"],
                     conclusion_node_id="q1",
                     confidence=0.9,
@@ -184,7 +186,8 @@ class TestArgumentVerificationResult:
             ],
             invalid_chains=[
                 InvalidChain(
-                    chain_id="c2", name="c2",
+                    chain_id="c2",
+                    name="c2",
                     premise_node_ids=["p2"],
                     conclusion_node_id="q2",
                     reason="invalid",
@@ -300,6 +303,7 @@ class TestUnsupportedConclusion:
 # Verifier Initialization
 # ---------------------------------------------------------------------------
 
+
 class TestArgumentStructureVerifierInit:
     """Tests for ArgumentStructureVerifier initialization."""
 
@@ -327,6 +331,7 @@ class TestArgumentStructureVerifierInit:
 # ---------------------------------------------------------------------------
 # Cycle Detection
 # ---------------------------------------------------------------------------
+
 
 class TestCycleDetection:
     """Tests for circular dependency detection."""
@@ -387,14 +392,16 @@ class TestCycleDetection:
 # Unsupported Conclusion Detection
 # ---------------------------------------------------------------------------
 
+
 class TestUnsupportedConclusionDetection:
     """Tests for finding unsupported conclusions."""
 
     def test_unsupported_proposal(self):
         """A proposal in round > 0 with no SUPPORTS edges should be flagged."""
         graph = _make_graph()
-        _add_node(graph, "p1", node_type=NodeType.PROPOSAL, round_num=1,
-                  summary="We should adopt X")
+        _add_node(
+            graph, "p1", node_type=NodeType.PROPOSAL, round_num=1, summary="We should adopt X"
+        )
 
         verifier = ArgumentStructureVerifier()
         unsupported = verifier._find_unsupported_conclusions(graph)
@@ -404,10 +411,10 @@ class TestUnsupportedConclusionDetection:
     def test_supported_proposal_not_flagged(self):
         """A proposal with supporting evidence should not be flagged."""
         graph = _make_graph()
-        _add_node(graph, "e1", node_type=NodeType.EVIDENCE,
-                  summary="Data shows X works")
-        _add_node(graph, "p1", node_type=NodeType.PROPOSAL, round_num=1,
-                  summary="We should adopt X")
+        _add_node(graph, "e1", node_type=NodeType.EVIDENCE, summary="Data shows X works")
+        _add_node(
+            graph, "p1", node_type=NodeType.PROPOSAL, round_num=1, summary="We should adopt X"
+        )
         _add_edge(graph, "e1", "p1", EdgeRelation.SUPPORTS)
 
         verifier = ArgumentStructureVerifier()
@@ -417,8 +424,7 @@ class TestUnsupportedConclusionDetection:
     def test_initial_proposal_not_flagged(self):
         """A proposal in round 0 is the initial claim - not flagged."""
         graph = _make_graph()
-        _add_node(graph, "p0", node_type=NodeType.PROPOSAL, round_num=0,
-                  summary="Initial proposal")
+        _add_node(graph, "p0", node_type=NodeType.PROPOSAL, round_num=0, summary="Initial proposal")
 
         verifier = ArgumentStructureVerifier()
         unsupported = verifier._find_unsupported_conclusions(graph)
@@ -439,16 +445,23 @@ class TestUnsupportedConclusionDetection:
 # Contradiction Detection
 # ---------------------------------------------------------------------------
 
+
 class TestContradictionDetection:
     """Tests for detecting contradictory premises."""
 
     def test_explicit_refutation_between_proposals(self):
         """Two proposals connected by a REFUTES edge are contradictory."""
         graph = _make_graph()
-        _add_node(graph, "p1", agent="alice", node_type=NodeType.PROPOSAL,
-                  summary="We should use Python")
-        _add_node(graph, "p2", agent="bob", node_type=NodeType.REBUTTAL,
-                  summary="We should not use Python")
+        _add_node(
+            graph, "p1", agent="alice", node_type=NodeType.PROPOSAL, summary="We should use Python"
+        )
+        _add_node(
+            graph,
+            "p2",
+            agent="bob",
+            node_type=NodeType.REBUTTAL,
+            summary="We should not use Python",
+        )
         _add_edge(graph, "p2", "p1", EdgeRelation.REFUTES)
 
         verifier = ArgumentStructureVerifier()
@@ -463,10 +476,12 @@ class TestContradictionDetection:
         """One node supports and another refutes the same target = contradiction."""
         graph = _make_graph()
         _add_node(graph, "target", node_type=NodeType.PROPOSAL)
-        _add_node(graph, "supporter", agent="alice", node_type=NodeType.EVIDENCE,
-                  summary="Evidence for")
-        _add_node(graph, "refuter", agent="bob", node_type=NodeType.EVIDENCE,
-                  summary="Evidence against")
+        _add_node(
+            graph, "supporter", agent="alice", node_type=NodeType.EVIDENCE, summary="Evidence for"
+        )
+        _add_node(
+            graph, "refuter", agent="bob", node_type=NodeType.EVIDENCE, summary="Evidence against"
+        )
         _add_edge(graph, "supporter", "target", EdgeRelation.SUPPORTS)
         _add_edge(graph, "refuter", "target", EdgeRelation.REFUTES)
 
@@ -502,6 +517,7 @@ class TestContradictionDetection:
 # ---------------------------------------------------------------------------
 # Argument Chain Extraction
 # ---------------------------------------------------------------------------
+
 
 class TestChainExtraction:
     """Tests for extracting argument chains from graphs."""
@@ -551,6 +567,7 @@ class TestChainExtraction:
 # Full Verification (with mocked backends)
 # ---------------------------------------------------------------------------
 
+
 class TestFullVerification:
     """Tests for the full verify() pipeline with mocked backends."""
 
@@ -567,23 +584,38 @@ class TestFullVerification:
     async def test_verify_valid_chain_with_z3(self):
         """A valid chain should be verified when Z3 returns PROOF_FOUND."""
         graph = _make_graph()
-        _add_node(graph, "e1", node_type=NodeType.EVIDENCE,
-                  summary="x > 0", full_content="x is greater than zero")
-        _add_node(graph, "p1", node_type=NodeType.PROPOSAL, round_num=1,
-                  summary="x >= 0", full_content="x is non-negative")
+        _add_node(
+            graph,
+            "e1",
+            node_type=NodeType.EVIDENCE,
+            summary="x > 0",
+            full_content="x is greater than zero",
+        )
+        _add_node(
+            graph,
+            "p1",
+            node_type=NodeType.PROPOSAL,
+            round_num=1,
+            summary="x >= 0",
+            full_content="x is non-negative",
+        )
         _add_edge(graph, "e1", "p1", EdgeRelation.SUPPORTS)
 
         mock_z3 = MagicMock(spec=Z3Backend)
         mock_z3.is_available = True
         mock_z3.language = FormalLanguage.Z3_SMT
         mock_z3.can_verify.return_value = True
-        mock_z3.translate = AsyncMock(return_value="(declare-const x Int)\n(assert (not (=> (> x 0) (>= x 0))))\n(check-sat)")
-        mock_z3.prove = AsyncMock(return_value=FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-            proof_text="QED (negation is unsatisfiable)",
-            translation_confidence=0.9,
-        ))
+        mock_z3.translate = AsyncMock(
+            return_value="(declare-const x Int)\n(assert (not (=> (> x 0) (>= x 0))))\n(check-sat)"
+        )
+        mock_z3.prove = AsyncMock(
+            return_value=FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+                proof_text="QED (negation is unsatisfiable)",
+                translation_confidence=0.9,
+            )
+        )
 
         mock_lean = MagicMock(spec=LeanBackend)
         mock_lean.is_available = False
@@ -602,10 +634,10 @@ class TestFullVerification:
     async def test_verify_invalid_chain(self):
         """An invalid chain should be reported when proof fails."""
         graph = _make_graph()
-        _add_node(graph, "e1", node_type=NodeType.EVIDENCE,
-                  summary="The sky is blue")
-        _add_node(graph, "p1", node_type=NodeType.PROPOSAL, round_num=1,
-                  summary="Therefore cats can fly")
+        _add_node(graph, "e1", node_type=NodeType.EVIDENCE, summary="The sky is blue")
+        _add_node(
+            graph, "p1", node_type=NodeType.PROPOSAL, round_num=1, summary="Therefore cats can fly"
+        )
         _add_edge(graph, "e1", "p1", EdgeRelation.SUPPORTS)
 
         mock_z3 = MagicMock(spec=Z3Backend)
@@ -636,14 +668,13 @@ class TestFullVerification:
         _add_edge(graph, "b", "a", EdgeRelation.SUPPORTS)
 
         # Unsupported conclusion
-        _add_node(graph, "unsp", node_type=NodeType.PROPOSAL, round_num=1,
-                  summary="Unsupported claim")
+        _add_node(
+            graph, "unsp", node_type=NodeType.PROPOSAL, round_num=1, summary="Unsupported claim"
+        )
 
         # Contradiction
-        _add_node(graph, "x", agent="alice", node_type=NodeType.PROPOSAL,
-                  summary="X is true")
-        _add_node(graph, "y", agent="bob", node_type=NodeType.REBUTTAL,
-                  summary="X is false")
+        _add_node(graph, "x", agent="alice", node_type=NodeType.PROPOSAL, summary="X is true")
+        _add_node(graph, "y", agent="bob", node_type=NodeType.REBUTTAL, summary="X is false")
         _add_edge(graph, "y", "x", EdgeRelation.REFUTES)
 
         mock_z3 = MagicMock(spec=Z3Backend)
@@ -683,11 +714,13 @@ class TestFullVerification:
         mock_z3.is_available = True
         mock_z3.language = FormalLanguage.Z3_SMT
         mock_z3.translate = AsyncMock(return_value="(check-sat)")
-        mock_z3.prove = AsyncMock(return_value=FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-            translation_confidence=0.8,
-        ))
+        mock_z3.prove = AsyncMock(
+            return_value=FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+                translation_confidence=0.8,
+            )
+        )
 
         verifier = ArgumentStructureVerifier(
             lean_backend=mock_lean,
@@ -711,11 +744,13 @@ class TestFullVerification:
         mock_lean.is_available = True
         mock_lean.language = FormalLanguage.LEAN4
         mock_lean.translate = AsyncMock(return_value="theorem t : True := trivial")
-        mock_lean.prove = AsyncMock(return_value=FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.LEAN4,
-            translation_confidence=0.85,
-        ))
+        mock_lean.prove = AsyncMock(
+            return_value=FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.LEAN4,
+                translation_confidence=0.85,
+            )
+        )
 
         mock_z3 = MagicMock(spec=Z3Backend)
         mock_z3.is_available = True
@@ -746,11 +781,13 @@ class TestFullVerification:
         mock_z3.is_available = True
         mock_z3.language = FormalLanguage.Z3_SMT
         mock_z3.translate = AsyncMock(return_value="(check-sat)")
-        mock_z3.prove = AsyncMock(return_value=FormalProofResult(
-            status=FormalProofStatus.PROOF_FOUND,
-            language=FormalLanguage.Z3_SMT,
-            translation_confidence=0.75,
-        ))
+        mock_z3.prove = AsyncMock(
+            return_value=FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+                translation_confidence=0.75,
+            )
+        )
 
         verifier = ArgumentStructureVerifier(
             lean_backend=mock_lean,
@@ -766,14 +803,13 @@ class TestFullVerification:
 # Implication Claim Building
 # ---------------------------------------------------------------------------
 
+
 class TestBuildImplicationClaim:
     """Tests for building formal implication claims."""
 
     def test_single_premise(self):
         verifier = ArgumentStructureVerifier()
-        claim = verifier._build_implication_claim(
-            ["All humans are mortal"], "Socrates is mortal"
-        )
+        claim = verifier._build_implication_claim(["All humans are mortal"], "Socrates is mortal")
         assert "If All humans are mortal" in claim
         assert "then Socrates is mortal" in claim
 
@@ -798,6 +834,7 @@ class TestBuildImplicationClaim:
 # ---------------------------------------------------------------------------
 # Manager Integration
 # ---------------------------------------------------------------------------
+
 
 class TestFormalVerificationManagerIntegration:
     """Tests for FormalVerificationManager.verify_argument_structure."""
@@ -827,13 +864,16 @@ class TestFormalVerificationManagerIntegration:
         manager = FormalVerificationManager()
 
         # The manager has backends[0]=Z3, backends[1]=Lean
-        with patch(
-            "aragora.verification.argument_verifier.ArgumentStructureVerifier.__init__",
-            return_value=None,
-        ) as mock_init, patch(
-            "aragora.verification.argument_verifier.ArgumentStructureVerifier.verify",
-            new_callable=AsyncMock,
-            return_value=ArgumentVerificationResult(),
+        with (
+            patch(
+                "aragora.verification.argument_verifier.ArgumentStructureVerifier.__init__",
+                return_value=None,
+            ) as mock_init,
+            patch(
+                "aragora.verification.argument_verifier.ArgumentStructureVerifier.verify",
+                new_callable=AsyncMock,
+                return_value=ArgumentVerificationResult(),
+            ),
         ):
             await manager.verify_argument_structure(graph)
             # Check that init was called with the manager's backends
@@ -845,6 +885,7 @@ class TestFormalVerificationManagerIntegration:
 # ---------------------------------------------------------------------------
 # VerificationStrategy Enum
 # ---------------------------------------------------------------------------
+
 
 class TestVerificationStrategy:
     """Tests for VerificationStrategy enum values."""

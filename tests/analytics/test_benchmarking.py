@@ -23,6 +23,7 @@ from aragora.analytics.benchmarking import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _seed_aggregator(
     agg: BenchmarkAggregator,
     *,

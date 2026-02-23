@@ -260,9 +260,18 @@ class TestDeliberationSummary:
         )
         body = _body(result)
         expected_keys = [
-            "org_id", "period", "total_deliberations", "completed",
-            "in_progress", "failed", "consensus_reached", "consensus_rate",
-            "avg_rounds", "avg_duration_seconds", "by_template", "by_priority",
+            "org_id",
+            "period",
+            "total_deliberations",
+            "completed",
+            "in_progress",
+            "failed",
+            "consensus_reached",
+            "consensus_rate",
+            "avg_rounds",
+            "avg_duration_seconds",
+            "by_template",
+            "by_priority",
         ]
         for key in expected_keys:
             assert key in body, f"Missing key: {key}"
@@ -591,8 +600,18 @@ class TestDeliberationByChannel:
         """Multiple channel entries for the same platform should be aggregated."""
         mock_store = MagicMock()
         mock_store.get_deliberation_stats_by_channel.return_value = [
-            {"platform": "web", "total_deliberations": 30, "consensus_reached": 20, "total_duration": 1000},
-            {"platform": "web", "total_deliberations": 20, "consensus_reached": 15, "total_duration": 800},
+            {
+                "platform": "web",
+                "total_deliberations": 30,
+                "consensus_reached": 20,
+                "total_duration": 1000,
+            },
+            {
+                "platform": "web",
+                "total_deliberations": 20,
+                "consensus_reached": 15,
+                "total_duration": 800,
+            },
         ]
         mock_get_store.return_value = mock_store
 
@@ -626,7 +645,12 @@ class TestDeliberationByChannel:
         """Platform with zero count should show 0% consensus."""
         mock_store = MagicMock()
         mock_store.get_deliberation_stats_by_channel.return_value = [
-            {"platform": "web", "total_deliberations": 0, "consensus_reached": 0, "total_duration": 0},
+            {
+                "platform": "web",
+                "total_deliberations": 0,
+                "consensus_reached": 0,
+                "total_duration": 0,
+            },
         ]
         mock_get_store.return_value = mock_store
 
@@ -1005,7 +1029,9 @@ class TestDeliberationPerformance:
         assert body["granularity"] == "week"
 
     @patch("aragora.memory.debate_store.get_debate_store")
-    def test_performance_invalid_granularity_defaults_to_day(self, mock_get_store, handler, mock_http):
+    def test_performance_invalid_granularity_defaults_to_day(
+        self, mock_get_store, handler, mock_http
+    ):
         mock_store = MagicMock()
         mock_store.get_deliberation_performance.return_value = _make_performance_stats()
         mock_get_store.return_value = mock_store
@@ -1018,7 +1044,9 @@ class TestDeliberationPerformance:
         assert body["granularity"] == "day"
 
     @patch("aragora.memory.debate_store.get_debate_store")
-    def test_performance_empty_granularity_defaults_to_day(self, mock_get_store, handler, mock_http):
+    def test_performance_empty_granularity_defaults_to_day(
+        self, mock_get_store, handler, mock_http
+    ):
         mock_store = MagicMock()
         mock_store.get_deliberation_performance.return_value = _make_performance_stats()
         mock_get_store.return_value = mock_store
@@ -1501,8 +1529,13 @@ class TestEdgeCases:
     def test_summary_all_zeroes(self, mock_get_store, handler, mock_http):
         mock_store = MagicMock()
         stats = _make_deliberation_stats(
-            total=0, completed=0, consensus_reached=0,
-            in_progress=0, failed=0, avg_rounds=0, avg_duration_seconds=0,
+            total=0,
+            completed=0,
+            consensus_reached=0,
+            in_progress=0,
+            failed=0,
+            avg_rounds=0,
+            avg_duration_seconds=0,
         )
         mock_store.get_deliberation_stats.return_value = stats
         mock_get_store.return_value = mock_store
@@ -1521,8 +1554,11 @@ class TestEdgeCases:
     def test_summary_large_values(self, mock_get_store, handler, mock_http):
         mock_store = MagicMock()
         stats = _make_deliberation_stats(
-            total=1_000_000, completed=999_999, consensus_reached=800_000,
-            in_progress=1, failed=0,
+            total=1_000_000,
+            completed=999_999,
+            consensus_reached=800_000,
+            in_progress=1,
+            failed=0,
         )
         mock_store.get_deliberation_stats.return_value = stats
         mock_get_store.return_value = mock_store
@@ -1540,7 +1576,12 @@ class TestEdgeCases:
         """Many different platforms should all be aggregated."""
         mock_store = MagicMock()
         channels = [
-            {"platform": f"platform_{i}", "total_deliberations": 10, "consensus_reached": 5, "total_duration": 100}
+            {
+                "platform": f"platform_{i}",
+                "total_deliberations": 10,
+                "consensus_reached": 5,
+                "total_duration": 100,
+            }
             for i in range(20)
         ]
         mock_store.get_deliberation_stats_by_channel.return_value = channels

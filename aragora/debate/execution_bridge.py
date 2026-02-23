@@ -152,7 +152,9 @@ class ExecutionBridge:
             action_type=action_type,
             config=config or {},
             priority=priority,
-            min_confidence=min_confidence if min_confidence is not None else self.config.default_min_confidence,
+            min_confidence=min_confidence
+            if min_confidence is not None
+            else self.config.default_min_confidence,
         )
         self._rules.append(rule)
         self._rules.sort(key=lambda r: r.priority, reverse=True)
@@ -359,9 +361,7 @@ class ExecutionBridge:
                 detail=str(e),
             )
 
-    def _execute_improvement_queue(
-        self, rule: ActionRule, context: dict[str, Any]
-    ) -> ActionResult:
+    def _execute_improvement_queue(self, rule: ActionRule, context: dict[str, Any]) -> ActionResult:
         """Queue improvement suggestion for Nomic Loop."""
         if not self.config.enable_improvement_queue:
             return ActionResult(
@@ -411,14 +411,16 @@ class ExecutionBridge:
             import json
             import urllib.request
 
-            payload = json.dumps({
-                "event": "debate_completed",
-                "debate_id": context["debate_id"],
-                "confidence": context.get("confidence", 0.0),
-                "domain": context.get("domain", "general"),
-                "consensus_reached": context.get("consensus_reached", False),
-                "task": context.get("task", "")[:200],
-            }).encode()
+            payload = json.dumps(
+                {
+                    "event": "debate_completed",
+                    "debate_id": context["debate_id"],
+                    "confidence": context.get("confidence", 0.0),
+                    "domain": context.get("domain", "general"),
+                    "consensus_reached": context.get("consensus_reached", False),
+                    "task": context.get("task", "")[:200],
+                }
+            ).encode()
 
             req = urllib.request.Request(
                 webhook_url,

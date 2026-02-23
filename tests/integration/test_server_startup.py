@@ -40,6 +40,7 @@ class TestInitHandlersLifecycle:
         Each test gets its own class to avoid cross-test state leakage
         from class-level attributes set by _init_handlers.
         """
+
         class TestMixin(HandlerRegistryMixin):
             _handlers_initialized = False
             _init_lock = __import__("threading").Lock()
@@ -117,6 +118,7 @@ class TestRouteIndexBuild:
 
     def _init_mixin_and_get_index(self):
         """Helper: initialize handlers and return a fresh RouteIndex."""
+
         class TestMixin(HandlerRegistryMixin):
             _handlers_initialized = False
             _init_lock = __import__("threading").Lock()
@@ -212,6 +214,7 @@ class TestGetHandlerStats:
 
     def test_stats_after_init(self):
         """_get_handler_stats should return correct counts after init."""
+
         class TestMixin(HandlerRegistryMixin):
             _handlers_initialized = False
             _init_lock = __import__("threading").Lock()
@@ -242,6 +245,7 @@ class TestGetHandlerStats:
 
     def test_stats_before_init(self):
         """_get_handler_stats should show uninitialized state."""
+
         class FreshMixin(HandlerRegistryMixin):
             _handlers_initialized = False
 
@@ -265,8 +269,7 @@ class TestTierFilteredInit:
         )
 
         assert len(core_registry) < len(all_registry), (
-            f"Core ({len(core_registry)}) should be smaller than "
-            f"all ({len(all_registry)})"
+            f"Core ({len(core_registry)}) should be smaller than all ({len(all_registry)})"
         )
         assert len(core_registry) >= 5, "Core tier too small"
 

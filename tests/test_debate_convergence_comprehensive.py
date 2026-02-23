@@ -82,6 +82,7 @@ def _reset_similarity_state():
     # Sync the factory module so SimilarityFactory._ensure_initialized()
     # registers the same class objects that get_similarity_backend returns.
     import aragora.debate.similarity.factory as _factory_mod
+
     _factory_mod.JaccardBackend = _backends_mod.JaccardBackend
     _factory_mod.TFIDFBackend = _backends_mod.TFIDFBackend
     _factory_mod.SentenceTransformerBackend = _backends_mod.SentenceTransformerBackend
@@ -89,6 +90,7 @@ def _reset_similarity_state():
 
     # Sync the detector module so _select_backend returns matching types.
     import aragora.debate.convergence.detector as _det_mod
+
     _det_mod.JaccardBackend = _backends_mod.JaccardBackend
     _det_mod.get_similarity_backend = _backends_mod.get_similarity_backend
 

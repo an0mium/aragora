@@ -751,7 +751,7 @@ class GauntletOrchestrator:
         logger.info("=" * 60)
         logger.info("GAUNTLET STRESS-TEST: %s", gauntlet_id)
         logger.info("Input Type: %s", config.input_type.value)
-        logger.info("Agents: %s", ', '.join(a.name for a in self.agents))
+        logger.info("Agents: %s", ", ".join(a.name for a in self.agents))
         logger.info("=" * 60)
 
         # Emit initial progress
@@ -1059,7 +1059,7 @@ class GauntletOrchestrator:
             proposer_agent = None
             if len(self.agents) > config.parallel_attacks:
                 proposer_agent = self.agents[config.parallel_attacks]
-                logger.info("Using %s as defender", getattr(proposer_agent, 'name', 'agent'))
+                logger.info("Using %s as defender", getattr(proposer_agent, "name", "agent"))
 
             result = await self.redteam_mode.run_redteam(
                 target_proposal=config.input_content,

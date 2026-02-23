@@ -430,7 +430,10 @@ class ConvoyCoordinator:
 
             await self._save_assignments()
             logger.info(
-                "Distributed %s beads in convoy %s to %s agents", len(assignments), convoy_id, len(agents)
+                "Distributed %s beads in convoy %s to %s agents",
+                len(assignments),
+                convoy_id,
+                len(agents),
             )
             return assignments
 
@@ -730,7 +733,9 @@ class ConvoyCoordinator:
         # Check reassignment limit
         if len(assignment.previous_agents) >= self.policy.max_reassignments:
             logger.warning(
-                "Bead %s hit max reassignments (%s)", assignment.bead_id, self.policy.max_reassignments
+                "Bead %s hit max reassignments (%s)",
+                assignment.bead_id,
+                self.policy.max_reassignments,
             )
             return None
 
@@ -791,7 +796,11 @@ class ConvoyCoordinator:
         self._agent_loads[new_agent] = new_load
 
         logger.info(
-            "Reassigned bead %s from %s to %s (reason: %s)", assignment.bead_id, current_agent, new_agent, reason.value
+            "Reassigned bead %s from %s to %s (reason: %s)",
+            assignment.bead_id,
+            current_agent,
+            new_agent,
+            reason.value,
         )
         return new_assignment
 
@@ -830,7 +839,9 @@ class ConvoyCoordinator:
             if reassigned:
                 await self._save_assignments()
 
-            logger.info("Handled failure of agent %s, reassigned %s beads", agent_id, len(reassigned))
+            logger.info(
+                "Handled failure of agent %s, reassigned %s beads", agent_id, len(reassigned)
+            )
             return reassigned
 
     async def update_assignment_status(

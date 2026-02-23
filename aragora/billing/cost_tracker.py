@@ -604,18 +604,21 @@ class CostTracker:
         if self._event_emitter:
             try:
                 from aragora.server.stream.events import StreamEvent, StreamEventType
-                self._event_emitter.emit(StreamEvent(
-                    type=StreamEventType.BUDGET_ALERT,
-                    data={
-                        "budget_id": budget.id,
-                        "workspace_id": budget.workspace_id,
-                        "org_id": budget.org_id,
-                        "level": alert_level.value,
-                        "percentage": percentage,
-                        "current_spend": float(budget.current_monthly_spend),
-                        "limit": float(budget.monthly_limit_usd or 0),
-                    },
-                ))
+
+                self._event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.BUDGET_ALERT,
+                        data={
+                            "budget_id": budget.id,
+                            "workspace_id": budget.workspace_id,
+                            "org_id": budget.org_id,
+                            "level": alert_level.value,
+                            "percentage": percentage,
+                            "current_spend": float(budget.current_monthly_spend),
+                            "limit": float(budget.monthly_limit_usd or 0),
+                        },
+                    )
+                )
             except (ImportError, AttributeError, TypeError):
                 pass
 

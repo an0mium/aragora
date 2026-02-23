@@ -621,9 +621,7 @@ class ContextInitializer:
 
         try:
             config = KnowledgeInjectionConfig(
-                max_relevant_receipts=getattr(
-                    self.protocol, "knowledge_injection_max_receipts", 3
-                ),
+                max_relevant_receipts=getattr(self.protocol, "knowledge_injection_max_receipts", 3),
             )
             injector = DebateKnowledgeInjector(config=config)
             task = ctx.env.task if ctx.env else ""
@@ -757,13 +755,15 @@ class ContextInitializer:
                 "Consider them as institutional precedent but challenge if new evidence warrants:\n",
             ]
             for item in items:
-                confidence_label = item.confidence.value if hasattr(item.confidence, "value") else str(item.confidence)
+                confidence_label = (
+                    item.confidence.value
+                    if hasattr(item.confidence, "value")
+                    else str(item.confidence)
+                )
                 verdict = item.metadata.get("verdict", "")
                 verdict_str = f" [{verdict}]" if verdict else ""
                 content_preview = item.content[:400]
-                lines.append(
-                    f"- **{confidence_label} confidence{verdict_str}**: {content_preview}"
-                )
+                lines.append(f"- **{confidence_label} confidence{verdict_str}**: {content_preview}")
 
             conclusions_text = "\n".join(lines)
             _receipt_conclusions_cache[query_hash] = (conclusions_text, time.time())
@@ -1078,13 +1078,9 @@ class ContextInitializer:
             for prior in priors:
                 conf_pct = f"{prior.effective_confidence * 100:.0f}%"
                 source = prior.source_type.upper()
-                lines.append(
-                    f"- [{conf_pct} confidence, {source}] {prior.statement}"
-                )
+                lines.append(f"- [{conf_pct} confidence, {source}] {prior.statement}")
                 if prior.dissenting_agents:
-                    lines.append(
-                        f"  (Dissent from: {', '.join(prior.dissenting_agents[:3])})"
-                    )
+                    lines.append(f"  (Dissent from: {', '.join(prior.dissenting_agents[:3])})")
 
             section = "\n\n" + "\n".join(lines)
             if ctx.env.context:
@@ -1144,25 +1140,19 @@ class ContextInitializer:
         )
         if warnings:
             sections.append("## WARNINGS FROM PAST DEBATES")
-            sections.append(
-                "These risks and edge cases were raised in similar past debates:"
-            )
+            sections.append("These risks and edge cases were raised in similar past debates:")
             for d in warnings[:5]:
                 confidence = d.get("confidence", 0.0)
                 content = d.get("content", "")[:300]
                 agent = d.get("agent_id", "unknown")
-                sections.append(
-                    f"- [{confidence:.0%} confidence] {content} (raised by {agent})"
-                )
+                sections.append(f"- [{confidence:.0%} confidence] {content} (raised by {agent})")
             sections.append("")
 
         # Section 2: Alternative approaches
         alternatives = dissent_by_type.get("alternative_approach", [])
         if alternatives:
             sections.append("## ALTERNATIVE APPROACHES CONSIDERED")
-            sections.append(
-                "Previous debates explored these alternative approaches:"
-            )
+            sections.append("Previous debates explored these alternative approaches:")
             for d in alternatives[:5]:
                 confidence = d.get("confidence", 0.0)
                 content = d.get("content", "")[:300]
@@ -1178,27 +1168,21 @@ class ContextInitializer:
         disagreements = dissent_by_type.get("fundamental_disagreement", [])
         if disagreements:
             sections.append("## FUNDAMENTAL DISAGREEMENTS")
-            sections.append(
-                "These core disagreements remain unresolved from past debates:"
-            )
+            sections.append("These core disagreements remain unresolved from past debates:")
             for d in disagreements[:5]:
                 confidence = d.get("confidence", 0.0)
                 content = d.get("content", "")[:300]
                 agent = d.get("agent_id", "unknown")
                 acknowledged = d.get("acknowledged", False)
                 status = "addressed" if acknowledged else "UNRESOLVED"
-                sections.append(
-                    f"- [{confidence:.0%} confidence, {status}] {content} (by {agent})"
-                )
+                sections.append(f"- [{confidence:.0%} confidence, {status}] {content} (by {agent})")
             sections.append("")
 
         # Only return if we built at least one typed section
         if len(sections) <= 1:
             return ""
 
-        sections.append(
-            "Consider addressing these points explicitly in your arguments."
-        )
+        sections.append("Consider addressing these points explicitly in your arguments.")
 
         return "\n".join(sections)
 
@@ -1387,15 +1371,15 @@ class ContextInitializer:
 
                 # Map outcome type to label
                 type_label = outcome_type.upper()
-                impact_pct = f"{impact_score:.0%}" if isinstance(impact_score, (int, float)) else "N/A"
+                impact_pct = (
+                    f"{impact_score:.0%}" if isinstance(impact_score, (int, float)) else "N/A"
+                )
 
                 content_preview = item.content[:300]
                 if len(item.content) > 300:
                     content_preview += "..."
 
-                lines.append(
-                    f"- **[{type_label}, {impact_pct} impact]** {content_preview}"
-                )
+                lines.append(f"- **[{type_label}, {impact_pct} impact]** {content_preview}")
 
                 if lessons:
                     lesson_preview = lessons[:200]
@@ -1410,9 +1394,7 @@ class ContextInitializer:
                     ]
                     lines.append(f"  KPI changes: {', '.join(delta_strs)}")
 
-            lines.append(
-                "\nConsider these outcomes when evaluating proposals."
-            )
+            lines.append("\nConsider these outcomes when evaluating proposals.")
 
             outcome_text = "\n".join(lines)
 
@@ -1487,7 +1469,9 @@ class ContextInitializer:
                 ctx.evidence_pack = evidence_pack
                 evidence_context = evidence_pack.to_context_string()
                 logger.info(
-                    "evidence_collection_complete snippets=%s sources=%s", len(evidence_pack.snippets), evidence_pack.total_searched
+                    "evidence_collection_complete snippets=%s sources=%s",
+                    len(evidence_pack.snippets),
+                    evidence_pack.total_searched,
                 )
 
                 # Inject evidence into environment context

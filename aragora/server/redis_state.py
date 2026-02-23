@@ -415,7 +415,7 @@ class RedisStateManager:
                         if pattern == "*" or event.get("type", "").startswith(pattern.rstrip("*")):
                             yield event
                     except json.JSONDecodeError:
-                        logger.warning("Invalid event JSON: %s", message['data'])
+                        logger.warning("Invalid event JSON: %s", message["data"])
         finally:
             await self._pubsub.unsubscribe()
 

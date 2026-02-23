@@ -324,7 +324,9 @@ class _PeriodicCacheCleanup:
 
                 if cleaned > 0 or entries_evicted > 0:
                     logger.info(
-                        "Periodic cleanup: removed %s stale caches, evicted %s expired entries", cleaned, entries_evicted
+                        "Periodic cleanup: removed %s stale caches, evicted %s expired entries",
+                        cleaned,
+                        entries_evicted,
                     )
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
                 logger.warning("Error during periodic cache cleanup: %s", e)

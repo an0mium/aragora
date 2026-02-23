@@ -296,7 +296,9 @@ class TestAsyncDispatchConfig:
         from aragora.events.types import StreamEvent, StreamEventType
 
         # Avoid built-in side effects (webhook/config store init) in this unit test.
-        with patch.object(CrossSubscriberManager, "_register_builtin_subscribers", lambda self: None):
+        with patch.object(
+            CrossSubscriberManager, "_register_builtin_subscribers", lambda self: None
+        ):
             manager = CrossSubscriberManager()
 
             # Create a high-volume event

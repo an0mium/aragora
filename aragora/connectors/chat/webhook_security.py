@@ -102,7 +102,9 @@ def should_allow_unverified(source: str) -> bool:
     if is_production_environment():
         env = get_environment()
         logger.warning(
-            "Webhook verification for '%s' cannot be bypassed in %s environment. ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is ignored.", source, env
+            "Webhook verification for '%s' cannot be bypassed in %s environment. ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is ignored.",
+            source,
+            env,
         )
         return False
 
@@ -115,7 +117,9 @@ def should_allow_unverified(source: str) -> bool:
 
     if allow_unverified:
         logger.warning(
-            "Webhook verification for '%s' bypassed in %s environment. This is a security risk - do not use in production.", source, get_environment()
+            "Webhook verification for '%s' bypassed in %s environment. This is a security risk - do not use in production.",
+            source,
+            get_environment(),
         )
 
     return allow_unverified

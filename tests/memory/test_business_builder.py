@@ -238,7 +238,8 @@ class TestCustomerHistory:
         results = await ingester.get_customer_history("C001")
         assert results == expected
         mock_fabric.query.assert_awaited_once_with(
-            "customer C001 interaction", limit=20,
+            "customer C001 interaction",
+            limit=20,
         )
 
     @pytest.mark.asyncio
@@ -246,7 +247,8 @@ class TestCustomerHistory:
         ingester = BusinessKnowledgeIngester(mock_fabric)
         await ingester.get_customer_history("C001", limit=5)
         mock_fabric.query.assert_awaited_once_with(
-            "customer C001 interaction", limit=5,
+            "customer C001 interaction",
+            limit=5,
         )
 
     @pytest.mark.asyncio

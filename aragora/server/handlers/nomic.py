@@ -160,7 +160,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                     break  # Don't retry unexpected errors
 
             logger.warning(
-                "Nomic stream emission failed after %s attempts for %s: %s", max_retries, emit_method, last_error
+                "Nomic stream emission failed after %s attempts for %s: %s",
+                max_retries,
+                emit_method,
+                last_error,
             )
 
         # Schedule the emission task without blocking
@@ -169,7 +172,8 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             task = loop.create_task(_do_emit_with_retry())
             task.add_done_callback(
                 lambda t: logger.warning(
-                    "Nomic stream emission task failed: %s", t.exception(),
+                    "Nomic stream emission task failed: %s",
+                    t.exception(),
                 )
                 if not t.cancelled() and t.exception()
                 else None

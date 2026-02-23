@@ -41,7 +41,7 @@ try:
         HandlerResult,
         error_response,
         json_response,
-    handle_errors,
+        handle_errors,
     )
     from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 

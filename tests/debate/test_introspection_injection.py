@@ -93,9 +93,7 @@ class TestIntrospectionInjection:
             persona_manager=persona_manager,
         )
 
-        with patch(
-            "aragora.introspection.api.get_agent_introspection"
-        ) as mock_get:
+        with patch("aragora.introspection.api.get_agent_introspection") as mock_get:
             from aragora.introspection.types import IntrospectionSnapshot
 
             mock_get.return_value = IntrospectionSnapshot(

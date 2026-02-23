@@ -245,13 +245,19 @@ class ReverseFlowMixin:
                     break
 
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.warning("[%s] Reverse sync failed for %s: %s", self.adapter_name, source_id, e)
+                logger.warning(
+                    "[%s] Reverse sync failed for %s: %s", self.adapter_name, source_id, e
+                )
                 result["errors"].append(f"Failed to update {source_id}")
 
         result["duration_ms"] = (time.time() - start_time) * 1000
 
         logger.info(
-            "[%s] Reverse sync complete: analyzed=%s, updated=%s, skipped=%s", self.adapter_name, result['records_analyzed'], result['records_updated'], result['records_skipped']
+            "[%s] Reverse sync complete: analyzed=%s, updated=%s, skipped=%s",
+            self.adapter_name,
+            result["records_analyzed"],
+            result["records_updated"],
+            result["records_skipped"],
         )
 
         return result

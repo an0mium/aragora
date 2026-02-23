@@ -104,9 +104,7 @@ class TestSeedIdeas:
     def test_seed_ideas_are_unique(self, name: str):
         t = get_template(name)
         assert t is not None
-        assert len(t.seed_ideas) == len(set(t.seed_ideas)), (
-            f"{name} has duplicate seed ideas"
-        )
+        assert len(t.seed_ideas) == len(set(t.seed_ideas)), f"{name} has duplicate seed ideas"
 
 
 # =========================================================================

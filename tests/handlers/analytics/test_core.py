@@ -349,9 +349,7 @@ class TestAnalyticsHandlerRouting:
         mock_storage.list_debates.return_value = []
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/disagreements", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/disagreements", {}, http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -363,9 +361,7 @@ class TestAnalyticsHandlerRouting:
         mock_storage.list_debates.return_value = []
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/role-rotation", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/role-rotation", {}, http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -377,9 +373,7 @@ class TestAnalyticsHandlerRouting:
         mock_storage.list_debates.return_value = []
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/early-stops", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/early-stops", {}, http_handler)
         assert result is not None
         assert _status(result) == 200
 
@@ -402,9 +396,7 @@ class TestAnalyticsHandlerRouting:
         """When nomic_dir is not configured, returns empty stats."""
         analytics_handler.ctx = {}
 
-        result = await analytics_handler.handle(
-            "/api/memory/stats", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/memory/stats", {}, http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -412,9 +404,7 @@ class TestAnalyticsHandlerRouting:
 
     @pytest.mark.asyncio
     async def test_unknown_route_returns_none(self, analytics_handler, http_handler):
-        result = await analytics_handler.handle(
-            "/api/analytics/nonexistent", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/nonexistent", {}, http_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -434,9 +424,7 @@ class TestAnalyticsHandlerRouting:
         mock_storage.list_debates.return_value = []
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/v1/analytics/disagreements", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/v1/analytics/disagreements", {}, http_handler)
         assert result is not None
         assert _status(result) == 200
 
@@ -469,9 +457,7 @@ class TestAnalyticsHandlerData:
         mock_storage.list_debates.return_value = debates
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/disagreements", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/disagreements", {}, http_handler)
         body = _body(result)
         stats = body["stats"]
         assert stats["total_debates"] == 2
@@ -488,9 +474,7 @@ class TestAnalyticsHandlerData:
         mock_storage.list_debates.return_value = debates
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/early-stops", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/early-stops", {}, http_handler)
         body = _body(result)
         stats = body["stats"]
         assert stats["total_debates"] == 2
@@ -513,9 +497,7 @@ class TestAnalyticsHandlerData:
         mock_storage.list_debates.return_value = debates
         analytics_handler.ctx = {"storage": mock_storage}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/role-rotation", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/role-rotation", {}, http_handler)
         body = _body(result)
         stats = body["stats"]
         assert stats["role_assignments"]["analyst"] == 1
@@ -526,9 +508,7 @@ class TestAnalyticsHandlerData:
     async def test_no_storage_returns_empty_stats(self, analytics_handler, http_handler):
         analytics_handler.ctx = {}
 
-        result = await analytics_handler.handle(
-            "/api/analytics/disagreements", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/analytics/disagreements", {}, http_handler)
         body = _body(result)
         assert body["stats"] == {}
 
@@ -537,9 +517,7 @@ class TestAnalyticsHandlerData:
         """When no ELO system is available, returns 503."""
         analytics_handler.ctx = {}
 
-        result = await analytics_handler.handle(
-            "/api/ranking/stats", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/ranking/stats", {}, http_handler)
         assert result is not None
         assert _status(result) == 503
 
@@ -554,9 +532,7 @@ class TestAnalyticsHandlerData:
         mock_elo.get_leaderboard.return_value = [mock_entry]
         analytics_handler.ctx = {"elo_system": mock_elo}
 
-        result = await analytics_handler.handle(
-            "/api/ranking/stats", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/ranking/stats", {}, http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["stats"]["total_agents"] == 1
@@ -567,9 +543,7 @@ class TestAnalyticsHandlerData:
         """When nomic_dir exists, checks for db files."""
         analytics_handler.ctx = {"nomic_dir": tmp_path}
 
-        result = await analytics_handler.handle(
-            "/api/memory/stats", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/memory/stats", {}, http_handler)
         body = _body(result)
         assert body["stats"]["embeddings_db"] is False
         assert body["stats"]["continuum_memory"] is False
@@ -580,9 +554,7 @@ class TestAnalyticsHandlerData:
         (tmp_path / "continuum_memory.db").touch()
         analytics_handler.ctx = {"nomic_dir": tmp_path}
 
-        result = await analytics_handler.handle(
-            "/api/memory/stats", {}, http_handler
-        )
+        result = await analytics_handler.handle("/api/memory/stats", {}, http_handler)
         body = _body(result)
         assert body["stats"]["embeddings_db"] is True
         assert body["stats"]["continuum_memory"] is True

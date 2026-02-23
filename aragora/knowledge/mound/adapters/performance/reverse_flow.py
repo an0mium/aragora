@@ -190,7 +190,10 @@ class ReverseFlowMixin:
         self._km_patterns[agent_name] = patterns
 
         logger.info(
-            "Analyzed KM patterns for %s: found %s patterns from %s items", agent_name, len(patterns), total_items
+            "Analyzed KM patterns for %s: found %s patterns from %s items",
+            agent_name,
+            len(patterns),
+            total_items,
         )
 
         return patterns

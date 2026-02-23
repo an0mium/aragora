@@ -653,7 +653,9 @@ class TestGetPairwiseSimilarityCache:
         # Patch effective max to a small number on BOTH the module and the
         # package re-export so _effective_max_similarity_caches() sees it.
         monkeypatch.setattr(cache_mod, "MAX_SIMILARITY_CACHES", 2)
-        monkeypatch.setattr(cache_mod, "DEFAULT_MAX_SIMILARITY_CACHES", 1)  # must differ so pkg wins
+        monkeypatch.setattr(
+            cache_mod, "DEFAULT_MAX_SIMILARITY_CACHES", 1
+        )  # must differ so pkg wins
         monkeypatch.setattr(conv_pkg, "MAX_SIMILARITY_CACHES", 2)
 
         cache_mod.get_pairwise_similarity_cache("old-1")
@@ -840,7 +842,13 @@ class TestCleanupStaleCaches:
         from aragora.debate.convergence.cache import cleanup_stale_caches
 
         result = cleanup_stale_caches()
-        expected = {"cleaned_count", "entries_evicted", "remaining_count", "cleanup_time", "periodic_cleanup_running"}
+        expected = {
+            "cleaned_count",
+            "entries_evicted",
+            "remaining_count",
+            "cleanup_time",
+            "periodic_cleanup_running",
+        }
         assert expected.issubset(result.keys())
 
     def test_cleaned_count_in_result(self, monkeypatch):

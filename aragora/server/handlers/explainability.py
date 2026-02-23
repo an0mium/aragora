@@ -212,6 +212,7 @@ def _save_batch_job(job: BatchJob) -> None:
         asyncio.get_running_loop()
         # If loop is already running, run in a thread to avoid blocking
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor() as pool:
             pool.submit(asyncio.run, store.save_job(store_job)).result()
     except RuntimeError:
@@ -226,6 +227,7 @@ def _get_batch_job(batch_id: str) -> BatchJob | None:
         asyncio.get_running_loop()
         # If loop is already running, run in a thread to avoid blocking
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor() as pool:
             store_job = pool.submit(asyncio.run, store.get_job(batch_id)).result()
     except RuntimeError:

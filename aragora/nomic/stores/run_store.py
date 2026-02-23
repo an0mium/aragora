@@ -76,7 +76,7 @@ class SelfImproveRunStore:
 
     def __init__(self, data_dir: Path | None = None) -> None:
         if data_dir is None:
-            from aragora.nomic.stores.paths import get_default_data_dir
+            from aragora.persistence.db_config import get_default_data_dir
 
             data_dir = get_default_data_dir()
         self._data_dir = Path(data_dir)

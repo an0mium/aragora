@@ -784,7 +784,10 @@ class SlackConnector(EnterpriseConnector):
             # Test authentication
             data = await self._api_request("auth.test")
             logger.info(
-                "[%s] Authenticated as %s in workspace %s", self.name, data.get('user'), data.get('team')
+                "[%s] Authenticated as %s in workspace %s",
+                self.name,
+                data.get("user"),
+                data.get("team"),
             )
             return True
         except (RuntimeError, ValueError, OSError) as e:

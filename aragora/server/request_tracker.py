@@ -110,7 +110,9 @@ class RequestTracker:
             return True
         except asyncio.TimeoutError:
             logger.warning(
-                "Request drain timeout after %ss (%s requests still active)", timeout, self._active_count
+                "Request drain timeout after %ss (%s requests still active)",
+                timeout,
+                self._active_count,
             )
             return False
 

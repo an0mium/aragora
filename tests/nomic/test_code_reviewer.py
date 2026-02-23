@@ -29,12 +29,14 @@ def reviewer() -> CodeReviewerAgent:
 
 @pytest.fixture
 def strict_reviewer() -> CodeReviewerAgent:
-    return CodeReviewerAgent(ReviewConfig(
-        min_score=0.9,
-        max_complexity=5,
-        max_function_length=20,
-        max_nesting_depth=2,
-    ))
+    return CodeReviewerAgent(
+        ReviewConfig(
+            min_score=0.9,
+            max_complexity=5,
+            max_function_length=20,
+            max_nesting_depth=2,
+        )
+    )
 
 
 def _write_temp(content: str, suffix: str = ".py") -> str:
@@ -212,8 +214,10 @@ class TestSecurityChecks:
         try:
             result = reviewer.review_files([path])
             security_issues = [i for i in result.issues if i.category == "security"]
-            assert any("secret" in i.description.lower() or "hardcoded" in i.description.lower()
-                       for i in security_issues)
+            assert any(
+                "secret" in i.description.lower() or "hardcoded" in i.description.lower()
+                for i in security_issues
+            )
         finally:
             os.unlink(path)
 
@@ -257,8 +261,9 @@ class TestSecurityChecks:
         """)
         try:
             result = reviewer.review_files([path])
-            security_issues = [i for i in result.issues if i.category == "security"
-                               and "str(e)" in i.description]
+            security_issues = [
+                i for i in result.issues if i.category == "security" and "str(e)" in i.description
+            ]
             assert len(security_issues) == 0
         finally:
             os.unlink(path)
@@ -272,8 +277,9 @@ class TestSecurityChecks:
         try:
             result = reviewer.review_files([path])
             security_issues = [i for i in result.issues if i.category == "security"]
-            assert any("Pickle" in i.description or "pickle" in i.description
-                       for i in security_issues)
+            assert any(
+                "Pickle" in i.description or "pickle" in i.description for i in security_issues
+            )
         finally:
             os.unlink(path)
 
@@ -301,8 +307,11 @@ class TestComplexityChecks:
         """)
         try:
             result = strict_reviewer.review_files([path])
-            complexity_issues = [i for i in result.issues if i.category == "complexity"
-                                 and "cyclomatic" in i.description.lower()]
+            complexity_issues = [
+                i
+                for i in result.issues
+                if i.category == "complexity" and "cyclomatic" in i.description.lower()
+            ]
             assert len(complexity_issues) >= 1
         finally:
             os.unlink(path)
@@ -315,8 +324,11 @@ class TestComplexityChecks:
         path = _write_temp("\n".join(lines) + "\n")
         try:
             result = strict_reviewer.review_files([path])
-            length_issues = [i for i in result.issues if i.category == "complexity"
-                             and "lines long" in i.description]
+            length_issues = [
+                i
+                for i in result.issues
+                if i.category == "complexity" and "lines long" in i.description
+            ]
             assert len(length_issues) >= 1
         finally:
             os.unlink(path)
@@ -332,8 +344,11 @@ class TestComplexityChecks:
         """)
         try:
             result = strict_reviewer.review_files([path])
-            nesting_issues = [i for i in result.issues if i.category == "complexity"
-                              and "nesting" in i.description.lower()]
+            nesting_issues = [
+                i
+                for i in result.issues
+                if i.category == "complexity" and "nesting" in i.description.lower()
+            ]
             assert len(nesting_issues) >= 1
         finally:
             os.unlink(path)
@@ -383,6 +398,7 @@ class TestArchitectureChecks:
         """)
         try:
             import ast as _ast
+
             issues = reviewer._check_architecture(
                 "aragora/knowledge/mound/adapters/my_adapter.py",
                 _ast.parse(open(path).read()),
@@ -402,53 +418,64 @@ class TestScoring:
         assert reviewer._calculate_score([]) == 1.0
 
     def test_critical_deducts_030(self, reviewer: CodeReviewerAgent) -> None:
-        issues = [ReviewIssue(
-            severity=IssueSeverity.CRITICAL,
-            category="security",
-            file="test.py",
-            line=1,
-            description="test",
-        )]
+        issues = [
+            ReviewIssue(
+                severity=IssueSeverity.CRITICAL,
+                category="security",
+                file="test.py",
+                line=1,
+                description="test",
+            )
+        ]
         assert reviewer._calculate_score(issues) == 0.7
 
     def test_error_deducts_015(self, reviewer: CodeReviewerAgent) -> None:
-        issues = [ReviewIssue(
-            severity=IssueSeverity.ERROR,
-            category="pattern",
-            file="test.py",
-            line=1,
-            description="test",
-        )]
+        issues = [
+            ReviewIssue(
+                severity=IssueSeverity.ERROR,
+                category="pattern",
+                file="test.py",
+                line=1,
+                description="test",
+            )
+        ]
         assert reviewer._calculate_score(issues) == 0.85
 
     def test_warning_deducts_005(self, reviewer: CodeReviewerAgent) -> None:
-        issues = [ReviewIssue(
-            severity=IssueSeverity.WARNING,
-            category="complexity",
-            file="test.py",
-            line=1,
-            description="test",
-        )]
+        issues = [
+            ReviewIssue(
+                severity=IssueSeverity.WARNING,
+                category="complexity",
+                file="test.py",
+                line=1,
+                description="test",
+            )
+        ]
         assert reviewer._calculate_score(issues) == 0.95
 
     def test_info_deducts_001(self, reviewer: CodeReviewerAgent) -> None:
-        issues = [ReviewIssue(
-            severity=IssueSeverity.INFO,
-            category="pattern",
-            file="test.py",
-            line=1,
-            description="test",
-        )]
+        issues = [
+            ReviewIssue(
+                severity=IssueSeverity.INFO,
+                category="pattern",
+                file="test.py",
+                line=1,
+                description="test",
+            )
+        ]
         assert reviewer._calculate_score(issues) == 0.99
 
     def test_score_floors_at_zero(self, reviewer: CodeReviewerAgent) -> None:
-        issues = [ReviewIssue(
-            severity=IssueSeverity.CRITICAL,
-            category="security",
-            file="test.py",
-            line=1,
-            description=f"issue {i}",
-        ) for i in range(10)]
+        issues = [
+            ReviewIssue(
+                severity=IssueSeverity.CRITICAL,
+                category="security",
+                file="test.py",
+                line=1,
+                description=f"issue {i}",
+            )
+            for i in range(10)
+        ]
         assert reviewer._calculate_score(issues) == 0.0
 
     def test_approval_threshold(self, reviewer: CodeReviewerAgent) -> None:

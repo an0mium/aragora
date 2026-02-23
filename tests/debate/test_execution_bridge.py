@@ -110,7 +110,9 @@ class TestExecutionBridge:
             condition=lambda r: True,
             action_type=ActionType.OUTCOME_VERIFICATION,
         )
-        with patch("aragora.debate.execution_bridge.ExecutionBridge._execute_outcome_verification") as mock:
+        with patch(
+            "aragora.debate.execution_bridge.ExecutionBridge._execute_outcome_verification"
+        ) as mock:
             mock.return_value = ActionResult(
                 rule_name="always_match",
                 action_type=ActionType.OUTCOME_VERIFICATION,

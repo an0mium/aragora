@@ -228,7 +228,10 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             )
 
             logger.debug(
-                "Stored task outcome: task=%s agent=%s success=%s", outcome.task_id, outcome.agent_id, outcome.success
+                "Stored task outcome: task=%s agent=%s success=%s",
+                outcome.task_id,
+                outcome.agent_id,
+                outcome.success,
             )
 
             return item_id

@@ -2,6 +2,7 @@
 
 Verifies that demo data progresses correctly through all 4 stages.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -96,7 +97,7 @@ class TestDemoPipelineFlow:
     def test_stage_status_progression(self):
         """Simulate frontend demo stage progression logic."""
         STAGE_ORDER = ["ideas", "goals", "actions", "orchestration"]
-        stage_status = {s: "pending" for s in STAGE_ORDER}
+        stage_status = dict.fromkeys(STAGE_ORDER, "pending")
         stage_status["ideas"] = "complete"
 
         # Advance to goals

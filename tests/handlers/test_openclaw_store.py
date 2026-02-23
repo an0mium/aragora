@@ -310,12 +310,16 @@ class TestCredentialManagement:
     def test_list_credentials(self):
         store = OpenClawGatewayStore()
         store.store_credential(
-            name="key1", credential_type=CredentialType.API_KEY,
-            secret_value="s1", user_id="user1",
+            name="key1",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s1",
+            user_id="user1",
         )
         store.store_credential(
-            name="key2", credential_type=CredentialType.API_KEY,
-            secret_value="s2", user_id="user2",
+            name="key2",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s2",
+            user_id="user2",
         )
         creds, total = store.list_credentials()
         assert total == 2
@@ -323,12 +327,16 @@ class TestCredentialManagement:
     def test_list_credentials_filter_by_user(self):
         store = OpenClawGatewayStore()
         store.store_credential(
-            name="k1", credential_type=CredentialType.API_KEY,
-            secret_value="s1", user_id="user1",
+            name="k1",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s1",
+            user_id="user1",
         )
         store.store_credential(
-            name="k2", credential_type=CredentialType.API_KEY,
-            secret_value="s2", user_id="user2",
+            name="k2",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s2",
+            user_id="user2",
         )
         creds, total = store.list_credentials(user_id="user1")
         assert total == 1
@@ -336,8 +344,10 @@ class TestCredentialManagement:
     def test_delete_credential(self):
         store = OpenClawGatewayStore()
         cred = store.store_credential(
-            name="tmp", credential_type=CredentialType.API_KEY,
-            secret_value="s", user_id="user1",
+            name="tmp",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="user1",
         )
         assert store.delete_credential(cred.id) is True
         assert store.get_credential(cred.id) is None
@@ -349,8 +359,10 @@ class TestCredentialManagement:
     def test_rotate_credential(self):
         store = OpenClawGatewayStore()
         cred = store.store_credential(
-            name="key", credential_type=CredentialType.API_KEY,
-            secret_value="old_secret", user_id="user1",
+            name="key",
+            credential_type=CredentialType.API_KEY,
+            secret_value="old_secret",
+            user_id="user1",
         )
         rotated = store.rotate_credential(cred.id, "new_secret")
         assert rotated is not None
@@ -387,10 +399,14 @@ class TestAuditLog:
     def test_get_audit_log(self):
         store = OpenClawGatewayStore()
         store.add_audit_entry(
-            action="session.create", actor_id="user1", resource_type="session",
+            action="session.create",
+            actor_id="user1",
+            resource_type="session",
         )
         store.add_audit_entry(
-            action="action.run", actor_id="user2", resource_type="action",
+            action="action.run",
+            actor_id="user2",
+            resource_type="action",
         )
         entries, total = store.get_audit_log()
         assert total == 2
@@ -398,10 +414,14 @@ class TestAuditLog:
     def test_get_audit_log_filter_by_action(self):
         store = OpenClawGatewayStore()
         store.add_audit_entry(
-            action="session.create", actor_id="user1", resource_type="session",
+            action="session.create",
+            actor_id="user1",
+            resource_type="session",
         )
         store.add_audit_entry(
-            action="action.run", actor_id="user1", resource_type="action",
+            action="action.run",
+            actor_id="user1",
+            resource_type="action",
         )
         entries, total = store.get_audit_log(action="session.create")
         assert total == 1
@@ -409,10 +429,14 @@ class TestAuditLog:
     def test_get_audit_log_filter_by_actor(self):
         store = OpenClawGatewayStore()
         store.add_audit_entry(
-            action="a", actor_id="user1", resource_type="session",
+            action="a",
+            actor_id="user1",
+            resource_type="session",
         )
         store.add_audit_entry(
-            action="b", actor_id="user2", resource_type="session",
+            action="b",
+            actor_id="user2",
+            resource_type="session",
         )
         entries, total = store.get_audit_log(actor_id="user1")
         assert total == 1
@@ -422,7 +446,9 @@ class TestAuditLog:
         # Add more than 10000 entries
         for i in range(10002):
             store.add_audit_entry(
-                action="bulk", actor_id="bot", resource_type="test",
+                action="bulk",
+                actor_id="bot",
+                resource_type="test",
             )
         assert len(store._audit_log) == 10000
 
@@ -451,8 +477,10 @@ class TestMetrics:
         store.update_session_status(s2.id, SessionStatus.CLOSED)
         store.create_action(session_id=s1.id, action_type="search", input_data={})
         store.store_credential(
-            name="k", credential_type=CredentialType.API_KEY,
-            secret_value="s", user_id="user1",
+            name="k",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="user1",
         )
         store.add_audit_entry(action="test", actor_id="user1", resource_type="test")
 

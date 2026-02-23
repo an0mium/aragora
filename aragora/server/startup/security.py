@@ -117,7 +117,9 @@ async def init_deployment_validation() -> dict:
                 )
         else:
             logger.warning(
-                "[DEPLOYMENT VALIDATION] %s critical issue(s), %s warning(s). Server may not function correctly.", critical_count, warning_count
+                "[DEPLOYMENT VALIDATION] %s critical issue(s), %s warning(s). Server may not function correctly.",
+                critical_count,
+                warning_count,
             )
 
         # Log critical issues
@@ -207,7 +209,9 @@ def init_graphql_routes(app: Any) -> bool:
 
         # Log configuration
         logger.info(
-            "GraphQL API enabled (introspection=%s, graphiql=%s)", introspection_enabled, graphiql_enabled
+            "GraphQL API enabled (introspection=%s, graphiql=%s)",
+            introspection_enabled,
+            graphiql_enabled,
         )
 
         # The handlers are auto-registered via the handler registry pattern
@@ -298,7 +302,9 @@ async def init_rbac_distributed_cache() -> bool:
         set_permission_checker(new_checker)
 
         logger.info(
-            "RBAC distributed cache initialized (decision_ttl=%ss, l1=%s)", config.decision_ttl_seconds, 'enabled' if config.l1_enabled else 'disabled'
+            "RBAC distributed cache initialized (decision_ttl=%ss, l1=%s)",
+            config.decision_ttl_seconds,
+            "enabled" if config.l1_enabled else "disabled",
         )
         return True
 
@@ -399,7 +405,9 @@ async def init_access_review_scheduler() -> bool:
         await scheduler.start()
 
         logger.info(
-            "Access review scheduler started (storage=%s, monthly_review_day=%s)", storage_path, config.monthly_review_day
+            "Access review scheduler started (storage=%s, monthly_review_day=%s)",
+            storage_path,
+            config.monthly_review_day,
         )
         return True
 
@@ -498,7 +506,10 @@ async def init_key_rotation_scheduler() -> bool:
         next_rotation = status.get("next_rotation", "unknown")
 
         logger.info(
-            "Key rotation scheduler started (interval=%sd, overlap=%sd, re_encrypt=%s)", config.rotation_interval_days, config.key_overlap_days, config.re_encrypt_on_rotation
+            "Key rotation scheduler started (interval=%sd, overlap=%sd, re_encrypt=%s)",
+            config.rotation_interval_days,
+            config.key_overlap_days,
+            config.re_encrypt_on_rotation,
         )
 
         if next_rotation and next_rotation != "unknown":

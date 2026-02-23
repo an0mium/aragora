@@ -23,7 +23,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-
 class TestHealthEndpointBenchmarks:
     """Benchmark health check endpoint."""
 

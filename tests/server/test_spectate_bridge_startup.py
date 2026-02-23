@@ -37,9 +37,7 @@ class TestSpecttateBridgeStartup:
         noop_async = MagicMock(return_value=None)
         noop_async.__class__ = type(noop_async)  # keep it callable
 
-        with patch(
-            "aragora.server.startup._init_all_components"
-        ) as mock_init:
+        with patch("aragora.server.startup._init_all_components") as mock_init:
             # Instead of running the full init, just run the spectate portion
             # to test it in isolation.
             pass

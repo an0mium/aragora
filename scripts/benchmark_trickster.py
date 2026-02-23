@@ -58,6 +58,7 @@ CATEGORY_DOMAIN = "domain-specific"
 @dataclass
 class TestCase:
     """A single benchmark question."""
+
     question: str
     category: str
     context: str = ""
@@ -157,7 +158,7 @@ QUICK_TEST_CASES: list[TestCase] = [
     ALL_TEST_CASES[0],  # Clear: Python vs JS for scraping (diverse agents)
     ALL_TEST_CASES[5],  # Ambiguous: AI good for society (hollow agents)
     ALL_TEST_CASES[6],  # Ambiguous: microservices (hollow agents)
-    ALL_TEST_CASES[10], # Domain: K8s vs ECS (diverse agents)
+    ALL_TEST_CASES[10],  # Domain: K8s vs ECS (diverse agents)
 ]
 
 # ---------------------------------------------------------------------------
@@ -168,6 +169,7 @@ QUICK_TEST_CASES: list[TestCase] = [
 @dataclass
 class RunMetrics:
     """Metrics captured from a single debate run."""
+
     confidence: float = 0.0
     consensus_reached: bool = False
     rounds_used: int = 0
@@ -184,6 +186,7 @@ class RunMetrics:
 @dataclass
 class ABResult:
     """A/B comparison for a single question."""
+
     test_case: TestCase
     with_trickster: RunMetrics = field(default_factory=RunMetrics)
     without_trickster: RunMetrics = field(default_factory=RunMetrics)
@@ -204,6 +207,7 @@ class ABResult:
 # ---------------------------------------------------------------------------
 # Agent factory
 # ---------------------------------------------------------------------------
+
 
 def create_agents(seed: int, *, hollow: bool = False) -> list[StyledMockAgent]:
     """Create a reproducible set of 3 styled mock agents.
@@ -234,6 +238,7 @@ def create_agents(seed: int, *, hollow: bool = False) -> list[StyledMockAgent]:
 # Single debate runner
 # ---------------------------------------------------------------------------
 
+
 async def run_debate(
     test_case: TestCase,
     enable_trickster: bool,
@@ -249,7 +254,7 @@ async def run_debate(
         enable_convergence=True,
         convergence_threshold=0.85,
         trickster_sensitivity=0.7,
-        early_stopping=False,   # always run all rounds for fair comparison
+        early_stopping=False,  # always run all rounds for fair comparison
         min_rounds=rounds,
     )
 
@@ -264,9 +269,7 @@ async def run_debate(
 
     # Compute average proposal length
     proposal_lengths = [len(p) for p in result.proposals.values()]
-    avg_proposal_length = (
-        sum(proposal_lengths) / len(proposal_lengths) if proposal_lengths else 0.0
-    )
+    avg_proposal_length = sum(proposal_lengths) / len(proposal_lengths) if proposal_lengths else 0.0
 
     # Evidence quality scoring
     evidence_analyzer = EvidenceQualityAnalyzer()
@@ -297,6 +300,7 @@ async def run_debate(
 # A/B benchmark orchestrator
 # ---------------------------------------------------------------------------
 
+
 async def run_benchmark(
     test_cases: list[TestCase],
     rounds: int = 2,
@@ -309,17 +313,26 @@ async def run_benchmark(
         case_seed = seed + i  # deterministic but unique per case
         logger.info(
             "Benchmark %d/%d: %s [%s]",
-            i + 1, len(test_cases), tc.question[:60], tc.category,
+            i + 1,
+            len(test_cases),
+            tc.question[:60],
+            tc.category,
         )
 
         # --- Run WITH Trickster ---
         _, metrics_with = await run_debate(
-            tc, enable_trickster=True, seed=case_seed, rounds=rounds,
+            tc,
+            enable_trickster=True,
+            seed=case_seed,
+            rounds=rounds,
         )
 
         # --- Run WITHOUT Trickster ---
         _, metrics_without = await run_debate(
-            tc, enable_trickster=False, seed=case_seed, rounds=rounds,
+            tc,
+            enable_trickster=False,
+            seed=case_seed,
+            rounds=rounds,
         )
 
         ab = ABResult(
@@ -331,12 +344,14 @@ async def run_benchmark(
 
         logger.info(
             "  WITH  trickster: confidence=%.2f consensus=%s interventions=%d",
-            metrics_with.confidence, metrics_with.consensus_reached,
+            metrics_with.confidence,
+            metrics_with.consensus_reached,
             metrics_with.trickster_interventions,
         )
         logger.info(
             "  W/OUT trickster: confidence=%.2f consensus=%s",
-            metrics_without.confidence, metrics_without.consensus_reached,
+            metrics_without.confidence,
+            metrics_without.consensus_reached,
         )
 
     return results
@@ -345,6 +360,7 @@ async def run_benchmark(
 # ---------------------------------------------------------------------------
 # Report generation
 # ---------------------------------------------------------------------------
+
 
 def _fmt(val: float, fmt: str = ".2f") -> str:
     """Format a float for the markdown table."""
@@ -372,8 +388,8 @@ def generate_report(results: list[ABResult], duration: float) -> str:
     lines.append(f"**Generated:** {now}")
     lines.append(f"**Total duration:** {duration:.1f}s")
     lines.append(f"**Test cases:** {len(results)}")
-    lines.append(f"**Rounds per debate:** 2")
-    lines.append(f"**Agents:** Advocate (supportive), Skeptic (critical), Mediator (balanced)")
+    lines.append("**Rounds per debate:** 2")
+    lines.append("**Agents:** Advocate (supportive), Skeptic (critical), Mediator (balanced)")
     lines.append("")
 
     # -----------------------------------------------------------------------
@@ -461,8 +477,8 @@ def generate_report(results: list[ABResult], duration: float) -> str:
     avg_conf_without = sum(conf_without) / len(conf_without) if conf_without else 0
     avg_conf_delta = avg_conf_with - avg_conf_without
 
-    lines.append(f"| Metric | With Trickster | Without Trickster | Delta |")
-    lines.append(f"|--------|----------------|-------------------|-------|")
+    lines.append("| Metric | With Trickster | Without Trickster | Delta |")
+    lines.append("|--------|----------------|-------------------|-------|")
     lines.append(
         f"| Avg confidence | {_fmt(avg_conf_with)} "
         f"| {_fmt(avg_conf_without)} "
@@ -484,11 +500,7 @@ def generate_report(results: list[ABResult], duration: float) -> str:
     cases_with_intervention = sum(
         1 for r in results if r.with_trickster.trickster_interventions > 0
     )
-    lines.append(
-        f"| Total interventions | {total_interventions} "
-        f"| 0 "
-        f"| +{total_interventions} |"
-    )
+    lines.append(f"| Total interventions | {total_interventions} | 0 | +{total_interventions} |")
     lines.append(
         f"| Cases with intervention | {cases_with_intervention}/{n} ({_pct(cases_with_intervention / n)}) "
         f"| 0/0 "
@@ -615,6 +627,7 @@ def generate_report(results: list[ABResult], duration: float) -> str:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Trickster A/B Benchmark Pipeline",
@@ -683,7 +696,7 @@ async def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8")
 
-    print(f"\n=== Benchmark Complete ===")
+    print("\n=== Benchmark Complete ===")
     print(f"Duration: {total_duration:.1f}s")
     print(f"Report saved to: {output_path}")
     print()
@@ -696,7 +709,9 @@ async def main() -> None:
     cons_with = sum(1 for r in results if r.with_trickster.consensus_reached)
     cons_without = sum(1 for r in results if r.without_trickster.consensus_reached)
 
-    print(f"  Avg confidence:   WITH={avg_conf_with:.3f}  WITHOUT={avg_conf_without:.3f}  delta={avg_conf_with - avg_conf_without:+.3f}")
+    print(
+        f"  Avg confidence:   WITH={avg_conf_with:.3f}  WITHOUT={avg_conf_without:.3f}  delta={avg_conf_with - avg_conf_without:+.3f}"
+    )
     print(f"  Consensus rate:   WITH={cons_with}/{n}  WITHOUT={cons_without}/{n}")
     print(f"  Trickster interventions: {total_interventions}")
     print()

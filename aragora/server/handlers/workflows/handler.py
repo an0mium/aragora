@@ -698,14 +698,16 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     # =========================================================================
 
     def _registry_handler(self):
-        if not hasattr(self, '_registry'):
+        if not hasattr(self, "_registry"):
             from aragora.server.handlers.workflows.registry import TemplateRegistryHandler
+
             self._registry = TemplateRegistryHandler()
         return self._registry
 
     def _builder_handler(self):
-        if not hasattr(self, '_builder'):
+        if not hasattr(self, "_builder"):
             from aragora.server.handlers.workflows.builder import WorkflowBuilderHandler
+
             self._builder = WorkflowBuilderHandler()
         return self._builder
 

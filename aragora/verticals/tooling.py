@@ -78,7 +78,16 @@ async def web_search_fallback(
     connector = WebConnector()
     try:
         results = await connector.search(search_query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("Web fallback search failed: %s", e)
         return {"results": [], "error": f"web search failed: {e}"}
 
@@ -125,7 +134,16 @@ async def arxiv_search(
             sort_by=sort_by,
             sort_order=sort_order,
         )
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("ArXiv search failed: %s", e)
         return {"papers": [], "error": f"arXiv search failed: {e}"}
 
@@ -162,7 +180,16 @@ async def pubmed_search(
 
     try:
         results = await connector.search(query=query, limit=limit, sort=sort)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("PubMed search failed: %s", e)
         return {"articles": [], "error": f"pubmed search failed: {e}"}
 
@@ -205,7 +232,16 @@ async def courtlistener_search(
             order_by=order_by,
             court=court,
         )
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("CourtListener search failed: %s", e)
         return {"cases": [], "error": f"courtlistener search failed: {e}"}
 
@@ -243,7 +279,16 @@ async def westlaw_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("Westlaw search failed: %s", e)
         return {"cases": [], "error": f"westlaw search failed: {e}"}
 
@@ -278,7 +323,16 @@ async def lexis_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("Lexis search failed: %s", e)
         return {"cases": [], "error": f"lexis search failed: {e}"}
 
@@ -320,7 +374,16 @@ async def govinfo_search(
             sort_field=sort_field,
             sort_order=sort_order,
         )
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("GovInfo search failed: %s", e)
         return {"results": [], "error": f"govinfo search failed: {e}"}
 
@@ -354,7 +417,16 @@ async def nice_guidance_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("NICE guidance search failed: %s", e)
         return {"guidelines": [], "error": f"nice guidance search failed: {e}"}
 
@@ -387,7 +459,16 @@ async def semantic_scholar_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("Semantic Scholar search failed: %s", e)
         return {"papers": [], "error": f"semantic scholar search failed: {e}"}
 
@@ -426,7 +507,16 @@ async def crossref_lookup(
             results = [item] if item else []
         else:
             results = await connector.search(query_value, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("Crossref lookup failed: %s", e)
         return {"results": [], "error": f"crossref lookup failed: {e}"}
 
@@ -460,7 +550,16 @@ async def icd_lookup(
 
     try:
         results = await connector.search(query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("ICD lookup failed: %s", e)
         return {"codes": [], "error": f"icd lookup failed: {e}"}
 
@@ -494,7 +593,16 @@ async def drug_lookup(
 
     try:
         results = await connector.search(query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("RxNav lookup failed: %s", e)
         return {"drug_info": None, "interactions": [], "error": f"rxnav lookup failed: {e}"}
 
@@ -540,7 +648,16 @@ async def gaap_lookup(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("FASB lookup failed: %s", e)
         return {"standards": [], "error": f"fasb lookup failed: {e}"}
 
@@ -581,7 +698,16 @@ async def tax_reference_search(
 
     try:
         results = await connector.search(query=query, limit=limit)  # type: ignore[attr-defined]
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("Tax reference lookup failed: %s", e)
         return {"results": [], "error": f"tax lookup failed: {e}"}
 
@@ -625,7 +751,16 @@ async def sec_filings_search(
             date_from=date_from,
             date_to=date_to,
         )
-    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.warning("SEC filings search failed: %s", e)
         return {"filings": [], "error": f"SEC search failed: {e}"}
 

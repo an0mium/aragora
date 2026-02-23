@@ -26,6 +26,7 @@ from aragora.server.handlers.usage_metering import UsageMeteringHandler
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def parse_body(result) -> dict:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
@@ -156,6 +157,7 @@ class MockQuotaStatus:
 # ---------------------------------------------------------------------------
 # Mock handler (simulates HTTP handler with query_params and client_address)
 # ---------------------------------------------------------------------------
+
 
 class FakeHTTPHandler:
     """Mimics what the server passes as 'handler'."""
@@ -407,10 +409,12 @@ class TestGetUsageBreakdown:
 
     @pytest.mark.asyncio
     async def test_with_both_dates(self, handler, mock_meter):
-        http = FakeHTTPHandler(query_params={
-            "start": "2025-01-01T00:00:00+00:00",
-            "end": "2025-01-31T23:59:59+00:00",
-        })
+        http = FakeHTTPHandler(
+            query_params={
+                "start": "2025-01-01T00:00:00+00:00",
+                "end": "2025-01-31T23:59:59+00:00",
+            }
+        )
         await handler.handle("/api/v1/billing/usage/breakdown", {}, http)
         call_kwargs = mock_meter.get_usage_breakdown.call_args
         assert call_kwargs.kwargs["start_date"] is not None
@@ -440,19 +444,23 @@ class TestGetUsageBreakdown:
 
     @pytest.mark.asyncio
     async def test_invalid_start_valid_end_400(self, handler):
-        http = FakeHTTPHandler(query_params={
-            "start": "garbage",
-            "end": "2025-01-31T00:00:00Z",
-        })
+        http = FakeHTTPHandler(
+            query_params={
+                "start": "garbage",
+                "end": "2025-01-31T00:00:00Z",
+            }
+        )
         result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http)
         assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_valid_start_invalid_end_400(self, handler):
-        http = FakeHTTPHandler(query_params={
-            "start": "2025-01-01T00:00:00Z",
-            "end": "garbage",
-        })
+        http = FakeHTTPHandler(
+            query_params={
+                "start": "2025-01-01T00:00:00Z",
+                "end": "garbage",
+            }
+        )
         result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http)
         assert result.status_code == 400
 
@@ -570,7 +578,13 @@ class TestGetQuotaStatus:
             result = await handler.handle("/api/v1/quotas", {}, http_handler)
         data = parse_body(result)
         quotas = data["quotas"]
-        expected_resources = ["debates", "api_requests", "tokens", "storage_bytes", "knowledge_bytes"]
+        expected_resources = [
+            "debates",
+            "api_requests",
+            "tokens",
+            "storage_bytes",
+            "knowledge_bytes",
+        ]
         for resource in expected_resources:
             assert resource in quotas
 
@@ -578,8 +592,12 @@ class TestGetQuotaStatus:
     async def test_quota_fields(self, handler, http_handler):
         mock_manager = AsyncMock()
         mock_manager.get_quota_status.return_value = MockQuotaStatus(
-            limit=100, current=45, remaining=55,
-            percentage_used=45.0, is_exceeded=False, is_warning=False,
+            limit=100,
+            current=45,
+            remaining=55,
+            percentage_used=45.0,
+            is_exceeded=False,
+            is_warning=False,
         )
         with patch(
             QUOTA_MANAGER_PATCH,
@@ -626,7 +644,8 @@ class TestGetQuotaStatus:
     async def test_quota_exceeded_flag(self, handler, http_handler):
         mock_manager = AsyncMock()
         mock_manager.get_quota_status.return_value = MockQuotaStatus(
-            is_exceeded=True, is_warning=True,
+            is_exceeded=True,
+            is_warning=True,
         )
         with patch(
             QUOTA_MANAGER_PATCH,
@@ -666,6 +685,7 @@ class TestGetQuotaStatus:
     @pytest.mark.asyncio
     async def test_quota_returns_none_skipped(self, handler, http_handler):
         """When get_quota_status returns None for a resource, it is skipped."""
+
         async def sometimes_none(resource, tenant_id=None):
             if resource == "storage_bytes":
                 return None
@@ -788,7 +808,14 @@ class TestExportUsage:
     async def test_csv_with_model_data(self, handler, mock_meter, http_handler):
         breakdown = MockUsageBreakdown()
         breakdown.by_model = [
-            {"model": "claude-3", "input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "cost": "1.00", "requests": 10},
+            {
+                "model": "claude-3",
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cost": "1.00",
+                "requests": 10,
+            },
         ]
         mock_meter.get_usage_breakdown.return_value = breakdown
         result = await handler.handle("/api/v1/billing/usage/export", {}, http_handler)
@@ -810,7 +837,13 @@ class TestExportUsage:
     async def test_csv_with_daily_data(self, handler, mock_meter, http_handler):
         breakdown = MockUsageBreakdown()
         breakdown.by_day = [
-            {"day": "2025-01-15", "total_tokens": 1000, "cost": "2.00", "debates": 3, "api_calls": 50},
+            {
+                "day": "2025-01-15",
+                "total_tokens": 1000,
+                "cost": "2.00",
+                "debates": 3,
+                "api_calls": 50,
+            },
         ]
         mock_meter.get_usage_breakdown.return_value = breakdown
         result = await handler.handle("/api/v1/billing/usage/export", {}, http_handler)

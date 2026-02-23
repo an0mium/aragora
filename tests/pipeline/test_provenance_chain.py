@@ -46,7 +46,12 @@ def debate_data():
         "nodes": [
             {"id": "n1", "type": "proposal", "summary": "Rate limiter", "content": "Token bucket"},
             {"id": "n2", "type": "evidence", "summary": "Reduces 429 errors", "content": "Data"},
-            {"id": "n3", "type": "consensus", "summary": "Rate limiter needed", "content": "Agreement"},
+            {
+                "id": "n3",
+                "type": "consensus",
+                "summary": "Rate limiter needed",
+                "content": "Agreement",
+            },
         ],
         "edges": [
             {"source_id": "n2", "target_id": "n1", "relation": "supports"},
@@ -86,15 +91,14 @@ class TestFullChainIntegrity:
         idea_node_ids = set(full_result.ideas_canvas.nodes.keys())
         for link in full_result.provenance:
             if link.source_stage == PipelineStage.IDEAS:
-                assert link.source_node_id in idea_node_ids or link.source_node_id.startswith("raw-idea-"), (
-                    f"Source {link.source_node_id} not found in ideas canvas"
-                )
+                assert link.source_node_id in idea_node_ids or link.source_node_id.startswith(
+                    "raw-idea-"
+                ), f"Source {link.source_node_id} not found in ideas canvas"
 
     def test_actions_have_provenance_from_goals(self, full_result):
         """Actions stage provenance should link back to goals."""
         action_provenance = [
-            p for p in full_result.provenance
-            if p.target_stage == PipelineStage.ACTIONS
+            p for p in full_result.provenance if p.target_stage == PipelineStage.ACTIONS
         ]
         assert len(action_provenance) > 0
         for link in action_provenance:
@@ -103,8 +107,7 @@ class TestFullChainIntegrity:
     def test_orchestration_has_provenance_from_actions(self, full_result):
         """Orchestration stage provenance should link back to actions."""
         orch_provenance = [
-            p for p in full_result.provenance
-            if p.target_stage == PipelineStage.ORCHESTRATION
+            p for p in full_result.provenance if p.target_stage == PipelineStage.ORCHESTRATION
         ]
         assert len(orch_provenance) > 0
         for link in orch_provenance:
@@ -126,7 +129,9 @@ class TestContentHashVerification:
 
     def test_hashes_are_nonempty(self, full_result):
         for link in full_result.provenance:
-            assert link.content_hash, f"Empty hash for {link.source_node_id} -> {link.target_node_id}"
+            assert link.content_hash, (
+                f"Empty hash for {link.source_node_id} -> {link.target_node_id}"
+            )
 
     def test_hashes_are_hex_strings(self, full_result):
         for link in full_result.provenance:
@@ -179,7 +184,9 @@ class TestCrossStageReferences:
         for node_id, node in full_result.orchestration_canvas.nodes.items():
             source = node.data.get("source_action_id", "")
             if source:
-                assert source in action_ids, f"Orch {node_id} references nonexistent action {source}"
+                assert source in action_ids, (
+                    f"Orch {node_id} references nonexistent action {source}"
+                )
 
 
 # =============================================================================

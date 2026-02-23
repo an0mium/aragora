@@ -463,7 +463,7 @@ class RetentionPolicyManager:
             return "skipped"
 
         if dry_run:
-            logger.debug("[DRY RUN] Would %s: %s", policy.action.value, item['id'])
+            logger.debug("[DRY RUN] Would %s: %s", policy.action.value, item["id"])
             return policy.action.value
 
         # Execute action
@@ -509,7 +509,7 @@ class RetentionPolicyManager:
     ) -> str:
         """Archive an item."""
         # Implementation would move to cold storage
-        logger.info("Archiving item %s", item['id'])
+        logger.info("Archiving item %s", item["id"])
         return "archived"
 
     async def _anonymize_item(
@@ -519,7 +519,7 @@ class RetentionPolicyManager:
     ) -> str:
         """Anonymize an item."""
         # Implementation would remove PII while keeping structure
-        logger.info("Anonymizing item %s", item['id'])
+        logger.info("Anonymizing item %s", item["id"])
         return "anonymized"
 
     async def _send_notifications(

@@ -39,9 +39,7 @@ class TestBatchTimeouts:
             def __init__(self, records: dict[str, Any]):
                 self._records = records or {}
 
-            def _emit_event(
-                self, event_type: str, data: dict[str, Any]
-            ) -> None:
+            def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
                 pass  # No-op; provided by KnowledgeMoundAdapter in production
 
             def _get_record_for_validation(self, source_id: str) -> Any | None:

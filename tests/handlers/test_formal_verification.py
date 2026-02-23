@@ -191,9 +191,7 @@ class TestVerifyClaim:
         }
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             body = json.dumps({"claim": "1 + 1 = 2"}).encode()
             result = await handler._handle_verify_claim(MagicMock(), body)
             assert result.status_code == 200
@@ -252,13 +250,16 @@ class TestVerifyStatus:
         }
         handler._manager = mock_manager
 
-        with patch.dict("sys.modules", {
-            "aragora.verification.deepseek_prover": MagicMock(
-                DeepSeekProverTranslator=MagicMock(
-                    return_value=MagicMock(is_available=False),
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.verification.deepseek_prover": MagicMock(
+                    DeepSeekProverTranslator=MagicMock(
+                        return_value=MagicMock(is_available=False),
+                    ),
                 ),
-            ),
-        }):
+            },
+        ):
             result = handler._handle_verify_status(MagicMock())
             assert result.status_code == 200
             data = _body(result)
@@ -370,9 +371,7 @@ class TestHistoryEntry:
             "aragora.server.handlers.verification.formal_verification._governance_store"
         ) as mock_store_factory:
             mock_store_factory.get.return_value = None
-            result = handler._handle_get_history_entry(
-                "/api/v1/verify/history/nonexistent"
-            )
+            result = handler._handle_get_history_entry("/api/v1/verify/history/nonexistent")
             assert result.status_code == 404
 
     def test_entry_found(self):
@@ -411,9 +410,7 @@ class TestHistoryEntry:
         )
         _verification_history["abc123"] = entry
 
-        result = handler._handle_get_history_entry(
-            "/api/v1/verify/history/abc123/tree"
-        )
+        result = handler._handle_get_history_entry("/api/v1/verify/history/abc123/tree")
         assert result.status_code == 200
         data = _body(result)
         assert data["nodes"] == []
@@ -436,9 +433,7 @@ class TestHistoryEntry:
         )
         _verification_history["abc123"] = entry
 
-        result = handler._handle_get_history_entry(
-            "/api/v1/verify/history/abc123/tree"
-        )
+        result = handler._handle_get_history_entry("/api/v1/verify/history/abc123/tree")
         assert result.status_code == 200
         data = _body(result)
         assert len(data["nodes"]) == 1
@@ -459,9 +454,7 @@ class TestHandleAsyncRouting:
     async def test_unknown_path_returns_404(self):
         handler = FormalVerificationHandler()
         with patch.object(handler, "_check_permission", return_value=None):
-            result = await handler.handle_async(
-                MagicMock(), "GET", "/api/v1/verify/unknown"
-            )
+            result = await handler.handle_async(MagicMock(), "GET", "/api/v1/verify/unknown")
             assert result.status_code == 404
 
     @pytest.mark.asyncio
@@ -470,12 +463,11 @@ class TestHandleAsyncRouting:
         from aragora.server.handlers.base import error_response
 
         with patch.object(
-            handler, "_check_permission",
+            handler,
+            "_check_permission",
             return_value=error_response("Permission denied", 403),
         ):
-            result = await handler.handle_async(
-                MagicMock(), "POST", "/api/v1/verify/claim"
-            )
+            result = await handler.handle_async(MagicMock(), "POST", "/api/v1/verify/claim")
             assert result.status_code == 403
 
 

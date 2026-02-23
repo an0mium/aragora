@@ -30,9 +30,7 @@ from aragora.server.handlers.utils.responses import HandlerResult
 # Helpers
 # ---------------------------------------------------------------------------
 
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.graph._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.graph._run_async"
 
 
 def _body(result) -> dict:
@@ -122,17 +120,23 @@ class GraphTestHandler(GraphOperationsMixin):
 # ---------------------------------------------------------------------------
 
 
-def _make_graph_result(
-    nodes=None, edges=None, total_nodes=None, total_edges=None
-):
+def _make_graph_result(nodes=None, edges=None, total_nodes=None, total_edges=None):
     """Build a MockGraphQueryResult with sensible defaults."""
-    nodes = nodes if nodes is not None else [
-        MockGraphNode(id="node-001"),
-        MockGraphNode(id="node-002"),
-    ]
-    edges = edges if edges is not None else [
-        MockGraphEdge(id="edge-001", source_id="node-001", target_id="node-002"),
-    ]
+    nodes = (
+        nodes
+        if nodes is not None
+        else [
+            MockGraphNode(id="node-001"),
+            MockGraphNode(id="node-002"),
+        ]
+    )
+    edges = (
+        edges
+        if edges is not None
+        else [
+            MockGraphEdge(id="edge-001", source_id="node-001", target_id="node-002"),
+        ]
+    )
     return MockGraphQueryResult(
         nodes=nodes,
         edges=edges,
@@ -379,9 +383,7 @@ class TestGraphTraversal:
 
     def test_traversal_empty_nodes(self, handler, mock_mound):
         """Traversal with zero result nodes returns count 0."""
-        mock_mound.query_graph = MagicMock(
-            return_value=_make_graph_result(nodes=[], edges=[])
-        )
+        mock_mound.query_graph = MagicMock(return_value=_make_graph_result(nodes=[], edges=[]))
         path = "/api/knowledge/mound/graph/node-001"
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_graph_traversal(path, {})
@@ -513,9 +515,7 @@ class TestGraphLineage:
     def test_lineage_empty_result(self, handler, mock_mound):
         """Empty lineage returns empty nodes/edges."""
         mock_mound.query_graph = MagicMock(
-            return_value=_make_graph_result(
-                nodes=[], edges=[], total_nodes=0, total_edges=0
-            )
+            return_value=_make_graph_result(nodes=[], edges=[], total_nodes=0, total_edges=0)
         )
         path = "/api/knowledge/mound/graph/node-001/lineage"
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
@@ -627,9 +627,7 @@ class TestGraphRelated:
             handler._handle_graph_related(path, {})
         mock_mound.query_graph.assert_called_once()
         kw = mock_mound.query_graph.call_args
-        depth_val = kw.kwargs.get("depth") or (
-            kw[1].get("depth") if len(kw) > 1 else None
-        )
+        depth_val = kw.kwargs.get("depth") or (kw[1].get("depth") if len(kw) > 1 else None)
         assert depth_val == 1
 
     def test_related_missing_node_id(self, handler):
@@ -694,9 +692,7 @@ class TestGraphRelated:
             MockGraphNode(id="node-003"),
             MockGraphNode(id="node-004"),
         ]
-        mock_mound.query_graph = MagicMock(
-            return_value=_make_graph_result(nodes=nodes, edges=[])
-        )
+        mock_mound.query_graph = MagicMock(return_value=_make_graph_result(nodes=nodes, edges=[]))
         path = "/api/knowledge/mound/graph/node-001/related"
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_graph_related(path, {})
@@ -718,9 +714,7 @@ class TestGraphRelated:
 
     def test_related_empty_graph(self, handler, mock_mound):
         """Empty graph result returns empty related list."""
-        mock_mound.query_graph = MagicMock(
-            return_value=_make_graph_result(nodes=[], edges=[])
-        )
+        mock_mound.query_graph = MagicMock(return_value=_make_graph_result(nodes=[], edges=[]))
         path = "/api/knowledge/mound/graph/node-001/related"
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_graph_related(path, {})

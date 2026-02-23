@@ -17,7 +17,6 @@ from unittest.mock import MagicMock
 import pytest
 
 
-
 from aragora.billing.invoice_export import (
     InvoiceExporter,
     InvoiceCompanyInfo,

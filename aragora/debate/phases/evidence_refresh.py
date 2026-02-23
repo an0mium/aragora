@@ -146,13 +146,17 @@ class EvidenceRefresher:
                 skill_snippets = await self._refresh_with_skills(combined_text, ctx)
                 if skill_snippets:
                     logger.info(
-                        "skill_evidence_refreshed round=%s new_snippets=%s", round_num, skill_snippets
+                        "skill_evidence_refreshed round=%s new_snippets=%s",
+                        round_num,
+                        skill_snippets,
                     )
 
             total_refreshed = (refreshed or 0) + skill_snippets
 
             if total_refreshed:
-                logger.info("evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed)
+                logger.info(
+                    "evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed
+                )
 
                 # Notify spectator
                 if self._notify_spectator:

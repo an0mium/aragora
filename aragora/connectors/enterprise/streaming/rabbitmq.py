@@ -337,7 +337,9 @@ class RabbitMQConnector(EnterpriseConnector):
                     await self._health_monitor.record_failure(e)
 
                 if attempt == self.config.resilience.max_retries:
-                    logger.error("[RabbitMQ] Connection failed after %s attempts: %s", attempt + 1, e)
+                    logger.error(
+                        "[RabbitMQ] Connection failed after %s attempts: %s", attempt + 1, e
+                    )
                     return False
 
                 delay = backoff.get_delay(attempt)
@@ -416,7 +418,10 @@ class RabbitMQConnector(EnterpriseConnector):
             )
 
         logger.info(
-            "[RabbitMQ] Connected to %s, queue=%s, exchange=%s", self.config.url, self.config.queue, self.config.exchange or 'default'
+            "[RabbitMQ] Connected to %s, queue=%s, exchange=%s",
+            self.config.url,
+            self.config.queue,
+            self.config.exchange or "default",
         )
         return True
 

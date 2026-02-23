@@ -146,11 +146,14 @@ class TestStartupHealth:
             # Need to patch the import inside the function
             import aragora.server.handlers.admin.health.platform as mod
 
-            with patch.dict("sys.modules", {
-                "aragora.server.startup_transaction": MagicMock(
-                    get_last_startup_report=MagicMock(return_value=report)
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup_transaction": MagicMock(
+                        get_last_startup_report=MagicMock(return_value=report)
+                    ),
+                },
+            ):
                 result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -161,11 +164,14 @@ class TestStartupHealth:
     def test_warning_when_success_but_slo_exceeded(self):
         """Success but SLO not met -> status warning."""
         report = _make_startup_report(success=True, slo_met=False, total_duration_seconds=45.0)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -176,11 +182,14 @@ class TestStartupHealth:
     def test_degraded_when_startup_failed(self):
         """Startup failed -> status degraded."""
         report = _make_startup_report(success=False, slo_met=False, error="Init failed")
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -191,11 +200,14 @@ class TestStartupHealth:
     def test_startup_duration_rounded(self):
         """Duration is rounded to 2 decimal places."""
         report = _make_startup_report(total_duration_seconds=5.12345)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -204,11 +216,14 @@ class TestStartupHealth:
     def test_slo_seconds_in_response(self):
         """SLO target seconds is included in the response."""
         report = _make_startup_report(slo_seconds=30.0)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -217,11 +232,14 @@ class TestStartupHealth:
     def test_components_in_response(self):
         """Component counts are in the response."""
         report = _make_startup_report(components_initialized=8, components_failed=2)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -235,11 +253,14 @@ class TestStartupHealth:
             _make_checkpoint("cache_init", 1.23456),
         ]
         report = _make_startup_report(checkpoints=cps)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -252,11 +273,14 @@ class TestStartupHealth:
     def test_checkpoints_none_when_empty(self):
         """Checkpoints is None when report has no checkpoints."""
         report = _make_startup_report(checkpoints=None)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -265,11 +289,14 @@ class TestStartupHealth:
     def test_response_time_ms_present(self):
         """response_time_ms is a non-negative number."""
         report = _make_startup_report()
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -280,11 +307,14 @@ class TestStartupHealth:
     def test_timestamp_present(self):
         """ISO 8601 timestamp is in the response."""
         report = _make_startup_report()
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -294,11 +324,14 @@ class TestStartupHealth:
     def test_error_field_none_when_no_error(self):
         """Error field is None when startup had no error."""
         report = _make_startup_report(error=None)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=report)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=report)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -310,11 +343,14 @@ class TestStartupHealthNoReport:
 
     def test_unknown_status_when_no_report(self):
         """No startup report -> status unknown."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -323,11 +359,14 @@ class TestStartupHealthNoReport:
 
     def test_response_time_ms_when_no_report(self):
         """response_time_ms present even with no report."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -340,9 +379,12 @@ class TestStartupHealthImportError:
 
     def test_not_available_on_import_error(self):
         """ImportError -> status not_available, 503."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": None,
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -352,9 +394,12 @@ class TestStartupHealthImportError:
 
     def test_response_time_ms_on_import_error(self):
         """response_time_ms present even on import error."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": None,
+            },
+        ):
             result = startup_health(_make_mock_handler())
 
         body = _body(result)
@@ -375,20 +420,27 @@ class TestEncryptionHealth:
         key = _make_active_key(created_at=datetime.now(timezone.utc) - timedelta(days=10))
         service = _make_encryption_service(active_key=key)
 
-        with patch(
-            "aragora.server.handlers.admin.health.platform.get_encryption_service",
-            return_value=service,
-            create=True,
-        ), patch(
-            "aragora.server.handlers.admin.health.platform.CRYPTO_AVAILABLE",
-            True,
-            create=True,
-        ), patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
+        with (
+            patch(
+                "aragora.server.handlers.admin.health.platform.get_encryption_service",
+                return_value=service,
+                create=True,
             ),
-        }):
+            patch(
+                "aragora.server.handlers.admin.health.platform.CRYPTO_AVAILABLE",
+                True,
+                create=True,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.security.encryption": MagicMock(
+                        get_encryption_service=MagicMock(return_value=service),
+                        CRYPTO_AVAILABLE=True,
+                    ),
+                },
+            ),
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -406,12 +458,15 @@ class TestEncryptionHealth:
         key = _make_active_key()
         service = _make_encryption_service(active_key=key)
 
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -423,12 +478,15 @@ class TestEncryptionHealth:
         key = _make_active_key()
         service = _make_encryption_service(active_key=key)
 
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -441,9 +499,12 @@ class TestEncryptionHealthImportError:
 
     def test_import_error_returns_503(self):
         """Cannot import encryption module -> 503."""
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": None,
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -455,12 +516,15 @@ class TestEncryptionHealthImportError:
     def test_crypto_not_available(self):
         """CRYPTO_AVAILABLE is False -> issue reported."""
         service = _make_encryption_service(active_key=_make_active_key())
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=False,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=False,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -474,12 +538,15 @@ class TestEncryptionHealthServiceError:
 
     def test_service_init_runtime_error(self):
         """get_encryption_service raises RuntimeError -> 503."""
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(side_effect=RuntimeError("no key")),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(side_effect=RuntimeError("no key")),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -490,12 +557,15 @@ class TestEncryptionHealthServiceError:
 
     def test_service_init_value_error(self):
         """get_encryption_service raises ValueError -> 503."""
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(side_effect=ValueError("bad config")),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(side_effect=ValueError("bad config")),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -504,24 +574,30 @@ class TestEncryptionHealthServiceError:
 
     def test_service_init_os_error(self):
         """get_encryption_service raises OSError -> 503."""
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(side_effect=OSError("disk")),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(side_effect=OSError("disk")),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         assert _status(result) == 503
 
     def test_service_init_type_error(self):
         """get_encryption_service raises TypeError -> 503."""
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(side_effect=TypeError("bad arg")),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(side_effect=TypeError("bad arg")),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         assert _status(result) == 503
@@ -533,12 +609,15 @@ class TestEncryptionHealthKeyStatus:
     def test_no_active_key(self):
         """No active key -> issue reported."""
         service = _make_encryption_service(active_key=None)
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -550,12 +629,15 @@ class TestEncryptionHealthKeyStatus:
         """Key under 60 days -> no warnings, no rotation_recommended."""
         key = _make_active_key(created_at=datetime.now(timezone.utc) - timedelta(days=30))
         service = _make_encryption_service(active_key=key)
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -567,12 +649,15 @@ class TestEncryptionHealthKeyStatus:
         """Key 60-90 days -> days_until_rotation included, no warning."""
         key = _make_active_key(created_at=datetime.now(timezone.utc) - timedelta(days=75))
         service = _make_encryption_service(active_key=key)
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -583,12 +668,15 @@ class TestEncryptionHealthKeyStatus:
         """Key over 90 days -> warning and rotation_recommended."""
         key = _make_active_key(created_at=datetime.now(timezone.utc) - timedelta(days=100))
         service = _make_encryption_service(active_key=key)
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -600,12 +688,15 @@ class TestEncryptionHealthKeyStatus:
         """Key version and ID are included in response."""
         key = _make_active_key(version=3)
         service = _make_encryption_service(active_key=key, active_key_id="key-v3")
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -617,12 +708,15 @@ class TestEncryptionHealthKeyStatus:
         created = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         key = _make_active_key(created_at=created)
         service = _make_encryption_service(active_key=key)
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -639,12 +733,15 @@ class TestEncryptionHealthRoundtrip:
             active_key=key,
             decrypt_result=b"encryption_health_check",
         )
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -658,12 +755,15 @@ class TestEncryptionHealthRoundtrip:
             active_key=key,
             decrypt_result=b"wrong_data",
         )
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -676,12 +776,15 @@ class TestEncryptionHealthRoundtrip:
         key = _make_active_key()
         service = _make_encryption_service(active_key=key)
         service.encrypt.side_effect = RuntimeError("encrypt failed")
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -694,12 +797,15 @@ class TestEncryptionHealthRoundtrip:
         key = _make_active_key()
         service = _make_encryption_service(active_key=key)
         service.decrypt.side_effect = ValueError("bad padding")
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -710,12 +816,15 @@ class TestEncryptionHealthRoundtrip:
         key = _make_active_key()
         service = _make_encryption_service(active_key=key)
         service.encrypt.side_effect = OSError("disk")
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -726,12 +835,15 @@ class TestEncryptionHealthRoundtrip:
         key = _make_active_key()
         service = _make_encryption_service(active_key=key)
         service.encrypt.side_effect = TypeError("wrong type")
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -748,12 +860,15 @@ class TestPlatformHealth:
 
     def test_all_imports_fail_not_configured(self):
         """All modules unavailable -> status not_configured."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -762,12 +877,15 @@ class TestPlatformHealth:
 
     def test_response_has_summary(self):
         """Response contains summary with total/healthy/active."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -778,28 +896,40 @@ class TestPlatformHealth:
 
     def test_response_has_components(self):
         """Response contains components dict."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
         assert "components" in body
-        expected_keys = ["rate_limiters", "resilience", "dead_letter_queue", "metrics", "platform_circuits"]
+        expected_keys = [
+            "rate_limiters",
+            "resilience",
+            "dead_letter_queue",
+            "metrics",
+            "platform_circuits",
+        ]
         for key in expected_keys:
             assert key in body["components"], f"Missing component: {key}"
 
     def test_response_has_response_time_ms(self):
         """Response includes response_time_ms."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -808,12 +938,15 @@ class TestPlatformHealth:
 
     def test_response_has_timestamp(self):
         """Response includes ISO timestamp."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -822,12 +955,15 @@ class TestPlatformHealth:
 
     def test_warnings_none_when_empty(self):
         """Warnings is None when there are no warnings."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -835,12 +971,15 @@ class TestPlatformHealth:
 
     def test_total_components_is_5(self):
         """There are always 5 components checked."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -861,12 +1000,15 @@ class TestPlatformHealthRateLimiters:
         mock_module.PLATFORM_RATE_LIMITS = {"slack": {}, "discord": {}}
         mock_module.get_platform_rate_limiter.return_value = mock_limiter
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -879,12 +1021,15 @@ class TestPlatformHealthRateLimiters:
 
     def test_rate_limiters_import_error(self):
         """Rate limiter module not available -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -898,12 +1043,15 @@ class TestPlatformHealthRateLimiters:
         mock_module.PLATFORM_RATE_LIMITS = {"slack": {}}
         mock_module.get_platform_rate_limiter.side_effect = RuntimeError("broken")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -917,12 +1065,15 @@ class TestPlatformHealthRateLimiters:
         mock_module.PLATFORM_RATE_LIMITS = {"slack": {}}
         mock_module.get_platform_rate_limiter.side_effect = ValueError("bad")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -934,12 +1085,15 @@ class TestPlatformHealthRateLimiters:
         mock_module.PLATFORM_RATE_LIMITS = {"slack": {}}
         mock_module.get_platform_rate_limiter.side_effect = KeyError("missing")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -965,12 +1119,15 @@ class TestPlatformHealthResilience:
         mock_dlq.get_stats.return_value = {"pending": 0, "failed": 0, "processed": 10}
         mock_module.get_dlq.return_value = mock_dlq
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -982,12 +1139,15 @@ class TestPlatformHealthResilience:
 
     def test_resilience_import_error(self):
         """Resilience module not available -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1000,12 +1160,15 @@ class TestPlatformHealthResilience:
         mock_module.get_platform_resilience.side_effect = RuntimeError("broken")
         mock_module.get_dlq.side_effect = RuntimeError("broken")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1019,12 +1182,15 @@ class TestPlatformHealthResilience:
         mock_module.get_platform_resilience.side_effect = AttributeError("no attr")
         mock_module.get_dlq.side_effect = AttributeError("no attr")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1054,12 +1220,15 @@ class TestPlatformHealthDLQ:
     def test_dlq_active(self):
         """DLQ with low pending -> active, healthy."""
         mock_module = self._make_dlq_module(pending=5)
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1071,12 +1240,15 @@ class TestPlatformHealthDLQ:
     def test_dlq_elevated_warning(self):
         """DLQ with 50+ pending -> elevated warning."""
         mock_module = self._make_dlq_module(pending=55)
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1086,12 +1258,15 @@ class TestPlatformHealthDLQ:
     def test_dlq_high_warning(self):
         """DLQ with 100+ pending -> high warning."""
         mock_module = self._make_dlq_module(pending=150)
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1101,12 +1276,15 @@ class TestPlatformHealthDLQ:
     def test_dlq_no_warning_under_50(self):
         """DLQ with under 50 pending -> no warning."""
         mock_module = self._make_dlq_module(pending=10)
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1118,12 +1296,15 @@ class TestPlatformHealthDLQ:
 
     def test_dlq_import_error(self):
         """DLQ module not available -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1140,12 +1321,15 @@ class TestPlatformHealthDLQ:
         mock_module.DLQ_ENABLED = True
         mock_module.get_dlq.side_effect = RuntimeError("DLQ broken")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1156,12 +1340,15 @@ class TestPlatformHealthDLQ:
     def test_dlq_failed_count(self):
         """DLQ includes failed and processed counts."""
         mock_module = self._make_dlq_module(pending=3, failed=7, processed=100)
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": mock_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": mock_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1178,12 +1365,15 @@ class TestPlatformHealthMetrics:
         mock_metrics_module = MagicMock()
         mock_metrics_module.get_platform_metrics_summary.return_value = {"total_requests": 1000}
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": mock_metrics_module,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": mock_metrics_module,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1195,12 +1385,15 @@ class TestPlatformHealthMetrics:
 
     def test_metrics_import_error(self):
         """Metrics module not available -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1214,12 +1407,15 @@ class TestPlatformHealthMetrics:
         mock_module = MagicMock()
         mock_module.get_platform_metrics_summary.side_effect = RuntimeError("broken")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": mock_module,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": mock_module,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1231,12 +1427,15 @@ class TestPlatformHealthMetrics:
         mock_module = MagicMock()
         mock_module.get_platform_metrics_summary.side_effect = TypeError("bad")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": mock_module,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": mock_module,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1262,12 +1461,15 @@ class TestPlatformHealthCircuitBreakers:
         mock_module = MagicMock()
         mock_module.get_circuit_breaker.return_value = cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1294,12 +1496,15 @@ class TestPlatformHealthCircuitBreakers:
 
         mock_module.get_circuit_breaker.side_effect = get_cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1312,12 +1517,15 @@ class TestPlatformHealthCircuitBreakers:
         mock_module = MagicMock()
         mock_module.get_circuit_breaker.return_value = None
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1330,12 +1538,15 @@ class TestPlatformHealthCircuitBreakers:
         mock_module = MagicMock()
         mock_module.get_circuit_breaker.side_effect = KeyError("not found")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1345,12 +1556,15 @@ class TestPlatformHealthCircuitBreakers:
 
     def test_circuit_breaker_import_error(self):
         """Circuit breaker module not available -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1364,12 +1578,15 @@ class TestPlatformHealthCircuitBreakers:
         # Make the initial import work but the loop setup fail
         mock_module.get_circuit_breaker.side_effect = RuntimeError("bad")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1384,6 +1601,7 @@ class TestPlatformHealthCircuitBreakers:
 
         class PlainState:
             """State object without .value attribute."""
+
             def __str__(self):
                 return "half_open"
 
@@ -1396,12 +1614,15 @@ class TestPlatformHealthCircuitBreakers:
         mock_module = MagicMock()
         mock_module.get_circuit_breaker.return_value = cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1422,12 +1643,15 @@ class TestPlatformHealthCircuitBreakers:
         mock_module = MagicMock()
         mock_module.get_circuit_breaker.return_value = cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1449,12 +1673,15 @@ class TestPlatformHealthCircuitBreakers:
 
         mock_module.get_circuit_breaker.side_effect = get_cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1488,12 +1715,15 @@ class TestPlatformHealthOverallStatus:
         mock_resilience_module = MagicMock()
         mock_resilience_module.get_circuit_breaker.return_value = cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_resilience_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_resilience_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1530,12 +1760,15 @@ class TestPlatformHealthOverallStatus:
         mock_resilience_mod = MagicMock()
         mock_resilience_mod.get_circuit_breaker.return_value = cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
-            "aragora.integrations.platform_resilience": mock_pr_module,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_resilience_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
+                "aragora.integrations.platform_resilience": mock_pr_module,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_resilience_mod,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1560,12 +1793,15 @@ class TestPlatformHealthOverallStatus:
         mock_resilience_mod = MagicMock()
         mock_resilience_mod.get_circuit_breaker.return_value = cb
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_resilience_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_resilience_mod,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1574,12 +1810,15 @@ class TestPlatformHealthOverallStatus:
 
     def test_not_configured_when_no_active_components(self):
         """No active components -> not_configured."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1588,12 +1827,15 @@ class TestPlatformHealthOverallStatus:
 
     def test_healthy_count_in_summary(self):
         """Healthy count reflects number of healthy components."""
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1610,12 +1852,15 @@ class TestPlatformHealthOverallStatus:
         mock_rl_module.PLATFORM_RATE_LIMITS = {"slack": {}}
         mock_rl_module.get_platform_rate_limiter.return_value = mock_limiter
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1638,12 +1883,15 @@ class TestPlatformHealthOverallStatus:
         mock_rl_module.PLATFORM_RATE_LIMITS = {"slack": {}}
         mock_rl_module.get_platform_rate_limiter.side_effect = RuntimeError("broken")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": mock_rl_module,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": mock_module,
+            },
+        ):
             result = platform_health(_make_mock_handler())
 
         body = _body(result)
@@ -1661,12 +1909,15 @@ class TestEncryptionHealthCombinedScenarios:
     def test_crypto_not_available_with_no_key(self):
         """Crypto not available but service works (edge case) -> error with issues."""
         service = _make_encryption_service(active_key=None)
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=False,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=False,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -1682,12 +1933,15 @@ class TestEncryptionHealthCombinedScenarios:
             active_key=key,
             decrypt_result=b"encryption_health_check",
         )
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -1699,12 +1953,15 @@ class TestEncryptionHealthCombinedScenarios:
         """Error status always returns 503."""
         service = _make_encryption_service(active_key=None)
         service.encrypt.side_effect = RuntimeError("fail")
-        with patch.dict("sys.modules", {
-            "aragora.security.encryption": MagicMock(
-                get_encryption_service=MagicMock(return_value=service),
-                CRYPTO_AVAILABLE=True,
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.security.encryption": MagicMock(
+                    get_encryption_service=MagicMock(return_value=service),
+                    CRYPTO_AVAILABLE=True,
+                ),
+            },
+        ):
             result = encryption_health(_make_mock_handler())
 
         body = _body(result)
@@ -1724,18 +1981,22 @@ class TestHandlerIntegration:
     def health_handler(self):
         """Create a HealthHandler instance."""
         from aragora.server.handlers.admin.health import HealthHandler
+
         return HealthHandler(ctx={})
 
     @pytest.mark.asyncio
     async def test_platform_route(self, health_handler):
         """HealthHandler routes /api/v1/health/platform to platform_health."""
         mock_http = MagicMock()
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = await health_handler.handle("/api/v1/health/platform", {}, mock_http)
 
         body = _body(result)
@@ -1746,12 +2007,15 @@ class TestHandlerIntegration:
     async def test_platform_health_alternate_route(self, health_handler):
         """HealthHandler routes /api/v1/platform/health to platform_health."""
         mock_http = MagicMock()
-        with patch.dict("sys.modules", {
-            "aragora.server.middleware.rate_limit.platform_limiter": None,
-            "aragora.integrations.platform_resilience": None,
-            "aragora.observability.metrics.platform": None,
-            "aragora.resilience": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.middleware.rate_limit.platform_limiter": None,
+                "aragora.integrations.platform_resilience": None,
+                "aragora.observability.metrics.platform": None,
+                "aragora.resilience": None,
+            },
+        ):
             result = await health_handler.handle("/api/v1/platform/health", {}, mock_http)
 
         body = _body(result)
@@ -1761,11 +2025,14 @@ class TestHandlerIntegration:
     async def test_startup_route(self, health_handler):
         """HealthHandler routes /api/v1/health/startup to startup_health."""
         mock_http = MagicMock()
-        with patch.dict("sys.modules", {
-            "aragora.server.startup_transaction": MagicMock(
-                get_last_startup_report=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup_transaction": MagicMock(
+                    get_last_startup_report=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = await health_handler.handle("/api/v1/health/startup", {}, mock_http)
 
         body = _body(result)

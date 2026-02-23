@@ -184,7 +184,10 @@ class AccountManagementMixin:
         if not access_token:
             # Log to help debug token location issues
             logger.warning(
-                "OAuth callback missing tokens: fragment=%s, query=%s, location_prefix=%s...", bool(parsed.fragment), bool(parsed.query), location[:50]
+                "OAuth callback missing tokens: fragment=%s, query=%s, location_prefix=%s...",
+                bool(parsed.fragment),
+                bool(parsed.query),
+                location[:50],
             )
             return error_response("OAuth callback did not return tokens", 502)
 

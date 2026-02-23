@@ -119,7 +119,13 @@ async def start_slack_debate(
                 result = done_task.result()
             except asyncio.CancelledError:
                 return
-            except (RuntimeError, ValueError, KeyError, AttributeError, OSError) as exc:  # pragma: no cover - defensive logging
+            except (
+                RuntimeError,
+                ValueError,
+                KeyError,
+                AttributeError,
+                OSError,
+            ) as exc:  # pragma: no cover - defensive logging
                 logger.error(
                     "DecisionRouter task failed for Slack debate %s: %s",
                     request.request_id,

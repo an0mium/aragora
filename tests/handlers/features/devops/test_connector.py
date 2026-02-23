@@ -176,7 +176,10 @@ class TestGetPagerdutyConnectorCreation:
         assert result is mock_connector
         # webhook_secret should be None from os.getenv default
         call_kwargs = mock_creds_cls.call_args
-        assert call_kwargs[1]["webhook_secret"] is None or call_kwargs.kwargs.get("webhook_secret") is None
+        assert (
+            call_kwargs[1]["webhook_secret"] is None
+            or call_kwargs.kwargs.get("webhook_secret") is None
+        )
 
     @pytest.mark.asyncio
     async def test_stores_connector_in_module_dicts(self):
@@ -361,6 +364,7 @@ class TestGetPagerdutyConnectorErrors:
             with patch.dict("sys.modules", {"aragora.connectors.devops.pagerduty": None}):
                 # Force ImportError by making the import fail
                 import builtins
+
                 original_import = builtins.__import__
 
                 def fail_import(name, *args, **kwargs):
@@ -503,9 +507,7 @@ class TestGetPagerdutyConnectorErrors:
     async def test_logs_error_on_connection_failure(self, caplog):
         """Connection errors are logged at ERROR level."""
         mock_connector = _make_mock_connector()
-        mock_connector.__aenter__ = AsyncMock(
-            side_effect=ConnectionError("connection refused")
-        )
+        mock_connector.__aenter__ = AsyncMock(side_effect=ConnectionError("connection refused"))
         mock_connector_cls = MagicMock(return_value=mock_connector)
         mock_creds_cls = MagicMock()
 
@@ -521,13 +523,14 @@ class TestGetPagerdutyConnectorErrors:
                 "aragora.connectors.devops.pagerduty.PagerDutyCredentials",
                 mock_creds_cls,
             ),
-            caplog.at_level(logging.ERROR, logger="aragora.server.handlers.features.devops.connector"),
+            caplog.at_level(
+                logging.ERROR, logger="aragora.server.handlers.features.devops.connector"
+            ),
         ):
             await get_pagerduty_connector("tenant-log")
 
         assert any(
-            "Failed to initialize PagerDuty connector" in rec.message
-            for rec in caplog.records
+            "Failed to initialize PagerDuty connector" in rec.message for rec in caplog.records
         )
 
     @pytest.mark.asyncio
@@ -560,6 +563,7 @@ class TestGetPagerdutyConnectorErrors:
     async def test_import_error_does_not_log_as_error(self, caplog):
         """ImportError is silently returned as None (no ERROR log)."""
         import builtins
+
         original_import = builtins.__import__
 
         def fail_import(name, *args, **kwargs):
@@ -572,15 +576,16 @@ class TestGetPagerdutyConnectorErrors:
         with (
             patch.dict("os.environ", env, clear=True),
             patch("builtins.__import__", side_effect=fail_import),
-            caplog.at_level(logging.ERROR, logger="aragora.server.handlers.features.devops.connector"),
+            caplog.at_level(
+                logging.ERROR, logger="aragora.server.handlers.features.devops.connector"
+            ),
         ):
             result = await get_pagerduty_connector("tenant-imp2")
 
         assert result is None
         # ImportError branch does NOT call logger.error
         error_records = [
-            r for r in caplog.records
-            if "Failed to initialize PagerDuty connector" in r.message
+            r for r in caplog.records if "Failed to initialize PagerDuty connector" in r.message
         ]
         assert len(error_records) == 0
 

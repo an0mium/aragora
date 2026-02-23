@@ -218,9 +218,7 @@ class TestListWebhooks:
         handler._zapier._subscriptions[sub.id] = sub
 
         mock_http = _make_mock_handler()
-        result = handler.handle_get(
-            "/api/v1/webhooks", {"platform": "n8n"}, mock_http
-        )
+        result = handler.handle_get("/api/v1/webhooks", {"platform": "n8n"}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -232,9 +230,7 @@ class TestListWebhooks:
         handler._zapier._subscriptions[sub.id] = sub
 
         mock_http = _make_mock_handler()
-        result = handler.handle_get(
-            "/api/v1/webhooks", {"workspace_id": "ws-other"}, mock_http
-        )
+        result = handler.handle_get("/api/v1/webhooks", {"workspace_id": "ws-other"}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -444,9 +440,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 201
         resp = _body(result)
@@ -469,9 +463,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks", {}, mock_http)
 
         assert _status(result) == 201
 
@@ -480,9 +472,7 @@ class TestSubscribe:
         body = {"events": ["debate.completed"]}
         mock_http = _make_mock_handler(body)
 
-        result = await handler.handle_post(
-            "/api/v1/webhooks/subscribe", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "webhook_url" in _body(result)["error"].lower()
@@ -496,9 +486,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "events" in _body(result)["error"].lower()
@@ -515,9 +503,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "event" in _body(result)["error"].lower()
@@ -535,9 +521,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "unknown" in _body(result)["error"].lower()
@@ -554,9 +538,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(False, "blocked IP range"),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "invalid webhook url" in _body(result)["error"].lower()
@@ -569,9 +551,7 @@ class TestSubscribe:
         mock_http.request.body = b"not-json{"
         mock_http.headers = {"Content-Length": "10"}
 
-        result = await handler.handle_post(
-            "/api/v1/webhooks/subscribe", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "invalid" in _body(result)["error"].lower()
@@ -590,12 +570,8 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            handler._zapier.subscribe = AsyncMock(
-                side_effect=RuntimeError("connection refused")
-            )
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            handler._zapier.subscribe = AsyncMock(side_effect=RuntimeError("connection refused"))
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 500
         assert "failed" in _body(result)["error"].lower()
@@ -613,9 +589,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 201
 
@@ -632,9 +606,7 @@ class TestSubscribe:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 201
 
@@ -654,9 +626,7 @@ class TestTestWebhook:
         handler._zapier.test_subscription = AsyncMock(return_value=True)
 
         mock_http = _make_mock_handler()
-        result = await handler.handle_post(
-            "/api/v1/webhooks/sub-test/test", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/sub-test/test", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -670,9 +640,7 @@ class TestTestWebhook:
         handler._zapier.test_subscription = AsyncMock(return_value=False)
 
         mock_http = _make_mock_handler()
-        result = await handler.handle_post(
-            "/api/v1/webhooks/sub-fail/test", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/sub-fail/test", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -687,9 +655,7 @@ class TestTestWebhook:
         )
 
         mock_http = _make_mock_handler()
-        result = await handler.handle_post(
-            "/api/v1/webhooks/sub-n8n/test", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/sub-n8n/test", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -698,9 +664,7 @@ class TestTestWebhook:
     @pytest.mark.asyncio
     async def test_test_webhook_not_found(self, handler):
         mock_http = _make_mock_handler()
-        result = await handler.handle_post(
-            "/api/v1/webhooks/nonexistent/test", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/nonexistent/test", {}, mock_http)
 
         assert _status(result) == 404
         assert "not found" in _body(result)["error"].lower()
@@ -725,9 +689,7 @@ class TestDispatchEvent:
             "payload": {"debate_id": "d-001"},
         }
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -742,9 +704,7 @@ class TestDispatchEvent:
 
         body = {"event": "test.event", "payload": {}}
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 200
 
@@ -752,9 +712,7 @@ class TestDispatchEvent:
     async def test_dispatch_missing_event_type(self, handler):
         body = {"payload": {}}
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 400
         assert "event_type" in _body(result)["error"].lower()
@@ -763,9 +721,7 @@ class TestDispatchEvent:
     async def test_dispatch_invalid_event_type(self, handler):
         body = {"event_type": "invalid.event.type"}
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 400
         assert "invalid" in _body(result)["error"].lower()
@@ -777,9 +733,7 @@ class TestDispatchEvent:
         mock_http.request.body = b"<not-json>"
         mock_http.headers = {"Content-Length": "10"}
 
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 400
 
@@ -795,9 +749,7 @@ class TestDispatchEvent:
 
         body = {"event_type": "debate.completed", "payload": {}}
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -822,9 +774,7 @@ class TestDispatchEvent:
             "workspace_id": "ws-filter",
         }
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 200
         # Verify workspace_id was forwarded
@@ -864,9 +814,7 @@ class TestUnsubscribe:
         mock_loop.run_until_complete.return_value = False
 
         with patch("asyncio.new_event_loop", return_value=mock_loop):
-            result = handler.handle_delete(
-                "/api/v1/webhooks/nonexistent", {}, mock_http
-            )
+            result = handler.handle_delete("/api/v1/webhooks/nonexistent", {}, mock_http)
 
         assert _status(result) == 404
         assert "not found" in _body(result)["error"].lower()
@@ -920,9 +868,7 @@ class TestRBACPermissions:
 
         mock_http = _make_mock_handler()
         h.handle_get("/api/v1/webhooks/sub-rbac", {}, mock_http)
-        h._check_rbac_permission.assert_called_with(
-            mock_http, "webhooks.read", "sub-rbac"
-        )
+        h._check_rbac_permission.assert_called_with(mock_http, "webhooks.read", "sub-rbac")
 
     def test_list_events_checks_read_permission(self, handler_with_rbac):
         h = handler_with_rbac
@@ -940,25 +886,19 @@ class TestRBACPermissions:
         h = handler_with_rbac
         mock_http = _make_mock_handler()
         h.handle_get("/api/v1/n8n/node", {}, mock_http)
-        h._check_rbac_permission.assert_called_with(
-            mock_http, "connectors.authorize"
-        )
+        h._check_rbac_permission.assert_called_with(mock_http, "connectors.authorize")
 
     def test_n8n_credentials_checks_admin_permission(self, handler_with_rbac):
         h = handler_with_rbac
         mock_http = _make_mock_handler()
         h.handle_get("/api/v1/n8n/credentials", {}, mock_http)
-        h._check_rbac_permission.assert_called_with(
-            mock_http, "connectors.authorize"
-        )
+        h._check_rbac_permission.assert_called_with(mock_http, "connectors.authorize")
 
     def test_n8n_trigger_checks_admin_permission(self, handler_with_rbac):
         h = handler_with_rbac
         mock_http = _make_mock_handler()
         h.handle_get("/api/v1/n8n/trigger", {}, mock_http)
-        h._check_rbac_permission.assert_called_with(
-            mock_http, "connectors.authorize"
-        )
+        h._check_rbac_permission.assert_called_with(mock_http, "connectors.authorize")
 
     @pytest.mark.asyncio
     async def test_subscribe_checks_create_permission(self, handler_with_rbac):
@@ -999,9 +939,7 @@ class TestRBACPermissions:
         with patch("asyncio.new_event_loop", return_value=mock_loop):
             h.handle_delete("/api/v1/webhooks/sub-xyz", {}, mock_http)
 
-        h._check_rbac_permission.assert_called_with(
-            mock_http, "webhooks.delete", "sub-xyz"
-        )
+        h._check_rbac_permission.assert_called_with(mock_http, "webhooks.delete", "sub-xyz")
 
     def test_rbac_denied_returns_error(self, server_context):
         """When RBAC denies access, the error result is returned."""
@@ -1061,9 +999,7 @@ class TestEdgeCases:
             "aragora.server.handlers.integrations.automation.validate_webhook_url",
             return_value=(True, None),
         ):
-            result = await handler.handle_post(
-                "/api/v1/webhooks/subscribe", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/webhooks/subscribe", {}, mock_http)
 
         assert _status(result) == 400
         assert "events" in _body(result)["error"].lower()
@@ -1076,9 +1012,7 @@ class TestEdgeCases:
         handler._zapier.test_subscription = AsyncMock(return_value=True)
 
         mock_http = _make_mock_handler()
-        result = await handler.handle_post(
-            "/api/v1/webhooks/exact-id-check/test", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/exact-id-check/test", {}, mock_http)
 
         assert _status(result) == 200
         handler._zapier.test_subscription.assert_called_once_with(sub)
@@ -1093,9 +1027,7 @@ class TestEdgeCases:
 
         body = {"event_type": "test.event", "payload": {}}
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]
@@ -1111,9 +1043,7 @@ class TestEdgeCases:
 
         body = {"event_type": "test.event", "payload": {}}
         mock_http = _make_mock_handler(body)
-        result = await handler.handle_post(
-            "/api/v1/webhooks/dispatch", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/webhooks/dispatch", {}, mock_http)
 
         assert _status(result) == 200
         data = _body(result)["data"]

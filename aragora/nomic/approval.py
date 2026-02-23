@@ -326,7 +326,11 @@ class ApprovalWorkflow:
 
         self._requests[request_id] = request
         logger.info(
-            "[%s] Created %s approval request for %s changes, %s approvers", request_id, level.value, len(changes), len(approver_list)
+            "[%s] Created %s approval request for %s changes, %s approvers",
+            request_id,
+            level.value,
+            len(changes),
+            len(approver_list),
         )
 
         return request
@@ -521,7 +525,9 @@ class ApprovalWorkflow:
         )
         request.votes.append(vote)
 
-        logger.info("[%s] %s voted: %s", request_id, approver_id, 'approved' if approved else 'rejected')
+        logger.info(
+            "[%s] %s voted: %s", request_id, approver_id, "approved" if approved else "rejected"
+        )
 
         # Check if approval is complete
         self._check_approval_complete(request)
@@ -538,7 +544,7 @@ class ApprovalWorkflow:
             return False
 
         request.status = ApprovalStatus.CANCELLED
-        logger.info("[%s] Request cancelled: %s", request_id, reason or 'No reason given')
+        logger.info("[%s] Request cancelled: %s", request_id, reason or "No reason given")
         return True
 
     def get_request(self, request_id: str) -> ApprovalRequest | None:
@@ -579,15 +585,29 @@ def is_protected_file(file_path: str, policy: ApprovalPolicy | None = None) -> b
 # =============================================================================
 
 # Patterns indicating safety-critical operations in prompts
-_SAFETY_KEYWORDS = frozenset({
-    "security", "auth", "encryption", "key_rotation",
-    "secrets", "password", "token", "credential",
-})
+_SAFETY_KEYWORDS = frozenset(
+    {
+        "security",
+        "auth",
+        "encryption",
+        "key_rotation",
+        "secrets",
+        "password",
+        "token",
+        "credential",
+    }
+)
 
-_DANGEROUS_OPERATIONS = frozenset({
-    "force push", "reset --hard", "drop table", "rm -rf",
-    "delete database", "truncate",
-})
+_DANGEROUS_OPERATIONS = frozenset(
+    {
+        "force push",
+        "reset --hard",
+        "drop table",
+        "rm -rf",
+        "delete database",
+        "truncate",
+    }
+)
 
 
 class ApprovalDecision(str, Enum):
@@ -665,12 +685,18 @@ class ApprovalGate:
             return ApprovalDecision.REJECT
 
         _map = {
-            "a": ApprovalDecision.APPROVE, "approve": ApprovalDecision.APPROVE,
-            "y": ApprovalDecision.APPROVE, "yes": ApprovalDecision.APPROVE,
-            "r": ApprovalDecision.REJECT, "reject": ApprovalDecision.REJECT,
-            "n": ApprovalDecision.REJECT, "no": ApprovalDecision.REJECT,
-            "s": ApprovalDecision.SKIP, "skip": ApprovalDecision.SKIP,
-            "d": ApprovalDecision.DEFER, "defer": ApprovalDecision.DEFER,
+            "a": ApprovalDecision.APPROVE,
+            "approve": ApprovalDecision.APPROVE,
+            "y": ApprovalDecision.APPROVE,
+            "yes": ApprovalDecision.APPROVE,
+            "r": ApprovalDecision.REJECT,
+            "reject": ApprovalDecision.REJECT,
+            "n": ApprovalDecision.REJECT,
+            "no": ApprovalDecision.REJECT,
+            "s": ApprovalDecision.SKIP,
+            "skip": ApprovalDecision.SKIP,
+            "d": ApprovalDecision.DEFER,
+            "defer": ApprovalDecision.DEFER,
         }
         return _map.get(response, ApprovalDecision.REJECT)
 

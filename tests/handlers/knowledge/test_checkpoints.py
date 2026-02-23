@@ -126,9 +126,7 @@ def mock_store():
     store.create_checkpoint = AsyncMock(return_value="cp-id-1")
     store.get_checkpoint_metadata = AsyncMock(return_value=None)
     store.delete_checkpoint = AsyncMock(return_value=True)
-    store.restore_checkpoint = AsyncMock(
-        return_value=MockRestoreResult(checkpoint_id="test-cp")
-    )
+    store.restore_checkpoint = AsyncMock(return_value=MockRestoreResult(checkpoint_id="test-cp"))
     store.compare_checkpoints = AsyncMock(return_value={"added": 1, "removed": 0})
     return store
 
@@ -264,9 +262,7 @@ class TestListCheckpoints:
         self, handler_with_store, mock_store, sample_checkpoints
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints?limit=2"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints?limit=2")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints",
             query_params={"limit": "2"},
@@ -282,9 +278,7 @@ class TestListCheckpoints:
         self, handler_with_store, mock_store, sample_checkpoints
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints?limit=500"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints?limit=500")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints",
             query_params={"limit": "500"},
@@ -301,9 +295,7 @@ class TestListCheckpoints:
         self, handler_with_store, mock_store, sample_checkpoints
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints?limit=0"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints?limit=0")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints",
             query_params={"limit": "0"},
@@ -337,9 +329,7 @@ class TestListCheckpoints:
         assert cp["tags"] == ["v1"]
 
     @pytest.mark.asyncio
-    async def test_list_store_unavailable_returns_503(
-        self, handler_with_store, mock_store
-    ):
+    async def test_list_store_unavailable_returns_503(self, handler_with_store, mock_store):
         mock_store.list_checkpoints.side_effect = RuntimeError("store down")
         # We need the _get_checkpoint_store to raise RuntimeError
         handler_with_store._checkpoint_store = None
@@ -357,9 +347,7 @@ class TestListCheckpoints:
             assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_list_io_error_returns_500(
-        self, handler_with_store, mock_store
-    ):
+    async def test_list_io_error_returns_500(self, handler_with_store, mock_store):
         mock_store.list_checkpoints.side_effect = OSError("disk full")
         mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints")
         result = await handler_with_store.handle_get(
@@ -370,14 +358,9 @@ class TestListCheckpoints:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_list_default_limit_is_20(
-        self, handler_with_store, mock_store
-    ):
+    async def test_list_default_limit_is_20(self, handler_with_store, mock_store):
         # Create 25 checkpoints
-        many = [
-            MockCheckpointMetadata(name=f"cp-{i}", node_count=i)
-            for i in range(25)
-        ]
+        many = [MockCheckpointMetadata(name=f"cp-{i}", node_count=i) for i in range(25)]
         mock_store.list_checkpoints.return_value = many
         mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints")
         result = await handler_with_store.handle_get(
@@ -399,9 +382,7 @@ class TestCreateCheckpoint:
     """Tests for creating checkpoints."""
 
     @pytest.mark.asyncio
-    async def test_create_returns_string_id(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_returns_string_id(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.return_value = "cp-id-new"
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -419,9 +400,7 @@ class TestCreateCheckpoint:
         assert body["id"] == "cp-id-new"
 
     @pytest.mark.asyncio
-    async def test_create_returns_metadata_object(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_returns_metadata_object(self, handler_with_store, mock_store):
         metadata = MockCheckpointMetadata(
             name="test-cp",
             description="desc",
@@ -448,9 +427,7 @@ class TestCreateCheckpoint:
         assert body["tags"] == ["t1"]
 
     @pytest.mark.asyncio
-    async def test_create_missing_name_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_missing_name_returns_400(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints",
@@ -466,9 +443,7 @@ class TestCreateCheckpoint:
         assert "name" in body.get("error", body.get("message", "")).lower()
 
     @pytest.mark.asyncio
-    async def test_create_empty_name_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_empty_name_returns_400(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints",
@@ -482,9 +457,7 @@ class TestCreateCheckpoint:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_empty_body_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_empty_body_returns_400(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints",
@@ -498,9 +471,7 @@ class TestCreateCheckpoint:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_duplicate_returns_409(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_duplicate_returns_409(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.side_effect = FileExistsError("already exists")
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -517,9 +488,7 @@ class TestCreateCheckpoint:
         assert "already exists" in body.get("error", body.get("message", "")).lower()
 
     @pytest.mark.asyncio
-    async def test_create_value_error_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_value_error_returns_400(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.side_effect = ValueError("bad input")
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -534,9 +503,7 @@ class TestCreateCheckpoint:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_create_runtime_error_returns_500(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_runtime_error_returns_500(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.side_effect = RuntimeError("engine failure")
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -551,9 +518,7 @@ class TestCreateCheckpoint:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_create_defaults_description_and_tags(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_defaults_description_and_tags(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.return_value = "cp-id-2"
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -574,12 +539,8 @@ class TestCreateCheckpoint:
         )
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.check_and_record_slo"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
+    @patch("aragora.server.handlers.knowledge.checkpoints.check_and_record_slo")
     async def test_create_records_metrics_string_result(
         self, mock_slo, mock_record, handler_with_store, mock_store
     ):
@@ -605,12 +566,8 @@ class TestCreateCheckpoint:
         mock_slo.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.check_and_record_slo"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
+    @patch("aragora.server.handlers.knowledge.checkpoints.check_and_record_slo")
     async def test_create_records_metrics_metadata_result(
         self, mock_slo, mock_record, handler_with_store, mock_store
     ):
@@ -634,12 +591,8 @@ class TestCreateCheckpoint:
         mock_slo.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.check_and_record_slo"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
+    @patch("aragora.server.handlers.knowledge.checkpoints.check_and_record_slo")
     async def test_create_records_metrics_on_failure(
         self, mock_slo, mock_record, handler_with_store, mock_store
     ):
@@ -660,12 +613,8 @@ class TestCreateCheckpoint:
         assert args[0][1] is False  # success should be False on error
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.emit_handler_event"
-    )
-    async def test_create_emits_handler_event(
-        self, mock_emit, handler_with_store, mock_store
-    ):
+    @patch("aragora.server.handlers.knowledge.checkpoints.emit_handler_event")
+    async def test_create_emits_handler_event(self, mock_emit, handler_with_store, mock_store):
         metadata = MockCheckpointMetadata(name="event-cp")
         mock_store.create_checkpoint.return_value = metadata
         mock_handler = _MockHTTPHandler(
@@ -678,9 +627,7 @@ class TestCreateCheckpoint:
             query_params={},
             handler=mock_handler,
         )
-        mock_emit.assert_called_once_with(
-            "knowledge", "created", {"checkpoint": "event-cp"}
-        )
+        mock_emit.assert_called_once_with("knowledge", "created", {"checkpoint": "event-cp"})
 
 
 # =============================================================================
@@ -692,9 +639,7 @@ class TestGetCheckpoint:
     """Tests for getting a single checkpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_existing_checkpoint(
-        self, handler_with_store, mock_store
-    ):
+    async def test_get_existing_checkpoint(self, handler_with_store, mock_store):
         cp = MockCheckpointMetadata(
             name="my-cp",
             description="My checkpoint",
@@ -704,9 +649,7 @@ class TestGetCheckpoint:
             checksum="sha256abc",
         )
         mock_store.get_checkpoint_metadata.return_value = cp
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/my-cp"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/my-cp")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/my-cp",
             query_params={},
@@ -723,13 +666,9 @@ class TestGetCheckpoint:
         assert data["checksum"] == "sha256abc"
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_checkpoint_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_get_nonexistent_checkpoint_returns_404(self, handler_with_store, mock_store):
         mock_store.get_checkpoint_metadata.return_value = None
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/nope"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/nope")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/nope",
             query_params={},
@@ -738,15 +677,11 @@ class TestGetCheckpoint:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_with_datetime_created_at(
-        self, handler_with_store, mock_store
-    ):
+    async def test_get_checkpoint_with_datetime_created_at(self, handler_with_store, mock_store):
         cp = MockCheckpointMetadata(name="dt-cp")
         cp.created_at = datetime(2026, 2, 23, 12, 0, 0)
         mock_store.get_checkpoint_metadata.return_value = cp
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/dt-cp"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/dt-cp")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/dt-cp",
             query_params={},
@@ -758,15 +693,11 @@ class TestGetCheckpoint:
         assert "2026-02-23" in data["created_at"]
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_with_string_created_at(
-        self, handler_with_store, mock_store
-    ):
+    async def test_get_checkpoint_with_string_created_at(self, handler_with_store, mock_store):
         cp = MockCheckpointMetadata(name="str-cp")
         cp.created_at = "2026-01-15T08:30:00Z"
         mock_store.get_checkpoint_metadata.return_value = cp
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/str-cp"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/str-cp")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/str-cp",
             query_params={},
@@ -778,18 +709,14 @@ class TestGetCheckpoint:
         assert data["created_at"] == "2026-01-15T08:30:00Z"
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_store_unavailable_returns_503(
-        self, handler_with_store
-    ):
+    async def test_get_checkpoint_store_unavailable_returns_503(self, handler_with_store):
         handler_with_store._checkpoint_store = None
         with patch.object(
             handler_with_store,
             "_get_checkpoint_store",
             side_effect=RuntimeError("unavailable"),
         ):
-            mock_handler = _MockHTTPHandler(
-                path="/api/v1/km/checkpoints/test-cp"
-            )
+            mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/test-cp")
             result = await handler_with_store.handle_get(
                 path="/api/v1/km/checkpoints/test-cp",
                 query_params={},
@@ -807,9 +734,7 @@ class TestDeleteCheckpoint:
     """Tests for deleting checkpoints."""
 
     @pytest.mark.asyncio
-    async def test_delete_existing_checkpoint(
-        self, handler_with_store, mock_store
-    ):
+    async def test_delete_existing_checkpoint(self, handler_with_store, mock_store):
         mock_store.delete_checkpoint.return_value = True
         mock_handler = _MockHTTPHandler(
             method="DELETE",
@@ -826,9 +751,7 @@ class TestDeleteCheckpoint:
         assert data["deleted"] == "old-cp"
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_checkpoint_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_delete_nonexistent_checkpoint_returns_404(self, handler_with_store, mock_store):
         mock_store.delete_checkpoint.return_value = False
         mock_handler = _MockHTTPHandler(
             method="DELETE",
@@ -842,9 +765,7 @@ class TestDeleteCheckpoint:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_delete_runtime_error_returns_500(
-        self, handler_with_store, mock_store
-    ):
+    async def test_delete_runtime_error_returns_500(self, handler_with_store, mock_store):
         mock_store.delete_checkpoint.side_effect = RuntimeError("disk error")
         mock_handler = _MockHTTPHandler(
             method="DELETE",
@@ -858,9 +779,7 @@ class TestDeleteCheckpoint:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
     async def test_delete_records_metrics_on_success(
         self, mock_record, handler_with_store, mock_store
     ):
@@ -880,9 +799,7 @@ class TestDeleteCheckpoint:
         assert args[0][1] is True
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
     async def test_delete_records_metrics_on_failure(
         self, mock_record, handler_with_store, mock_store
     ):
@@ -902,9 +819,7 @@ class TestDeleteCheckpoint:
         assert args[0][1] is False
 
     @pytest.mark.asyncio
-    async def test_delete_with_subpath_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_delete_with_subpath_returns_404(self, handler_with_store, mock_store):
         """DELETE /api/v1/km/checkpoints/name/extra should 404."""
         mock_handler = _MockHTTPHandler(
             method="DELETE",
@@ -927,9 +842,7 @@ class TestRestoreCheckpoint:
     """Tests for restoring from a checkpoint."""
 
     @pytest.mark.asyncio
-    async def test_restore_with_merge_strategy(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_with_merge_strategy(self, handler_with_store, mock_store):
         restore_result = MockRestoreResult(
             checkpoint_id="test-cp",
             success=True,
@@ -961,9 +874,7 @@ class TestRestoreCheckpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_restore_with_replace_strategy(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_with_replace_strategy(self, handler_with_store, mock_store):
         restore_result = MockRestoreResult(
             checkpoint_id="replace-cp",
             success=True,
@@ -988,9 +899,7 @@ class TestRestoreCheckpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_restore_default_strategy_is_merge(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_default_strategy_is_merge(self, handler_with_store, mock_store):
         restore_result = MockRestoreResult(
             checkpoint_id="default-cp", success=True, nodes_restored=5
         )
@@ -1015,9 +924,7 @@ class TestRestoreCheckpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_restore_invalid_strategy_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_invalid_strategy_returns_400(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints/test-cp/restore",
@@ -1033,9 +940,7 @@ class TestRestoreCheckpoint:
         assert "strategy" in body.get("error", body.get("message", "")).lower()
 
     @pytest.mark.asyncio
-    async def test_restore_not_found_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_not_found_returns_404(self, handler_with_store, mock_store):
         restore_result = MockRestoreResult(
             checkpoint_id="ghost-cp",
             success=False,
@@ -1055,9 +960,7 @@ class TestRestoreCheckpoint:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_restore_with_errors_returns_truncated_list(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_with_errors_returns_truncated_list(self, handler_with_store, mock_store):
         errors = [f"error-{i}" for i in range(15)]
         restore_result = MockRestoreResult(
             checkpoint_id="err-cp",
@@ -1084,9 +987,7 @@ class TestRestoreCheckpoint:
         assert data["error_count"] == 15  # full count
 
     @pytest.mark.asyncio
-    async def test_restore_value_error_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_value_error_returns_400(self, handler_with_store, mock_store):
         mock_store.restore_checkpoint.side_effect = ValueError("bad data")
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1101,9 +1002,7 @@ class TestRestoreCheckpoint:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_restore_runtime_error_returns_500(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_runtime_error_returns_500(self, handler_with_store, mock_store):
         mock_store.restore_checkpoint.side_effect = RuntimeError("engine broken")
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1118,18 +1017,12 @@ class TestRestoreCheckpoint:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.check_and_record_slo"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
+    @patch("aragora.server.handlers.knowledge.checkpoints.check_and_record_slo")
     async def test_restore_records_metrics(
         self, mock_slo, mock_record, handler_with_store, mock_store
     ):
-        restore_result = MockRestoreResult(
-            checkpoint_id="met-cp", success=True, nodes_restored=5
-        )
+        restore_result = MockRestoreResult(checkpoint_id="met-cp", success=True, nodes_restored=5)
         mock_store.restore_checkpoint.return_value = restore_result
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1148,9 +1041,7 @@ class TestRestoreCheckpoint:
         mock_slo.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.observability.metrics.record_checkpoint_restore_result"
-    )
+    @patch("aragora.observability.metrics.record_checkpoint_restore_result")
     async def test_restore_records_restore_result_metrics(
         self, mock_restore_record, handler_with_store, mock_store
     ):
@@ -1188,18 +1079,14 @@ class TestCompareCheckpoint:
     """Tests for comparing a checkpoint with current state."""
 
     @pytest.mark.asyncio
-    async def test_compare_success(
-        self, handler_with_store, mock_store, sample_checkpoints
-    ):
+    async def test_compare_success(self, handler_with_store, mock_store, sample_checkpoints):
         mock_store.list_checkpoints.return_value = sample_checkpoints
         mock_store.compare_checkpoints.return_value = {
             "added": 5,
             "removed": 2,
             "modified": 1,
         }
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/cp-alpha/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/cp-alpha/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/cp-alpha/compare",
             query_params={},
@@ -1211,13 +1098,9 @@ class TestCompareCheckpoint:
         assert data["added"] == 5
 
     @pytest.mark.asyncio
-    async def test_compare_no_checkpoints_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_no_checkpoints_returns_404(self, handler_with_store, mock_store):
         mock_store.list_checkpoints.return_value = []
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/nothing/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/nothing/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/nothing/compare",
             query_params={},
@@ -1230,9 +1113,7 @@ class TestCompareCheckpoint:
         self, handler_with_store, mock_store, sample_checkpoints
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/nonexistent/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/nonexistent/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/nonexistent/compare",
             query_params={},
@@ -1241,14 +1122,10 @@ class TestCompareCheckpoint:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_compare_single_checkpoint_returns_metadata(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_single_checkpoint_returns_metadata(self, handler_with_store, mock_store):
         single = [MockCheckpointMetadata(name="only-one", node_count=42, size_bytes=999)]
         mock_store.list_checkpoints.return_value = single
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/only-one/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/only-one/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/only-one/compare",
             query_params={},
@@ -1267,9 +1144,7 @@ class TestCompareCheckpoint:
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
         mock_store.compare_checkpoints.return_value = None
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/cp-alpha/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/cp-alpha/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/cp-alpha/compare",
             query_params={},
@@ -1278,13 +1153,9 @@ class TestCompareCheckpoint:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_compare_runtime_error_returns_500(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_runtime_error_returns_500(self, handler_with_store, mock_store):
         mock_store.list_checkpoints.side_effect = RuntimeError("store failure")
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/broken/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/broken/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/broken/compare",
             query_params={},
@@ -1293,17 +1164,13 @@ class TestCompareCheckpoint:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation"
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.record_checkpoint_operation")
     async def test_compare_records_metrics(
         self, mock_record, handler_with_store, mock_store, sample_checkpoints
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
         mock_store.compare_checkpoints.return_value = {"added": 0}
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/cp-alpha/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/cp-alpha/compare")
         await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/cp-alpha/compare",
             query_params={},
@@ -1324,9 +1191,7 @@ class TestCompareTwoCheckpoints:
     """Tests for comparing two checkpoints."""
 
     @pytest.mark.asyncio
-    async def test_compare_two_success(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_success(self, handler_with_store, mock_store):
         mock_store.compare_checkpoints.return_value = {
             "added": 3,
             "removed": 1,
@@ -1347,9 +1212,7 @@ class TestCompareTwoCheckpoints:
         assert data["added"] == 3
 
     @pytest.mark.asyncio
-    async def test_compare_two_missing_checkpoint_a(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_missing_checkpoint_a(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints/compare",
@@ -1365,9 +1228,7 @@ class TestCompareTwoCheckpoints:
         assert "checkpoint_a" in body.get("error", body.get("message", "")).lower()
 
     @pytest.mark.asyncio
-    async def test_compare_two_missing_checkpoint_b(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_missing_checkpoint_b(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints/compare",
@@ -1381,9 +1242,7 @@ class TestCompareTwoCheckpoints:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_compare_two_missing_both(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_missing_both(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints/compare",
@@ -1397,9 +1256,7 @@ class TestCompareTwoCheckpoints:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_compare_two_no_body_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_no_body_returns_400(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints/compare",
@@ -1412,9 +1269,7 @@ class TestCompareTwoCheckpoints:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_compare_two_not_found_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_not_found_returns_404(self, handler_with_store, mock_store):
         mock_store.compare_checkpoints.return_value = None
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1429,9 +1284,7 @@ class TestCompareTwoCheckpoints:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_compare_two_error_field_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_error_field_returns_404(self, handler_with_store, mock_store):
         mock_store.compare_checkpoints.return_value = {"error": "not found"}
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1446,9 +1299,7 @@ class TestCompareTwoCheckpoints:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_compare_two_runtime_error_returns_500(
-        self, handler_with_store, mock_store
-    ):
+    async def test_compare_two_runtime_error_returns_500(self, handler_with_store, mock_store):
         mock_store.compare_checkpoints.side_effect = RuntimeError("kaboom")
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1481,12 +1332,8 @@ class TestHandleGetRouting:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_handle_get_unknown_path_returns_404(
-        self, handler_with_store, mock_store
-    ):
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/some/unknown/deep/path"
-        )
+    async def test_handle_get_unknown_path_returns_404(self, handler_with_store, mock_store):
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/some/unknown/deep/path")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/some/unknown/deep/path",
             query_params={},
@@ -1495,9 +1342,7 @@ class TestHandleGetRouting:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_handle_get_routes_to_list(
-        self, handler_with_store, mock_store
-    ):
+    async def test_handle_get_routes_to_list(self, handler_with_store, mock_store):
         mock_store.list_checkpoints.return_value = []
         mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints")
         result = await handler_with_store.handle_get(
@@ -1509,15 +1354,9 @@ class TestHandleGetRouting:
         mock_store.list_checkpoints.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_get_routes_to_get_by_name(
-        self, handler_with_store, mock_store
-    ):
-        mock_store.get_checkpoint_metadata.return_value = MockCheckpointMetadata(
-            name="named"
-        )
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/named"
-        )
+    async def test_handle_get_routes_to_get_by_name(self, handler_with_store, mock_store):
+        mock_store.get_checkpoint_metadata.return_value = MockCheckpointMetadata(name="named")
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/named")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/named",
             query_params={},
@@ -1532,9 +1371,7 @@ class TestHandleGetRouting:
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
         mock_store.compare_checkpoints.return_value = {"added": 0}
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/cp-alpha/compare"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/cp-alpha/compare")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/cp-alpha/compare",
             query_params={},
@@ -1561,9 +1398,7 @@ class TestHandlePostRouting:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_handle_post_routes_to_create(
-        self, handler_with_store, mock_store
-    ):
+    async def test_handle_post_routes_to_create(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.return_value = "id-1"
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1578,9 +1413,7 @@ class TestHandlePostRouting:
         assert _status(result) == 201
 
     @pytest.mark.asyncio
-    async def test_handle_post_routes_to_compare(
-        self, handler_with_store, mock_store
-    ):
+    async def test_handle_post_routes_to_compare(self, handler_with_store, mock_store):
         mock_store.compare_checkpoints.return_value = {"diff": True}
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1595,12 +1428,8 @@ class TestHandlePostRouting:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_handle_post_routes_to_restore(
-        self, handler_with_store, mock_store
-    ):
-        restore_result = MockRestoreResult(
-            checkpoint_id="r-cp", success=True, nodes_restored=1
-        )
+    async def test_handle_post_routes_to_restore(self, handler_with_store, mock_store):
+        restore_result = MockRestoreResult(checkpoint_id="r-cp", success=True, nodes_restored=1)
         mock_store.restore_checkpoint.return_value = restore_result
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1615,9 +1444,7 @@ class TestHandlePostRouting:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_handle_post_unknown_path_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_handle_post_unknown_path_returns_404(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="POST",
             path="/api/v1/km/checkpoints/some/random/path",
@@ -1639,9 +1466,7 @@ class TestHandleDeleteRouting:
     """Tests for DELETE request routing."""
 
     @pytest.mark.asyncio
-    async def test_handle_delete_missing_handler_returns_500(
-        self, handler_with_store
-    ):
+    async def test_handle_delete_missing_handler_returns_500(self, handler_with_store):
         result = await handler_with_store.handle_delete(
             path="/api/v1/km/checkpoints/x",
             query_params={},
@@ -1650,9 +1475,7 @@ class TestHandleDeleteRouting:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_handle_delete_routes_correctly(
-        self, handler_with_store, mock_store
-    ):
+    async def test_handle_delete_routes_correctly(self, handler_with_store, mock_store):
         mock_store.delete_checkpoint.return_value = True
         mock_handler = _MockHTTPHandler(
             method="DELETE",
@@ -1666,9 +1489,7 @@ class TestHandleDeleteRouting:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_handle_delete_base_path_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_handle_delete_base_path_returns_404(self, handler_with_store, mock_store):
         mock_handler = _MockHTTPHandler(
             method="DELETE",
             path="/api/v1/km/checkpoints",
@@ -1690,9 +1511,7 @@ class TestRBACPermissions:
     """Tests for RBAC permission checking logic."""
 
     def test_check_rbac_no_user_id_returns_401(self, handler):
-        result = handler._check_rbac_permission(
-            {"roles": set()}, "knowledge:read"
-        )
+        result = handler._check_rbac_permission({"roles": set()}, "knowledge:read")
         # Missing user_id should return 401
         assert result is not None
         assert _status(result) == 401
@@ -1760,9 +1579,7 @@ class TestRBACPermissions:
             "aragora.server.handlers.knowledge.checkpoints.check_permission",
             return_value=mock_decision,
         ):
-            with patch(
-                "aragora.server.handlers.knowledge.checkpoints.record_rbac_check"
-            ):
+            with patch("aragora.server.handlers.knowledge.checkpoints.record_rbac_check"):
                 result = handler._check_rbac_permission(
                     {"user_id": "u1", "roles": {"viewer"}}, "knowledge:write"
                 )
@@ -1776,9 +1593,7 @@ class TestRBACPermissions:
             "aragora.server.handlers.knowledge.checkpoints.check_permission",
             return_value=mock_decision,
         ):
-            with patch(
-                "aragora.server.handlers.knowledge.checkpoints.record_rbac_check"
-            ):
+            with patch("aragora.server.handlers.knowledge.checkpoints.record_rbac_check"):
                 result = handler._check_rbac_permission(
                     {"user_id": "u1", "roles": {"admin"}}, "knowledge:read"
                 )
@@ -1791,9 +1606,7 @@ class TestRBACPermissions:
             "aragora.server.handlers.knowledge.checkpoints.check_permission",
             return_value=mock_decision,
         ) as mock_check:
-            with patch(
-                "aragora.server.handlers.knowledge.checkpoints.record_rbac_check"
-            ):
+            with patch("aragora.server.handlers.knowledge.checkpoints.record_rbac_check"):
                 handler._check_rbac_permission(
                     {"user_id": "u1", "roles": {"admin"}},
                     "knowledge:read",
@@ -1805,31 +1618,23 @@ class TestRBACPermissions:
                 assert call_args[0][1] == "knowledge:read"
                 assert call_args[0][2] == "my-checkpoint"
 
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.RBAC_AVAILABLE", False
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.RBAC_AVAILABLE", False)
     @patch(
         "aragora.server.handlers.knowledge.checkpoints.rbac_fail_closed",
         return_value=True,
     )
     def test_rbac_unavailable_fail_closed(self, mock_fail, handler):
-        result = handler._check_rbac_permission(
-            {"user_id": "u1"}, "knowledge:read"
-        )
+        result = handler._check_rbac_permission({"user_id": "u1"}, "knowledge:read")
         assert result is not None
         assert _status(result) == 503
 
-    @patch(
-        "aragora.server.handlers.knowledge.checkpoints.RBAC_AVAILABLE", False
-    )
+    @patch("aragora.server.handlers.knowledge.checkpoints.RBAC_AVAILABLE", False)
     @patch(
         "aragora.server.handlers.knowledge.checkpoints.rbac_fail_closed",
         return_value=False,
     )
     def test_rbac_unavailable_fail_open(self, mock_fail, handler):
-        result = handler._check_rbac_permission(
-            {"user_id": "u1"}, "knowledge:read"
-        )
+        result = handler._check_rbac_permission({"user_id": "u1"}, "knowledge:read")
         assert result is None
 
 
@@ -1868,13 +1673,9 @@ class TestQueryStringHandling:
     """Tests for query string stripping in path routing."""
 
     @pytest.mark.asyncio
-    async def test_get_strips_query_string(
-        self, handler_with_store, mock_store
-    ):
+    async def test_get_strips_query_string(self, handler_with_store, mock_store):
         mock_store.list_checkpoints.return_value = []
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints?limit=5&sort=name"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints?limit=5&sort=name")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints?limit=5&sort=name",
             query_params={"limit": "5"},
@@ -1883,9 +1684,7 @@ class TestQueryStringHandling:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_post_strips_query_string(
-        self, handler_with_store, mock_store
-    ):
+    async def test_post_strips_query_string(self, handler_with_store, mock_store):
         mock_store.create_checkpoint.return_value = "id-qs"
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1900,9 +1699,7 @@ class TestQueryStringHandling:
         assert _status(result) == 201
 
     @pytest.mark.asyncio
-    async def test_delete_strips_query_string(
-        self, handler_with_store, mock_store
-    ):
+    async def test_delete_strips_query_string(self, handler_with_store, mock_store):
         mock_store.delete_checkpoint.return_value = True
         mock_handler = _MockHTTPHandler(
             method="DELETE",
@@ -1929,9 +1726,7 @@ class TestEdgeCases:
         self, handler_with_store, mock_store, sample_checkpoints
     ):
         mock_store.list_checkpoints.return_value = sample_checkpoints
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints?limit=-5"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints?limit=-5")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints",
             query_params={"limit": "-5"},
@@ -1943,9 +1738,7 @@ class TestEdgeCases:
         assert data["total"] == 1  # min(max(1, -5), 100) == 1
 
     @pytest.mark.asyncio
-    async def test_create_no_json_body_returns_400(
-        self, handler_with_store, mock_store
-    ):
+    async def test_create_no_json_body_returns_400(self, handler_with_store, mock_store):
         """POST with no body at all should return 400 for missing name."""
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1959,13 +1752,9 @@ class TestEdgeCases:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_restore_no_body_uses_defaults(
-        self, handler_with_store, mock_store
-    ):
+    async def test_restore_no_body_uses_defaults(self, handler_with_store, mock_store):
         """POST restore with no body should use default merge strategy."""
-        restore_result = MockRestoreResult(
-            checkpoint_id="nb-cp", success=True, nodes_restored=1
-        )
+        restore_result = MockRestoreResult(checkpoint_id="nb-cp", success=True, nodes_restored=1)
         mock_store.restore_checkpoint.return_value = restore_result
         mock_handler = _MockHTTPHandler(
             method="POST",
@@ -1982,15 +1771,11 @@ class TestEdgeCases:
         assert data["strategy"] == "merge"
 
     @pytest.mark.asyncio
-    async def test_checkpoint_name_with_special_chars(
-        self, handler_with_store, mock_store
-    ):
+    async def test_checkpoint_name_with_special_chars(self, handler_with_store, mock_store):
         """Checkpoint names with dashes and underscores should work."""
         cp = MockCheckpointMetadata(name="my-checkpoint_v2.1")
         mock_store.get_checkpoint_metadata.return_value = cp
-        mock_handler = _MockHTTPHandler(
-            path="/api/v1/km/checkpoints/my-checkpoint_v2.1"
-        )
+        mock_handler = _MockHTTPHandler(path="/api/v1/km/checkpoints/my-checkpoint_v2.1")
         result = await handler_with_store.handle_get(
             path="/api/v1/km/checkpoints/my-checkpoint_v2.1",
             query_params={},

@@ -220,7 +220,11 @@ async def main():
                 from aragora.config.secrets import SecretManager
 
                 sm = SecretManager()
-                dsn = sm.get("ARAGORA_POSTGRES_DSN") or sm.get("DATABASE_URL") or sm.get("SUPABASE_POSTGRES_DSN")
+                dsn = (
+                    sm.get("ARAGORA_POSTGRES_DSN")
+                    or sm.get("DATABASE_URL")
+                    or sm.get("SUPABASE_POSTGRES_DSN")
+                )
                 if dsn:
                     logger.info("Loaded PostgreSQL DSN from Secrets Manager")
             except Exception as e:

@@ -171,7 +171,9 @@ class ReceiptRetentionScheduler:
         self._running = True
         self._task = asyncio.create_task(self._cleanup_loop())
         logger.info(
-            "Started receipt retention scheduler (interval=%sh, retention=%s days)", self.interval_hours, self.retention_days or 'store default'
+            "Started receipt retention scheduler (interval=%sh, retention=%s days)",
+            self.interval_hours,
+            self.retention_days or "store default",
         )
 
     async def stop(self) -> None:

@@ -94,9 +94,13 @@ class FakeGauntletResult:
     duration_seconds: float = 12.5
     critical_findings: list = field(default_factory=list)
     high_findings: list = field(default_factory=lambda: [FakeFinding()])
-    medium_findings: list = field(default_factory=lambda: [FakeFinding(finding_id="f-002", severity_level="medium")])
+    medium_findings: list = field(
+        default_factory=lambda: [FakeFinding(finding_id="f-002", severity_level="medium")]
+    )
     low_findings: list = field(default_factory=list)
-    all_findings: list = field(default_factory=lambda: [FakeFinding(), FakeFinding(finding_id="f-002")])
+    all_findings: list = field(
+        default_factory=lambda: [FakeFinding(), FakeFinding(finding_id="f-002")]
+    )
 
     def __post_init__(self):
         if self.verdict is None:
@@ -215,18 +219,23 @@ class TestStartGauntletSuccess:
     @pytest.mark.asyncio
     async def test_returns_202_with_gauntlet_id(self, mixin, mock_handler, valid_body):
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
-        ) as mock_task:
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ) as mock_task,
+        ):
             result = await mixin._start_gauntlet(handler)
 
         assert _status(result) == 202
@@ -239,17 +248,22 @@ class TestStartGauntletSuccess:
     @pytest.mark.asyncio
     async def test_stores_run_in_memory(self, mixin, mock_handler, valid_body):
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -263,17 +277,22 @@ class TestStartGauntletSuccess:
     @pytest.mark.asyncio
     async def test_persists_to_storage(self, mixin, mock_handler, valid_body, mock_storage):
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -283,20 +302,27 @@ class TestStartGauntletSuccess:
         assert call_kwargs["input_type"] == "spec"
 
     @pytest.mark.asyncio
-    async def test_uses_fire_and_forget_when_durable_disabled(self, mixin, mock_handler, valid_body):
+    async def test_uses_fire_and_forget_when_durable_disabled(
+        self, mixin, mock_handler, valid_body
+    ):
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
-        ) as mock_task:
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ) as mock_task,
+        ):
             result = await mixin._start_gauntlet(handler)
 
         assert _status(result) == 202
@@ -307,24 +333,30 @@ class TestStartGauntletSuccess:
     async def test_uses_durable_queue_when_enabled(self, mixin, mock_handler, valid_body):
         handler = mock_handler(body=valid_body)
         mock_enqueue = AsyncMock()
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=True,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
-        ) as mock_task, patch.dict(
-            "sys.modules",
-            {
-                "aragora.queue.workers.gauntlet_worker": MagicMock(
-                    enqueue_gauntlet_job=mock_enqueue,
-                ),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ) as mock_task,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.queue.workers.gauntlet_worker": MagicMock(
+                        enqueue_gauntlet_job=mock_enqueue,
+                    ),
+                },
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -335,20 +367,26 @@ class TestStartGauntletSuccess:
     @pytest.mark.asyncio
     async def test_durable_queue_fallback_on_import_error(self, mixin, mock_handler, valid_body):
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=True,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
-        ) as mock_task, patch.dict(
-            "sys.modules",
-            {"aragora.queue.workers.gauntlet_worker": None},
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=True,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ) as mock_task,
+            patch.dict(
+                "sys.modules",
+                {"aragora.queue.workers.gauntlet_worker": None},
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -364,17 +402,22 @@ class TestStartGauntletSuccess:
             "input_type": "spec",
         }
         handler = mock_handler(body=long_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -391,17 +434,22 @@ class TestStartGauntletSuccess:
             "input_type": "spec",
         }
         handler = mock_handler(body=body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -416,17 +464,22 @@ class TestStartGauntletSuccess:
             "input_type": "spec",
         }
         handler = mock_handler(body=body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -443,17 +496,22 @@ class TestStartGauntletSuccess:
             "input_content": "Test content",
         }
         handler = mock_handler(body=body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -463,20 +521,26 @@ class TestStartGauntletSuccess:
     @pytest.mark.asyncio
     async def test_cleanup_called_before_store(self, mixin, mock_handler, valid_body):
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner._cleanup_gauntlet_runs",
-        ) as mock_cleanup:
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner._cleanup_gauntlet_runs",
+            ) as mock_cleanup,
+        ):
             await mixin._start_gauntlet(handler)
 
         mock_cleanup.assert_called_once()
@@ -505,12 +569,15 @@ class TestStartGauntletErrors:
     @pytest.mark.asyncio
     async def test_returns_400_on_validation_failure(self, mixin, mock_handler):
         handler = mock_handler(body={"input_content": "test"})
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=False, error="input_type is invalid"),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=False, error="input_type is invalid"),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -518,21 +585,28 @@ class TestStartGauntletErrors:
         assert "input_type" in _body(result)["error"]
 
     @pytest.mark.asyncio
-    async def test_storage_persist_failure_doesnt_block(self, mixin, mock_handler, valid_body, mock_storage):
+    async def test_storage_persist_failure_doesnt_block(
+        self, mixin, mock_handler, valid_body, mock_storage
+    ):
         """If save_inflight fails, the run should still proceed."""
         mock_storage.save_inflight.side_effect = OSError("disk full")
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -540,40 +614,54 @@ class TestStartGauntletErrors:
         assert _status(result) == 202
 
     @pytest.mark.asyncio
-    async def test_storage_persist_runtime_error_doesnt_block(self, mixin, mock_handler, valid_body, mock_storage):
+    async def test_storage_persist_runtime_error_doesnt_block(
+        self, mixin, mock_handler, valid_body, mock_storage
+    ):
         mock_storage.save_inflight.side_effect = RuntimeError("connection lost")
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
         assert _status(result) == 202
 
     @pytest.mark.asyncio
-    async def test_storage_persist_value_error_doesnt_block(self, mixin, mock_handler, valid_body, mock_storage):
+    async def test_storage_persist_value_error_doesnt_block(
+        self, mixin, mock_handler, valid_body, mock_storage
+    ):
         mock_storage.save_inflight.side_effect = ValueError("bad data")
         handler = mock_handler(body=valid_body)
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -619,17 +707,22 @@ class TestStartGauntletQuota:
         user_ctx = FakeUserCtx(is_authenticated=True, org_id="org-001")
         handler = mock_handler(body=valid_body, user_store=user_store)
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=user_ctx,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=user_ctx,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -647,17 +740,22 @@ class TestStartGauntletQuota:
         user_ctx = FakeUserCtx(is_authenticated=True, org_id="org-001")
         handler = mock_handler(body=valid_body, user_store=user_store)
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=user_ctx,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=user_ctx,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -670,17 +768,22 @@ class TestStartGauntletQuota:
         if hasattr(handler, "user_store"):
             del handler.user_store
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -692,17 +795,22 @@ class TestStartGauntletQuota:
         user_ctx = FakeUserCtx(is_authenticated=False, org_id="org-001")
         handler = mock_handler(body=valid_body, user_store=user_store)
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=user_ctx,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=user_ctx,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -717,17 +825,22 @@ class TestStartGauntletQuota:
         user_ctx = FakeUserCtx(is_authenticated=True, org_id="org-001")
         handler = mock_handler(body=valid_body, user_store=user_store)
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=user_ctx,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=user_ctx,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -770,17 +883,22 @@ class TestStartGauntletQuota:
             del handler.user_store
         handler.__class__.user_store = user_store
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.validate_against_schema",
-            return_value=FakeValidationResult(is_valid=True),
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=user_ctx,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.validate_against_schema",
+                return_value=FakeValidationResult(is_valid=True),
+            ),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=user_ctx,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.is_durable_queue_enabled",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.gauntlet.runner.create_tracked_task",
+            ),
         ):
             result = await mixin._start_gauntlet(handler)
 
@@ -812,24 +930,27 @@ class TestRunGauntletAsyncSuccess:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "test content", "spec", None, ["anthropic-api"], "default"
@@ -853,24 +974,27 @@ class TestRunGauntletAsyncSuccess:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "test content", "spec", None, ["anthropic-api"], "default"
@@ -892,24 +1016,27 @@ class TestRunGauntletAsyncSuccess:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "test content", "spec", None, ["anthropic-api"], "default"
@@ -925,8 +1052,7 @@ class TestRunGauntletAsyncSuccess:
         runs[gid] = {"gauntlet_id": gid, "status": "pending"}
 
         many_findings = [
-            FakeFinding(finding_id=f"f-{i:03d}", title=f"Finding {i}")
-            for i in range(30)
+            FakeFinding(finding_id=f"f-{i:03d}", title=f"Finding {i}") for i in range(30)
         ]
         fake_result = FakeGauntletResult(all_findings=many_findings, total_findings=30)
         mock_orchestrator = AsyncMock()
@@ -935,24 +1061,27 @@ class TestRunGauntletAsyncSuccess:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "test content", "spec", None, ["anthropic-api"], "default"
@@ -974,24 +1103,27 @@ class TestRunGauntletAsyncSuccess:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "test content", "spec", None, ["anthropic-api"], "default"
@@ -1041,24 +1173,27 @@ class TestRunGauntletInputTypes:
 
         mock_config_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=mock_input_type,
-                    OrchestratorConfig=mock_config_cls,
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=mock_input_type,
+                        OrchestratorConfig=mock_config_cls,
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", input_type_str, None, ["anthropic-api"], "default"
@@ -1081,28 +1216,29 @@ class TestRunGauntletAsyncFailures:
         gid = "gauntlet-no-agents"
         runs[gid] = {"gauntlet_id": gid, "status": "pending"}
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(side_effect=ValueError("No such agent")),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(side_effect=ValueError("No such agent")),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
-            await mixin._run_gauntlet_async(
-                gid, "content", "spec", None, ["bad-agent"], "default"
-            )
+            await mixin._run_gauntlet_async(gid, "content", "spec", None, ["bad-agent"], "default")
 
         assert runs[gid]["status"] == "failed"
         assert runs[gid]["error"] == "No agents could be created"
@@ -1119,24 +1255,27 @@ class TestRunGauntletAsyncFailures:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1157,24 +1296,27 @@ class TestRunGauntletAsyncFailures:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1189,14 +1331,17 @@ class TestRunGauntletAsyncFailures:
         gid = "gauntlet-import-fail"
         runs[gid] = {"gauntlet_id": gid, "status": "pending"}
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": None,  # Force ImportError
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": None,  # Force ImportError
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1216,24 +1361,27 @@ class TestRunGauntletAsyncFailures:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1253,24 +1401,27 @@ class TestRunGauntletAsyncFailures:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1298,24 +1449,27 @@ class TestRunGauntletAsyncFailures:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1343,24 +1497,27 @@ class TestRunGauntletAsyncFailures:
         mock_orchestrator = AsyncMock()
         mock_orchestrator.run.return_value = fake_result
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(side_effect=create_agent_side_effect),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(side_effect=create_agent_side_effect),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["good-agent", "bad-agent"], "default"
@@ -1396,26 +1553,29 @@ class TestRunGauntletAsyncEmitter:
 
         broadcast_fn = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=broadcast_fn,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(
-                    GauntletStreamEmitter=mock_emitter_cls,
-                ),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=broadcast_fn,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(
+                        GauntletStreamEmitter=mock_emitter_cls,
+                    ),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1438,24 +1598,27 @@ class TestRunGauntletAsyncEmitter:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1486,26 +1649,29 @@ class TestRunGauntletAsyncEmitter:
         mock_emitter_instance = MagicMock()
         mock_emitter_cls.return_value = mock_emitter_instance
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=MagicMock(),
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(
-                    GauntletStreamEmitter=mock_emitter_cls,
-                ),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=MagicMock(),
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(
+                        GauntletStreamEmitter=mock_emitter_cls,
+                    ),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1548,24 +1714,27 @@ class TestRunGauntletAsyncStatusUpdates:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1587,24 +1756,27 @@ class TestRunGauntletAsyncStatusUpdates:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1630,24 +1802,27 @@ class TestRunGauntletAsyncStatusUpdates:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1677,24 +1852,27 @@ class TestRunGauntletResultShape:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1731,24 +1909,27 @@ class TestRunGauntletResultShape:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1771,24 +1952,27 @@ class TestRunGauntletResultShape:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"
@@ -1817,24 +2001,27 @@ class TestRunGauntletResultShape:
         fake_agent = MagicMock()
         fake_agent.name = "test_agent"
 
-        with patch(
-            "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
-            return_value=None,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.agents.base": MagicMock(
-                    create_agent=MagicMock(return_value=fake_agent),
-                    AgentType=MagicMock(),
-                ),
-                "aragora.gauntlet": MagicMock(
-                    GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
-                    GauntletProgress=MagicMock,
-                    InputType=MagicMock(SPEC=MagicMock()),
-                    OrchestratorConfig=MagicMock(),
-                ),
-                "aragora.server.stream.gauntlet_emitter": MagicMock(),
-            },
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.runner.get_gauntlet_broadcast_fn",
+                return_value=None,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.agents.base": MagicMock(
+                        create_agent=MagicMock(return_value=fake_agent),
+                        AgentType=MagicMock(),
+                    ),
+                    "aragora.gauntlet": MagicMock(
+                        GauntletOrchestrator=MagicMock(return_value=mock_orchestrator),
+                        GauntletProgress=MagicMock,
+                        InputType=MagicMock(SPEC=MagicMock()),
+                        OrchestratorConfig=MagicMock(),
+                    ),
+                    "aragora.server.stream.gauntlet_emitter": MagicMock(),
+                },
+            ),
         ):
             await mixin._run_gauntlet_async(
                 gid, "content", "spec", None, ["anthropic-api"], "default"

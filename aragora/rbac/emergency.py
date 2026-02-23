@@ -348,7 +348,9 @@ class BreakGlassAccess:
 
             if loaded_count > 0:
                 logger.info(
-                    "Loaded %s break-glass records from Redis (%s active)", loaded_count, len(self._active_records)
+                    "Loaded %s break-glass records from Redis (%s active)",
+                    loaded_count,
+                    len(self._active_records),
                 )
         except (OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.warning("Failed to load break-glass records from Redis: %s", e)
@@ -425,7 +427,11 @@ class BreakGlassAccess:
         self._persist_record(record)
 
         logger.warning(
-            "BREAK-GLASS ACTIVATED: user=%s, id=%s, duration=%smin, reason=%s...", user_id, record.id, duration_minutes, reason[:50]
+            "BREAK-GLASS ACTIVATED: user=%s, id=%s, duration=%smin, reason=%s...",
+            user_id,
+            record.id,
+            duration_minutes,
+            reason[:50],
         )
 
         # Notify security team
@@ -477,7 +483,10 @@ class BreakGlassAccess:
         self._persist_record(record)
 
         logger.info(
-            "BREAK-GLASS DEACTIVATED: id=%s, user=%s, by=%s", access_id, record.user_id, record.deactivated_by
+            "BREAK-GLASS DEACTIVATED: id=%s, user=%s, by=%s",
+            access_id,
+            record.user_id,
+            record.deactivated_by,
         )
 
         # Notify security team
@@ -529,7 +538,11 @@ class BreakGlassAccess:
         self._persist_record(record)
 
         logger.warning(
-            "BREAK-GLASS REVOKED: id=%s, user=%s, by=%s, reason=%s", access_id, record.user_id, revoked_by, reason
+            "BREAK-GLASS REVOKED: id=%s, user=%s, by=%s, reason=%s",
+            access_id,
+            record.user_id,
+            revoked_by,
+            reason,
         )
 
         # Audit log (critical severity)

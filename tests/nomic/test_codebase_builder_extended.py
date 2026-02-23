@@ -73,9 +73,7 @@ class TestIngestModuleSummaries:
             '"""Pkg."""\n',
             files={
                 "models.py": (
-                    "class Foo:\n    pass\n\n"
-                    "class Bar:\n    pass\n\n"
-                    "def helper():\n    pass\n"
+                    "class Foo:\n    pass\n\nclass Bar:\n    pass\n\ndef helper():\n    pass\n"
                 ),
             },
         )
@@ -267,7 +265,7 @@ class TestIngestDependencyGraph:
         pkg.mkdir()
         (pkg / "__init__.py").write_text("")
         for i in range(10):
-            (pkg / f"mod{i}.py").write_text(f"import sys\n")
+            (pkg / f"mod{i}.py").write_text("import sys\n")
 
         builder, fabric = _make_builder(tmp_path)
         # max_files=3 means only 3 of the 11 .py files (init + 10 mods) get parsed

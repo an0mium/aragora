@@ -818,11 +818,14 @@ class TestCreateRule:
     async def test_create_import_error(self, handler):
         body = _make_rule_body()
         req = MockRequest(path="/api/v1/routing-rules", method="POST", body=body)
-        with patch(
-            f"{MODULE}.RoutingRulesHandler._get_json_body",
-            new_callable=AsyncMock,
-            return_value=body,
-        ), patch.dict("sys.modules", {"aragora.core.routing_rules": None}):
+        with (
+            patch(
+                f"{MODULE}.RoutingRulesHandler._get_json_body",
+                new_callable=AsyncMock,
+                return_value=body,
+            ),
+            patch.dict("sys.modules", {"aragora.core.routing_rules": None}),
+        ):
             result = await handler.handle_request(req)
         # Should get 500 from ImportError catch
         assert result["status"] == "error"
@@ -1108,9 +1111,7 @@ class TestToggleRule:
     async def test_toggle_with_explicit_enabled_true(self, handler):
         _insert_rule("rule-1", enabled=False)
         body = {"enabled": True}
-        req = MockRequest(
-            path="/api/v1/routing-rules/rule-1/toggle", method="POST", body=body
-        )
+        req = MockRequest(path="/api/v1/routing-rules/rule-1/toggle", method="POST", body=body)
         with patch(f"{MODULE}.audit_data"):
             result = await handler.handle_request(req)
         assert result["status"] == "success"
@@ -1120,9 +1121,7 @@ class TestToggleRule:
     async def test_toggle_with_explicit_enabled_false(self, handler):
         _insert_rule("rule-1", enabled=True)
         body = {"enabled": False}
-        req = MockRequest(
-            path="/api/v1/routing-rules/rule-1/toggle", method="POST", body=body
-        )
+        req = MockRequest(path="/api/v1/routing-rules/rule-1/toggle", method="POST", body=body)
         with patch(f"{MODULE}.audit_data"):
             result = await handler.handle_request(req)
         assert result["status"] == "success"
@@ -1453,6 +1452,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_json_body_decode_error(self, handler):
         req = MockRequest(path="/api/v1/routing-rules", method="POST")
+
         # Override json to raise
         async def bad_json():
             raise json.JSONDecodeError("bad", "doc", 0)
@@ -1530,6 +1530,7 @@ class TestEdgeCases:
         """Toggle with no JSON body still works (flips state)."""
         _insert_rule("rule-1", enabled=True)
         req = MockRequest(path="/api/v1/routing-rules/rule-1/toggle", method="POST")
+
         # Make json return None to simulate no body
         async def _no_json():
             return {}
@@ -1758,9 +1759,7 @@ class TestCreateAndEvaluate:
 
         # Evaluate with matching context
         eval_body = {"context": {"confidence": 0.5}}
-        req = MockRequest(
-            path="/api/v1/routing-rules/evaluate", method="POST", body=eval_body
-        )
+        req = MockRequest(path="/api/v1/routing-rules/evaluate", method="POST", body=eval_body)
         eval_result = await handler.handle_request(req)
         assert eval_result["status"] == "success"
         assert eval_result["rules_evaluated"] >= 1
@@ -1781,9 +1780,7 @@ class TestCreateAndEvaluate:
 
         # Evaluate - disabled rule should not match
         eval_body = {"context": {"confidence": 0.5}}
-        req = MockRequest(
-            path="/api/v1/routing-rules/evaluate", method="POST", body=eval_body
-        )
+        req = MockRequest(path="/api/v1/routing-rules/evaluate", method="POST", body=eval_body)
         eval_result = await handler.handle_request(req)
         assert eval_result["status"] == "success"
         assert eval_result["rules_matched"] == 0

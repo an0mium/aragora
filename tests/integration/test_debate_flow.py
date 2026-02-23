@@ -631,7 +631,7 @@ class TestDebateEloIntegration:
         agent_names = [agent.name for agent in basic_agents]
 
         # Create scores based on vote results (simplified)
-        scores = {name: 0.5 for name in agent_names}  # Default to draw
+        scores = dict.fromkeys(agent_names, 0.5)  # Default to draw
         if result.winner:
             scores[result.winner] = 1.0
             for name in agent_names:

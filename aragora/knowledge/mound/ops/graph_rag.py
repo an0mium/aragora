@@ -339,7 +339,9 @@ class GraphRAGRetriever:
         """
         expanded: dict[str, dict[str, Any]] = {}
         edge_count = 0
-        frontier: list[tuple[str, int, list[str], list[str]]] = [(node_id, 0, [node_id], []) for node_id in seed_node_ids]
+        frontier: list[tuple[str, int, list[str], list[str]]] = [
+            (node_id, 0, [node_id], []) for node_id in seed_node_ids
+        ]
         visited: set[str] = set(seed_node_ids)
 
         # Initialize seeds
@@ -431,7 +433,9 @@ class GraphRAGRetriever:
                 content = node.content if node else ""
                 metadata = node.metadata if node else {}
             except (KeyError, OSError, RuntimeError):
-                logger.warning("Failed to retrieve node %s from graph store", node_id, exc_info=True)
+                logger.warning(
+                    "Failed to retrieve node %s from graph store", node_id, exc_info=True
+                )
                 content = ""
                 metadata = {}
 

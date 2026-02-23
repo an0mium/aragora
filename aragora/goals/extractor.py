@@ -233,16 +233,17 @@ class GoalExtractor:
             # Determine priority from support + evidence
             total_support = support_count.get(node_id, 0) + evidence_count.get(node_id, 0)
             priority = (
-                "critical" if total_support >= 5
-                else "high" if total_support >= 3
-                else "medium" if total_support >= 1
+                "critical"
+                if total_support >= 5
+                else "high"
+                if total_support >= 3
+                else "medium"
+                if total_support >= 1
                 else "low"
             )
 
             # Find which ideas this goal depends on
-            deps = self._find_goal_dependencies(
-                node_id, children, node_map, [g.id for g in goals]
-            )
+            deps = self._find_goal_dependencies(node_id, children, node_map, [g.id for g in goals])
 
             # Gather source idea IDs for provenance
             source_ids = [node_id] + children.get(node_id, [])[:5]
@@ -250,9 +251,7 @@ class GoalExtractor:
             goal = GoalNode(
                 id=f"goal-{uuid.uuid4().hex[:8]}",
                 title=self._synthesize_goal_title(label, goal_type),
-                description=self._synthesize_goal_description(
-                    label, node_data, goal_type
-                ),
+                description=self._synthesize_goal_description(label, node_data, goal_type),
                 goal_type=goal_type,
                 priority=priority,
                 dependencies=deps,
@@ -332,14 +331,16 @@ class GoalExtractor:
         edges = []
 
         for i, idea in enumerate(ideas):
-            nodes.append({
-                "id": f"raw-idea-{i}",
-                "label": idea[:80],
-                "data": {
-                    "idea_type": "concept",
-                    "full_content": idea,
-                },
-            })
+            nodes.append(
+                {
+                    "id": f"raw-idea-{i}",
+                    "label": idea[:80],
+                    "data": {
+                        "idea_type": "concept",
+                        "full_content": idea,
+                    },
+                }
+            )
 
             # Connect ideas that share keywords (simple semantic linking)
             idea_words = set(idea.lower().split())
@@ -347,11 +348,13 @@ class GoalExtractor:
                 other_words = set(ideas[j].lower().split())
                 overlap = len(idea_words & other_words - _STOP_WORDS)
                 if overlap >= 3:
-                    edges.append({
-                        "source": f"raw-idea-{j}",
-                        "target": f"raw-idea-{i}",
-                        "type": "relates_to",
-                    })
+                    edges.append(
+                        {
+                            "source": f"raw-idea-{j}",
+                            "target": f"raw-idea-{i}",
+                            "type": "relates_to",
+                        }
+                    )
 
         canvas_data = {"nodes": nodes, "edges": edges}
         return self.extract_from_ideas(canvas_data)
@@ -413,7 +416,10 @@ class GoalExtractor:
 
             # Accept consensus, vote, and claim nodes
             if cfg.require_consensus and node_type not in (
-                "consensus", "vote", "claim", "synthesis",
+                "consensus",
+                "vote",
+                "claim",
+                "synthesis",
             ):
                 continue
 
@@ -477,9 +483,12 @@ class GoalExtractor:
 
             # Priority from score
             priority = (
-                "critical" if score >= 0.9
-                else "high" if score >= 0.7
-                else "medium" if score >= 0.4
+                "critical"
+                if score >= 0.9
+                else "high"
+                if score >= 0.7
+                else "medium"
+                if score >= 0.4
                 else "low"
             )
 
@@ -571,9 +580,7 @@ class GoalExtractor:
             data = node.get("data", {})
             idea_type = data.get("idea_type", "concept")
             full_content = data.get("full_content", label)
-            idea_summaries.append(
-                f"- [{idea_type}] {full_content}"
-            )
+            idea_summaries.append(f"- [{idea_type}] {full_content}")
 
         prompt = (
             "Given these ideas from a structured brainstorming session, "
@@ -691,8 +698,7 @@ class GoalExtractor:
             status="pending",
             confidence=0.8,
             ai_rationale=(
-                f"AI synthesized {len(goals)} SMART goals from "
-                f"{len(source_nodes)} ideas"
+                f"AI synthesized {len(goals)} SMART goals from {len(source_nodes)} ideas"
             ),
         )
 
@@ -743,9 +749,7 @@ class GoalExtractor:
         max_goals = max(1, len(node_map) // 3)
         return scores[:max_goals]
 
-    def _idea_type_to_goal_type(
-        self, idea_type: str, score: float
-    ) -> GoalNodeType:
+    def _idea_type_to_goal_type(self, idea_type: str, score: float) -> GoalNodeType:
         """Map idea type + score to appropriate goal type."""
         if idea_type == "cluster":
             return GoalNodeType.GOAL
@@ -892,30 +896,32 @@ class GoalExtractor:
                 continue
 
             # Generate cluster name from top terms
-            cluster_name = _name_cluster(
-                [node_tokens[i][1] for i in member_indices]
-            )
+            cluster_name = _name_cluster([node_tokens[i][1] for i in member_indices])
             cluster_node_id = f"cluster-{uuid.uuid4().hex[:8]}"
 
             # Add cluster node
-            nodes.append({
-                "id": cluster_node_id,
-                "label": cluster_name,
-                "data": {
-                    "idea_type": "cluster",
-                    "member_count": len(member_indices),
-                    "auto_generated": True,
-                },
-            })
+            nodes.append(
+                {
+                    "id": cluster_node_id,
+                    "label": cluster_name,
+                    "data": {
+                        "idea_type": "cluster",
+                        "member_count": len(member_indices),
+                        "auto_generated": True,
+                    },
+                }
+            )
 
             # Add membership edges
             for idx in member_indices:
                 member_id = node_tokens[idx][0]
-                edges.append({
-                    "source": member_id,
-                    "target": cluster_node_id,
-                    "type": "member_of",
-                })
+                edges.append(
+                    {
+                        "source": member_id,
+                        "target": cluster_node_id,
+                        "type": "member_of",
+                    }
+                )
 
         result["nodes"] = nodes
         result["edges"] = edges
@@ -960,9 +966,7 @@ class GoalExtractor:
 
         return conflicts
 
-    def _detect_contradictions(
-        self, goals: list[GoalNode]
-    ) -> list[dict[str, Any]]:
+    def _detect_contradictions(self, goals: list[GoalNode]) -> list[dict[str, Any]]:
         """Find goals with contradictory action keywords."""
         conflicts: list[dict[str, Any]] = []
 
@@ -977,28 +981,28 @@ class GoalExtractor:
                     if (word_a in words_i and word_b in words_j) or (
                         word_b in words_i and word_a in words_j
                     ):
-                        conflicts.append({
-                            "type": "contradiction",
-                            "severity": "high",
-                            "goal_ids": [goals[i].id, goals[j].id],
-                            "description": (
-                                f"Goals may conflict: '{goals[i].title}' vs "
-                                f"'{goals[j].title}' (contradictory terms: "
-                                f"{word_a}/{word_b})"
-                            ),
-                            "suggestion": (
-                                "Review these goals to ensure they are not "
-                                "working against each other. Consider merging "
-                                "or prioritizing one over the other."
-                            ),
-                        })
+                        conflicts.append(
+                            {
+                                "type": "contradiction",
+                                "severity": "high",
+                                "goal_ids": [goals[i].id, goals[j].id],
+                                "description": (
+                                    f"Goals may conflict: '{goals[i].title}' vs "
+                                    f"'{goals[j].title}' (contradictory terms: "
+                                    f"{word_a}/{word_b})"
+                                ),
+                                "suggestion": (
+                                    "Review these goals to ensure they are not "
+                                    "working against each other. Consider merging "
+                                    "or prioritizing one over the other."
+                                ),
+                            }
+                        )
                         break  # One contradiction per pair is enough
 
         return conflicts
 
-    def _detect_circular_dependencies(
-        self, goals: list[GoalNode]
-    ) -> list[dict[str, Any]]:
+    def _detect_circular_dependencies(self, goals: list[GoalNode]) -> list[dict[str, Any]]:
         """Detect cycles in the goal dependency graph using DFS."""
         conflicts: list[dict[str, Any]] = []
 
@@ -1041,21 +1045,19 @@ class GoalExtractor:
                         seen_cycles.add(cycle_key)
                         # Build goal title lookup
                         title_map = {g.id: g.title for g in goals}
-                        cycle_desc = " -> ".join(
-                            title_map.get(c, c) for c in cycle
+                        cycle_desc = " -> ".join(title_map.get(c, c) for c in cycle)
+                        conflicts.append(
+                            {
+                                "type": "circular_dependency",
+                                "severity": "high",
+                                "goal_ids": list(cycle),
+                                "description": (f"Circular dependency detected: {cycle_desc}"),
+                                "suggestion": (
+                                    "Break the dependency cycle by removing at "
+                                    "least one dependency link or reordering goals."
+                                ),
+                            }
                         )
-                        conflicts.append({
-                            "type": "circular_dependency",
-                            "severity": "high",
-                            "goal_ids": list(cycle),
-                            "description": (
-                                f"Circular dependency detected: {cycle_desc}"
-                            ),
-                            "suggestion": (
-                                "Break the dependency cycle by removing at "
-                                "least one dependency link or reordering goals."
-                            ),
-                        })
                     # Reset colors for remaining nodes to find more cycles
                     for node_id in goal_ids:
                         if color[node_id] == GRAY:
@@ -1063,9 +1065,7 @@ class GoalExtractor:
 
         return conflicts
 
-    def _detect_near_duplicates(
-        self, goals: list[GoalNode]
-    ) -> list[dict[str, Any]]:
+    def _detect_near_duplicates(self, goals: list[GoalNode]) -> list[dict[str, Any]]:
         """Find goals with very similar titles (potential duplicates)."""
         conflicts: list[dict[str, Any]] = []
 
@@ -1075,20 +1075,22 @@ class GoalExtractor:
                 tokens_j = _tokenize(goals[j].title)
                 sim = _jaccard_similarity(tokens_i, tokens_j)
                 if sim > 0.6:
-                    conflicts.append({
-                        "type": "near_duplicate",
-                        "severity": "medium",
-                        "goal_ids": [goals[i].id, goals[j].id],
-                        "description": (
-                            f"Goals appear very similar "
-                            f"(similarity: {sim:.1%}): "
-                            f"'{goals[i].title}' vs '{goals[j].title}'"
-                        ),
-                        "suggestion": (
-                            "Consider merging these goals into a single, "
-                            "more comprehensive goal."
-                        ),
-                    })
+                    conflicts.append(
+                        {
+                            "type": "near_duplicate",
+                            "severity": "medium",
+                            "goal_ids": [goals[i].id, goals[j].id],
+                            "description": (
+                                f"Goals appear very similar "
+                                f"(similarity: {sim:.1%}): "
+                                f"'{goals[i].title}' vs '{goals[j].title}'"
+                            ),
+                            "suggestion": (
+                                "Consider merging these goals into a single, "
+                                "more comprehensive goal."
+                            ),
+                        }
+                    )
 
         return conflicts
 
@@ -1149,22 +1151,15 @@ class GoalExtractor:
         scores = self.score_smart(goal)
         suggestions: list[str] = []
         if scores["specific"] < 0.5:
-            suggestions.append(
-                "Add specific technical details or scope constraints"
-            )
+            suggestions.append("Add specific technical details or scope constraints")
         if scores["measurable"] < 0.5:
             suggestions.append(
-                "Add quantitative success criteria "
-                "(e.g., percentages, counts, response times)"
+                "Add quantitative success criteria (e.g., percentages, counts, response times)"
             )
         if scores["achievable"] < 0.5:
-            suggestions.append(
-                "Narrow the scope to a concrete, single-step deliverable"
-            )
+            suggestions.append("Narrow the scope to a concrete, single-step deliverable")
         if scores["time_bound"] < 0.5:
-            suggestions.append(
-                "Add a timeline or deadline (e.g., 'within 2 sprints')"
-            )
+            suggestions.append("Add a timeline or deadline (e.g., 'within 2 sprints')")
         return suggestions
 
 
@@ -1205,14 +1200,63 @@ def _score_measurability(text: str) -> float:
 
 
 # Common English stop words to exclude from keyword matching
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "can", "shall", "to", "of", "in", "for",
-    "on", "with", "at", "by", "from", "as", "into", "through", "during",
-    "before", "after", "above", "below", "between", "and", "but", "or",
-    "not", "no", "this", "that", "these", "those", "it", "its",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "shall",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "and",
+        "but",
+        "or",
+        "not",
+        "no",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+    }
+)
 
 # Contradictory keyword pairs for conflict detection
 _CONTRADICTORY_PAIRS: list[tuple[str, str]] = [
@@ -1274,9 +1318,7 @@ def _tokenize(text: str) -> frozenset[str]:
     and very short tokens.
     """
     words = re.split(r"[^a-zA-Z0-9]+", text.lower())
-    return frozenset(
-        w for w in words if w and len(w) > 1 and w not in _STOP_WORDS
-    )
+    return frozenset(w for w in words if w and len(w) > 1 and w not in _STOP_WORDS)
 
 
 def _jaccard_similarity(a: frozenset[str], b: frozenset[str]) -> float:

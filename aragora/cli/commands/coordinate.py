@@ -42,15 +42,19 @@ def add_coordinate_parser(subparsers) -> None:
     )
     plan_parser.add_argument("goal", help="Goal to decompose")
     plan_parser.add_argument(
-        "--tracks", nargs="*",
+        "--tracks",
+        nargs="*",
         help="Limit to specific tracks (e.g., core qa security)",
     )
     plan_parser.add_argument(
-        "--debate", action="store_true",
+        "--debate",
+        action="store_true",
         help="Use debate-based decomposition (slower, more nuanced)",
     )
     plan_parser.add_argument(
-        "--json", dest="json_output", action="store_true",
+        "--json",
+        dest="json_output",
+        action="store_true",
         help="Output as JSON",
     )
 
@@ -60,7 +64,9 @@ def add_coordinate_parser(subparsers) -> None:
         help="Show worktree status and agent assignments",
     )
     status_parser.add_argument(
-        "--json", dest="json_output", action="store_true",
+        "--json",
+        dest="json_output",
+        action="store_true",
         help="Output as JSON",
     )
 
@@ -70,19 +76,25 @@ def add_coordinate_parser(subparsers) -> None:
         help="Merge completed worktrees back to main",
     )
     merge_parser.add_argument(
-        "--track", type=str, default=None,
+        "--track",
+        type=str,
+        default=None,
         help="Specific track to merge (default: all ready tracks)",
     )
     merge_parser.add_argument(
-        "--require-tests", action="store_true", default=True,
+        "--require-tests",
+        action="store_true",
+        default=True,
         help="Run tests before merging (default: True)",
     )
     merge_parser.add_argument(
-        "--skip-tests", action="store_true",
+        "--skip-tests",
+        action="store_true",
         help="Skip test requirement",
     )
     merge_parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Show what would be merged without merging",
     )
 
@@ -92,7 +104,8 @@ def add_coordinate_parser(subparsers) -> None:
         help="Sync all worktrees with latest main",
     )
     sync_parser.add_argument(
-        "--rebase", action="store_true",
+        "--rebase",
+        action="store_true",
         help="Rebase behind/diverged worktrees onto main",
     )
 
@@ -102,11 +115,15 @@ def add_coordinate_parser(subparsers) -> None:
         help="Check scope violations for current track",
     )
     scope_parser.add_argument(
-        "--track", type=str, default=None,
+        "--track",
+        type=str,
+        default=None,
         help="Override track detection",
     )
     scope_parser.add_argument(
-        "--mode", choices=["warn", "block"], default="warn",
+        "--mode",
+        choices=["warn", "block"],
+        default="warn",
         help="Violation severity mode (default: warn)",
     )
 
@@ -116,19 +133,27 @@ def add_coordinate_parser(subparsers) -> None:
         help="View cross-worktree event bus",
     )
     events_parser.add_argument(
-        "--since", type=float, default=60.0,
+        "--since",
+        type=float,
+        default=60.0,
         help="Show events from last N minutes (default: 60)",
     )
     events_parser.add_argument(
-        "--type", dest="event_type", type=str, default=None,
+        "--type",
+        dest="event_type",
+        type=str,
+        default=None,
         help="Filter by event type",
     )
     events_parser.add_argument(
-        "--publish", type=str, default=None,
+        "--publish",
+        type=str,
+        default=None,
         help="Publish an event (format: type:track:message)",
     )
     events_parser.add_argument(
-        "--cleanup", action="store_true",
+        "--cleanup",
+        action="store_true",
         help="Clean up old events",
     )
 
@@ -139,7 +164,9 @@ def add_coordinate_parser(subparsers) -> None:
     )
     register_parser.add_argument("track", help="Track name")
     register_parser.add_argument(
-        "--goal", type=str, default="",
+        "--goal",
+        type=str,
+        default="",
         help="Current goal description",
     )
 
@@ -193,6 +220,7 @@ def _cmd_plan(args: argparse.Namespace) -> None:
     if use_debate:
         print("Using debate-based decomposition...")
         import asyncio
+
         result = asyncio.run(decomposer.analyze_with_debate(goal))
     else:
         result = decomposer.analyze(goal)
@@ -211,7 +239,8 @@ def _cmd_plan(args: argparse.Namespace) -> None:
                 for st in result.subtasks
             ],
             "complexity_score": result.complexity_score
-            if hasattr(result, "complexity_score") else 0,
+            if hasattr(result, "complexity_score")
+            else 0,
         }
         print(json.dumps(output, indent=2))
     else:
@@ -233,7 +262,9 @@ def _cmd_status(args: argparse.Namespace) -> None:
     # Get worktree list
     result = subprocess.run(
         ["git", "worktree", "list", "--porcelain"],
-        capture_output=True, text=True, cwd=repo_root,
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
         check=False,
     )
 
@@ -245,17 +276,18 @@ def _cmd_status(args: argparse.Namespace) -> None:
         for line in result.stdout.split("\n"):
             line = line.strip()
             if line.startswith("worktree "):
-                current_path = line[len("worktree "):]
+                current_path = line[len("worktree ") :]
                 current_branch = None
             elif line.startswith("branch refs/heads/"):
-                current_branch = line[len("branch refs/heads/"):]
+                current_branch = line[len("branch refs/heads/") :]
             elif line == "" and current_path and current_branch:
                 if current_branch not in ("main", "master"):
                     # Get ahead/behind
                     ab_result = subprocess.run(
-                        ["git", "rev-list", "--left-right", "--count",
-                         f"main...{current_branch}"],
-                        capture_output=True, text=True, cwd=repo_root,
+                        ["git", "rev-list", "--left-right", "--count", f"main...{current_branch}"],
+                        capture_output=True,
+                        text=True,
+                        cwd=repo_root,
                         check=False,
                     )
                     behind, ahead = 0, 0
@@ -264,18 +296,21 @@ def _cmd_status(args: argparse.Namespace) -> None:
                         if len(parts) == 2:
                             behind, ahead = int(parts[0]), int(parts[1])
 
-                    worktrees.append({
-                        "path": current_path,
-                        "branch": current_branch,
-                        "ahead": ahead,
-                        "behind": behind,
-                    })
+                    worktrees.append(
+                        {
+                            "path": current_path,
+                            "branch": current_branch,
+                            "ahead": ahead,
+                            "behind": behind,
+                        }
+                    )
                 current_path = None
                 current_branch = None
 
     # Get session manifest info
     try:
         from aragora.nomic.session_manifest import SessionManifest
+
         manifest = SessionManifest(repo_root=repo_root)
         sessions = manifest.list_active()
     except (ImportError, OSError, ValueError, TypeError, KeyError):
@@ -284,20 +319,26 @@ def _cmd_status(args: argparse.Namespace) -> None:
     # Get recent events
     try:
         from aragora.nomic.event_bus import EventBus
+
         bus = EventBus(repo_root=repo_root)
         recent_events = bus.poll(since_minutes=60)
     except (ImportError, OSError, ValueError, TypeError, KeyError):
         recent_events = []
 
     if json_output:
-        print(json.dumps({
-            "worktrees": worktrees,
-            "sessions": [
-                {"track": s.track, "goal": s.current_goal, "agent": s.agent}
-                for s in sessions
-            ],
-            "recent_events": len(recent_events),
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "worktrees": worktrees,
+                    "sessions": [
+                        {"track": s.track, "goal": s.current_goal, "agent": s.agent}
+                        for s in sessions
+                    ],
+                    "recent_events": len(recent_events),
+                },
+                indent=2,
+            )
+        )
         return
 
     # Human-readable output
@@ -312,10 +353,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
             status = ""
             if wt["behind"] > 0:
                 status = " (needs sync)"
-            print(
-                f"  {wt['branch']:<35} {wt['ahead']:>6} "
-                f"{wt['behind']:>7}{status}"
-            )
+            print(f"  {wt['branch']:<35} {wt['ahead']:>6} {wt['behind']:>7}{status}")
     else:
         print("\n  No active worktrees found.")
         print("  Setup with: ./scripts/setup_worktrees.sh")

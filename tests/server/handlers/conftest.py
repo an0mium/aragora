@@ -1632,9 +1632,7 @@ def _prevent_orchestration_handler_http():
     """
     import sys
 
-    orch_handler_mod = sys.modules.get(
-        "aragora.server.handlers.orchestration.handler"
-    )
+    orch_handler_mod = sys.modules.get("aragora.server.handlers.orchestration.handler")
     if orch_handler_mod is None:
         try:
             import importlib

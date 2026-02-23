@@ -737,9 +737,7 @@ class TestRunSASTScan:
     async def test_falls_back_on_runtime_error(self):
         """If the real scanner raises RuntimeError, falls back to mock."""
         mock_scanner = MagicMock()
-        mock_scanner.scan_repository = AsyncMock(
-            side_effect=RuntimeError("scanner crash")
-        )
+        mock_scanner.scan_repository = AsyncMock(side_effect=RuntimeError("scanner crash"))
         mock_module = MagicMock()
         mock_module.SASTScanner = lambda: mock_scanner
 

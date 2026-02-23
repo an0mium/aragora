@@ -47,6 +47,7 @@ EncryptionError: type[Exception]
 _RedisError: type[Exception] = OSError  # overwritten below if redis is available
 try:
     from redis.exceptions import RedisError
+
     _RedisError = RedisError
 except ImportError:
     pass  # _RedisError stays as OSError fallback
@@ -822,7 +823,14 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 data = redis.get(self._redis_key(webhook_id))
                 if data:
                     return WebhookConfig.from_json(data)
-            except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+            except (
+                _RedisError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                ValueError,
+                json.JSONDecodeError,
+            ) as e:
                 logger.debug("Redis get failed, falling back to SQLite: %s", e)
 
         # Fall back to SQLite

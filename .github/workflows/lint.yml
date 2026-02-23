@@ -50,28 +50,12 @@ jobs:
           pip install ruff==0.14.14
           pip install -e .
 
-      - name: Run lint tier (changed Python files)
-        run: |
-          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          else
-            BASE_SHA="${{ github.event.before }}"
-          fi
+      - name: Run ruff format check (all Python files)
+        run: ruff format --check aragora/ tests/ scripts/
+        shell: bash
 
-          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
-            BASE_SHA="$(git rev-parse HEAD~1)"
-          fi
-
-          CHANGED_PY=$(git diff --name-only "${BASE_SHA}" HEAD -- '*.py' | tr '\n' ' ')
-          if [ -z "${CHANGED_PY}" ]; then
-            echo "No Python files changed; skipping Ruff checks."
-            exit 0
-          fi
-
-          echo "Running Ruff on changed files:"
-          echo "${CHANGED_PY}"
-          ruff format --check ${CHANGED_PY}
-          ruff check ${CHANGED_PY}
+      - name: Run ruff lint check (all Python files)
+        run: ruff check aragora/ tests/ scripts/
         shell: bash
 
   connector-exception-hygiene:

@@ -147,9 +147,7 @@ class MockUsageBreakdown:
     """Mock usage breakdown returned by UsageMeter."""
 
     def __init__(self, **kwargs):
-        self.period_start = kwargs.get(
-            "period_start", datetime(2025, 1, 1, tzinfo=timezone.utc)
-        )
+        self.period_start = kwargs.get("period_start", datetime(2025, 1, 1, tzinfo=timezone.utc))
         self.period_end = kwargs.get(
             "period_end", datetime(2025, 1, 31, 23, 59, 59, tzinfo=timezone.utc)
         )
@@ -157,33 +155,42 @@ class MockUsageBreakdown:
         self.total_tokens = kwargs.get("total_tokens", 5000000)
         self.total_debates = kwargs.get("total_debates", 150)
         self.total_api_calls = kwargs.get("total_api_calls", 5000)
-        self.by_model = kwargs.get("by_model", [
-            {
-                "model": "claude-3-opus",
-                "input_tokens": 2000000,
-                "output_tokens": 1000000,
-                "total_tokens": 3000000,
-                "cost": "80.00",
-                "requests": 100,
-            }
-        ])
-        self.by_provider = kwargs.get("by_provider", [
-            {
-                "provider": "anthropic",
-                "total_tokens": 3000000,
-                "cost": "80.00",
-                "requests": 100,
-            }
-        ])
-        self.by_day = kwargs.get("by_day", [
-            {
-                "day": "2025-01-15",
-                "total_tokens": 200000,
-                "cost": "5.00",
-                "debates": 5,
-                "api_calls": 200,
-            }
-        ])
+        self.by_model = kwargs.get(
+            "by_model",
+            [
+                {
+                    "model": "claude-3-opus",
+                    "input_tokens": 2000000,
+                    "output_tokens": 1000000,
+                    "total_tokens": 3000000,
+                    "cost": "80.00",
+                    "requests": 100,
+                }
+            ],
+        )
+        self.by_provider = kwargs.get(
+            "by_provider",
+            [
+                {
+                    "provider": "anthropic",
+                    "total_tokens": 3000000,
+                    "cost": "80.00",
+                    "requests": 100,
+                }
+            ],
+        )
+        self.by_day = kwargs.get(
+            "by_day",
+            [
+                {
+                    "day": "2025-01-15",
+                    "total_tokens": 200000,
+                    "cost": "5.00",
+                    "debates": 5,
+                    "api_calls": 200,
+                }
+            ],
+        )
         self.by_user = kwargs.get("by_user", [])
 
     def to_dict(self) -> dict:
@@ -325,9 +332,7 @@ def user_store():
     store = MockUserStore()
 
     # The conftest auto-auth context uses user_id="test-user-001"
-    auth_user = MockUser(
-        id="test-user-001", email="test@example.com", role="owner", org_id="org_1"
-    )
+    auth_user = MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_1")
     store.add_user(auth_user)
 
     org = MockOrganization(
@@ -487,9 +492,7 @@ class TestGetUsage:
 
     async def test_no_user_store_returns_503(self, handler_no_store):
         http = MockHTTPHandler()
-        result = await handler_no_store.handle(
-            "/api/v1/billing/usage", {}, http, method="GET"
-        )
+        result = await handler_no_store.handle("/api/v1/billing/usage", {}, http, method="GET")
         assert _status(result) == 503
 
     async def test_unknown_user_returns_404(self):
@@ -509,9 +512,7 @@ class TestGetUsage:
 
     async def test_user_with_org_id_but_org_not_found_returns_404(self):
         store = MockUserStore()
-        store.add_user(
-            MockUser(id="test-user-001", email="t@t.com", org_id="nonexistent")
-        )
+        store.add_user(MockUser(id="test-user-001", email="t@t.com", org_id="nonexistent"))
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
         result = await h.handle("/api/v1/billing/usage", {}, http, method="GET")
@@ -533,18 +534,14 @@ class TestGetUsageSummary:
 
     async def test_summary_returns_usage_data(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/summary", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/summary", {}, http, method="GET")
         body = _body(result)
         assert "usage" in body
         assert _status(result) == 200
 
     async def test_summary_routes_to_get_usage(self, handler, mock_meter):
         http = MockHTTPHandler()
-        await handler.handle(
-            "/api/v1/billing/usage/summary", {}, http, method="GET"
-        )
+        await handler.handle("/api/v1/billing/usage/summary", {}, http, method="GET")
         mock_meter.get_usage_summary.assert_awaited()
 
     async def test_summary_no_user_store_returns_503(self, handler_no_store):
@@ -565,17 +562,13 @@ class TestGetUsageBreakdown:
 
     async def test_returns_breakdown(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         body = _body(result)
         assert "breakdown" in body
 
     async def test_breakdown_has_totals(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         body = _body(result)
         totals = body["breakdown"]["totals"]
         assert "cost" in totals
@@ -585,42 +578,32 @@ class TestGetUsageBreakdown:
 
     async def test_breakdown_has_by_model(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         body = _body(result)
         assert "by_model" in body["breakdown"]
 
     async def test_breakdown_has_by_provider(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         body = _body(result)
         assert "by_provider" in body["breakdown"]
 
     async def test_breakdown_has_by_day(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         body = _body(result)
         assert "by_day" in body["breakdown"]
 
     async def test_breakdown_with_valid_start_date(self, handler, mock_meter):
         http = MockHTTPHandler(query_params={"start": "2025-01-01T00:00:00Z"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 200
         call_kwargs = mock_meter.get_usage_breakdown.call_args[1]
         assert call_kwargs["start_date"] is not None
 
     async def test_breakdown_with_valid_end_date(self, handler, mock_meter):
         http = MockHTTPHandler(query_params={"end": "2025-01-31T23:59:59Z"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 200
         call_kwargs = mock_meter.get_usage_breakdown.call_args[1]
         assert call_kwargs["end_date"] is not None
@@ -632,9 +615,7 @@ class TestGetUsageBreakdown:
                 "end": "2025-01-31T23:59:59+00:00",
             }
         )
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 200
         call_kwargs = mock_meter.get_usage_breakdown.call_args[1]
         assert call_kwargs["start_date"] is not None
@@ -642,27 +623,21 @@ class TestGetUsageBreakdown:
 
     async def test_breakdown_without_dates_passes_none(self, handler, mock_meter):
         http = MockHTTPHandler()
-        await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         call_kwargs = mock_meter.get_usage_breakdown.call_args[1]
         assert call_kwargs["start_date"] is None
         assert call_kwargs["end_date"] is None
 
     async def test_breakdown_invalid_start_date_returns_400(self, handler):
         http = MockHTTPHandler(query_params={"start": "not-a-date"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 400
         body = _body(result)
         assert "start date" in body.get("error", "").lower()
 
     async def test_breakdown_invalid_end_date_returns_400(self, handler):
         http = MockHTTPHandler(query_params={"end": "invalid"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 400
         body = _body(result)
         assert "end date" in body.get("error", "").lower()
@@ -678,9 +653,7 @@ class TestGetUsageBreakdown:
         store = MockUserStore()
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
-        result = await h.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await h.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 404
 
     async def test_breakdown_user_no_org_returns_404(self):
@@ -688,16 +661,12 @@ class TestGetUsageBreakdown:
         store.add_user(MockUser(id="test-user-001", email="t@t.com", org_id=None))
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
-        result = await h.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await h.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 404
 
     async def test_breakdown_status_code_is_200(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="GET")
         assert _status(result) == 200
 
 
@@ -711,41 +680,31 @@ class TestGetLimits:
 
     async def test_returns_limits(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         body = _body(result)
         assert "limits" in body
 
     async def test_limits_has_tier(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         body = _body(result)
         assert "tier" in body["limits"]
 
     async def test_limits_has_used(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         body = _body(result)
         assert "used" in body["limits"]
 
     async def test_limits_has_percent(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         body = _body(result)
         assert "percent" in body["limits"]
 
     async def test_limits_has_exceeded(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         body = _body(result)
         assert "exceeded" in body["limits"]
 
@@ -758,18 +717,14 @@ class TestGetLimits:
 
     async def test_limits_no_user_store_returns_503(self, handler_no_store):
         http = MockHTTPHandler()
-        result = await handler_no_store.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler_no_store.handle("/api/v1/billing/limits", {}, http, method="GET")
         assert _status(result) == 503
 
     async def test_limits_unknown_user_returns_404(self):
         store = MockUserStore()
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
-        result = await h.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await h.handle("/api/v1/billing/limits", {}, http, method="GET")
         assert _status(result) == 404
 
     async def test_limits_user_no_org_returns_404(self):
@@ -777,16 +732,12 @@ class TestGetLimits:
         store.add_user(MockUser(id="test-user-001", email="t@t.com", org_id=None))
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
-        result = await h.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await h.handle("/api/v1/billing/limits", {}, http, method="GET")
         assert _status(result) == 404
 
     async def test_limits_status_code_is_200(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         assert _status(result) == 200
 
 
@@ -800,48 +751,36 @@ class TestExportUsage:
 
     async def test_export_csv_returns_200(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 200
 
     async def test_export_csv_content_type(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert result.content_type == "text/csv"
 
     async def test_export_csv_has_content_disposition(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert "Content-Disposition" in result.headers
         assert "usage_export_" in result.headers["Content-Disposition"]
         assert "test-org" in result.headers["Content-Disposition"]
 
     async def test_export_csv_contains_header_row(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Usage Export Report" in csv_text
 
     async def test_export_csv_contains_org_name(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Test Org" in csv_text
 
     async def test_export_csv_contains_summary(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Summary" in csv_text
         assert "Total Cost (USD)" in csv_text
@@ -851,36 +790,28 @@ class TestExportUsage:
 
     async def test_export_csv_contains_model_section(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Usage by Model" in csv_text
         assert "claude-3-opus" in csv_text
 
     async def test_export_csv_contains_provider_section(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Usage by Provider" in csv_text
         assert "anthropic" in csv_text
 
     async def test_export_csv_contains_daily_section(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Daily Usage" in csv_text
         assert "2025-01-15" in csv_text
 
     async def test_export_json_format(self, handler):
         http = MockHTTPHandler(query_params={"format": "json"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 200
         body = _body(result)
         # JSON export returns the breakdown dict directly
@@ -888,48 +819,34 @@ class TestExportUsage:
 
     async def test_export_json_has_breakdown_fields(self, handler):
         http = MockHTTPHandler(query_params={"format": "json"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         body = _body(result)
         assert "by_model" in body
         assert "by_provider" in body
         assert "by_day" in body
 
     async def test_export_with_valid_start_date(self, handler, mock_meter):
-        http = MockHTTPHandler(
-            query_params={"start": "2025-01-01T00:00:00Z"}
-        )
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        http = MockHTTPHandler(query_params={"start": "2025-01-01T00:00:00Z"})
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 200
         call_kwargs = mock_meter.get_usage_breakdown.call_args[1]
         assert call_kwargs["start_date"] is not None
 
     async def test_export_with_valid_end_date(self, handler, mock_meter):
-        http = MockHTTPHandler(
-            query_params={"end": "2025-01-31T23:59:59Z"}
-        )
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        http = MockHTTPHandler(query_params={"end": "2025-01-31T23:59:59Z"})
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 200
         call_kwargs = mock_meter.get_usage_breakdown.call_args[1]
         assert call_kwargs["end_date"] is not None
 
     async def test_export_invalid_start_date_returns_400(self, handler):
         http = MockHTTPHandler(query_params={"start": "yesterday"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 400
 
     async def test_export_invalid_end_date_returns_400(self, handler):
         http = MockHTTPHandler(query_params={"end": "tomorrow"})
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 400
 
     async def test_export_no_user_store_returns_503(self, handler_no_store):
@@ -943,9 +860,7 @@ class TestExportUsage:
         store = MockUserStore()
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
-        result = await h.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await h.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 404
 
     async def test_export_user_no_org_returns_404(self):
@@ -953,16 +868,12 @@ class TestExportUsage:
         store.add_user(MockUser(id="test-user-001", email="t@t.com", org_id=None))
         h = UsageMeteringHandler(ctx={"user_store": store})
         http = MockHTTPHandler()
-        result = await h.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await h.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 404
 
     async def test_export_default_format_is_csv(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert result.content_type == "text/csv"
 
     async def test_export_csv_with_empty_breakdowns(self, handler, mock_meter):
@@ -971,9 +882,7 @@ class TestExportUsage:
             return_value=MockUsageBreakdown(by_model=[], by_provider=[], by_day=[])
         )
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         assert _status(result) == 200
         csv_text = result.body.decode("utf-8")
         assert "Usage by Model" in csv_text
@@ -996,9 +905,7 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         assert "quotas" in body
         assert _status(result) == 200
@@ -1017,9 +924,7 @@ class TestGetQuotaStatus:
         assert mock_manager.get_quota_status.await_count == 5
 
     async def test_quota_resource_structure(self, handler):
-        mock_status = MockQuotaStatus(
-            limit=100, current=45, remaining=55, percentage_used=45.0
-        )
+        mock_status = MockQuotaStatus(limit=100, current=45, remaining=55, percentage_used=45.0)
         mock_manager = AsyncMock()
         mock_manager.get_quota_status = AsyncMock(return_value=mock_status)
         with patch(
@@ -1027,9 +932,7 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         # Pick one resource to check structure
         quotas = body["quotas"]
@@ -1054,9 +957,7 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         for resource_data in body["quotas"].values():
             assert resource_data["resets_at"] == reset_time.isoformat()
@@ -1070,9 +971,7 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         for resource_data in body["quotas"].values():
             assert resource_data["resets_at"] is None
@@ -1095,9 +994,7 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         assert _status(result) == 200
         # tokens should be missing since it errored
@@ -1108,17 +1005,13 @@ class TestGetQuotaStatus:
     async def test_quota_all_resources_error_returns_empty(self, handler):
         """When all resources fail, should return empty quotas."""
         mock_manager = AsyncMock()
-        mock_manager.get_quota_status = AsyncMock(
-            side_effect=RuntimeError("All down")
-        )
+        mock_manager.get_quota_status = AsyncMock(side_effect=RuntimeError("All down"))
         with patch(
             "aragora.server.middleware.tier_enforcement.get_quota_manager",
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         assert body["quotas"] == {}
         assert _status(result) == 200
@@ -1132,17 +1025,13 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         assert body["quotas"] == {}
 
     async def test_quota_no_user_store_returns_503(self, handler_no_store):
         http = MockHTTPHandler()
-        result = await handler_no_store.handle(
-            "/api/v1/quotas", {}, http, method="GET"
-        )
+        result = await handler_no_store.handle("/api/v1/quotas", {}, http, method="GET")
         assert _status(result) == 503
 
     async def test_quota_unknown_user_returns_404(self):
@@ -1162,6 +1051,7 @@ class TestGetQuotaStatus:
 
     async def test_quota_value_error_skipped(self, handler):
         """ValueError should also be caught gracefully."""
+
         async def value_error_status(resource, tenant_id=None):
             if resource == "debates":
                 raise ValueError("Bad value")
@@ -1174,9 +1064,7 @@ class TestGetQuotaStatus:
             return_value=mock_manager,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/quotas", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/quotas", {}, http, method="GET")
         body = _body(result)
         assert "debates" not in body["quotas"]
         assert _status(result) == 200
@@ -1192,58 +1080,42 @@ class TestMethodNotAllowed:
 
     async def test_post_to_usage_returns_405(self, handler):
         http = MockHTTPHandler(command="POST")
-        result = await handler.handle(
-            "/api/v1/billing/usage", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/billing/usage", {}, http, method="POST")
         assert _status(result) == 405
 
     async def test_post_to_breakdown_returns_405(self, handler):
         http = MockHTTPHandler(command="POST")
-        result = await handler.handle(
-            "/api/v1/billing/usage/breakdown", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/billing/usage/breakdown", {}, http, method="POST")
         assert _status(result) == 405
 
     async def test_post_to_limits_returns_405(self, handler):
         http = MockHTTPHandler(command="POST")
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="POST")
         assert _status(result) == 405
 
     async def test_post_to_summary_returns_405(self, handler):
         http = MockHTTPHandler(command="POST")
-        result = await handler.handle(
-            "/api/v1/billing/usage/summary", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/billing/usage/summary", {}, http, method="POST")
         assert _status(result) == 405
 
     async def test_post_to_export_returns_405(self, handler):
         http = MockHTTPHandler(command="POST")
-        result = await handler.handle(
-            "/api/v1/billing/usage/export", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="POST")
         assert _status(result) == 405
 
     async def test_post_to_quotas_returns_405(self, handler):
         http = MockHTTPHandler(command="POST")
-        result = await handler.handle(
-            "/api/v1/quotas", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/quotas", {}, http, method="POST")
         assert _status(result) == 405
 
     async def test_delete_to_usage_returns_405(self, handler):
         http = MockHTTPHandler(command="DELETE")
-        result = await handler.handle(
-            "/api/v1/billing/usage", {}, http, method="DELETE"
-        )
+        result = await handler.handle("/api/v1/billing/usage", {}, http, method="DELETE")
         assert _status(result) == 405
 
     async def test_put_to_limits_returns_405(self, handler):
         http = MockHTTPHandler(command="PUT")
-        result = await handler.handle(
-            "/api/v1/billing/limits", {}, http, method="PUT"
-        )
+        result = await handler.handle("/api/v1/billing/limits", {}, http, method="PUT")
         assert _status(result) == 405
 
 
@@ -1263,9 +1135,7 @@ class TestRateLimiting:
             mock_limiter,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/billing/usage", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/billing/usage", {}, http, method="GET")
         assert _status(result) == 429
 
     async def test_rate_limit_error_message(self, handler):
@@ -1276,9 +1146,7 @@ class TestRateLimiting:
             mock_limiter,
         ):
             http = MockHTTPHandler()
-            result = await handler.handle(
-                "/api/v1/billing/usage", {}, http, method="GET"
-            )
+            result = await handler.handle("/api/v1/billing/usage", {}, http, method="GET")
         body = _body(result)
         assert "rate limit" in body.get("error", "").lower()
 
@@ -1342,9 +1210,7 @@ class TestGetOrgTier:
         assert handler._get_org_tier(None) == "free"
 
     def test_org_with_subscription_tier_enum(self, handler):
-        org = MockOrganization(
-            id="o1", name="Test", tier=SubscriptionTier.ENTERPRISE_PLUS
-        )
+        org = MockOrganization(id="o1", name="Test", tier=SubscriptionTier.ENTERPRISE_PLUS)
         assert handler._get_org_tier(org) == "enterprise_plus"
 
     def test_org_with_string_tier(self, handler):
@@ -1362,15 +1228,11 @@ class TestGetOrgTier:
         assert handler._get_org_tier(org) == "free"
 
     def test_org_with_starter_tier(self, handler):
-        org = MockOrganization(
-            id="o1", name="Starter Org", tier=SubscriptionTier.STARTER
-        )
+        org = MockOrganization(id="o1", name="Starter Org", tier=SubscriptionTier.STARTER)
         assert handler._get_org_tier(org) == "starter"
 
     def test_org_with_enterprise_tier(self, handler):
-        org = MockOrganization(
-            id="o1", name="Ent Org", tier=SubscriptionTier.ENTERPRISE
-        )
+        org = MockOrganization(id="o1", name="Ent Org", tier=SubscriptionTier.ENTERPRISE)
         assert handler._get_org_tier(org) == "enterprise"
 
 
@@ -1385,9 +1247,7 @@ class TestHandlerCommandOverride:
     async def test_method_from_handler_command_attribute(self, handler):
         """When handler has command attribute, it should be used."""
         http = MockHTTPHandler(command="GET")
-        result = await handler.handle(
-            "/api/v1/billing/usage", {}, http, method="POST"
-        )
+        result = await handler.handle("/api/v1/billing/usage", {}, http, method="POST")
         # handler.command="GET" overrides method="POST"
         assert _status(result) == 200
 
@@ -1395,9 +1255,7 @@ class TestHandlerCommandOverride:
         """When handler has no command attribute, method param is used."""
         http = MockHTTPHandler(command="GET")
         delattr(http, "command")
-        result = await handler.handle(
-            "/api/v1/billing/usage", {}, http, method="GET"
-        )
+        result = await handler.handle("/api/v1/billing/usage", {}, http, method="GET")
         assert _status(result) == 200
 
 
@@ -1410,24 +1268,14 @@ class TestEmitHandlerEvent:
     """Tests for handler event emission."""
 
     async def test_usage_endpoint_emits_event(self, handler):
-        with patch(
-            "aragora.server.handlers.billing.subscriptions.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.billing.subscriptions.emit_handler_event") as mock_emit:
             http = MockHTTPHandler()
-            await handler.handle(
-                "/api/v1/billing/usage", {}, http, method="GET"
-            )
-        mock_emit.assert_called_once_with(
-            "billing", "queried", {"endpoint": "usage"}
-        )
+            await handler.handle("/api/v1/billing/usage", {}, http, method="GET")
+        mock_emit.assert_called_once_with("billing", "queried", {"endpoint": "usage"})
 
     async def test_summary_endpoint_does_not_emit_event(self, handler):
         """The /usage/summary alias does NOT emit a handler event."""
-        with patch(
-            "aragora.server.handlers.billing.subscriptions.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.billing.subscriptions.emit_handler_event") as mock_emit:
             http = MockHTTPHandler()
-            await handler.handle(
-                "/api/v1/billing/usage/summary", {}, http, method="GET"
-            )
+            await handler.handle("/api/v1/billing/usage/summary", {}, http, method="GET")
         mock_emit.assert_not_called()

@@ -204,8 +204,10 @@ def handler():
 @pytest.fixture
 def mock_http():
     """Create a mock HTTP handler factory."""
+
     def _make(body=None, token="test-valid-token"):
         return MockHTTPHandler(body=body, token=token)
+
     return _make
 
 
@@ -349,15 +351,15 @@ class TestListJobs:
     def test_list_jobs_with_status_filter(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         with patch.object(handler, "_get_scheduler", return_value=mock_sched):
-            with patch("aragora.server.handlers.features.scheduler.SchedulerHandler._list_jobs") as orig:
+            with patch(
+                "aragora.server.handlers.features.scheduler.SchedulerHandler._list_jobs"
+            ) as orig:
                 # Just test the routing dispatches correctly with status
                 pass
             # Test that the status filter is parsed
             mock_status_cls = MagicMock()
             mock_status_cls.return_value = "active"
-            with patch(
-                "aragora.scheduler.ScheduleStatus", mock_status_cls
-            ):
+            with patch("aragora.scheduler.ScheduleStatus", mock_status_cls):
                 result = handler._list_jobs({"status": ["active"]})
         body = _body(result)
         assert _status(result) == 200
@@ -365,9 +367,7 @@ class TestListJobs:
     def test_list_jobs_invalid_status(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
         with patch.object(handler, "_get_scheduler", return_value=mock_sched):
-            with patch(
-                "aragora.scheduler.ScheduleStatus", side_effect=ValueError("bad")
-            ):
+            with patch("aragora.scheduler.ScheduleStatus", side_effect=ValueError("bad")):
                 result = handler._list_jobs({"status": ["invalid_status"]})
         body = _body(result)
         assert _status(result) == 400
@@ -381,7 +381,7 @@ class TestListJobs:
 
     def test_list_jobs_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_list_jobs") as mock_list:
-            mock_list.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_list.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/jobs", {}, mock_http())
             mock_list.assert_called_once_with({})
 
@@ -416,13 +416,13 @@ class TestGetJob:
 
     def test_get_job_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_get_job") as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/jobs/j1", {}, mock_http())
             mock_get.assert_called_once_with("j1")
 
     def test_get_job_route_with_dashes(self, handler, mock_http):
         with patch.object(handler, "_get_job") as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/jobs/job-abc-123", {}, mock_http())
             mock_get.assert_called_once_with("job-abc-123")
 
@@ -476,7 +476,9 @@ class TestCreateJob:
             result = handler._create_job(h)
         body = _body(result)
         assert _status(result) == 400
-        assert "body" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        assert (
+            "body" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        )
 
     def test_create_job_empty_name(self, handler, mock_http):
         h = mock_http(body={"name": "", "trigger_type": "cron", "cron": "* * * * *"})
@@ -512,7 +514,10 @@ class TestCreateJob:
                 result = handler._create_job(h)
         body = _body(result)
         assert _status(result) == 400
-        assert "trigger_type" in body.get("error", "").lower() or "valid" in body.get("error", "").lower()
+        assert (
+            "trigger_type" in body.get("error", "").lower()
+            or "valid" in body.get("error", "").lower()
+        )
 
     def test_create_job_cron_without_expression(self, handler, mock_http):
         h = mock_http(body={"name": "Test", "trigger_type": "cron"})
@@ -548,6 +553,7 @@ class TestCreateJob:
     def test_create_job_circuit_breaker_open(self, handler, mock_http):
         """Circuit breaker open returns 503."""
         import aragora.server.handlers.features.scheduler as sched_mod
+
         cb = sched_mod._scheduler_circuit_breaker
         # Force circuit breaker open
         with patch.object(cb, "can_proceed", return_value=False):
@@ -559,7 +565,7 @@ class TestCreateJob:
 
     def test_create_job_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_create_job") as mock_create:
-            mock_create.return_value = MagicMock(status_code=201, body=b'{}')
+            mock_create.return_value = MagicMock(status_code=201, body=b"{}")
             h = mock_http(body={"name": "Test"})
             handler.handle_post("/api/v1/scheduler/jobs", {}, h)
             mock_create.assert_called_once_with(h)
@@ -635,15 +641,13 @@ class TestDeleteJob:
 
     def test_delete_job_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_delete_job") as mock_del:
-            mock_del.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_del.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_delete("/api/v1/scheduler/jobs/j1", {}, mock_http())
             mock_del.assert_called_once_with("j1")
 
     def test_delete_route_wrong_segment_count(self, handler, mock_http):
         """DELETE with extra segments is not matched."""
-        result = handler.handle_delete(
-            "/api/v1/scheduler/jobs/j1/extra", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/scheduler/jobs/j1/extra", {}, mock_http())
         assert result is None
 
 
@@ -733,6 +737,7 @@ class TestTriggerJob:
 
     def test_trigger_job_circuit_breaker_open(self, handler, mock_http):
         import aragora.server.handlers.features.scheduler as sched_mod
+
         cb = sched_mod._scheduler_circuit_breaker
         with patch.object(cb, "can_proceed", return_value=False):
             result = handler._trigger_job("j1")
@@ -742,6 +747,7 @@ class TestTriggerJob:
 
     def test_trigger_job_records_success_on_cb(self, handler, mock_http):
         import aragora.server.handlers.features.scheduler as sched_mod
+
         cb = sched_mod._scheduler_circuit_breaker
         job = FakeJob(job_id="j1", name="Job 1")
         run = FakeRun(run_id="r1", job_id="j1")
@@ -758,6 +764,7 @@ class TestTriggerJob:
 
     def test_trigger_job_records_failure_on_cb(self, handler, mock_http):
         import aragora.server.handlers.features.scheduler as sched_mod
+
         cb = sched_mod._scheduler_circuit_breaker
         job = FakeJob(job_id="j1", name="Job 1")
         mock_sched = _make_mock_scheduler()
@@ -773,7 +780,7 @@ class TestTriggerJob:
 
     def test_trigger_job_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_trigger_job") as mock_trig:
-            mock_trig.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_trig.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/scheduler/jobs/j1/trigger", {}, mock_http())
             mock_trig.assert_called_once_with("j1")
 
@@ -819,7 +826,7 @@ class TestPauseJob:
 
     def test_pause_job_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_pause_job") as mock_pause:
-            mock_pause.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_pause.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/scheduler/jobs/j1/pause", {}, mock_http())
             mock_pause.assert_called_once_with("j1")
 
@@ -865,7 +872,7 @@ class TestResumeJob:
 
     def test_resume_job_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_resume_job") as mock_resume:
-            mock_resume.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_resume.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/scheduler/jobs/j1/resume", {}, mock_http())
             mock_resume.assert_called_once_with("j1")
 
@@ -926,13 +933,13 @@ class TestGetJobHistory:
 
     def test_history_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_get_job_history") as mock_hist:
-            mock_hist.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_hist.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/jobs/j1/history", {}, mock_http())
             mock_hist.assert_called_once_with("j1", 10)
 
     def test_history_route_with_limit_param(self, handler, mock_http):
         with patch.object(handler, "_get_job_history") as mock_hist:
-            mock_hist.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_hist.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle(
                 "/api/v1/scheduler/jobs/j1/history",
                 {"limit": ["50"]},
@@ -942,7 +949,7 @@ class TestGetJobHistory:
 
     def test_history_route_limit_clamped_to_max(self, handler, mock_http):
         with patch.object(handler, "_get_job_history") as mock_hist:
-            mock_hist.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_hist.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle(
                 "/api/v1/scheduler/jobs/j1/history",
                 {"limit": ["200"]},
@@ -988,7 +995,7 @@ class TestGetSchedulerStatus:
 
     def test_status_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_get_scheduler_status") as mock_stat:
-            mock_stat.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_stat.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/status", {}, mock_http())
             mock_stat.assert_called_once()
 
@@ -1023,7 +1030,9 @@ class TestHandleWebhook:
         result = handler._handle_webhook(h, "wh-001")
         body = _body(result)
         assert _status(result) == 400
-        assert "body" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        assert (
+            "body" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        )
 
     def test_webhook_no_runs_triggered(self, handler, mock_http):
         mock_sched = _make_mock_scheduler()
@@ -1063,7 +1072,7 @@ class TestHandleWebhook:
 
     def test_webhook_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_handle_webhook") as mock_wh:
-            mock_wh.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_wh.return_value = MagicMock(status_code=200, body=b"{}")
             h = mock_http(body={"event": "test"})
             handler.handle_post("/api/v1/scheduler/webhooks/wh-001", {}, h)
             mock_wh.assert_called_once_with(h, "wh-001")
@@ -1214,7 +1223,7 @@ class TestHandleGitPush:
 
     def test_git_push_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_handle_git_push") as mock_gp:
-            mock_gp.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_gp.return_value = MagicMock(status_code=200, body=b"{}")
             h = mock_http(body={"repository": {}})
             handler.handle_post("/api/v1/scheduler/events/git-push", {}, h)
             mock_gp.assert_called_once_with(h)
@@ -1301,7 +1310,7 @@ class TestHandleFileUpload:
 
     def test_file_upload_route_dispatch(self, handler, mock_http):
         with patch.object(handler, "_handle_file_upload") as mock_fu:
-            mock_fu.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_fu.return_value = MagicMock(status_code=200, body=b"{}")
             h = mock_http(body={"workspace_id": "ws-1", "document_ids": ["d1"]})
             handler.handle_post("/api/v1/scheduler/events/file-upload", {}, h)
             mock_fu.assert_called_once_with(h)
@@ -1325,28 +1334,26 @@ class TestHandleGetRouting:
 
     def test_handle_status_route(self, handler, mock_http):
         with patch.object(handler, "_get_scheduler_status") as mock_stat:
-            mock_stat.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_stat.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle("/api/v1/scheduler/status", {}, mock_http())
             mock_stat.assert_called_once()
 
     def test_handle_job_with_wrong_segment_count(self, handler, mock_http):
         """Extra segments after job_id/action should return None."""
-        result = handler.handle(
-            "/api/v1/scheduler/jobs/j1/history/extra", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/scheduler/jobs/j1/history/extra", {}, mock_http())
         assert result is None
 
     def test_handle_jobs_path_6_segments_gets_job(self, handler, mock_http):
         """6 segments means /api/v1/scheduler/jobs/{job_id}."""
         with patch.object(handler, "_get_job") as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_get.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/jobs/myid", {}, mock_http())
             mock_get.assert_called_once_with("myid")
 
     def test_handle_jobs_path_7_segments_history(self, handler, mock_http):
         """7 segments with 'history' gets job history."""
         with patch.object(handler, "_get_job_history") as mock_hist:
-            mock_hist.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_hist.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle("/api/v1/scheduler/jobs/myid/history", {}, mock_http())
             mock_hist.assert_called_once()
 
@@ -1370,39 +1377,35 @@ class TestHandlePostRouting:
 
     def test_post_trigger_action(self, handler, mock_http):
         with patch.object(handler, "_trigger_job") as mock_trig:
-            mock_trig.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_trig.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/scheduler/jobs/j1/trigger", {}, mock_http())
             mock_trig.assert_called_once_with("j1")
 
     def test_post_pause_action(self, handler, mock_http):
         with patch.object(handler, "_pause_job") as mock_pause:
-            mock_pause.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_pause.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/scheduler/jobs/j1/pause", {}, mock_http())
             mock_pause.assert_called_once_with("j1")
 
     def test_post_resume_action(self, handler, mock_http):
         with patch.object(handler, "_resume_job") as mock_resume:
-            mock_resume.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_resume.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_post("/api/v1/scheduler/jobs/j1/resume", {}, mock_http())
             mock_resume.assert_called_once_with("j1")
 
     def test_post_invalid_action(self, handler, mock_http):
         """Invalid action on jobs/id/action returns None."""
-        result = handler.handle_post(
-            "/api/v1/scheduler/jobs/j1/invalid_action", {}, mock_http()
-        )
+        result = handler.handle_post("/api/v1/scheduler/jobs/j1/invalid_action", {}, mock_http())
         assert result is None
 
     def test_post_webhook_wrong_segment_count(self, handler, mock_http):
         """Webhook path with extra segments returns None."""
-        result = handler.handle_post(
-            "/api/v1/scheduler/webhooks/wh-1/extra", {}, mock_http()
-        )
+        result = handler.handle_post("/api/v1/scheduler/webhooks/wh-1/extra", {}, mock_http())
         assert result is None
 
     def test_post_jobs_create(self, handler, mock_http):
         with patch.object(handler, "_create_job") as mock_create:
-            mock_create.return_value = MagicMock(status_code=201, body=b'{}')
+            mock_create.return_value = MagicMock(status_code=201, body=b"{}")
             h = mock_http(body={"name": "Test"})
             handler.handle_post("/api/v1/scheduler/jobs", {}, h)
             mock_create.assert_called_once_with(h)
@@ -1422,20 +1425,16 @@ class TestHandleDeleteRouting:
 
     def test_delete_job_correct_segments(self, handler, mock_http):
         with patch.object(handler, "_delete_job") as mock_del:
-            mock_del.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_del.return_value = MagicMock(status_code=200, body=b"{}")
             handler.handle_delete("/api/v1/scheduler/jobs/j1", {}, mock_http())
             mock_del.assert_called_once_with("j1")
 
     def test_delete_with_extra_segments(self, handler, mock_http):
-        result = handler.handle_delete(
-            "/api/v1/scheduler/jobs/j1/extra", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/scheduler/jobs/j1/extra", {}, mock_http())
         assert result is None
 
     def test_delete_non_jobs_path(self, handler, mock_http):
-        result = handler.handle_delete(
-            "/api/v1/scheduler/webhooks/wh-1", {}, mock_http()
-        )
+        result = handler.handle_delete("/api/v1/scheduler/webhooks/wh-1", {}, mock_http())
         assert result is None
 
 
@@ -1538,6 +1537,7 @@ class TestEdgeCases:
     def test_trigger_records_failure_on_exception(self, handler, mock_http):
         """Circuit breaker records failure on exception during trigger."""
         import aragora.server.handlers.features.scheduler as sched_mod
+
         cb = sched_mod._scheduler_circuit_breaker
         job = FakeJob(job_id="j1", name="Job 1")
         mock_sched = _make_mock_scheduler()

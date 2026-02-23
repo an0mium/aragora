@@ -267,7 +267,7 @@ class HTTPClientPool:
             }
         )
 
-        logger.debug("Created sync session for %s with pool_size=%s", provider, config['pool_size'])
+        logger.debug("Created sync session for %s with pool_size=%s", provider, config["pool_size"])
         self.metrics.get_provider_metrics(provider).connections_created += 1
 
         return session
@@ -308,7 +308,7 @@ class HTTPClientPool:
             },
         )
 
-        logger.debug("Created async client for %s with pool_size=%s", provider, config['pool_size'])
+        logger.debug("Created async client for %s with pool_size=%s", provider, config["pool_size"])
         self.metrics.get_provider_metrics(provider).connections_created += 1
 
         return client

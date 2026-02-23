@@ -502,10 +502,15 @@ class TestEstimateBudget:
     def test_estimate_total_is_sum_of_estimates(self):
         h = ContextBudgetHandler({})
         # 16 chars -> 4 tokens, 32 chars -> 8 tokens (heuristic: len / 4)
-        mock_h = _make_handler("POST", {"sections": {
-            "a": "a" * 16,
-            "b": "b" * 32,
-        }})
+        mock_h = _make_handler(
+            "POST",
+            {
+                "sections": {
+                    "a": "a" * 16,
+                    "b": "b" * 32,
+                }
+            },
+        )
         result = h.handle("/api/v1/context/budget/estimate", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
@@ -572,10 +577,13 @@ class TestEdgeCases:
 
     def test_extra_fields_in_put_body_ignored(self):
         h = ContextBudgetHandler({})
-        mock_h = _make_handler("PUT", {
-            "total_tokens": 500,
-            "extra_field": "should be ignored",
-        })
+        mock_h = _make_handler(
+            "PUT",
+            {
+                "total_tokens": 500,
+                "extra_field": "should be ignored",
+            },
+        )
         result = h.handle("/api/v1/context/budget", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)

@@ -1,4 +1,5 @@
 """Tests for debate result to pipeline creation."""
+
 from __future__ import annotations
 
 import pytest
@@ -27,8 +28,18 @@ def _debate_proposals_to_idea_nodes(proposals: list[dict]) -> list[UniversalNode
 class TestDebateToPipeline:
     def test_convert_proposals_to_ideas(self):
         proposals = [
-            {"id": "p1", "type": "proposal", "summary": "Use Redis for caching", "content": "Implement Redis caching layer"},
-            {"id": "p2", "type": "critique", "summary": "Security concern", "content": "Need to validate cache keys"},
+            {
+                "id": "p1",
+                "type": "proposal",
+                "summary": "Use Redis for caching",
+                "content": "Implement Redis caching layer",
+            },
+            {
+                "id": "p2",
+                "type": "critique",
+                "summary": "Security concern",
+                "content": "Need to validate cache keys",
+            },
         ]
         nodes = _debate_proposals_to_idea_nodes(proposals)
         assert len(nodes) == 2

@@ -177,7 +177,7 @@ class TwitterPosterConnector:
             if not self.access_secret:
                 missing.append("TWITTER_ACCESS_SECRET")
             logger.warning(
-                "Twitter credentials incomplete. Missing: %s. Posts will fail.", ', '.join(missing)
+                "Twitter credentials incomplete. Missing: %s. Posts will fail.", ", ".join(missing)
             )
 
     @property

@@ -563,7 +563,9 @@ class WebhookDispatcher:
         )
         if not circuit.can_proceed():
             logger.debug(
-                "Webhook %s circuit open, skipping delivery for %s", cfg.name, event_dict.get('type')
+                "Webhook %s circuit open, skipping delivery for %s",
+                cfg.name,
+                event_dict.get("type"),
             )
             return False
 
@@ -599,7 +601,7 @@ class WebhookDispatcher:
                 )
                 if 200 <= resp.status_code < 300:
                     circuit.record_success()
-                    logger.debug("Webhook %s delivered: %s", cfg.name, event_dict.get('type'))
+                    logger.debug("Webhook %s delivered: %s", cfg.name, event_dict.get("type"))
                     return True
                 # Check if we should retry
                 if resp.status_code == 429 or (500 <= resp.status_code < 600):
@@ -621,12 +623,17 @@ class WebhookDispatcher:
                     # Non-retriable 4xx (400, 401, 403, 404, etc.)
                     # Don't record as circuit failure - this is likely a config issue
                     logger.warning(
-                        "Webhook %s failed with non-retriable error %s for %s", cfg.name, resp.status_code, event_dict.get('type')
+                        "Webhook %s failed with non-retriable error %s for %s",
+                        cfg.name,
+                        resp.status_code,
+                        event_dict.get("type"),
                     )
                     return False
                 else:
                     # Non-2xx but unexpected status
-                    logger.warning("Webhook %s got unexpected status %s", cfg.name, resp.status_code)
+                    logger.warning(
+                        "Webhook %s got unexpected status %s", cfg.name, resp.status_code
+                    )
 
             except (httpx.TimeoutException, httpx.NetworkError, OSError) as e:
                 # Network errors: retry
@@ -642,7 +649,10 @@ class WebhookDispatcher:
         # All retries exhausted - record circuit failure
         circuit.record_failure()
         logger.warning(
-            "Webhook %s delivery failed after %s attempts for %s", cfg.name, cfg.max_retries, event_dict.get('type')
+            "Webhook %s delivery failed after %s attempts for %s",
+            cfg.name,
+            cfg.max_retries,
+            event_dict.get("type"),
         )
         return False
 

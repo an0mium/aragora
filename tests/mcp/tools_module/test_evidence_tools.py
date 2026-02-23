@@ -11,7 +11,6 @@ from aragora.mcp.tools_module.evidence import (
 )
 
 
-
 class TestSearchEvidenceTool:
     """Tests for search_evidence_tool."""
 

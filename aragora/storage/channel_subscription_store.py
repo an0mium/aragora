@@ -259,7 +259,11 @@ class ChannelSubscriptionStore:
             )
             conn.commit()
             logger.info(
-                "Created subscription %s for org %s to %s:%s", subscription.id, subscription.org_id, channel_type_str, subscription.channel_id
+                "Created subscription %s for org %s to %s:%s",
+                subscription.id,
+                subscription.org_id,
+                channel_type_str,
+                subscription.channel_id,
             )
             return subscription
         except sqlite3.IntegrityError as e:

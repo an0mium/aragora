@@ -990,7 +990,10 @@ Return ONLY the refined prompt, no explanations."""
 
         if len(patterns) < min_vulnerability_count:
             logger.info(
-                "Agent %s has %s vulnerability patterns, need %s to evolve", agent.name, len(patterns), min_vulnerability_count
+                "Agent %s has %s vulnerability patterns, need %s to evolve",
+                agent.name,
+                len(patterns),
+                min_vulnerability_count,
             )
             return None
 

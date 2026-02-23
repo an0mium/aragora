@@ -117,11 +117,10 @@ def _patch_http_pool(mock_http_pool):
 @pytest.fixture
 def _patch_telemetry():
     """Patch telemetry recording functions."""
-    with patch(
-        "aragora.server.handlers.social.telegram.messages.record_api_call"
-    ) as rac, patch(
-        "aragora.server.handlers.social.telegram.messages.record_api_latency"
-    ) as ral:
+    with (
+        patch("aragora.server.handlers.social.telegram.messages.record_api_call") as rac,
+        patch("aragora.server.handlers.social.telegram.messages.record_api_latency") as ral,
+    ):
         yield {"record_api_call": rac, "record_api_latency": ral}
 
 
@@ -141,8 +140,15 @@ class TestSendMessageAsyncHappyPath:
         await handler._send_message_async(CHAT_ID, "Hello, world!")
 
         call_args = _patch_http_pool["client"].post.call_args
-        url = call_args[0][0] if call_args[0] else call_args.kwargs.get("url", call_args[1].get("url", ""))
-        assert f"{API_BASE}{BOT_TOKEN}/sendMessage" in str(url) or _patch_http_pool["client"].post.called
+        url = (
+            call_args[0][0]
+            if call_args[0]
+            else call_args.kwargs.get("url", call_args[1].get("url", ""))
+        )
+        assert (
+            f"{API_BASE}{BOT_TOKEN}/sendMessage" in str(url)
+            or _patch_http_pool["client"].post.called
+        )
 
     @pytest.mark.asyncio
     async def test_sends_message_with_correct_payload(
@@ -161,9 +167,7 @@ class TestSendMessageAsyncHappyPath:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """Parse mode is included in payload when provided."""
-        await handler._send_message_async(
-            CHAT_ID, "Bold text", parse_mode="Markdown"
-        )
+        await handler._send_message_async(CHAT_ID, "Bold text", parse_mode="Markdown")
 
         call_args = _patch_http_pool["client"].post.call_args
         payload = call_args.kwargs.get("json", {})
@@ -185,14 +189,8 @@ class TestSendMessageAsyncHappyPath:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """Reply markup is included in payload when provided."""
-        markup = {
-            "inline_keyboard": [
-                [{"text": "Agree", "callback_data": "vote:d1:agree"}]
-            ]
-        }
-        await handler._send_message_async(
-            CHAT_ID, "Vote now!", reply_markup=markup
-        )
+        markup = {"inline_keyboard": [[{"text": "Agree", "callback_data": "vote:d1:agree"}]]}
+        await handler._send_message_async(CHAT_ID, "Vote now!", reply_markup=markup)
 
         call_args = _patch_http_pool["client"].post.call_args
         payload = call_args.kwargs.get("json", {})
@@ -227,9 +225,7 @@ class TestSendMessageAsyncHappyPath:
         assert payload["reply_markup"] == markup
 
     @pytest.mark.asyncio
-    async def test_uses_30s_timeout(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_uses_30s_timeout(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Request uses 30 second timeout."""
         await handler._send_message_async(CHAT_ID, "Timeout test")
 
@@ -248,18 +244,14 @@ class TestSendMessageAsyncNoToken:
     @pytest.mark.asyncio
     async def test_no_token_returns_early(self, handler, _patch_tg_no_token):
         """When TELEGRAM_BOT_TOKEN is None, method returns without sending."""
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool"
-        ) as mock_pool:
+        with patch("aragora.server.http_client_pool.get_http_pool") as mock_pool:
             await handler._send_message_async(CHAT_ID, "Message text")
             mock_pool.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_token_logs_warning(self, handler, _patch_tg_no_token):
         """Missing token logs a warning."""
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_message_async(CHAT_ID, "Message text")
             mock_logger.warning.assert_called_once()
             assert "TELEGRAM_BOT_TOKEN" in str(mock_logger.warning.call_args)
@@ -283,9 +275,7 @@ class TestSendMessageAsyncAPIError:
             "description": "Bad Request: chat not found",
         }
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_message_async(CHAT_ID, "Error test")
             mock_logger.warning.assert_called()
             assert "chat not found" in str(mock_logger.warning.call_args)
@@ -335,9 +325,7 @@ class TestSendMessageAsyncNetworkErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """TimeoutError is caught and logged."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=TimeoutError("Request timed out")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=TimeoutError("Request timed out"))
 
         await handler._send_message_async(CHAT_ID, "Timeout test")
 
@@ -346,13 +334,9 @@ class TestSendMessageAsyncNetworkErrors:
         )
 
     @pytest.mark.asyncio
-    async def test_os_error_handled(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_os_error_handled(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """OSError is caught and logged."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=OSError("Network unreachable")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=OSError("Network unreachable"))
 
         await handler._send_message_async(CHAT_ID, "OS error test")
 
@@ -365,9 +349,7 @@ class TestSendMessageAsyncNetworkErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """ValueError is caught and logged."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ValueError("Invalid JSON")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
         await handler._send_message_async(CHAT_ID, "Value error test")
 
@@ -380,18 +362,12 @@ class TestSendMessageAsyncNetworkErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """Network errors are logged at error level."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ConnectionError("fail"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_message_async(CHAT_ID, "Log error test")
             mock_logger.error.assert_called()
-            assert "Error sending Telegram message" in str(
-                mock_logger.error.call_args
-            )
+            assert "Error sending Telegram message" in str(mock_logger.error.call_args)
 
 
 # ============================================================================
@@ -432,9 +408,7 @@ class TestSendMessageAsyncTelemetry:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """Latency is recorded even when an exception occurs."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ConnectionError("fail"))
 
         await handler._send_message_async(CHAT_ID, "Latency on error")
 
@@ -453,9 +427,7 @@ class TestSendMessageAsyncEdgeCases:
     """Test edge cases for message sending."""
 
     @pytest.mark.asyncio
-    async def test_empty_text(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_empty_text(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Empty string text is still sent."""
         await handler._send_message_async(CHAT_ID, "")
 
@@ -464,9 +436,7 @@ class TestSendMessageAsyncEdgeCases:
         assert payload["text"] == ""
 
     @pytest.mark.asyncio
-    async def test_very_long_text(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_very_long_text(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Very long text messages are passed through."""
         long_text = "A" * 10000
         await handler._send_message_async(CHAT_ID, long_text)
@@ -476,9 +446,7 @@ class TestSendMessageAsyncEdgeCases:
         assert payload["text"] == long_text
 
     @pytest.mark.asyncio
-    async def test_unicode_text(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_unicode_text(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Unicode text is correctly passed through."""
         text = "Hello \u4e16\u754c \ud83c\udf0d \u00e9\u00e8\u00ea"
         await handler._send_message_async(CHAT_ID, text)
@@ -488,9 +456,7 @@ class TestSendMessageAsyncEdgeCases:
         assert payload["text"] == text
 
     @pytest.mark.asyncio
-    async def test_negative_chat_id(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_negative_chat_id(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Negative chat IDs (group chats) are handled."""
         await handler._send_message_async(-100123456, "Group message")
 
@@ -499,13 +465,9 @@ class TestSendMessageAsyncEdgeCases:
         assert payload["chat_id"] == -100123456
 
     @pytest.mark.asyncio
-    async def test_html_parse_mode(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_html_parse_mode(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """HTML parse mode is correctly set."""
-        await handler._send_message_async(
-            CHAT_ID, "<b>Bold</b>", parse_mode="HTML"
-        )
+        await handler._send_message_async(CHAT_ID, "<b>Bold</b>", parse_mode="HTML")
 
         call_args = _patch_http_pool["client"].post.call_args
         payload = call_args.kwargs.get("json", {})
@@ -516,9 +478,7 @@ class TestSendMessageAsyncEdgeCases:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """MarkdownV2 parse mode is correctly set."""
-        await handler._send_message_async(
-            CHAT_ID, "*bold*", parse_mode="MarkdownV2"
-        )
+        await handler._send_message_async(CHAT_ID, "*bold*", parse_mode="MarkdownV2")
 
         call_args = _patch_http_pool["client"].post.call_args
         payload = call_args.kwargs.get("json", {})
@@ -538,9 +498,7 @@ class TestSendMessageAsyncEdgeCases:
                 [{"text": "View Details", "callback_data": "details:d1"}],
             ]
         }
-        await handler._send_message_async(
-            CHAT_ID, "Vote:", reply_markup=markup
-        )
+        await handler._send_message_async(CHAT_ID, "Vote:", reply_markup=markup)
 
         call_args = _patch_http_pool["client"].post.call_args
         payload = call_args.kwargs.get("json", {})
@@ -574,9 +532,7 @@ class TestAnswerCallbackAsyncHappyPath:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """show_alert=True sends an alert-style notification."""
-        await handler._answer_callback_async(
-            "cb-456", "Important!", show_alert=True
-        )
+        await handler._answer_callback_async("cb-456", "Important!", show_alert=True)
 
         call_args = _patch_http_pool["client"].post.call_args
         payload = call_args.kwargs.get("json", {})
@@ -592,9 +548,7 @@ class TestAnswerCallbackAsyncHappyPath:
         _patch_http_pool["client"].post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_uses_10s_timeout(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_uses_10s_timeout(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Callback answer uses 10 second timeout."""
         await handler._answer_callback_async("cb-111", "Quick")
 
@@ -613,9 +567,7 @@ class TestAnswerCallbackAsyncNoToken:
     @pytest.mark.asyncio
     async def test_no_token_returns_early(self, handler, _patch_tg_no_token):
         """When token is missing, returns without making API call."""
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool"
-        ) as mock_pool:
+        with patch("aragora.server.http_client_pool.get_http_pool") as mock_pool:
             await handler._answer_callback_async("cb-1", "Text")
             mock_pool.assert_not_called()
 
@@ -638,9 +590,7 @@ class TestAnswerCallbackAsyncErrors:
             "description": "Query is too old",
         }
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._answer_callback_async("cb-old", "Late answer")
             mock_logger.warning.assert_called()
 
@@ -665,9 +615,7 @@ class TestAnswerCallbackAsyncErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """ConnectionError is caught gracefully."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ConnectionError("fail"))
 
         await handler._answer_callback_async("cb-conn", "Text")
 
@@ -680,9 +628,7 @@ class TestAnswerCallbackAsyncErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """TimeoutError is caught gracefully."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=TimeoutError("timed out"))
 
         await handler._answer_callback_async("cb-timeout", "Text")
 
@@ -691,13 +637,9 @@ class TestAnswerCallbackAsyncErrors:
         )
 
     @pytest.mark.asyncio
-    async def test_os_error_handled(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_os_error_handled(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """OSError is caught gracefully."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=OSError("disk error")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=OSError("disk error"))
 
         await handler._answer_callback_async("cb-os", "Text")
 
@@ -710,9 +652,7 @@ class TestAnswerCallbackAsyncErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """ValueError is caught gracefully."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ValueError("bad json")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ValueError("bad json"))
 
         await handler._answer_callback_async("cb-val", "Text")
 
@@ -741,9 +681,7 @@ class TestAnswerCallbackAsyncTelemetry:
         )
 
     @pytest.mark.asyncio
-    async def test_latency_recorded(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_latency_recorded(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Latency is recorded for callback answers."""
         await handler._answer_callback_async("cb-lat", "Text")
 
@@ -758,9 +696,7 @@ class TestAnswerCallbackAsyncTelemetry:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """Latency is recorded even on error."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ConnectionError("fail"))
 
         await handler._answer_callback_async("cb-lat-err", "Text")
 
@@ -780,9 +716,7 @@ class TestAnswerInlineQueryAsyncHappyPath:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """Inline query answer contains the correct fields."""
-        results = [
-            {"type": "article", "id": "1", "title": "Start Debate"}
-        ]
+        results = [{"type": "article", "id": "1", "title": "Start Debate"}]
         await handler._answer_inline_query_async("iq-123", results)
 
         call_args = _patch_http_pool["client"].post.call_args
@@ -792,9 +726,7 @@ class TestAnswerInlineQueryAsyncHappyPath:
         assert payload["cache_time"] == 10
 
     @pytest.mark.asyncio
-    async def test_empty_results_list(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_empty_results_list(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Empty results list is sent correctly."""
         await handler._answer_inline_query_async("iq-empty", [])
 
@@ -803,9 +735,7 @@ class TestAnswerInlineQueryAsyncHappyPath:
         assert payload["results"] == []
 
     @pytest.mark.asyncio
-    async def test_multiple_results(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_multiple_results(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Multiple inline results are included."""
         results = [
             {"type": "article", "id": "1", "title": "Debate"},
@@ -818,9 +748,7 @@ class TestAnswerInlineQueryAsyncHappyPath:
         assert len(payload["results"]) == 2
 
     @pytest.mark.asyncio
-    async def test_uses_10s_timeout(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_uses_10s_timeout(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Inline query answer uses 10 second timeout."""
         await handler._answer_inline_query_async("iq-to", [])
 
@@ -839,9 +767,7 @@ class TestAnswerInlineQueryAsyncNoToken:
     @pytest.mark.asyncio
     async def test_no_token_returns_early(self, handler, _patch_tg_no_token):
         """When token is missing, returns without making API call."""
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool"
-        ) as mock_pool:
+        with patch("aragora.server.http_client_pool.get_http_pool") as mock_pool:
             await handler._answer_inline_query_async("iq-1", [])
             mock_pool.assert_not_called()
 
@@ -864,9 +790,7 @@ class TestAnswerInlineQueryAsyncErrors:
             "description": "Query expired",
         }
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._answer_inline_query_async("iq-err", [])
             mock_logger.warning.assert_called()
 
@@ -891,9 +815,7 @@ class TestAnswerInlineQueryAsyncErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """ConnectionError is caught."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ConnectionError("fail"))
 
         await handler._answer_inline_query_async("iq-conn", [])
 
@@ -906,9 +828,7 @@ class TestAnswerInlineQueryAsyncErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """TimeoutError is caught."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=TimeoutError("timed out"))
 
         await handler._answer_inline_query_async("iq-timeout", [])
 
@@ -917,13 +837,9 @@ class TestAnswerInlineQueryAsyncErrors:
         )
 
     @pytest.mark.asyncio
-    async def test_os_error_handled(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_os_error_handled(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """OSError is caught."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=OSError("io error")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=OSError("io error"))
 
         await handler._answer_inline_query_async("iq-os", [])
 
@@ -936,9 +852,7 @@ class TestAnswerInlineQueryAsyncErrors:
         self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
     ):
         """ValueError is caught."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ValueError("bad value")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ValueError("bad value"))
 
         await handler._answer_inline_query_async("iq-val", [])
 
@@ -967,9 +881,7 @@ class TestAnswerInlineQueryAsyncTelemetry:
         )
 
     @pytest.mark.asyncio
-    async def test_latency_recorded(
-        self, handler, _patch_tg, _patch_http_pool, _patch_telemetry
-    ):
+    async def test_latency_recorded(self, handler, _patch_tg, _patch_http_pool, _patch_telemetry):
         """Latency is recorded for inline query answers."""
         await handler._answer_inline_query_async("iq-lat", [])
 
@@ -996,9 +908,7 @@ class TestSendVoiceSummaryHappyPath:
 
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            return_value=mock_result
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(return_value=mock_result)
 
         handler._send_voice_async = AsyncMock()
 
@@ -1022,9 +932,7 @@ class TestSendVoiceSummaryHappyPath:
             confidence=0.85,
             rounds_used=3,
         )
-        handler._send_voice_async.assert_called_once_with(
-            CHAT_ID, b"fake-audio-data", 5.0
-        )
+        handler._send_voice_async.assert_called_once_with(CHAT_ID, b"fake-audio-data", 5.0)
 
     @pytest.mark.asyncio
     async def test_null_final_answer(self, handler):
@@ -1035,9 +943,7 @@ class TestSendVoiceSummaryHappyPath:
 
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            return_value=mock_result
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(return_value=mock_result)
 
         handler._send_voice_async = AsyncMock()
 
@@ -1079,9 +985,7 @@ class TestSendVoiceSummaryNotAvailable:
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
         handler._send_voice_async.assert_not_called()
 
@@ -1098,9 +1002,7 @@ class TestSendVoiceSummaryNotAvailable:
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.5, 2
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.5, 2)
 
         handler._send_voice_async.assert_not_called()
 
@@ -1121,9 +1023,7 @@ class TestSendVoiceSummaryErrors:
             side_effect=ImportError("no tts module"),
         ):
             # Should not raise
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
     @pytest.mark.asyncio
     async def test_connection_error_handled(self, handler):
@@ -1138,94 +1038,73 @@ class TestSendVoiceSummaryErrors:
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
     @pytest.mark.asyncio
     async def test_timeout_error_handled(self, handler):
         """TimeoutError during synthesis is caught."""
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            side_effect=TimeoutError("TTS timed out")
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(side_effect=TimeoutError("TTS timed out"))
 
         with patch(
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
     @pytest.mark.asyncio
     async def test_os_error_handled(self, handler):
         """OSError during synthesis is caught."""
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            side_effect=OSError("file error")
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(side_effect=OSError("file error"))
 
         with patch(
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
     @pytest.mark.asyncio
     async def test_value_error_handled(self, handler):
         """ValueError during synthesis is caught."""
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            side_effect=ValueError("bad input")
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(side_effect=ValueError("bad input"))
 
         with patch(
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
     @pytest.mark.asyncio
     async def test_type_error_handled(self, handler):
         """TypeError during synthesis is caught."""
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(side_effect=TypeError("wrong type"))
 
         with patch(
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
     @pytest.mark.asyncio
     async def test_error_logs_warning(self, handler):
         """Errors in voice summary are logged as warnings."""
-        with patch(
-            "aragora.server.handlers.social.tts_helper.get_tts_helper",
-            side_effect=ImportError("no module"),
-        ), patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+        with (
+            patch(
+                "aragora.server.handlers.social.tts_helper.get_tts_helper",
+                side_effect=ImportError("no module"),
+            ),
+            patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger,
+        ):
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
             mock_logger.warning.assert_called()
-            assert "Failed to send voice summary" in str(
-                mock_logger.warning.call_args
-            )
+            assert "Failed to send voice summary" in str(mock_logger.warning.call_args)
 
 
 # ============================================================================
@@ -1237,9 +1116,7 @@ class TestSendVoiceAsyncHappyPath:
     """Test successful voice message sending."""
 
     @pytest.mark.asyncio
-    async def test_sends_voice_with_correct_data(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_sends_voice_with_correct_data(self, handler, _patch_tg, _patch_http_pool):
         """Voice message sends correct multipart data."""
         audio_data = b"fake-ogg-audio-bytes"
         await handler._send_voice_async(CHAT_ID, audio_data, 5.5)
@@ -1253,9 +1130,7 @@ class TestSendVoiceAsyncHappyPath:
         assert data["duration"] == "5"
 
     @pytest.mark.asyncio
-    async def test_sends_voice_with_correct_files(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_sends_voice_with_correct_files(self, handler, _patch_tg, _patch_http_pool):
         """Voice message uses correct file format."""
         audio_data = b"audio-content"
         await handler._send_voice_async(CHAT_ID, audio_data, 10.0)
@@ -1270,9 +1145,7 @@ class TestSendVoiceAsyncHappyPath:
         assert voice_tuple[2] == "audio/ogg"
 
     @pytest.mark.asyncio
-    async def test_uses_60s_timeout(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_uses_60s_timeout(self, handler, _patch_tg, _patch_http_pool):
         """Voice upload uses 60 second timeout."""
         await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
 
@@ -1280,32 +1153,22 @@ class TestSendVoiceAsyncHappyPath:
         assert call_args.kwargs.get("timeout") == 60
 
     @pytest.mark.asyncio
-    async def test_uses_telegram_voice_session(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_uses_telegram_voice_session(self, handler, _patch_tg, _patch_http_pool):
         """Voice upload uses 'telegram_voice' session name."""
         await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
 
-        _patch_http_pool["pool"].get_session.assert_called_once_with(
-            "telegram_voice"
-        )
+        _patch_http_pool["pool"].get_session.assert_called_once_with("telegram_voice")
 
     @pytest.mark.asyncio
-    async def test_success_logs_info(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_success_logs_info(self, handler, _patch_tg, _patch_http_pool):
         """Successful voice send logs at info level."""
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_logger.info.assert_called()
             assert str(CHAT_ID) in str(mock_logger.info.call_args)
 
     @pytest.mark.asyncio
-    async def test_duration_truncated_to_int(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_duration_truncated_to_int(self, handler, _patch_tg, _patch_http_pool):
         """Duration is truncated to integer in the API call."""
         await handler._send_voice_async(CHAT_ID, b"audio", 7.9)
 
@@ -1325,18 +1188,14 @@ class TestSendVoiceAsyncNoToken:
     @pytest.mark.asyncio
     async def test_no_token_returns_early(self, handler, _patch_tg_no_token):
         """When token is missing, returns without sending."""
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool"
-        ) as mock_pool:
+        with patch("aragora.server.http_client_pool.get_http_pool") as mock_pool:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_pool.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_token_logs_warning(self, handler, _patch_tg_no_token):
         """Missing token logs a warning."""
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_logger.warning.assert_called_once()
             assert "TELEGRAM_BOT_TOKEN" in str(mock_logger.warning.call_args)
@@ -1351,90 +1210,60 @@ class TestSendVoiceAsyncErrors:
     """Test error handling in voice message sending."""
 
     @pytest.mark.asyncio
-    async def test_api_error_logs_warning(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_api_error_logs_warning(self, handler, _patch_tg, _patch_http_pool):
         """API error response (ok=false) logs a warning."""
         _patch_http_pool["response"].json.return_value = {
             "ok": False,
             "description": "File too large",
         }
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"big-audio", 120.0)
             mock_logger.warning.assert_called()
             assert "sendVoice failed" in str(mock_logger.warning.call_args)
 
     @pytest.mark.asyncio
-    async def test_connection_error_handled(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_connection_error_handled(self, handler, _patch_tg, _patch_http_pool):
         """ConnectionError is caught and logged."""
         _patch_http_pool["client"].post = AsyncMock(
             side_effect=ConnectionError("Connection refused")
         )
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_timeout_error_handled(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_timeout_error_handled(self, handler, _patch_tg, _patch_http_pool):
         """TimeoutError is caught and logged."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=TimeoutError("Upload timed out")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=TimeoutError("Upload timed out"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_os_error_handled(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_os_error_handled(self, handler, _patch_tg, _patch_http_pool):
         """OSError is caught and logged."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=OSError("IO error")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=OSError("IO error"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_value_error_handled(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_value_error_handled(self, handler, _patch_tg, _patch_http_pool):
         """ValueError is caught and logged."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ValueError("Invalid data")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ValueError("Invalid data"))
 
-        with patch(
-            "aragora.server.handlers.social.telegram.messages.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.social.telegram.messages.logger") as mock_logger:
             await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
             mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_error_does_not_propagate(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_error_does_not_propagate(self, handler, _patch_tg, _patch_http_pool):
         """Errors are caught and do not propagate."""
-        _patch_http_pool["client"].post = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        _patch_http_pool["client"].post = AsyncMock(side_effect=ConnectionError("fail"))
 
         # Should not raise
         await handler._send_voice_async(CHAT_ID, b"audio", 3.0)
@@ -1449,9 +1278,7 @@ class TestSendVoiceAsyncEdgeCases:
     """Test edge cases for voice message sending."""
 
     @pytest.mark.asyncio
-    async def test_empty_audio_bytes(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_empty_audio_bytes(self, handler, _patch_tg, _patch_http_pool):
         """Empty audio bytes are still sent."""
         await handler._send_voice_async(CHAT_ID, b"", 0.0)
 
@@ -1461,9 +1288,7 @@ class TestSendVoiceAsyncEdgeCases:
         assert files["voice"][1] == b""
 
     @pytest.mark.asyncio
-    async def test_large_audio_bytes(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_large_audio_bytes(self, handler, _patch_tg, _patch_http_pool):
         """Large audio data is sent without issues."""
         large_audio = b"\x00" * (50 * 1024 * 1024)  # 50 MB
         await handler._send_voice_async(CHAT_ID, large_audio, 300.0)
@@ -1471,9 +1296,7 @@ class TestSendVoiceAsyncEdgeCases:
         _patch_http_pool["client"].post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_zero_duration(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_zero_duration(self, handler, _patch_tg, _patch_http_pool):
         """Zero duration is handled correctly."""
         await handler._send_voice_async(CHAT_ID, b"audio", 0.0)
 
@@ -1482,9 +1305,7 @@ class TestSendVoiceAsyncEdgeCases:
         assert data["duration"] == "0"
 
     @pytest.mark.asyncio
-    async def test_fractional_duration_truncated(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_fractional_duration_truncated(self, handler, _patch_tg, _patch_http_pool):
         """Fractional duration is truncated (not rounded)."""
         await handler._send_voice_async(CHAT_ID, b"audio", 9.99)
 
@@ -1493,9 +1314,7 @@ class TestSendVoiceAsyncEdgeCases:
         assert data["duration"] == "9"
 
     @pytest.mark.asyncio
-    async def test_negative_chat_id_for_groups(
-        self, handler, _patch_tg, _patch_http_pool
-    ):
+    async def test_negative_chat_id_for_groups(self, handler, _patch_tg, _patch_http_pool):
         """Negative chat IDs for group chats are handled."""
         await handler._send_voice_async(-100987654, b"audio", 3.0)
 
@@ -1548,9 +1367,7 @@ class TestCrossMethodIntegration:
 
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            return_value=mock_result
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(return_value=mock_result)
 
         handler._send_voice_async = AsyncMock()
 
@@ -1567,18 +1384,14 @@ class TestCrossMethodIntegration:
                 rounds_used=4,
             )
 
-        handler._send_voice_async.assert_called_once_with(
-            CHAT_ID, b"synthesized-audio", 8.5
-        )
+        handler._send_voice_async.assert_called_once_with(CHAT_ID, b"synthesized-audio", 8.5)
 
     @pytest.mark.asyncio
     async def test_send_voice_async_after_failed_synthesis(self, handler):
         """When synthesis fails, _send_voice_async is never called."""
         mock_helper = MagicMock()
         mock_helper.is_available = True
-        mock_helper.synthesize_debate_result = AsyncMock(
-            side_effect=ConnectionError("TTS down")
-        )
+        mock_helper.synthesize_debate_result = AsyncMock(side_effect=ConnectionError("TTS down"))
 
         handler._send_voice_async = AsyncMock()
 
@@ -1586,9 +1399,7 @@ class TestCrossMethodIntegration:
             "aragora.server.handlers.social.tts_helper.get_tts_helper",
             return_value=mock_helper,
         ):
-            await handler._send_voice_summary(
-                CHAT_ID, "Topic", "Answer", True, 0.8, 3
-            )
+            await handler._send_voice_summary(CHAT_ID, "Topic", "Answer", True, 0.8, 3)
 
         handler._send_voice_async.assert_not_called()
 

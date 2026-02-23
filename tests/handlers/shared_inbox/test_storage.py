@@ -210,41 +210,42 @@ class TestGetStore:
     def test_returns_email_store_when_persistent_enabled(self):
         """When USE_PERSISTENT_STORAGE is True, returns email store."""
         mock_store = MagicMock()
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", True
-        ), patch(
-            "aragora.server.handlers.shared_inbox.storage._get_email_store",
-            return_value=mock_store,
+        with (
+            patch("aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", True),
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_email_store",
+                return_value=mock_store,
+            ),
         ):
             result = _get_store()
             assert result is mock_store
 
     def test_returns_none_when_persistent_disabled(self):
         """When USE_PERSISTENT_STORAGE is False, returns None."""
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", False
-        ):
+        with patch("aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", False):
             result = _get_store()
             assert result is None
 
     def test_returns_none_when_persistent_enabled_but_store_unavailable(self):
         """When USE_PERSISTENT_STORAGE is True but email store is None."""
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", True
-        ), patch(
-            "aragora.server.handlers.shared_inbox.storage._get_email_store",
-            return_value=None,
+        with (
+            patch("aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", True),
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_email_store",
+                return_value=None,
+            ),
         ):
             result = _get_store()
             assert result is None
 
     def test_does_not_call_email_store_when_disabled(self):
         """When USE_PERSISTENT_STORAGE is False, _get_email_store is not called."""
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", False
-        ), patch(
-            "aragora.server.handlers.shared_inbox.storage._get_email_store",
-        ) as mock_email:
+        with (
+            patch("aragora.server.handlers.shared_inbox.storage.USE_PERSISTENT_STORAGE", False),
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_email_store",
+            ) as mock_email,
+        ):
             _get_store()
             mock_email.assert_not_called()
 
@@ -264,13 +265,16 @@ class TestLogActivitySuccess:
         mock_activity_instance = MagicMock()
         mock_activity_cls.return_value = mock_activity_instance
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.server.handlers.shared_inbox.storage.InboxActivity",
-            mock_activity_cls,
-            create=True,
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.server.handlers.shared_inbox.storage.InboxActivity",
+                mock_activity_cls,
+                create=True,
+            ),
         ):
             # We need to patch the import inside the function
             with patch.dict(
@@ -297,16 +301,19 @@ class TestLogActivitySuccess:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -329,16 +336,19 @@ class TestLogActivitySuccess:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -375,12 +385,15 @@ class TestLogActivityStoreUnavailable:
 
     def test_store_none_does_not_attempt_import(self):
         """When store is None, the InboxActivity import is never attempted."""
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=None,
-        ), patch(
-            "builtins.__import__", side_effect=AssertionError("Should not import")
-        ) as mock_import:
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=None,
+            ),
+            patch(
+                "builtins.__import__", side_effect=AssertionError("Should not import")
+            ) as mock_import,
+        ):
             _log_activity(
                 inbox_id="inbox-1",
                 org_id="org-1",
@@ -403,10 +416,13 @@ class TestLogActivityErrorHandling:
         """ImportError during InboxActivity import is caught gracefully."""
         mock_store = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict("sys.modules", {"aragora.storage.inbox_activity_store": None}):
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict("sys.modules", {"aragora.storage.inbox_activity_store": None}),
+        ):
             # When a module is set to None in sys.modules, import raises ImportError
             _log_activity(
                 inbox_id="inbox-1",
@@ -421,16 +437,19 @@ class TestLogActivityErrorHandling:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock(side_effect=ValueError("bad value"))
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -445,16 +464,19 @@ class TestLogActivityErrorHandling:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock(side_effect=TypeError("wrong args"))
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -470,16 +492,19 @@ class TestLogActivityErrorHandling:
         mock_store.log_activity.side_effect = KeyError("missing key")
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -494,16 +519,19 @@ class TestLogActivityErrorHandling:
         mock_store.log_activity.side_effect = AttributeError("no attr")
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -518,16 +546,19 @@ class TestLogActivityErrorHandling:
         mock_store.log_activity.side_effect = OSError("disk full")
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -542,16 +573,19 @@ class TestLogActivityErrorHandling:
         mock_store.log_activity.side_effect = RuntimeError("bad state")
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -566,19 +600,21 @@ class TestLogActivityErrorHandling:
         mock_store.log_activity.side_effect = RuntimeError("fail")
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
-        ), patch(
-            "aragora.server.handlers.shared_inbox.storage.logger"
-        ) as mock_logger:
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
+            patch("aragora.server.handlers.shared_inbox.storage.logger") as mock_logger,
+        ):
             _log_activity(
                 inbox_id="inbox-1",
                 org_id="org-1",
@@ -603,16 +639,19 @@ class TestLogActivityMetadata:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -632,16 +671,19 @@ class TestLogActivityMetadata:
         mock_activity_cls = MagicMock()
         meta = {"reason": "test", "count": 42}
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -659,16 +701,19 @@ class TestLogActivityMetadata:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",
@@ -685,16 +730,19 @@ class TestLogActivityMetadata:
         mock_store = MagicMock()
         mock_activity_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.shared_inbox.storage._get_activity_store",
-            return_value=mock_store,
-        ), patch.dict(
-            "sys.modules",
-            {
-                "aragora.storage.inbox_activity_store": MagicMock(
-                    InboxActivity=mock_activity_cls
-                )
-            },
+        with (
+            patch(
+                "aragora.server.handlers.shared_inbox.storage._get_activity_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.inbox_activity_store": MagicMock(
+                        InboxActivity=mock_activity_cls
+                    )
+                },
+            ),
         ):
             _log_activity(
                 inbox_id="inbox-1",

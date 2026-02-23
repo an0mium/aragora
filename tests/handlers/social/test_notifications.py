@@ -857,9 +857,7 @@ class TestRemoveEmailRecipient:
     def test_remove_recipient_missing_email_param(self, handler):
         """Missing email query param returns 400."""
         http = MockHTTPHandler()
-        result = handler.handle_delete(
-            "/api/v1/notifications/email/recipient", {}, http
-        )
+        result = handler.handle_delete("/api/v1/notifications/email/recipient", {}, http)
         assert _status(result) == 400
         assert "email" in _body(result).get("error", "").lower()
 

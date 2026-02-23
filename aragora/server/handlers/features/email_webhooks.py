@@ -502,7 +502,14 @@ class EmailWebhooksHandler(BaseHandler):
             )
             return False
 
-        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:  # for JWT verification failures
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            RuntimeError,
+            OSError,
+            ConnectionError,
+        ) as e:  # for JWT verification failures
             if should_allow_unverified("gmail_pubsub"):
                 log_verification_attempt(
                     "gmail_pubsub", True, "bypassed", f"JWT verification failed but bypassed: {e}"

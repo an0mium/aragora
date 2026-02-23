@@ -123,7 +123,10 @@ class KMSubscriptionManager:
             self._subscriptions[client_id] = subscription
 
         logger.debug(
-            "[km_subscriptions] Client %s subscribed to types=%s, sources=%s", client_id, event_types or 'all', sources or 'all'
+            "[km_subscriptions] Client %s subscribed to types=%s, sources=%s",
+            client_id,
+            event_types or "all",
+            sources or "all",
         )
         return subscription
 

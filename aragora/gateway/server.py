@@ -796,7 +796,9 @@ class LocalGateway:
                 try:
                     await ws.send_json(event)
                 except (OSError, ConnectionError, RuntimeError) as e:
-                    logger.debug("Failed to send to WebSocket subscriber: %s: %s", type(e).__name__, e)
+                    logger.debug(
+                        "Failed to send to WebSocket subscriber: %s: %s", type(e).__name__, e
+                    )
                     self._ws_subscribers.discard(ws)
 
     # =========================================================================
@@ -842,7 +844,11 @@ class LocalGateway:
         await self._hydrate_state()
 
         logger.info(
-            "Local gateway HTTP server started on %s:%s (timeout=%ss, rate_limit=%s/min)", actual_host, actual_port, self._config.request_timeout_seconds, self._config.rate_limit_rpm
+            "Local gateway HTTP server started on %s:%s (timeout=%ss, rate_limit=%s/min)",
+            actual_host,
+            actual_port,
+            self._config.request_timeout_seconds,
+            self._config.rate_limit_rpm,
         )
         return runner
 

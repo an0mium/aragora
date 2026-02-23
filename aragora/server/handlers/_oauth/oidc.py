@@ -257,7 +257,13 @@ class OIDCOAuthMixin:
                     with urllib_request.urlopen(req) as response:
                         body = response.read()
                     user_data = json.loads(body.decode("utf-8")) if body else {}
-                except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+                except (
+                    ConnectionError,
+                    TimeoutError,
+                    OSError,
+                    ValueError,
+                    json.JSONDecodeError,
+                ) as e:
                     logger.warning("OIDC userinfo failed, falling back to id_token: %s", e)
 
             user_data = _fallback_id_token(user_data)

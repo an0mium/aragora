@@ -486,15 +486,19 @@ class TestMemCredentialManagement:
 
     def test_store_credential_secret_stored_separately(self, mem_store):
         cred = mem_store.store_credential(
-            name="key", credential_type=CredentialType.API_KEY,
-            secret_value="the-secret", user_id="u1",
+            name="key",
+            credential_type=CredentialType.API_KEY,
+            secret_value="the-secret",
+            user_id="u1",
         )
         assert mem_store._credential_secrets[cred.id] == "the-secret"
 
     def test_get_credential_found(self, mem_store):
         created = mem_store.store_credential(
-            name="key", credential_type=CredentialType.API_KEY,
-            secret_value="s", user_id="u1",
+            name="key",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="u1",
         )
         fetched = mem_store.get_credential(created.id)
         assert fetched is not None
@@ -504,45 +508,78 @@ class TestMemCredentialManagement:
         assert mem_store.get_credential("nonexistent") is None
 
     def test_list_credentials_all(self, mem_store):
-        mem_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1")
-        mem_store.store_credential(name="k2", credential_type=CredentialType.PASSWORD, secret_value="s2", user_id="u2")
+        mem_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1"
+        )
+        mem_store.store_credential(
+            name="k2", credential_type=CredentialType.PASSWORD, secret_value="s2", user_id="u2"
+        )
         creds, total = mem_store.list_credentials()
         assert total == 2
         assert len(creds) == 2
 
     def test_list_credentials_filter_by_user(self, mem_store):
-        mem_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1")
-        mem_store.store_credential(name="k2", credential_type=CredentialType.API_KEY, secret_value="s2", user_id="u2")
+        mem_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1"
+        )
+        mem_store.store_credential(
+            name="k2", credential_type=CredentialType.API_KEY, secret_value="s2", user_id="u2"
+        )
         creds, total = mem_store.list_credentials(user_id="u1")
         assert total == 1
         assert creds[0].user_id == "u1"
 
     def test_list_credentials_filter_by_tenant(self, mem_store):
-        mem_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1", tenant_id="t1")
-        mem_store.store_credential(name="k2", credential_type=CredentialType.API_KEY, secret_value="s2", user_id="u2", tenant_id="t2")
+        mem_store.store_credential(
+            name="k1",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s1",
+            user_id="u1",
+            tenant_id="t1",
+        )
+        mem_store.store_credential(
+            name="k2",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s2",
+            user_id="u2",
+            tenant_id="t2",
+        )
         creds, total = mem_store.list_credentials(tenant_id="t1")
         assert total == 1
 
     def test_list_credentials_filter_by_type(self, mem_store):
-        mem_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1")
-        mem_store.store_credential(name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s2", user_id="u1")
+        mem_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1"
+        )
+        mem_store.store_credential(
+            name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s2", user_id="u1"
+        )
         creds, total = mem_store.list_credentials(credential_type=CredentialType.SSH_KEY)
         assert total == 1
         assert creds[0].credential_type == CredentialType.SSH_KEY
 
     def test_list_credentials_pagination(self, mem_store):
         for i in range(5):
-            mem_store.store_credential(name=f"k{i}", credential_type=CredentialType.API_KEY, secret_value=f"s{i}", user_id="u1")
+            mem_store.store_credential(
+                name=f"k{i}",
+                credential_type=CredentialType.API_KEY,
+                secret_value=f"s{i}",
+                user_id="u1",
+            )
         creds, total = mem_store.list_credentials(limit=2, offset=0)
         assert total == 5
         assert len(creds) == 2
 
     def test_delete_credential_returns_true(self, mem_store):
-        cred = mem_store.store_credential(name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1")
+        cred = mem_store.store_credential(
+            name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1"
+        )
         assert mem_store.delete_credential(cred.id) is True
 
     def test_delete_credential_removes_credential_and_secret(self, mem_store):
-        cred = mem_store.store_credential(name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1")
+        cred = mem_store.store_credential(
+            name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1"
+        )
         mem_store.delete_credential(cred.id)
         assert mem_store.get_credential(cred.id) is None
         assert cred.id not in mem_store._credential_secrets
@@ -551,14 +588,18 @@ class TestMemCredentialManagement:
         assert mem_store.delete_credential("nonexistent") is False
 
     def test_rotate_credential(self, mem_store):
-        cred = mem_store.store_credential(name="k", credential_type=CredentialType.API_KEY, secret_value="old", user_id="u1")
+        cred = mem_store.store_credential(
+            name="k", credential_type=CredentialType.API_KEY, secret_value="old", user_id="u1"
+        )
         rotated = mem_store.rotate_credential(cred.id, "new")
         assert rotated is not None
         assert rotated.last_rotated_at is not None
         assert mem_store._credential_secrets[cred.id] == "new"
 
     def test_rotate_credential_updates_timestamp(self, mem_store):
-        cred = mem_store.store_credential(name="k", credential_type=CredentialType.API_KEY, secret_value="old", user_id="u1")
+        cred = mem_store.store_credential(
+            name="k", credential_type=CredentialType.API_KEY, secret_value="old", user_id="u1"
+        )
         original_updated = cred.updated_at
         time.sleep(0.01)
         rotated = mem_store.rotate_credential(cred.id, "new")
@@ -709,9 +750,15 @@ class TestMemMetrics:
         assert metrics["actions"]["running"] == 1
 
     def test_metrics_credentials_by_type(self, mem_store):
-        mem_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1")
-        mem_store.store_credential(name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s", user_id="u1")
-        mem_store.store_credential(name="k3", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1")
+        mem_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1"
+        )
+        mem_store.store_credential(
+            name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s", user_id="u1"
+        )
+        mem_store.store_credential(
+            name="k3", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1"
+        )
         metrics = mem_store.get_metrics()
         assert metrics["credentials"]["total"] == 3
         assert metrics["credentials"]["by_type"]["api_key"] == 2
@@ -867,7 +914,9 @@ class TestPersistentActionCRUD:
 
     def test_get_action_found(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        created = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        created = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         fetched = persistent_store.get_action(created.id)
         assert fetched is not None
         assert fetched.id == created.id
@@ -877,21 +926,27 @@ class TestPersistentActionCRUD:
 
     def test_get_action_from_cache(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        action = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        action = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         # Already in cache from create
         with persistent_store._cache_lock:
             assert action.id in persistent_store._action_cache
 
     def test_update_action_to_running(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        action = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        action = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         updated = persistent_store.update_action(action.id, status=ActionStatus.RUNNING)
         assert updated.status == ActionStatus.RUNNING
         assert updated.started_at is not None
 
     def test_update_action_to_completed(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        action = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        action = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         updated = persistent_store.update_action(
             action.id,
             status=ActionStatus.COMPLETED,
@@ -903,7 +958,9 @@ class TestPersistentActionCRUD:
 
     def test_update_action_to_failed(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        action = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        action = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         updated = persistent_store.update_action(
             action.id,
             status=ActionStatus.FAILED,
@@ -917,14 +974,18 @@ class TestPersistentActionCRUD:
 
     def test_update_action_no_changes_returns_action(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        action = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        action = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         result = persistent_store.update_action(action.id)
         assert result is not None
         assert result.id == action.id
 
     def test_update_action_invalidates_cache(self, persistent_store):
         session = persistent_store.create_session(user_id="u1")
-        action = persistent_store.create_action(session_id=session.id, action_type="x", input_data={})
+        action = persistent_store.create_action(
+            session_id=session.id, action_type="x", input_data={}
+        )
         persistent_store.update_action(action.id, status=ActionStatus.COMPLETED)
         # After update, cache should have been invalidated and repopulated
         fetched = persistent_store.get_action(action.id)
@@ -951,8 +1012,10 @@ class TestPersistentCredentialManagement:
 
     def test_get_credential_found(self, persistent_store):
         created = persistent_store.store_credential(
-            name="k", credential_type=CredentialType.API_KEY,
-            secret_value="s", user_id="u1",
+            name="k",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="u1",
         )
         fetched = persistent_store.get_credential(created.id)
         assert fetched is not None
@@ -962,25 +1025,39 @@ class TestPersistentCredentialManagement:
         assert persistent_store.get_credential("nonexistent") is None
 
     def test_list_credentials(self, persistent_store):
-        persistent_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1")
-        persistent_store.store_credential(name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s2", user_id="u2")
+        persistent_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1"
+        )
+        persistent_store.store_credential(
+            name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s2", user_id="u2"
+        )
         creds, total = persistent_store.list_credentials()
         assert total == 2
 
     def test_list_credentials_filter_by_user(self, persistent_store):
-        persistent_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1")
-        persistent_store.store_credential(name="k2", credential_type=CredentialType.API_KEY, secret_value="s2", user_id="u2")
+        persistent_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1"
+        )
+        persistent_store.store_credential(
+            name="k2", credential_type=CredentialType.API_KEY, secret_value="s2", user_id="u2"
+        )
         creds, total = persistent_store.list_credentials(user_id="u1")
         assert total == 1
 
     def test_list_credentials_filter_by_type(self, persistent_store):
-        persistent_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1")
-        persistent_store.store_credential(name="k2", credential_type=CredentialType.PASSWORD, secret_value="s2", user_id="u1")
+        persistent_store.store_credential(
+            name="k1", credential_type=CredentialType.API_KEY, secret_value="s1", user_id="u1"
+        )
+        persistent_store.store_credential(
+            name="k2", credential_type=CredentialType.PASSWORD, secret_value="s2", user_id="u1"
+        )
         creds, total = persistent_store.list_credentials(credential_type=CredentialType.PASSWORD)
         assert total == 1
 
     def test_delete_credential(self, persistent_store):
-        cred = persistent_store.store_credential(name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1")
+        cred = persistent_store.store_credential(
+            name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1"
+        )
         assert persistent_store.delete_credential(cred.id) is True
         assert persistent_store.get_credential(cred.id) is None
 
@@ -989,8 +1066,10 @@ class TestPersistentCredentialManagement:
 
     def test_rotate_credential(self, persistent_store):
         cred = persistent_store.store_credential(
-            name="k", credential_type=CredentialType.API_KEY,
-            secret_value="old", user_id="u1",
+            name="k",
+            credential_type=CredentialType.API_KEY,
+            secret_value="old",
+            user_id="u1",
         )
         rotated = persistent_store.rotate_credential(cred.id, "new")
         assert rotated is not None
@@ -1003,8 +1082,11 @@ class TestPersistentCredentialManagement:
     def test_store_credential_with_expiry(self, persistent_store):
         expires = datetime.now(timezone.utc) + timedelta(days=7)
         cred = persistent_store.store_credential(
-            name="temp", credential_type=CredentialType.OAUTH_TOKEN,
-            secret_value="token", user_id="u1", expires_at=expires,
+            name="temp",
+            credential_type=CredentialType.OAUTH_TOKEN,
+            secret_value="token",
+            user_id="u1",
+            expires_at=expires,
         )
         fetched = persistent_store.get_credential(cred.id)
         assert fetched.expires_at is not None
@@ -1020,7 +1102,9 @@ class TestPersistentAuditLog:
 
     def test_add_and_get_entry(self, persistent_store):
         persistent_store.add_audit_entry(
-            action="login", actor_id="u1", resource_type="auth",
+            action="login",
+            actor_id="u1",
+            resource_type="auth",
         )
         entries, total = persistent_store.get_audit_log()
         assert total == 1
@@ -1072,7 +1156,9 @@ class TestPersistentMetrics:
         s2 = persistent_store.create_session(user_id="u2")
         persistent_store.update_session_status(s2.id, SessionStatus.CLOSED)
         persistent_store.create_action(session_id=s1.id, action_type="x", input_data={})
-        persistent_store.store_credential(name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1")
+        persistent_store.store_credential(
+            name="k", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1"
+        )
         persistent_store.add_audit_entry(action="test", actor_id="u1", resource_type="test")
 
         metrics = persistent_store.get_metrics()
@@ -1150,6 +1236,7 @@ class TestPersistentEncryption:
 
                 def fallback_encrypt(value):
                     import builtins
+
                     original_import = builtins.__import__
 
                     def mock_import(name, *args, **kwargs):
@@ -1258,7 +1345,9 @@ class TestGetStoreFactory:
 
         db_path = str(tmp_path / "factory_test.db")
         with patch.dict(os.environ, {"ARAGORA_OPENCLAW_STORE": "persistent"}, clear=False):
-            with patch("aragora.server.handlers.openclaw.store.OpenClawPersistentStore") as MockPersistent:
+            with patch(
+                "aragora.server.handlers.openclaw.store.OpenClawPersistentStore"
+            ) as MockPersistent:
                 MockPersistent.return_value = MagicMock()
                 result = _get_store()
                 MockPersistent.assert_called_once()
@@ -1317,14 +1406,21 @@ class TestEdgeCases:
 
     def test_credential_with_empty_secret(self, mem_store):
         cred = mem_store.store_credential(
-            name="empty", credential_type=CredentialType.API_KEY,
-            secret_value="", user_id="u1",
+            name="empty",
+            credential_type=CredentialType.API_KEY,
+            secret_value="",
+            user_id="u1",
         )
         assert mem_store._credential_secrets[cred.id] == ""
 
     def test_multiple_status_transitions(self, mem_store):
         session = mem_store.create_session(user_id="u1")
-        for status in [SessionStatus.IDLE, SessionStatus.ACTIVE, SessionStatus.CLOSING, SessionStatus.CLOSED]:
+        for status in [
+            SessionStatus.IDLE,
+            SessionStatus.ACTIVE,
+            SessionStatus.CLOSING,
+            SessionStatus.CLOSED,
+        ]:
             updated = mem_store.update_session_status(session.id, status)
             assert updated.status == status
 
@@ -1344,7 +1440,9 @@ class TestEdgeCases:
 
     def test_audit_entry_with_empty_details(self, mem_store):
         entry = mem_store.add_audit_entry(
-            action="test", actor_id="u1", resource_type="x",
+            action="test",
+            actor_id="u1",
+            resource_type="x",
             details={},
         )
         assert entry.details == {}
@@ -1363,8 +1461,10 @@ class TestEdgeCases:
     def test_persistent_store_session_roundtrip(self, persistent_store):
         """Full roundtrip: create, get, update, list, delete."""
         created = persistent_store.create_session(
-            user_id="u1", tenant_id="t1",
-            config={"k": "v"}, metadata={"m": 1},
+            user_id="u1",
+            tenant_id="t1",
+            config={"k": "v"},
+            metadata={"m": 1},
         )
         fetched = persistent_store.get_session(created.id)
         assert fetched.user_id == "u1"
@@ -1381,8 +1481,10 @@ class TestEdgeCases:
         """Full roundtrip: create, get, update."""
         session = persistent_store.create_session(user_id="u1")
         action = persistent_store.create_action(
-            session_id=session.id, action_type="search",
-            input_data={"q": "test"}, metadata={"source": "cli"},
+            session_id=session.id,
+            action_type="search",
+            input_data={"q": "test"},
+            metadata={"source": "cli"},
         )
         fetched = persistent_store.get_action(action.id)
         assert fetched.input_data == {"q": "test"}
@@ -1396,8 +1498,11 @@ class TestEdgeCases:
     def test_persistent_credential_roundtrip(self, persistent_store):
         """Full roundtrip: store, get, list, rotate, delete."""
         cred = persistent_store.store_credential(
-            name="mykey", credential_type=CredentialType.API_KEY,
-            secret_value="secret1", user_id="u1", tenant_id="t1",
+            name="mykey",
+            credential_type=CredentialType.API_KEY,
+            secret_value="secret1",
+            user_id="u1",
+            tenant_id="t1",
             metadata={"env": "staging"},
         )
         fetched = persistent_store.get_credential(cred.id)
@@ -1416,9 +1521,12 @@ class TestEdgeCases:
     def test_persistent_audit_roundtrip(self, persistent_store):
         """Full audit roundtrip with details."""
         persistent_store.add_audit_entry(
-            action="cred.rotate", actor_id="admin",
-            resource_type="credential", resource_id="cred-1",
-            result="success", details={"reason": "scheduled"},
+            action="cred.rotate",
+            actor_id="admin",
+            resource_type="credential",
+            resource_id="cred-1",
+            result="success",
+            details={"reason": "scheduled"},
         )
         entries, total = persistent_store.get_audit_log(action="cred.rotate")
         assert total == 1
@@ -1426,10 +1534,30 @@ class TestEdgeCases:
         assert entries[0].resource_id == "cred-1"
 
     def test_list_credentials_combined_filters(self, mem_store):
-        mem_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1", tenant_id="t1")
-        mem_store.store_credential(name="k2", credential_type=CredentialType.SSH_KEY, secret_value="s", user_id="u1", tenant_id="t1")
-        mem_store.store_credential(name="k3", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u2", tenant_id="t1")
-        creds, total = mem_store.list_credentials(user_id="u1", credential_type=CredentialType.API_KEY)
+        mem_store.store_credential(
+            name="k1",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="u1",
+            tenant_id="t1",
+        )
+        mem_store.store_credential(
+            name="k2",
+            credential_type=CredentialType.SSH_KEY,
+            secret_value="s",
+            user_id="u1",
+            tenant_id="t1",
+        )
+        mem_store.store_credential(
+            name="k3",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="u2",
+            tenant_id="t1",
+        )
+        creds, total = mem_store.list_credentials(
+            user_id="u1", credential_type=CredentialType.API_KEY
+        )
         assert total == 1
         assert creds[0].name == "k1"
 
@@ -1441,14 +1569,31 @@ class TestEdgeCases:
         assert total == 1
 
     def test_persistent_list_credentials_filter_by_tenant(self, persistent_store):
-        persistent_store.store_credential(name="k1", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1", tenant_id="t1")
-        persistent_store.store_credential(name="k2", credential_type=CredentialType.API_KEY, secret_value="s", user_id="u1", tenant_id="t2")
+        persistent_store.store_credential(
+            name="k1",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="u1",
+            tenant_id="t1",
+        )
+        persistent_store.store_credential(
+            name="k2",
+            credential_type=CredentialType.API_KEY,
+            secret_value="s",
+            user_id="u1",
+            tenant_id="t2",
+        )
         creds, total = persistent_store.list_credentials(tenant_id="t1")
         assert total == 1
 
     def test_persistent_list_credentials_pagination(self, persistent_store):
         for i in range(5):
-            persistent_store.store_credential(name=f"k{i}", credential_type=CredentialType.API_KEY, secret_value=f"s{i}", user_id="u1")
+            persistent_store.store_credential(
+                name=f"k{i}",
+                credential_type=CredentialType.API_KEY,
+                secret_value=f"s{i}",
+                user_id="u1",
+            )
         creds, total = persistent_store.list_credentials(limit=2, offset=1)
         assert total == 5
         assert len(creds) == 2

@@ -133,6 +133,7 @@ MODULE = "aragora.server.handlers.bots.slack.commands"
 def commands_module():
     """Import the commands module lazily (after conftest patches)."""
     import aragora.server.handlers.bots.slack.commands as mod
+
     return mod
 
 
@@ -140,6 +141,7 @@ def commands_module():
 def _clear_active_debates():
     """Clear active debates before and after each test."""
     from aragora.server.handlers.bots.slack.state import _active_debates
+
     _active_debates.clear()
     yield
     _active_debates.clear()
@@ -166,18 +168,22 @@ def mock_audit():
 @pytest.fixture
 def mock_rbac_off():
     """Disable RBAC for a test."""
-    with patch(f"{MODULE}.RBAC_AVAILABLE", False), \
-         patch(f"{MODULE}.check_permission", None), \
-         patch(f"{MODULE}.rbac_fail_closed", return_value=False):
+    with (
+        patch(f"{MODULE}.RBAC_AVAILABLE", False),
+        patch(f"{MODULE}.check_permission", None),
+        patch(f"{MODULE}.rbac_fail_closed", return_value=False),
+    ):
         yield
 
 
 @pytest.fixture
 def mock_rbac_fail_closed():
     """RBAC unavailable and fail-closed."""
-    with patch(f"{MODULE}.RBAC_AVAILABLE", False), \
-         patch(f"{MODULE}.check_permission", None), \
-         patch(f"{MODULE}.rbac_fail_closed", return_value=True):
+    with (
+        patch(f"{MODULE}.RBAC_AVAILABLE", False),
+        patch(f"{MODULE}.check_permission", None),
+        patch(f"{MODULE}.rbac_fail_closed", return_value=True),
+    ):
         yield
 
 
@@ -188,9 +194,11 @@ def mock_rbac_granted():
     mock_decision.allowed = True
     mock_check = MagicMock(return_value=mock_decision)
     mock_ctx_class = MagicMock()
-    with patch(f"{MODULE}.RBAC_AVAILABLE", True), \
-         patch(f"{MODULE}.check_permission", mock_check), \
-         patch(f"{MODULE}.AuthorizationContext", mock_ctx_class):
+    with (
+        patch(f"{MODULE}.RBAC_AVAILABLE", True),
+        patch(f"{MODULE}.check_permission", mock_check),
+        patch(f"{MODULE}.AuthorizationContext", mock_ctx_class),
+    ):
         yield mock_check
 
 
@@ -202,10 +210,12 @@ def mock_rbac_denied():
     mock_decision.reason = "Access denied by policy"
     mock_check = MagicMock(return_value=mock_decision)
     mock_ctx_class = MagicMock()
-    with patch(f"{MODULE}.RBAC_AVAILABLE", True), \
-         patch(f"{MODULE}.check_permission", mock_check), \
-         patch(f"{MODULE}.AuthorizationContext", mock_ctx_class), \
-         patch(f"{MODULE}.audit_data"):
+    with (
+        patch(f"{MODULE}.RBAC_AVAILABLE", True),
+        patch(f"{MODULE}.check_permission", mock_check),
+        patch(f"{MODULE}.AuthorizationContext", mock_ctx_class),
+        patch(f"{MODULE}.audit_data"),
+    ):
         yield mock_check
 
 
@@ -243,7 +253,9 @@ class TestHelpSubcommand:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_unknown_subcommand_returns_help(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_unknown_subcommand_returns_help(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Unknown subcommand falls through to help."""
         req = _make_request(text="foobar")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -252,7 +264,9 @@ class TestHelpSubcommand:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_whitespace_only_text_defaults_to_help(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_whitespace_only_text_defaults_to_help(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Whitespace-only text defaults to help."""
         req = _make_request(text="   ")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -291,6 +305,7 @@ class TestStatusSubcommand:
     async def test_status_with_active_debates(self, commands_module, mock_rbac_off, mock_audit):
         """Status with active debates shows count."""
         from aragora.server.handlers.bots.slack.state import _active_debates
+
         _active_debates["d1"] = {"topic": "Test1"}
         _active_debates["d2"] = {"topic": "Test2"}
         req = _make_request(text="status")
@@ -362,7 +377,9 @@ class TestAskSubcommand:
     """Tests for the ask subcommand."""
 
     @pytest.mark.asyncio
-    async def test_ask_starts_debate(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_starts_debate(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Ask subcommand calls start_slack_debate and returns success."""
         req = _make_request(text="ask What is the best database?")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -386,7 +403,9 @@ class TestAskSubcommand:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_ask_includes_blocks(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_includes_blocks(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Ask response includes Block Kit blocks."""
         req = _make_request(text="ask Design a rate limiter")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -396,7 +415,9 @@ class TestAskSubcommand:
         assert len(body["blocks"]) > 0
 
     @pytest.mark.asyncio
-    async def test_ask_passes_channel_and_user(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_passes_channel_and_user(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Ask passes channel_id and user_id to start_slack_debate."""
         req = _make_request(
             text="ask Some question",
@@ -409,7 +430,9 @@ class TestAskSubcommand:
         assert call_kwargs["user_id"] == "UTESTUSER"
 
     @pytest.mark.asyncio
-    async def test_ask_passes_response_url(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_passes_response_url(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Ask passes response_url to start_slack_debate."""
         req = _make_request(text="ask My question", response_url="https://hooks.slack.com/test")
         await commands_module.handle_slack_commands.__wrapped__(req)
@@ -417,7 +440,9 @@ class TestAskSubcommand:
         assert call_kwargs["response_url"] == "https://hooks.slack.com/test"
 
     @pytest.mark.asyncio
-    async def test_ask_truncates_long_topic_in_response(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_truncates_long_topic_in_response(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Long topic is truncated to 100 chars in the response text."""
         long_topic = "X" * 200
         req = _make_request(text=f"ask {long_topic}")
@@ -428,7 +453,9 @@ class TestAskSubcommand:
         assert "X" * 101 not in body["text"]
 
     @pytest.mark.asyncio
-    async def test_ask_case_insensitive(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_case_insensitive(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """'ASK' works case-insensitively."""
         req = _make_request(text="ASK My question")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -440,7 +467,9 @@ class TestPlanSubcommand:
     """Tests for the plan subcommand."""
 
     @pytest.mark.asyncio
-    async def test_plan_starts_debate_with_decision_integrity(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_plan_starts_debate_with_decision_integrity(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Plan subcommand passes decision_integrity config."""
         req = _make_request(text="plan Build a caching layer")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -464,7 +493,9 @@ class TestPlanSubcommand:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_plan_mode_label(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_plan_mode_label(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Plan response uses 'decision plan' label."""
         req = _make_request(text="plan Some topic")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -476,7 +507,9 @@ class TestImplementSubcommand:
     """Tests for the implement subcommand."""
 
     @pytest.mark.asyncio
-    async def test_implement_starts_debate_with_execution(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_implement_starts_debate_with_execution(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Implement subcommand passes execution config."""
         req = _make_request(text="implement Refactor the auth module")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -491,7 +524,9 @@ class TestImplementSubcommand:
         assert di["execution_engine"] == "hybrid"
 
     @pytest.mark.asyncio
-    async def test_implement_without_args_returns_help(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_implement_without_args_returns_help(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Implement without arguments defaults to help."""
         req = _make_request(text="implement")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -499,7 +534,9 @@ class TestImplementSubcommand:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_implement_mode_label(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_implement_mode_label(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Implement response uses 'implementation plan' label."""
         req = _make_request(text="implement Some topic")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -516,7 +553,9 @@ class TestAttachmentParsing:
     """Tests for attachment/file parsing in command body."""
 
     @pytest.mark.asyncio
-    async def test_attachments_json_array(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_attachments_json_array(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Attachments as JSON array are passed through."""
         att = json.dumps([{"url": "https://example.com/file.png"}])
         req = _make_request(text="ask Check this", attachments=att)
@@ -526,7 +565,9 @@ class TestAttachmentParsing:
         assert call_kwargs["attachments"][0]["url"] == "https://example.com/file.png"
 
     @pytest.mark.asyncio
-    async def test_attachments_json_object(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_attachments_json_object(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """A single JSON object attachment is wrapped in a list."""
         att = json.dumps({"url": "https://example.com/doc.pdf"})
         req = _make_request(text="ask Review this", attachments=att)
@@ -535,7 +576,9 @@ class TestAttachmentParsing:
         assert len(call_kwargs["attachments"]) == 1
 
     @pytest.mark.asyncio
-    async def test_attachments_invalid_json_ignored(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_attachments_invalid_json_ignored(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Invalid JSON attachments are silently ignored."""
         req = _make_request(text="ask Something", attachments="not-valid-json{{{")
         await commands_module.handle_slack_commands.__wrapped__(req)
@@ -543,7 +586,9 @@ class TestAttachmentParsing:
         assert call_kwargs["attachments"] == []
 
     @pytest.mark.asyncio
-    async def test_files_field_parsed(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_files_field_parsed(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Files field is also parsed for attachments."""
         files = json.dumps([{"name": "report.csv", "url": "https://files.slack.com/report.csv"}])
         req = _make_request(text="ask Analyze this", files=files)
@@ -552,7 +597,9 @@ class TestAttachmentParsing:
         assert len(call_kwargs["attachments"]) == 1
 
     @pytest.mark.asyncio
-    async def test_both_attachments_and_files(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_both_attachments_and_files(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Both attachments and files are combined."""
         att = json.dumps([{"type": "attachment"}])
         files = json.dumps([{"type": "file"}])
@@ -562,7 +609,9 @@ class TestAttachmentParsing:
         assert len(call_kwargs["attachments"]) == 2
 
     @pytest.mark.asyncio
-    async def test_attachments_non_dict_items_filtered(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_attachments_non_dict_items_filtered(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Non-dict items in attachment arrays are filtered out."""
         att = json.dumps([{"valid": True}, "string_item", 42, None])
         req = _make_request(text="ask Something", attachments=att)
@@ -571,7 +620,9 @@ class TestAttachmentParsing:
         assert len(call_kwargs["attachments"]) == 1
 
     @pytest.mark.asyncio
-    async def test_empty_attachment_string(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_empty_attachment_string(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Empty attachment string is handled gracefully."""
         req = _make_request(text="ask Something", attachments="")
         await commands_module.handle_slack_commands.__wrapped__(req)
@@ -700,7 +751,9 @@ class TestTopicValidation:
     """Tests for debate topic validation."""
 
     @pytest.mark.asyncio
-    async def test_topic_with_injection_returns_error(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_topic_with_injection_returns_error(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Topic with injection patterns is rejected."""
         req = _make_request(text="ask '; DROP TABLE debates; --")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -726,7 +779,9 @@ class TestTopicValidation:
         pass  # Topic length validation covered by command text length limit
 
     @pytest.mark.asyncio
-    async def test_valid_topic_accepted(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_valid_topic_accepted(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Normal topic text is accepted."""
         req = _make_request(text="ask How should we handle caching in our API")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -792,7 +847,9 @@ class TestRBACPermissions:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_fail_closed_blocks_ask(self, commands_module, mock_rbac_fail_closed, mock_audit):
+    async def test_rbac_fail_closed_blocks_ask(
+        self, commands_module, mock_rbac_fail_closed, mock_audit
+    ):
         """When RBAC is fail-closed, ask is blocked."""
         req = _make_request(text="ask Something")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -800,7 +857,9 @@ class TestRBACPermissions:
         assert "access control module not loaded" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_fail_closed_blocks_status(self, commands_module, mock_rbac_fail_closed, mock_audit):
+    async def test_rbac_fail_closed_blocks_status(
+        self, commands_module, mock_rbac_fail_closed, mock_audit
+    ):
         """When RBAC is fail-closed, status is blocked."""
         req = _make_request(text="status")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -808,7 +867,9 @@ class TestRBACPermissions:
         assert "access control module not loaded" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_fail_closed_blocks_vote(self, commands_module, mock_rbac_fail_closed, mock_audit):
+    async def test_rbac_fail_closed_blocks_vote(
+        self, commands_module, mock_rbac_fail_closed, mock_audit
+    ):
         """When RBAC is fail-closed, vote is blocked."""
         req = _make_request(text="vote")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -816,7 +877,9 @@ class TestRBACPermissions:
         assert "access control module not loaded" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_fail_closed_blocks_leaderboard(self, commands_module, mock_rbac_fail_closed, mock_audit):
+    async def test_rbac_fail_closed_blocks_leaderboard(
+        self, commands_module, mock_rbac_fail_closed, mock_audit
+    ):
         """When RBAC is fail-closed, leaderboard is blocked."""
         req = _make_request(text="leaderboard")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -824,7 +887,9 @@ class TestRBACPermissions:
         assert "access control module not loaded" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_unavailable_fail_open_allows_ask(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_rbac_unavailable_fail_open_allows_ask(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """When RBAC is unavailable but fail-open, ask proceeds."""
         req = _make_request(text="ask Some question")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -832,7 +897,9 @@ class TestRBACPermissions:
         assert "Starting debate" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_check_uses_correct_permission_for_ask(self, commands_module, mock_rbac_granted, mock_start_debate):
+    async def test_rbac_check_uses_correct_permission_for_ask(
+        self, commands_module, mock_rbac_granted, mock_start_debate
+    ):
         """Ask command checks PERM_SLACK_DEBATES_CREATE permission."""
         with patch(f"{MODULE}.audit_data"):
             req = _make_request(text="ask My question")
@@ -843,7 +910,9 @@ class TestRBACPermissions:
             assert call_args[0][1] == "slack.debates.create"
 
     @pytest.mark.asyncio
-    async def test_rbac_check_uses_correct_permission_for_status(self, commands_module, mock_rbac_granted):
+    async def test_rbac_check_uses_correct_permission_for_status(
+        self, commands_module, mock_rbac_granted
+    ):
         """Status command checks PERM_SLACK_COMMANDS_READ permission."""
         with patch(f"{MODULE}.audit_data"):
             req = _make_request(text="status")
@@ -853,7 +922,9 @@ class TestRBACPermissions:
             assert call_args[0][1] == "slack.commands.read"
 
     @pytest.mark.asyncio
-    async def test_rbac_check_uses_correct_permission_for_vote(self, commands_module, mock_rbac_granted):
+    async def test_rbac_check_uses_correct_permission_for_vote(
+        self, commands_module, mock_rbac_granted
+    ):
         """Vote command checks PERM_SLACK_VOTES_RECORD permission."""
         with patch(f"{MODULE}.audit_data"):
             req = _make_request(text="vote")
@@ -863,14 +934,18 @@ class TestRBACPermissions:
             assert call_args[0][1] == "slack.votes.record"
 
     @pytest.mark.asyncio
-    async def test_rbac_no_team_id_skips_check(self, commands_module, mock_audit, mock_start_debate):
+    async def test_rbac_no_team_id_skips_check(
+        self, commands_module, mock_audit, mock_start_debate
+    ):
         """When team_id is empty, RBAC check is skipped (returns None)."""
         mock_decision = MagicMock()
         mock_decision.allowed = True
         mock_check = MagicMock(return_value=mock_decision)
-        with patch(f"{MODULE}.RBAC_AVAILABLE", True), \
-             patch(f"{MODULE}.check_permission", mock_check), \
-             patch(f"{MODULE}.rbac_fail_closed", return_value=False):
+        with (
+            patch(f"{MODULE}.RBAC_AVAILABLE", True),
+            patch(f"{MODULE}.check_permission", mock_check),
+            patch(f"{MODULE}.rbac_fail_closed", return_value=False),
+        ):
             req = _make_request(text="ask Something", team_id="")
             result = await commands_module.handle_slack_commands.__wrapped__(req)
             body = _body(result)
@@ -879,25 +954,33 @@ class TestRBACPermissions:
             mock_check.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_rbac_check_exception_is_caught(self, commands_module, mock_audit, mock_start_debate):
+    async def test_rbac_check_exception_is_caught(
+        self, commands_module, mock_audit, mock_start_debate
+    ):
         """TypeError in RBAC check is caught and the command proceeds."""
         mock_check = MagicMock(side_effect=TypeError("mock error"))
         mock_ctx_class = MagicMock()
-        with patch(f"{MODULE}.RBAC_AVAILABLE", True), \
-             patch(f"{MODULE}.check_permission", mock_check), \
-             patch(f"{MODULE}.AuthorizationContext", mock_ctx_class):
+        with (
+            patch(f"{MODULE}.RBAC_AVAILABLE", True),
+            patch(f"{MODULE}.check_permission", mock_check),
+            patch(f"{MODULE}.AuthorizationContext", mock_ctx_class),
+        ):
             req = _make_request(text="ask Something")
             result = await commands_module.handle_slack_commands.__wrapped__(req)
             body = _body(result)
             assert "Starting debate" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_rbac_authorization_context_none(self, commands_module, mock_audit, mock_start_debate):
+    async def test_rbac_authorization_context_none(
+        self, commands_module, mock_audit, mock_start_debate
+    ):
         """When AuthorizationContext is None, RBAC check proceeds without context."""
-        with patch(f"{MODULE}.RBAC_AVAILABLE", True), \
-             patch(f"{MODULE}.check_permission", MagicMock()), \
-             patch(f"{MODULE}.AuthorizationContext", None), \
-             patch(f"{MODULE}.rbac_fail_closed", return_value=False):
+        with (
+            patch(f"{MODULE}.RBAC_AVAILABLE", True),
+            patch(f"{MODULE}.check_permission", MagicMock()),
+            patch(f"{MODULE}.AuthorizationContext", None),
+            patch(f"{MODULE}.rbac_fail_closed", return_value=False),
+        ):
             req = _make_request(text="ask Something")
             result = await commands_module.handle_slack_commands.__wrapped__(req)
             body = _body(result)
@@ -936,7 +1019,9 @@ class TestAuditLogging:
         assert call_kwargs["resource_id"] == "status"
 
     @pytest.mark.asyncio
-    async def test_audit_data_records_ask_subcommand(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_audit_data_records_ask_subcommand(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """audit_data records 'ask' for ask commands."""
         req = _make_request(text="ask My question")
         await commands_module.handle_slack_commands.__wrapped__(req)
@@ -1037,7 +1122,9 @@ class TestEdgeCases:
     """Tests for edge cases and unusual inputs."""
 
     @pytest.mark.asyncio
-    async def test_extra_whitespace_in_text(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_extra_whitespace_in_text(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Extra whitespace between subcommand and args is handled."""
         req = _make_request(text="ask   What about this?")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -1048,7 +1135,9 @@ class TestEdgeCases:
         assert call_kwargs["topic"] == "What about this?"
 
     @pytest.mark.asyncio
-    async def test_subcommand_with_leading_whitespace(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_subcommand_with_leading_whitespace(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Leading whitespace in text is stripped before parsing."""
         req = _make_request(text="  help")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -1066,7 +1155,9 @@ class TestEdgeCases:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_debate_id_truncated_in_response(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_debate_id_truncated_in_response(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Debate ID is truncated to 8 chars in response."""
         req = _make_request(text="ask Something")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -1084,18 +1175,24 @@ class TestEdgeCases:
         assert "Aragora Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_all_subcommands_return_handler_result(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_all_subcommands_return_handler_result(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """All subcommands return a HandlerResult with status 200."""
         from aragora.server.handlers.utils.responses import HandlerResult
 
         for text in ["help", "status", "vote", "leaderboard", "ask Test question"]:
             req = _make_request(text=text)
             result = await commands_module.handle_slack_commands.__wrapped__(req)
-            assert isinstance(result, HandlerResult), f"Subcommand '{text}' did not return HandlerResult"
+            assert isinstance(result, HandlerResult), (
+                f"Subcommand '{text}' did not return HandlerResult"
+            )
             assert _status(result) == 200, f"Subcommand '{text}' returned status {_status(result)}"
 
     @pytest.mark.asyncio
-    async def test_plan_and_implement_return_blocks(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_plan_and_implement_return_blocks(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Plan and implement subcommands return Block Kit blocks."""
         for text in ["plan Build feature X", "implement Refactor module Y"]:
             req = _make_request(text=text)
@@ -1105,7 +1202,9 @@ class TestEdgeCases:
             assert isinstance(body["blocks"], list)
 
     @pytest.mark.asyncio
-    async def test_status_response_type_is_ephemeral(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_status_response_type_is_ephemeral(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Status response is ephemeral (only visible to requesting user)."""
         req = _make_request(text="status")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -1113,7 +1212,9 @@ class TestEdgeCases:
         assert body["response_type"] == "ephemeral"
 
     @pytest.mark.asyncio
-    async def test_leaderboard_response_type_is_in_channel(self, commands_module, mock_rbac_off, mock_audit):
+    async def test_leaderboard_response_type_is_in_channel(
+        self, commands_module, mock_rbac_off, mock_audit
+    ):
         """Leaderboard response is in_channel (visible to everyone)."""
         req = _make_request(text="leaderboard")
         result = await commands_module.handle_slack_commands.__wrapped__(req)
@@ -1121,7 +1222,9 @@ class TestEdgeCases:
         assert body["response_type"] == "in_channel"
 
     @pytest.mark.asyncio
-    async def test_ask_response_type_is_in_channel(self, commands_module, mock_rbac_off, mock_audit, mock_start_debate):
+    async def test_ask_response_type_is_in_channel(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
         """Ask response is in_channel (visible to everyone)."""
         req = _make_request(text="ask My question")
         result = await commands_module.handle_slack_commands.__wrapped__(req)

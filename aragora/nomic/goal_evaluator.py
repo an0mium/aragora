@@ -133,7 +133,7 @@ class GoalEvaluator:
             return 1.0 if files_changed else 0.0
 
         changed_set = set(files_changed)
-        hits = 0
+        hits: float = 0
 
         for target in file_scope:
             if target in changed_set:
@@ -191,10 +191,41 @@ class GoalEvaluator:
             return 0.0
 
         stop_words = {
-            "the", "a", "an", "is", "in", "to", "for", "and", "or", "of",
-            "on", "at", "by", "with", "from", "as", "it", "be", "this",
-            "that", "are", "was", "were", "will", "can", "do", "not",
-            "all", "each", "any", "more", "also", "but", "if", "so",
+            "the",
+            "a",
+            "an",
+            "is",
+            "in",
+            "to",
+            "for",
+            "and",
+            "or",
+            "of",
+            "on",
+            "at",
+            "by",
+            "with",
+            "from",
+            "as",
+            "it",
+            "be",
+            "this",
+            "that",
+            "are",
+            "was",
+            "were",
+            "will",
+            "can",
+            "do",
+            "not",
+            "all",
+            "each",
+            "any",
+            "more",
+            "also",
+            "but",
+            "if",
+            "so",
         }
 
         # Extract meaningful words from goal

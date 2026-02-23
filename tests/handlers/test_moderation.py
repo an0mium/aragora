@@ -213,7 +213,9 @@ class TestGetConfig:
 
     @patch("aragora.server.handlers.moderation.run_async")
     @patch("aragora.server.handlers.moderation.get_spam_moderation")
-    def test_initialization_failure_still_returns(self, mock_get, mock_run_async, handler, http_handler):
+    def test_initialization_failure_still_returns(
+        self, mock_get, mock_run_async, handler, http_handler
+    ):
         mock_mod = _make_mock_moderation(initialized=False)
         mock_get.return_value = mock_mod
         mock_run_async.side_effect = RuntimeError("Init failed")
@@ -263,14 +265,16 @@ class TestGetStats:
     @patch("aragora.server.handlers.moderation.review_queue_size")
     @patch("aragora.server.handlers.moderation.get_spam_moderation")
     def test_returns_stats(self, mock_get, mock_queue_size, handler, http_handler):
-        mock_mod = _make_mock_moderation(stats={
-            "checks": 100,
-            "blocked": 10,
-            "flagged": 5,
-            "passed": 85,
-            "cache_hits": 20,
-            "errors": 1,
-        })
+        mock_mod = _make_mock_moderation(
+            stats={
+                "checks": 100,
+                "blocked": 10,
+                "flagged": 5,
+                "passed": 85,
+                "cache_hits": 20,
+                "errors": 1,
+            }
+        )
         mock_get.return_value = mock_mod
         mock_queue_size.return_value = 7
 
@@ -455,9 +459,7 @@ class TestApproveItem:
         mock_item = _make_queue_item("item_123")
         mock_pop.return_value = mock_item
 
-        result = handler.handle_post(
-            "/api/moderation/items/item_123/approve", {}, http_handler()
-        )
+        result = handler.handle_post("/api/moderation/items/item_123/approve", {}, http_handler())
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "approved"
@@ -473,7 +475,9 @@ class TestApproveItem:
         )
         assert _status(result) == 404
         body = _body(result)
-        assert "not found" in body.get("error", "").lower() or "not found" in json.dumps(body).lower()
+        assert (
+            "not found" in body.get("error", "").lower() or "not found" in json.dumps(body).lower()
+        )
 
 
 # ============================================================================
@@ -489,9 +493,7 @@ class TestRejectItem:
         mock_item = _make_queue_item("item_456")
         mock_pop.return_value = mock_item
 
-        result = handler.handle_post(
-            "/api/moderation/items/item_456/reject", {}, http_handler()
-        )
+        result = handler.handle_post("/api/moderation/items/item_456/reject", {}, http_handler())
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "rejected"
@@ -590,18 +592,14 @@ class TestHandlePostRouting:
     @patch("aragora.server.handlers.moderation.pop_review_item")
     def test_post_approve_route(self, mock_pop, handler, http_handler):
         mock_pop.return_value = _make_queue_item()
-        result = handler.handle_post(
-            "/api/moderation/items/abc/approve", {}, http_handler()
-        )
+        result = handler.handle_post("/api/moderation/items/abc/approve", {}, http_handler())
         assert result is not None
         assert _status(result) == 200
 
     @patch("aragora.server.handlers.moderation.pop_review_item")
     def test_post_reject_route(self, mock_pop, handler, http_handler):
         mock_pop.return_value = _make_queue_item()
-        result = handler.handle_post(
-            "/api/moderation/items/abc/reject", {}, http_handler()
-        )
+        result = handler.handle_post("/api/moderation/items/abc/reject", {}, http_handler())
         assert result is not None
         assert _status(result) == 200
 
@@ -614,9 +612,7 @@ class TestHandlePostRouting:
         assert result is None
 
     def test_post_items_unknown_action(self, handler, http_handler):
-        result = handler.handle_post(
-            "/api/moderation/items/abc/escalate", {}, http_handler()
-        )
+        result = handler.handle_post("/api/moderation/items/abc/escalate", {}, http_handler())
         assert result is None
 
 
@@ -758,15 +754,11 @@ class TestEdgeCases:
         """Approve returns 'approved' status, reject returns 'rejected' status."""
         mock_pop.return_value = _make_queue_item("x")
 
-        approve_result = handler.handle_post(
-            "/api/moderation/items/x/approve", {}, http_handler()
-        )
+        approve_result = handler.handle_post("/api/moderation/items/x/approve", {}, http_handler())
         assert _body(approve_result)["status"] == "approved"
 
         mock_pop.return_value = _make_queue_item("y")
-        reject_result = handler.handle_post(
-            "/api/moderation/items/y/reject", {}, http_handler()
-        )
+        reject_result = handler.handle_post("/api/moderation/items/y/reject", {}, http_handler())
         assert _body(reject_result)["status"] == "rejected"
 
     @patch("aragora.server.handlers.moderation.get_spam_moderation")

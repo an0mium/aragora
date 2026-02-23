@@ -231,7 +231,10 @@ class ThreatIntelEnrichment:
 
         if self._enabled:
             logger.info(
-                "[threat_intel] Enrichment enabled (max_indicators=%s, threat_client=%s, cve_client=%s)", max_indicators, self._threat_client is not None, self._cve_client is not None
+                "[threat_intel] Enrichment enabled (max_indicators=%s, threat_client=%s, cve_client=%s)",
+                max_indicators,
+                self._threat_client is not None,
+                self._cve_client is not None,
             )
 
     def _create_threat_intel_client(self) -> ThreatIntelligenceService | None:

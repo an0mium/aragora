@@ -851,7 +851,9 @@ class TestCalendarConflicts:
     @pytest.mark.asyncio
     async def test_calendar_error_handling(self, detector_with_google):
         """Should handle calendar API errors gracefully."""
-        detector_with_google.google_calendar.find_conflicts.side_effect = ConnectionError("API Error")
+        detector_with_google.google_calendar.find_conflicts.side_effect = ConnectionError(
+            "API Error"
+        )
 
         email = make_email(
             subject="Meeting Invitation",

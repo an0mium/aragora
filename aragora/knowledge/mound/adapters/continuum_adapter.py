@@ -428,9 +428,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                     else None
                 ),
                 "org_id": (
-                    request.metadata.get("org_id")
-                    if isinstance(request.metadata, dict)
-                    else None
+                    request.metadata.get("org_id") if isinstance(request.metadata, dict) else None
                 ),
                 "topics": request.topics,
                 "mound_metadata": request.metadata,
@@ -682,7 +680,10 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 tier_changed = self._continuum.promote_entry(memory_id, new_tier)
                 if tier_changed:
                     logger.info(
-                        "Promoted continuum entry from KM validation: %s %s -> %s", memory_id, entry.tier.value, new_tier.value
+                        "Promoted continuum entry from KM validation: %s %s -> %s",
+                        memory_id,
+                        entry.tier.value,
+                        new_tier.value,
                     )
 
         elif recommendation == "demote" and entry.tier != MemoryTier.FAST:
@@ -694,7 +695,10 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 tier_changed = self._continuum.demote_entry(memory_id, new_tier)
                 if tier_changed:
                     logger.info(
-                        "Demoted continuum entry from KM validation: %s %s -> %s", memory_id, entry.tier.value, new_tier.value
+                        "Demoted continuum entry from KM validation: %s %s -> %s",
+                        memory_id,
+                        entry.tier.value,
+                        new_tier.value,
                     )
 
         # Check if importance changed significantly
@@ -791,7 +795,13 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         result.duration_ms = int((time.time() - start_time) * 1000)
 
         logger.info(
-            "KM validation sync complete: promoted=%s, demoted=%s, updated=%s, skipped=%s, errors=%s, duration=%sms", result.promoted, result.demoted, result.updated, result.skipped, len(result.errors), result.duration_ms
+            "KM validation sync complete: promoted=%s, demoted=%s, updated=%s, skipped=%s, errors=%s, duration=%sms",
+            result.promoted,
+            result.demoted,
+            result.updated,
+            result.skipped,
+            len(result.errors),
+            result.duration_ms,
         )
 
         return result
@@ -925,7 +935,11 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 result["errors"].append(error_msg)
 
         logger.info(
-            "Memory to KM sync complete: synced=%s, skipped=%s, already_synced=%s, errors=%s", result['synced'], result['skipped'], result['already_synced'], len(result['errors'])
+            "Memory to KM sync complete: synced=%s, skipped=%s, already_synced=%s, errors=%s",
+            result["synced"],
+            result["skipped"],
+            result["already_synced"],
+            len(result["errors"]),
         )
 
         return result

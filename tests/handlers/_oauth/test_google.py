@@ -121,9 +121,7 @@ class _TestGoogleHandler(GoogleOAuthMixin):
     def _find_user_by_oauth(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         return user_store.find_by_oauth(user_info.provider, user_info.provider_user_id)
 
-    def _link_oauth_to_user(
-        self, user_store: Any, user_id: str, user_info: OAuthUserInfo
-    ) -> bool:
+    def _link_oauth_to_user(self, user_store: Any, user_id: str, user_info: OAuthUserInfo) -> bool:
         return user_store.link_oauth(user_id, user_info)
 
     def _create_oauth_user(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
@@ -215,9 +213,7 @@ class TestGoogleAuthStart:
 
     def test_returns_redirect_to_google(self, handler, impl, mock_http_handler):
         """Auth start returns a 302 with Location to Google auth URL."""
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_google_auth_start(mock_http_handler, {})
 
@@ -245,9 +241,7 @@ class TestGoogleAuthStart:
     def test_invalid_redirect_url_returns_400(self, handler, impl, mock_http_handler):
         """Returns 400 when redirect_url fails validation."""
         impl._validate_redirect_url = lambda url: False
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_google_auth_start(
                 mock_http_handler, {"redirect_url": "https://evil.com"}
@@ -266,9 +260,7 @@ class TestGoogleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_google_auth_start(
                 mock_http_handler, {"redirect_url": "https://app.example.com/done"}
@@ -277,9 +269,7 @@ class TestGoogleAuthStart:
         assert _status(result) == 302
         assert captured["redirect_url"] == "https://app.example.com/done"
 
-    def test_authenticated_user_passes_user_id_to_state(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_authenticated_user_passes_user_id_to_state(self, handler, impl, mock_http_handler):
         """When user is already authenticated, user_id is included in state."""
         captured = {}
 
@@ -288,18 +278,14 @@ class TestGoogleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user-42")
             result = handler._handle_google_auth_start(mock_http_handler, {})
 
         assert _status(result) == 302
         assert captured["user_id"] == "user-42"
 
-    def test_unauthenticated_user_passes_none_user_id(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_unauthenticated_user_passes_none_user_id(self, handler, impl, mock_http_handler):
         """When user is not authenticated, user_id is None in state."""
         captured = {}
 
@@ -308,18 +294,14 @@ class TestGoogleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_google_auth_start(mock_http_handler, {})
 
         assert _status(result) == 302
         assert captured["user_id"] is None
 
-    def test_default_redirect_url_when_not_in_params(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_default_redirect_url_when_not_in_params(self, handler, impl, mock_http_handler):
         """Uses OAuth success URL as default redirect when not specified in query."""
         captured = {}
 
@@ -328,9 +310,7 @@ class TestGoogleAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             handler._handle_google_auth_start(mock_http_handler, {})
 
@@ -358,7 +338,9 @@ class TestGoogleCallback:
         """Google error parameter triggers redirect with error."""
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
-                handler, mock_http_handler, {"error": "access_denied", "error_description": "User denied"}
+                handler,
+                mock_http_handler,
+                {"error": "access_denied", "error_description": "User denied"},
             )
         )
         assert _status(result) == 302
@@ -422,9 +404,7 @@ class TestGoogleCallback:
 
     def test_no_access_token_returns_error(self, handler, impl, mock_http_handler):
         """Token response without access_token triggers redirect with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"token_type": "Bearer"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"token_type": "Bearer"})
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
@@ -435,12 +415,8 @@ class TestGoogleCallback:
 
     def test_user_info_failure_returns_error(self, handler, impl, mock_http_handler):
         """Failure to get user info triggers redirect with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_google_user_info = MagicMock(
-            side_effect=ConnectionError("timeout")
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
+        handler._get_google_user_info = MagicMock(side_effect=ConnectionError("timeout"))
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
@@ -451,9 +427,7 @@ class TestGoogleCallback:
 
     def test_no_user_store_returns_error(self, handler, impl, mock_http_handler, sample_user_info):
         """None user_store triggers redirect with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store = None
         handler._get_user_store = lambda: None
@@ -473,9 +447,7 @@ class TestGoogleCallback:
             "user_id": "linking-user",
             "redirect_url": "http://localhost:3000/auth/success",
         }
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
@@ -488,14 +460,10 @@ class TestGoogleCallback:
         assert uid == "linking-user"
         assert uinfo.email == "alice@example.com"
 
-    def test_existing_oauth_user_login(
-        self, handler, impl, mock_http_handler, sample_user_info
-    ):
+    def test_existing_oauth_user_login(self, handler, impl, mock_http_handler, sample_user_info):
         """Existing user found by OAuth ID proceeds to token creation."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = user
         handler._user_store.update_user = MagicMock()
@@ -521,13 +489,9 @@ class TestGoogleCallback:
         self, handler, impl, mock_http_handler, sample_user_info
     ):
         """Database error during find_user_by_oauth redirects with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
-        handler._find_user_by_oauth = MagicMock(
-            side_effect=RuntimeError("DB connection lost")
-        )
+        handler._find_user_by_oauth = MagicMock(side_effect=RuntimeError("DB connection lost"))
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
@@ -540,9 +504,7 @@ class TestGoogleCallback:
         self, handler, impl, mock_http_handler, sample_user_info
     ):
         """InterfaceError during find_user_by_oauth gives temporary connection message."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
 
         class InterfaceError(Exception):
@@ -562,9 +524,7 @@ class TestGoogleCallback:
     ):
         """When no OAuth user but email matches, link OAuth to existing account."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.return_value = user
@@ -584,9 +544,7 @@ class TestGoogleCallback:
         assert _status(result) == 302
         handler._user_store.link_oauth.assert_called_once_with(user.id, sample_user_info)
 
-    def test_unverified_email_blocks_linking(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_unverified_email_blocks_linking(self, handler, impl, mock_http_handler):
         """Unverified email from Google blocks linking to existing account."""
         unverified_info = OAuthUserInfo(
             provider="google",
@@ -596,9 +554,7 @@ class TestGoogleCallback:
             email_verified=False,
         )
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=unverified_info)
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.return_value = user
@@ -611,14 +567,10 @@ class TestGoogleCallback:
         assert _status(result) == 302
         assert "verification required" in handler._error_messages[0].lower()
 
-    def test_new_user_creation(
-        self, handler, impl, mock_http_handler, sample_user_info
-    ):
+    def test_new_user_creation(self, handler, impl, mock_http_handler, sample_user_info):
         """When no existing user, create new OAuth user."""
         new_user = _MockUser(id="new-user-1")
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.return_value = None
@@ -644,15 +596,11 @@ class TestGoogleCallback:
         self, handler, impl, mock_http_handler, sample_user_info
     ):
         """Failure to create user returns error redirect."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.return_value = None
-        handler._create_oauth_user = MagicMock(
-            side_effect=RuntimeError("DB write failed")
-        )
+        handler._create_oauth_user = MagicMock(side_effect=RuntimeError("DB write failed"))
 
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
@@ -666,9 +614,7 @@ class TestGoogleCallback:
         self, handler, impl, mock_http_handler, sample_user_info
     ):
         """When create_oauth_user returns None, error redirect occurs."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.return_value = None
@@ -687,9 +633,7 @@ class TestGoogleCallback:
     ):
         """Failure to update last_login is non-fatal; tokens are still created."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = user
         handler._user_store.update_user.side_effect = RuntimeError("DB error")
@@ -716,9 +660,7 @@ class TestGoogleCallback:
         from aragora.exceptions import ConfigurationError
 
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = user
         handler._user_store.update_user = MagicMock()
@@ -741,9 +683,7 @@ class TestGoogleCallback:
     ):
         """ValueError during token creation returns error with type name."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = user
         handler._user_store.update_user = MagicMock()
@@ -761,17 +701,13 @@ class TestGoogleCallback:
         assert _status(result) == 302
         assert "ValueError" in handler._error_messages[0]
 
-    def test_redirect_url_from_state_data(
-        self, handler, impl, mock_http_handler, sample_user_info
-    ):
+    def test_redirect_url_from_state_data(self, handler, impl, mock_http_handler, sample_user_info):
         """Redirect URL is taken from state_data when present."""
         impl._validate_state = lambda state: {
             "redirect_url": "https://custom.example.com/done",
         }
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = user
         handler._user_store.update_user = MagicMock()
@@ -796,9 +732,7 @@ class TestGoogleCallback:
         """When state_data has no redirect_url, falls back to OAuth success URL."""
         impl._validate_state = lambda state: {}
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = user
         handler._user_store.update_user = MagicMock()
@@ -822,9 +756,7 @@ class TestGoogleCallback:
     ):
         """When user_store has async methods, they are preferred."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = None
 
@@ -859,9 +791,7 @@ class TestGoogleCallback:
         self, handler, impl, mock_http_handler, sample_user_info
     ):
         """Database error during email lookup redirects with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.side_effect = RuntimeError("DB error")
@@ -878,9 +808,7 @@ class TestGoogleCallback:
 
     def test_token_exchange_timeout_error(self, handler, impl, mock_http_handler):
         """TimeoutError during token exchange redirects with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            side_effect=TimeoutError("request timed out")
-        )
+        handler._exchange_code_for_tokens = MagicMock(side_effect=TimeoutError("request timed out"))
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
@@ -891,9 +819,7 @@ class TestGoogleCallback:
 
     def test_token_exchange_os_error(self, handler, impl, mock_http_handler):
         """OSError during token exchange redirects with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            side_effect=OSError("network unreachable")
-        )
+        handler._exchange_code_for_tokens = MagicMock(side_effect=OSError("network unreachable"))
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
@@ -930,14 +856,10 @@ class TestGoogleCallback:
         assert _status(result) == 302
         assert len(handler._redirect_tokens_calls) == 1
 
-    def test_awaitable_user_info_result(
-        self, handler, impl, mock_http_handler, sample_user_info
-    ):
+    def test_awaitable_user_info_result(self, handler, impl, mock_http_handler, sample_user_info):
         """When _get_google_user_info returns a coroutine, it is awaited."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
 
         async def async_user_info(token):
             return sample_user_info
@@ -977,7 +899,10 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+            return_value=mock_response,
+        ):
             # Ensure no running loop
             result = handler._exchange_code_for_tokens("auth-code-123")
 
@@ -996,7 +921,10 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+            return_value=mock_response,
+        ):
             try:
                 result = handler._exchange_code_for_tokens("auth-code")
                 if asyncio.iscoroutine(result):
@@ -1013,7 +941,10 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+            return_value=mock_response,
+        ):
             try:
                 result = handler._exchange_code_for_tokens("auth-code")
                 if asyncio.iscoroutine(result):
@@ -1035,7 +966,9 @@ class TestExchangeCodeForTokens:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_code_for_tokens("auth-code")
             # In async context it returns a coroutine
             if asyncio.iscoroutine(result):
@@ -1055,7 +988,9 @@ class TestExchangeCodeForTokens:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_code_for_tokens("auth-code")
             if asyncio.iscoroutine(result):
                 with pytest.raises(ValueError, match="Empty response"):
@@ -1073,7 +1008,9 @@ class TestExchangeCodeForTokens:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_code_for_tokens("auth-code")
             if asyncio.iscoroutine(result):
                 with pytest.raises(ValueError, match="Invalid JSON"):
@@ -1090,19 +1027,24 @@ class TestGetGoogleUserInfo:
 
     def test_sync_path_returns_user_info(self, handler, impl):
         """Sync path returns OAuthUserInfo from Google response."""
-        user_data = json.dumps({
-            "id": "goog-42",
-            "email": "bob@example.com",
-            "name": "Bob",
-            "picture": "https://example.com/bob.jpg",
-            "verified_email": True,
-        }).encode()
+        user_data = json.dumps(
+            {
+                "id": "goog-42",
+                "email": "bob@example.com",
+                "name": "Bob",
+                "picture": "https://example.com/bob.jpg",
+                "verified_email": True,
+            }
+        ).encode()
         mock_response = MagicMock()
         mock_response.read.return_value = user_data
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+            return_value=mock_response,
+        ):
             result = handler._get_google_user_info("access-token")
             if asyncio.iscoroutine(result):
                 result.close()
@@ -1118,17 +1060,22 @@ class TestGetGoogleUserInfo:
 
     def test_sync_path_name_fallback_to_email_prefix(self, handler, impl):
         """When name is missing, falls back to email prefix."""
-        user_data = json.dumps({
-            "id": "goog-42",
-            "email": "charlie@example.com",
-            "verified_email": False,
-        }).encode()
+        user_data = json.dumps(
+            {
+                "id": "goog-42",
+                "email": "charlie@example.com",
+                "verified_email": False,
+            }
+        ).encode()
         mock_response = MagicMock()
         mock_response.read.return_value = user_data
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+            return_value=mock_response,
+        ):
             result = handler._get_google_user_info("access-token")
             if asyncio.iscoroutine(result):
                 result.close()
@@ -1144,7 +1091,10 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+            return_value=mock_response,
+        ):
             try:
                 result = handler._get_google_user_info("access-token")
                 if asyncio.iscoroutine(result):
@@ -1171,7 +1121,9 @@ class TestGetGoogleUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_google_user_info("access-token")
             if asyncio.iscoroutine(result):
                 info = await result
@@ -1199,7 +1151,9 @@ class TestGetGoogleUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_google_user_info("access-token")
             if asyncio.iscoroutine(result):
                 info = await result
@@ -1219,7 +1173,9 @@ class TestGetGoogleUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.google.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_google_user_info("access-token")
             if asyncio.iscoroutine(result):
                 with pytest.raises(ValueError, match="Invalid JSON"):
@@ -1244,9 +1200,7 @@ class TestEdgeCases:
 
     def test_query_param_as_list(self, handler, impl, mock_http_handler):
         """Query parameters provided as lists are handled correctly."""
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = handler._handle_google_auth_start(
                 mock_http_handler,
@@ -1255,14 +1209,10 @@ class TestEdgeCases:
 
         assert _status(result) == 302
 
-    def test_token_key_error_returns_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_key_error_returns_error(self, handler, impl, mock_http_handler):
         """KeyError during token creation returns error with type name."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         info = OAuthUserInfo(
             provider="google",
             provider_user_id="goog-1",
@@ -1287,14 +1237,10 @@ class TestEdgeCases:
         assert _status(result) == 302
         assert "KeyError" in handler._error_messages[0]
 
-    def test_token_type_error_returns_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_token_type_error_returns_error(self, handler, impl, mock_http_handler):
         """TypeError during token creation returns error with type name."""
         user = _MockUser()
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
         info = OAuthUserInfo(
             provider="google",
             provider_user_id="goog-1",
@@ -1319,16 +1265,10 @@ class TestEdgeCases:
         assert _status(result) == 302
         assert "TypeError" in handler._error_messages[0]
 
-    def test_user_info_key_error_returns_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_user_info_key_error_returns_error(self, handler, impl, mock_http_handler):
         """KeyError during user info fetch redirects with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_google_user_info = MagicMock(
-            side_effect=KeyError("id")
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
+        handler._get_google_user_info = MagicMock(side_effect=KeyError("id"))
 
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
@@ -1338,16 +1278,10 @@ class TestEdgeCases:
         assert _status(result) == 302
         assert "Failed to get user info" in handler._error_messages[0]
 
-    def test_user_info_value_error_returns_error(
-        self, handler, impl, mock_http_handler
-    ):
+    def test_user_info_value_error_returns_error(self, handler, impl, mock_http_handler):
         """ValueError during user info fetch redirects with error."""
-        handler._exchange_code_for_tokens = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_google_user_info = MagicMock(
-            side_effect=ValueError("bad data")
-        )
+        handler._exchange_code_for_tokens = MagicMock(return_value={"access_token": "tok"})
+        handler._get_google_user_info = MagicMock(side_effect=ValueError("bad data"))
 
         result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
@@ -1371,7 +1305,9 @@ class TestEdgeCases:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen
+        ):
             result = handler._exchange_code_for_tokens("my-auth-code")
             if asyncio.iscoroutine(result):
                 result.close()
@@ -1392,15 +1328,19 @@ class TestEdgeCases:
             captured_req["url"] = req.full_url
             captured_req["headers"] = dict(req.headers)
             mock_resp = MagicMock()
-            mock_resp.read.return_value = json.dumps({
-                "id": "goog-1",
-                "email": "x@y.com",
-            }).encode()
+            mock_resp.read.return_value = json.dumps(
+                {
+                    "id": "goog-1",
+                    "email": "x@y.com",
+                }
+            ).encode()
             mock_resp.__enter__ = MagicMock(return_value=mock_resp)
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch("aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen):
+        with patch(
+            "aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen
+        ):
             result = handler._get_google_user_info("my-bearer-token")
             if asyncio.iscoroutine(result):
                 result.close()

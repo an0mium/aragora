@@ -55,9 +55,7 @@ class TestHandlerStabilityDict:
     def test_all_keys_end_with_handler(self):
         """Handler class names should follow the naming convention."""
         for name in HANDLER_STABILITY:
-            assert name.endswith("Handler"), (
-                f"Handler name {name!r} does not end with 'Handler'"
-            )
+            assert name.endswith("Handler"), f"Handler name {name!r} does not end with 'Handler'"
 
     def test_no_empty_keys(self):
         for key in HANDLER_STABILITY:
@@ -71,15 +69,11 @@ class TestHandlerStabilityDict:
     def test_keys_are_pascal_case(self):
         """Handler names should be PascalCase."""
         for name in HANDLER_STABILITY:
-            assert name[0].isupper(), (
-                f"Handler name {name!r} does not start with uppercase"
-            )
+            assert name[0].isupper(), f"Handler name {name!r} does not start with uppercase"
 
     def test_no_leading_or_trailing_whitespace_in_keys(self):
         for name in HANDLER_STABILITY:
-            assert name == name.strip(), (
-                f"Handler name {name!r} has leading/trailing whitespace"
-            )
+            assert name == name.strip(), f"Handler name {name!r} has leading/trailing whitespace"
 
 
 # =============================================================================
@@ -239,16 +233,12 @@ class TestStabilityDistribution:
     """Test the distribution of stability levels across handlers."""
 
     def test_stable_handlers_exist(self):
-        stable = [
-            name for name, s in HANDLER_STABILITY.items() if s == Stability.STABLE
-        ]
+        stable = [name for name, s in HANDLER_STABILITY.items() if s == Stability.STABLE]
         assert len(stable) > 0
 
     def test_experimental_handlers_exist(self):
         experimental = [
-            name
-            for name, s in HANDLER_STABILITY.items()
-            if s == Stability.EXPERIMENTAL
+            name for name, s in HANDLER_STABILITY.items() if s == Stability.EXPERIMENTAL
         ]
         assert len(experimental) > 0
 
@@ -261,16 +251,12 @@ class TestStabilityDistribution:
 
     def test_no_preview_handlers(self):
         """Currently no handlers are classified as PREVIEW."""
-        preview = [
-            name for name, s in HANDLER_STABILITY.items() if s == Stability.PREVIEW
-        ]
+        preview = [name for name, s in HANDLER_STABILITY.items() if s == Stability.PREVIEW]
         assert len(preview) == 0
 
     def test_no_deprecated_handlers(self):
         """Currently no handlers are classified as DEPRECATED."""
-        deprecated = [
-            name for name, s in HANDLER_STABILITY.items() if s == Stability.DEPRECATED
-        ]
+        deprecated = [name for name, s in HANDLER_STABILITY.items() if s == Stability.DEPRECATED]
         assert len(deprecated) == 0
 
     def test_only_two_stability_levels_used(self):
@@ -378,9 +364,7 @@ class TestGetAllHandlerStability:
     def test_all_values_are_strings(self):
         result = get_all_handler_stability()
         for name, value in result.items():
-            assert isinstance(value, str), (
-                f"Value for {name!r} is {type(value)}, expected str"
-            )
+            assert isinstance(value, str), f"Value for {name!r} is {type(value)}, expected str"
 
     def test_stable_value_is_string_stable(self):
         result = get_all_handler_stability()
@@ -746,9 +730,7 @@ class TestEdgeCases:
     def test_stability_values_are_lowercase_strings(self):
         result = get_all_handler_stability()
         for name, value in result.items():
-            assert value == value.lower(), (
-                f"Value {value!r} for {name!r} is not lowercase"
-            )
+            assert value == value.lower(), f"Value {value!r} for {name!r} is not lowercase"
 
     def test_handler_names_contain_no_dots(self):
         """Handler names are class names without module paths."""
@@ -811,21 +793,13 @@ class TestConsistency:
             assert all_stabilities[name] == stability.value
 
     def test_dict_and_function_agree_on_stable_count(self):
-        dict_stable = sum(
-            1 for s in HANDLER_STABILITY.values() if s == Stability.STABLE
-        )
-        all_stable = sum(
-            1 for v in get_all_handler_stability().values() if v == "stable"
-        )
+        dict_stable = sum(1 for s in HANDLER_STABILITY.values() if s == Stability.STABLE)
+        all_stable = sum(1 for v in get_all_handler_stability().values() if v == "stable")
         assert dict_stable == all_stable
 
     def test_dict_and_function_agree_on_experimental_count(self):
-        dict_exp = sum(
-            1 for s in HANDLER_STABILITY.values() if s == Stability.EXPERIMENTAL
-        )
-        all_exp = sum(
-            1 for v in get_all_handler_stability().values() if v == "experimental"
-        )
+        dict_exp = sum(1 for s in HANDLER_STABILITY.values() if s == Stability.EXPERIMENTAL)
+        all_exp = sum(1 for v in get_all_handler_stability().values() if v == "experimental")
         assert dict_exp == all_exp
 
 

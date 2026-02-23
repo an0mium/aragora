@@ -225,16 +225,20 @@ class TestListReviews:
 
     def test_list_reviews_single_review(self, handler, http_handler, reviews_dir):
         """List with a single valid review."""
-        _write_review(reviews_dir, "abc123", {
-            "id": "abc123",
-            "created_at": "2026-01-01T00:00:00Z",
-            "agents": ["claude", "gpt4"],
-            "pr_url": "https://github.com/example/pr/1",
-            "findings": {
-                "unanimous_critiques": [{"text": "issue1"}],
-                "agreement_score": 0.85,
+        _write_review(
+            reviews_dir,
+            "abc123",
+            {
+                "id": "abc123",
+                "created_at": "2026-01-01T00:00:00Z",
+                "agents": ["claude", "gpt4"],
+                "pr_url": "https://github.com/example/pr/1",
+                "findings": {
+                    "unanimous_critiques": [{"text": "issue1"}],
+                    "agreement_score": 0.85,
+                },
             },
-        })
+        )
         result = handler.handle("/api/reviews", {}, http_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -248,20 +252,28 @@ class TestListReviews:
 
     def test_list_reviews_multiple_sorted_by_mtime(self, handler, http_handler, reviews_dir):
         """Reviews should be sorted by modification time, newest first."""
-        _write_review(reviews_dir, "old1", {
-            "id": "old1",
-            "created_at": "2026-01-01T00:00:00Z",
-            "agents": [],
-            "findings": {},
-        })
+        _write_review(
+            reviews_dir,
+            "old1",
+            {
+                "id": "old1",
+                "created_at": "2026-01-01T00:00:00Z",
+                "agents": [],
+                "findings": {},
+            },
+        )
         # Ensure different mtime
         time.sleep(0.05)
-        _write_review(reviews_dir, "new1", {
-            "id": "new1",
-            "created_at": "2026-02-01T00:00:00Z",
-            "agents": [],
-            "findings": {},
-        })
+        _write_review(
+            reviews_dir,
+            "new1",
+            {
+                "id": "new1",
+                "created_at": "2026-02-01T00:00:00Z",
+                "agents": [],
+                "findings": {},
+            },
+        )
         result = handler.handle("/api/reviews", {}, http_handler)
         body = _body(result)
         assert body["total"] == 2
@@ -271,12 +283,16 @@ class TestListReviews:
 
     def test_list_reviews_skips_corrupt_json(self, handler, http_handler, reviews_dir):
         """Corrupt JSON files should be silently skipped."""
-        _write_review(reviews_dir, "good1", {
-            "id": "good1",
-            "created_at": "2026-01-01T00:00:00Z",
-            "agents": [],
-            "findings": {},
-        })
+        _write_review(
+            reviews_dir,
+            "good1",
+            {
+                "id": "good1",
+                "created_at": "2026-01-01T00:00:00Z",
+                "agents": [],
+                "findings": {},
+            },
+        )
         corrupt_file = reviews_dir / "bad1.json"
         corrupt_file.write_text("{invalid json!!!")
         result = handler.handle("/api/reviews", {}, http_handler)
@@ -286,29 +302,44 @@ class TestListReviews:
 
     def test_list_reviews_default_fields(self, handler, http_handler, reviews_dir):
         """Review summaries should include only expected fields."""
-        _write_review(reviews_dir, "rev1", {
-            "id": "rev1",
-            "created_at": "2026-01-15T12:00:00Z",
-            "agents": ["claude"],
-            "pr_url": None,
-            "findings": {
-                "unanimous_critiques": [],
-                "agreement_score": 0.5,
+        _write_review(
+            reviews_dir,
+            "rev1",
+            {
+                "id": "rev1",
+                "created_at": "2026-01-15T12:00:00Z",
+                "agents": ["claude"],
+                "pr_url": None,
+                "findings": {
+                    "unanimous_critiques": [],
+                    "agreement_score": 0.5,
+                },
+                "extra_field": "should_not_appear",
             },
-            "extra_field": "should_not_appear",
-        })
+        )
         result = handler.handle("/api/reviews", {}, http_handler)
         body = _body(result)
         review = body["reviews"][0]
-        expected_keys = {"id", "created_at", "agents", "pr_url", "unanimous_count", "agreement_score"}
+        expected_keys = {
+            "id",
+            "created_at",
+            "agents",
+            "pr_url",
+            "unanimous_count",
+            "agreement_score",
+        }
         assert set(review.keys()) == expected_keys
 
     def test_list_reviews_missing_findings(self, handler, http_handler, reviews_dir):
         """Reviews without findings should return defaults."""
-        _write_review(reviews_dir, "nofind", {
-            "id": "nofind",
-            "created_at": "2026-01-01T00:00:00Z",
-        })
+        _write_review(
+            reviews_dir,
+            "nofind",
+            {
+                "id": "nofind",
+                "created_at": "2026-01-01T00:00:00Z",
+            },
+        )
         result = handler.handle("/api/reviews", {}, http_handler)
         body = _body(result)
         review = body["reviews"][0]
@@ -326,11 +357,15 @@ class TestListReviews:
     def test_list_reviews_limit(self, handler, http_handler, reviews_dir):
         """Internal _list_reviews respects limit parameter."""
         for i in range(5):
-            _write_review(reviews_dir, f"rev{i:03d}", {
-                "id": f"rev{i:03d}",
-                "created_at": "2026-01-01T00:00:00Z",
-                "findings": {},
-            })
+            _write_review(
+                reviews_dir,
+                f"rev{i:03d}",
+                {
+                    "id": f"rev{i:03d}",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "findings": {},
+                },
+            )
             time.sleep(0.02)
         result = handler._list_reviews(limit=3)
         body = _body(result)
@@ -338,11 +373,15 @@ class TestListReviews:
 
     def test_list_reviews_non_json_files_ignored(self, handler, http_handler, reviews_dir):
         """Non-JSON files in the directory should be ignored by glob."""
-        _write_review(reviews_dir, "valid1", {
-            "id": "valid1",
-            "created_at": "2026-01-01T00:00:00Z",
-            "findings": {},
-        })
+        _write_review(
+            reviews_dir,
+            "valid1",
+            {
+                "id": "valid1",
+                "created_at": "2026-01-01T00:00:00Z",
+                "findings": {},
+            },
+        )
         (reviews_dir / "readme.txt").write_text("not a review")
         (reviews_dir / "data.csv").write_text("a,b,c")
         result = handler.handle("/api/reviews", {}, http_handler)
@@ -488,8 +527,12 @@ class TestRateLimiting:
 
     def test_rate_limit_uses_client_ip(self, handler, no_reviews_dir):
         """Rate limiter should use client IP extracted from handler."""
-        with patch("aragora.server.handlers.reviews.get_client_ip", return_value="10.0.0.1") as mock_ip, \
-             patch.object(_reviews_limiter, "is_allowed", return_value=True):
+        with (
+            patch(
+                "aragora.server.handlers.reviews.get_client_ip", return_value="10.0.0.1"
+            ) as mock_ip,
+            patch.object(_reviews_limiter, "is_allowed", return_value=True),
+        ):
             http = _MockHTTPHandler()
             handler.handle("/api/reviews", {}, http)
             mock_ip.assert_called_once_with(http)
@@ -497,8 +540,10 @@ class TestRateLimiting:
 
     def test_rate_limit_different_ips(self, handler, no_reviews_dir):
         """Different IPs should have independent rate limits."""
-        with patch("aragora.server.handlers.reviews.get_client_ip") as mock_ip, \
-             patch.object(_reviews_limiter, "is_allowed", side_effect=[True, False]):
+        with (
+            patch("aragora.server.handlers.reviews.get_client_ip") as mock_ip,
+            patch.object(_reviews_limiter, "is_allowed", side_effect=[True, False]),
+        ):
             mock_ip.side_effect = ["10.0.0.1", "10.0.0.2"]
             http1 = _MockHTTPHandler(client_address=("10.0.0.1", 1234))
             http2 = _MockHTTPHandler(client_address=("10.0.0.2", 1234))
@@ -522,8 +567,12 @@ class TestAuthEnforcement:
         http = _MockHTTPHandler(method="POST")
         # Patch require_auth_or_error to return an error
         with patch.object(
-            handler, "require_auth_or_error",
-            return_value=(None, MagicMock(status_code=401, body=json.dumps({"error": "Unauthorized"}).encode())),
+            handler,
+            "require_auth_or_error",
+            return_value=(
+                None,
+                MagicMock(status_code=401, body=json.dumps({"error": "Unauthorized"}).encode()),
+            ),
         ):
             result = handler.handle("/api/reviews", {}, http)
             assert _status(result) == 401
@@ -533,12 +582,20 @@ class TestAuthEnforcement:
         """Non-GET methods require reviews:write permission."""
         http = _MockHTTPHandler(method="POST")
         mock_user = MagicMock()
-        with patch.object(
-            handler, "require_auth_or_error",
-            return_value=(mock_user, None),
-        ), patch.object(
-            handler, "require_permission_or_error",
-            return_value=(None, MagicMock(status_code=403, body=json.dumps({"error": "Forbidden"}).encode())),
+        with (
+            patch.object(
+                handler,
+                "require_auth_or_error",
+                return_value=(mock_user, None),
+            ),
+            patch.object(
+                handler,
+                "require_permission_or_error",
+                return_value=(
+                    None,
+                    MagicMock(status_code=403, body=json.dumps({"error": "Forbidden"}).encode()),
+                ),
+            ),
         ):
             result = handler.handle("/api/reviews", {}, http)
             assert _status(result) == 403
@@ -551,8 +608,10 @@ class TestAuthEnforcement:
 
     def test_null_handler_defaults_to_get(self, handler, no_reviews_dir):
         """When handler is None, method defaults to GET."""
-        with patch("aragora.server.handlers.reviews.get_client_ip", return_value="127.0.0.1"), \
-             patch.object(_reviews_limiter, "is_allowed", return_value=True):
+        with (
+            patch("aragora.server.handlers.reviews.get_client_ip", return_value="127.0.0.1"),
+            patch.object(_reviews_limiter, "is_allowed", return_value=True),
+        ):
             result = handler.handle("/api/reviews", {}, None)
             assert _status(result) == 200
 
@@ -631,10 +690,14 @@ class TestEdgeCases:
 
     def test_review_with_empty_findings(self, handler, http_handler, reviews_dir):
         """Review with empty findings dict should have zero unanimous_count."""
-        _write_review(reviews_dir, "emptyfind", {
-            "id": "emptyfind",
-            "findings": {},
-        })
+        _write_review(
+            reviews_dir,
+            "emptyfind",
+            {
+                "id": "emptyfind",
+                "findings": {},
+            },
+        )
         result = handler.handle("/api/reviews", {}, http_handler)
         body = _body(result)
         review = body["reviews"][0]

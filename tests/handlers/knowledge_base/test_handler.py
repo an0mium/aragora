@@ -194,8 +194,10 @@ def get_handler():
 @pytest.fixture
 def post_handler_factory():
     """Factory for creating POST HTTP handlers with body."""
+
     def _create(body: dict) -> MockHTTPHandler:
         return MockHTTPHandler(body=body, method="POST")
+
     return _create
 
 
@@ -377,6 +379,7 @@ class TestHandlerInitialization:
         ):
             store = h._get_fact_store()
         from aragora.knowledge import InMemoryFactStore
+
         assert isinstance(store, InMemoryFactStore)
 
     def test_fact_store_caches_instance(self):
@@ -399,6 +402,7 @@ class TestHandlerInitialization:
         ):
             engine = h._get_query_engine()
         from aragora.knowledge import SimpleQueryEngine
+
         assert isinstance(engine, SimpleQueryEngine)
 
     def test_query_engine_caches_instance(self):
@@ -486,26 +490,30 @@ class TestQueryEndpoint:
 
     def test_query_with_workspace_id(self, handler, post_handler_factory, mock_query_engine):
         query_result = _make_query_result(workspace_id="ws-test")
-        http = post_handler_factory({
-            "question": "Test?",
-            "workspace_id": "ws-test",
-        })
+        http = post_handler_factory(
+            {
+                "question": "Test?",
+                "workspace_id": "ws-test",
+            }
+        )
         with patch(self.PATCH_QUERY_RUN_ASYNC, return_value=query_result):
             result = handler.handle("/api/v1/knowledge/query", {}, http)
         assert _status(result) == 200
 
     def test_query_with_options(self, handler, post_handler_factory, mock_query_engine):
         query_result = _make_query_result()
-        http = post_handler_factory({
-            "question": "Test?",
-            "options": {
-                "max_chunks": 5,
-                "search_alpha": 0.8,
-                "use_agents": True,
-                "extract_facts": False,
-                "include_citations": False,
-            },
-        })
+        http = post_handler_factory(
+            {
+                "question": "Test?",
+                "options": {
+                    "max_chunks": 5,
+                    "search_alpha": 0.8,
+                    "use_agents": True,
+                    "extract_facts": False,
+                    "include_citations": False,
+                },
+            }
+        )
         with patch(self.PATCH_QUERY_RUN_ASYNC, return_value=query_result):
             result = handler.handle("/api/v1/knowledge/query", {}, http)
         assert _status(result) == 200
@@ -555,7 +563,9 @@ class TestQueryEndpoint:
             result = handler.handle("/api/v1/knowledge/query", {}, http)
         assert _status(result) == 500
 
-    def test_query_default_workspace_is_default(self, handler, post_handler_factory, mock_query_engine):
+    def test_query_default_workspace_is_default(
+        self, handler, post_handler_factory, mock_query_engine
+    ):
         """When no workspace_id is specified, 'default' is used."""
         query_result = _make_query_result()
         http = post_handler_factory({"question": "Test?"})
@@ -938,10 +948,12 @@ class TestSDKAliasRouting:
         assert _status(result) == 200
 
     def test_sdk_facts_add_relation(self, handler, post_handler_factory):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/facts/fact-001/relations", {}, http)
         assert _status(result) == 201
 
@@ -1011,10 +1023,12 @@ class TestFactRoutesEdgeCases:
         mock_fact_store.get_relations.assert_called_once()
 
     def test_post_relations_on_fact_id(self, handler, post_handler_factory, mock_fact_store):
-        http = post_handler_factory({
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle(
             "/api/v1/knowledge/facts/fact-001/relations",
             {},
@@ -1024,11 +1038,13 @@ class TestFactRoutesEdgeCases:
 
     def test_bulk_relations_route(self, handler, post_handler_factory, mock_fact_store):
         """POST /api/v1/knowledge/facts/relations routes to bulk handler."""
-        http = post_handler_factory({
-            "source_fact_id": "fact-001",
-            "target_fact_id": "fact-002",
-            "relation_type": "supports",
-        })
+        http = post_handler_factory(
+            {
+                "source_fact_id": "fact-001",
+                "target_fact_id": "fact-002",
+                "relation_type": "supports",
+            }
+        )
         result = handler.handle("/api/v1/knowledge/facts/relations", {}, http)
         assert _status(result) == 201
 
@@ -1236,6 +1252,7 @@ class TestEdgeCases:
     def test_handler_inherits_from_base_handler(self):
         """KnowledgeHandler should inherit from BaseHandler."""
         from aragora.server.handlers.base import BaseHandler
+
         assert issubclass(KnowledgeHandler, BaseHandler)
 
     def test_handler_includes_all_mixins(self):

@@ -148,7 +148,10 @@ async def init_otlp_exporter() -> bool:
         if config.enabled:
             if init_otel_bridge(config):
                 logger.info(
-                    "OTLP bridge initialized: endpoint=%s, service=%s, sampler=%s", config.endpoint, config.service_name, config.sampler_type.value
+                    "OTLP bridge initialized: endpoint=%s, service=%s, sampler=%s",
+                    config.endpoint,
+                    config.service_name,
+                    config.sampler_type.value,
                 )
                 return True
     except ImportError as e:
@@ -173,7 +176,9 @@ async def init_otlp_exporter() -> bool:
 
         if provider:
             logger.info(
-                "OTLP exporter initialized: type=%s, endpoint=%s", otlp_config.exporter_type.value, otlp_config.get_effective_endpoint()
+                "OTLP exporter initialized: type=%s, endpoint=%s",
+                otlp_config.exporter_type.value,
+                otlp_config.get_effective_endpoint(),
             )
             return True
         else:

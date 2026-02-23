@@ -286,9 +286,7 @@ def run_single_debate(
 
     for round_num in range(1, max_rounds + 1):
         # Generate responses for this round
-        current_responses = {
-            agent: get_agent_response(agent, round_num) for agent in agents
-        }
+        current_responses = {agent: get_agent_response(agent, round_num) for agent in agents}
 
         # Check convergence (only after round 1)
         if previous_responses:
@@ -383,7 +381,9 @@ def run_benchmark() -> BenchmarkResults:
             if run_result.convergence_round > 0
             else "Did not converge"
         )
-        print(f"  {status} | Rounds saved: {run_result.rounds_saved} ({run_result.savings_pct:.0f}%)")
+        print(
+            f"  {status} | Rounds saved: {run_result.rounds_saved} ({run_result.savings_pct:.0f}%)"
+        )
 
         # Print similarity trajectory
         for rm in run_result.round_metrics:
@@ -423,7 +423,9 @@ def generate_report(results: BenchmarkResults) -> str:
     total_saved = total_possible_rounds - total_rounds_used
 
     if converged_runs:
-        avg_convergence_round = sum(r.convergence_round for r in converged_runs) / len(converged_runs)
+        avg_convergence_round = sum(r.convergence_round for r in converged_runs) / len(
+            converged_runs
+        )
         avg_savings = sum(r.savings_pct for r in converged_runs) / len(converged_runs)
         lines.append(
             f"**Convergence detection saved {total_saved} out of {total_possible_rounds} "
@@ -457,21 +459,29 @@ def generate_report(results: BenchmarkResults) -> str:
     # Methodology
     lines.append("## Methodology")
     lines.append("")
-    lines.append("- **Agents:** 4 agents with distinct personas (analyst/supportive, "
-                 "critic/critical, pm/balanced, devil_advocate/contrarian)")
+    lines.append(
+        "- **Agents:** 4 agents with distinct personas (analyst/supportive, "
+        "critic/critical, pm/balanced, devil_advocate/contrarian)"
+    )
     lines.append("- **Convergence backend:** Jaccard similarity (word overlap)")
     lines.append("- **Convergence threshold:** 80% similarity between consecutive rounds")
     lines.append("- **Divergence threshold:** 40% similarity")
     lines.append("- **Debate topic:** Microservices migration decision")
-    lines.append("- **Agent behavior:** Agents naturally converge over rounds as they "
-                 "incorporate each other's concerns into revised positions")
+    lines.append(
+        "- **Agent behavior:** Agents naturally converge over rounds as they "
+        "incorporate each other's concerns into revised positions"
+    )
     lines.append("")
 
     # Results Table
     lines.append("## Results by Round Configuration")
     lines.append("")
-    lines.append("| Max Rounds | Convergence Round | Rounds Executed | Rounds Saved | Savings % | Final Similarity |")
-    lines.append("|:----------:|:-----------------:|:---------------:|:------------:|:---------:|:----------------:|")
+    lines.append(
+        "| Max Rounds | Convergence Round | Rounds Executed | Rounds Saved | Savings % | Final Similarity |"
+    )
+    lines.append(
+        "|:----------:|:-----------------:|:---------------:|:------------:|:---------:|:----------------:|"
+    )
 
     for run in results.runs:
         conv_round = str(run.convergence_round) if run.convergence_round > 0 else "N/A"
@@ -591,7 +601,9 @@ def generate_report(results: BenchmarkResults) -> str:
     lines.append("")
     lines.append("- Reduces LLM API costs by avoiding unnecessary rounds")
     lines.append("- Improves latency by ending debates as soon as consensus is reached")
-    lines.append("- Integrates with the Trickster to detect *hollow* consensus (agents agreeing without evidence)")
+    lines.append(
+        "- Integrates with the Trickster to detect *hollow* consensus (agents agreeing without evidence)"
+    )
     lines.append("- Provides per-agent convergence data for post-debate analysis")
     lines.append("")
 

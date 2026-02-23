@@ -46,6 +46,7 @@ class FakeBudget:
 @dataclass
 class FakeCostMetrics:
     """Fake cost metrics returned by analytics dashboard."""
+
     total_cost_usd: float = 42.50
     cost_by_model: dict = field(default_factory=lambda: {"claude": 25.0, "gpt-4": 17.5})
     projected_monthly_cost: float = 85.0
@@ -61,19 +62,24 @@ class FakeCostMetrics:
 @dataclass
 class FakeUsageSummary:
     """Fake usage summary returned by UsageTracker."""
+
     total_tokens_in: int = 50000
     total_tokens_out: int = 25000
     total_cost_usd: Decimal = Decimal("12.50")
     total_debates: int = 47
     total_agent_calls: int = 312
-    cost_by_provider: dict = field(default_factory=lambda: {
-        "anthropic": Decimal("7.50"),
-        "openai": Decimal("5.00"),
-    })
-    debates_by_day: dict = field(default_factory=lambda: {
-        "2026-02-20": 5,
-        "2026-02-21": 8,
-    })
+    cost_by_provider: dict = field(
+        default_factory=lambda: {
+            "anthropic": Decimal("7.50"),
+            "openai": Decimal("5.00"),
+        }
+    )
+    debates_by_day: dict = field(
+        default_factory=lambda: {
+            "2026-02-20": 5,
+            "2026-02-21": 8,
+        }
+    )
 
 
 def _body(result) -> dict:
@@ -140,7 +146,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_happy_path(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_happy_path(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeCostMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()
@@ -159,7 +167,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_default_time_range(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_default_time_range(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeCostMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()
@@ -188,7 +198,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_includes_all_metric_fields(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_includes_all_metric_fields(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeCostMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()
@@ -223,7 +235,10 @@ class TestCostMetrics:
 
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    @patch("aragora.server.handlers.analytics_dashboard._run_async", side_effect=RuntimeError("event loop"))
+    @patch(
+        "aragora.server.handlers.analytics_dashboard._run_async",
+        side_effect=RuntimeError("event loop"),
+    )
     def test_cost_metrics_runtime_error(self, _mock_run, _mock_tr, _mock_dash, handler, mock_http):
         result = handler._get_cost_metrics(
             {"workspace_id": "ws_123"},
@@ -234,7 +249,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_key_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_key_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = KeyError("missing_key")
         mock_get_dash.return_value = MagicMock()
@@ -249,7 +266,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_attribute_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_attribute_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = AttributeError("no attr")
         mock_get_dash.return_value = MagicMock()
@@ -264,7 +283,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_type_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_type_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = TypeError("bad type")
         mock_get_dash.return_value = MagicMock()
@@ -279,7 +300,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_os_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_os_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.side_effect = OSError("disk failure")
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -293,7 +316,9 @@ class TestCostMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_preserves_workspace_id(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_preserves_workspace_id(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = FakeCostMetrics()
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -538,7 +563,14 @@ def _make_row(period="2026-02-20", tokens_in=1000, tokens_out=500, cost=0.05, ev
     }
 
 
-def _make_provider_row(provider="anthropic", model="claude-opus-4", tokens_in=1000, tokens_out=500, cost=0.10, call_count=5):
+def _make_provider_row(
+    provider="anthropic",
+    model="claude-opus-4",
+    tokens_in=1000,
+    tokens_out=500,
+    cost=0.10,
+    call_count=5,
+):
     """Create a dict-like row for provider breakdown results."""
     return {
         "provider": provider,
@@ -624,7 +656,9 @@ class TestTokenTrends:
         assert body["granularity"] == "hour"
 
     @patch("aragora.billing.usage.UsageTracker")
-    def test_token_trends_invalid_granularity_falls_back_to_day(self, mock_tracker_cls, handler, mock_http):
+    def test_token_trends_invalid_granularity_falls_back_to_day(
+        self, mock_tracker_cls, handler, mock_http
+    ):
         mock_conn = _make_mock_connection([])
         mock_tracker = MagicMock()
         mock_tracker._connection.return_value = mock_conn
@@ -638,7 +672,9 @@ class TestTokenTrends:
         assert body["granularity"] == "day"
 
     @patch("aragora.billing.usage.UsageTracker")
-    def test_token_trends_empty_granularity_falls_back_to_day(self, mock_tracker_cls, handler, mock_http):
+    def test_token_trends_empty_granularity_falls_back_to_day(
+        self, mock_tracker_cls, handler, mock_http
+    ):
         mock_conn = _make_mock_connection([])
         mock_tracker = MagicMock()
         mock_tracker._connection.return_value = mock_conn
@@ -803,10 +839,14 @@ class TestProviderBreakdown:
             handler=mock_http,
         )
         body = _body(result)
-        assert float(body["providers"][0]["total_cost"]) >= float(body["providers"][1]["total_cost"])
+        assert float(body["providers"][0]["total_cost"]) >= float(
+            body["providers"][1]["total_cost"]
+        )
 
     @patch("aragora.billing.usage.UsageTracker")
-    def test_provider_breakdown_multiple_models_per_provider(self, mock_tracker_cls, handler, mock_http):
+    def test_provider_breakdown_multiple_models_per_provider(
+        self, mock_tracker_cls, handler, mock_http
+    ):
         rows = [
             _make_provider_row("anthropic", "claude-opus-4", 3000, 1500, 0.50, 15),
             _make_provider_row("anthropic", "claude-sonnet-4", 2000, 1000, 0.20, 10),
@@ -892,7 +932,9 @@ class TestProviderBreakdown:
         assert model["model"] == "unknown"
 
     @patch("aragora.billing.usage.UsageTracker")
-    def test_provider_breakdown_null_provider_becomes_unknown(self, mock_tracker_cls, handler, mock_http):
+    def test_provider_breakdown_null_provider_becomes_unknown(
+        self, mock_tracker_cls, handler, mock_http
+    ):
         rows = [_make_provider_row(None, "some-model", 100, 50, 0.01, 1)]
         mock_conn = _make_mock_connection(rows)
         mock_tracker = MagicMock()
@@ -1107,7 +1149,9 @@ class TestCostBreakdown:
         )
         assert _status(result) == 500
 
-    @patch("aragora.billing.cost_tracker.get_cost_tracker", side_effect=RuntimeError("tracker error"))
+    @patch(
+        "aragora.billing.cost_tracker.get_cost_tracker", side_effect=RuntimeError("tracker error")
+    )
     def test_cost_breakdown_runtime_error(self, _mock, handler, mock_http):
         result = handler._get_cost_breakdown(
             {"workspace_id": "ws_123"},
@@ -1606,7 +1650,9 @@ class TestEdgeCases:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_cost_metrics_with_custom_time_range(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_cost_metrics_with_custom_time_range(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeCostMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()

@@ -426,7 +426,15 @@ class WorkflowEngine:
                 error = f"Workflow timed out after {self._config.total_timeout_seconds}s"
                 final_output = None
 
-            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                KeyError,
+                AttributeError,
+            ) as e:
                 logger.exception(
                     "workflow_failed",
                     workflow_id=workflow_id,
@@ -469,15 +477,19 @@ class WorkflowEngine:
                 self._emit_event(context, StreamEventType.WORKFLOW_FAILED, event_payload)
 
             # Emit aggregate metrics for performance monitoring
-            self._emit_event(context, StreamEventType.WORKFLOW_METRICS, {
-                **self._base_event_payload(context),
-                "total_duration_ms": total_duration,
-                "steps_executed": len(self._results),
-                "steps_succeeded": sum(1 for r in self._results if r.success),
-                "steps_failed": sum(1 for r in self._results if not r.success),
-                "checkpoints_created": checkpoints_created,
-                "success": success,
-            })
+            self._emit_event(
+                context,
+                StreamEventType.WORKFLOW_METRICS,
+                {
+                    **self._base_event_payload(context),
+                    "total_duration_ms": total_duration,
+                    "steps_executed": len(self._results),
+                    "steps_succeeded": sum(1 for r in self._results if r.success),
+                    "steps_failed": sum(1 for r in self._results if not r.success),
+                    "checkpoints_created": checkpoints_created,
+                    "success": success,
+                },
+            )
 
             return WorkflowResult(
                 workflow_id=workflow_id,
@@ -564,7 +576,15 @@ class WorkflowEngine:
             error = "Workflow timed out"
             final_output = None
 
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            KeyError,
+            AttributeError,
+        ) as e:
             logger.exception("Workflow resume failed: %s", e)
             success = False
             error = "Workflow resume failed"
@@ -832,7 +852,15 @@ class WorkflowEngine:
                             max_retries=step_def.retries,
                         )
 
-                except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    OSError,
+                    ConnectionError,
+                    KeyError,
+                    AttributeError,
+                ) as e:
                     last_error = "Step execution failed"
                     retry_count += 1
                     if retry_count <= step_def.retries:

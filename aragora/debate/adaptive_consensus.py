@@ -118,23 +118,19 @@ class AdaptiveConsensus:
             The adjusted consensus threshold, clamped to
             ``[config.min_threshold, config.max_threshold]``.
         """
-        brier_results = self._collect_brier_scores(
-            agents, elo_system, calibration_tracker
-        )
+        brier_results = self._collect_brier_scores(agents, elo_system, calibration_tracker)
 
         if not brier_results:
             logger.debug(
-                "adaptive_consensus_no_calibration_data agents=%d "
-                "returning_base_threshold=%.3f",
+                "adaptive_consensus_no_calibration_data agents=%d returning_base_threshold=%.3f",
                 len(agents),
                 self.config.base_threshold,
             )
             return self.config.base_threshold
 
         avg_brier = sum(r.brier_score for r in brier_results) / len(brier_results)
-        raw_threshold = (
-            self.config.base_threshold
-            + self.config.calibration_impact * (avg_brier - NEUTRAL_BRIER)
+        raw_threshold = self.config.base_threshold + self.config.calibration_impact * (
+            avg_brier - NEUTRAL_BRIER
         )
         threshold = max(
             self.config.min_threshold,
@@ -166,9 +162,7 @@ class AdaptiveConsensus:
             contains calibration details suitable for inclusion in
             decision receipts / audit trails.
         """
-        brier_results = self._collect_brier_scores(
-            agents, elo_system, calibration_tracker
-        )
+        brier_results = self._collect_brier_scores(agents, elo_system, calibration_tracker)
 
         if not brier_results:
             explanation = (
@@ -178,9 +172,8 @@ class AdaptiveConsensus:
             return self.config.base_threshold, explanation
 
         avg_brier = sum(r.brier_score for r in brier_results) / len(brier_results)
-        raw_threshold = (
-            self.config.base_threshold
-            + self.config.calibration_impact * (avg_brier - NEUTRAL_BRIER)
+        raw_threshold = self.config.base_threshold + self.config.calibration_impact * (
+            avg_brier - NEUTRAL_BRIER
         )
         threshold = max(
             self.config.min_threshold,
@@ -235,9 +228,7 @@ class AdaptiveConsensus:
 
         for agent in agents:
             agent_name = getattr(agent, "name", str(agent))
-            result = self._get_agent_brier(
-                agent_name, elo_system, calibration_tracker
-            )
+            result = self._get_agent_brier(agent_name, elo_system, calibration_tracker)
             if result is not None:
                 results.append(result)
 

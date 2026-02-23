@@ -237,38 +237,44 @@ class TestFeedbackStore:
     def test_nps_all_promoters(self, store):
         """All promoters yields NPS of 100."""
         for i in range(5):
-            store.save(FeedbackEntry(
-                id=f"p-{i}",
-                user_id="u1",
-                feedback_type=FeedbackType.NPS,
-                score=10,
-                comment=None,
-            ))
+            store.save(
+                FeedbackEntry(
+                    id=f"p-{i}",
+                    user_id="u1",
+                    feedback_type=FeedbackType.NPS,
+                    score=10,
+                    comment=None,
+                )
+            )
         summary = store.get_nps_summary()
         assert summary["nps_score"] == 100
 
     def test_nps_all_detractors(self, store):
         """All detractors yields NPS of -100."""
         for i in range(3):
-            store.save(FeedbackEntry(
-                id=f"d-{i}",
-                user_id="u1",
-                feedback_type=FeedbackType.NPS,
-                score=0,
-                comment=None,
-            ))
+            store.save(
+                FeedbackEntry(
+                    id=f"d-{i}",
+                    user_id="u1",
+                    feedback_type=FeedbackType.NPS,
+                    score=0,
+                    comment=None,
+                )
+            )
         summary = store.get_nps_summary()
         assert summary["nps_score"] == -100
 
     def test_save_non_nps_excluded_from_summary(self, store):
         """Non-NPS feedback should not affect NPS summary."""
-        store.save(FeedbackEntry(
-            id="gen-1",
-            user_id="u1",
-            feedback_type=FeedbackType.GENERAL,
-            score=5,
-            comment="general",
-        ))
+        store.save(
+            FeedbackEntry(
+                id="gen-1",
+                user_id="u1",
+                feedback_type=FeedbackType.GENERAL,
+                score=5,
+                comment="general",
+            )
+        )
         summary = store.get_nps_summary()
         assert summary["total_responses"] == 0
 
@@ -658,11 +664,13 @@ class TestHandleSubmitFeedback:
 
     @pytest.mark.asyncio
     async def test_with_context_metadata(self, mock_store):
-        ctx = _ctx(body={
-            "comment": "Feature idea",
-            "type": "feature_request",
-            "context": {"debate_id": "d-123"},
-        })
+        ctx = _ctx(
+            body={
+                "comment": "Feature idea",
+                "type": "feature_request",
+                "context": {"debate_id": "d-123"},
+            }
+        )
         result = await handle_submit_feedback(ctx)
         assert _status(result) == 200
         saved_entry = mock_store.save.call_args[0][0]
@@ -780,7 +788,14 @@ class TestHandleGetNpsSummary:
         ctx = _ctx(query={})
         result = await handle_get_nps_summary(ctx)
         body = _body(result)
-        expected_keys = {"nps_score", "total_responses", "promoters", "passives", "detractors", "period_days"}
+        expected_keys = {
+            "nps_score",
+            "total_responses",
+            "promoters",
+            "passives",
+            "detractors",
+            "period_days",
+        }
         assert expected_keys.issubset(set(body.keys()))
 
 

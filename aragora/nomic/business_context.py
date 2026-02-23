@@ -12,34 +12,38 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_TECH_DEBT_KEYWORDS = frozenset({
-    "refactor",
-    "cleanup",
-    "tech debt",
-    "technical debt",
-    "legacy",
-    "deprecated",
-    "migration",
-    "upgrade",
-    "modernize",
-    "decouple",
-    "simplify",
-    "dead code",
-    "lint",
-    "type annotation",
-    "type hint",
-})
+_TECH_DEBT_KEYWORDS = frozenset(
+    {
+        "refactor",
+        "cleanup",
+        "tech debt",
+        "technical debt",
+        "legacy",
+        "deprecated",
+        "migration",
+        "upgrade",
+        "modernize",
+        "decouple",
+        "simplify",
+        "dead code",
+        "lint",
+        "type annotation",
+        "type hint",
+    }
+)
 
-_UNBLOCKING_KEYWORDS = frozenset({
-    "block",
-    "blocking",
-    "unblock",
-    "dependency",
-    "prerequisite",
-    "required by",
-    "critical path",
-    "waiting on",
-})
+_UNBLOCKING_KEYWORDS = frozenset(
+    {
+        "block",
+        "blocking",
+        "unblock",
+        "dependency",
+        "prerequisite",
+        "required by",
+        "critical path",
+        "waiting on",
+    }
+)
 
 
 @dataclass
@@ -51,24 +55,30 @@ class BusinessContextConfig:
     unblocking_weight: float = 0.25
     tech_debt_weight: float = 0.2
 
-    user_facing_paths: list[str] = field(default_factory=lambda: [
-        "aragora/live/",
-        "aragora/cli/",
-        "aragora/server/handlers/",
-        "aragora/server/stream/",
-        "sdk/",
-    ])
-    revenue_paths: list[str] = field(default_factory=lambda: [
-        "aragora/billing/",
-        "aragora/tenancy/",
-        "aragora/auth/",
-        "aragora/marketplace/",
-    ])
-    infrastructure_paths: list[str] = field(default_factory=lambda: [
-        "aragora/storage/",
-        "aragora/resilience/",
-        "aragora/observability/",
-    ])
+    user_facing_paths: list[str] = field(
+        default_factory=lambda: [
+            "aragora/live/",
+            "aragora/cli/",
+            "aragora/server/handlers/",
+            "aragora/server/stream/",
+            "sdk/",
+        ]
+    )
+    revenue_paths: list[str] = field(
+        default_factory=lambda: [
+            "aragora/billing/",
+            "aragora/tenancy/",
+            "aragora/auth/",
+            "aragora/marketplace/",
+        ]
+    )
+    infrastructure_paths: list[str] = field(
+        default_factory=lambda: [
+            "aragora/storage/",
+            "aragora/resilience/",
+            "aragora/observability/",
+        ]
+    )
 
 
 @dataclass
@@ -154,7 +164,8 @@ class BusinessContext:
         if not file_paths:
             return 0.0
         matches = sum(
-            1 for f in file_paths
+            1
+            for f in file_paths
             if any(f.startswith(p) or f"/{p}" in f for p in self.config.user_facing_paths)
         )
         return matches / len(file_paths)
@@ -164,7 +175,8 @@ class BusinessContext:
         if not file_paths:
             return 0.0
         matches = sum(
-            1 for f in file_paths
+            1
+            for f in file_paths
             if any(f.startswith(p) or f"/{p}" in f for p in self.config.revenue_paths)
         )
         return matches / len(file_paths)

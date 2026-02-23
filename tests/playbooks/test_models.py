@@ -55,7 +55,9 @@ class TestPlaybookStep:
         assert d["config"] == {}
 
     def test_from_dict(self):
-        step = PlaybookStep.from_dict({"name": "s1", "action": "notify", "config": {"channels": ["slack"]}})
+        step = PlaybookStep.from_dict(
+            {"name": "s1", "action": "notify", "config": {"channels": ["slack"]}}
+        )
         assert step.action == "notify"
         assert step.config["channels"] == ["slack"]
 

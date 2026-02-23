@@ -116,8 +116,15 @@ class TestSDKStructure:
 
         # Only assert on core namespaces; stub/placeholder namespaces are excluded.
         core = {
-            "debates", "agents", "knowledge", "consensus", "analytics",
-            "auth", "workflows", "organizations", "workspaces",
+            "debates",
+            "agents",
+            "knowledge",
+            "consensus",
+            "analytics",
+            "auth",
+            "workflows",
+            "organizations",
+            "workspaces",
         }
         for namespace in core:
             methods = sdk_methods.get(namespace, [])

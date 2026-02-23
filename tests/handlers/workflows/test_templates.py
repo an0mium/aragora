@@ -192,8 +192,10 @@ class TestCreateWorkflowFromTemplate:
         store = _make_mock_store(template_map={"t1": template})
         mock_create = AsyncMock(return_value={"id": "wf_new", "name": "My WF", "status": "created"})
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_MOD}.create_workflow", mock_create):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_MOD}.create_workflow", mock_create),
+        ):
             result = await create_workflow_from_template("t1", "My WF")
 
         assert result["id"] == "wf_new"
@@ -210,8 +212,10 @@ class TestCreateWorkflowFromTemplate:
         store = _make_mock_store(template_map={"t1": template})
         mock_create = AsyncMock(return_value={"id": "wf_new"})
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_MOD}.create_workflow", mock_create):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_MOD}.create_workflow", mock_create),
+        ):
             await create_workflow_from_template("t1", "My WF")
 
         store.increment_template_usage.assert_called_once_with("t1")
@@ -226,11 +230,11 @@ class TestCreateWorkflowFromTemplate:
         store = _make_mock_store(template_map={"t1": template})
         mock_create = AsyncMock(return_value={"id": "wf_new"})
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_MOD}.create_workflow", mock_create):
-            await create_workflow_from_template(
-                "t1", "My WF", tenant_id="acme", created_by="user1"
-            )
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_MOD}.create_workflow", mock_create),
+        ):
+            await create_workflow_from_template("t1", "My WF", tenant_id="acme", created_by="user1")
 
         # create_workflow is called with (workflow_dict, tenant_id, created_by)
         args = mock_create.call_args
@@ -253,9 +257,11 @@ class TestCreateWorkflowFromTemplate:
         customized.to_dict.return_value = {"id": "wf_new", "name": "My WF", "description": "new"}
         mock_wf_class.from_dict.return_value = customized
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_MOD}.create_workflow", mock_create), \
-             patch(f"{PATCH_MOD}.WorkflowDefinition", mock_wf_class):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_MOD}.create_workflow", mock_create),
+            patch(f"{PATCH_MOD}.WorkflowDefinition", mock_wf_class),
+        ):
             await create_workflow_from_template(
                 "t1", "My WF", customizations={"description": "new"}
             )
@@ -274,9 +280,11 @@ class TestCreateWorkflowFromTemplate:
         store = _make_mock_store(template_map={"t1": template})
         mock_create = AsyncMock(return_value={"id": "wf_new"})
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_MOD}.create_workflow", mock_create), \
-             patch(f"{PATCH_MOD}.WorkflowDefinition") as mock_wf:
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_MOD}.create_workflow", mock_create),
+            patch(f"{PATCH_MOD}.WorkflowDefinition") as mock_wf,
+        ):
             await create_workflow_from_template("t1", "My WF")
 
         # When no customizations, WorkflowDefinition.from_dict should NOT be called
@@ -292,8 +300,10 @@ class TestCreateWorkflowFromTemplate:
         store = _make_mock_store(template_map={"t1": template})
         mock_create = AsyncMock(return_value={"id": "wf_new"})
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_MOD}.create_workflow", mock_create):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_MOD}.create_workflow", mock_create),
+        ):
             await create_workflow_from_template("t1", "My WF")
 
         args = mock_create.call_args
@@ -318,9 +328,11 @@ class TestRegisterTemplate:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             register_template(workflow)
 
         assert workflow.is_template is True
@@ -333,9 +345,11 @@ class TestRegisterTemplate:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             register_template(workflow)
 
         store.save_template.assert_called_once_with(workflow)
@@ -350,9 +364,11 @@ class TestRegisterTemplate:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="postgres"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="postgres"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             register_template(workflow)
 
         store.save_template.assert_not_called()
@@ -366,9 +382,11 @@ class TestRegisterTemplate:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="supabase"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="supabase"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             register_template(workflow)
 
         store.save_template.assert_not_called()
@@ -401,6 +419,7 @@ class TestCreateContractReviewTemplate:
     def test_has_legal_category(self):
         template = _create_contract_review_template()
         from aragora.workflow.types import WorkflowCategory
+
         assert template.category == WorkflowCategory.LEGAL
 
     def test_has_expected_tags(self):
@@ -522,6 +541,7 @@ class TestCreateCodeReviewTemplate:
     def test_has_code_category(self):
         template = _create_code_review_template()
         from aragora.workflow.types import WorkflowCategory
+
         assert template.category == WorkflowCategory.CODE
 
     def test_has_expected_tags(self):
@@ -641,10 +661,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             _load_yaml_templates()
 
         assert store.save_template.call_count == 2
@@ -660,10 +682,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             _load_yaml_templates()
 
         store.save_template.assert_not_called()
@@ -673,9 +697,11 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates") as mock_load, \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="postgres"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates") as mock_load,
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="postgres"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             _load_yaml_templates()
 
         mock_load.assert_not_called()
@@ -685,9 +711,11 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates") as mock_load, \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="supabase"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates") as mock_load,
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="supabase"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             _load_yaml_templates()
 
         mock_load.assert_not_called()
@@ -705,10 +733,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=OSError("disk error")), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=OSError("disk error")),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             # Should not raise
             _load_yaml_templates()
 
@@ -719,10 +749,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=ValueError("bad yaml")), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=ValueError("bad yaml")),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             # Should not raise
             _load_yaml_templates()
 
@@ -733,10 +765,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=KeyError("missing key")), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=KeyError("missing key")),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             # Should not raise
             _load_yaml_templates()
 
@@ -747,10 +781,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=TypeError("bad type")), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=TypeError("bad type")),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             # Should not raise
             _load_yaml_templates()
 
@@ -768,10 +804,12 @@ class TestLoadYamlTemplates:
         mock_sb.POSTGRES = "postgres"
         mock_sb.SUPABASE = "supabase"
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates), \
-             patch(f"{PATCH_MOD}._get_store", return_value=store), \
-             patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"), \
-             patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates),
+            patch(f"{PATCH_MOD}._get_store", return_value=store),
+            patch(f"{PATCH_STORAGE_FACTORY}.get_storage_backend", return_value="sqlite"),
+            patch(f"{PATCH_STORAGE_FACTORY}.StorageBackend", mock_sb),
+        ):
             _load_yaml_templates()
 
         store.save_template.assert_called_once_with(new_template)
@@ -795,8 +833,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             await load_yaml_templates_async()
 
         mock_store.save_template.assert_called_once_with(t1)
@@ -811,8 +851,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             await load_yaml_templates_async()
 
         mock_store.save_template.assert_not_called()
@@ -830,8 +872,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=OSError("disk")), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=OSError("disk")),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             # Should not raise
             await load_yaml_templates_async()
 
@@ -842,8 +886,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=ValueError("bad")), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=ValueError("bad")),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             # Should not raise
             await load_yaml_templates_async()
 
@@ -854,8 +900,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=KeyError("missing")), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=KeyError("missing")),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             # Should not raise
             await load_yaml_templates_async()
 
@@ -866,8 +914,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=TypeError("bad")), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", side_effect=TypeError("bad")),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             # Should not raise
             await load_yaml_templates_async()
 
@@ -882,8 +932,10 @@ class TestLoadYamlTemplatesAsync:
         async def _get_store():
             return mock_store
 
-        with patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates), \
-             patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store):
+        with (
+            patch(f"{PATCH_TEMPLATE_LOADER}.load_templates", return_value=mock_templates),
+            patch(f"{PATCH_PERSISTENT_STORE}.get_async_workflow_store", side_effect=_get_store),
+        ):
             await load_yaml_templates_async()
 
         assert mock_store.save_template.call_count == 2
@@ -1002,8 +1054,10 @@ class TestInitializeTemplates:
     """Test initialize_templates() orchestration function."""
 
     def test_calls_register_and_load(self):
-        with patch(f"{PATCH_MOD}._register_builtin_templates") as mock_register, \
-             patch(f"{PATCH_MOD}._load_yaml_templates") as mock_load:
+        with (
+            patch(f"{PATCH_MOD}._register_builtin_templates") as mock_register,
+            patch(f"{PATCH_MOD}._load_yaml_templates") as mock_load,
+        ):
             initialize_templates()
 
         mock_register.assert_called_once()
@@ -1018,8 +1072,10 @@ class TestInitializeTemplates:
         def mock_load():
             call_order.append("load")
 
-        with patch(f"{PATCH_MOD}._register_builtin_templates", side_effect=mock_register), \
-             patch(f"{PATCH_MOD}._load_yaml_templates", side_effect=mock_load):
+        with (
+            patch(f"{PATCH_MOD}._register_builtin_templates", side_effect=mock_register),
+            patch(f"{PATCH_MOD}._load_yaml_templates", side_effect=mock_load),
+        ):
             initialize_templates()
 
         assert call_order == ["register", "load"]
@@ -1035,33 +1091,41 @@ class TestModuleExports:
 
     def test_list_templates_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "list_templates" in templates.__all__
 
     def test_get_template_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "get_template" in templates.__all__
 
     def test_create_workflow_from_template_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "create_workflow_from_template" in templates.__all__
 
     def test_register_template_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "register_template" in templates.__all__
 
     def test_load_yaml_templates_async_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "load_yaml_templates_async" in templates.__all__
 
     def test_register_builtin_templates_async_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "register_builtin_templates_async" in templates.__all__
 
     def test_initialize_templates_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "initialize_templates" in templates.__all__
 
     def test_internal_creators_exported(self):
         from aragora.server.handlers.workflows import templates
+
         assert "_create_contract_review_template" in templates.__all__
         assert "_create_code_review_template" in templates.__all__

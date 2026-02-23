@@ -13,7 +13,6 @@ from aragora.mcp.tools_module.checkpoint import (
 )
 
 
-
 def _make_storage_module(db_return=None):
     """Create a mock aragora.server.storage module with get_debates_db."""
     mod = MagicMock()

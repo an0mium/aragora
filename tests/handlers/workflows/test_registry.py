@@ -93,8 +93,10 @@ def handler():
 @pytest.fixture
 def mock_http():
     """Factory for creating mock HTTP handlers."""
+
     def _create(method="GET", body=None, content_type="application/json"):
         return _MockHTTPHandler(method=method, body=body, content_type=content_type)
+
     return _create
 
 
@@ -401,9 +403,7 @@ class TestGetListing:
         listing = _make_listing("lst-001", "My Template")
         registry = _make_mock_registry(get_result=listing)
         with patch.object(handler, "_get_registry", return_value=registry):
-            result = handler.handle(
-                "/api/v1/templates/registry/lst-001", {}, mock_http()
-            )
+            result = handler.handle("/api/v1/templates/registry/lst-001", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["id"] == "lst-001"
@@ -412,17 +412,13 @@ class TestGetListing:
     def test_not_found_returns_404(self, handler, mock_http):
         registry = _make_mock_registry(get_result=None)
         with patch.object(handler, "_get_registry", return_value=registry):
-            result = handler.handle(
-                "/api/v1/templates/registry/nonexistent", {}, mock_http()
-            )
+            result = handler.handle("/api/v1/templates/registry/nonexistent", {}, mock_http())
         assert _status(result) == 404
 
     def test_not_found_message_contains_id(self, handler, mock_http):
         registry = _make_mock_registry(get_result=None)
         with patch.object(handler, "_get_registry", return_value=registry):
-            result = handler.handle(
-                "/api/v1/templates/registry/missing-123", {}, mock_http()
-            )
+            result = handler.handle("/api/v1/templates/registry/missing-123", {}, mock_http())
         body = _body(result)
         assert "missing-123" in body.get("error", "")
 
@@ -430,9 +426,7 @@ class TestGetListing:
         listing = _make_listing()
         registry = _make_mock_registry(get_result=listing)
         with patch.object(handler, "_get_registry", return_value=registry):
-            handler.handle(
-                "/api/v1/templates/registry/lst-001", {}, mock_http()
-            )
+            handler.handle("/api/v1/templates/registry/lst-001", {}, mock_http())
         registry.get.assert_called_once_with("lst-001")
 
 
@@ -455,9 +449,7 @@ class TestGetAnalytics:
         }
         registry = _make_mock_registry(get_result=listing, analytics_result=analytics)
         with patch.object(handler, "_get_registry", return_value=registry):
-            result = handler.handle(
-                "/api/v1/templates/registry/lst-001/analytics", {}, mock_http()
-            )
+            result = handler.handle("/api/v1/templates/registry/lst-001/analytics", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
         assert body["install_count"] == 42
@@ -475,9 +467,7 @@ class TestGetAnalytics:
         listing = _make_listing("lst-001")
         registry = _make_mock_registry(get_result=listing)
         with patch.object(handler, "_get_registry", return_value=registry):
-            handler.handle(
-                "/api/v1/templates/registry/lst-001/analytics", {}, mock_http()
-            )
+            handler.handle("/api/v1/templates/registry/lst-001/analytics", {}, mock_http())
         registry.get_analytics.assert_called_once_with("lst-001")
 
 
@@ -491,39 +481,29 @@ class TestGetRoutingEdgeCases:
 
     def test_action_path_install_returns_none(self, handler, mock_http):
         """GET on /install should return None (POST-only action)."""
-        result = handler.handle(
-            "/api/v1/templates/registry/lst-001/install", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/templates/registry/lst-001/install", {}, mock_http())
         assert result is None
 
     def test_action_path_rate_returns_none(self, handler, mock_http):
         """GET on /rate should return None (POST-only action)."""
-        result = handler.handle(
-            "/api/v1/templates/registry/lst-001/rate", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/templates/registry/lst-001/rate", {}, mock_http())
         assert result is None
 
     def test_action_path_approve_returns_none(self, handler, mock_http):
         """GET on /approve should return None (POST-only action)."""
-        result = handler.handle(
-            "/api/v1/templates/registry/lst-001/approve", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/templates/registry/lst-001/approve", {}, mock_http())
         assert result is None
 
     def test_action_path_reject_returns_none(self, handler, mock_http):
         """GET on /reject should return None (POST-only action)."""
-        result = handler.handle(
-            "/api/v1/templates/registry/lst-001/reject", {}, mock_http()
-        )
+        result = handler.handle("/api/v1/templates/registry/lst-001/reject", {}, mock_http())
         assert result is None
 
     def test_path_ending_with_registry_routes_to_search(self, handler, mock_http):
         """Path ending with /registry routes to search, not get."""
         registry = _make_mock_registry(search_results=[])
         with patch.object(handler, "_get_registry", return_value=registry):
-            result = handler.handle(
-                "/api/v1/templates/registry", {}, mock_http()
-            )
+            result = handler.handle("/api/v1/templates/registry", {}, mock_http())
         assert _status(result) == 200
         registry.search.assert_called_once()
 
@@ -661,9 +641,7 @@ class TestSubmitTemplate:
         assert call_kwargs["author_id"] == "anonymous"
 
     def test_unhandled_path_returns_none(self, handler, mock_http):
-        result = handler.handle_post(
-            "/api/v1/unrelated", {}, mock_http(method="POST", body={})
-        )
+        result = handler.handle_post("/api/v1/unrelated", {}, mock_http(method="POST", body={}))
         assert result is None
 
 
@@ -714,9 +692,7 @@ class TestInstallTemplate:
 
     def test_install_not_found_returns_404(self, handler, mock_http):
         body = {}
-        registry = _make_mock_registry(
-            install_error=ValueError("Template not found")
-        )
+        registry = _make_mock_registry(install_error=ValueError("Template not found"))
         with patch.object(handler, "_get_registry", return_value=registry):
             result = handler.handle_post(
                 "/api/v1/templates/registry/nonexistent/install",
@@ -727,9 +703,7 @@ class TestInstallTemplate:
 
     def test_install_not_approved_returns_404(self, handler, mock_http):
         body = {}
-        registry = _make_mock_registry(
-            install_error=ValueError("Template is not approved")
-        )
+        registry = _make_mock_registry(install_error=ValueError("Template is not approved"))
         with patch.object(handler, "_get_registry", return_value=registry):
             result = handler.handle_post(
                 "/api/v1/templates/registry/lst-pending/install",
@@ -828,9 +802,7 @@ class TestRateTemplate:
     def test_rate_out_of_range_returns_400(self, handler, mock_http):
         """Rating out of 1-5 range is caught by registry.rate() ValueError."""
         body = {"rating": 0}
-        registry = _make_mock_registry(
-            rate_error=ValueError("Rating must be between 1 and 5")
-        )
+        registry = _make_mock_registry(rate_error=ValueError("Rating must be between 1 and 5"))
         with patch.object(handler, "_get_registry", return_value=registry):
             result = handler.handle_post(
                 "/api/v1/templates/registry/lst-001/rate",
@@ -841,9 +813,7 @@ class TestRateTemplate:
 
     def test_rate_high_value_returns_400(self, handler, mock_http):
         body = {"rating": 6}
-        registry = _make_mock_registry(
-            rate_error=ValueError("Rating must be between 1 and 5")
-        )
+        registry = _make_mock_registry(rate_error=ValueError("Rating must be between 1 and 5"))
         with patch.object(handler, "_get_registry", return_value=registry):
             result = handler.handle_post(
                 "/api/v1/templates/registry/lst-001/rate",
@@ -1037,9 +1007,7 @@ class TestPostRoutingEdgeCases:
     """Test POST handler routing edge cases."""
 
     def test_post_unhandled_path_returns_none(self, handler, mock_http):
-        result = handler.handle_post(
-            "/api/v1/workflows", {}, mock_http(method="POST", body={})
-        )
+        result = handler.handle_post("/api/v1/workflows", {}, mock_http(method="POST", body={}))
         assert result is None
 
     def test_post_with_listing_id_but_no_action_returns_none(self, handler, mock_http):

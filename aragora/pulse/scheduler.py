@@ -616,12 +616,15 @@ class PulseDebateScheduler:
             ]
             if recent_consensus:
                 logger.info(
-                    "Skipping debate - KM has %s recent consensus on topic: %s... (confidence >= 0.7)", len(recent_consensus), topic.topic[:50]
+                    "Skipping debate - KM has %s recent consensus on topic: %s... (confidence >= 0.7)",
+                    len(recent_consensus),
+                    topic.topic[:50],
                 )
                 return  # Skip creating a new debate
             else:
                 logger.info(
-                    "KM has %s past debates on topic, but none with strong consensus", len(past_debates)
+                    "KM has %s past debates on topic, but none with strong consensus",
+                    len(past_debates),
                 )
 
         debate_id = f"pulse-{int(time.time())}-{uuid.uuid4().hex[:6]}"

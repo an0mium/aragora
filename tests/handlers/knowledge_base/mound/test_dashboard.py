@@ -334,9 +334,7 @@ class TestCheckKnowledgePermission:
 
     def test_permission_roles_as_list(self, handler, allow_rbac):
         """Roles provided as list are converted to set."""
-        req = MockAiohttpRequest(
-            extras={"user_id": "u1", "roles": ["admin", "editor"]}
-        )
+        req = MockAiohttpRequest(extras={"user_id": "u1", "roles": ["admin", "editor"]})
         _run(handler._check_knowledge_permission(req))
         ctx_arg = allow_rbac.check_permission.call_args[0][0]
         assert isinstance(ctx_arg.roles, set)
@@ -344,9 +342,7 @@ class TestCheckKnowledgePermission:
 
     def test_permission_roles_as_set(self, handler, allow_rbac):
         """Roles provided as set are kept as-is."""
-        req = MockAiohttpRequest(
-            extras={"user_id": "u1", "roles": {"viewer"}}
-        )
+        req = MockAiohttpRequest(extras={"user_id": "u1", "roles": {"viewer"}})
         _run(handler._check_knowledge_permission(req))
         ctx_arg = allow_rbac.check_permission.call_args[0][0]
         assert ctx_arg.roles == {"viewer"}
@@ -448,7 +444,11 @@ class TestDashboardHealth:
         ) as mock_gm:
             # Patch the lazy import
             import aragora.server.handlers.knowledge_base.mound.dashboard as mod
-            with patch.dict("sys.modules", {"aragora.knowledge.mound.metrics": MagicMock(get_metrics=lambda: mock_metrics)}):
+
+            with patch.dict(
+                "sys.modules",
+                {"aragora.knowledge.mound.metrics": MagicMock(get_metrics=lambda: mock_metrics)},
+            ):
                 result = _run(handler.handle_dashboard_health(mock_request))
 
         # The handler uses `from aragora.knowledge.mound.metrics import get_metrics`
@@ -774,7 +774,9 @@ class TestDashboardAdapters:
         assert body["data"]["adapters"] == []
         assert "No coordinator" in body["data"]["message"]
 
-    def test_adapters_coordinator_on_mound(self, handler, mock_request, mock_mound, mock_coordinator):
+    def test_adapters_coordinator_on_mound(
+        self, handler, mock_request, mock_mound, mock_coordinator
+    ):
         """Returns adapter list from mound coordinator."""
         mock_mound._coordinator = mock_coordinator
         result = _run(handler.handle_dashboard_adapters(mock_request))
@@ -951,10 +953,7 @@ class TestDashboardAdapters:
         """All adapters from coordinator are returned."""
         coordinator = MagicMock()
         coordinator.get_stats.return_value = {
-            "adapters": {
-                f"adapter_{i}": {"enabled": i % 2 == 0, "priority": i}
-                for i in range(10)
-            },
+            "adapters": {f"adapter_{i}": {"enabled": i % 2 == 0, "priority": i} for i in range(10)},
             "total_adapters": 10,
             "enabled_adapters": 5,
         }
@@ -1388,7 +1387,9 @@ class TestDashboardIntegration:
         assert _status(h_result) == 200
         assert _status(m_result) == 200
 
-    def test_adapters_with_consensus_errors(self, handler, mock_request, mock_mound, mock_coordinator):
+    def test_adapters_with_consensus_errors(
+        self, handler, mock_request, mock_mound, mock_coordinator
+    ):
         """Consensus adapter with errors has correct error count."""
         mock_mound._coordinator = mock_coordinator
         result = _run(handler.handle_dashboard_adapters(mock_request))

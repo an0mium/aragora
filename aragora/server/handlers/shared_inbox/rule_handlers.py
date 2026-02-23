@@ -178,7 +178,9 @@ async def handle_create_routing_rule(
 
         if not validation_result.is_valid:
             logger.warning(
-                "[SharedInbox] Rule validation failed for workspace %s: %s", workspace_id, validation_result.error
+                "[SharedInbox] Rule validation failed for workspace %s: %s",
+                workspace_id,
+                validation_result.error,
             )
             return {
                 "success": False,
@@ -227,7 +229,9 @@ async def handle_create_routing_rule(
             try:
                 rules_store.create_rule(rule_data)
                 logger.info(
-                    "[SharedInbox] Created routing rule %s: %s (persistent)", rule_id, sanitized_name
+                    "[SharedInbox] Created routing rule %s: %s (persistent)",
+                    rule_id,
+                    sanitized_name,
                 )
             except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning("[SharedInbox] Failed to persist rule to RulesStore: %s", e)
@@ -273,7 +277,10 @@ async def handle_create_routing_rule(
             _routing_rules[rule_id] = rule
 
         logger.info(
-            "[SharedInbox] Created routing rule %s for workspace %s (remaining rate limit: %s)", rule_id, workspace_id, remaining - 1
+            "[SharedInbox] Created routing rule %s for workspace %s (remaining rate limit: %s)",
+            rule_id,
+            workspace_id,
+            remaining - 1,
         )
 
         return {
@@ -281,7 +288,14 @@ async def handle_create_routing_rule(
             "rule": rule.to_dict(),
         }
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+    except (
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        OSError,
+        RuntimeError,
+    ) as e:  # broad catch: last-resort handler
         logger.exception("Failed to create routing rule: %s", e)
         return {
             "success": False,
@@ -377,7 +391,14 @@ async def handle_list_routing_rules(
             "offset": offset,
         }
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+    except (
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        OSError,
+        RuntimeError,
+    ) as e:  # broad catch: last-resort handler
         logger.exception("Failed to list routing rules: %s", e)
         return {
             "success": False,
@@ -608,7 +629,14 @@ async def handle_update_routing_rule(
 
         return {"success": False, "error": "Rule not found"}
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+    except (
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        OSError,
+        RuntimeError,
+    ) as e:  # broad catch: last-resort handler
         logger.exception("Failed to update routing rule: %s", e)
         return {
             "success": False,
@@ -663,7 +691,14 @@ async def handle_delete_routing_rule(
                 "error": "Rule not found",
             }
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+    except (
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        OSError,
+        RuntimeError,
+    ) as e:  # broad catch: last-resort handler
         logger.exception("Failed to delete routing rule: %s", e)
         return {
             "success": False,
@@ -726,7 +761,14 @@ async def handle_test_routing_rule(
             "rule": rule.to_dict(),
         }
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+    except (
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        OSError,
+        RuntimeError,
+    ) as e:  # broad catch: last-resort handler
         logger.exception("Failed to test routing rule: %s", e)
         return {
             "success": False,

@@ -151,7 +151,7 @@ class EpistemicGraph:
         absorbed.append(main_belief)
 
         # Absorb individual claims as supporting beliefs
-        for claim_data in (claims or []):
+        for claim_data in claims or []:
             statement = claim_data.get("statement", "")
             if not statement:
                 continue
@@ -169,13 +169,15 @@ class EpistemicGraph:
             absorbed.append(claim_belief)
 
             # Link claim → consensus
-            self._edges.append(BeliefEdge(
-                source_id=claim_belief.belief_id,
-                target_id=main_belief.belief_id,
-                relation="supports",
-                strength=claim_confidence,
-                source_debate_id=debate_id,
-            ))
+            self._edges.append(
+                BeliefEdge(
+                    source_id=claim_belief.belief_id,
+                    target_id=main_belief.belief_id,
+                    relation="supports",
+                    strength=claim_confidence,
+                    source_debate_id=debate_id,
+                )
+            )
 
         # Persist to KM if adapter available
         if self.belief_adapter:
@@ -183,7 +185,9 @@ class EpistemicGraph:
 
         logger.info(
             "epistemic_graph_absorb debate=%s beliefs=%d confidence=%.2f",
-            debate_id, len(absorbed), confidence,
+            debate_id,
+            len(absorbed),
+            confidence,
         )
         return absorbed
 
@@ -210,16 +214,18 @@ class EpistemicGraph:
 
         # Link dissent → contradicts related belief
         if related_belief_id and related_belief_id in self._beliefs:
-            self._edges.append(BeliefEdge(
-                source_id=dissent_belief.belief_id,
-                target_id=related_belief_id,
-                relation="contradicts",
-                strength=severity,
-                source_debate_id=debate_id,
-            ))
+            self._edges.append(
+                BeliefEdge(
+                    source_id=dissent_belief.belief_id,
+                    target_id=related_belief_id,
+                    relation="contradicts",
+                    strength=severity,
+                    source_debate_id=debate_id,
+                )
+            )
             # Reduce confidence in the contradicted belief
             related = self._beliefs[related_belief_id]
-            related.confidence *= (1.0 - severity * 0.3)
+            related.confidence *= 1.0 - severity * 0.3
 
         return dissent_belief
 
@@ -281,7 +287,8 @@ class EpistemicGraph:
         if priors:
             logger.info(
                 "epistemic_graph_inject topic=%s priors=%d top_confidence=%.2f",
-                topic[:50], len(priors),
+                topic[:50],
+                len(priors),
                 priors[0].effective_confidence if priors else 0.0,
             )
         return priors
@@ -292,41 +299,37 @@ class EpistemicGraph:
 
     def get_edges_for(self, belief_id: str) -> list[BeliefEdge]:
         """Get all edges involving a belief."""
-        return [
-            e for e in self._edges
-            if e.source_id == belief_id or e.target_id == belief_id
-        ]
+        return [e for e in self._edges if e.source_id == belief_id or e.target_id == belief_id]
 
     def get_contradictions(self, belief_id: str) -> list[InheritedBelief]:
         """Get beliefs that contradict a given belief."""
         contradicting_ids = [
-            e.source_id for e in self._edges
+            e.source_id
+            for e in self._edges
             if e.target_id == belief_id and e.relation == "contradicts"
         ] + [
-            e.target_id for e in self._edges
+            e.target_id
+            for e in self._edges
             if e.source_id == belief_id and e.relation == "contradicts"
         ]
-        return [
-            self._beliefs[bid] for bid in contradicting_ids
-            if bid in self._beliefs
-        ]
+        return [self._beliefs[bid] for bid in contradicting_ids if bid in self._beliefs]
 
-    def supersede(
-        self, old_belief_id: str, new_belief_id: str, debate_id: str = ""
-    ) -> None:
+    def supersede(self, old_belief_id: str, new_belief_id: str, debate_id: str = "") -> None:
         """Mark an old belief as superseded by a new one."""
         if old_belief_id in self._beliefs:
             old = self._beliefs[old_belief_id]
             old.confidence *= 0.1  # Drastically reduce old belief
             old.metadata["superseded_by"] = new_belief_id
 
-        self._edges.append(BeliefEdge(
-            source_id=new_belief_id,
-            target_id=old_belief_id,
-            relation="supersedes",
-            strength=1.0,
-            source_debate_id=debate_id,
-        ))
+        self._edges.append(
+            BeliefEdge(
+                source_id=new_belief_id,
+                target_id=old_belief_id,
+                relation="supersedes",
+                strength=1.0,
+                source_debate_id=debate_id,
+            )
+        )
 
     def stats(self) -> dict[str, Any]:
         """Get graph statistics."""
@@ -336,13 +339,11 @@ class EpistemicGraph:
             "domains": list(self._domain_index.keys()),
             "avg_confidence": (
                 sum(b.confidence for b in self._beliefs.values()) / len(self._beliefs)
-                if self._beliefs else 0.0
+                if self._beliefs
+                else 0.0
             ),
             "by_type": {
-                source_type: sum(
-                    1 for b in self._beliefs.values()
-                    if b.source_type == source_type
-                )
+                source_type: sum(1 for b in self._beliefs.values() if b.source_type == source_type)
                 for source_type in {"consensus", "claim", "dissent"}
             },
         }
@@ -419,13 +420,15 @@ class EpistemicGraph:
             belief = InheritedBelief.from_dict(belief_data)
             graph._add_belief(belief)
         for edge_data in data.get("edges", []):
-            graph._edges.append(BeliefEdge(
-                source_id=edge_data["source_id"],
-                target_id=edge_data["target_id"],
-                relation=edge_data.get("relation", "supports"),
-                strength=edge_data.get("strength", 1.0),
-                source_debate_id=edge_data.get("source_debate_id", ""),
-            ))
+            graph._edges.append(
+                BeliefEdge(
+                    source_id=edge_data["source_id"],
+                    target_id=edge_data["target_id"],
+                    relation=edge_data.get("relation", "supports"),
+                    strength=edge_data.get("strength", 1.0),
+                    source_debate_id=edge_data.get("source_debate_id", ""),
+                )
+            )
         return graph
 
 

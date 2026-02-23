@@ -180,7 +180,8 @@ class DistributedRateLimiter:
                     )
                     self._using_redis = True
                     logger.info(
-                        "Distributed rate limiter initialized with Redis backend (instance=%s)", self.instance_id
+                        "Distributed rate limiter initialized with Redis backend (instance=%s)",
+                        self.instance_id,
                     )
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning("Failed to create Redis rate limiter: %s", e)
@@ -218,7 +219,8 @@ class DistributedRateLimiter:
 
             if not self._using_redis:
                 logger.info(
-                    "Distributed rate limiter using in-memory backend (instance=%s)", self.instance_id
+                    "Distributed rate limiter using in-memory backend (instance=%s)",
+                    self.instance_id,
                 )
 
             # Record initial backend status

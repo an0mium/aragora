@@ -600,7 +600,13 @@ class ValidationHandlersMixin:
                                             continuum_validations += 1
                             except ImportError:
                                 pass
-                            except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
+                            except (
+                                RuntimeError,
+                                TypeError,
+                                AttributeError,
+                                ValueError,
+                                OSError,
+                            ) as e:
                                 logger.debug("Continuum validation failed: %s", e)
 
                         elif node_id.startswith("cs_"):

@@ -223,9 +223,7 @@ class TestHandleGenerateSbom:
 
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", format="cyclonedx-json"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", format="cyclonedx-json")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -237,9 +235,7 @@ class TestHandleGenerateSbom:
         mock_generator.generate_from_repo.return_value = xml_result
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", format="cyclonedx-xml"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", format="cyclonedx-xml")
         assert _status(result) == 200
         body = _body(result)
         assert body["format"] == "cyclonedx-xml"
@@ -253,9 +249,7 @@ class TestHandleGenerateSbom:
         mock_generator.generate_from_repo.return_value = spdx_result
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", format="spdx-json"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", format="spdx-json")
         assert _status(result) == 200
         body = _body(result)
         assert body["format"] == "spdx-json"
@@ -269,9 +263,7 @@ class TestHandleGenerateSbom:
         mock_generator.generate_from_repo.return_value = tv_result
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", format="spdx-tv"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", format="spdx-tv")
         assert _status(result) == 200
         body = _body(result)
         assert body["format"] == "spdx-tv"
@@ -283,9 +275,7 @@ class TestHandleGenerateSbom:
 
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", format="invalid-format"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", format="invalid-format")
         assert _status(result) == 400
         raw = _raw(result)
         assert "Invalid format" in raw.get("error", "")
@@ -365,9 +355,7 @@ class TestHandleGenerateSbom:
 
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", repo_id="store-test"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", repo_id="store-test")
         body = _body(result)
         store = get_or_create_sbom_results("store-test")
         assert body["sbom_id"] in store
@@ -434,9 +422,7 @@ class TestHandleGenerateSbom:
         """Error messages do not leak internal details."""
         import aragora.server.handlers.codebase.security.sbom as sbom_mod
 
-        mock_generator.generate_from_repo.side_effect = OSError(
-            "/internal/secret/path not found"
-        )
+        mock_generator.generate_from_repo.side_effect = OSError("/internal/secret/path not found")
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
         result = await handle_generate_sbom(repo_path="/tmp/repo")
@@ -674,8 +660,7 @@ class TestHandleListSboms:
         """Default limit of 10 is applied."""
         for i in range(15):
             sbom_store[f"sbom_{i:02d}"] = _make_sbom_result(
-                generated_at=datetime(2024, 1, 1, tzinfo=timezone.utc)
-                + timedelta(days=i)
+                generated_at=datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(days=i)
             )
 
         result = await handle_list_sboms(repo_id="test-repo")
@@ -780,9 +765,7 @@ class TestHandleDownloadSbom:
     @pytest.mark.asyncio
     async def test_download_not_found(self, sbom_store):
         """Downloading a non-existent SBOM returns 404."""
-        result = await handle_download_sbom(
-            repo_id="test-repo", sbom_id="nonexistent"
-        )
+        result = await handle_download_sbom(repo_id="test-repo", sbom_id="nonexistent")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -798,21 +781,14 @@ class TestHandleDownloadSbom:
     @pytest.mark.asyncio
     async def test_download_empty_repo(self):
         """Downloading from a repo with no SBOMs returns 404."""
-        result = await handle_download_sbom(
-            repo_id="empty-repo", sbom_id="sbom_missing"
-        )
+        result = await handle_download_sbom(repo_id="empty-repo", sbom_id="sbom_missing")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_download_content_preserved(self, sbom_store):
         """Downloaded content exactly matches stored content."""
         big_content = json.dumps(
-            {
-                "components": [
-                    {"name": f"pkg-{i}", "version": f"{i}.0.0"}
-                    for i in range(100)
-                ]
-            }
+            {"components": [{"name": f"pkg-{i}", "version": f"{i}.0.0"} for i in range(100)]}
         )
         sbom = _make_sbom_result(content=big_content)
         sbom_store["sbom_big"] = sbom
@@ -833,9 +809,7 @@ class TestHandleCompareSboms:
     @pytest.mark.asyncio
     async def test_compare_identical_sboms(self, sbom_store):
         """Comparing identical SBOMs shows no changes."""
-        content = _cyclonedx_content(
-            [{"name": "requests", "version": "2.28.0"}]
-        )
+        content = _cyclonedx_content([{"name": "requests", "version": "2.28.0"}])
         sbom_a = _make_sbom_result(content=content, component_count=1)
         sbom_b = _make_sbom_result(
             content=content,
@@ -858,9 +832,7 @@ class TestHandleCompareSboms:
     @pytest.mark.asyncio
     async def test_compare_added_components(self, sbom_store):
         """Comparing SBOMs detects added components."""
-        content_a = _cyclonedx_content(
-            [{"name": "requests", "version": "2.28.0"}]
-        )
+        content_a = _cyclonedx_content([{"name": "requests", "version": "2.28.0"}])
         content_b = _cyclonedx_content(
             [
                 {"name": "requests", "version": "2.28.0"},
@@ -890,9 +862,7 @@ class TestHandleCompareSboms:
                 {"name": "flask", "version": "2.3.0"},
             ]
         )
-        content_b = _cyclonedx_content(
-            [{"name": "requests", "version": "2.28.0"}]
-        )
+        content_b = _cyclonedx_content([{"name": "requests", "version": "2.28.0"}])
         sbom_store["sbom_a"] = _make_sbom_result(content=content_a)
         sbom_store["sbom_b"] = _make_sbom_result(
             content=content_b,
@@ -909,12 +879,8 @@ class TestHandleCompareSboms:
     @pytest.mark.asyncio
     async def test_compare_updated_components(self, sbom_store):
         """Comparing SBOMs detects version changes."""
-        content_a = _cyclonedx_content(
-            [{"name": "requests", "version": "2.28.0"}]
-        )
-        content_b = _cyclonedx_content(
-            [{"name": "requests", "version": "2.31.0"}]
-        )
+        content_a = _cyclonedx_content([{"name": "requests", "version": "2.28.0"}])
+        content_b = _cyclonedx_content([{"name": "requests", "version": "2.31.0"}])
         sbom_store["sbom_a"] = _make_sbom_result(content=content_a)
         sbom_store["sbom_b"] = _make_sbom_result(
             content=content_b,
@@ -1001,18 +967,14 @@ class TestHandleCompareSboms:
     @pytest.mark.asyncio
     async def test_compare_spdx_format(self, sbom_store):
         """Comparing SPDX JSON SBOMs extracts packages correctly."""
-        content_a = _spdx_content(
-            [{"name": "requests", "versionInfo": "2.28.0"}]
-        )
+        content_a = _spdx_content([{"name": "requests", "versionInfo": "2.28.0"}])
         content_b = _spdx_content(
             [
                 {"name": "requests", "versionInfo": "2.28.0"},
                 {"name": "flask", "versionInfo": "2.3.0"},
             ]
         )
-        sbom_store["sbom_a"] = _make_sbom_result(
-            format=SBOMFormat.SPDX_JSON, content=content_a
-        )
+        sbom_store["sbom_a"] = _make_sbom_result(format=SBOMFormat.SPDX_JSON, content=content_a)
         sbom_store["sbom_b"] = _make_sbom_result(
             format=SBOMFormat.SPDX_JSON,
             content=content_b,
@@ -1167,9 +1129,7 @@ class TestHandleCompareSboms:
     @pytest.mark.asyncio
     async def test_compare_cross_format_cyclonedx_spdx(self, sbom_store):
         """Comparing CycloneDX vs SPDX JSON works (both have JSON parsers)."""
-        content_a = _cyclonedx_content(
-            [{"name": "requests", "version": "2.28.0"}]
-        )
+        content_a = _cyclonedx_content([{"name": "requests", "version": "2.28.0"}])
         content_b = _spdx_content(
             [
                 {"name": "requests", "versionInfo": "2.28.0"},
@@ -1207,9 +1167,7 @@ class TestSecurityEdgeCases:
         import aragora.server.handlers.codebase.security.sbom as sbom_mod
 
         gen = MagicMock()
-        gen.generate_from_repo = AsyncMock(
-            side_effect=OSError("/etc/shadow: permission denied")
-        )
+        gen.generate_from_repo = AsyncMock(side_effect=OSError("/etc/shadow: permission denied"))
         gen.include_dev_dependencies = True
         gen.include_vulnerabilities = True
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: gen)
@@ -1240,12 +1198,8 @@ class TestSecurityEdgeCases:
         None names cause a TypeError when sorting the component set,
         which is caught and returns a 500 (sanitized error).
         """
-        content_a = json.dumps(
-            {"components": [{"name": None, "version": "1.0"}]}
-        )
-        content_b = json.dumps(
-            {"components": [{"version": "2.0"}]}
-        )
+        content_a = json.dumps({"components": [{"name": None, "version": "1.0"}]})
+        content_b = json.dumps({"components": [{"version": "2.0"}]})
         sbom_store["sbom_a"] = _make_sbom_result(content=content_a)
         sbom_store["sbom_b"] = _make_sbom_result(
             content=content_b,
@@ -1263,9 +1217,7 @@ class TestSecurityEdgeCases:
         """Comparing SBOMs with many components completes."""
         comps_a = [{"name": f"pkg-{i}", "version": "1.0.0"} for i in range(500)]
         comps_b = [{"name": f"pkg-{i}", "version": "2.0.0"} for i in range(500)]
-        sbom_store["sbom_a"] = _make_sbom_result(
-            content=_cyclonedx_content(comps_a)
-        )
+        sbom_store["sbom_a"] = _make_sbom_result(content=_cyclonedx_content(comps_a))
         sbom_store["sbom_b"] = _make_sbom_result(
             content=_cyclonedx_content(comps_b),
             generated_at=datetime(2024, 7, 1, tzinfo=timezone.utc),
@@ -1337,9 +1289,7 @@ class TestEdgeCases:
         """Generating an SBOM with zero components succeeds."""
         import aragora.server.handlers.codebase.security.sbom as sbom_mod
 
-        zero_result = _make_sbom_result(
-            component_count=0, vulnerability_count=0, license_count=0
-        )
+        zero_result = _make_sbom_result(component_count=0, vulnerability_count=0, license_count=0)
         mock_generator.generate_from_repo.return_value = zero_result
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
@@ -1415,12 +1365,8 @@ class TestEdgeCases:
         Empty string is falsy in Python, so the handler treats
         empty-version-in-A + real-version-in-B as 'added' (not 'updated').
         """
-        content_a = _cyclonedx_content(
-            [{"name": "pkg", "version": ""}]
-        )
-        content_b = _cyclonedx_content(
-            [{"name": "pkg", "version": "1.0"}]
-        )
+        content_a = _cyclonedx_content([{"name": "pkg", "version": ""}])
+        content_b = _cyclonedx_content([{"name": "pkg", "version": "1.0"}])
         sbom_store["sbom_a"] = _make_sbom_result(content=content_a)
         sbom_store["sbom_b"] = _make_sbom_result(
             content=content_b,
@@ -1461,7 +1407,16 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_get_sbom_with_unicode_content(self, sbom_store):
         """SBOMs with unicode content are handled."""
-        content = json.dumps({"components": [{"name": "paquet-francais", "description": "Paquet avec des accents: e\u0301te\u0301"}]})
+        content = json.dumps(
+            {
+                "components": [
+                    {
+                        "name": "paquet-francais",
+                        "description": "Paquet avec des accents: e\u0301te\u0301",
+                    }
+                ]
+            }
+        )
         sbom = _make_sbom_result(content=content)
         sbom_store["sbom_uni"] = sbom
 
@@ -1498,9 +1453,7 @@ class TestEdgeCases:
 
         ids = set()
         for _ in range(10):
-            result = await handle_generate_sbom(
-                repo_path="/tmp/repo", repo_id="uniqueness-test"
-            )
+            result = await handle_generate_sbom(repo_path="/tmp/repo", repo_id="uniqueness-test")
             body = _body(result)
             ids.add(body["sbom_id"])
 
@@ -1524,9 +1477,7 @@ class TestEdgeCases:
         """SPDX packages with missing name/version fields are handled."""
         content_a = json.dumps({"packages": [{"name": "pkg"}]})  # no versionInfo
         content_b = json.dumps({"packages": [{"versionInfo": "1.0"}]})  # no name
-        sbom_store["sbom_a"] = _make_sbom_result(
-            format=SBOMFormat.SPDX_JSON, content=content_a
-        )
+        sbom_store["sbom_a"] = _make_sbom_result(format=SBOMFormat.SPDX_JSON, content=content_a)
         sbom_store["sbom_b"] = _make_sbom_result(
             format=SBOMFormat.SPDX_JSON,
             content=content_b,
@@ -1561,9 +1512,7 @@ class TestEdgeCases:
 
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_generator)
 
-        result = await handle_generate_sbom(
-            repo_path="/tmp/repo", format="CycloneDX-JSON"
-        )
+        result = await handle_generate_sbom(repo_path="/tmp/repo", format="CycloneDX-JSON")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1575,9 +1524,7 @@ class TestEdgeCases:
                     {
                         "name": "deep-pkg",
                         "version": "1.0",
-                        "properties": {
-                            "nested": {"deep": {"value": True}}
-                        },
+                        "properties": {"nested": {"deep": {"value": True}}},
                     }
                 ]
             }

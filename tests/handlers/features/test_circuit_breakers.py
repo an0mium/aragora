@@ -92,6 +92,7 @@ def _reset_all_circuit_breakers():
     reset_ecommerce_circuit_breaker()
     # DevOps uses lazy init; reset by patching the module-global to None
     import aragora.server.handlers.features.devops.circuit_breaker as devops_mod
+
     devops_mod._devops_circuit_breaker = None
     yield
     marketplace_reset()

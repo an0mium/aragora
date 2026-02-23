@@ -135,9 +135,7 @@ class DedupOperationsMixin(_DedupMixinBase):
     async def _count_nodes(self, workspace_id: str) -> int:
         return await super()._count_nodes(workspace_id)  # type: ignore[safe-super]
 
-    async def _get_node_relationships_for_ops(
-        self, node_id: str, workspace_id: str
-    ) -> list[Any]:
+    async def _get_node_relationships_for_ops(self, node_id: str, workspace_id: str) -> list[Any]:
         return await super()._get_node_relationships_for_ops(  # type: ignore[safe-super]
             node_id, workspace_id
         )
@@ -153,9 +151,7 @@ class DedupOperationsMixin(_DedupMixinBase):
             source_id, target_id, relationship_type, workspace_id
         )
 
-    async def _archive_node_with_reason(
-        self, node_id: str, workspace_id: str, reason: str
-    ) -> None:
+    async def _archive_node_with_reason(self, node_id: str, workspace_id: str, reason: str) -> None:
         await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[safe-super]
 
     async def _delete_node(self, node_id: str) -> bool:

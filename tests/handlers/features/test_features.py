@@ -426,12 +426,15 @@ class TestGetHandlerStability:
     def test_returns_200(self, handler):
         mock_all_handlers = [type("FakeHandler", (), {"__name__": "FakeHandler"})]
         mock_stability = {"FakeHandler": "stable"}
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS",
-            mock_all_handlers,
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value=mock_stability,
+        with (
+            patch(
+                "aragora.server.handlers.ALL_HANDLERS",
+                mock_all_handlers,
+            ),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value=mock_stability,
+            ),
         ):
             result = handler.handle("/api/features/handlers", {})
             assert _status(result) == 200
@@ -445,12 +448,15 @@ class TestGetHandlerStability:
             "StableHandler": "stable",
             "ExperimentalHandler": "experimental",
         }
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS",
-            mock_all_handlers,
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value=mock_stability,
+        with (
+            patch(
+                "aragora.server.handlers.ALL_HANDLERS",
+                mock_all_handlers,
+            ),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value=mock_stability,
+            ),
         ):
             result = handler.handle("/api/features/handlers", {})
             body = _body(result)
@@ -465,12 +471,15 @@ class TestGetHandlerStability:
             type("HandlerB", (), {"__name__": "HandlerB"}),
         ]
         mock_stability = {"HandlerA": "stable", "HandlerB": "deprecated"}
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS",
-            mock_all_handlers,
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value=mock_stability,
+        with (
+            patch(
+                "aragora.server.handlers.ALL_HANDLERS",
+                mock_all_handlers,
+            ),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value=mock_stability,
+            ),
         ):
             result = handler.handle("/api/features/handlers", {})
             body = _body(result)
@@ -483,12 +492,15 @@ class TestGetHandlerStability:
         ]
         # Stability map does NOT include UnknownHandler
         mock_stability = {}
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS",
-            mock_all_handlers,
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value=mock_stability,
+        with (
+            patch(
+                "aragora.server.handlers.ALL_HANDLERS",
+                mock_all_handlers,
+            ),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value=mock_stability,
+            ),
         ):
             result = handler.handle("/api/features/handlers", {})
             body = _body(result)
@@ -497,12 +509,15 @@ class TestGetHandlerStability:
     def test_versioned_path(self, handler):
         mock_all_handlers = []
         mock_stability = {}
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS",
-            mock_all_handlers,
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value=mock_stability,
+        with (
+            patch(
+                "aragora.server.handlers.ALL_HANDLERS",
+                mock_all_handlers,
+            ),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value=mock_stability,
+            ),
         ):
             result = handler.handle("/api/v1/features/handlers", {})
             assert _status(result) == 200
@@ -833,22 +848,24 @@ class TestGetApiDiscovery:
 
     def test_returns_200(self, handler):
         mock_handlers = self._mock_handlers()
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", mock_handlers
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={"DebatesHandler": "stable", "HealthHandler": "stable"},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", mock_handlers),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={"DebatesHandler": "stable", "HealthHandler": "stable"},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             assert _status(result) == 200
 
     def test_response_structure(self, handler):
         mock_handlers = self._mock_handlers()
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", mock_handlers
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={"DebatesHandler": "stable", "HealthHandler": "stable"},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", mock_handlers),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={"DebatesHandler": "stable", "HealthHandler": "stable"},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -864,11 +881,12 @@ class TestGetApiDiscovery:
 
     def test_endpoint_info_structure(self, handler):
         mock_handlers = self._mock_handlers()
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", mock_handlers
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={"DebatesHandler": "stable"},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", mock_handlers),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={"DebatesHandler": "stable"},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -888,11 +906,12 @@ class TestGetApiDiscovery:
             (),
             {"__name__": "DebatesHandler", "ROUTES": ["/api/v1/debates"]},
         )
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", [handler_cls]
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={"DebatesHandler": "stable"},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", [handler_cls]),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={"DebatesHandler": "stable"},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -906,11 +925,12 @@ class TestGetApiDiscovery:
             (),
             {"__name__": "CustomHandler", "ROUTES": ["/api/v1/custom/obscure"]},
         )
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", [handler_cls]
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", [handler_cls]),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -928,11 +948,12 @@ class TestGetApiDiscovery:
                 "ROUTES": ["/api/v1/items", "/api/v1/items/{id}"],
             },
         )
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", [handler_cls]
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", [handler_cls]),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -941,11 +962,12 @@ class TestGetApiDiscovery:
             assert "/api/v1/items/{id}" not in paths
 
     def test_empty_handlers_list(self, handler):
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", []
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", []),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -962,11 +984,12 @@ class TestGetApiDiscovery:
                 "ROUTES": {"/api/v1/dict/route": "handle_route"},
             },
         )
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", [handler_cls]
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", [handler_cls]),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={},
+            ),
         ):
             result = handler.handle("/api/features/discover", {})
             body = _body(result)
@@ -974,11 +997,12 @@ class TestGetApiDiscovery:
             assert "/api/v1/dict/route" in paths
 
     def test_versioned_path(self, handler):
-        with patch(
-            "aragora.server.handlers.ALL_HANDLERS", []
-        ), patch(
-            "aragora.server.handlers.get_all_handler_stability",
-            return_value={},
+        with (
+            patch("aragora.server.handlers.ALL_HANDLERS", []),
+            patch(
+                "aragora.server.handlers.get_all_handler_stability",
+                return_value={},
+            ),
         ):
             result = handler.handle("/api/v1/features/discover", {})
             assert _status(result) == 200
@@ -993,9 +1017,7 @@ class TestGetAllEndpoints:
     """Tests for the flat endpoint list."""
 
     def test_returns_200(self, handler):
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", []
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", []):
             result = handler.handle("/api/features/endpoints", {})
             assert _status(result) == 200
 
@@ -1005,9 +1027,7 @@ class TestGetAllEndpoints:
             (),
             {"__name__": "TestHandler", "ROUTES": ["/api/v1/test"]},
         )
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]):
             result = handler.handle("/api/features/endpoints", {})
             body = _body(result)
             assert "total" in body
@@ -1021,9 +1041,7 @@ class TestGetAllEndpoints:
             (),
             {"__name__": "TestHandler", "ROUTES": ["/api/v1/z", "/api/v1/a"]},
         )
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]):
             result = handler.handle("/api/features/endpoints", {})
             body = _body(result)
             assert body["endpoints"] == sorted(body["endpoints"])
@@ -1037,9 +1055,7 @@ class TestGetAllEndpoints:
                 "ROUTES": ["/api/v1/items", "/api/v1/items/{id}"],
             },
         )
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]):
             result = handler.handle("/api/features/endpoints", {})
             body = _body(result)
             assert "/api/v1/items" in body["endpoints"]
@@ -1051,9 +1067,7 @@ class TestGetAllEndpoints:
             (),
             {"__name__": "FooHandler", "ROUTES": ["/api/v1/foo"]},
         )
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]):
             result = handler.handle("/api/features/endpoints", {})
             body = _body(result)
             assert "FooHandler" in body["by_handler"]
@@ -1066,18 +1080,14 @@ class TestGetAllEndpoints:
             (),
             {"__name__": "NoRoutesHandler"},
         )
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", [handler_cls]):
             result = handler.handle("/api/features/endpoints", {})
             assert _status(result) == 200
             body = _body(result)
             assert body["by_handler"]["NoRoutesHandler"] == []
 
     def test_versioned_path(self, handler):
-        with patch(
-            "aragora.server.handlers._registry.ALL_HANDLERS", []
-        ):
+        with patch("aragora.server.handlers._registry.ALL_HANDLERS", []):
             result = handler.handle("/api/v1/features/endpoints", {})
             assert _status(result) == 200
 
@@ -1370,17 +1380,31 @@ class TestFeatureRegistry:
     def test_all_statuses_valid(self):
         valid_statuses = {"optional", "coming_soon", "deprecated"}
         for fid, info in FEATURE_REGISTRY.items():
-            assert info.status in valid_statuses, (
-                f"Feature {fid} has invalid status: {info.status}"
-            )
+            assert info.status in valid_statuses, f"Feature {fid} has invalid status: {info.status}"
 
     def test_known_feature_ids(self):
         """Verify expected feature IDs are present."""
         expected = {
-            "pulse", "genesis", "verification", "laboratory", "calibration",
-            "evolution", "red_team", "capability_probes", "continuum_memory",
-            "consensus_memory", "insights", "moments", "tournaments", "elo",
-            "crux", "rhetorical", "trickster", "plugins", "memory", "supermemory",
+            "pulse",
+            "genesis",
+            "verification",
+            "laboratory",
+            "calibration",
+            "evolution",
+            "red_team",
+            "capability_probes",
+            "continuum_memory",
+            "consensus_memory",
+            "insights",
+            "moments",
+            "tournaments",
+            "elo",
+            "crux",
+            "rhetorical",
+            "trickster",
+            "plugins",
+            "memory",
+            "supermemory",
         }
         assert expected == set(FEATURE_REGISTRY.keys())
 
@@ -1495,10 +1519,7 @@ class TestRoutesList:
         assert len(versioned) > 0
 
     def test_routes_include_unversioned_paths(self):
-        unversioned = [
-            r for r in FeaturesHandler.ROUTES
-            if r.startswith("/api/features")
-        ]
+        unversioned = [r for r in FeaturesHandler.ROUTES if r.startswith("/api/features")]
         assert len(unversioned) > 0
 
     def test_routes_include_wildcard(self):

@@ -714,7 +714,8 @@ class NotificationManager:
         """Add a notification channel configuration."""
         self._channels.append(config)
         logger.info(
-            "Added notification channel: %s", config.channel_type.value,
+            "Added notification channel: %s",
+            config.channel_type.value,
             extra={"workspace_id": config.workspace_id, "config_id": config.config_id},
         )
 
@@ -726,7 +727,8 @@ class NotificationManager:
         """Add and persist a notification channel configuration (async)."""
         self._channels.append(config)
         logger.info(
-            "Added notification channel: %s", config.channel_type.value,
+            "Added notification channel: %s",
+            config.channel_type.value,
             extra={"workspace_id": config.workspace_id, "config_id": config.config_id},
         )
 
@@ -902,15 +904,26 @@ class NotificationManager:
             result = await provider.send(message, config)
             if result.success:
                 logger.info(
-                    "Notification sent to %s", config.channel_type.value,
+                    "Notification sent to %s",
+                    config.channel_type.value,
                     extra={"event_type": message.event_type.value},
                 )
             else:
                 logger.warning(
-                    "Failed to send notification to %s: %s", config.channel_type.value, result.error,
+                    "Failed to send notification to %s: %s",
+                    config.channel_type.value,
+                    result.error,
                 )
             return result
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, AttributeError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            AttributeError,
+        ) as e:
             logger.error("Error sending notification to %s: %s", config.channel_type.value, e)
             return NotificationResult(
                 success=False,

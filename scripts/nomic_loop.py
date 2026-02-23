@@ -9249,9 +9249,7 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
 
         return publish_result
 
-    def _maybe_publish_to_marketplace(
-        self, improvement: str, confidence: float
-    ) -> dict | None:
+    def _maybe_publish_to_marketplace(self, improvement: str, confidence: float) -> dict | None:
         """Optionally publish high-confidence configs as marketplace skills.
 
         Gated by ARAGORA_AUTO_PUBLISH_MARKETPLACE env var (default off).
@@ -9267,13 +9265,9 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         if os.environ.get("ARAGORA_AUTO_PUBLISH_MARKETPLACE", "0") != "1":
             return None
 
-        min_confidence = float(
-            os.environ.get("ARAGORA_MARKETPLACE_MIN_CONFIDENCE", "0.85")
-        )
+        min_confidence = float(os.environ.get("ARAGORA_MARKETPLACE_MIN_CONFIDENCE", "0.85"))
         if confidence < min_confidence:
-            self._log(
-                f"  [marketplace] Skipped (confidence {confidence:.2f} < {min_confidence})"
-            )
+            self._log(f"  [marketplace] Skipped (confidence {confidence:.2f} < {min_confidence})")
             return {"published": False, "reason": "below_confidence_threshold"}
 
         try:
@@ -9282,11 +9276,7 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
 
             publisher = SkillPublisher()
             title = improvement.splitlines()[0].strip()[:80] or "nomic-improvement"
-            skill_name = (
-                title.lower()
-                .replace(" ", "-")
-                .replace("_", "-")[:40]
-            )
+            skill_name = title.lower().replace(" ", "-").replace("_", "-")[:40]
 
             skill = Skill(
                 name=f"nomic-{skill_name}",
@@ -10520,12 +10510,10 @@ Working directory: {self.aragora_path}
                 cycle_result["publish"] = publish_result
 
             # Auto-publish high-confidence improvements to marketplace
-            debate_confidence = cycle_result.get("phases", {}).get("debate", {}).get(
-                "confidence", 0.0
+            debate_confidence = (
+                cycle_result.get("phases", {}).get("debate", {}).get("confidence", 0.0)
             )
-            marketplace_result = self._maybe_publish_to_marketplace(
-                improvement, debate_confidence
-            )
+            marketplace_result = self._maybe_publish_to_marketplace(improvement, debate_confidence)
             if marketplace_result:
                 cycle_result["marketplace"] = marketplace_result
         else:

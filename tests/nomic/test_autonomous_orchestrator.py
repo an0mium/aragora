@@ -1324,7 +1324,9 @@ class TestMetricsIntegration:
         assert orchestrator._metrics_collector is not None
 
     @pytest.mark.asyncio
-    async def test_metrics_populates_result_fields(self, mock_workflow_engine, mock_task_decomposer):
+    async def test_metrics_populates_result_fields(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
         """When metrics enabled, result should have baseline/after/delta."""
         from aragora.nomic.metrics_collector import MetricSnapshot
 
@@ -1421,7 +1423,9 @@ class TestPreflightIntegration:
         assert result.total_subtasks == 0
 
     @pytest.mark.asyncio
-    async def test_preflight_passes_allows_execution(self, ):
+    async def test_preflight_passes_allows_execution(
+        self,
+    ):
         """Passed preflight should allow normal execution."""
         from aragora.nomic.preflight import PreflightResult
 

@@ -80,7 +80,6 @@ class BenchmarkingHandler(BaseHandler):
                 400,
             )
 
-
         aggregator = self._get_aggregator()
         benchmarks = aggregator.get_benchmarks(industry, team_size, decision_type)
 
@@ -149,7 +148,9 @@ class BenchmarkingHandler(BaseHandler):
         aggregator = self._get_aggregator()
         comparison = aggregator.compare(tenant_metrics, industry, team_size)
 
-        return json_response({"comparison": comparison, "industry": industry, "team_size": team_size})
+        return json_response(
+            {"comparison": comparison, "industry": industry, "team_size": team_size}
+        )
 
     def _get_aggregator(self) -> Any:
         """Get or create the BenchmarkAggregator from server context."""

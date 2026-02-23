@@ -77,9 +77,7 @@ class MockQueryResult:
             "question": "What are the payment terms?",
             "answer": "The payment terms are net-30.",
             "confidence": "high",
-            "citations": [
-                {"document_id": "doc1", "text": "Net-30 payment", "page": 2}
-            ],
+            "citations": [{"document_id": "doc1", "text": "Net-30 payment", "page": 2}],
             "processing_time_ms": 150,
         }
 
@@ -394,10 +392,12 @@ class TestQueryDocuments:
         assert "question" in _body(result).get("error", "").lower()
 
     def test_query_with_document_ids(self, handler):
-        mock_http = _make_handler({
-            "question": "What are the terms?",
-            "document_ids": ["doc1", "doc2"],
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What are the terms?",
+                "document_ids": ["doc1", "doc2"],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -411,10 +411,12 @@ class TestQueryDocuments:
         assert call_kwargs["document_ids"] == ["doc1", "doc2"]
 
     def test_query_with_workspace_id(self, handler):
-        mock_http = _make_handler({
-            "question": "What is the scope?",
-            "workspace_id": "ws_123",
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What is the scope?",
+                "workspace_id": "ws_123",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -427,10 +429,12 @@ class TestQueryDocuments:
         assert call_kwargs["workspace_id"] == "ws_123"
 
     def test_query_with_conversation_id(self, handler):
-        mock_http = _make_handler({
-            "question": "Follow-up question?",
-            "conversation_id": "conv_456",
-        })
+        mock_http = _make_handler(
+            {
+                "question": "Follow-up question?",
+                "conversation_id": "conv_456",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -443,10 +447,12 @@ class TestQueryDocuments:
         assert call_kwargs["conversation_id"] == "conv_456"
 
     def test_query_with_config(self, handler):
-        mock_http = _make_handler({
-            "question": "What are the terms?",
-            "config": {"max_chunks": 5, "include_quotes": False, "max_answer_length": 200},
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What are the terms?",
+                "config": {"max_chunks": 5, "include_quotes": False, "max_answer_length": 200},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -523,13 +529,15 @@ class TestQueryDocuments:
         assert _status(result) == 500
 
     def test_query_all_params(self, handler):
-        mock_http = _make_handler({
-            "question": "Full query",
-            "document_ids": ["d1", "d2"],
-            "workspace_id": "ws_1",
-            "conversation_id": "conv_1",
-            "config": {"max_chunks": 20},
-        })
+        mock_http = _make_handler(
+            {
+                "question": "Full query",
+                "document_ids": ["d1", "d2"],
+                "workspace_id": "ws_1",
+                "conversation_id": "conv_1",
+                "config": {"max_chunks": 20},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -594,20 +602,24 @@ class TestSummarizeDocuments:
         assert _status(result) == 400
 
     def test_summarize_with_focus(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "focus": "financial terms",
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "focus": "financial terms",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.summarize_documents.return_value = MockQueryResult({
-                "query_id": "sum_1",
-                "answer": "Summary.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.summarize_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "sum_1",
+                    "answer": "Summary.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/summarize", {}, mock_http)
         assert _status(result) == 200
@@ -621,12 +633,14 @@ class TestSummarizeDocuments:
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.summarize_documents.return_value = MockQueryResult({
-                "query_id": "sum_2",
-                "answer": "Summary.",
-                "confidence": "medium",
-                "citations": [],
-            })
+            engine_instance.summarize_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "sum_2",
+                    "answer": "Summary.",
+                    "confidence": "medium",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/summarize", {}, mock_http)
         assert _status(result) == 200
@@ -634,20 +648,24 @@ class TestSummarizeDocuments:
         assert call_kwargs["focus"] is None
 
     def test_summarize_with_config(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "config": {"max_chunks": 5, "include_quotes": False},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "config": {"max_chunks": 5, "include_quotes": False},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.summarize_documents.return_value = MockQueryResult({
-                "query_id": "sum_3",
-                "answer": "Summary.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.summarize_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "sum_3",
+                    "answer": "Summary.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/summarize", {}, mock_http)
         assert _status(result) == 200
@@ -658,20 +676,24 @@ class TestSummarizeDocuments:
 
     def test_summarize_config_filters_unknown_keys(self, handler):
         """Config dict should only pass known QueryConfig fields."""
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "config": {"max_chunks": 3, "unknown_field": "ignored"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "config": {"max_chunks": 3, "unknown_field": "ignored"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.summarize_documents.return_value = MockQueryResult({
-                "query_id": "sum_4",
-                "answer": "Summary.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.summarize_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "sum_4",
+                    "answer": "Summary.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/summarize", {}, mock_http)
         assert _status(result) == 200
@@ -708,19 +730,23 @@ class TestSummarizeDocuments:
         assert _status(result) == 500
 
     def test_summarize_multiple_documents(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1", "doc2", "doc3"],
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1", "doc2", "doc3"],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.summarize_documents.return_value = MockQueryResult({
-                "query_id": "sum_5",
-                "answer": "Multi-doc summary.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.summarize_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "sum_5",
+                    "answer": "Multi-doc summary.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/summarize", {}, mock_http)
         assert _status(result) == 200
@@ -756,7 +782,10 @@ class TestCompareDocuments:
         mock_http = _make_handler({"aspects": ["pricing"]})
         result = handler.handle_post("/api/v1/documents/compare", {}, mock_http)
         assert _status(result) == 400
-        assert "2" in _body(result).get("error", "") or "document_ids" in _body(result).get("error", "").lower()
+        assert (
+            "2" in _body(result).get("error", "")
+            or "document_ids" in _body(result).get("error", "").lower()
+        )
 
     def test_compare_single_document_id(self, handler):
         mock_http = _make_handler({"document_ids": ["doc1"]})
@@ -770,20 +799,24 @@ class TestCompareDocuments:
         assert _status(result) == 400
 
     def test_compare_with_aspects(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1", "doc2"],
-            "aspects": ["pricing", "terms", "coverage"],
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1", "doc2"],
+                "aspects": ["pricing", "terms", "coverage"],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.compare_documents.return_value = MockQueryResult({
-                "query_id": "cmp_1",
-                "answer": "Comparison.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.compare_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "cmp_1",
+                    "answer": "Comparison.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/compare", {}, mock_http)
         assert _status(result) == 200
@@ -796,12 +829,14 @@ class TestCompareDocuments:
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.compare_documents.return_value = MockQueryResult({
-                "query_id": "cmp_2",
-                "answer": "Comparison.",
-                "confidence": "medium",
-                "citations": [],
-            })
+            engine_instance.compare_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "cmp_2",
+                    "answer": "Comparison.",
+                    "confidence": "medium",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/compare", {}, mock_http)
         assert _status(result) == 200
@@ -809,20 +844,24 @@ class TestCompareDocuments:
         assert call_kwargs["aspects"] is None
 
     def test_compare_with_config(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1", "doc2"],
-            "config": {"max_chunks": 15},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1", "doc2"],
+                "config": {"max_chunks": 15},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.compare_documents.return_value = MockQueryResult({
-                "query_id": "cmp_3",
-                "answer": "Comparison.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.compare_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "cmp_3",
+                    "answer": "Comparison.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/compare", {}, mock_http)
         assert _status(result) == 200
@@ -839,9 +878,11 @@ class TestCompareDocuments:
         assert _status(result) == 200
 
     def test_compare_many_documents(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1", "doc2", "doc3", "doc4", "doc5"],
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1", "doc2", "doc3", "doc4", "doc5"],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
             MockQueryEngine,
@@ -877,12 +918,14 @@ class TestExtractInformation:
     """Tests for POST /api/v1/documents/extract endpoint."""
 
     def test_extract_success(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {
-                "parties": "Who are the parties?",
-            },
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {
+                    "parties": "Who are the parties?",
+                },
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
             MockQueryEngine,
@@ -900,34 +943,42 @@ class TestExtractInformation:
         assert _status(result) == 400
 
     def test_extract_missing_document_ids(self, handler):
-        mock_http = _make_handler({
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "fields": {"parties": "Who?"},
+            }
+        )
         result = handler.handle_post("/api/v1/documents/extract", {}, mock_http)
         assert _status(result) == 400
         assert "document_ids" in _body(result).get("error", "").lower()
 
     def test_extract_empty_document_ids(self, handler):
-        mock_http = _make_handler({
-            "document_ids": [],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": [],
+                "fields": {"parties": "Who?"},
+            }
+        )
         result = handler.handle_post("/api/v1/documents/extract", {}, mock_http)
         assert _status(result) == 400
 
     def test_extract_missing_fields(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+            }
+        )
         result = handler.handle_post("/api/v1/documents/extract", {}, mock_http)
         assert _status(result) == 400
         assert "fields" in _body(result).get("error", "").lower()
 
     def test_extract_empty_fields(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {},
+            }
+        )
         result = handler.handle_post("/api/v1/documents/extract", {}, mock_http)
         assert _status(result) == 400
 
@@ -938,16 +989,20 @@ class TestExtractInformation:
             "term": "What is the term?",
             "payment_terms": "What are the payment terms?",
         }
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": fields,
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": fields,
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
             extract_results = {
-                f: MockQueryResult({"answer": f"Answer for {f}", "confidence": "high", "citations": []})
+                f: MockQueryResult(
+                    {"answer": f"Answer for {f}", "confidence": "high", "citations": []}
+                )
                 for f in fields
             }
             engine_instance.extract_information.return_value = extract_results
@@ -961,17 +1016,23 @@ class TestExtractInformation:
 
     def test_extract_passes_fields_as_template(self, handler):
         fields = {"parties": "Who?", "date": "When?"}
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": fields,
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": fields,
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
             engine_instance.extract_information.return_value = {
-                "parties": MockQueryResult({"answer": "A and B", "confidence": "high", "citations": []}),
-                "date": MockQueryResult({"answer": "Jan 1", "confidence": "medium", "citations": []}),
+                "parties": MockQueryResult(
+                    {"answer": "A and B", "confidence": "high", "citations": []}
+                ),
+                "date": MockQueryResult(
+                    {"answer": "Jan 1", "confidence": "medium", "citations": []}
+                ),
             }
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/extract", {}, mock_http)
@@ -981,11 +1042,13 @@ class TestExtractInformation:
         assert call_kwargs["document_ids"] == ["doc1"]
 
     def test_extract_with_config(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"parties": "Who?"},
-            "config": {"max_chunks": 8},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"parties": "Who?"},
+                "config": {"max_chunks": 8},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1000,10 +1063,12 @@ class TestExtractInformation:
         assert create_kwargs["config"].max_chunks == 8
 
     def test_extract_runtime_error(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"parties": "Who?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1012,10 +1077,12 @@ class TestExtractInformation:
         assert _status(result) == 500
 
     def test_extract_value_error(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"parties": "Who?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1024,10 +1091,12 @@ class TestExtractInformation:
         assert _status(result) == 500
 
     def test_extract_type_error(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"parties": "Who?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1036,10 +1105,12 @@ class TestExtractInformation:
         assert _status(result) == 500
 
     def test_extract_response_includes_document_ids(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1", "doc2"],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1", "doc2"],
+                "fields": {"parties": "Who?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1090,10 +1161,12 @@ class TestHandlePostRouting:
         assert _status(result) == 200
 
     def test_post_routes_to_extract(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"parties": "Who?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
             MockQueryEngine,
@@ -1124,10 +1197,12 @@ class TestSecurity:
 
     def test_path_traversal_in_document_ids(self, handler):
         """Path traversal in document_ids should not cause issues."""
-        mock_http = _make_handler({
-            "question": "What?",
-            "document_ids": ["../../../etc/passwd", "doc1"],
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What?",
+                "document_ids": ["../../../etc/passwd", "doc1"],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1140,9 +1215,11 @@ class TestSecurity:
 
     def test_script_injection_in_question(self, handler):
         """Script injection in question should be passed through safely."""
-        mock_http = _make_handler({
-            "question": "<script>alert('xss')</script>",
-        })
+        mock_http = _make_handler(
+            {
+                "question": "<script>alert('xss')</script>",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1154,9 +1231,11 @@ class TestSecurity:
 
     def test_sql_injection_in_question(self, handler):
         """SQL injection attempt in question should not cause issues."""
-        mock_http = _make_handler({
-            "question": "'; DROP TABLE documents; --",
-        })
+        mock_http = _make_handler(
+            {
+                "question": "'; DROP TABLE documents; --",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1181,9 +1260,11 @@ class TestSecurity:
 
     def test_unicode_question(self, handler):
         """Unicode in question should work."""
-        mock_http = _make_handler({
-            "question": "What about the contract terms?",
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What about the contract terms?",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1195,10 +1276,12 @@ class TestSecurity:
 
     def test_null_bytes_in_document_ids(self, handler):
         """Null bytes in document IDs should not crash."""
-        mock_http = _make_handler({
-            "question": "What?",
-            "document_ids": ["doc\x001", "doc2"],
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What?",
+                "document_ids": ["doc\x001", "doc2"],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1214,9 +1297,7 @@ class TestSecurity:
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
-            MockEngine.create = AsyncMock(
-                side_effect=RuntimeError("/var/secrets/api_key leaked")
-            )
+            MockEngine.create = AsyncMock(side_effect=RuntimeError("/var/secrets/api_key leaked"))
             result = handler.handle_post("/api/v1/documents/query", {}, mock_http)
         assert _status(result) == 500
         body = _body(result)
@@ -1226,20 +1307,26 @@ class TestSecurity:
 
     def test_special_chars_in_field_names(self, handler):
         """Special characters in extraction field names should not crash."""
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {
-                "field<script>": "Question?",
-                "field; DROP TABLE": "Another question?",
-            },
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {
+                    "field<script>": "Question?",
+                    "field; DROP TABLE": "Another question?",
+                },
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
             engine_instance.extract_information.return_value = {
-                "field<script>": MockQueryResult({"answer": "A", "confidence": "high", "citations": []}),
-                "field; DROP TABLE": MockQueryResult({"answer": "B", "confidence": "high", "citations": []}),
+                "field<script>": MockQueryResult(
+                    {"answer": "A", "confidence": "high", "citations": []}
+                ),
+                "field; DROP TABLE": MockQueryResult(
+                    {"answer": "B", "confidence": "high", "citations": []}
+                ),
             }
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/extract", {}, mock_http)
@@ -1256,12 +1343,14 @@ class TestEdgeCases:
 
     def test_query_with_none_document_ids(self, handler):
         """Explicitly passing None for optional fields."""
-        mock_http = _make_handler({
-            "question": "What?",
-            "document_ids": None,
-            "workspace_id": None,
-            "conversation_id": None,
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What?",
+                "document_ids": None,
+                "workspace_id": None,
+                "conversation_id": None,
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1272,10 +1361,12 @@ class TestEdgeCases:
         assert _status(result) == 200
 
     def test_query_with_empty_config(self, handler):
-        mock_http = _make_handler({
-            "question": "What?",
-            "config": {},
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What?",
+                "config": {},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1311,29 +1402,35 @@ class TestEdgeCases:
         assert _status(result) == 200
 
     def test_compare_with_empty_aspects_list(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1", "doc2"],
-            "aspects": [],
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1", "doc2"],
+                "aspects": [],
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
             engine_instance = AsyncMock()
-            engine_instance.compare_documents.return_value = MockQueryResult({
-                "query_id": "cmp_empty",
-                "answer": "Comparison.",
-                "confidence": "high",
-                "citations": [],
-            })
+            engine_instance.compare_documents.return_value = MockQueryResult(
+                {
+                    "query_id": "cmp_empty",
+                    "answer": "Comparison.",
+                    "confidence": "high",
+                    "citations": [],
+                }
+            )
             MockEngine.create = AsyncMock(return_value=engine_instance)
             result = handler.handle_post("/api/v1/documents/compare", {}, mock_http)
         assert _status(result) == 200
 
     def test_extract_single_field(self, handler):
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"single": "One field only?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"single": "One field only?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1350,10 +1447,12 @@ class TestEdgeCases:
     def test_extract_many_fields(self, handler):
         """Extract with many fields."""
         fields = {f"field_{i}": f"Question {i}?" for i in range(20)}
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": fields,
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": fields,
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1413,10 +1512,12 @@ class TestEdgeCases:
 
     def test_extract_error_during_extract(self, handler):
         """Error during engine.extract_information."""
-        mock_http = _make_handler({
-            "document_ids": ["doc1"],
-            "fields": {"parties": "Who?"},
-        })
+        mock_http = _make_handler(
+            {
+                "document_ids": ["doc1"],
+                "fields": {"parties": "Who?"},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:
@@ -1428,10 +1529,12 @@ class TestEdgeCases:
 
     def test_query_config_partial_override(self, handler):
         """Config with only some fields overridden uses defaults for the rest."""
-        mock_http = _make_handler({
-            "question": "What?",
-            "config": {"max_chunks": 3},
-        })
+        mock_http = _make_handler(
+            {
+                "question": "What?",
+                "config": {"max_chunks": 3},
+            }
+        )
         with patch(
             "aragora.server.handlers.features.document_query.DocumentQueryEngine",
         ) as MockEngine:

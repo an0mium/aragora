@@ -285,7 +285,10 @@ class ApprovalWorkflow:
             self._by_approver[approver_id].append(request.id)
 
         logger.info(
-            "Access request created: id=%s, requester=%s, permission=%s", request.id, requester_id, permission
+            "Access request created: id=%s, requester=%s, permission=%s",
+            request.id,
+            requester_id,
+            permission,
         )
 
         # Log audit event
@@ -730,7 +733,10 @@ class ApprovalWorkflow:
             )
 
             logger.info(
-                "Granted temporary permission: user=%s, permission=%s, expires=%s", request.requester_id, request.permission, expires_at
+                "Granted temporary permission: user=%s, permission=%s, expires=%s",
+                request.requester_id,
+                request.permission,
+                expires_at,
             )
 
         except ImportError:

@@ -79,7 +79,9 @@ class TracesDatabase:
                 conn.execute("COMMIT")
             except Exception as e:  # noqa: BLE001 - transaction guard must rollback on any exception before re-raising
                 logger.warning(
-                    "Non-database exception during transaction, rolling back: %s: %s", type(e).__name__, e
+                    "Non-database exception during transaction, rolling back: %s: %s",
+                    type(e).__name__,
+                    e,
                 )
                 conn.execute("ROLLBACK")
                 raise

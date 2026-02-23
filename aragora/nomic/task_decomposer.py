@@ -304,7 +304,10 @@ class TaskDecomposer:
             expanded = self._expand_vague_goal(task_description)
             if expanded is not None:
                 logger.info(
-                    "vague_goal_expanded original_score=%s subtasks=%s depth=%s", complexity_score, len(expanded.subtasks), depth
+                    "vague_goal_expanded original_score=%s subtasks=%s depth=%s",
+                    complexity_score,
+                    len(expanded.subtasks),
+                    depth,
                 )
                 return expanded
 
@@ -336,11 +339,16 @@ class TaskDecomposer:
         if should_decompose:
             result.subtasks = self._generate_subtasks(task_description, debate_result)
             logger.info(
-                "task_decomposed complexity=%s subtasks=%s depth=%s", complexity_score, len(result.subtasks), depth
+                "task_decomposed complexity=%s subtasks=%s depth=%s",
+                complexity_score,
+                len(result.subtasks),
+                depth,
             )
         else:
             logger.debug(
-                "task_not_decomposed complexity=%s threshold=%s", complexity_score, self.config.complexity_threshold
+                "task_not_decomposed complexity=%s threshold=%s",
+                complexity_score,
+                self.config.complexity_threshold,
             )
 
         return result
@@ -496,9 +504,7 @@ class TaskDecomposer:
         }
 
         # Strip punctuation from words for matching (e.g. "system?" -> "system")
-        words_set = set(
-            re.sub(r"[^\w]", "", w) for w in task_lower.split()
-        )
+        words_set = set(re.sub(r"[^\w]", "", w) for w in task_lower.split())
         has_abstract_action = bool(words_set & _ABSTRACT_ACTION_WORDS)
         has_superlative = bool(words_set & _SUPERLATIVE_WORDS)
         has_broad_scope = bool(words_set & _BROAD_SCOPE_WORDS)
@@ -886,9 +892,7 @@ class TaskDecomposer:
 
             # Query recurring failures relevant to this task
             try:
-                failures = await adapter.find_recurring_failures(
-                    min_occurrences=2, limit=5
-                )
+                failures = await adapter.find_recurring_failures(min_occurrences=2, limit=5)
                 task_lower = task.lower()
                 for failure in failures:
                     # Check if failure is relevant to this task's domain
@@ -899,9 +903,7 @@ class TaskDecomposer:
                     pattern_words = set(pattern.split())
                     task_words = set(task_lower.split())
                     overlap = pattern_words & task_words
-                    relevant_domain = any(
-                        track in task_lower for track in affected
-                    )
+                    relevant_domain = any(track in task_lower for track in affected)
 
                     if overlap or relevant_domain:
                         # Add warning to all subtasks' success_criteria

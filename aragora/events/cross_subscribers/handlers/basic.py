@@ -291,7 +291,9 @@ class BasicHandlersMixin:
                 try:
                     result = dispatch_webhook_with_retry(webhook, payload)
                     if not result.success:
-                        logger.warning("Webhook delivery failed for %s: %s", webhook.id, result.error)
+                        logger.warning(
+                            "Webhook delivery failed for %s: %s", webhook.id, result.error
+                        )
                 except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
                     logger.error("Webhook dispatch error for %s: %s", webhook.id, e)
 

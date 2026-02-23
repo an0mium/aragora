@@ -468,7 +468,14 @@ class DevOpsHandler(SecureHandler):
                 status=201,
             )
 
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            AttributeError,
+        ) as e:
             circuit_breaker.record_failure()
             logger.error("Failed to create incident: %s", e)
             return error_response("Failed to create incident", 500)
@@ -731,7 +738,9 @@ class DevOpsHandler(SecureHandler):
             incident = await connector.merge_incidents(incident_id, validated_source_ids)
 
             circuit_breaker.record_success()
-            logger.info("[DevOps] Merged %s incidents into %s", len(validated_source_ids), incident_id)
+            logger.info(
+                "[DevOps] Merged %s incidents into %s", len(validated_source_ids), incident_id
+            )
 
             return success_response(
                 {
@@ -1134,7 +1143,8 @@ class DevOpsHandler(SecureHandler):
 
             # Log structured event for processing pipelines
             logger.info(
-                "[DevOps] Connector event: %s", event_type,
+                "[DevOps] Connector event: %s",
+                event_type,
                 extra={"event_data": event_data},
             )
 

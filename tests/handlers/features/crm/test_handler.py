@@ -378,7 +378,10 @@ class TestConnectPlatform:
             )
         )
         assert _status(result) == 400
-        assert "Credentials" in _body(result).get("error", "") or "required" in _body(result).get("error", "").lower()
+        assert (
+            "Credentials" in _body(result).get("error", "")
+            or "required" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_connect_missing_required_credential_field(self, handler):
@@ -434,17 +437,13 @@ class TestDisconnectPlatform:
     @pytest.mark.asyncio
     async def test_disconnect_success(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(method="DELETE", path="/api/v1/crm/hubspot")
-        )
+        result = await handler.handle_request(_req(method="DELETE", path="/api/v1/crm/hubspot"))
         assert _status(result) == 200
         assert "hubspot" not in _platform_credentials
 
     @pytest.mark.asyncio
     async def test_disconnect_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(method="DELETE", path="/api/v1/crm/hubspot")
-        )
+        result = await handler.handle_request(_req(method="DELETE", path="/api/v1/crm/hubspot"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -454,9 +453,7 @@ class TestDisconnectPlatform:
         mock_conn.close = AsyncMock()
         _platform_connectors["hubspot"] = mock_conn
 
-        result = await handler.handle_request(
-            _req(method="DELETE", path="/api/v1/crm/hubspot")
-        )
+        result = await handler.handle_request(_req(method="DELETE", path="/api/v1/crm/hubspot"))
         assert _status(result) == 200
         mock_conn.close.assert_awaited_once()
         assert "hubspot" not in _platform_connectors
@@ -503,9 +500,7 @@ class TestListPlatformContacts:
     @pytest.mark.asyncio
     async def test_list_platform_contacts_success(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts"))
         assert _status(result) == 200
         body = _body(result)
         assert body["contacts"] == []
@@ -513,18 +508,14 @@ class TestListPlatformContacts:
 
     @pytest.mark.asyncio
     async def test_list_platform_contacts_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_list_platform_contacts_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts"))
         assert _status(result) == 503
 
 
@@ -539,26 +530,20 @@ class TestGetContact:
     @pytest.mark.asyncio
     async def test_get_contact_not_found(self, handler):
         _connect_hubspot()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts/c123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts/c123"))
         # The stub returns 404 "Contact not found"
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_contact_platform_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts/c123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts/c123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_contact_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/contacts/c123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/contacts/c123"))
         assert _status(result) == 503
 
 
@@ -739,9 +724,7 @@ class TestListPlatformCompanies:
     async def test_list_platform_companies_no_connector(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/companies")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies"))
         assert _status(result) == 200
         body = _body(result)
         assert body["companies"] == []
@@ -759,9 +742,7 @@ class TestListPlatformCompanies:
         mock_conn.get_companies = AsyncMock(return_value=[mock_company])
         _platform_connectors["hubspot"] = mock_conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies"))
         assert _status(result) == 200
         body = _body(result)
         assert len(body["companies"]) == 1
@@ -769,18 +750,14 @@ class TestListPlatformCompanies:
 
     @pytest.mark.asyncio
     async def test_list_platform_companies_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_list_platform_companies_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies"))
         assert _status(result) == 503
 
 
@@ -794,27 +771,21 @@ class TestGetCompany:
 
     @pytest.mark.asyncio
     async def test_get_company_platform_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies/co123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies/co123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_company_no_connector(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/companies/co123")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies/co123"))
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_company_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies/co123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies/co123"))
         assert _status(result) == 503
 
 
@@ -923,9 +894,7 @@ class TestListPlatformDeals:
     async def test_list_platform_deals_no_connector(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/deals")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         body = _body(result)
         assert body["deals"] == []
@@ -943,27 +912,21 @@ class TestListPlatformDeals:
         mock_conn.get_deals = AsyncMock(return_value=[mock_deal])
         _platform_connectors["hubspot"] = mock_conn
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 200
         body = _body(result)
         assert len(body["deals"]) == 1
 
     @pytest.mark.asyncio
     async def test_list_platform_deals_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_list_platform_deals_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals"))
         assert _status(result) == 503
 
 
@@ -977,27 +940,21 @@ class TestGetDeal:
 
     @pytest.mark.asyncio
     async def test_get_deal_platform_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_deal_no_connector(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/deals/d123")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_deal_circuit_breaker_open(self, handler):
         _connect_hubspot()
         _open_circuit_breaker()
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/deals/d123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/deals/d123"))
         assert _status(result) == 503
 
 
@@ -1426,23 +1383,17 @@ class TestEndpointNotFound:
 
     @pytest.mark.asyncio
     async def test_unknown_endpoint(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/nonexistent")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/nonexistent"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_platforms(self, handler):
-        result = await handler.handle_request(
-            _req(method="DELETE", path="/api/v1/crm/platforms")
-        )
+        result = await handler.handle_request(_req(method="DELETE", path="/api/v1/crm/platforms"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_on_connect_endpoint(self, handler):
-        result = await handler.handle_request(
-            _req(method="GET", path="/api/v1/crm/connect")
-        )
+        result = await handler.handle_request(_req(method="GET", path="/api/v1/crm/connect"))
         assert _status(result) == 404
 
 
@@ -1638,9 +1589,7 @@ class TestRBACPermissions:
     async def test_disconnect_requires_configure_permission(self):
         _connect_hubspot()
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(method="DELETE", path="/api/v1/crm/hubspot")
-        )
+        result = await handler.handle_request(_req(method="DELETE", path="/api/v1/crm/hubspot"))
         assert _status(result) in (401, 403)
 
     @pytest.mark.no_auto_auth
@@ -1661,9 +1610,7 @@ class TestRBACPermissions:
     @pytest.mark.asyncio
     async def test_list_contacts_requires_read_permission(self):
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/contacts")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/contacts"))
         assert _status(result) in (401, 403)
 
     @pytest.mark.no_auto_auth
@@ -1679,9 +1626,7 @@ class TestRBACPermissions:
     @pytest.mark.asyncio
     async def test_status_does_not_require_auth(self):
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/status")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/status"))
         # Status is a public endpoint
         assert _status(result) == 200
 
@@ -1689,7 +1634,5 @@ class TestRBACPermissions:
     @pytest.mark.asyncio
     async def test_list_platforms_does_not_require_auth(self):
         handler = CRMHandler({})
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/platforms")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/platforms"))
         assert _status(result) == 200

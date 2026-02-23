@@ -118,15 +118,17 @@ def mock_coordinator():
     coord.complete_task = AsyncMock(return_value=True)
     coord.fail_task = AsyncMock(return_value=True)
     coord.cancel_task = AsyncMock(return_value=True)
-    coord.get_stats = AsyncMock(return_value={
-        "pending_tasks": 5,
-        "running_tasks": 2,
-        "completed_tasks": 100,
-        "failed_tasks": 3,
-        "avg_wait_time_ms": 150,
-        "avg_execution_time_ms": 500,
-        "throughput_per_minute": 10,
-    })
+    coord.get_stats = AsyncMock(
+        return_value={
+            "pending_tasks": 5,
+            "running_tasks": 2,
+            "completed_tasks": 100,
+            "failed_tasks": 3,
+            "avg_wait_time_ms": 150,
+            "avg_execution_time_ms": 500,
+            "throughput_per_minute": 10,
+        }
+    )
 
     scheduler = MagicMock()
     scheduler.list_by_status = AsyncMock(return_value=[])
@@ -310,7 +312,9 @@ class TestSubmitTask:
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
         ):
-            with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value="task-001"):
+            with patch(
+                "aragora.server.handlers.control_plane.tasks._run_async", return_value="task-001"
+            ):
                 result = handler._handle_submit_task(body, mock_http_handler)
         assert _status(result) == 201
         assert _body(result)["task_id"] == "task-001"
@@ -347,7 +351,9 @@ class TestSubmitTask:
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
         ):
-            with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value="task-002"):
+            with patch(
+                "aragora.server.handlers.control_plane.tasks._run_async", return_value="task-002"
+            ):
                 result = handler._handle_submit_task(body, mock_http_handler)
         assert _status(result) == 201
 
@@ -357,7 +363,9 @@ class TestSubmitTask:
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
         ):
-            with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value="task-cap"):
+            with patch(
+                "aragora.server.handlers.control_plane.tasks._run_async", return_value="task-cap"
+            ):
                 result = handler._handle_submit_task(body, mock_http_handler)
         assert _status(result) == 201
 
@@ -367,7 +375,9 @@ class TestSubmitTask:
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
         ):
-            with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value="task-meta"):
+            with patch(
+                "aragora.server.handlers.control_plane.tasks._run_async", return_value="task-meta"
+            ):
                 result = handler._handle_submit_task(body, mock_http_handler)
         assert _status(result) == 201
 
@@ -377,7 +387,9 @@ class TestSubmitTask:
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
         ):
-            with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value="task-to"):
+            with patch(
+                "aragora.server.handlers.control_plane.tasks._run_async", return_value="task-to"
+            ):
                 result = handler._handle_submit_task(body, mock_http_handler)
         assert _status(result) == 201
 
@@ -400,7 +412,9 @@ class TestSubmitTask:
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
         ):
-            with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value="task-evt"):
+            with patch(
+                "aragora.server.handlers.control_plane.tasks._run_async", return_value="task-evt"
+            ):
                 with patch.object(handler, "_emit_event") as mock_emit:
                     result = handler._handle_submit_task(body, mock_http_handler)
         assert _status(result) == 201
@@ -456,7 +470,9 @@ class TestSubmitTaskAsync:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_submit_task_async_runtime_error(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_task_async_runtime_error(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.submit_task = AsyncMock(side_effect=RuntimeError("fail"))
         body = {"task_type": "analysis", "priority": "normal"}
         with patch(
@@ -467,9 +483,15 @@ class TestSubmitTaskAsync:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_submit_task_async_emits_event(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_task_async_emits_event(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.submit_task = AsyncMock(return_value="task-ae")
-        body = {"task_type": "deliberation", "priority": "high", "required_capabilities": ["reasoning"]}
+        body = {
+            "task_type": "deliberation",
+            "priority": "high",
+            "required_capabilities": ["reasoning"],
+        }
         with patch(
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
@@ -493,7 +515,9 @@ class TestClaimTask:
         sample_task.assigned_agent = "agent-A"
         mock_coordinator.claim_task = AsyncMock(return_value=sample_task)
         body = {"agent_id": "agent-A", "capabilities": ["reasoning"]}
-        with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value=sample_task):
+        with patch(
+            "aragora.server.handlers.control_plane.tasks._run_async", return_value=sample_task
+        ):
             result = handler._handle_claim_task(body, mock_http_handler)
         assert _status(result) == 200
         data = _body(result)
@@ -544,10 +568,14 @@ class TestClaimTask:
             result = handler._handle_claim_task(body, mock_http_handler)
         assert _status(result) == 500
 
-    def test_claim_task_emits_event(self, handler, mock_coordinator, mock_http_handler, sample_task):
+    def test_claim_task_emits_event(
+        self, handler, mock_coordinator, mock_http_handler, sample_task
+    ):
         sample_task.status = MockTaskStatus.RUNNING
         body = {"agent_id": "agent-A"}
-        with patch("aragora.server.handlers.control_plane.tasks._run_async", return_value=sample_task):
+        with patch(
+            "aragora.server.handlers.control_plane.tasks._run_async", return_value=sample_task
+        ):
             with patch.object(handler, "_emit_event") as mock_emit:
                 result = handler._handle_claim_task(body, mock_http_handler)
         assert _status(result) == 200
@@ -567,7 +595,9 @@ class TestClaimTaskAsync:
     """Tests for _handle_claim_task_async."""
 
     @pytest.mark.asyncio
-    async def test_claim_task_async_success(self, handler, mock_coordinator, mock_http_handler, sample_task):
+    async def test_claim_task_async_success(
+        self, handler, mock_coordinator, mock_http_handler, sample_task
+    ):
         mock_coordinator.claim_task = AsyncMock(return_value=sample_task)
         body = {"agent_id": "agent-A", "capabilities": ["reasoning"]}
         result = await handler._handle_claim_task_async(body, mock_http_handler)
@@ -688,7 +718,9 @@ class TestCompleteTaskAsync:
         assert _body(result)["completed"] is True
 
     @pytest.mark.asyncio
-    async def test_complete_task_async_not_found(self, handler, mock_coordinator, mock_http_handler):
+    async def test_complete_task_async_not_found(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_coordinator.complete_task = AsyncMock(return_value=False)
         body = {"result": {}}
         result = await handler._handle_complete_task_async("task-gone", body, mock_http_handler)
@@ -697,7 +729,9 @@ class TestCompleteTaskAsync:
     @pytest.mark.asyncio
     async def test_complete_task_async_no_coordinator(self, handler_no_coord, mock_http_handler):
         body = {"result": {}}
-        result = await handler_no_coord._handle_complete_task_async("task-001", body, mock_http_handler)
+        result = await handler_no_coord._handle_complete_task_async(
+            "task-001", body, mock_http_handler
+        )
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -951,7 +985,9 @@ class TestGetQueue:
         assert job["status"] == "pending"
         assert job["progress"] == 0.0
 
-    def test_get_queue_running_before_pending(self, handler, mock_coordinator, running_task, sample_task):
+    def test_get_queue_running_before_pending(
+        self, handler, mock_coordinator, running_task, sample_task
+    ):
         """Running jobs should appear before pending jobs."""
 
         def _list_by_status(status, limit=50):
@@ -987,8 +1023,14 @@ class TestGetQueue:
 
     def test_get_queue_task_without_started_at(self, handler, mock_coordinator):
         """Task without started_at should have null in response."""
-        task = MockTask(id="t1", task_type="test", status=MockTaskStatus.PENDING,
-                        payload={}, metadata={}, created_at=time.time())
+        task = MockTask(
+            id="t1",
+            task_type="test",
+            status=MockTaskStatus.PENDING,
+            payload={},
+            metadata={},
+            created_at=time.time(),
+        )
         mock_coordinator._scheduler.list_by_status = AsyncMock(return_value=[])
 
         def _list_by_status(status, limit=50):
@@ -1162,7 +1204,9 @@ class TestTaskHistory:
         data = _body(result)
         assert data["total"] >= 1
 
-    def test_task_history_task_type_filter_no_match(self, handler, mock_coordinator, completed_task):
+    def test_task_history_task_type_filter_no_match(
+        self, handler, mock_coordinator, completed_task
+    ):
         mock_coordinator._scheduler.list_by_status = AsyncMock(return_value=[completed_task])
         with patch("aragora.control_plane.scheduler.TaskStatus", MockTaskStatus):
             result = handler._handle_task_history({"task_type": "nonexistent"})
@@ -1183,7 +1227,9 @@ class TestTaskHistory:
         data = _body(result)
         assert data["total"] == 0
 
-    def test_task_history_pagination_offset(self, handler, mock_coordinator, completed_task, failed_task):
+    def test_task_history_pagination_offset(
+        self, handler, mock_coordinator, completed_task, failed_task
+    ):
         def _list_by_status(status, limit=100):
             if status.value == "completed":
                 return [completed_task]
@@ -1199,12 +1245,19 @@ class TestTaskHistory:
         assert len(data["history"]) == 1
         assert data["has_more"] is False
 
-    def test_task_history_pagination_has_more(self, handler, mock_coordinator, completed_task, failed_task):
+    def test_task_history_pagination_has_more(
+        self, handler, mock_coordinator, completed_task, failed_task
+    ):
         """With 3+ tasks, offset=1 and limit=1 should show has_more=True."""
         now = time.time()
         cancelled_task = MockTask(
-            id="task-cancelled", task_type="x", status=MockTaskStatus.CANCELLED,
-            payload={}, metadata={}, created_at=now - 10, completed_at=now - 5,
+            id="task-cancelled",
+            task_type="x",
+            status=MockTaskStatus.CANCELLED,
+            payload={},
+            metadata={},
+            created_at=now - 10,
+            completed_at=now - 5,
         )
 
         def _list_by_status(status, limit=100):
@@ -1302,7 +1355,9 @@ class TestTaskHistory:
         assert len(data["history"]) >= 1
         assert data["history"][0]["duration_ms"] is None
 
-    def test_task_history_invalid_status_filter_returns_all(self, handler, mock_coordinator, completed_task):
+    def test_task_history_invalid_status_filter_returns_all(
+        self, handler, mock_coordinator, completed_task
+    ):
         """Unknown status filter should still query all history statuses."""
         mock_coordinator._scheduler.list_by_status = AsyncMock(return_value=[completed_task])
         with patch("aragora.control_plane.scheduler.TaskStatus", MockTaskStatus):
@@ -1409,19 +1464,17 @@ class TestSubmitDeliberation:
         mock_request.to_dict.return_value = {}
 
         body = {"content": "Should we deploy?", "async": True}
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
                 mock_extract.return_value = MagicMock(authenticated=False)
                 result = await handler_no_coord._handle_submit_deliberation(body, mock_http_handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_submit_deliberation_async_success(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_deliberation_async_success(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_request = MagicMock()
         mock_request.request_id = "req-async-001"
         mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
@@ -1429,13 +1482,9 @@ class TestSubmitDeliberation:
 
         body = {"content": "Should we deploy?", "async": True, "priority": "normal"}
 
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
                 mock_extract.return_value = MagicMock(authenticated=False)
                 with patch(
                     "aragora.server.handlers.control_plane.tasks.TaskPriority",
@@ -1454,7 +1503,9 @@ class TestSubmitDeliberation:
         assert data["task_id"] == "task-delib-001"
 
     @pytest.mark.asyncio
-    async def test_submit_deliberation_async_mode_via_mode_field(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_deliberation_async_mode_via_mode_field(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_request = MagicMock()
         mock_request.request_id = "req-mode"
         mock_request.context = MagicMock(user_id=None, workspace_id=None)
@@ -1462,14 +1513,12 @@ class TestSubmitDeliberation:
 
         body = {"content": "Is this viable?", "mode": "async", "priority": "high"}
 
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
-                mock_extract.return_value = MagicMock(authenticated=True, user_id="u2", org_id="org-2")
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
+                mock_extract.return_value = MagicMock(
+                    authenticated=True, user_id="u2", org_id="org-2"
+                )
                 with patch(
                     "aragora.server.handlers.control_plane.tasks.TaskPriority",
                     MockTaskPriority,
@@ -1483,7 +1532,9 @@ class TestSubmitDeliberation:
         assert _status(result) == 202
 
     @pytest.mark.asyncio
-    async def test_submit_deliberation_async_invalid_priority(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_deliberation_async_invalid_priority(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_request = MagicMock()
         mock_request.request_id = "req-bad-pri"
         mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
@@ -1491,13 +1542,9 @@ class TestSubmitDeliberation:
 
         body = {"content": "Test", "async": True, "priority": "ultra_mega"}
 
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
                 mock_extract.return_value = MagicMock(authenticated=False)
                 with patch(
                     "aragora.server.handlers.control_plane.tasks.TaskPriority",
@@ -1509,7 +1556,9 @@ class TestSubmitDeliberation:
         assert "priority" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_submit_deliberation_sync_success(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_deliberation_sync_success(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_request = MagicMock()
         mock_request.request_id = "req-sync"
         mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
@@ -1527,22 +1576,16 @@ class TestSubmitDeliberation:
 
         body = {"content": "Should we proceed?"}
 
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
                 mock_extract.return_value = MagicMock(authenticated=False)
                 with patch(
                     "aragora.control_plane.deliberation.run_deliberation",
                     new_callable=AsyncMock,
                     return_value=mock_result,
                 ):
-                    with patch(
-                        "aragora.control_plane.deliberation.record_deliberation_error"
-                    ):
+                    with patch("aragora.control_plane.deliberation.record_deliberation_error"):
                         result = await handler._handle_submit_deliberation(body, mock_http_handler)
         assert _status(result) == 200
         data = _body(result)
@@ -1551,20 +1594,18 @@ class TestSubmitDeliberation:
         assert data["confidence"] == 0.9
 
     @pytest.mark.asyncio
-    async def test_submit_deliberation_sync_timeout(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_deliberation_sync_timeout(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_request = MagicMock()
         mock_request.request_id = "req-timeout"
         mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
 
         body = {"content": "Test timeout"}
 
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
                 mock_extract.return_value = MagicMock(authenticated=False)
                 with patch(
                     "aragora.control_plane.deliberation.run_deliberation",
@@ -1579,20 +1620,18 @@ class TestSubmitDeliberation:
         mock_record.assert_called_once_with("req-timeout", "Deliberation timed out", "timeout")
 
     @pytest.mark.asyncio
-    async def test_submit_deliberation_sync_failure(self, handler, mock_coordinator, mock_http_handler):
+    async def test_submit_deliberation_sync_failure(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
         mock_request = MagicMock()
         mock_request.request_id = "req-fail"
         mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
 
         body = {"content": "Test failure"}
 
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.return_value = mock_request
-            with patch(
-                "aragora.billing.auth.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
                 mock_extract.return_value = MagicMock(authenticated=False)
                 with patch(
                     "aragora.control_plane.deliberation.run_deliberation",
@@ -1609,9 +1648,7 @@ class TestSubmitDeliberation:
     @pytest.mark.asyncio
     async def test_submit_deliberation_parse_error(self, handler, mock_http_handler):
         body = {"content": "test"}
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.side_effect = ValueError("bad body")
             result = await handler._handle_submit_deliberation(body, mock_http_handler)
         assert _status(result) == 400
@@ -1619,9 +1656,7 @@ class TestSubmitDeliberation:
     @pytest.mark.asyncio
     async def test_submit_deliberation_import_error_in_parse(self, handler, mock_http_handler):
         body = {"content": "test"}
-        with patch(
-            "aragora.core.decision.DecisionRequest"
-        ) as MockDR:
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
             MockDR.from_http.side_effect = ImportError("missing module")
             result = await handler._handle_submit_deliberation(body, mock_http_handler)
         assert _status(result) == 400
@@ -1698,7 +1733,9 @@ class TestRouting:
         assert _status(result) == 200
         assert _body(result)["id"] == "task-001"
 
-    def test_route_get_task_v1_path(self, handler, mock_coordinator, mock_http_handler, sample_task):
+    def test_route_get_task_v1_path(
+        self, handler, mock_coordinator, mock_http_handler, sample_task
+    ):
         """Versioned /api/v1/control-plane/tasks/{id} normalizes to non-versioned."""
         mock_coordinator.get_task = AsyncMock(return_value=sample_task)
         result = handler.handle("/api/v1/control-plane/tasks/task-001", {}, mock_http_handler)
@@ -1730,7 +1767,9 @@ class TestRouting:
             "aragora.core.decision_results.get_decision_status",
             return_value=mock_status,
         ):
-            result = handler.handle("/api/control-plane/deliberations/r1/status", {}, mock_http_handler)
+            result = handler.handle(
+                "/api/control-plane/deliberations/r1/status", {}, mock_http_handler
+            )
         assert _status(result) == 200
 
 
@@ -1747,8 +1786,10 @@ class TestPostRouting:
         body = {"task_type": "analysis", "priority": "normal"}
         mock_coordinator.submit_task = AsyncMock(return_value="task-routed")
         mock_http_handler.rfile.read.return_value = json.dumps(body).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(json.dumps(body).encode())),
-                                      "Content-Type": "application/json"}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(json.dumps(body).encode())),
+            "Content-Type": "application/json",
+        }
         with patch(
             "aragora.control_plane.scheduler.TaskPriority",
             MockTaskPriority,
@@ -1761,8 +1802,10 @@ class TestPostRouting:
         body = {"agent_id": "agent-A", "capabilities": ["reasoning"]}
         mock_coordinator.claim_task = AsyncMock(return_value=None)
         mock_http_handler.rfile.read.return_value = json.dumps(body).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(json.dumps(body).encode())),
-                                      "Content-Type": "application/json"}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(json.dumps(body).encode())),
+            "Content-Type": "application/json",
+        }
         result = await handler.handle_post("/api/control-plane/tasks/claim", {}, mock_http_handler)
         assert _status(result) == 200
 
@@ -1771,8 +1814,10 @@ class TestPostRouting:
         body = {"result": {"ok": True}, "agent_id": "agent-A"}
         mock_coordinator.complete_task = AsyncMock(return_value=True)
         mock_http_handler.rfile.read.return_value = json.dumps(body).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(json.dumps(body).encode())),
-                                      "Content-Type": "application/json"}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(json.dumps(body).encode())),
+            "Content-Type": "application/json",
+        }
         result = await handler.handle_post(
             "/api/control-plane/tasks/task-001/complete", {}, mock_http_handler
         )
@@ -1783,8 +1828,10 @@ class TestPostRouting:
         body = {"error": "boom", "agent_id": "agent-A"}
         mock_coordinator.fail_task = AsyncMock(return_value=True)
         mock_http_handler.rfile.read.return_value = json.dumps(body).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(json.dumps(body).encode())),
-                                      "Content-Type": "application/json"}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(json.dumps(body).encode())),
+            "Content-Type": "application/json",
+        }
         result = await handler.handle_post(
             "/api/control-plane/tasks/task-001/fail", {}, mock_http_handler
         )

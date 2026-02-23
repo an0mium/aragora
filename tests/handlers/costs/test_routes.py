@@ -473,9 +473,7 @@ class TestRouteHandlerBinding:
 
         app = _make_app()
 
-        with patch(
-            "aragora.server.handlers.costs.routes.CostHandler"
-        ) as MockHandler:
+        with patch("aragora.server.handlers.costs.routes.CostHandler") as MockHandler:
             mock_instance = MagicMock(spec=CostHandler)
             MockHandler.return_value = mock_instance
 
@@ -490,9 +488,7 @@ class TestRouteHandlerBinding:
 
         app = _make_app()
 
-        with patch(
-            "aragora.server.handlers.costs.routes.CostHandler"
-        ) as MockHandler:
+        with patch("aragora.server.handlers.costs.routes.CostHandler") as MockHandler:
             mock_instance = MagicMock(spec=CostHandler)
             MockHandler.return_value = mock_instance
 

@@ -341,9 +341,7 @@ class TestListSessions:
         _add_session(handler, "s1", status=SessionStatus.RUNNING)
         _add_session(handler, "s2", status=SessionStatus.COMPLETED)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions", {"status": "running"}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions", {"status": "running"}, http)
         body = _body(result)
         assert len(body["sessions"]) == 1
         assert body["sessions"][0]["id"] == "s1"
@@ -351,9 +349,7 @@ class TestListSessions:
     @pytest.mark.asyncio
     async def test_filter_by_invalid_status(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions", {"status": "bogus"}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions", {"status": "bogus"}, http)
         assert _status(result) == 400
         assert "Invalid status" in _body(result).get("error", "")
 
@@ -362,9 +358,7 @@ class TestListSessions:
         _add_session(handler, "s1", mode=LearningMode.SUPERVISED)
         _add_session(handler, "s2", mode=LearningMode.FEDERATED)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions", {"mode": "federated"}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions", {"mode": "federated"}, http)
         body = _body(result)
         assert len(body["sessions"]) == 1
         assert body["sessions"][0]["id"] == "s2"
@@ -372,9 +366,7 @@ class TestListSessions:
     @pytest.mark.asyncio
     async def test_filter_by_invalid_mode(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions", {"mode": "bogus"}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions", {"mode": "bogus"}, http)
         assert _status(result) == 400
         assert "Invalid mode" in _body(result).get("error", "")
 
@@ -400,21 +392,15 @@ class TestListSessions:
     async def test_pagination_offset_beyond_total(self, handler):
         _add_session(handler, "s1")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions", {"offset": "100"}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions", {"offset": "100"}, http)
         body = _body(result)
         assert body["sessions"] == []
         assert body["pagination"]["total"] == 1
 
     @pytest.mark.asyncio
     async def test_sessions_sorted_by_created_at_descending(self, handler):
-        _add_session(
-            handler, "old", created_at=datetime(2026, 1, 1, tzinfo=timezone.utc)
-        )
-        _add_session(
-            handler, "new", created_at=datetime(2026, 2, 1, tzinfo=timezone.utc)
-        )
+        _add_session(handler, "old", created_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        _add_session(handler, "new", created_at=datetime(2026, 2, 1, tzinfo=timezone.utc))
         http = MockHTTPHandler()
         result = await handler.handle("/api/v2/learning/sessions", {}, http)
         body = _body(result)
@@ -484,9 +470,7 @@ class TestCreateSession:
 
     @pytest.mark.asyncio
     async def test_create_session_invalid_mode(self, handler):
-        http = MockHTTPHandler(
-            method="POST", body={"name": "Bad Mode", "mode": "invalid"}
-        )
+        http = MockHTTPHandler(method="POST", body={"name": "Bad Mode", "mode": "invalid"})
         result = await handler.handle_post("/api/v2/learning/sessions", {}, http)
         assert _status(result) == 400
         assert "Invalid learning mode" in _body(result).get("error", "")
@@ -531,9 +515,7 @@ class TestGetSession:
     async def test_get_existing_session(self, handler):
         _add_session(handler, "session_123", name="My Session")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions/session_123", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions/session_123", {}, http)
         body = _body(result)
         assert body["id"] == "session_123"
         assert body["name"] == "My Session"
@@ -541,9 +523,7 @@ class TestGetSession:
     @pytest.mark.asyncio
     async def test_get_nonexistent_session(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions/does_not_exist", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions/does_not_exist", {}, http)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -559,9 +539,7 @@ class TestGetSession:
             total_epochs=100,
         )
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/sessions/session_123", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/sessions/session_123", {}, http)
         body = _body(result)
         assert body["mode"] == "reinforcement"
         assert body["status"] == "running"
@@ -582,9 +560,7 @@ class TestStopSession:
     async def test_stop_running_session(self, handler):
         _add_session(handler, "session_123", status=SessionStatus.RUNNING)
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/sessions/session_123/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/sessions/session_123/stop", {}, http)
         body = _body(result)
         assert body["session"]["status"] == "cancelled"
         assert body["session"]["completed_at"] is not None
@@ -593,9 +569,7 @@ class TestStopSession:
     async def test_stop_pending_session(self, handler):
         _add_session(handler, "session_123", status=SessionStatus.PENDING)
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/sessions/session_123/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/sessions/session_123/stop", {}, http)
         body = _body(result)
         assert body["session"]["status"] == "cancelled"
 
@@ -603,9 +577,7 @@ class TestStopSession:
     async def test_stop_already_completed(self, handler):
         _add_session(handler, "session_123", status=SessionStatus.COMPLETED)
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/sessions/session_123/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/sessions/session_123/stop", {}, http)
         assert _status(result) == 400
         assert "Cannot stop session" in _body(result).get("error", "")
 
@@ -613,17 +585,13 @@ class TestStopSession:
     async def test_stop_already_failed(self, handler):
         _add_session(handler, "session_123", status=SessionStatus.FAILED)
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/sessions/session_123/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/sessions/session_123/stop", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_stop_nonexistent_session(self, handler):
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/sessions/doesnt_exist/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/sessions/doesnt_exist/stop", {}, http)
         assert _status(result) == 404
 
 
@@ -657,9 +625,7 @@ class TestGetMetrics:
         _add_metric(handler, session_id="s1")
         _add_metric(handler, session_id="s2")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/metrics", {"session_id": "s1"}, http
-        )
+        result = await handler.handle("/api/v2/learning/metrics", {"session_id": "s1"}, http)
         body = _body(result)
         assert body["count"] == 1
 
@@ -668,9 +634,7 @@ class TestGetMetrics:
         _add_metric(handler, agent_id="agent_1")
         _add_metric(handler, agent_id="agent_2")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/metrics", {"agent_id": "agent_1"}, http
-        )
+        result = await handler.handle("/api/v2/learning/metrics", {"agent_id": "agent_1"}, http)
         body = _body(result)
         assert body["count"] == 1
 
@@ -679,20 +643,14 @@ class TestGetMetrics:
         for i in range(10):
             _add_metric(handler, value=float(i))
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/metrics", {"limit": "3"}, http
-        )
+        result = await handler.handle("/api/v2/learning/metrics", {"limit": "3"}, http)
         body = _body(result)
         assert body["count"] == 3
 
     @pytest.mark.asyncio
     async def test_metrics_sorted_by_timestamp(self, handler):
-        _add_metric(
-            handler, value=0.1, timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc)
-        )
-        _add_metric(
-            handler, value=0.9, timestamp=datetime(2026, 2, 1, tzinfo=timezone.utc)
-        )
+        _add_metric(handler, value=0.1, timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        _add_metric(handler, value=0.9, timestamp=datetime(2026, 2, 1, tzinfo=timezone.utc))
         http = MockHTTPHandler()
         result = await handler.handle("/api/v2/learning/metrics", {}, http)
         body = _body(result)
@@ -714,9 +672,7 @@ class TestGetMetricByType:
         _add_metric(handler, MetricType.ACCURACY, 0.8)
         _add_metric(handler, MetricType.LOSS, 0.1)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/metrics/accuracy", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/metrics/accuracy", {}, http)
         body = _body(result)
         assert body["metric_type"] == "accuracy"
         assert body["count"] == 2
@@ -727,9 +683,7 @@ class TestGetMetricByType:
     @pytest.mark.asyncio
     async def test_get_empty_metric_type(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/metrics/accuracy", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/metrics/accuracy", {}, http)
         body = _body(result)
         assert body["count"] == 0
         assert body["average"] == 0.0
@@ -739,9 +693,7 @@ class TestGetMetricByType:
     @pytest.mark.asyncio
     async def test_get_invalid_metric_type(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/metrics/bogus_type", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/metrics/bogus_type", {}, http)
         assert _status(result) == 400
         assert "Invalid metric type" in _body(result).get("error", "")
 
@@ -921,9 +873,7 @@ class TestListPatterns:
     @pytest.mark.asyncio
     async def test_filter_by_invalid_pattern_type(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/patterns", {"pattern_type": "bogus"}, http
-        )
+        result = await handler.handle("/api/v2/learning/patterns", {"pattern_type": "bogus"}, http)
         assert _status(result) == 400
         assert "Invalid pattern type" in _body(result).get("error", "")
 
@@ -932,9 +882,7 @@ class TestListPatterns:
         _add_pattern(handler, "p1", is_validated=True)
         _add_pattern(handler, "p2", is_validated=False)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/patterns", {"validated": "true"}, http
-        )
+        result = await handler.handle("/api/v2/learning/patterns", {"validated": "true"}, http)
         body = _body(result)
         assert body["count"] == 1
         assert body["patterns"][0]["id"] == "p1"
@@ -944,9 +892,7 @@ class TestListPatterns:
         _add_pattern(handler, "p_low", confidence=0.3)
         _add_pattern(handler, "p_high", confidence=0.9)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/patterns", {"min_confidence": "0.8"}, http
-        )
+        result = await handler.handle("/api/v2/learning/patterns", {"min_confidence": "0.8"}, http)
         body = _body(result)
         assert body["count"] == 1
         assert body["patterns"][0]["id"] == "p_high"
@@ -987,9 +933,7 @@ class TestListPatterns:
         for i in range(10):
             _add_pattern(handler, f"p{i}", confidence=0.5 + i * 0.04)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/patterns", {"limit": "3"}, http
-        )
+        result = await handler.handle("/api/v2/learning/patterns", {"limit": "3"}, http)
         body = _body(result)
         assert body["count"] == 3
 
@@ -1006,9 +950,7 @@ class TestGetPattern:
     async def test_get_existing_pattern(self, handler):
         _add_pattern(handler, "pattern_xyz", description="A consensus pattern")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/patterns/pattern_xyz", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/patterns/pattern_xyz", {}, http)
         body = _body(result)
         assert body["id"] == "pattern_xyz"
         assert body["description"] == "A consensus pattern"
@@ -1016,9 +958,7 @@ class TestGetPattern:
     @pytest.mark.asyncio
     async def test_get_nonexistent_pattern(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/patterns/nonexistent", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/patterns/nonexistent", {}, http)
         assert _status(result) == 404
 
 
@@ -1046,17 +986,13 @@ class TestValidatePattern:
     @pytest.mark.asyncio
     async def test_validate_nonexistent_pattern(self, handler):
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/patterns/nope/validate", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/patterns/nope/validate", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_validate_pattern_short_path_returns_400(self, handler):
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/patterns/", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/patterns/", {}, http)
         # Pattern path with empty pattern_id but missing "validate" segment
         # len(parts) < 7 -> 400
         assert _status(result) == 400
@@ -1092,9 +1028,7 @@ class TestListKnowledge:
         _add_knowledge(handler, "k1", is_verified=True)
         _add_knowledge(handler, "k2", is_verified=False)
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/knowledge", {"verified": "true"}, http
-        )
+        result = await handler.handle("/api/v2/learning/knowledge", {"verified": "true"}, http)
         body = _body(result)
         assert body["count"] == 1
         assert body["knowledge"][0]["id"] == "k1"
@@ -1104,9 +1038,7 @@ class TestListKnowledge:
         _add_knowledge(handler, "k1", source_type="debate_analysis")
         _add_knowledge(handler, "k2", source_type="manual")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/knowledge", {"source_type": "manual"}, http
-        )
+        result = await handler.handle("/api/v2/learning/knowledge", {"source_type": "manual"}, http)
         body = _body(result)
         assert body["count"] == 1
         assert body["knowledge"][0]["id"] == "k2"
@@ -1133,9 +1065,7 @@ class TestGetKnowledgeItem:
     async def test_get_existing(self, handler):
         _add_knowledge(handler, "knowledge_xyz", title="My Knowledge")
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/knowledge/knowledge_xyz", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/knowledge/knowledge_xyz", {}, http)
         body = _body(result)
         assert body["id"] == "knowledge_xyz"
         assert body["title"] == "My Knowledge"
@@ -1143,9 +1073,7 @@ class TestGetKnowledgeItem:
     @pytest.mark.asyncio
     async def test_get_nonexistent(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/knowledge/nonexistent", {}, http
-        )
+        result = await handler.handle("/api/v2/learning/knowledge/nonexistent", {}, http)
         assert _status(result) == 404
 
 
@@ -1163,9 +1091,7 @@ class TestExtractKnowledge:
             method="POST",
             body={"debate_ids": ["d1", "d2"], "title": "Extracted"},
         )
-        result = await handler.handle_post(
-            "/api/v2/learning/knowledge/extract", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/knowledge/extract", {}, http)
         assert _status(result) == 201
         body = _body(result)
         assert "knowledge" in body
@@ -1176,28 +1102,20 @@ class TestExtractKnowledge:
     @pytest.mark.asyncio
     async def test_extract_missing_debate_ids(self, handler):
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v2/learning/knowledge/extract", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/knowledge/extract", {}, http)
         assert _status(result) == 400
         assert "debate_ids is required" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_extract_empty_debate_ids(self, handler):
         http = MockHTTPHandler(method="POST", body={"debate_ids": []})
-        result = await handler.handle_post(
-            "/api/v2/learning/knowledge/extract", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/knowledge/extract", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_extract_default_fields(self, handler):
-        http = MockHTTPHandler(
-            method="POST", body={"debate_ids": ["d1"]}
-        )
-        result = await handler.handle_post(
-            "/api/v2/learning/knowledge/extract", {}, http
-        )
+        http = MockHTTPHandler(method="POST", body={"debate_ids": ["d1"]})
+        result = await handler.handle_post("/api/v2/learning/knowledge/extract", {}, http)
         body = _body(result)
         assert body["knowledge"]["title"] == "Extracted Knowledge"
         assert body["knowledge"]["source_type"] == "debate_analysis"
@@ -1209,9 +1127,7 @@ class TestExtractKnowledge:
             method="POST",
             body={"debate_ids": ["d1"], "topics": ["ai", "safety"]},
         )
-        result = await handler.handle_post(
-            "/api/v2/learning/knowledge/extract", {}, http
-        )
+        result = await handler.handle_post("/api/v2/learning/knowledge/extract", {}, http)
         body = _body(result)
         assert body["knowledge"]["topics"] == ["ai", "safety"]
 
@@ -1279,9 +1195,7 @@ class TestGetRecommendations:
     @pytest.mark.asyncio
     async def test_recommendations_limit(self, handler):
         http = MockHTTPHandler()
-        result = await handler.handle(
-            "/api/v2/learning/recommendations", {"limit": "1"}, http
-        )
+        result = await handler.handle("/api/v2/learning/recommendations", {"limit": "1"}, http)
         body = _body(result)
         assert body["count"] <= 1
 
@@ -1379,9 +1293,7 @@ class TestCalibrate:
 
     @pytest.mark.asyncio
     async def test_calibrate_with_agent_ids(self, handler):
-        http = MockHTTPHandler(
-            method="POST", body={"agent_ids": ["a1", "a2"], "force": True}
-        )
+        http = MockHTTPHandler(method="POST", body={"agent_ids": ["a1", "a2"], "force": True})
         result = await handler.handle_post("/api/v2/learning/calibrate", {}, http)
         body = _body(result)
         assert body["metric"]["metadata"]["agent_ids"] == ["a1", "a2"]
@@ -1656,27 +1568,48 @@ class TestEnums:
 
     def test_session_status_values(self):
         assert set(s.value for s in SessionStatus) == {
-            "pending", "running", "paused", "completed", "failed", "cancelled"
+            "pending",
+            "running",
+            "paused",
+            "completed",
+            "failed",
+            "cancelled",
         }
 
     def test_learning_mode_values(self):
         assert set(m.value for m in LearningMode) == {
-            "supervised", "reinforcement", "self_supervised", "transfer", "federated"
+            "supervised",
+            "reinforcement",
+            "self_supervised",
+            "transfer",
+            "federated",
         }
 
     def test_metric_type_values(self):
         assert set(t.value for t in MetricType) == {
-            "accuracy", "loss", "precision", "recall", "f1_score",
-            "calibration", "convergence"
+            "accuracy",
+            "loss",
+            "precision",
+            "recall",
+            "f1_score",
+            "calibration",
+            "convergence",
         }
 
     def test_pattern_type_values(self):
         assert set(t.value for t in PatternType) == {
-            "consensus", "disagreement", "agent_preference",
-            "topic_cluster", "temporal", "cross_debate"
+            "consensus",
+            "disagreement",
+            "agent_preference",
+            "topic_cluster",
+            "temporal",
+            "cross_debate",
         }
 
     def test_feedback_type_values(self):
         assert set(t.value for t in FeedbackType) == {
-            "positive", "negative", "neutral", "correction"
+            "positive",
+            "negative",
+            "neutral",
+            "correction",
         }

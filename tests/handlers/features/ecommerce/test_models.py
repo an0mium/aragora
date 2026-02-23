@@ -28,6 +28,7 @@ from aragora.server.handlers.features.ecommerce.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _minimal_order(**overrides: Any) -> UnifiedOrder:
     """Create a UnifiedOrder with minimal required fields."""
     defaults: dict[str, Any] = {
@@ -237,12 +238,23 @@ class TestUnifiedOrderToDict:
 
     def test_all_keys_present(self):
         expected_keys = {
-            "id", "platform", "order_number", "status",
-            "financial_status", "fulfillment_status",
-            "customer_email", "customer_name",
-            "total_price", "subtotal", "shipping_price", "tax",
-            "currency", "line_items", "shipping_address",
-            "created_at", "updated_at",
+            "id",
+            "platform",
+            "order_number",
+            "status",
+            "financial_status",
+            "fulfillment_status",
+            "customer_email",
+            "customer_name",
+            "total_price",
+            "subtotal",
+            "shipping_price",
+            "tax",
+            "currency",
+            "line_items",
+            "shipping_address",
+            "created_at",
+            "updated_at",
         }
         result = _minimal_order().to_dict()
         assert set(result.keys()) == expected_keys
@@ -408,10 +420,20 @@ class TestUnifiedProductToDict:
 
     def test_all_keys_present(self):
         expected_keys = {
-            "id", "platform", "title", "sku", "barcode",
-            "price", "compare_at_price", "inventory_quantity",
-            "status", "vendor", "product_type",
-            "tags", "images", "created_at",
+            "id",
+            "platform",
+            "title",
+            "sku",
+            "barcode",
+            "price",
+            "compare_at_price",
+            "inventory_quantity",
+            "status",
+            "vendor",
+            "product_type",
+            "tags",
+            "images",
+            "created_at",
         }
         result = _minimal_product().to_dict()
         assert set(result.keys()) == expected_keys

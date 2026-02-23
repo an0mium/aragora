@@ -83,9 +83,7 @@ def mock_a2a_server():
     server.get_task_status.return_value = None
     server.get_openapi_spec.return_value = {"openapi": "3.0.0"}
     server.handle_task = AsyncMock(
-        return_value=MagicMock(
-            to_dict=lambda: {"task_id": "t1", "status": "completed"}
-        )
+        return_value=MagicMock(to_dict=lambda: {"task_id": "t1", "status": "completed"})
     )
     server.cancel_task = AsyncMock(return_value=True)
     return server
@@ -302,9 +300,7 @@ class TestValidateTaskRequestBody:
         assert "string" in err
 
     def test_instruction_too_long(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "x" * (MAX_INSTRUCTION_LENGTH + 1)}
-        )
+        ok, err = validate_task_request_body({"instruction": "x" * (MAX_INSTRUCTION_LENGTH + 1)})
         assert ok is False
         assert str(MAX_INSTRUCTION_LENGTH) in err
 
@@ -323,23 +319,17 @@ class TestValidateTaskRequestBody:
         assert ok is False
 
     def test_capability_not_string(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "capability": 42}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "capability": 42})
         assert ok is False
         assert "capability" in err and "string" in err
 
     def test_capability_invalid_value(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "capability": "flying"}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "capability": "flying"})
         assert ok is False
         assert "Invalid capability" in err
 
     def test_capability_case_insensitive(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "capability": "DEBATE"}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "capability": "DEBATE"})
         assert ok is True
 
     def test_all_valid_capabilities(self):
@@ -356,65 +346,47 @@ class TestValidateTaskRequestBody:
             "reasoning",
         ]
         for cap in valid:
-            ok, _ = validate_task_request_body(
-                {"instruction": "ok", "capability": cap}
-            )
+            ok, _ = validate_task_request_body({"instruction": "ok", "capability": cap})
             assert ok is True, f"Expected capability '{cap}' to be valid"
 
     def test_priority_not_string(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "priority": 1}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "priority": 1})
         assert ok is False
         assert "priority" in err
 
     def test_priority_invalid_value(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "priority": "extreme"}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "priority": "extreme"})
         assert ok is False
         assert "Invalid priority" in err
 
     def test_all_valid_priorities(self):
         for p in ("low", "normal", "high", "urgent"):
-            ok, _ = validate_task_request_body(
-                {"instruction": "ok", "priority": p}
-            )
+            ok, _ = validate_task_request_body({"instruction": "ok", "priority": p})
             assert ok is True, f"Expected priority '{p}' to be valid"
 
     def test_context_not_list(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "context": "nope"}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "context": "nope"})
         assert ok is False
         assert "array" in err
 
     def test_context_too_many_items(self):
         items = [{"type": "text"} for _ in range(MAX_CONTEXT_ITEMS + 1)]
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "context": items}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "context": items})
         assert ok is False
         assert str(MAX_CONTEXT_ITEMS) in err
 
     def test_context_item_not_dict(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "context": ["bad"]}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "context": ["bad"]})
         assert ok is False
         assert "context[0]" in err
 
     def test_context_item_type_not_string(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "context": [{"type": 42}]}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "context": [{"type": 42}]})
         assert ok is False
         assert "context[0].type" in err
 
     def test_context_item_content_not_string(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "context": [{"content": 123}]}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "context": [{"content": 123}]})
         assert ok is False
         assert "context[0].content" in err
 
@@ -446,17 +418,13 @@ class TestValidateTaskRequestBody:
         assert "context[1]" in err
 
     def test_metadata_not_dict(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "metadata": "bad"}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "metadata": "bad"})
         assert ok is False
         assert "metadata must be an object" in err
 
     def test_metadata_too_many_keys(self):
         meta = {f"k{i}": "v" for i in range(MAX_METADATA_KEYS + 1)}
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "metadata": meta}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "metadata": meta})
         assert ok is False
         assert str(MAX_METADATA_KEYS) in err
 
@@ -478,42 +446,30 @@ class TestValidateTaskRequestBody:
         assert ok is True
 
     def test_timeout_not_int(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "timeout_ms": "fast"}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "timeout_ms": "fast"})
         assert ok is False
         assert "integer" in err
 
     def test_timeout_too_low(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "timeout_ms": 500}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "timeout_ms": 500})
         assert ok is False
         assert "1000" in err
 
     def test_timeout_too_high(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "timeout_ms": 3600001}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "timeout_ms": 3600001})
         assert ok is False
         assert "3600000" in err
 
     def test_timeout_min_boundary(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "timeout_ms": 1000}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "timeout_ms": 1000})
         assert ok is True
 
     def test_timeout_max_boundary(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "timeout_ms": 3600000}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "timeout_ms": 3600000})
         assert ok is True
 
     def test_timeout_float_rejected(self):
-        ok, err = validate_task_request_body(
-            {"instruction": "ok", "timeout_ms": 5000.5}
-        )
+        ok, err = validate_task_request_body({"instruction": "ok", "timeout_ms": 5000.5})
         assert ok is False
         assert "integer" in err
 
@@ -584,27 +540,21 @@ class TestDiscoveryEndpoint:
             "aragora.server.handlers.a2a.get_a2a_server",
             return_value=mock_a2a_server,
         ):
-            result = await handler.handle(
-                "/.well-known/agent.json", {}, _make_http_handler()
-            )
+            result = await handler.handle("/.well-known/agent.json", {}, _make_http_handler())
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["name"] == "primary"
 
     @pytest.mark.asyncio
-    async def test_discovery_no_agents_returns_default(
-        self, handler, mock_a2a_server
-    ):
+    async def test_discovery_no_agents_returns_default(self, handler, mock_a2a_server):
         mock_a2a_server.list_agents.return_value = []
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
             return_value=mock_a2a_server,
         ):
-            result = await handler.handle(
-                "/.well-known/agent.json", {}, _make_http_handler()
-            )
+            result = await handler.handle("/.well-known/agent.json", {}, _make_http_handler())
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -631,9 +581,7 @@ class TestDiscoveryEndpoint:
         assert body["name"] == "aragora"
 
     @pytest.mark.asyncio
-    async def test_discovery_default_card_has_endpoints(
-        self, handler, mock_a2a_server
-    ):
+    async def test_discovery_default_card_has_endpoints(self, handler, mock_a2a_server):
         """The default discovery card lists endpoints for integration."""
         mock_a2a_server.list_agents.return_value = []
 
@@ -641,9 +589,7 @@ class TestDiscoveryEndpoint:
             "aragora.server.handlers.a2a.get_a2a_server",
             return_value=mock_a2a_server,
         ):
-            result = await handler.handle(
-                "/.well-known/agent.json", {}, _make_http_handler()
-            )
+            result = await handler.handle("/.well-known/agent.json", {}, _make_http_handler())
 
         body = json.loads(result.body)
         assert body["endpoints"]["agents"] == "/api/v1/a2a/agents"
@@ -669,9 +615,7 @@ class TestOpenAPIEndpoint:
             "aragora.server.handlers.a2a.get_a2a_server",
             return_value=mock_a2a_server,
         ):
-            result = await handler.handle(
-                "/api/v1/a2a/openapi.json", {}, _make_http_handler()
-            )
+            result = await handler.handle("/api/v1/a2a/openapi.json", {}, _make_http_handler())
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -801,9 +745,7 @@ class TestSubmitTask:
         }
         mock_a2a_server.handle_task = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_post_handler(
-            {"instruction": "Run a debate about testing"}
-        )
+        http_handler = _make_post_handler({"instruction": "Run a debate about testing"})
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -824,9 +766,7 @@ class TestSubmitTask:
         }
         mock_a2a_server.handle_task = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_post_handler(
-            {"instruction": "Audit this code", "capability": "audit"}
-        )
+        http_handler = _make_post_handler({"instruction": "Audit this code", "capability": "audit"})
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -845,9 +785,7 @@ class TestSubmitTask:
         }
         mock_a2a_server.handle_task = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_post_handler(
-            {"instruction": "Urgent task", "priority": "urgent"}
-        )
+        http_handler = _make_post_handler({"instruction": "Urgent task", "priority": "urgent"})
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -888,9 +826,7 @@ class TestSubmitTask:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_submit_task_with_metadata_and_deadline(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_with_metadata_and_deadline(self, handler, mock_a2a_server):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {
             "task_id": "t5",
@@ -915,9 +851,7 @@ class TestSubmitTask:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_submit_task_with_custom_task_id(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_with_custom_task_id(self, handler, mock_a2a_server):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {
             "task_id": "my-custom-id",
@@ -925,9 +859,7 @@ class TestSubmitTask:
         }
         mock_a2a_server.handle_task = AsyncMock(return_value=mock_result)
 
-        http_handler = _make_post_handler(
-            {"instruction": "Test", "task_id": "my-custom-id"}
-        )
+        http_handler = _make_post_handler({"instruction": "Test", "task_id": "my-custom-id"})
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -940,12 +872,8 @@ class TestSubmitTask:
         assert resp["task_id"] == "my-custom-id"
 
     @pytest.mark.asyncio
-    async def test_submit_task_wrong_content_type(
-        self, handler, mock_a2a_server
-    ):
-        http_handler = _make_http_handler(
-            method="POST", content_type="text/plain"
-        )
+    async def test_submit_task_wrong_content_type(self, handler, mock_a2a_server):
+        http_handler = _make_http_handler(method="POST", content_type="text/plain")
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -956,9 +884,7 @@ class TestSubmitTask:
         assert result.status_code == 415
 
     @pytest.mark.asyncio
-    async def test_submit_task_body_too_large(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_body_too_large(self, handler, mock_a2a_server):
         http_handler = _make_http_handler(
             method="POST",
             body={"instruction": "ok"},
@@ -974,9 +900,7 @@ class TestSubmitTask:
         assert result.status_code == 413
 
     @pytest.mark.asyncio
-    async def test_submit_task_invalid_json(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_invalid_json(self, handler, mock_a2a_server):
         http_handler = _make_http_handler(method="POST")
         http_handler.rfile.read.return_value = b"not json{{"
 
@@ -989,9 +913,7 @@ class TestSubmitTask:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_submit_task_invalid_utf8(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_invalid_utf8(self, handler, mock_a2a_server):
         http_handler = _make_http_handler(method="POST")
         http_handler.rfile.read.return_value = b"\xff\xfe"
 
@@ -1004,9 +926,7 @@ class TestSubmitTask:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_submit_task_missing_instruction(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_missing_instruction(self, handler, mock_a2a_server):
         http_handler = _make_post_handler({"capability": "debate"})
 
         with patch(
@@ -1018,12 +938,8 @@ class TestSubmitTask:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_submit_task_execution_failure(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.handle_task = AsyncMock(
-            side_effect=RuntimeError("boom")
-        )
+    async def test_submit_task_execution_failure(self, handler, mock_a2a_server):
+        mock_a2a_server.handle_task = AsyncMock(side_effect=RuntimeError("boom"))
 
         http_handler = _make_post_handler({"instruction": "fail please"})
 
@@ -1036,9 +952,7 @@ class TestSubmitTask:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_submit_task_empty_body(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_empty_body(self, handler, mock_a2a_server):
         http_handler = _make_http_handler(method="POST")
         http_handler.rfile.read.return_value = b""
         http_handler.headers["Content-Length"] = "0"
@@ -1053,9 +967,7 @@ class TestSubmitTask:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_submit_task_no_content_type(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_no_content_type(self, handler, mock_a2a_server):
         """When Content-Type is empty string, it is treated as acceptable."""
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {
@@ -1079,12 +991,8 @@ class TestSubmitTask:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_submit_task_value_error(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.handle_task = AsyncMock(
-            side_effect=ValueError("bad value")
-        )
+    async def test_submit_task_value_error(self, handler, mock_a2a_server):
+        mock_a2a_server.handle_task = AsyncMock(side_effect=ValueError("bad value"))
         http_handler = _make_post_handler({"instruction": "Test"})
 
         with patch(
@@ -1096,12 +1004,8 @@ class TestSubmitTask:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_submit_task_os_error(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.handle_task = AsyncMock(
-            side_effect=OSError("disk full")
-        )
+    async def test_submit_task_os_error(self, handler, mock_a2a_server):
+        mock_a2a_server.handle_task = AsyncMock(side_effect=OSError("disk full"))
         http_handler = _make_post_handler({"instruction": "Test"})
 
         with patch(
@@ -1113,12 +1017,8 @@ class TestSubmitTask:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_submit_task_type_error(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.handle_task = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+    async def test_submit_task_type_error(self, handler, mock_a2a_server):
+        mock_a2a_server.handle_task = AsyncMock(side_effect=TypeError("wrong type"))
         http_handler = _make_post_handler({"instruction": "Test"})
 
         with patch(
@@ -1130,9 +1030,7 @@ class TestSubmitTask:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_submit_task_generates_uuid_when_no_task_id(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_generates_uuid_when_no_task_id(self, handler, mock_a2a_server):
         """When task_id is not provided, a UUID is generated."""
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"task_id": "auto", "status": "ok"}
@@ -1151,9 +1049,7 @@ class TestSubmitTask:
         mock_a2a_server.handle_task.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_submit_task_invalid_capability_ignored_in_enum(
-        self, handler, mock_a2a_server
-    ):
+    async def test_submit_task_invalid_capability_ignored_in_enum(self, handler, mock_a2a_server):
         """When capability passes validation but fails enum conversion, it's set to None."""
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"task_id": "t", "status": "ok"}
@@ -1162,9 +1058,7 @@ class TestSubmitTask:
         # "debate" is valid but "DEBATE" as an enum might or might not match
         # depending on AgentCapability. The handler has a try/except around enum
         # conversion.
-        http_handler = _make_post_handler(
-            {"instruction": "Test", "capability": "debate"}
-        )
+        http_handler = _make_post_handler({"instruction": "Test", "capability": "debate"})
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -1264,12 +1158,8 @@ class TestCancelTask:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_cancel_task_runtime_error(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.cancel_task = AsyncMock(
-            side_effect=RuntimeError("oops")
-        )
+    async def test_cancel_task_runtime_error(self, handler, mock_a2a_server):
+        mock_a2a_server.cancel_task = AsyncMock(side_effect=RuntimeError("oops"))
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -1280,12 +1170,8 @@ class TestCancelTask:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_cancel_task_key_error(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.cancel_task = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+    async def test_cancel_task_key_error(self, handler, mock_a2a_server):
+        mock_a2a_server.cancel_task = AsyncMock(side_effect=KeyError("missing"))
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -1296,12 +1182,8 @@ class TestCancelTask:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_cancel_task_os_error(
-        self, handler, mock_a2a_server
-    ):
-        mock_a2a_server.cancel_task = AsyncMock(
-            side_effect=OSError("io error")
-        )
+    async def test_cancel_task_os_error(self, handler, mock_a2a_server):
+        mock_a2a_server.cancel_task = AsyncMock(side_effect=OSError("io error"))
 
         with patch(
             "aragora.server.handlers.a2a.get_a2a_server",
@@ -1361,9 +1243,7 @@ class TestUnknownEndpoint:
             "aragora.server.handlers.a2a.get_a2a_server",
             return_value=mock_a2a_server,
         ):
-            result = await handler.handle(
-                "/api/v1/a2a/unknown", {}, _make_http_handler()
-            )
+            result = await handler.handle("/api/v1/a2a/unknown", {}, _make_http_handler())
 
         assert result.status_code == 404
 
@@ -1376,9 +1256,7 @@ class TestUnknownEndpoint:
             return_value=mock_a2a_server,
         ):
             # Non-matching subpath returns 404 for any method
-            result = await handler.handle(
-                "/api/v1/a2a/unknown-path", {}, http_handler
-            )
+            result = await handler.handle("/api/v1/a2a/unknown-path", {}, http_handler)
 
         assert result.status_code == 404
 

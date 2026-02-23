@@ -207,38 +207,28 @@ class TestExtractRepoAndSubpath:
         assert sub == "/scan/latest"
 
     def test_unversioned_path(self, handler):
-        repo_id, sub = SecurityHandler._extract_repo_and_subpath(
-            "/api/codebase/my-repo/scan"
-        )
+        repo_id, sub = SecurityHandler._extract_repo_and_subpath("/api/codebase/my-repo/scan")
         assert repo_id == "my-repo"
         assert sub == "/scan"
 
     def test_no_subpath(self, handler):
-        repo_id, sub = SecurityHandler._extract_repo_and_subpath(
-            "/api/v1/codebase/my-repo"
-        )
+        repo_id, sub = SecurityHandler._extract_repo_and_subpath("/api/v1/codebase/my-repo")
         assert repo_id == "my-repo"
         assert sub == ""
 
     def test_trailing_slash_no_subpath(self, handler):
-        repo_id, sub = SecurityHandler._extract_repo_and_subpath(
-            "/api/v1/codebase/my-repo/"
-        )
+        repo_id, sub = SecurityHandler._extract_repo_and_subpath("/api/v1/codebase/my-repo/")
         # remainder = "my-repo/", split on "/" => ("my-repo", "")
         assert repo_id == "my-repo"
         assert sub == "/"
 
     def test_non_matching_path(self, handler):
-        repo_id, sub = SecurityHandler._extract_repo_and_subpath(
-            "/api/v1/debates/123"
-        )
+        repo_id, sub = SecurityHandler._extract_repo_and_subpath("/api/v1/debates/123")
         assert repo_id is None
         assert sub == ""
 
     def test_empty_repo_id(self, handler):
-        repo_id, sub = SecurityHandler._extract_repo_and_subpath(
-            "/api/v1/codebase/"
-        )
+        repo_id, sub = SecurityHandler._extract_repo_and_subpath("/api/v1/codebase/")
         assert repo_id is None
         assert sub == ""
 
@@ -430,9 +420,7 @@ class TestHandleGetRouting:
         scans = get_or_create_repo_scans("my-repo")
         scans["scan_001"] = mock_scan
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scan/latest", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scan/latest", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
 
@@ -446,31 +434,23 @@ class TestHandleGetRouting:
         scans = get_or_create_repo_scans("my-repo")
         scans["scan_xyz"] = mock_scan
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scan/scan_xyz", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scan/scan_xyz", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
 
     def test_scan_not_found(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scan/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scan/nonexistent", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 404
 
     def test_vulnerabilities_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/vulnerabilities", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/vulnerabilities", {}, mock_http_handler)
         assert result is not None
         # No scans exist, so 404
         assert _status(result) == 404
 
     def test_scans_list_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scans", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scans", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -500,18 +480,14 @@ class TestHandleGetRouting:
         assert _status(result) == 200
 
     def test_scans_secrets_list_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scans/secrets", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scans/secrets", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
         assert body.get("scans") == []
 
     def test_secrets_list_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/secrets", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/secrets", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 404
 
@@ -520,9 +496,7 @@ class TestHandleGetRouting:
         /sbom, or /cve/ keywords, so can_handle returns False and handle()
         returns None.  These endpoints are accessed via handle_post or
         direct async method calls."""
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/sast/findings", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/sast/findings", {}, mock_http_handler)
         assert result is None
 
     def test_sast_scan_status_dispatches(self, handler, mock_http_handler):
@@ -541,25 +515,19 @@ class TestHandleGetRouting:
         assert result is None
 
     def test_sbom_latest_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/sbom/latest", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/sbom/latest", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 404
 
     def test_sbom_list_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/sbom/list", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/sbom/list", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
         assert body.get("count") == 0
 
     def test_sbom_by_id_dispatches(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/sbom/sbom_abc123", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/sbom/sbom_abc123", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 404
 
@@ -575,9 +543,7 @@ class TestHandleGetRouting:
         assert result is None
 
     def test_invalid_repo_id_path_traversal(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/..%2f..%2fetc/scan/latest", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/..%2f..%2fetc/scan/latest", {}, mock_http_handler)
         # The repo_id is "..%2f..%2fetc" which should fail safe_repo_id
         if result is not None:
             assert _status(result) == 400
@@ -593,9 +559,7 @@ class TestHandlePostRouting:
 
     @pytest.mark.asyncio
     async def test_unhandled_path_returns_none(self, handler, mock_http_handler):
-        result = await handler.handle_post(
-            "/api/v1/other", {}, mock_http_handler
-        )
+        result = await handler.handle_post("/api/v1/other", {}, mock_http_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -613,9 +577,7 @@ class TestHandlePostRouting:
 
         monkeypatch.setattr(vuln_mod, "get_scanner", lambda: mock_scanner)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -626,9 +588,7 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_post_scan_missing_repo_path(self, handler):
         http = _MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
         assert result is not None
         assert _status(result) == 400
         assert "repo_path" in _body(result).get("error", "").lower()
@@ -648,9 +608,7 @@ class TestHandlePostRouting:
 
         monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_instance)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan/secrets", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan/secrets", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -660,9 +618,7 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_post_secrets_scan_missing_repo_path(self, handler):
         http = _MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan/secrets", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan/secrets", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -672,17 +628,13 @@ class TestHandlePostRouting:
 
         mock_scanner = AsyncMock()
         mock_scanner.initialize = AsyncMock()
-        mock_scanner.scan_repository.return_value = MagicMock(
-            scan_id="sast_001", findings=[]
-        )
+        mock_scanner.scan_repository.return_value = MagicMock(scan_id="sast_001", findings=[])
 
         import aragora.server.handlers.codebase.security.sast as sast_mod
 
         monkeypatch.setattr(sast_mod, "get_sast_scanner", lambda: mock_scanner)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan/sast", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan/sast", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -712,9 +664,7 @@ class TestHandlePostRouting:
 
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_gen)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -724,9 +674,7 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_post_sbom_missing_repo_path(self, handler):
         http = _MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -758,9 +706,7 @@ class TestHandlePostRouting:
 
         http = _MockHTTPHandler(body={"sbom_id_a": "sbom_a", "sbom_id_b": "sbom_b"})
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom/compare", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom/compare", {}, http)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -769,9 +715,7 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_post_sbom_compare_missing_ids(self, handler):
         http = _MockHTTPHandler(body={"sbom_id_a": "sbom_a"})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom/compare", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom/compare", {}, http)
         assert result is not None
         assert _status(result) == 400
         assert "sbom_id_a and sbom_id_b" in _body(result).get("error", "").lower()
@@ -792,18 +736,14 @@ class TestHandlePostRouting:
 
         monkeypatch.setattr(vuln_mod, "get_scanner", lambda: mock_scanner)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan/", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan/", {}, http)
         assert result is not None
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_post_no_repo_id_returns_none(self, handler):
         http = _MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/v1/codebase/", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/", {}, http)
         assert result is None
 
 
@@ -821,9 +761,7 @@ class TestRateLimiting:
         http = _MockHTTPHandler(body={"repo_path": "/tmp/repo"})
 
         with patch.object(_security_scan_limiter, "is_allowed", return_value=False):
-            result = await handler.handle_post(
-                "/api/v1/codebase/my-repo/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
 
         assert result is not None
         assert _status(result) == 429
@@ -837,18 +775,14 @@ class TestRateLimiting:
         http = _MockHTTPHandler(body={"repo_path": str(repo_dir)})
 
         mock_scanner = AsyncMock()
-        mock_scanner.scan_repository.return_value = MagicMock(
-            scan_id="s1", status="completed"
-        )
+        mock_scanner.scan_repository.return_value = MagicMock(scan_id="s1", status="completed")
 
         import aragora.server.handlers.codebase.security.vulnerability as vuln_mod
 
         monkeypatch.setattr(vuln_mod, "get_scanner", lambda: mock_scanner)
 
         with patch.object(_security_scan_limiter, "is_allowed", return_value=True):
-            result = await handler.handle_post(
-                "/api/v1/codebase/my-repo/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -870,17 +804,13 @@ class TestBodyParsing:
         http = _MockHTTPHandler(body=body_data)
 
         mock_scanner = AsyncMock()
-        mock_scanner.scan_repository.return_value = MagicMock(
-            scan_id="s1", status="completed"
-        )
+        mock_scanner.scan_repository.return_value = MagicMock(scan_id="s1", status="completed")
 
         import aragora.server.handlers.codebase.security.vulnerability as vuln_mod
 
         monkeypatch.setattr(vuln_mod, "get_scanner", lambda: mock_scanner)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -890,9 +820,7 @@ class TestBodyParsing:
         """When Content-Length is 0, body defaults to empty dict."""
         http = _MockHTTPHandler()
         http.headers = {"Content-Length": "0"}
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
         # No repo_path in empty body => 400
         assert result is not None
         assert _status(result) == 400
@@ -904,9 +832,7 @@ class TestBodyParsing:
         http.rfile.read.return_value = b"not-json"
         http.headers = {"Content-Length": "8"}
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
         # data will be empty (JSON parse failed silently) => repo_path missing => 400
         assert result is not None
         assert _status(result) == 400
@@ -922,9 +848,7 @@ class TestBodyParsing:
             "aragora.server.handlers.codebase.security.handler.get_client_ip",
             return_value="127.0.0.1",
         ):
-            result = await handler.handle_post(
-                "/api/v1/codebase/my-repo/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
 
         # No rfile => data is empty => repo_path missing => 400
         assert result is not None
@@ -942,9 +866,7 @@ class TestPostPathTraversal:
     @pytest.mark.asyncio
     async def test_scan_rejects_traversal_repo_id(self, handler):
         http = _MockHTTPHandler(body={"repo_path": "/tmp/repo"})
-        result = await handler.handle_post(
-            "/api/v1/codebase/../evil/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/../evil/scan", {}, http)
         # repo_id ".." is invalid
         if result is not None:
             assert _status(result) == 400
@@ -952,9 +874,7 @@ class TestPostPathTraversal:
     @pytest.mark.asyncio
     async def test_scan_rejects_null_byte_in_path(self, handler):
         http = _MockHTTPHandler(body={"repo_path": "/tmp/repo\x00evil"})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -962,9 +882,7 @@ class TestPostPathTraversal:
     async def test_sast_validates_repo_path(self, handler, monkeypatch):
         monkeypatch.setenv("ARAGORA_SCAN_ROOT", "/allowed")
         http = _MockHTTPHandler(body={"repo_path": "/etc/passwd"})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan/sast", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan/sast", {}, http)
         assert result is not None
         assert _status(result) == 400
 
@@ -1003,9 +921,7 @@ class TestGetWithData:
         scans = get_or_create_repo_scans("my-repo")
         scans["scan_001"] = mock_scan
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/vulnerabilities", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/vulnerabilities", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -1068,9 +984,7 @@ class TestGetWithData:
         scans = get_or_create_repo_scans("my-repo")
         scans["scan_001"] = mock_scan
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scans", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scans", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -1097,9 +1011,7 @@ class TestGetWithData:
         scans = get_or_create_secrets_scans("my-repo")
         scans["sec_001"] = mock_scan
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/secrets", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/secrets", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body.get("total") == 1
@@ -1169,9 +1081,7 @@ class TestGetWithData:
         results = get_or_create_sbom_results("my-repo")
         results["sbom_abc123"] = mock_sbom
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/sbom/sbom_abc123", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/sbom/sbom_abc123", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["component_count"] == 10
@@ -1215,9 +1125,7 @@ class TestGetWithData:
         results = get_or_create_sbom_results("my-repo")
         results["sbom_latest"] = mock_sbom
 
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/sbom/latest", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/sbom/latest", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["format"] == "spdx-json"
@@ -1261,16 +1169,12 @@ class TestEdgeCases:
             # These should dispatch to their specific handlers, not sbom-by-id
 
     def test_scans_trailing_slash(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scans/", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scans/", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
 
     def test_scans_secrets_trailing_slash(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/codebase/my-repo/scans/secrets/", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/codebase/my-repo/scans/secrets/", {}, mock_http_handler)
         assert result is not None
         assert _status(result) == 200
 
@@ -1298,9 +1202,7 @@ class TestEdgeCases:
 
         monkeypatch.setattr(sbom_mod, "get_sbom_generator", lambda: mock_gen)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom", {}, http)
 
         assert result is not None
         assert _status(result) == 400
@@ -1316,9 +1218,7 @@ class TestEdgeCases:
     async def test_post_sbom_compare_not_found_a(self, handler):
         """SBOM compare with nonexistent sbom_id_a returns 404."""
         http = _MockHTTPHandler(body={"sbom_id_a": "nonexistent", "sbom_id_b": "also_nonexistent"})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom/compare", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom/compare", {}, http)
         assert result is not None
         assert _status(result) == 404
 
@@ -1340,9 +1240,7 @@ class TestEdgeCases:
         results["sbom_a"] = mock_sbom
 
         http = _MockHTTPHandler(body={"sbom_id_a": "sbom_a", "sbom_id_b": "nonexistent"})
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/sbom/compare", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/sbom/compare", {}, http)
         assert result is not None
         assert _status(result) == 404
 
@@ -1428,9 +1326,7 @@ class TestSecretsHistory:
 
         monkeypatch.setattr(secrets_mod, "SecretsScanner", lambda: mock_instance)
 
-        result = await handler.handle_post(
-            "/api/v1/codebase/my-repo/scan/secrets", {}, http
-        )
+        result = await handler.handle_post("/api/v1/codebase/my-repo/scan/secrets", {}, http)
 
         assert result is not None
         assert _status(result) == 200
@@ -1509,9 +1405,7 @@ class TestSastFiltering:
         sast_results = get_sast_scan_results()
         sast_results["my-repo"] = {"sast_003": mock_scan}
 
-        result = await handler.handle_get_sast_findings(
-            {"severity": "high"}, "my-repo"
-        )
+        result = await handler.handle_get_sast_findings({"severity": "high"}, "my-repo")
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -1541,9 +1435,7 @@ class TestSastFiltering:
         sast_results = get_sast_scan_results()
         sast_results["my-repo"] = {"sast_004": mock_scan}
 
-        result = await handler.handle_get_sast_findings(
-            {"owasp_category": "A1"}, "my-repo"
-        )
+        result = await handler.handle_get_sast_findings({"owasp_category": "A1"}, "my-repo")
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1

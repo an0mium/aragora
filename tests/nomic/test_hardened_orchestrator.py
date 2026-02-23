@@ -1527,9 +1527,7 @@ class TestAgentPoolManager:
         orch = HardenedOrchestrator()
         subtask = _make_subtask(description="Implement API endpoint")
         # claude is default first choice — excluding it should pick next
-        agent = orch._select_best_agent(
-            subtask, Track.DEVELOPER, exclude_agents=["claude"]
-        )
+        agent = orch._select_best_agent(subtask, Track.DEVELOPER, exclude_agents=["claude"])
         assert agent != "claude"
 
     def test_select_best_agent_default_fallback(self):
@@ -1616,9 +1614,7 @@ class TestCrossAgentReview:
             # Verify exclude_agents contains the implementer
             mock_select.assert_called_once()
             call_args = mock_select.call_args
-            exclude = call_args.kwargs.get(
-                "exclude_agents", call_args[1].get("exclude_agents", [])
-            )
+            exclude = call_args.kwargs.get("exclude_agents", call_args[1].get("exclude_agents", []))
             assert "claude" in exclude
 
     @pytest.mark.asyncio
@@ -1689,9 +1685,7 @@ class TestCrossAgentReview:
     @pytest.mark.asyncio
     async def test_spectate_event_emitted(self, tmp_path):
         """Spectate event emitted on cross-review completion."""
-        orch = HardenedOrchestrator(
-            enable_review_gate=True, spectate_stream=True
-        )
+        orch = HardenedOrchestrator(enable_review_gate=True, spectate_stream=True)
         assignment = _make_assignment(agent_type="claude", status="completed")
 
         with (
@@ -1705,11 +1699,7 @@ class TestCrossAgentReview:
 
             await orch._cross_agent_review(assignment, tmp_path)
 
-            events = [
-                e
-                for e in orch._spectate_events
-                if e["type"] == "cross_review_completed"
-            ]
+            events = [e for e in orch._spectate_events if e["type"] == "cross_review_completed"]
             assert len(events) == 1
             assert events[0]["implementer"] == "claude"
             assert events[0]["reviewer"] == "codex"
@@ -1747,12 +1737,8 @@ class TestWorkStealing:
         """Returns None when all assignments are completed."""
         orch = HardenedOrchestrator(circuit_breaker_threshold=5)
         assignments = [
-            _make_assignment(
-                subtask=_make_subtask(id="done-1"), status="completed"
-            ),
-            _make_assignment(
-                subtask=_make_subtask(id="done-2"), status="completed"
-            ),
+            _make_assignment(subtask=_make_subtask(id="done-1"), status="completed"),
+            _make_assignment(subtask=_make_subtask(id="done-2"), status="completed"),
         ]
 
         stolen = orch._find_stealable_work("claude", assignments)
@@ -1765,9 +1751,7 @@ class TestWorkStealing:
         orch._record_agent_outcome("claude", success=False)
 
         assignments = [
-            _make_assignment(
-                subtask=_make_subtask(id="pending-1"), status="pending"
-            ),
+            _make_assignment(subtask=_make_subtask(id="pending-1"), status="pending"),
         ]
 
         stolen = orch._find_stealable_work("claude", assignments)
@@ -1796,9 +1780,7 @@ class TestWorkStealing:
         """Never steals partially-completed work."""
         orch = HardenedOrchestrator(circuit_breaker_threshold=5)
         assignments = [
-            _make_assignment(
-                subtask=_make_subtask(id="wip"), status="in_progress"
-            ),
+            _make_assignment(subtask=_make_subtask(id="wip"), status="in_progress"),
         ]
 
         stolen = orch._find_stealable_work("claude", assignments)
@@ -1806,21 +1788,15 @@ class TestWorkStealing:
 
     def test_spectate_event_on_steal(self):
         """Spectate event emitted when work is stolen."""
-        orch = HardenedOrchestrator(
-            circuit_breaker_threshold=5, spectate_stream=True
-        )
+        orch = HardenedOrchestrator(circuit_breaker_threshold=5, spectate_stream=True)
         assignments = [
-            _make_assignment(
-                subtask=_make_subtask(id="steal-me"), status="pending"
-            ),
+            _make_assignment(subtask=_make_subtask(id="steal-me"), status="pending"),
         ]
 
         stolen = orch._find_stealable_work("claude", assignments)
         assert stolen is not None
 
-        events = [
-            e for e in orch._spectate_events if e["type"] == "work_stolen"
-        ]
+        events = [e for e in orch._spectate_events if e["type"] == "work_stolen"]
         assert len(events) == 1
         assert events[0]["agent"] == "claude"
         assert events[0]["subtask"] == "steal-me"
@@ -1884,9 +1860,12 @@ class TestComputerUseDetection:
             description="Check the UI",
         )
 
-        with patch.dict("sys.modules", {
-            "aragora.compat.openclaw.computer_use_bridge": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.compat.openclaw.computer_use_bridge": None,
+            },
+        ):
             await orch._execute_computer_use(assignment, tmp_path)
             assert assignment.result.get("execution_mode") == "code_fallback"
 
@@ -1916,10 +1895,7 @@ class TestComputerUseDetection:
             assert assignment.result["execution_mode"] == "computer_use"
             assert assignment.result["actions_executed"] == 2
 
-            events = [
-                e for e in orch._spectate_events
-                if e["type"] == "computer_use_completed"
-            ]
+            events = [e for e in orch._spectate_events if e["type"] == "computer_use_completed"]
             assert len(events) == 1
 
 
@@ -1982,9 +1958,12 @@ class TestCrossCycleLearning:
             success=True,
         )
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
+            },
+        ):
             # Should not raise
             await orch._record_orchestration_outcome("Test", result)
 
@@ -1997,6 +1976,7 @@ class TestCalibrationFeedback:
         orch = HardenedOrchestrator()
 
         mock_tracker = MagicMock()
+
         # claude: Brier=0.1 (well-calibrated → score 0.9)
         # codex: Brier=0.5 (poorly calibrated → score 0.5)
         def mock_brier(agent):
@@ -2019,9 +1999,12 @@ class TestCalibrationFeedback:
         orch = HardenedOrchestrator()
         subtask = _make_subtask(description="Simple change")
 
-        with patch.dict("sys.modules", {
-            "aragora.agents.calibration": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.agents.calibration": None,
+            },
+        ):
             agent = orch._select_best_agent(subtask, Track.DEVELOPER)
             assert agent in ("claude", "codex")
 
@@ -2048,9 +2031,7 @@ class TestGauntletConstraints:
         finding2.severity = "high"
         finding2.category = "reliability"
 
-        constraints = orch._extract_gauntlet_constraints(
-            [finding1, finding2], "Fix authentication"
-        )
+        constraints = orch._extract_gauntlet_constraints([finding1, finding2], "Fix authentication")
 
         assert len(constraints) == 2
         assert "SQL injection vulnerability" in constraints[0]
@@ -2165,11 +2146,14 @@ class TestGauntletConstraints:
             captured_context.update(context or {})
             return mock_result
 
-        with patch.object(
-            AutonomousOrchestrator,
-            "execute_goal",
-            side_effect=fake_execute,
-        ), patch.object(orch, "_record_orchestration_outcome", new=AsyncMock()):
+        with (
+            patch.object(
+                AutonomousOrchestrator,
+                "execute_goal",
+                side_effect=fake_execute,
+            ),
+            patch.object(orch, "_record_orchestration_outcome", new=AsyncMock()),
+        ):
             await orch.execute_goal("test goal", context={})
 
         assert "gauntlet_constraints" in captured_context
@@ -2192,12 +2176,8 @@ class TestGauntletConstraints:
 
         orch._extract_gauntlet_constraints([finding1], "task1")
         # Manually simulate the accumulation
-        orch._gauntlet_constraints.extend(
-            orch._extract_gauntlet_constraints([finding1], "task1")
-        )
-        orch._gauntlet_constraints.extend(
-            orch._extract_gauntlet_constraints([finding2], "task2")
-        )
+        orch._gauntlet_constraints.extend(orch._extract_gauntlet_constraints([finding1], "task1"))
+        orch._gauntlet_constraints.extend(orch._extract_gauntlet_constraints([finding2], "task2"))
 
         assert len(orch._gauntlet_constraints) == 2
 
@@ -2330,10 +2310,14 @@ class TestPipelineWiring:
 
         mock_assignment = MagicMock()
         mock_result = OrchestrationResult(
-            goal="test", success=True,
-            total_subtasks=1, completed_subtasks=1,
-            failed_subtasks=0, skipped_subtasks=0,
-            assignments=[], duration_seconds=1.0,
+            goal="test",
+            success=True,
+            total_subtasks=1,
+            completed_subtasks=1,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=1.0,
         )
 
         # Should not raise even with no bridge
@@ -2350,10 +2334,14 @@ class TestPipelineWiring:
         ):
             mock_assignment = MagicMock()
             mock_result = OrchestrationResult(
-                goal="test", success=True,
-                total_subtasks=0, completed_subtasks=0,
-                failed_subtasks=0, skipped_subtasks=0,
-                assignments=[], duration_seconds=0,
+                goal="test",
+                success=True,
+                total_subtasks=0,
+                completed_subtasks=0,
+                failed_subtasks=0,
+                skipped_subtasks=0,
+                assignments=[],
+                duration_seconds=0,
             )
             # Should not raise
             orch._bridge_ingest_coordinated_result(mock_assignment, mock_result)

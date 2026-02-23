@@ -169,7 +169,11 @@ class ToolRegistry:
                 self._capability_index[cap.name].append(tool.name)
 
         logger.info(
-            "Registered tool '%s' with %s capabilities (risk: %s, blast: %s)", tool.name, len(tool.capabilities), tool.risk_level.name, tool.blast_radius.name
+            "Registered tool '%s' with %s capabilities (risk: %s, blast: %s)",
+            tool.name,
+            len(tool.capabilities),
+            tool.risk_level.name,
+            tool.blast_radius.name,
         )
 
     def unregister(self, name: str) -> bool:

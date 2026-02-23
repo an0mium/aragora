@@ -219,7 +219,9 @@ class DebateSession:
         )
         session._checkpoint_manager = checkpoint_manager
 
-        logger.info("session_restored id=%s from_checkpoint=%s", session.id, checkpoint.checkpoint_id)
+        logger.info(
+            "session_restored id=%s from_checkpoint=%s", session.id, checkpoint.checkpoint_id
+        )
 
         return session
 

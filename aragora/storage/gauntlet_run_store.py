@@ -47,6 +47,7 @@ if TYPE_CHECKING:
 _RedisError: type[Exception] = OSError  # overwritten below if redis is available
 try:
     from redis.exceptions import RedisError
+
     _RedisError = RedisError
 except ImportError:
     pass  # _RedisError stays as OSError fallback
@@ -437,7 +438,14 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             if data:
                 return json.loads(data)
             return None
-        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            _RedisError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("Redis get failed, using fallback: %s", e)
             return await self._fallback.get(run_id)
 
@@ -489,7 +497,14 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 pipe.execute()
                 return True
             return result
-        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            _RedisError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("Redis delete failed: %s", e)
             return result
 
@@ -514,7 +529,14 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                         if valid_values:
                             results.extend(_batch_deserialize_json([(v,) for v in valid_values]))
             return results
-        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            _RedisError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("Redis list_all failed, using fallback: %s", e)
             return await self._fallback.list_all()
 
@@ -530,7 +552,14 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             values = self._redis_client.mget(keys)
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
-        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            _RedisError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("Redis list_by_status failed, using fallback: %s", e)
             return await self._fallback.list_by_status(status)
 
@@ -546,7 +575,14 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             values = self._redis_client.mget(keys)
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
-        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            _RedisError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("Redis list_by_template failed, using fallback: %s", e)
             return await self._fallback.list_by_template(template_id)
 
@@ -595,7 +631,14 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             pipe.sadd(f"{self.REDIS_INDEX_STATUS}{status}", run_id)
             pipe.execute()
             return True
-        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            _RedisError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("Redis update_status failed: %s", e)
             return result
 

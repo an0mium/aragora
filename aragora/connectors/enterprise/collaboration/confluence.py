@@ -340,7 +340,10 @@ class ConfluenceConnector(EnterpriseConnector):
             start += limit
         else:
             logger.warning(
-                "[%s] Pagination limit reached (%s pages) for space %s", self.name, _MAX_PAGES, space_key
+                "[%s] Pagination limit reached (%s pages) for space %s",
+                self.name,
+                _MAX_PAGES,
+                space_key,
             )
 
     async def _get_page_comments(self, page_id: str) -> list[dict[str, Any]]:
@@ -571,7 +574,7 @@ class ConfluenceConnector(EnterpriseConnector):
         event = payload.get("webhookEvent", "")
         page = payload.get("page", {})
 
-        logger.info("[%s] Webhook: %s on page %s", self.name, event, page.get('id', 'unknown'))
+        logger.info("[%s] Webhook: %s on page %s", self.name, event, page.get("id", "unknown"))
 
         if event in ["page_created", "page_updated", "page_removed"]:
             # Trigger incremental sync

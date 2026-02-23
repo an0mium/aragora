@@ -210,7 +210,8 @@ def decode_jwt(token: str) -> JWTPayload | None:
 
             secret_fingerprint = _hashlib.sha256(secret).hexdigest()[:8]
             logger.warning(
-                "[JWT_DEBUG] jwt_decode_failed: signature mismatch (secret_fingerprint=%s)", secret_fingerprint
+                "[JWT_DEBUG] jwt_decode_failed: signature mismatch (secret_fingerprint=%s)",
+                secret_fingerprint,
             )
             return None
 

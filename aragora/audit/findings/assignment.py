@@ -278,7 +278,9 @@ class AssignmentManager:
             except (ValueError, RuntimeError, OSError) as e:
                 logger.warning("Assignment hook error: %s", e)
 
-        logger.info("Assigned finding %s to user %s (priority: %s)", finding_id, user_id, priority.value)
+        logger.info(
+            "Assigned finding %s to user %s (priority: %s)", finding_id, user_id, priority.value
+        )
 
         return assignment
 
@@ -510,7 +512,11 @@ class AssignmentManager:
             self._assignments[finding_id] = assignment
 
             logger.info(
-                "Auto-assigned finding %s via rule '%s' to user=%s team=%s", finding_id, rule.name, rule.user_id, rule.team_id
+                "Auto-assigned finding %s via rule '%s' to user=%s team=%s",
+                finding_id,
+                rule.name,
+                rule.user_id,
+                rule.team_id,
             )
 
             return assignment

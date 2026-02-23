@@ -64,9 +64,7 @@ class TestLiveVote:
         assert v.weight == 1.0
 
     def test_flipped_vote(self):
-        v = LiveVote(
-            agent="gpt4", choice="option_b", confidence=0.7, round_num=3, flipped=True
-        )
+        v = LiveVote(agent="gpt4", choice="option_b", confidence=0.7, round_num=3, flipped=True)
         assert v.flipped is True
 
 
@@ -121,9 +119,7 @@ class TestOnCritique:
         assert stream.evidence[0].source == "gpt4"
 
     def test_critique_with_target(self, stream_with_emitter, emitter):
-        stream_with_emitter.on_critique(
-            "gpt4", "Disagree", target_agent="claude", round_num=1
-        )
+        stream_with_emitter.on_critique("gpt4", "Disagree", target_agent="claude", round_num=1)
         call_data = emitter.emit.call_args[0][1]
         assert call_data["target"] == "claude"
 
@@ -340,8 +336,7 @@ class TestGetSnapshot:
 
     def test_snapshot_emits_event(self, stream_with_emitter, emitter):
         stream_with_emitter.get_snapshot()
-        calls = [c for c in emitter.emit.call_args_list
-                 if "explanation_snapshot" in c[0][0]]
+        calls = [c for c in emitter.emit.call_args_list if "explanation_snapshot" in c[0][0]]
         assert len(calls) == 1
 
 
@@ -391,20 +386,32 @@ class TestEndToEnd:
 
         # Round 1: Proposals
         stream.on_round_start(1)
-        stream.on_proposal("claude", "Implement rate limiting with sliding window", round_num=1, confidence=0.85)
-        stream.on_proposal("gpt4", "Use token bucket algorithm instead", round_num=1, confidence=0.80)
-        stream.on_proposal("gemini", "Combine both approaches for hybrid solution", round_num=1, confidence=0.75)
+        stream.on_proposal(
+            "claude", "Implement rate limiting with sliding window", round_num=1, confidence=0.85
+        )
+        stream.on_proposal(
+            "gpt4", "Use token bucket algorithm instead", round_num=1, confidence=0.80
+        )
+        stream.on_proposal(
+            "gemini", "Combine both approaches for hybrid solution", round_num=1, confidence=0.75
+        )
 
         snap1 = stream.get_snapshot()
         assert snap1.evidence_count == 3
 
         # Round 1: Critiques
-        stream.on_critique("gpt4", "Sliding window has memory overhead", target_agent="claude", round_num=1)
-        stream.on_critique("claude", "Token bucket can lead to bursts", target_agent="gpt4", round_num=1)
+        stream.on_critique(
+            "gpt4", "Sliding window has memory overhead", target_agent="claude", round_num=1
+        )
+        stream.on_critique(
+            "claude", "Token bucket can lead to bursts", target_agent="gpt4", round_num=1
+        )
 
         # Round 2: Refinements
         stream.on_round_start(2)
-        stream.on_refinement("claude", "Rate limiting with sliding window and burst protection", round_num=2)
+        stream.on_refinement(
+            "claude", "Rate limiting with sliding window and burst protection", round_num=2
+        )
 
         # Round 2: Votes
         stream.on_vote("claude", "hybrid", confidence=0.90, round_num=2)
@@ -440,10 +447,12 @@ class TestImports:
 
     def test_import_from_module(self):
         from aragora.explainability.live_stream import LiveExplainabilityStream
+
         assert LiveExplainabilityStream is not None
 
     def test_import_from_package(self):
         from aragora.explainability import LiveExplainabilityStream
+
         assert LiveExplainabilityStream is not None
 
     def test_all_types_importable(self):
@@ -455,11 +464,14 @@ class TestImports:
             LiveFactor,
             LiveVote,
         )
-        assert all([
-            LiveExplainabilityStream,
-            LiveEvidence,
-            LiveVote,
-            LiveBeliefShift,
-            LiveFactor,
-            ExplanationSnapshot,
-        ])
+
+        assert all(
+            [
+                LiveExplainabilityStream,
+                LiveEvidence,
+                LiveVote,
+                LiveBeliefShift,
+                LiveFactor,
+                ExplanationSnapshot,
+            ]
+        )

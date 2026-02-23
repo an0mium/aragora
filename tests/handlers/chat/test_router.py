@@ -97,9 +97,7 @@ def _make_channel(channel_id: str = "C001") -> ChatChannel:
     return ChatChannel(id=channel_id, platform="slack", name="general")
 
 
-def _make_message(
-    content: str = "Hello world", is_bot: bool = False
-) -> ChatMessage:
+def _make_message(content: str = "Hello world", is_bot: bool = False) -> ChatMessage:
     return ChatMessage(
         id="msg-001",
         platform="slack",
@@ -361,7 +359,9 @@ class TestConnectorCaching:
     def test_caches_connector(self):
         router = ChatWebhookRouter()
         mock_conn = MagicMock()
-        with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn) as p:
+        with patch(
+            "aragora.server.handlers.chat.router.get_connector", return_value=mock_conn
+        ) as p:
             c1 = router.get_connector("slack")
             c2 = router.get_connector("slack")
             assert c1 is c2
@@ -1057,9 +1057,7 @@ class TestHandleVoice:
         router._connectors["slack"] = mock_conn
 
         mock_bridge = MagicMock()
-        mock_bridge.transcribe_voice_message = AsyncMock(
-            side_effect=ConnectionError("net fail")
-        )
+        mock_bridge.transcribe_voice_message = AsyncMock(side_effect=ConnectionError("net fail"))
         event = _make_event(voice_message=_make_voice())
 
         with patch(
@@ -1119,9 +1117,10 @@ class TestGetInputSource:
 
     def test_known_platforms(self):
         router = ChatWebhookRouter()
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True
-        ), patch("aragora.server.handlers.chat.router.InputSource") as mock_is:
+        with (
+            patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True),
+            patch("aragora.server.handlers.chat.router.InputSource") as mock_is,
+        ):
             mock_is.SLACK = "SLACK"
             mock_is.DISCORD = "DISCORD"
             mock_is.TEAMS = "TEAMS"
@@ -1139,9 +1138,10 @@ class TestGetInputSource:
 
     def test_unknown_platform_defaults_to_http_api(self):
         router = ChatWebhookRouter()
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True
-        ), patch("aragora.server.handlers.chat.router.InputSource") as mock_is:
+        with (
+            patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True),
+            patch("aragora.server.handlers.chat.router.InputSource") as mock_is,
+        ):
             mock_is.HTTP_API = "HTTP_API"
             mock_is.SLACK = "SLACK"
             mock_is.DISCORD = "DISCORD"
@@ -1153,9 +1153,10 @@ class TestGetInputSource:
 
     def test_case_insensitive(self):
         router = ChatWebhookRouter()
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True
-        ), patch("aragora.server.handlers.chat.router.InputSource") as mock_is:
+        with (
+            patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True),
+            patch("aragora.server.handlers.chat.router.InputSource") as mock_is,
+        ):
             mock_is.SLACK = "SLACK"
             mock_is.HTTP_API = "HTTP_API"
             mock_is.DISCORD = "DISCORD"
@@ -1168,9 +1169,7 @@ class TestGetInputSource:
 
     def test_returns_none_when_not_available(self):
         router = ChatWebhookRouter()
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", False):
             assert router._get_input_source("slack") is None
 
 
@@ -1202,11 +1201,12 @@ class TestRouterInit:
 
     def test_decision_router_auto_init_fallback(self):
         """When DECISION_ROUTER_AVAILABLE and no explicit router, tries get_decision_router."""
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.chat.router.get_decision_router",
-            side_effect=RuntimeError("not ready"),
+        with (
+            patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.chat.router.get_decision_router",
+                side_effect=RuntimeError("not ready"),
+            ),
         ):
             router = ChatWebhookRouter()
             assert router._decision_router is None
@@ -1290,12 +1290,15 @@ class TestChatHandlerHandle:
     def test_status_returns_result(self):
         handler = ChatHandler(ctx={})
         mock_h = MockHTTPHandler(method="GET")
-        with patch(
-            "aragora.server.handlers.chat.router.get_configured_platforms",
-            return_value=["slack"],
-        ), patch(
-            "aragora.server.handlers.chat.router.get_registry",
-        ) as mock_reg:
+        with (
+            patch(
+                "aragora.server.handlers.chat.router.get_configured_platforms",
+                return_value=["slack"],
+            ),
+            patch(
+                "aragora.server.handlers.chat.router.get_registry",
+            ) as mock_reg,
+        ):
             mock_registry = MagicMock()
             mock_registry.all.return_value = {}
             mock_reg.return_value = mock_registry
@@ -1335,9 +1338,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event()
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/slack/webhook", {"text": "hi"}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/slack/webhook", {"text": "hi"}, mock_h)
             assert result is not None
             assert _status(result) == 200
 
@@ -1350,9 +1351,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event(platform="teams")
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/teams/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/teams/webhook", {}, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1364,9 +1363,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event(platform="discord")
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/discord/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/discord/webhook", {}, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1378,9 +1375,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event(platform="google_chat")
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/google_chat/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/google_chat/webhook", {}, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1392,9 +1387,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event(platform="telegram")
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/telegram/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/telegram/webhook", {}, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1406,9 +1399,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event(platform="whatsapp")
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/whatsapp/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/whatsapp/webhook", {}, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1424,9 +1415,7 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event()
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/webhook", {}, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1439,18 +1428,14 @@ class TestChatHandlerHandlePost:
         mock_conn.parse_webhook_event.return_value = _make_event(platform="telegram")
 
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
-            result = await handler.handle_post(
-                "/api/v1/chat/webhook", body, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/webhook", body, mock_h)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_unknown_platform_returns_400(self):
         handler = ChatHandler(ctx={})
         mock_h = MockHTTPHandler(method="POST", body={"random": "data"})
-        result = await handler.handle_post(
-            "/api/v1/chat/webhook", {"random": "data"}, mock_h
-        )
+        result = await handler.handle_post("/api/v1/chat/webhook", {"random": "data"}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1458,13 +1443,9 @@ class TestChatHandlerHandlePost:
         handler = ChatHandler(ctx={})
         mock_h = MockHTTPHandler(method="POST", body={})
 
-        with patch(
-            "aragora.server.handlers.chat.router._chat_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.chat.router._chat_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = await handler.handle_post(
-                "/api/v1/chat/slack/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/slack/webhook", {}, mock_h)
             assert _status(result) == 429
 
     @pytest.mark.asyncio
@@ -1474,13 +1455,9 @@ class TestChatHandlerHandlePost:
         # Set content-length to exceed 10MB limit
         mock_h.headers["Content-Length"] = str(11 * 1024 * 1024)
 
-        with patch(
-            "aragora.server.handlers.chat.router._chat_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.chat.router._chat_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
-            result = await handler.handle_post(
-                "/api/v1/chat/slack/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/slack/webhook", {}, mock_h)
             assert _status(result) == 413
 
     @pytest.mark.asyncio
@@ -1493,16 +1470,13 @@ class TestChatHandlerHandlePost:
         mock_conn.verify_webhook.return_value = True
         mock_conn.parse_webhook_event.return_value = _make_event()
 
-        with patch(
-            "aragora.server.handlers.chat.router._chat_limiter"
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.chat.router.get_connector", return_value=mock_conn
+        with (
+            patch("aragora.server.handlers.chat.router._chat_limiter") as mock_limiter,
+            patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn),
         ):
             mock_limiter.is_allowed.return_value = True
             # Should not crash - content_length defaults to 0
-            result = await handler.handle_post(
-                "/api/v1/chat/slack/webhook", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/slack/webhook", {}, mock_h)
             assert result is not None
 
     @pytest.mark.asyncio
@@ -1526,15 +1500,12 @@ class TestChatHandlerHandlePost:
         mock_conn.verify_webhook.return_value = True
         mock_conn.parse_webhook_event.return_value = _make_event()
 
-        with patch(
-            "aragora.server.handlers.chat.router._chat_limiter"
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.chat.router.get_connector", return_value=mock_conn
+        with (
+            patch("aragora.server.handlers.chat.router._chat_limiter") as mock_limiter,
+            patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn),
         ):
             mock_limiter.is_allowed.return_value = True
-            result = await handler.handle_post(
-                "/api/v1/chat/slack/webhook", {"key": "val"}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/chat/slack/webhook", {"key": "val"}, mock_h)
             assert _status(result) == 200
 
 
@@ -1548,12 +1519,15 @@ class TestChatHandlerGetStatus:
 
     def test_status_structure(self):
         handler = ChatHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.chat.router.get_configured_platforms",
-            return_value=["slack"],
-        ), patch(
-            "aragora.server.handlers.chat.router.get_registry",
-        ) as mock_reg:
+        with (
+            patch(
+                "aragora.server.handlers.chat.router.get_configured_platforms",
+                return_value=["slack"],
+            ),
+            patch(
+                "aragora.server.handlers.chat.router.get_registry",
+            ) as mock_reg,
+        ):
             mock_registry = MagicMock()
             mock_conn = MagicMock()
             mock_conn.platform_display_name = "Slack"
@@ -1569,12 +1543,15 @@ class TestChatHandlerGetStatus:
 
     def test_status_no_platforms(self):
         handler = ChatHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.chat.router.get_configured_platforms",
-            return_value=[],
-        ), patch(
-            "aragora.server.handlers.chat.router.get_registry",
-        ) as mock_reg:
+        with (
+            patch(
+                "aragora.server.handlers.chat.router.get_configured_platforms",
+                return_value=[],
+            ),
+            patch(
+                "aragora.server.handlers.chat.router.get_registry",
+            ) as mock_reg,
+        ):
             mock_registry = MagicMock()
             mock_registry.all.return_value = {}
             mock_reg.return_value = mock_registry
@@ -1680,9 +1657,7 @@ class TestCreateDecisionRouterDebateStarter:
             mock_router.route = AsyncMock(return_value=mock_result)
             mock_get.return_value = mock_router
 
-            result = await starter(
-                topic="test topic", platform="slack", channel="C1", user="U1"
-            )
+            result = await starter(topic="test topic", platform="slack", channel="C1", user="U1")
             assert result["debate_id"] == "d-1"
             assert result["status"] == "completed"
             assert result["topic"] == "test topic"
@@ -1702,9 +1677,7 @@ class TestCreateDecisionRouterDebateStarter:
             mock_router.route = AsyncMock(return_value=mock_result)
             mock_get.return_value = mock_router
 
-            result = await starter(
-                topic="topic", platform="discord", channel="C2", user="U2"
-            )
+            result = await starter(topic="topic", platform="discord", channel="C2", user="U2")
             assert result["status"] == "failed"
             assert result["debate_id"] == "req-2"
 
@@ -1712,9 +1685,7 @@ class TestCreateDecisionRouterDebateStarter:
     async def test_import_error_returns_minimal(self):
         starter = _create_decision_router_debate_starter()
         with patch("aragora.core.get_decision_router", side_effect=ImportError("nope")):
-            result = await starter(
-                topic="t", platform="slack", channel="C", user="U"
-            )
+            result = await starter(topic="t", platform="slack", channel="C", user="U")
             assert result["debate_id"] == "pending"
             assert result["topic"] == "t"
 
@@ -1726,9 +1697,7 @@ class TestCreateDecisionRouterDebateStarter:
             side_effect=RuntimeError("fail"),
         ):
             with pytest.raises(RuntimeError):
-                await starter(
-                    topic="t", platform="slack", channel="C", user="U"
-                )
+                await starter(topic="t", platform="slack", channel="C", user="U")
 
 
 # ---------------------------------------------------------------------------
@@ -1791,9 +1760,7 @@ class TestRouteDecision:
     async def test_raises_when_unavailable(self):
         router = ChatWebhookRouter()
         router._decision_router = None
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", False):
             cmd = _make_command()
             event = _make_event(command=cmd)
             with pytest.raises(RuntimeError, match="not available"):
@@ -1815,14 +1782,14 @@ class TestRouteDecision:
         cmd = _make_command()
         event = _make_event(command=cmd)
 
-        with patch(
-            "aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.chat.router.ResponseChannel", MagicMock()
-        ), patch(
-            "aragora.server.handlers.chat.router.RequestContext", MagicMock()
-        ), patch(
-            "aragora.server.handlers.chat.router.DecisionRequest", MagicMock(return_value=MagicMock())
+        with (
+            patch("aragora.server.handlers.chat.router.DECISION_ROUTER_AVAILABLE", True),
+            patch("aragora.server.handlers.chat.router.ResponseChannel", MagicMock()),
+            patch("aragora.server.handlers.chat.router.RequestContext", MagicMock()),
+            patch(
+                "aragora.server.handlers.chat.router.DecisionRequest",
+                MagicMock(return_value=MagicMock()),
+            ),
         ):
             result = await router._route_decision(
                 content="topic",

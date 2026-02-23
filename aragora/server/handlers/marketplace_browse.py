@@ -68,7 +68,11 @@ class MarketplaceBrowseHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
-        if normalized in ("/api/marketplace/templates", "/api/marketplace/featured", "/api/marketplace/popular"):
+        if normalized in (
+            "/api/marketplace/templates",
+            "/api/marketplace/featured",
+            "/api/marketplace/popular",
+        ):
             return True
         if normalized.startswith("/api/marketplace/templates/"):
             return True
@@ -95,7 +99,9 @@ class MarketplaceBrowseHandler(BaseHandler):
 
     @handle_errors("marketplace browse creation")
     @require_permission("marketplace:write")
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests (rating)."""
         normalized = strip_version_prefix(path)
 
@@ -135,19 +141,23 @@ class MarketplaceBrowseHandler(BaseHandler):
             category=category,
         )
 
-        return json_response({
-            "templates": [t.to_dict() for t in templates],
-            "count": len(templates),
-        })
+        return json_response(
+            {
+                "templates": [t.to_dict() for t in templates],
+                "count": len(templates),
+            }
+        )
 
     def _handle_featured(self) -> HandlerResult:
         """Return featured templates."""
         registry = self._get_registry()
         featured = registry.featured(limit=6)
-        return json_response({
-            "featured": [t.to_dict() for t in featured],
-            "count": len(featured),
-        })
+        return json_response(
+            {
+                "featured": [t.to_dict() for t in featured],
+                "count": len(featured),
+            }
+        )
 
     def _handle_popular(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return popular templates sorted by downloads."""
@@ -158,10 +168,12 @@ class MarketplaceBrowseHandler(BaseHandler):
             limit = 10
 
         popular = registry.popular(limit=limit)
-        return json_response({
-            "templates": [t.to_dict() for t in popular],
-            "count": len(popular),
-        })
+        return json_response(
+            {
+                "templates": [t.to_dict() for t in popular],
+                "count": len(popular),
+            }
+        )
 
     def _handle_rate(self, template_id: str, handler: Any) -> HandlerResult:
         """Rate a marketplace template. Requires authentication."""

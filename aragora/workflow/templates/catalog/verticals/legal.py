@@ -282,8 +282,7 @@ LEGAL_ANALYSIS_DECISION_TEMPLATE: dict[str, Any] = {
             "type": "debate",
             "name": "Risk and Liability Assessment",
             "description": (
-                "Multi-agent assessment of legal risks and potential "
-                "liability exposure."
+                "Multi-agent assessment of legal risks and potential liability exposure."
             ),
             "config": {
                 "agents": [
@@ -382,9 +381,7 @@ LEGAL_ANALYSIS_DECISION_TEMPLATE: dict[str, Any] = {
             "id": "partner_sign_off",
             "type": "human_checkpoint",
             "name": "Partner Sign-Off",
-            "description": (
-                "Managing partner sign-off for final legal opinion."
-            ),
+            "description": ("Managing partner sign-off for final legal opinion."),
             "config": {
                 "approval_type": "sign_off",
                 "required_role": "partner",

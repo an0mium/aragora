@@ -169,7 +169,10 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/receipts/abc123/export") is True
 
     def test_valid_export_path_with_uuid(self, handler):
-        assert handler.can_handle("/api/v1/receipts/550e8400-e29b-41d4-a716-446655440000/export") is True
+        assert (
+            handler.can_handle("/api/v1/receipts/550e8400-e29b-41d4-a716-446655440000/export")
+            is True
+        )
 
     def test_rejects_non_receipt_path(self, handler):
         assert handler.can_handle("/api/v1/debates/abc/export") is False
@@ -430,7 +433,9 @@ class TestHandleCtxFallback:
             )
             assert _status(result) == 200
 
-    def test_finds_receipt_in_ctx_when_store_get_returns_none(self, mock_http_handler, mock_receipt):
+    def test_finds_receipt_in_ctx_when_store_get_returns_none(
+        self, mock_http_handler, mock_receipt
+    ):
         mock_store = MagicMock()
         mock_store.get.return_value = None
         ctx = {"receipt_store": {"r-fallback": mock_receipt}}
@@ -549,12 +554,15 @@ class TestHandleHtmlExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_html",
-            return_value="<html><body>Receipt</body></html>",
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_html",
+                return_value="<html><body>Receipt</body></html>",
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -567,12 +575,15 @@ class TestHandleHtmlExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_html",
-            return_value="<html></html>",
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_html",
+                return_value="<html></html>",
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -586,12 +597,15 @@ class TestHandleHtmlExport:
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
         html_content = "<html><body>Test Receipt</body></html>"
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_html",
-            return_value=html_content,
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_html",
+                return_value=html_content,
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -605,12 +619,15 @@ class TestHandleHtmlExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_html",
-            return_value="<html></html>",
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_html",
+                return_value="<html></html>",
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -626,13 +643,16 @@ class TestHandleHtmlExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_html",
-            return_value="<html></html>",
-        ) as mock_to_html:
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_html",
+                return_value="<html></html>",
+            ) as mock_to_html,
+        ):
             h.handle(
                 "/api/v1/receipts/r-123/export",
                 {"format": "html"},
@@ -653,12 +673,15 @@ class TestHandlePdfExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_pdf",
-            return_value=b"%PDF-1.4 fake content",
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_pdf",
+                return_value=b"%PDF-1.4 fake content",
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -671,12 +694,15 @@ class TestHandlePdfExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_pdf",
-            return_value=b"%PDF-1.4",
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_pdf",
+                return_value=b"%PDF-1.4",
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -690,12 +716,15 @@ class TestHandlePdfExport:
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
         pdf_bytes = b"%PDF-1.4 binary content"
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_pdf",
-            return_value=pdf_bytes,
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_pdf",
+                return_value=pdf_bytes,
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -708,12 +737,15 @@ class TestHandlePdfExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_pdf",
-            return_value=b"%PDF",
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_pdf",
+                return_value=b"%PDF",
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",
@@ -729,13 +761,16 @@ class TestHandlePdfExport:
         mock_store = MagicMock()
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_pdf",
-            return_value=b"%PDF",
-        ) as mock_to_pdf:
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_pdf",
+                return_value=b"%PDF",
+            ) as mock_to_pdf,
+        ):
             h.handle(
                 "/api/v1/receipts/r-123/export",
                 {"format": "pdf"},
@@ -936,12 +971,15 @@ class TestHandleEdgeCases:
         mock_store.get.return_value = mock_receipt
         h = ReceiptExportHandler(ctx={})
         unicode_html = "<html><body>Receipt: \u00e9\u00e8\u00ea \u00fc\u00f6\u00e4</body></html>"
-        with patch(
-            "aragora.server.handlers.receipt_export._get_receipt_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.gauntlet.export.receipt_to_html",
-            return_value=unicode_html,
+        with (
+            patch(
+                "aragora.server.handlers.receipt_export._get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.export.receipt_to_html",
+                return_value=unicode_html,
+            ),
         ):
             result = h.handle(
                 "/api/v1/receipts/r-123/export",

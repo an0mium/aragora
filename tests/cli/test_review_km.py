@@ -117,11 +117,12 @@ class TestPersistReviewToKM:
         findings = _mock_findings()
         result = MockDebateResult()
 
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
-        ) as mock_get_adapter:
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_cls,
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+            ) as mock_get_adapter,
+        ):
             mock_cls.from_review_result.return_value = mock_receipt
             mock_get_adapter.return_value = mock_adapter
 
@@ -144,11 +145,12 @@ class TestPersistReviewToKM:
         findings = _mock_findings()
         result = MockDebateResult()
 
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
-        ) as mock_get_adapter:
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_cls,
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+            ) as mock_get_adapter,
+        ):
             mock_cls.from_review_result.return_value = mock_receipt
             mock_get_adapter.return_value = mock_adapter
 
@@ -169,11 +171,12 @@ class TestPersistReviewToKM:
         mock_receipt.to_dict.return_value = receipt_dict
         mock_adapter = MagicMock()
 
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
-        ) as mock_get_adapter:
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_cls,
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+            ) as mock_get_adapter,
+        ):
             mock_cls.from_review_result.return_value = mock_receipt
             mock_get_adapter.return_value = mock_adapter
 
@@ -197,10 +200,9 @@ class TestPersistReviewToKM:
 
     def test_persist_runtime_error_returns_false(self):
         """Runtime error during persistence returns False without raising."""
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_cls,
+            patch("aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"),
         ):
             mock_cls.from_review_result.side_effect = RuntimeError("KM down")
             result = _persist_review_to_km(MockDebateResult(), _mock_findings())
@@ -215,11 +217,12 @@ class TestPersistReviewToKM:
         findings = _mock_findings()
         findings["agents_used"] = []
 
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
-        ) as mock_get_adapter:
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_cls,
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+            ) as mock_get_adapter,
+        ):
             mock_cls.from_review_result.return_value = mock_receipt
             mock_get_adapter.return_value = MagicMock()
 
@@ -235,9 +238,7 @@ class TestReviewKMPersistence:
     @patch("aragora.cli.review.run_review_debate")
     @patch("aragora.cli.review.extract_review_findings")
     @patch("aragora.cli.review.get_available_agents")
-    def test_km_persistence_attempted(
-        self, mock_agents, mock_extract, mock_debate, tmp_path
-    ):
+    def test_km_persistence_attempted(self, mock_agents, mock_extract, mock_debate, tmp_path):
         """KM persistence is attempted after findings extraction."""
         mock_agents.return_value = "anthropic-api,openai-api"
         mock_debate.return_value = MockDebateResult()
@@ -250,11 +251,12 @@ class TestReviewKMPersistence:
         mock_receipt.to_dict.return_value = {"receipt_id": "test"}
         mock_adapter = MagicMock()
 
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_receipt_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
-        ) as mock_get_adapter:
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_receipt_cls,
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+            ) as mock_get_adapter,
+        ):
             mock_receipt_cls.from_review_result.return_value = mock_receipt
             mock_get_adapter.return_value = mock_adapter
 
@@ -268,9 +270,7 @@ class TestReviewKMPersistence:
     @patch("aragora.cli.review.run_review_debate")
     @patch("aragora.cli.review.extract_review_findings")
     @patch("aragora.cli.review.get_available_agents")
-    def test_km_import_error_graceful(
-        self, mock_agents, mock_extract, mock_debate, tmp_path
-    ):
+    def test_km_import_error_graceful(self, mock_agents, mock_extract, mock_debate, tmp_path):
         """ImportError in KM persistence does not fail the review."""
         mock_agents.return_value = "anthropic-api,openai-api"
         mock_debate.return_value = MockDebateResult()
@@ -295,9 +295,7 @@ class TestReviewKMPersistence:
     @patch("aragora.cli.review.run_review_debate")
     @patch("aragora.cli.review.extract_review_findings")
     @patch("aragora.cli.review.get_available_agents")
-    def test_km_runtime_error_graceful(
-        self, mock_agents, mock_extract, mock_debate, tmp_path
-    ):
+    def test_km_runtime_error_graceful(self, mock_agents, mock_extract, mock_debate, tmp_path):
         """Runtime error in KM persistence does not fail the review."""
         mock_agents.return_value = "anthropic-api,openai-api"
         mock_debate.return_value = MockDebateResult()
@@ -306,10 +304,9 @@ class TestReviewKMPersistence:
         diff_file = tmp_path / "test.diff"
         diff_file.write_text("--- a/f.py\n+++ b/f.py\n@@ -1 +1 @@\n-old\n+new\n")
 
-        with patch(
-            "aragora.gauntlet.receipt_models.DecisionReceipt"
-        ) as mock_receipt_cls, patch(
-            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"
+        with (
+            patch("aragora.gauntlet.receipt_models.DecisionReceipt") as mock_receipt_cls,
+            patch("aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter"),
         ):
             mock_receipt_cls.from_review_result.side_effect = RuntimeError("KM down")
 

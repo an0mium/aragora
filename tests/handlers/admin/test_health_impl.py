@@ -242,7 +242,11 @@ class TestHandleRouting:
     @pytest.mark.asyncio
     async def test_healthz_calls_liveness(self, handler, http_handler):
         """GET /healthz dispatches to _liveness_probe."""
-        with patch.object(handler, "_liveness_probe", return_value=MagicMock(status_code=200, body=b'{"status":"ok"}')) as m:
+        with patch.object(
+            handler,
+            "_liveness_probe",
+            return_value=MagicMock(status_code=200, body=b'{"status":"ok"}'),
+        ) as m:
             result = await handler.handle("/healthz", {}, http_handler)
             m.assert_called_once()
             assert _status(result) == 200
@@ -250,14 +254,20 @@ class TestHandleRouting:
     @pytest.mark.asyncio
     async def test_readyz_calls_readiness_probe(self, handler, http_handler):
         """GET /readyz dispatches to _readiness_probe_fast."""
-        with patch.object(handler, "_readiness_probe_fast", return_value=MagicMock(status_code=200, body=b'{"status":"ok"}')) as m:
+        with patch.object(
+            handler,
+            "_readiness_probe_fast",
+            return_value=MagicMock(status_code=200, body=b'{"status":"ok"}'),
+        ) as m:
             result = await handler.handle("/readyz", {}, http_handler)
             m.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_readyz_dependencies_calls_readiness_dependencies(self, handler, http_handler):
         """GET /readyz/dependencies dispatches to _readiness_dependencies."""
-        with patch.object(handler, "_readiness_dependencies", return_value=MagicMock(status_code=200, body=b'{}')) as m:
+        with patch.object(
+            handler, "_readiness_dependencies", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as m:
             result = await handler.handle("/readyz/dependencies", {}, http_handler)
             m.assert_called_once()
 
@@ -270,35 +280,47 @@ class TestHandleRouting:
     @pytest.mark.asyncio
     async def test_workers_route(self, handler, http_handler):
         """GET /api/v1/health/workers dispatches to _worker_health_status."""
-        with patch.object(handler, "_worker_health_status", return_value=MagicMock(status_code=200, body=b'{}')) as m:
+        with patch.object(
+            handler, "_worker_health_status", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as m:
             result = await handler.handle("/api/v1/health/workers", {}, http_handler)
             m.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_job_queue_route(self, handler, http_handler):
         """GET /api/v1/health/job-queue dispatches to _job_queue_health_status."""
-        with patch.object(handler, "_job_queue_health_status", return_value=MagicMock(status_code=200, body=b'{}')) as m:
+        with patch.object(
+            handler, "_job_queue_health_status", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as m:
             result = await handler.handle("/api/v1/health/job-queue", {}, http_handler)
             m.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_workers_all_route(self, handler, http_handler):
         """GET /api/v1/health/workers/all dispatches to _combined_worker_queue_health."""
-        with patch.object(handler, "_combined_worker_queue_health", return_value=MagicMock(status_code=200, body=b'{}')) as m:
+        with patch.object(
+            handler,
+            "_combined_worker_queue_health",
+            return_value=MagicMock(status_code=200, body=b"{}"),
+        ) as m:
             result = await handler.handle("/api/v1/health/workers/all", {}, http_handler)
             m.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_diagnostics_route(self, handler, http_handler):
         """GET /api/v1/diagnostics dispatches to _deployment_diagnostics."""
-        with patch.object(handler, "_deployment_diagnostics", return_value=MagicMock(status_code=200, body=b'{}')) as m:
+        with patch.object(
+            handler, "_deployment_diagnostics", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as m:
             result = await handler.handle("/api/v1/diagnostics", {}, http_handler)
             m.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_diagnostics_deployment_route(self, handler, http_handler):
         """GET /api/v1/diagnostics/deployment dispatches to _deployment_diagnostics."""
-        with patch.object(handler, "_deployment_diagnostics", return_value=MagicMock(status_code=200, body=b'{}')) as m:
+        with patch.object(
+            handler, "_deployment_diagnostics", return_value=MagicMock(status_code=200, body=b"{}")
+        ) as m:
             result = await handler.handle("/api/v1/diagnostics/deployment", {}, http_handler)
             m.assert_called_once()
 
@@ -330,7 +352,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_v1_detailed_normalizes(self, handler, http_handler):
         """/api/v1/health/detailed normalizes to /api/health/detailed."""
-        mock_result = MagicMock(status_code=200, body=b'{}')
+        mock_result = MagicMock(status_code=200, body=b"{}")
         with patch.object(handler, "_detailed_health_check", return_value=mock_result) as m:
             result = await handler.handle("/api/v1/health/detailed", {}, http_handler)
             m.assert_called_once()
@@ -338,7 +360,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_non_v1_detailed_also_routes(self, handler, http_handler):
         """/api/health/detailed also routes to _detailed_health_check."""
-        mock_result = MagicMock(status_code=200, body=b'{}')
+        mock_result = MagicMock(status_code=200, body=b"{}")
         with patch.object(handler, "_detailed_health_check", return_value=mock_result) as m:
             result = await handler.handle("/api/health/detailed", {}, http_handler)
             m.assert_called_once()
@@ -346,7 +368,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_v1_stores_normalizes(self, handler, http_handler):
         """/api/v1/health/stores normalizes correctly."""
-        mock_result = MagicMock(status_code=200, body=b'{}')
+        mock_result = MagicMock(status_code=200, body=b"{}")
         with patch.object(handler, "_database_stores_health", return_value=mock_result) as m:
             result = await handler.handle("/api/v1/health/stores", {}, http_handler)
             m.assert_called_once()
@@ -354,7 +376,7 @@ class TestPathNormalization:
     @pytest.mark.asyncio
     async def test_v1_platform_health_normalizes(self, handler, http_handler):
         """/api/v1/platform/health normalizes to /api/platform/health."""
-        mock_result = MagicMock(status_code=200, body=b'{}')
+        mock_result = MagicMock(status_code=200, body=b"{}")
         with patch.object(handler, "_platform_health", return_value=mock_result) as m:
             result = await handler.handle("/api/v1/platform/health", {}, http_handler)
             m.assert_called_once()

@@ -188,7 +188,9 @@ def main() -> int:
     missing_healthcheck = sorted(
         name
         for name in REQUIRED_HEALTHCHECK_SERVICES
-        if name in services and isinstance(services[name], dict) and "healthcheck" not in services[name]
+        if name in services
+        and isinstance(services[name], dict)
+        and "healthcheck" not in services[name]
     )
     if missing_healthcheck:
         errors.append(f"services missing healthcheck configuration: {missing_healthcheck}")

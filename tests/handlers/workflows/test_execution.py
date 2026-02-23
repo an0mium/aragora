@@ -314,11 +314,14 @@ class TestExtractNotificationContext:
             create=True,
         ):
             # Monkey-patch the import inside _extract_notification_context
-            with patch.dict("sys.modules", {
-                "aragora.approvals.chat": MagicMock(
-                    get_default_chat_targets=MagicMock(return_value=["slack:#fallback"])
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.approvals.chat": MagicMock(
+                        get_default_chat_targets=MagicMock(return_value=["slack:#fallback"])
+                    ),
+                },
+            ):
                 metadata, notify = _extract_notification_context(
                     workflow=wf,
                     inputs={"notify_channels": True},
@@ -565,10 +568,15 @@ class TestDispatchChatMessage:
 
         mock_parse = MagicMock(return_value={"slack": ["#general"]})
 
-        with patch.dict("sys.modules", {
-            "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
-            "aragora.connectors.chat.registry": MagicMock(get_connector=MagicMock(return_value=mock_connector)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
+                "aragora.connectors.chat.registry": MagicMock(
+                    get_connector=MagicMock(return_value=mock_connector)
+                ),
+            },
+        ):
             await _dispatch_chat_message(
                 text="test msg",
                 channel_targets=["slack:#general"],
@@ -589,10 +597,15 @@ class TestDispatchChatMessage:
 
         mock_parse = MagicMock(return_value={"slack": ["#general"]})
 
-        with patch.dict("sys.modules", {
-            "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
-            "aragora.connectors.chat.registry": MagicMock(get_connector=MagicMock(return_value=mock_connector)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
+                "aragora.connectors.chat.registry": MagicMock(
+                    get_connector=MagicMock(return_value=mock_connector)
+                ),
+            },
+        ):
             await _dispatch_chat_message(
                 text="test msg",
                 channel_targets=["slack:#general"],
@@ -605,10 +618,15 @@ class TestDispatchChatMessage:
     async def test_skips_none_connector(self):
         mock_parse = MagicMock(return_value={"slack": ["#general"]})
 
-        with patch.dict("sys.modules", {
-            "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
-            "aragora.connectors.chat.registry": MagicMock(get_connector=MagicMock(return_value=None)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
+                "aragora.connectors.chat.registry": MagicMock(
+                    get_connector=MagicMock(return_value=None)
+                ),
+            },
+        ):
             await _dispatch_chat_message(
                 text="test msg",
                 channel_targets=["slack:#general"],
@@ -624,10 +642,15 @@ class TestDispatchChatMessage:
 
         mock_parse = MagicMock(return_value={"slack": ["#general"]})
 
-        with patch.dict("sys.modules", {
-            "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
-            "aragora.connectors.chat.registry": MagicMock(get_connector=MagicMock(return_value=mock_connector)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
+                "aragora.connectors.chat.registry": MagicMock(
+                    get_connector=MagicMock(return_value=mock_connector)
+                ),
+            },
+        ):
             await _dispatch_chat_message(
                 text="test",
                 channel_targets=["slack:#general"],
@@ -648,10 +671,15 @@ class TestDispatchChatMessage:
 
         mock_parse = MagicMock(return_value={"slack": ["#general"]})
 
-        with patch.dict("sys.modules", {
-            "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
-            "aragora.connectors.chat.registry": MagicMock(get_connector=MagicMock(return_value=mock_connector)),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
+                "aragora.connectors.chat.registry": MagicMock(
+                    get_connector=MagicMock(return_value=mock_connector)
+                ),
+            },
+        ):
             # Should not raise
             await _dispatch_chat_message(
                 text="test",
@@ -676,15 +704,20 @@ class TestDispatchChatMessage:
                 return telegram_connector
             return None
 
-        mock_parse = MagicMock(return_value={
-            "slack": ["#general", "#alerts"],
-            "telegram": ["chat_1"],
-        })
+        mock_parse = MagicMock(
+            return_value={
+                "slack": ["#general", "#alerts"],
+                "telegram": ["chat_1"],
+            }
+        )
 
-        with patch.dict("sys.modules", {
-            "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
-            "aragora.connectors.chat.registry": MagicMock(get_connector=_get_connector),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.approvals.chat": MagicMock(parse_chat_targets=mock_parse),
+                "aragora.connectors.chat.registry": MagicMock(get_connector=_get_connector),
+            },
+        ):
             await _dispatch_chat_message(
                 text="msg",
                 channel_targets=["slack:#general", "slack:#alerts", "telegram:chat_1"],
@@ -749,13 +782,16 @@ class TestBuildEventCallback:
     def test_callback_sets_default_payload_fields(self):
         emitter = MagicMock()
         # Make the StreamEvent import fail so we can isolate payload building
-        with patch.dict("sys.modules", {
-            "aragora.events.types": MagicMock(
-                StreamEventType=MagicMock(side_effect=ValueError("unknown")),
-                StreamEvent=MagicMock(),
-            ),
-            "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.events.types": MagicMock(
+                    StreamEventType=MagicMock(side_effect=ValueError("unknown")),
+                    StreamEvent=MagicMock(),
+                ),
+                "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+            },
+        ):
             cb = _build_event_callback(
                 event_emitter=emitter,
                 tenant_id="t1",
@@ -763,7 +799,12 @@ class TestBuildEventCallback:
                 org_id="o1",
                 workflow_definition_id="wf_1",
                 execution_id="exec_1",
-                notify_config={"channel_targets": [], "thread_id": None, "thread_id_by_platform": {}, "notify_steps": False},
+                notify_config={
+                    "channel_targets": [],
+                    "thread_id": None,
+                    "thread_id_by_platform": {},
+                    "notify_steps": False,
+                },
             )
             cb("workflow_start", {"custom": "data"})
 
@@ -772,13 +813,16 @@ class TestBuildEventCallback:
         mock_stream_event_type = MagicMock()
         mock_stream_event = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.events.types": MagicMock(
-                StreamEventType=mock_stream_event_type,
-                StreamEvent=mock_stream_event,
-            ),
-            "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.events.types": MagicMock(
+                    StreamEventType=mock_stream_event_type,
+                    StreamEvent=mock_stream_event,
+                ),
+                "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+            },
+        ):
             cb = _build_event_callback(
                 event_emitter=emitter,
                 tenant_id="t1",
@@ -786,7 +830,12 @@ class TestBuildEventCallback:
                 org_id=None,
                 workflow_definition_id="wf_1",
                 execution_id="exec_1",
-                notify_config={"channel_targets": [], "thread_id": None, "thread_id_by_platform": {}, "notify_steps": False},
+                notify_config={
+                    "channel_targets": [],
+                    "thread_id": None,
+                    "thread_id_by_platform": {},
+                    "notify_steps": False,
+                },
             )
             cb("workflow_start", {})
             emitter.emit.assert_called_once()
@@ -794,12 +843,15 @@ class TestBuildEventCallback:
     def test_callback_dispatches_event(self):
         mock_dispatch = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.events.types": MagicMock(
-                StreamEventType=MagicMock(side_effect=ValueError("x")),
-            ),
-            "aragora.events.dispatcher": MagicMock(dispatch_event=mock_dispatch),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.events.types": MagicMock(
+                    StreamEventType=MagicMock(side_effect=ValueError("x")),
+                ),
+                "aragora.events.dispatcher": MagicMock(dispatch_event=mock_dispatch),
+            },
+        ):
             cb = _build_event_callback(
                 event_emitter=None,
                 tenant_id="t1",
@@ -807,7 +859,12 @@ class TestBuildEventCallback:
                 org_id=None,
                 workflow_definition_id="wf_1",
                 execution_id="exec_1",
-                notify_config={"channel_targets": [], "thread_id": None, "thread_id_by_platform": {}, "notify_steps": False},
+                notify_config={
+                    "channel_targets": [],
+                    "thread_id": None,
+                    "thread_id_by_platform": {},
+                    "notify_steps": False,
+                },
             )
             cb("workflow_complete", {"key": "val"})
             mock_dispatch.assert_called_once()
@@ -819,11 +876,18 @@ class TestBuildEventCallback:
             assert payload["execution_id"] == "exec_1"
 
     def test_callback_triggers_chat_for_critical_events(self):
-        with patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule, \
-             patch.dict("sys.modules", {
-                 "aragora.events.types": MagicMock(StreamEventType=MagicMock(side_effect=ValueError)),
-                 "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-             }):
+        with (
+            patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.events.types": MagicMock(
+                        StreamEventType=MagicMock(side_effect=ValueError)
+                    ),
+                    "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+                },
+            ),
+        ):
             cb = _build_event_callback(
                 event_emitter=None,
                 tenant_id="t1",
@@ -842,11 +906,18 @@ class TestBuildEventCallback:
             mock_schedule.assert_called_once()
 
     def test_callback_skips_chat_for_non_critical_without_notify_steps(self):
-        with patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule, \
-             patch.dict("sys.modules", {
-                 "aragora.events.types": MagicMock(StreamEventType=MagicMock(side_effect=ValueError)),
-                 "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-             }):
+        with (
+            patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.events.types": MagicMock(
+                        StreamEventType=MagicMock(side_effect=ValueError)
+                    ),
+                    "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+                },
+            ),
+        ):
             cb = _build_event_callback(
                 event_emitter=None,
                 tenant_id="t1",
@@ -865,11 +936,18 @@ class TestBuildEventCallback:
             mock_schedule.assert_not_called()
 
     def test_callback_triggers_chat_for_step_events_when_notify_steps(self):
-        with patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule, \
-             patch.dict("sys.modules", {
-                 "aragora.events.types": MagicMock(StreamEventType=MagicMock(side_effect=ValueError)),
-                 "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-             }):
+        with (
+            patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.events.types": MagicMock(
+                        StreamEventType=MagicMock(side_effect=ValueError)
+                    ),
+                    "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+                },
+            ),
+        ):
             cb = _build_event_callback(
                 event_emitter=None,
                 tenant_id="t1",
@@ -888,11 +966,18 @@ class TestBuildEventCallback:
             mock_schedule.assert_called_once()
 
     def test_callback_no_chat_when_no_channel_targets(self):
-        with patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule, \
-             patch.dict("sys.modules", {
-                 "aragora.events.types": MagicMock(StreamEventType=MagicMock(side_effect=ValueError)),
-                 "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-             }):
+        with (
+            patch(f"{PATCH_MOD}._schedule_chat_dispatch") as mock_schedule,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.events.types": MagicMock(
+                        StreamEventType=MagicMock(side_effect=ValueError)
+                    ),
+                    "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+                },
+            ),
+        ):
             cb = _build_event_callback(
                 event_emitter=None,
                 tenant_id="t1",
@@ -915,13 +1000,16 @@ class TestBuildEventCallback:
         emitter = MagicMock()
         emitter.emit.side_effect = TypeError("bad emit")
 
-        with patch.dict("sys.modules", {
-            "aragora.events.types": MagicMock(
-                StreamEventType=MagicMock(return_value="workflow_start"),
-                StreamEvent=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.events.types": MagicMock(
+                    StreamEventType=MagicMock(return_value="workflow_start"),
+                    StreamEvent=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.events.dispatcher": MagicMock(dispatch_event=MagicMock()),
+            },
+        ):
             cb = _build_event_callback(
                 event_emitter=emitter,
                 tenant_id="t1",
@@ -929,17 +1017,27 @@ class TestBuildEventCallback:
                 org_id=None,
                 workflow_definition_id="wf_1",
                 execution_id="exec_1",
-                notify_config={"channel_targets": [], "thread_id": None, "thread_id_by_platform": {}, "notify_steps": False},
+                notify_config={
+                    "channel_targets": [],
+                    "thread_id": None,
+                    "thread_id_by_platform": {},
+                    "notify_steps": False,
+                },
             )
             # Should not raise
             cb("workflow_start", {})
 
     def test_callback_handles_dispatch_import_error(self):
         """Event dispatcher import error is caught."""
-        with patch.dict("sys.modules", {
-            "aragora.events.types": MagicMock(StreamEventType=MagicMock(side_effect=ValueError)),
-            "aragora.events.dispatcher": None,  # Simulate ImportError
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.events.types": MagicMock(
+                    StreamEventType=MagicMock(side_effect=ValueError)
+                ),
+                "aragora.events.dispatcher": None,  # Simulate ImportError
+            },
+        ):
             cb = _build_event_callback(
                 event_emitter=None,
                 tenant_id="t1",
@@ -947,7 +1045,12 @@ class TestBuildEventCallback:
                 org_id=None,
                 workflow_definition_id="wf_1",
                 execution_id="exec_1",
-                notify_config={"channel_targets": [], "thread_id": None, "thread_id_by_platform": {}, "notify_steps": False},
+                notify_config={
+                    "channel_targets": [],
+                    "thread_id": None,
+                    "thread_id_by_platform": {},
+                    "notify_steps": False,
+                },
             )
             # Should not raise even though dispatcher import fails
             cb("workflow_start", {})
@@ -973,9 +1076,11 @@ class TestExecuteWorkflow:
 
         mock_audit = MagicMock()
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", mock_audit):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", mock_audit),
+        ):
             result = await execute_workflow(
                 "wf_1", inputs={"key": "val"}, tenant_id="t1", user_id="u1", org_id="o1"
             )
@@ -1006,14 +1111,14 @@ class TestExecuteWorkflow:
         mock_store.get_workflow.return_value = mock_wf
 
         mock_engine = MagicMock()
-        engine_result = _make_engine_result(
-            success=False, error="step failed", final_output=None
-        )
+        engine_result = _make_engine_result(success=False, error="step failed", final_output=None)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1")
 
         assert result["status"] == "failed"
@@ -1028,8 +1133,10 @@ class TestExecuteWorkflow:
         mock_engine = MagicMock()
         mock_engine.execute = AsyncMock(side_effect=ValueError("bad config"))
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             with pytest.raises(ValueError, match="bad config"):
                 await execute_workflow("wf_1")
 
@@ -1048,8 +1155,10 @@ class TestExecuteWorkflow:
         mock_engine = MagicMock()
         mock_engine.execute = AsyncMock(side_effect=OSError("disk full"))
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             with pytest.raises(OSError, match="disk full"):
                 await execute_workflow("wf_1")
 
@@ -1068,8 +1177,10 @@ class TestExecuteWorkflow:
         mock_engine = MagicMock()
         mock_engine.execute = AsyncMock(side_effect=ConnectionError("refused"))
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             with pytest.raises(ConnectionError, match="refused"):
                 await execute_workflow("wf_1")
 
@@ -1088,8 +1199,10 @@ class TestExecuteWorkflow:
         mock_engine = MagicMock()
         mock_engine.execute = AsyncMock(side_effect=TimeoutError("timed out"))
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             with pytest.raises(TimeoutError, match="timed out"):
                 await execute_workflow("wf_1")
 
@@ -1106,8 +1219,10 @@ class TestExecuteWorkflow:
         mock_engine = MagicMock()
         mock_engine.execute = AsyncMock(side_effect=KeyError("missing key"))
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             with pytest.raises(KeyError):
                 await execute_workflow("wf_1")
 
@@ -1125,9 +1240,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1", inputs=None)
 
         assert result["inputs"] == {}
@@ -1143,9 +1260,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True, steps=[step])
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1")
 
         assert len(result["steps"]) == 1
@@ -1163,9 +1282,11 @@ class TestExecuteWorkflow:
 
         mock_audit = MagicMock()
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", mock_audit):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", mock_audit),
+        ):
             await execute_workflow("wf_1", tenant_id="t1")
 
         mock_audit.assert_called_once()
@@ -1186,9 +1307,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", None):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", None),
+        ):
             # Should not raise
             result = await execute_workflow("wf_1")
             assert result["status"] == "completed"
@@ -1205,9 +1328,11 @@ class TestExecuteWorkflow:
 
         emitter = MagicMock()
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             await execute_workflow("wf_1", event_emitter=emitter)
 
         execute_call = mock_engine.execute.call_args
@@ -1224,9 +1349,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1")
 
         assert result["id"].startswith("exec_")
@@ -1243,9 +1370,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1")
 
         assert "started_at" in result
@@ -1261,9 +1390,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True, duration_ms=500)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1")
 
         assert result["duration_ms"] == 500
@@ -1278,9 +1409,11 @@ class TestExecuteWorkflow:
         engine_result = _make_engine_result(success=True)
         mock_engine.execute = AsyncMock(return_value=engine_result)
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine), \
-             patch("aragora.server.handlers.workflows.audit_data", MagicMock()):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+            patch("aragora.server.handlers.workflows.audit_data", MagicMock()),
+        ):
             result = await execute_workflow("wf_1")
 
         assert result["tenant_id"] == "default"
@@ -1378,8 +1511,10 @@ class TestTerminateExecution:
 
         mock_engine = MagicMock()
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             result = await terminate_execution("exec_1")
 
         assert result is True
@@ -1439,8 +1574,10 @@ class TestTerminateExecution:
 
         mock_engine = MagicMock()
 
-        with patch(f"{PATCH_MOD}._get_store", return_value=mock_store), \
-             patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine):
+        with (
+            patch(f"{PATCH_MOD}._get_store", return_value=mock_store),
+            patch(f"{PATCH_MOD}._get_engine", return_value=mock_engine),
+        ):
             await terminate_execution("exec_1")
 
         assert mock_exec["completed_at"] is not None

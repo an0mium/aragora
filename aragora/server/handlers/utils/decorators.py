@@ -232,7 +232,11 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     return await func(*args, **kwargs)
                 except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
                     logger.error(
-                        "[%s] Error in %s: %s: %s", trace_id, context, type(e).__name__, e,
+                        "[%s] Error in %s: %s: %s",
+                        trace_id,
+                        context,
+                        type(e).__name__,
+                        e,
                         exc_info=True,
                     )
                     status = map_exception_to_status(e, default_status)
@@ -253,7 +257,11 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     return func(*args, **kwargs)
                 except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
                     logger.error(
-                        "[%s] Error in %s: %s: %s", trace_id, context, type(e).__name__, e,
+                        "[%s] Error in %s: %s: %s",
+                        trace_id,
+                        context,
+                        type(e).__name__,
+                        e,
                         exc_info=True,
                     )
                     status = map_exception_to_status(e, default_status)
@@ -305,7 +313,9 @@ def auto_error_response(
             except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
                 if log_level == "error":
                     logger.error(
-                        "Failed to %s: %s", operation, e,
+                        "Failed to %s: %s",
+                        operation,
+                        e,
                         exc_info=include_traceback,
                     )
                 elif log_level == "warning":
@@ -360,7 +370,9 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
                     body = getattr(result, "body", b"")
                     if body and len(body) < 1000:  # Only log small responses
                         logger.debug(
-                            "[%s] Response: %s", trace_id, body.decode('utf-8', errors='ignore')[:500]
+                            "[%s] Response: %s",
+                            trace_id,
+                            body.decode("utf-8", errors="ignore")[:500],
                         )
 
                 return result
@@ -368,7 +380,12 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
             except Exception as e:  # noqa: BLE001 - logging decorator: captures any exception for timing/tracing then re-raises
                 duration_ms = round((time.time() - start_time) * 1000, 2)
                 logger.error(
-                    "[%s] %s: failed in %sms - %s: %s", trace_id, context, duration_ms, type(e).__name__, e,
+                    "[%s] %s: failed in %sms - %s: %s",
+                    trace_id,
+                    context,
+                    duration_ms,
+                    type(e).__name__,
+                    e,
                     exc_info=True,
                 )
                 raise
@@ -653,7 +670,10 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
 
             if not has_permission(user_ctx.role, permission):
                 logger.warning(
-                    "Permission denied: user=%s role=%s permission=%s", user_ctx.user_id, user_ctx.role, permission
+                    "Permission denied: user=%s role=%s permission=%s",
+                    user_ctx.user_id,
+                    user_ctx.role,
+                    permission,
                 )
                 return None, error_response("Permission denied", 403)
 
@@ -887,7 +907,10 @@ def with_error_recovery(
             except Exception as e:  # noqa: BLE001 - error recovery decorator: wraps arbitrary functions, must catch all to return fallback value
                 if log_errors:
                     logger.warning(
-                        "with_error_recovery '%s' failed: %s: %s", func.__name__, type(e).__name__, e
+                        "with_error_recovery '%s' failed: %s: %s",
+                        func.__name__,
+                        type(e).__name__,
+                        e,
                     )
                 return fallback_value
 

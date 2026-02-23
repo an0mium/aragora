@@ -519,7 +519,10 @@ class ExpenseTracker:
         )
 
         logger.info(
-            "Processed receipt -> expense %s: %s $%s", expense_id, expense.vendor_name, expense.amount
+            "Processed receipt -> expense %s: %s $%s",
+            expense_id,
+            expense.vendor_name,
+            expense.amount,
         )
         return expense
 
@@ -781,7 +784,10 @@ class ExpenseTracker:
             for pattern in patterns:
                 if re.search(pattern, combined, re.IGNORECASE):
                     logger.debug(
-                        "Categorized %s as %s (pattern: %s)", expense.vendor_name, category.value, pattern
+                        "Categorized %s as %s (pattern: %s)",
+                        expense.vendor_name,
+                        category.value,
+                        pattern,
                     )
                     return category
 

@@ -115,11 +115,15 @@ def _build_multipart(filename: str, file_content: bytes, boundary: str = "testbo
         f"multipart/form-data; boundary={boundary}"
     """
     body = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
-        f"Content-Type: application/octet-stream\r\n"
-        f"\r\n"
-    ).encode() + file_content + f"\r\n--{boundary}--\r\n".encode()
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            f"Content-Type: application/octet-stream\r\n"
+            f"\r\n"
+        ).encode()
+        + file_content
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
     return body
 
 
@@ -196,9 +200,7 @@ class TestTranscriptionError:
 
     def test_to_response_with_details(self):
         details = {"received_bytes": 5000, "max_bytes": 1000}
-        err = TranscriptionError(
-            TranscriptionErrorCode.FILE_TOO_LARGE, "Too big", details=details
-        )
+        err = TranscriptionError(TranscriptionErrorCode.FILE_TOO_LARGE, "Too big", details=details)
         result = err.to_response()
         body = _body(result)
         assert body["details"] == details
@@ -215,18 +217,14 @@ class TestTranscriptionError:
             assert len(code.value) > 0
 
     def test_to_response_404(self):
-        err = TranscriptionError(
-            TranscriptionErrorCode.JOB_NOT_FOUND, "Not found"
-        )
+        err = TranscriptionError(TranscriptionErrorCode.JOB_NOT_FOUND, "Not found")
         result = err.to_response(status=404)
         assert _status(result) == 404
         body = _body(result)
         assert body["error_code"] == "job_not_found"
 
     def test_to_response_429(self):
-        err = TranscriptionError(
-            TranscriptionErrorCode.RATE_LIMITED, "Too many requests"
-        )
+        err = TranscriptionError(TranscriptionErrorCode.RATE_LIMITED, "Too many requests")
         result = err.to_response(status=429)
         assert _status(result) == 429
         body = _body(result)
@@ -312,9 +310,7 @@ class TestTranscriptionJob:
         assert d["error"] == "Some error"
 
     def test_default_values(self):
-        job = TranscriptionJob(
-            id="j1", filename="f.mp3", status=TranscriptionStatus.PENDING
-        )
+        job = TranscriptionJob(id="j1", filename="f.mp3", status=TranscriptionStatus.PENDING)
         assert job.file_size_bytes == 0
         assert job.duration_seconds is None
         assert job.text is None
@@ -828,9 +824,7 @@ class TestSupportedExtensions:
             result = handler.handle_post("/api/v1/transcription/upload", {}, mock)
         assert _status(result) == 202
 
-    @pytest.mark.parametrize(
-        "ext", [".txt", ".pdf", ".doc", ".py", ".exe", ".zip", ".html"]
-    )
+    @pytest.mark.parametrize("ext", [".txt", ".pdf", ".doc", ".py", ".exe", ".zip", ".html"])
     def test_unsupported_extension_rejected(self, handler, ext):
         content = b"some data"
         mock = _make_http_handler(content=content, filename=f"file{ext}")
@@ -1071,10 +1065,7 @@ class TestMultipartUpload:
     def test_multipart_no_file_part(self, handler):
         boundary = "testbound"
         body_bytes = (
-            f"--{boundary}\r\n"
-            f"Content-Type: text/plain\r\n\r\n"
-            f"just text"
-            f"\r\n--{boundary}--\r\n"
+            f"--{boundary}\r\nContent-Type: text/plain\r\n\r\njust text\r\n--{boundary}--\r\n"
         ).encode()
         mock = _make_http_handler(
             content=body_bytes,
@@ -1161,7 +1152,7 @@ class TestRateLimiting:
             mock = _make_http_handler(content=content, filename="test.mp3")
             with patch("asyncio.create_task"):
                 result = handler.handle_post("/api/v1/transcription/upload", {}, mock)
-            assert _status(result) == 202, f"Upload {i+1} should succeed"
+            assert _status(result) == 202, f"Upload {i + 1} should succeed"
 
     def test_per_minute_rate_limit(self, handler):
         """Exceeding per-minute limit returns 429."""

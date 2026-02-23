@@ -151,9 +151,7 @@ def reset_bridge(monkeypatch):
 def mock_bridge():
     """Create a mock bridge with all methods."""
     bridge = AsyncMock()
-    bridge.search_knowledge = AsyncMock(
-        return_value=MockSearchContext(_make_search_result())
-    )
+    bridge.search_knowledge = AsyncMock(return_value=MockSearchContext(_make_search_result()))
     bridge.inject_knowledge_for_conversation = AsyncMock(
         return_value=[MockKnowledgeItem(), MockKnowledgeItem(node_id="n2")]
     )
@@ -264,17 +262,13 @@ class TestHandleKnowledgeSearch:
     @pytest.mark.asyncio
     async def test_search_invalid_scope_falls_back(self, patch_bridge):
         """Invalid scope enum value falls back to WORKSPACE."""
-        result = await handle_knowledge_search(
-            query="test", scope="NOT_A_SCOPE"
-        )
+        result = await handle_knowledge_search(query="test", scope="NOT_A_SCOPE")
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_search_invalid_strategy_falls_back(self, patch_bridge):
         """Invalid strategy enum value falls back to HYBRID."""
-        result = await handle_knowledge_search(
-            query="test", strategy="NOT_A_STRATEGY"
-        )
+        result = await handle_knowledge_search(query="test", strategy="NOT_A_STRATEGY")
         assert result["success"] is True
 
     @pytest.mark.asyncio

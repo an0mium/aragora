@@ -31,15 +31,11 @@ class TestFeedbackGoal:
         assert goal.priority == 5
 
     def test_priority_clamped_high(self):
-        goal = FeedbackGoal(
-            domain="d", agent="a", goal_type="t", severity=2.0, description="T"
-        )
+        goal = FeedbackGoal(domain="d", agent="a", goal_type="t", severity=2.0, description="T")
         assert goal.priority == 10
 
     def test_priority_clamped_low(self):
-        goal = FeedbackGoal(
-            domain="d", agent="a", goal_type="t", severity=0.0, description="T"
-        )
+        goal = FeedbackGoal(domain="d", agent="a", goal_type="t", severity=0.0, description="T")
         assert goal.priority == 1
 
 

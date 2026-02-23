@@ -167,9 +167,7 @@ class TestStar:
         assert result["action"] == "star"
         assert result["success_count"] == 1
         assert result["error_count"] == 0
-        store.update_message_flags.assert_awaited_once_with(
-            "t1", "msg-1", is_starred=True
-        )
+        store.update_message_flags.assert_awaited_once_with("t1", "msg-1", is_starred=True)
 
     @pytest.mark.asyncio
     async def test_star_multiple_messages(self):
@@ -298,9 +296,7 @@ class TestMixedAndEdgeCases:
     async def test_mixed_success_and_exception(self):
         """First message succeeds, second raises."""
         store = _make_store()
-        store.update_message_flags = AsyncMock(
-            side_effect=[True, RuntimeError("boom")]
-        )
+        store.update_message_flags = AsyncMock(side_effect=[True, RuntimeError("boom")])
         result = await execute_bulk_action("t1", ["ok", "fail"], "star", store)
         # "star" uses update_message_flags
         assert result["success_count"] == 1
@@ -343,9 +339,7 @@ class TestMixedAndEdgeCases:
     async def test_tenant_id_is_forwarded(self):
         store = _make_store()
         await execute_bulk_action("tenant-xyz", ["m1"], "mark_read", store)
-        store.update_message_flags.assert_awaited_once_with(
-            "tenant-xyz", "m1", is_read=True
-        )
+        store.update_message_flags.assert_awaited_once_with("tenant-xyz", "m1", is_read=True)
 
     @pytest.mark.asyncio
     async def test_tenant_id_is_forwarded_to_delete(self):

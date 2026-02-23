@@ -171,7 +171,9 @@ def _validate_tags(value: Any) -> tuple[bool, list[str], str]:
 # =============================================================================
 
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as MarketplaceCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as MarketplaceCircuitBreaker,
+)
 
 
 # Global circuit breaker instance

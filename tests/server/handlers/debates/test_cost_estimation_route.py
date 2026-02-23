@@ -35,6 +35,7 @@ class TestCostEstimationRoute:
         assert result is not None
         assert result.status_code == 200
         import json
+
         data = json.loads(result.body)
         assert "total_estimated_cost_usd" in data
         assert data["num_agents"] == 2
@@ -50,6 +51,7 @@ class TestCostEstimationRoute:
         assert result is not None
         assert result.status_code == 200
         import json
+
         data = json.loads(result.body)
         assert data["num_agents"] == 3  # default
         assert data["num_rounds"] == 9  # default
@@ -82,31 +84,43 @@ class TestBudgetLimitParsing:
 
     def test_parse_budget_limit_from_body(self):
         from aragora.server.debate_controller import DebateRequest
-        req = DebateRequest.from_dict({
-            "question": "test question",
-            "budget_limit_usd": 5.0,
-        })
+
+        req = DebateRequest.from_dict(
+            {
+                "question": "test question",
+                "budget_limit_usd": 5.0,
+            }
+        )
         assert req.budget_limit_usd == 5.0
 
     def test_parse_budget_limit_capped_at_100(self):
         from aragora.server.debate_controller import DebateRequest
-        req = DebateRequest.from_dict({
-            "question": "test question",
-            "budget_limit_usd": 500,
-        })
+
+        req = DebateRequest.from_dict(
+            {
+                "question": "test question",
+                "budget_limit_usd": 500,
+            }
+        )
         assert req.budget_limit_usd == 100.0
 
     def test_parse_budget_limit_negative_ignored(self):
         from aragora.server.debate_controller import DebateRequest
-        req = DebateRequest.from_dict({
-            "question": "test question",
-            "budget_limit_usd": -1,
-        })
+
+        req = DebateRequest.from_dict(
+            {
+                "question": "test question",
+                "budget_limit_usd": -1,
+            }
+        )
         assert req.budget_limit_usd is None
 
     def test_parse_budget_limit_none_default(self):
         from aragora.server.debate_controller import DebateRequest
-        req = DebateRequest.from_dict({
-            "question": "test question",
-        })
+
+        req = DebateRequest.from_dict(
+            {
+                "question": "test question",
+            }
+        )
         assert req.budget_limit_usd is None

@@ -59,7 +59,9 @@ class ClaudeMemKMSync:
 
         for item in results or []:
             item_id = item.get("id", "") if isinstance(item, dict) else getattr(item, "id", "")
-            content = item.get("content", "") if isinstance(item, dict) else getattr(item, "content", "")
+            content = (
+                item.get("content", "") if isinstance(item, dict) else getattr(item, "content", "")
+            )
 
             if not content or item_id in self._synced_ids:
                 skipped += 1

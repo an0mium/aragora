@@ -105,7 +105,9 @@ def get_circuit_breaker(
             # If still too large after pruning, log warning
             if len(_circuit_breakers) >= MAX_CIRCUIT_BREAKERS:
                 logger.warning(
-                    "Circuit breaker registry still large after pruning %s: %s entries", pruned, len(_circuit_breakers)
+                    "Circuit breaker registry still large after pruning %s: %s entries",
+                    pruned,
+                    len(_circuit_breakers),
                 )
 
         if name not in _circuit_breakers:

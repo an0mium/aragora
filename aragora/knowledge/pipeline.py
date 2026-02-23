@@ -351,7 +351,10 @@ class KnowledgePipeline:
             await self.start()
 
         start_time = datetime.now()
-        document_id = document_id or f"doc_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
+        document_id = (
+            document_id
+            or f"doc_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
+        )
 
         try:
             self._report_progress(document_id, 0.0, "Starting document processing...")
@@ -459,7 +462,10 @@ class KnowledgePipeline:
             await self.start()
 
         start_time = datetime.now()
-        document_id = document_id or f"text_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
+        document_id = (
+            document_id
+            or f"text_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
+        )
 
         try:
             self._report_progress(document_id, 0.0, "Starting text processing...")
@@ -649,7 +655,9 @@ class KnowledgePipeline:
         if not isinstance(document.metadata, dict):
             document.metadata = {}
         document.metadata.update(metadata)
-        uploaded_by = metadata.get("user_id") or metadata.get("owner_id") or metadata.get("uploaded_by")
+        uploaded_by = (
+            metadata.get("user_id") or metadata.get("owner_id") or metadata.get("uploaded_by")
+        )
         if uploaded_by:
             document.uploaded_by = str(uploaded_by)
 

@@ -97,9 +97,7 @@ def _clear_circuit_breakers():
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
     """Reset the rate limiter state between tests."""
-    with patch(
-        "aragora.server.handlers.composite._composite_limiter"
-    ) as mock_limiter:
+    with patch("aragora.server.handlers.composite._composite_limiter") as mock_limiter:
         mock_limiter.is_allowed.return_value = True
         yield mock_limiter
 
@@ -287,9 +285,7 @@ class TestFullContext:
                 "patterns": [],
                 "related_debates": [],
             }
-            result = handler.handle(
-                "/api/v1/debates/debate-1/full-context", {}, http
-            )
+            result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         assert body["memory"]["available"] is True
         assert body["memory"]["outcomes"] == [{"id": "o1"}]
@@ -306,9 +302,7 @@ class TestFullContext:
                 "concepts": [],
                 "sources": [],
             }
-            result = handler.handle(
-                "/api/v1/debates/debate-1/full-context", {}, http
-            )
+            result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         assert body["knowledge"]["available"] is True
         assert len(body["knowledge"]["facts"]) == 2
@@ -325,25 +319,19 @@ class TestFullContext:
                 "positions": [],
                 "confidence_distribution": {},
             }
-            result = handler.handle(
-                "/api/v1/debates/debate-1/full-context", {}, http
-            )
+            result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         assert body["belief"]["available"] is True
         assert body["belief"]["cruxes"] == ["crux-1"]
 
     def test_full_context_invalid_id_path_traversal(self, handler, http):
         """IDs with path traversal characters are rejected."""
-        result = handler.handle(
-            "/api/v1/debates/../etc/passwd/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/../etc/passwd/full-context", {}, http)
         assert _status(result) == 400
 
     def test_full_context_invalid_id_special_chars(self, handler, http):
         """IDs with special characters are rejected."""
-        result = handler.handle(
-            "/api/v1/debates/<script>alert(1)</script>/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/<script>alert(1)</script>/full-context", {}, http)
         assert _status(result) == 400
 
     def test_full_context_empty_id(self, handler, http):
@@ -389,9 +377,7 @@ class TestReliability:
             "aragora.server.handlers.composite.CompositeHandler._get_circuit_breaker_state"
         ) as mock_cb:
             mock_cb.return_value = {"available": False, "state": "unknown"}
-            result = handler.handle(
-                "/api/v1/agents/agent-1/reliability", {}, http
-            )
+            result = handler.handle("/api/v1/agents/agent-1/reliability", {}, http)
         body = _body(result)
         assert body["circuit_breaker"]["state"] == "unknown"
 
@@ -407,9 +393,7 @@ class TestReliability:
                 "latency_avg_ms": 120.5,
                 "error_rate": 0.05,
             }
-            result = handler_with_airlock.handle(
-                "/api/v1/agents/agent-1/reliability", {}, http
-            )
+            result = handler_with_airlock.handle("/api/v1/agents/agent-1/reliability", {}, http)
         body = _body(result)
         assert body["airlock"]["available"] is True
         assert body["airlock"]["requests_total"] == 100
@@ -422,9 +406,7 @@ class TestReliability:
 
     def test_reliability_invalid_agent_id(self, handler, http):
         """Agent IDs with invalid characters are rejected."""
-        result = handler.handle(
-            "/api/v1/agents/agent@evil.com/reliability", {}, http
-        )
+        result = handler.handle("/api/v1/agents/agent@evil.com/reliability", {}, http)
         assert _status(result) == 400
 
     def test_reliability_empty_agent_id(self, handler, http):
@@ -452,9 +434,7 @@ class TestCompressionAnalysis:
     """Test GET /api/v1/debates/{id}/compression-analysis."""
 
     def test_compression_analysis_basic_response(self, handler, http):
-        result = handler.handle(
-            "/api/v1/debates/debate-1/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/compression-analysis", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == "debate-1"
@@ -465,9 +445,7 @@ class TestCompressionAnalysis:
 
     def test_compression_analysis_no_rlm(self, handler, http):
         """When no RLM handler, compression is disabled."""
-        result = handler.handle(
-            "/api/v1/debates/debate-1/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/compression-analysis", {}, http)
         body = _body(result)
         assert body["compression"]["enabled"] is False
         assert body["compression"]["rounds_compressed"] == 0
@@ -475,9 +453,7 @@ class TestCompressionAnalysis:
     def test_compression_analysis_with_rlm(self, handler_with_rlm, http):
         """When RLM handler is available, compression data is populated."""
         handler, mock_rlm = handler_with_rlm
-        result = handler.handle(
-            "/api/v1/debates/debate-1/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/compression-analysis", {}, http)
         body = _body(result)
         assert body["compression"]["enabled"] is True
         assert body["compression"]["rounds_compressed"] == 3
@@ -488,31 +464,23 @@ class TestCompressionAnalysis:
     def test_compression_analysis_with_rlm_quality(self, handler_with_rlm, http):
         """Quality metrics from RLM are included."""
         handler, _ = handler_with_rlm
-        result = handler.handle(
-            "/api/v1/debates/debate-1/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/compression-analysis", {}, http)
         body = _body(result)
         assert body["quality"]["information_retained"] == 0.95
         assert body["quality"]["coherence_score"] == 0.88
 
     def test_compression_analysis_invalid_id(self, handler, http):
         """Invalid debate ID is rejected."""
-        result = handler.handle(
-            "/api/v1/debates/../../etc/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/../../etc/compression-analysis", {}, http)
         assert _status(result) == 400
 
     def test_compression_analysis_json_content_type(self, handler, http):
-        result = handler.handle(
-            "/api/v1/debates/debate-1/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/compression-analysis", {}, http)
         assert result.content_type == "application/json"
 
     def test_compression_analysis_empty_id(self, handler, http):
         """Empty debate ID is rejected."""
-        result = handler.handle(
-            "/api/v1/debates//compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates//compression-analysis", {}, http)
         assert _status(result) == 400
 
 
@@ -527,9 +495,7 @@ class TestRateLimiting:
     def test_rate_limit_exceeded_full_context(self, handler, http, _reset_rate_limiter):
         """Rate limit exceeded returns 429."""
         _reset_rate_limiter.is_allowed.return_value = False
-        result = handler.handle(
-            "/api/v1/debates/debate-1/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         assert _status(result) == 429
         body = _body(result)
         assert "rate limit" in body["error"].lower()
@@ -537,17 +503,13 @@ class TestRateLimiting:
     def test_rate_limit_exceeded_reliability(self, handler, http, _reset_rate_limiter):
         """Rate limit exceeded returns 429 for reliability endpoint."""
         _reset_rate_limiter.is_allowed.return_value = False
-        result = handler.handle(
-            "/api/v1/agents/agent-1/reliability", {}, http
-        )
+        result = handler.handle("/api/v1/agents/agent-1/reliability", {}, http)
         assert _status(result) == 429
 
     def test_rate_limit_exceeded_compression(self, handler, http, _reset_rate_limiter):
         """Rate limit exceeded returns 429 for compression endpoint."""
         _reset_rate_limiter.is_allowed.return_value = False
-        result = handler.handle(
-            "/api/v1/debates/debate-1/compression-analysis", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/compression-analysis", {}, http)
         assert _status(result) == 429
 
 
@@ -568,9 +530,7 @@ class TestCircuitBreakerProtection:
             cb.record_failure()
         assert cb.state == "open"
 
-        result = handler.handle(
-            "/api/v1/debates/debate-1/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         # Memory subsystem should return the fallback
         assert body["memory"]["available"] is False
@@ -578,9 +538,7 @@ class TestCircuitBreakerProtection:
 
     def test_circuit_breaker_records_success(self, handler, http):
         """Successful fetch records success on circuit breaker."""
-        result = handler.handle(
-            "/api/v1/debates/debate-1/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         assert _status(result) == 200
         # The memory CB should exist and be closed
         cb = _get_circuit_breaker("memory")
@@ -588,12 +546,8 @@ class TestCircuitBreakerProtection:
 
     def test_circuit_breaker_fetch_failure_returns_fallback(self, handler, http):
         """When a subsystem fetch raises, fallback is returned."""
-        with patch.object(
-            handler, "_get_memory_context", side_effect=KeyError("boom")
-        ):
-            result = handler.handle(
-                "/api/v1/debates/debate-1/full-context", {}, http
-            )
+        with patch.object(handler, "_get_memory_context", side_effect=KeyError("boom")):
+            result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         # Should get a fallback with error info
         assert body["memory"]["available"] is False
@@ -603,23 +557,21 @@ class TestCircuitBreakerProtection:
         with patch.object(
             handler, "_get_memory_context", side_effect=RuntimeError("connection lost")
         ):
-            result = handler.handle(
-                "/api/v1/debates/debate-1/full-context", {}, http
-            )
+            result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         assert body["memory"]["available"] is False
 
     def test_multiple_subsystem_failures_isolated(self, handler, http):
         """Failures in one subsystem don't affect others."""
-        with patch.object(
-            handler, "_get_memory_context", side_effect=ValueError("mem error")
-        ), patch.object(
-            handler, "_get_knowledge_context",
-            return_value={"available": True, "facts": [], "concepts": [], "sources": []},
+        with (
+            patch.object(handler, "_get_memory_context", side_effect=ValueError("mem error")),
+            patch.object(
+                handler,
+                "_get_knowledge_context",
+                return_value={"available": True, "facts": [], "concepts": [], "sources": []},
+            ),
         ):
-            result = handler.handle(
-                "/api/v1/debates/debate-1/full-context", {}, http
-            )
+            result = handler.handle("/api/v1/debates/debate-1/full-context", {}, http)
         body = _body(result)
         # Memory failed, knowledge succeeded
         assert body["memory"]["available"] is False
@@ -910,6 +862,7 @@ class TestDataFetchingHelpers:
     def test_get_circuit_breaker_state_no_v2_module(self, handler):
         """Returns unknown when circuit_breaker_v2 import fails."""
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -1130,49 +1083,35 @@ class TestIDValidation:
     """Test ID validation for all endpoints."""
 
     def test_valid_alphanumeric_id(self, handler, http):
-        result = handler.handle(
-            "/api/v1/debates/abc123/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/abc123/full-context", {}, http)
         assert _status(result) == 200
 
     def test_valid_id_with_hyphens(self, handler, http):
-        result = handler.handle(
-            "/api/v1/debates/my-debate-id/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/my-debate-id/full-context", {}, http)
         assert _status(result) == 200
 
     def test_valid_id_with_underscores(self, handler, http):
-        result = handler.handle(
-            "/api/v1/debates/my_debate_id/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/my_debate_id/full-context", {}, http)
         assert _status(result) == 200
 
     def test_too_long_id(self, handler, http):
         """IDs longer than 64 chars are rejected."""
         long_id = "a" * 65
-        result = handler.handle(
-            f"/api/v1/debates/{long_id}/full-context", {}, http
-        )
+        result = handler.handle(f"/api/v1/debates/{long_id}/full-context", {}, http)
         assert _status(result) == 400
 
     def test_max_length_id(self, handler, http):
         """IDs of exactly 64 chars are accepted."""
         max_id = "a" * 64
-        result = handler.handle(
-            f"/api/v1/debates/{max_id}/full-context", {}, http
-        )
+        result = handler.handle(f"/api/v1/debates/{max_id}/full-context", {}, http)
         assert _status(result) == 200
 
     def test_spaces_in_id(self, handler, http):
         """IDs with spaces are rejected."""
-        result = handler.handle(
-            "/api/v1/debates/my debate/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/my debate/full-context", {}, http)
         assert _status(result) == 400
 
     def test_dots_in_id(self, handler, http):
         """IDs with dots are rejected by SAFE_ID_PATTERN."""
-        result = handler.handle(
-            "/api/v1/debates/my.debate/full-context", {}, http
-        )
+        result = handler.handle("/api/v1/debates/my.debate/full-context", {}, http)
         assert _status(result) == 400

@@ -202,7 +202,9 @@ class VectorStoreFactory:
 
             # Check if preferred backend is registered and available
             if cls.is_registered(preferred_backend):
-                logger.debug("Using namespace routing: %s -> %s", namespace, preferred_backend.value)
+                logger.debug(
+                    "Using namespace routing: %s -> %s", namespace, preferred_backend.value
+                )
                 config = VectorStoreConfig(
                     backend=preferred_backend,
                     namespace=namespace,
@@ -214,7 +216,9 @@ class VectorStoreFactory:
                 return cls.create(config)
             else:
                 logger.debug(
-                    "Preferred backend %s not available for namespace %s, falling back to default", preferred_backend.value, namespace
+                    "Preferred backend %s not available for namespace %s, falling back to default",
+                    preferred_backend.value,
+                    namespace,
                 )
 
         # Fall back to environment-based config

@@ -434,7 +434,8 @@ class AuditLog:
         await self._store_entry(entry)
 
         logger.debug(
-            "Audit logged: %s", action.value,
+            "Audit logged: %s",
+            action.value,
             extra={
                 "entry_id": entry.entry_id,
                 "actor": actor.actor_id,
@@ -492,7 +493,8 @@ class AuditLog:
             # Verify previous hash link
             if entry.previous_hash != previous_hash:
                 logger.error(
-                    "Audit integrity violation at sequence %s: previous_hash mismatch", entry.sequence_number
+                    "Audit integrity violation at sequence %s: previous_hash mismatch",
+                    entry.sequence_number,
                 )
                 return False
 
@@ -500,7 +502,8 @@ class AuditLog:
             computed_hash = entry.compute_hash()
             if entry.entry_hash != computed_hash:
                 logger.error(
-                    "Audit integrity violation at sequence %s: entry_hash mismatch", entry.sequence_number
+                    "Audit integrity violation at sequence %s: entry_hash mismatch",
+                    entry.sequence_number,
                 )
                 return False
 

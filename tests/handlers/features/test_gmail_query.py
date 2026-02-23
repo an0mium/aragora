@@ -111,9 +111,7 @@ def _make_mock_score(score: float = 0.8, reason: str = "Important") -> MagicMock
 # ---------------------------------------------------------------------------
 
 _GET_USER_STATE = "aragora.server.handlers.features.gmail_query.get_user_state"
-_GMAIL_CONNECTOR = (
-    "aragora.connectors.enterprise.communication.gmail.GmailConnector"
-)
+_GMAIL_CONNECTOR = "aragora.connectors.enterprise.communication.gmail.GmailConnector"
 _EMAIL_PRIORITY_ANALYZER = "aragora.analysis.email_priority.EmailPriorityAnalyzer"
 _EMAIL_FEEDBACK_LEARNER = "aragora.analysis.email_priority.EmailFeedbackLearner"
 _RATE_LIMITER = "aragora.server.handlers.features.gmail_query._gmail_query_limiter"
@@ -316,9 +314,7 @@ class TestGetPriorityInbox:
         mock_scores = [_make_mock_score(score=0.9 - i * 0.1) for i in range(3)]
 
         mock_connector = MagicMock()
-        mock_connector.list_messages = AsyncMock(
-            return_value=(["msg0", "msg1", "msg2"], None)
-        )
+        mock_connector.list_messages = AsyncMock(return_value=(["msg0", "msg1", "msg2"], None))
         mock_connector.get_messages = AsyncMock(return_value=mock_msgs)
 
         mock_analyzer = MagicMock()
@@ -327,9 +323,7 @@ class TestGetPriorityInbox:
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    result = await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -372,17 +366,13 @@ class TestGetPriorityInbox:
         with _patch_user_state(gmail_state) as mock_get:
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
             mock_get.assert_called_once_with("default")
 
     @pytest.mark.asyncio
     async def test_priority_inbox_no_state(self, handler, mock_http):
         with _patch_user_state(None):
-            result = await handler.handle(
-                "/api/v1/gmail/inbox/priority", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
         assert _status(result) == 401
         assert "authenticate" in _body(result)["error"].lower()
 
@@ -391,45 +381,31 @@ class TestGetPriorityInbox:
         self, handler, mock_http, gmail_state_no_refresh
     ):
         with _patch_user_state(gmail_state_no_refresh):
-            result = await handler.handle(
-                "/api/v1/gmail/inbox/priority", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
         assert _status(result) == 401
 
     @pytest.mark.asyncio
-    async def test_priority_inbox_connection_error(
-        self, handler, mock_http, gmail_state
-    ):
+    async def test_priority_inbox_connection_error(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
             with patch(
                 _GMAIL_CONNECTOR,
                 side_effect=ConnectionError("API down"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/inbox/priority", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
         assert _status(result) == 500
         assert "priority inbox" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_priority_inbox_timeout_error(
-        self, handler, mock_http, gmail_state
-    ):
+    async def test_priority_inbox_timeout_error(self, handler, mock_http, gmail_state):
         mock_connector = MagicMock()
-        mock_connector.list_messages = AsyncMock(
-            side_effect=TimeoutError("timeout")
-        )
+        mock_connector.list_messages = AsyncMock(side_effect=TimeoutError("timeout"))
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
-                result = await handler.handle(
-                    "/api/v1/gmail/inbox/priority", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_priority_inbox_sorted_by_score(
-        self, handler, mock_http, gmail_state
-    ):
+    async def test_priority_inbox_sorted_by_score(self, handler, mock_http, gmail_state):
         mock_msgs = [
             _make_mock_email(msg_id="low"),
             _make_mock_email(msg_id="high"),
@@ -442,9 +418,7 @@ class TestGetPriorityInbox:
         ]
 
         mock_connector = MagicMock()
-        mock_connector.list_messages = AsyncMock(
-            return_value=(["low", "high", "mid"], None)
-        )
+        mock_connector.list_messages = AsyncMock(return_value=(["low", "high", "mid"], None))
         mock_connector.get_messages = AsyncMock(return_value=mock_msgs)
 
         mock_analyzer = MagicMock()
@@ -453,9 +427,7 @@ class TestGetPriorityInbox:
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    result = await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
 
         body = _body(result)
         scores = [e["priority_score"] for e in body["emails"]]
@@ -485,9 +457,7 @@ class TestGetPriorityInbox:
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    result = await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
 
         email = _body(result)["emails"][0]
         assert email["id"] == "msg1"
@@ -503,9 +473,7 @@ class TestGetPriorityInbox:
         assert "mail.google.com" in email["url"]
 
     @pytest.mark.asyncio
-    async def test_priority_inbox_empty_results(
-        self, handler, mock_http, gmail_state
-    ):
+    async def test_priority_inbox_empty_results(self, handler, mock_http, gmail_state):
         mock_connector = MagicMock()
         mock_connector.list_messages = AsyncMock(return_value=([], None))
         mock_connector.get_messages = AsyncMock(return_value=[])
@@ -516,9 +484,7 @@ class TestGetPriorityInbox:
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    result = await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -550,9 +516,7 @@ class TestStreamQuery:
                 result = await handler.handle(
                     "/api/v1/gmail/query/stream", {"q": "test question"}, mock_http
                 )
-                mock_query.assert_called_once_with(
-                    "default", {"question": "test question"}
-                )
+                mock_query.assert_called_once_with("default", {"question": "test question"})
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -567,17 +531,13 @@ class TestStreamQuery:
                     body=json.dumps({"error": "Question is required"}).encode(),
                 ),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/query/stream", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/query/stream", {}, mock_http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_stream_query_no_state(self, handler, mock_http):
         with _patch_user_state(None):
-            result = await handler.handle(
-                "/api/v1/gmail/query/stream", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/query/stream", {}, mock_http)
         assert _status(result) == 401
 
 
@@ -592,9 +552,7 @@ class TestGetRouting:
     @pytest.mark.asyncio
     async def test_unknown_get_path(self, handler, mock_http, gmail_state):
         with _patch_user_state(gmail_state):
-            result = await handler.handle(
-                "/api/v1/gmail/query/unknown", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/query/unknown", {}, mock_http)
         assert _status(result) == 404
 
 
@@ -620,9 +578,7 @@ class TestTextQuery:
             with patch.object(
                 handler, "_run_query", new_callable=AsyncMock, return_value=mock_response
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -642,9 +598,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 return_value=QueryResponse(answer="Found them.", query="Find emails from Alice"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -689,9 +643,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 side_effect=ConnectionError("API down"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 500
         assert "failed" in _body(result)["error"].lower()
 
@@ -705,9 +657,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 side_effect=TimeoutError("timeout"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -720,9 +670,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 side_effect=ValueError("bad"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -735,9 +683,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 side_effect=OSError("network"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -750,9 +696,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 side_effect=KeyError("missing"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -765,9 +709,7 @@ class TestTextQuery:
                 new_callable=AsyncMock,
                 side_effect=AttributeError("bad attr"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -802,9 +744,7 @@ class TestTextQuery:
         """If read_json_body returns None, body is treated as empty dict."""
         with _patch_user_state(gmail_state):
             with patch.object(handler, "read_json_body", return_value=None):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query", {}, mock_http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query", {}, mock_http)
         # No question in empty body -> 400
         assert _status(result) == 400
 
@@ -818,9 +758,7 @@ class TestVoiceQuery:
     """Tests for POST /api/v1/gmail/query/voice."""
 
     @pytest.mark.asyncio
-    async def test_voice_query_with_audio_data(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_voice_query_with_audio_data(self, handler, mock_http_with_body, gmail_state):
         audio_b64 = base64.b64encode(b"fake-audio-data").decode()
         http = mock_http_with_body({"audio": audio_b64})
 
@@ -844,9 +782,7 @@ class TestVoiceQuery:
                     new_callable=AsyncMock,
                     return_value=mock_response,
                 ):
-                    result = await handler.handle_post(
-                        "/api/v1/gmail/query/voice", {}, http
-                    )
+                    result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -854,9 +790,7 @@ class TestVoiceQuery:
         assert body["transcription"] == "transcribed question"
 
     @pytest.mark.asyncio
-    async def test_voice_query_with_audio_url(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_voice_query_with_audio_url(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"audio_url": "https://example.com/audio.webm"})
 
         mock_session = AsyncMock()
@@ -888,21 +822,15 @@ class TestVoiceQuery:
                         new_callable=AsyncMock,
                         return_value=QueryResponse(answer="ok"),
                     ):
-                        result = await handler.handle_post(
-                            "/api/v1/gmail/query/voice", {}, http
-                        )
+                        result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
 
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_voice_query_no_audio(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_voice_query_no_audio(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({})
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/query/voice", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
         assert _status(result) == 400
         assert "audio" in _body(result)["error"].lower()
 
@@ -910,9 +838,7 @@ class TestVoiceQuery:
     async def test_voice_query_no_state(self, handler, mock_http_with_body):
         http = mock_http_with_body({"audio": base64.b64encode(b"data").decode()})
         with _patch_user_state(None):
-            result = await handler.handle_post(
-                "/api/v1/gmail/query/voice", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
         assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -921,15 +847,11 @@ class TestVoiceQuery:
     ):
         http = mock_http_with_body({"audio": base64.b64encode(b"data").decode()})
         with _patch_user_state(gmail_state_no_refresh):
-            result = await handler.handle_post(
-                "/api/v1/gmail/query/voice", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
         assert _status(result) == 401
 
     @pytest.mark.asyncio
-    async def test_voice_query_transcription_fails(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_voice_query_transcription_fails(self, handler, mock_http_with_body, gmail_state):
         audio_b64 = base64.b64encode(b"audio").decode()
         http = mock_http_with_body({"audio": audio_b64})
 
@@ -940,17 +862,13 @@ class TestVoiceQuery:
                 new_callable=AsyncMock,
                 return_value=None,
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query/voice", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
 
         assert _status(result) == 400
         assert "transcribe" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_voice_query_connection_error(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_voice_query_connection_error(self, handler, mock_http_with_body, gmail_state):
         audio_b64 = base64.b64encode(b"audio").decode()
         http = mock_http_with_body({"audio": audio_b64})
 
@@ -961,23 +879,17 @@ class TestVoiceQuery:
                 new_callable=AsyncMock,
                 side_effect=ConnectionError("fail"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/query/voice", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
         assert _status(result) == 500
         assert "failed" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_voice_query_value_error(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_voice_query_value_error(self, handler, mock_http_with_body, gmail_state):
         # Invalid base64 triggers ValueError
         http = mock_http_with_body({"audio": "not-valid-base64!!!"})
 
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/query/voice", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/query/voice", {}, http)
         assert _status(result) == 500
 
 
@@ -991,22 +903,22 @@ class TestRecordFeedback:
 
     @pytest.mark.asyncio
     async def test_feedback_success(self, handler, mock_http_with_body, gmail_state):
-        http = mock_http_with_body({
-            "email_id": "msg1",
-            "action": "opened",
-            "from_address": "sender@example.com",
-            "subject": "Test",
-            "labels": ["INBOX"],
-        })
+        http = mock_http_with_body(
+            {
+                "email_id": "msg1",
+                "action": "opened",
+                "from_address": "sender@example.com",
+                "subject": "Test",
+                "labels": ["INBOX"],
+            }
+        )
 
         mock_learner = MagicMock()
         mock_learner.record_interaction = AsyncMock(return_value=True)
 
         with _patch_user_state(gmail_state):
             with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1015,9 +927,7 @@ class TestRecordFeedback:
         assert body["action"] == "opened"
 
     @pytest.mark.asyncio
-    async def test_feedback_all_valid_actions(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_all_valid_actions(self, handler, mock_http_with_body, gmail_state):
         valid_actions = ["opened", "replied", "starred", "archived", "deleted", "snoozed"]
         for action in valid_actions:
             http = mock_http_with_body({"email_id": "msg1", "action": action})
@@ -1025,123 +935,85 @@ class TestRecordFeedback:
             mock_learner.record_interaction = AsyncMock(return_value=True)
             with _patch_user_state(gmail_state):
                 with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner):
-                    result = await handler.handle_post(
-                        "/api/v1/gmail/inbox/feedback", {}, http
-                    )
+                    result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
             assert _status(result) == 200, f"Action '{action}' should succeed"
 
     @pytest.mark.asyncio
-    async def test_feedback_missing_email_id(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_missing_email_id(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"action": "opened"})
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/inbox/feedback", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 400
         assert "email_id" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_feedback_missing_action(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_missing_action(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"email_id": "msg1"})
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/inbox/feedback", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_feedback_missing_both(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_missing_both(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({})
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/inbox/feedback", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_feedback_invalid_action(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_invalid_action(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"email_id": "msg1", "action": "invalid_action"})
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/inbox/feedback", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 400
         assert "invalid action" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_feedback_learner_import_error(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_learner_import_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"email_id": "msg1", "action": "opened"})
         with _patch_user_state(gmail_state):
             with patch(
                 _EMAIL_FEEDBACK_LEARNER,
                 side_effect=ImportError("not available"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 500
         assert "failed" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_feedback_learner_value_error(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_learner_value_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"email_id": "msg1", "action": "replied"})
         mock_learner = MagicMock()
-        mock_learner.record_interaction = AsyncMock(
-            side_effect=ValueError("bad data")
-        )
+        mock_learner.record_interaction = AsyncMock(side_effect=ValueError("bad data"))
         with _patch_user_state(gmail_state):
             with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_feedback_learner_os_error(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_learner_os_error(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"email_id": "msg1", "action": "archived"})
         mock_learner = MagicMock()
-        mock_learner.record_interaction = AsyncMock(
-            side_effect=OSError("disk error")
-        )
+        mock_learner.record_interaction = AsyncMock(side_effect=OSError("disk error"))
         with _patch_user_state(gmail_state):
             with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_feedback_user_id_from_body(
-        self, handler, mock_http_with_body, gmail_state
-    ):
-        http = mock_http_with_body({
-            "email_id": "msg1",
-            "action": "starred",
-            "user_id": "custom_user",
-        })
+    async def test_feedback_user_id_from_body(self, handler, mock_http_with_body, gmail_state):
+        http = mock_http_with_body(
+            {
+                "email_id": "msg1",
+                "action": "starred",
+                "user_id": "custom_user",
+            }
+        )
         mock_learner = MagicMock()
         mock_learner.record_interaction = AsyncMock(return_value=True)
         with _patch_user_state(gmail_state):
-            with patch(
-                _EMAIL_FEEDBACK_LEARNER, return_value=mock_learner
-            ) as mock_cls:
-                await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+            with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner) as mock_cls:
+                await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
                 mock_cls.assert_called_once_with(user_id="custom_user")
 
     @pytest.mark.asyncio
@@ -1154,9 +1026,7 @@ class TestRecordFeedback:
         mock_learner.record_interaction = AsyncMock(return_value=True)
         with _patch_user_state(gmail_state):
             with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
                 call_kwargs = mock_learner.record_interaction.call_args[1]
                 assert call_kwargs["from_address"] == ""
                 assert call_kwargs["subject"] == ""
@@ -1164,17 +1034,13 @@ class TestRecordFeedback:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_feedback_returns_false(
-        self, handler, mock_http_with_body, gmail_state
-    ):
+    async def test_feedback_returns_false(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({"email_id": "msg1", "action": "snoozed"})
         mock_learner = MagicMock()
         mock_learner.record_interaction = AsyncMock(return_value=False)
         with _patch_user_state(gmail_state):
             with patch(_EMAIL_FEEDBACK_LEARNER, return_value=mock_learner):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, http)
         assert _status(result) == 200
         assert _body(result)["success"] is False
 
@@ -1191,9 +1057,7 @@ class TestPostRouting:
     async def test_post_unknown_path(self, handler, mock_http_with_body, gmail_state):
         http = mock_http_with_body({})
         with _patch_user_state(gmail_state):
-            result = await handler.handle_post(
-                "/api/v1/gmail/unknown", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/unknown", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1201,9 +1065,7 @@ class TestPostRouting:
         """If read_json_body returns None, body becomes empty dict."""
         with _patch_user_state(gmail_state):
             with patch.object(handler, "read_json_body", return_value=None):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/inbox/feedback", {}, mock_http
-                )
+                result = await handler.handle_post("/api/v1/gmail/inbox/feedback", {}, mock_http)
         # No email_id or action -> 400
         assert _status(result) == 400
 
@@ -1221,9 +1083,7 @@ class TestRateLimiting:
         http = mock_http_with_body({"question": "Test?"})
         with patch(_RATE_LIMITER) as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = await handler.handle_post(
-                "/api/v1/gmail/query", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 429
         assert "rate limit" in _body(result)["error"].lower()
 
@@ -1248,9 +1108,7 @@ class TestAuth:
             new_callable=AsyncMock,
             side_effect=UnauthorizedError("not auth"),
         ):
-            result = await h.handle(
-                "/api/v1/gmail/inbox/priority", {}, mock_http
-            )
+            result = await h.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
         assert _status(result) == 401
         assert "Authentication required" in _body(result)["error"]
 
@@ -1278,9 +1136,7 @@ class TestAuth:
                 "check_permission",
                 side_effect=ForbiddenError("no perm"),
             ):
-                result = await h.handle(
-                    "/api/v1/gmail/inbox/priority", {}, mock_http
-                )
+                result = await h.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
         assert _status(result) == 403
         assert "Permission denied" in _body(result)["error"]
 
@@ -1299,9 +1155,7 @@ class TestAuth:
                 new_callable=AsyncMock,
                 side_effect=UnauthorizedError("not auth"),
             ):
-                result = await h.handle_post(
-                    "/api/v1/gmail/query", {}, http
-                )
+                result = await h.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 401
 
     @pytest.mark.no_auto_auth
@@ -1331,9 +1185,7 @@ class TestAuth:
                     "check_permission",
                     side_effect=ForbiddenError("no perm"),
                 ):
-                    result = await h.handle_post(
-                        "/api/v1/gmail/query", {}, http
-                    )
+                    result = await h.handle_post("/api/v1/gmail/query", {}, http)
         assert _status(result) == 403
 
 
@@ -1351,9 +1203,7 @@ class TestRunQuery:
         mock_connector.search = AsyncMock(return_value=[])
 
         with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
-            result = await handler._run_query(
-                "user1", gmail_state, "test query", 10
-            )
+            result = await handler._run_query("user1", gmail_state, "test query", 10)
 
         assert result.answer == "I couldn't find any emails matching your query."
         assert result.confidence == 0.0
@@ -1368,9 +1218,7 @@ class TestRunQuery:
         mock_connector.get_messages = AsyncMock(return_value=[])
 
         with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
-            result = await handler._run_query(
-                "user1", gmail_state, "test query", 10
-            )
+            result = await handler._run_query("user1", gmail_state, "test query", 10)
 
         assert "couldn't retrieve" in result.answer.lower()
         assert result.confidence == 0.3
@@ -1391,9 +1239,7 @@ class TestRunQuery:
                 new_callable=AsyncMock,
                 return_value="Generated answer here.",
             ):
-                result = await handler._run_query(
-                    "user1", gmail_state, "test query", 10
-                )
+                result = await handler._run_query("user1", gmail_state, "test query", 10)
 
         assert result.answer == "Generated answer here."
         assert result.confidence == 0.8
@@ -1418,9 +1264,7 @@ class TestRunQuery:
                 new_callable=AsyncMock,
                 return_value="answer",
             ):
-                result = await handler._run_query(
-                    "user1", gmail_state, "test query", 10
-                )
+                result = await handler._run_query("user1", gmail_state, "test query", 10)
 
         assert result.sources[0]["date"] is None
 
@@ -1440,9 +1284,7 @@ class TestRunQuery:
                 new_callable=AsyncMock,
                 return_value="",
             ):
-                result = await handler._run_query(
-                    "user1", gmail_state, "test query", 10
-                )
+                result = await handler._run_query("user1", gmail_state, "test query", 10)
 
         assert result.confidence == 0.5
 
@@ -1464,9 +1306,7 @@ class TestRunQuery:
                 new_callable=AsyncMock,
                 return_value="answer",
             ) as mock_gen:
-                await handler._run_query(
-                    "user1", gmail_state, "test query", 10
-                )
+                await handler._run_query("user1", gmail_state, "test query", 10)
                 # The content passed to generate_answer should contain the snippet
                 emails_content = mock_gen.call_args[0][1]
                 assert any("Use this snippet" in c for c in emails_content)
@@ -1557,6 +1397,7 @@ class TestTranscribe:
     @pytest.mark.asyncio
     async def test_transcribe_import_error(self, handler):
         import builtins
+
         real_import = builtins.__import__
 
         def fail_whisper(name, *args, **kwargs):
@@ -1571,9 +1412,7 @@ class TestTranscribe:
     @pytest.mark.asyncio
     async def test_transcribe_connection_error(self, handler):
         mock_connector = MagicMock()
-        mock_connector.transcribe = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        mock_connector.transcribe = AsyncMock(side_effect=ConnectionError("fail"))
         with patch(
             "aragora.connectors.whisper.WhisperConnector",
             return_value=mock_connector,
@@ -1617,9 +1456,7 @@ class TestGenerateAnswer:
                 "aragora.rlm.types.RLMContext",
                 mock_context_cls,
             ):
-                answer = await handler._generate_answer(
-                    "question?", ["email content"]
-                )
+                answer = await handler._generate_answer("question?", ["email content"])
         assert answer == "RLM answer"
 
     @pytest.mark.asyncio
@@ -1631,6 +1468,7 @@ class TestGenerateAnswer:
         mock_agent.respond = AsyncMock(return_value=mock_response)
 
         import builtins
+
         real_import = builtins.__import__
 
         def fail_rlm(name, *args, **kwargs):
@@ -1643,15 +1481,14 @@ class TestGenerateAnswer:
                 "aragora.agents.api_agents.anthropic.AnthropicAPIAgent",
                 return_value=mock_agent,
             ):
-                answer = await handler._generate_answer(
-                    "question?", ["email content"]
-                )
+                answer = await handler._generate_answer("question?", ["email content"])
         assert answer == "LLM answer"
 
     @pytest.mark.asyncio
     async def test_generate_answer_both_fail_uses_simple(self, handler):
         """When both RLM and LLM fail, falls back to _simple_answer."""
         import builtins
+
         real_import = builtins.__import__
 
         def fail_all(name, *args, **kwargs):
@@ -1692,9 +1529,7 @@ class TestGenerateAnswer:
                     "aragora.agents.api_agents.anthropic.AnthropicAPIAgent",
                     return_value=mock_agent,
                 ):
-                    answer = await handler._generate_answer(
-                        "question?", ["email content"]
-                    )
+                    answer = await handler._generate_answer("question?", ["email content"])
         assert answer == "LLM fallback"
 
     @pytest.mark.asyncio
@@ -1721,15 +1556,14 @@ class TestGenerateAnswer:
                     "aragora.agents.api_agents.anthropic.AnthropicAPIAgent",
                     return_value=mock_agent,
                 ):
-                    answer = await handler._generate_answer(
-                        "question?", ["email content"]
-                    )
+                    answer = await handler._generate_answer("question?", ["email content"])
         assert answer == "LLM fallback"
 
     @pytest.mark.asyncio
     async def test_generate_answer_llm_returns_none(self, handler):
         """When LLM returns None response, falls back to _simple_answer."""
         import builtins
+
         real_import = builtins.__import__
 
         def fail_rlm(name, *args, **kwargs):
@@ -1761,9 +1595,7 @@ class TestPrioritySorting:
     """Tests for priority score sorting edge cases."""
 
     @pytest.mark.asyncio
-    async def test_priority_none_score_treated_as_zero(
-        self, handler, mock_http, gmail_state
-    ):
+    async def test_priority_none_score_treated_as_zero(self, handler, mock_http, gmail_state):
         mock_msgs = [_make_mock_email(msg_id="msg1")]
         mock_score = MagicMock()
         mock_score.score = None
@@ -1779,9 +1611,7 @@ class TestPrioritySorting:
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    result = await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
 
         assert _status(result) == 200
         email = _body(result)["emails"][0]
@@ -1803,9 +1633,7 @@ class TestPrioritySorting:
         with _patch_user_state(gmail_state):
             with patch(_GMAIL_CONNECTOR, return_value=mock_connector):
                 with patch(_EMAIL_PRIORITY_ANALYZER, return_value=mock_analyzer):
-                    result = await handler.handle(
-                        "/api/v1/gmail/inbox/priority", {}, mock_http
-                    )
+                    result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_http)
 
         assert _status(result) == 200
         email = _body(result)["emails"][0]

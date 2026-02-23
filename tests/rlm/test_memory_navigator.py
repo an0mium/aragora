@@ -77,9 +77,7 @@ def _make_gateway_mock(results: list[FakeUnifiedMemoryResult] | None = None):
 
 class TestDataclasses:
     def test_unified_memory_item_defaults(self):
-        item = UnifiedMemoryItem(
-            id="x", source="km", content="test", confidence=0.5
-        )
+        item = UnifiedMemoryItem(id="x", source="km", content="test", confidence=0.5)
         assert item.surprise_score is None
         assert item.retention_action is None
         assert item.metadata == {}
@@ -133,9 +131,11 @@ class TestREPLHelpers:
 class TestSearchAll:
     @pytest.mark.asyncio
     async def test_search_all_delegates_to_gateway(self):
-        gw = _make_gateway_mock([
-            FakeUnifiedMemoryResult(id="r1", content="rate limiting", source_system="km"),
-        ])
+        gw = _make_gateway_mock(
+            [
+                FakeUnifiedMemoryResult(id="r1", content="rate limiting", source_system="km"),
+            ]
+        )
         nav = RLMMemoryNavigator(gateway=gw)
         results = await nav.search_all("rate limiting")
         assert len(results) == 1
@@ -166,10 +166,12 @@ class TestSearchAll:
 class TestBuildContextHierarchy:
     @pytest.mark.asyncio
     async def test_builds_context_from_gateway(self):
-        gw = _make_gateway_mock([
-            FakeUnifiedMemoryResult(id="km_1", source_system="km"),
-            FakeUnifiedMemoryResult(id="cm_1", source_system="continuum"),
-        ])
+        gw = _make_gateway_mock(
+            [
+                FakeUnifiedMemoryResult(id="km_1", source_system="km"),
+                FakeUnifiedMemoryResult(id="cm_1", source_system="continuum"),
+            ]
+        )
         nav = RLMMemoryNavigator(gateway=gw)
         ctx = await nav.build_context_hierarchy("rate limiting")
         assert ctx.total_items == 2
@@ -188,11 +190,11 @@ class TestBuildContextHierarchy:
 
     @pytest.mark.asyncio
     async def test_build_context_with_retention_enrichment(self):
-        gw = _make_gateway_mock([
-            FakeUnifiedMemoryResult(
-                id="r1", source_system="km", surprise_score=0.8
-            ),
-        ])
+        gw = _make_gateway_mock(
+            [
+                FakeUnifiedMemoryResult(id="r1", source_system="km", surprise_score=0.8),
+            ]
+        )
 
         @dataclass
         class FakeDecision:
@@ -275,11 +277,13 @@ class TestDrillInto:
 class TestGetBySurprise:
     @pytest.mark.asyncio
     async def test_filters_by_surprise(self):
-        gw = _make_gateway_mock([
-            FakeUnifiedMemoryResult(id="r1", surprise_score=0.9, source_system="continuum"),
-            FakeUnifiedMemoryResult(id="r2", surprise_score=0.3, source_system="continuum"),
-            FakeUnifiedMemoryResult(id="r3", surprise_score=0.7, source_system="continuum"),
-        ])
+        gw = _make_gateway_mock(
+            [
+                FakeUnifiedMemoryResult(id="r1", surprise_score=0.9, source_system="continuum"),
+                FakeUnifiedMemoryResult(id="r2", surprise_score=0.3, source_system="continuum"),
+                FakeUnifiedMemoryResult(id="r3", surprise_score=0.7, source_system="continuum"),
+            ]
+        )
         nav = RLMMemoryNavigator(gateway=gw)
         results = await nav.get_by_surprise(min_surprise=0.5)
         assert len(results) == 2
@@ -294,10 +298,12 @@ class TestGetBySurprise:
 
     @pytest.mark.asyncio
     async def test_get_by_surprise_excludes_none(self):
-        gw = _make_gateway_mock([
-            FakeUnifiedMemoryResult(id="r1", surprise_score=None),
-            FakeUnifiedMemoryResult(id="r2", surprise_score=0.8, source_system="continuum"),
-        ])
+        gw = _make_gateway_mock(
+            [
+                FakeUnifiedMemoryResult(id="r1", surprise_score=None),
+                FakeUnifiedMemoryResult(id="r2", surprise_score=0.8, source_system="continuum"),
+            ]
+        )
         nav = RLMMemoryNavigator(gateway=gw)
         results = await nav.get_by_surprise(min_surprise=0.5)
         assert len(results) == 1
@@ -341,12 +347,8 @@ class TestFilterSortHelpers:
 
     def test_sort_by_surprise(self):
         items = [
-            UnifiedMemoryItem(
-                id="1", source="km", content="a", confidence=0.5, surprise_score=0.2
-            ),
-            UnifiedMemoryItem(
-                id="2", source="km", content="b", confidence=0.5, surprise_score=0.9
-            ),
+            UnifiedMemoryItem(id="1", source="km", content="a", confidence=0.5, surprise_score=0.2),
+            UnifiedMemoryItem(id="2", source="km", content="b", confidence=0.5, surprise_score=0.9),
             UnifiedMemoryItem(
                 id="3", source="km", content="c", confidence=0.5, surprise_score=None
             ),

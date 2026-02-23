@@ -124,10 +124,13 @@ def export_receipt(
     else:
         raise ValueError(f"Unsupported format: {format}")
 
-    _emit_receipt_event("RECEIPT_EXPORTED", {
-        "receipt_id": getattr(receipt, "id", "unknown"),
-        "format": format.value,
-    })
+    _emit_receipt_event(
+        "RECEIPT_EXPORTED",
+        {
+            "receipt_id": getattr(receipt, "id", "unknown"),
+            "format": format.value,
+        },
+    )
     return result
 
 

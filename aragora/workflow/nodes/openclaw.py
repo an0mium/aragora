@@ -108,7 +108,9 @@ class OpenClawActionStep(BaseStep):
         cfg = self._step_config
         if cfg.action_type not in VALID_ACTION_TYPES:
             logger.error(
-                "Invalid action_type '%s'. Valid types: %s", cfg.action_type, ', '.join(sorted(VALID_ACTION_TYPES))
+                "Invalid action_type '%s'. Valid types: %s",
+                cfg.action_type,
+                ", ".join(sorted(VALID_ACTION_TYPES)),
             )
             return False
 
@@ -235,7 +237,7 @@ class OpenClawActionStep(BaseStep):
 
             success = result_data.get("success", True)
             if not success and cfg.on_failure == "skip":
-                logger.warning("Action failed but on_failure=skip: %s", result_data.get('error'))
+                logger.warning("Action failed but on_failure=skip: %s", result_data.get("error"))
                 return {
                     "success": False,
                     "skipped": True,
@@ -377,7 +379,11 @@ class OpenClawSessionStep(BaseStep):
             }
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
             logger.error("OpenClaw session operation failed: %s", e)
-            return {"success": False, "error": "OpenClaw session operation failed", "operation": operation}
+            return {
+                "success": False,
+                "error": "OpenClaw session operation failed",
+                "operation": operation,
+            }
 
     async def _create_session(
         self, proxy: Any, config: dict[str, Any], context: WorkflowContext

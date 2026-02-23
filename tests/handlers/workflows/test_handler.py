@@ -112,14 +112,17 @@ def handler():
 @pytest.fixture
 def mock_http():
     """Factory for creating mock HTTP handlers."""
+
     def _create(method="GET", body=None, content_type="application/json"):
         return _MockHTTPHandler(method=method, body=body, content_type=content_type)
+
     return _create
 
 
 @pytest.fixture
 def run_async_identity():
     """Patch _run_async to just call the coroutine synchronously via __next__."""
+
     def _fake_run_async(coro):
         # Exhaust the coroutine to get its return value
         try:
@@ -127,6 +130,7 @@ def run_async_identity():
         except StopIteration as e:
             return e.value
         return None
+
     return _fake_run_async
 
 
@@ -231,9 +235,14 @@ class TestNormalizeExecuteInputs:
 
     def test_all_compat_keys(self):
         compat_keys = [
-            "channel_targets", "chat_targets", "notify_channels",
-            "approval_targets", "notify_steps", "thread_id",
-            "origin_thread_id", "thread_id_by_platform",
+            "channel_targets",
+            "chat_targets",
+            "notify_channels",
+            "approval_targets",
+            "notify_steps",
+            "thread_id",
+            "origin_thread_id",
+            "thread_id_by_platform",
         ]
         payload = {"inputs": {}}
         for key in compat_keys:
@@ -261,7 +270,9 @@ class TestExtractId:
         assert handler._extract_id("/api/v1/workflows/wf_123") == "wf_123"
 
     def test_with_suffix(self, handler):
-        assert handler._extract_id("/api/v1/workflows/wf_123/execute", suffix="/execute") == "wf_123"
+        assert (
+            handler._extract_id("/api/v1/workflows/wf_123/execute", suffix="/execute") == "wf_123"
+        )
 
     def test_too_few_parts(self, handler):
         assert handler._extract_id("/api/v1") is None
@@ -283,7 +294,9 @@ class TestListWorkflows:
 
     def test_returns_workflow_list(self, handler, mock_http):
         mock_result = {"workflows": [], "total_count": 0, "limit": 50, "offset": 0}
-        with patch(f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = handler.handle("/api/v1/workflows", {}, mock_http())
         assert _status(result) == 200
         body = _body(result)
@@ -291,7 +304,9 @@ class TestListWorkflows:
 
     def test_passes_query_params(self, handler, mock_http):
         mock_result = {"workflows": [], "total_count": 0, "limit": 10, "offset": 5}
-        with patch(f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, return_value=mock_result) as mock_list:
+        with patch(
+            f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, return_value=mock_result
+        ) as mock_list:
             result = handler.handle(
                 "/api/v1/workflows",
                 {"category": "business", "search": "review", "limit": "10", "offset": "5"},
@@ -303,12 +318,16 @@ class TestListWorkflows:
         assert call_kwargs["search"] == "review"
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle("/api/v1/workflows", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.list_workflows", new_callable=AsyncMock, side_effect=KeyError("x")
+        ):
             result = handler.handle("/api/v1/workflows", {}, mock_http())
         assert _status(result) == 500
 
@@ -334,7 +353,9 @@ class TestGetWorkflow:
         assert _status(result) == 404
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, side_effect=TypeError("bad")):
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, side_effect=TypeError("bad")
+        ):
             result = handler.handle("/api/v1/workflows/wf_1", {}, mock_http())
         assert _status(result) == 500
 
@@ -350,7 +371,9 @@ class TestCreateWorkflow:
     def test_creates_workflow(self, handler, mock_http):
         body = {"name": "New WF", "steps": []}
         mock_result = {"id": "wf_new", "name": "New WF"}
-        with patch(f"{PATCH_HANDLER}.create_workflow", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_HANDLER}.create_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows", {}, mock_http(method="POST", body=body)
             )
@@ -359,7 +382,11 @@ class TestCreateWorkflow:
 
     def test_validation_error_returns_400(self, handler, mock_http):
         body = {"name": "Bad WF"}
-        with patch(f"{PATCH_HANDLER}.create_workflow", new_callable=AsyncMock, side_effect=ValueError("invalid")):
+        with patch(
+            f"{PATCH_HANDLER}.create_workflow",
+            new_callable=AsyncMock,
+            side_effect=ValueError("invalid"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows", {}, mock_http(method="POST", body=body)
             )
@@ -367,7 +394,9 @@ class TestCreateWorkflow:
 
     def test_storage_error_returns_503(self, handler, mock_http):
         body = {"name": "WF"}
-        with patch(f"{PATCH_HANDLER}.create_workflow", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.create_workflow", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows", {}, mock_http(method="POST", body=body)
             )
@@ -375,16 +404,18 @@ class TestCreateWorkflow:
 
     def test_data_error_returns_500(self, handler, mock_http):
         body = {"name": "WF"}
-        with patch(f"{PATCH_HANDLER}.create_workflow", new_callable=AsyncMock, side_effect=AttributeError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.create_workflow",
+            new_callable=AsyncMock,
+            side_effect=AttributeError("x"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows", {}, mock_http(method="POST", body=body)
             )
         assert _status(result) == 500
 
     def test_unhandled_path_returns_none(self, handler, mock_http):
-        result = handler.handle_post(
-            "/api/v1/unrelated", {}, mock_http(method="POST", body={})
-        )
+        result = handler.handle_post("/api/v1/unrelated", {}, mock_http(method="POST", body={}))
         assert result is None
 
 
@@ -399,7 +430,9 @@ class TestUpdateWorkflow:
     def test_updates_workflow(self, handler, mock_http):
         body = {"name": "Updated"}
         mock_result = {"id": "wf_1", "name": "Updated"}
-        with patch(f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = handler.handle_patch(
                 "/api/v1/workflows/wf_1", {}, mock_http(method="PATCH", body=body)
             )
@@ -416,7 +449,11 @@ class TestUpdateWorkflow:
 
     def test_validation_error_returns_400(self, handler, mock_http):
         body = {"name": "Bad"}
-        with patch(f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, side_effect=ValueError("invalid")):
+        with patch(
+            f"{PATCH_HANDLER}.update_workflow",
+            new_callable=AsyncMock,
+            side_effect=ValueError("invalid"),
+        ):
             result = handler.handle_patch(
                 "/api/v1/workflows/wf_1", {}, mock_http(method="PATCH", body=body)
             )
@@ -424,7 +461,9 @@ class TestUpdateWorkflow:
 
     def test_storage_error_returns_503(self, handler, mock_http):
         body = {"name": "WF"}
-        with patch(f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle_patch(
                 "/api/v1/workflows/wf_1", {}, mock_http(method="PATCH", body=body)
             )
@@ -432,16 +471,16 @@ class TestUpdateWorkflow:
 
     def test_data_error_returns_500(self, handler, mock_http):
         body = {"name": "WF"}
-        with patch(f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, side_effect=KeyError("x")
+        ):
             result = handler.handle_patch(
                 "/api/v1/workflows/wf_1", {}, mock_http(method="PATCH", body=body)
             )
         assert _status(result) == 500
 
     def test_unhandled_path_returns_none(self, handler, mock_http):
-        result = handler.handle_patch(
-            "/api/v1/unrelated", {}, mock_http(method="PATCH", body={})
-        )
+        result = handler.handle_patch("/api/v1/unrelated", {}, mock_http(method="PATCH", body={}))
         assert result is None
 
     def test_no_id_in_path_returns_none(self, handler, mock_http):
@@ -462,7 +501,9 @@ class TestPutWorkflow:
     def test_put_calls_patch(self, handler, mock_http):
         body = {"name": "Via PUT"}
         mock_result = {"id": "wf_1", "name": "Via PUT"}
-        with patch(f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_HANDLER}.update_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = handler.handle_put(
                 "/api/v1/workflows/wf_1", {}, mock_http(method="PUT", body=body)
             )
@@ -489,12 +530,16 @@ class TestDeleteWorkflow:
         assert _status(result) == 404
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.delete_workflow", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.delete_workflow", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle_delete("/api/v1/workflows/wf_1", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.delete_workflow", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.delete_workflow", new_callable=AsyncMock, side_effect=KeyError("x")
+        ):
             result = handler.handle_delete("/api/v1/workflows/wf_1", {}, mock_http())
         assert _status(result) == 500
 
@@ -514,7 +559,9 @@ class TestExecuteWorkflow:
     def test_executes_workflow(self, handler, mock_http):
         body = {"inputs": {"key": "value"}}
         mock_result = {"id": "exec_1", "status": "completed"}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -524,7 +571,9 @@ class TestExecuteWorkflow:
     def test_execute_with_flat_inputs(self, handler, mock_http):
         body = {"key": "value"}
         mock_result = {"id": "exec_1", "status": "completed"}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, return_value=mock_result) as mock_exec:
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, return_value=mock_result
+        ) as mock_exec:
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -541,7 +590,11 @@ class TestExecuteWorkflow:
 
     def test_execute_not_found_returns_404(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, side_effect=ValueError("not found")):
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow",
+            new_callable=AsyncMock,
+            side_effect=ValueError("not found"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -549,7 +602,11 @@ class TestExecuteWorkflow:
 
     def test_execute_connection_error_returns_503(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, side_effect=ConnectionError("timeout")):
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow",
+            new_callable=AsyncMock,
+            side_effect=ConnectionError("timeout"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -557,7 +614,11 @@ class TestExecuteWorkflow:
 
     def test_execute_timeout_error_returns_503(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, side_effect=TimeoutError("timeout")):
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow",
+            new_callable=AsyncMock,
+            side_effect=TimeoutError("timeout"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -565,7 +626,9 @@ class TestExecuteWorkflow:
 
     def test_execute_storage_error_returns_503(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -573,7 +636,11 @@ class TestExecuteWorkflow:
 
     def test_execute_data_error_returns_500(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, side_effect=TypeError("bad")):
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow",
+            new_callable=AsyncMock,
+            side_effect=TypeError("bad"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -584,7 +651,9 @@ class TestExecuteWorkflow:
         handler.ctx = {"event_emitter": emitter}
         body = {}
         mock_result = {"id": "exec_1"}
-        with patch(f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, return_value=mock_result) as mock_exec:
+        with patch(
+            f"{PATCH_HANDLER}.execute_workflow", new_callable=AsyncMock, return_value=mock_result
+        ) as mock_exec:
             handler.handle_post(
                 "/api/v1/workflows/wf_1/execute", {}, mock_http(method="POST", body=body)
             )
@@ -608,8 +677,12 @@ class TestSimulateWorkflow:
         mock_wf.entry_step = None
         mock_wf.steps = []
 
-        with patch(f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, return_value=mock_wf_dict), \
-             patch(f"{PATCH_HANDLER}.WorkflowDefinition") as MockWfDef:
+        with (
+            patch(
+                f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, return_value=mock_wf_dict
+            ),
+            patch(f"{PATCH_HANDLER}.WorkflowDefinition") as MockWfDef,
+        ):
             MockWfDef.from_dict.return_value = mock_wf
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/simulate", {}, mock_http(method="POST", body=body)
@@ -651,8 +724,12 @@ class TestSimulateWorkflow:
         mock_wf.steps = [step1, step2]
         mock_wf.get_step.side_effect = lambda sid: {"s1": step1, "s2": step2}.get(sid)
 
-        with patch(f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, return_value=mock_wf_dict), \
-             patch(f"{PATCH_HANDLER}.WorkflowDefinition") as MockWfDef:
+        with (
+            patch(
+                f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, return_value=mock_wf_dict
+            ),
+            patch(f"{PATCH_HANDLER}.WorkflowDefinition") as MockWfDef,
+        ):
             MockWfDef.from_dict.return_value = mock_wf
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/simulate", {}, mock_http(method="POST", body=body)
@@ -672,8 +749,12 @@ class TestSimulateWorkflow:
         mock_wf.entry_step = None
         mock_wf.steps = []
 
-        with patch(f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, return_value=mock_wf_dict), \
-             patch(f"{PATCH_HANDLER}.WorkflowDefinition") as MockWfDef:
+        with (
+            patch(
+                f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, return_value=mock_wf_dict
+            ),
+            patch(f"{PATCH_HANDLER}.WorkflowDefinition") as MockWfDef,
+        ):
             MockWfDef.from_dict.return_value = mock_wf
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/simulate", {}, mock_http(method="POST", body=body)
@@ -685,7 +766,9 @@ class TestSimulateWorkflow:
 
     def test_simulate_storage_error_returns_503(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/simulate", {}, mock_http(method="POST", body=body)
             )
@@ -693,7 +776,9 @@ class TestSimulateWorkflow:
 
     def test_simulate_data_error_returns_500(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, side_effect=KeyError("bad")):
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow", new_callable=AsyncMock, side_effect=KeyError("bad")
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/simulate", {}, mock_http(method="POST", body=body)
             )
@@ -710,7 +795,9 @@ class TestGetWorkflowStatus:
 
     def test_returns_latest_execution(self, handler, mock_http):
         mock_exec = [{"workflow_id": "wf_1", "status": "completed"}]
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_exec):
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_exec
+        ):
             result = handler.handle("/api/v1/workflows/wf_1/status", {}, mock_http())
         assert _status(result) == 200
         assert _body(result)["status"] == "completed"
@@ -723,12 +810,18 @@ class TestGetWorkflowStatus:
         assert data["status"] == "no_executions"
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle("/api/v1/workflows/wf_1/status", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=AttributeError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.list_executions",
+            new_callable=AsyncMock,
+            side_effect=AttributeError("x"),
+        ):
             result = handler.handle("/api/v1/workflows/wf_1/status", {}, mock_http())
         assert _status(result) == 500
 
@@ -743,7 +836,11 @@ class TestGetWorkflowVersions:
 
     def test_returns_versions(self, handler, mock_http):
         mock_versions = [{"version": "1.0"}, {"version": "1.1"}]
-        with patch(f"{PATCH_HANDLER}.get_workflow_versions", new_callable=AsyncMock, return_value=mock_versions):
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow_versions",
+            new_callable=AsyncMock,
+            return_value=mock_versions,
+        ):
             result = handler.handle("/api/v1/workflows/wf_1/versions", {}, mock_http())
         assert _status(result) == 200
         data = _body(result)
@@ -751,20 +848,28 @@ class TestGetWorkflowVersions:
         assert len(data["versions"]) == 2
 
     def test_passes_limit_param(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.get_workflow_versions", new_callable=AsyncMock, return_value=[]) as mock_ver:
-            handler.handle(
-                "/api/v1/workflows/wf_1/versions", {"limit": "10"}, mock_http()
-            )
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow_versions", new_callable=AsyncMock, return_value=[]
+        ) as mock_ver:
+            handler.handle("/api/v1/workflows/wf_1/versions", {"limit": "10"}, mock_http())
         call_kwargs = mock_ver.call_args[1]
         assert call_kwargs["limit"] == 10
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.get_workflow_versions", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow_versions",
+            new_callable=AsyncMock,
+            side_effect=OSError("disk"),
+        ):
             result = handler.handle("/api/v1/workflows/wf_1/versions", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.get_workflow_versions", new_callable=AsyncMock, side_effect=TypeError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.get_workflow_versions",
+            new_callable=AsyncMock,
+            side_effect=TypeError("x"),
+        ):
             result = handler.handle("/api/v1/workflows/wf_1/versions", {}, mock_http())
         assert _status(result) == 500
 
@@ -780,7 +885,11 @@ class TestRestoreVersion:
     def test_restores_version(self, handler, mock_http):
         body = {}
         mock_result = {"id": "wf_1", "version": "1.0"}
-        with patch(f"{PATCH_HANDLER}.restore_workflow_version", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_HANDLER}.restore_workflow_version",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/versions/1.0/restore",
                 {},
@@ -793,7 +902,9 @@ class TestRestoreVersion:
 
     def test_version_not_found_returns_404(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.restore_workflow_version", new_callable=AsyncMock, return_value=None):
+        with patch(
+            f"{PATCH_HANDLER}.restore_workflow_version", new_callable=AsyncMock, return_value=None
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/versions/9.9/restore",
                 {},
@@ -803,7 +914,11 @@ class TestRestoreVersion:
 
     def test_storage_error_returns_503(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.restore_workflow_version", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.restore_workflow_version",
+            new_callable=AsyncMock,
+            side_effect=OSError("disk"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/versions/1.0/restore",
                 {},
@@ -813,7 +928,11 @@ class TestRestoreVersion:
 
     def test_data_error_returns_500(self, handler, mock_http):
         body = {}
-        with patch(f"{PATCH_HANDLER}.restore_workflow_version", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.restore_workflow_version",
+            new_callable=AsyncMock,
+            side_effect=KeyError("x"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflows/wf_1/versions/1.0/restore",
                 {},
@@ -832,8 +951,14 @@ class TestListTemplates:
 
     def test_returns_templates(self, handler, mock_http):
         mock_templates = [{"id": "t1", "name": "T1"}]
-        with patch(f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, return_value=mock_templates), \
-             patch("aragora.workflow.templates.list_templates", return_value=[], create=True):
+        with (
+            patch(
+                f"{PATCH_HANDLER}.list_templates",
+                new_callable=AsyncMock,
+                return_value=mock_templates,
+            ),
+            patch("aragora.workflow.templates.list_templates", return_value=[], create=True),
+        ):
             result = handler.handle("/api/v1/workflow-templates", {}, mock_http())
         assert _status(result) == 200
         data = _body(result)
@@ -842,27 +967,39 @@ class TestListTemplates:
     def test_templates_via_alias_path(self, handler, mock_http):
         """Test that /api/v1/workflows/templates is normalized to workflow-templates."""
         mock_templates = [{"id": "t1", "name": "T1"}]
-        with patch(f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, return_value=mock_templates), \
-             patch("aragora.workflow.templates.list_templates", return_value=[], create=True):
+        with (
+            patch(
+                f"{PATCH_HANDLER}.list_templates",
+                new_callable=AsyncMock,
+                return_value=mock_templates,
+            ),
+            patch("aragora.workflow.templates.list_templates", return_value=[], create=True),
+        ):
             result = handler.handle("/api/v1/workflows/templates", {}, mock_http())
         assert _status(result) == 200
 
     def test_passes_category_param(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, return_value=[]) as mock_tmpl, \
-             patch("aragora.workflow.templates.list_templates", return_value=[], create=True):
-            handler.handle(
-                "/api/v1/workflow-templates", {"category": "legal"}, mock_http()
-            )
+        with (
+            patch(
+                f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, return_value=[]
+            ) as mock_tmpl,
+            patch("aragora.workflow.templates.list_templates", return_value=[], create=True),
+        ):
+            handler.handle("/api/v1/workflow-templates", {"category": "legal"}, mock_http())
         call_kwargs = mock_tmpl.call_args[1]
         assert call_kwargs["category"] == "legal"
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle("/api/v1/workflow-templates", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.list_templates", new_callable=AsyncMock, side_effect=KeyError("x")
+        ):
             result = handler.handle("/api/v1/workflow-templates", {}, mock_http())
         assert _status(result) == 500
 
@@ -887,9 +1024,7 @@ class TestListApprovals:
     def test_passes_workflow_id_param(self, handler, mock_http):
         mock_fn = AsyncMock(return_value=[])
         handler._list_pending_approvals_fn = lambda: mock_fn
-        handler.handle(
-            "/api/v1/workflow-approvals", {"workflow_id": "wf_1"}, mock_http()
-        )
+        handler.handle("/api/v1/workflow-approvals", {"workflow_id": "wf_1"}, mock_http())
         call_kwargs = mock_fn.call_args[1]
         assert call_kwargs["workflow_id"] == "wf_1"
 
@@ -941,7 +1076,11 @@ class TestResolveApproval:
 
     def test_invalid_status_returns_400(self, handler, mock_http):
         body = {"status": "invalid_status"}
-        with patch(f"{PATCH_HANDLER}.resolve_approval", new_callable=AsyncMock, side_effect=ValueError("invalid")):
+        with patch(
+            f"{PATCH_HANDLER}.resolve_approval",
+            new_callable=AsyncMock,
+            side_effect=ValueError("invalid"),
+        ):
             result = handler.handle_post(
                 "/api/v1/workflow-approvals/req_1/resolve",
                 {},
@@ -951,7 +1090,9 @@ class TestResolveApproval:
 
     def test_storage_error_returns_503(self, handler, mock_http):
         body = {"status": "approved"}
-        with patch(f"{PATCH_HANDLER}.resolve_approval", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.resolve_approval", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle_post(
                 "/api/v1/workflow-approvals/req_1/resolve",
                 {},
@@ -969,16 +1110,26 @@ class TestListExecutions:
     """Test GET /api/v1/workflow-executions."""
 
     def test_returns_executions(self, handler, mock_http):
-        mock_execs = [{"id": "exec_1", "status": "completed"}, {"id": "exec_2", "status": "running"}]
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_execs):
+        mock_execs = [
+            {"id": "exec_1", "status": "completed"},
+            {"id": "exec_2", "status": "running"},
+        ]
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_execs
+        ):
             result = handler.handle("/api/v1/workflow-executions", {}, mock_http())
         assert _status(result) == 200
         data = _body(result)
         assert data["count"] == 2
 
     def test_filters_by_status(self, handler, mock_http):
-        mock_execs = [{"id": "exec_1", "status": "completed"}, {"id": "exec_2", "status": "running"}]
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_execs):
+        mock_execs = [
+            {"id": "exec_1", "status": "completed"},
+            {"id": "exec_2", "status": "running"},
+        ]
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_execs
+        ):
             result = handler.handle(
                 "/api/v1/workflow-executions", {"status": "running"}, mock_http()
             )
@@ -988,35 +1139,41 @@ class TestListExecutions:
         assert data["executions"][0]["status"] == "running"
 
     def test_passes_workflow_id_filter(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=[]) as mock_list:
-            handler.handle(
-                "/api/v1/workflow-executions", {"workflow_id": "wf_1"}, mock_http()
-            )
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=[]
+        ) as mock_list:
+            handler.handle("/api/v1/workflow-executions", {"workflow_id": "wf_1"}, mock_http())
         call_kwargs = mock_list.call_args[1]
         assert call_kwargs["workflow_id"] == "wf_1"
 
     def test_passes_limit_param(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=[]) as mock_list:
-            handler.handle(
-                "/api/v1/workflow-executions", {"limit": "25"}, mock_http()
-            )
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=[]
+        ) as mock_list:
+            handler.handle("/api/v1/workflow-executions", {"limit": "25"}, mock_http())
         call_kwargs = mock_list.call_args[1]
         assert call_kwargs["limit"] == 25
 
     def test_executions_via_alias_path(self, handler, mock_http):
         """Test that /api/v1/workflows/executions normalizes to workflow-executions."""
         mock_execs = [{"id": "exec_1", "status": "done"}]
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_execs):
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, return_value=mock_execs
+        ):
             result = handler.handle("/api/v1/workflows/executions", {}, mock_http())
         assert _status(result) == 200
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle("/api/v1/workflow-executions", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.list_executions", new_callable=AsyncMock, side_effect=KeyError("x")
+        ):
             result = handler.handle("/api/v1/workflow-executions", {}, mock_http())
         assert _status(result) == 500
 
@@ -1031,7 +1188,9 @@ class TestGetExecution:
 
     def test_returns_execution(self, handler, mock_http):
         mock_exec = {"id": "exec_1", "status": "completed"}
-        with patch(f"{PATCH_HANDLER}.get_execution", new_callable=AsyncMock, return_value=mock_exec):
+        with patch(
+            f"{PATCH_HANDLER}.get_execution", new_callable=AsyncMock, return_value=mock_exec
+        ):
             result = handler.handle("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 200
         assert _body(result)["id"] == "exec_1"
@@ -1042,12 +1201,18 @@ class TestGetExecution:
         assert _status(result) == 404
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.get_execution", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.get_execution", new_callable=AsyncMock, side_effect=OSError("disk")
+        ):
             result = handler.handle("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.get_execution", new_callable=AsyncMock, side_effect=AttributeError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.get_execution",
+            new_callable=AsyncMock,
+            side_effect=AttributeError("x"),
+        ):
             result = handler.handle("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 500
 
@@ -1061,24 +1226,36 @@ class TestTerminateExecution:
     """Test DELETE /api/v1/workflow-executions/{id}."""
 
     def test_terminates_execution(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, return_value=True):
+        with patch(
+            f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, return_value=True
+        ):
             result = handler.handle_delete("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 200
         data = _body(result)
         assert data["terminated"] is True
 
     def test_cannot_terminate_returns_400(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, return_value=False):
+        with patch(
+            f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, return_value=False
+        ):
             result = handler.handle_delete("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 400
 
     def test_storage_error_returns_503(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, side_effect=OSError("disk")):
+        with patch(
+            f"{PATCH_HANDLER}.terminate_execution",
+            new_callable=AsyncMock,
+            side_effect=OSError("disk"),
+        ):
             result = handler.handle_delete("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 503
 
     def test_data_error_returns_500(self, handler, mock_http):
-        with patch(f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, side_effect=KeyError("x")):
+        with patch(
+            f"{PATCH_HANDLER}.terminate_execution",
+            new_callable=AsyncMock,
+            side_effect=KeyError("x"),
+        ):
             result = handler.handle_delete("/api/v1/workflow-executions/exec_1", {}, mock_http())
         assert _status(result) == 500
 
@@ -1101,10 +1278,10 @@ class TestDeletePathNormalization:
 
     def test_delete_via_workflows_executions_alias(self, handler, mock_http):
         """DELETE /api/v1/workflows/executions/{id} normalizes to workflow-executions."""
-        with patch(f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, return_value=True):
-            result = handler.handle_delete(
-                "/api/v1/workflows/executions/exec_1", {}, mock_http()
-            )
+        with patch(
+            f"{PATCH_HANDLER}.terminate_execution", new_callable=AsyncMock, return_value=True
+        ):
+            result = handler.handle_delete("/api/v1/workflows/executions/exec_1", {}, mock_http())
         assert _status(result) == 200
 
 
@@ -1123,7 +1300,7 @@ class TestHandleRoutingEdgeCases:
     def test_step_types_delegates_to_builder(self, handler, mock_http):
         """GET /api/v1/workflows/step-types delegates to builder handler."""
         mock_builder = MagicMock()
-        mock_builder.handle.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_builder.handle.return_value = MagicMock(status_code=200, body=b"{}")
         handler._builder_handler = lambda: mock_builder
         result = handler.handle("/api/v1/workflows/step-types", {}, mock_http())
         mock_builder.handle.assert_called_once()
@@ -1131,7 +1308,7 @@ class TestHandleRoutingEdgeCases:
     def test_templates_registry_delegates(self, handler, mock_http):
         """GET /api/v1/templates/registry delegates to registry handler."""
         mock_registry = MagicMock()
-        mock_registry.handle.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_registry.handle.return_value = MagicMock(status_code=200, body=b"{}")
         handler._registry_handler = lambda: mock_registry
         result = handler.handle("/api/v1/templates/registry", {}, mock_http())
         mock_registry.handle.assert_called_once()
@@ -1147,7 +1324,7 @@ class TestPostRoutingDelegations:
 
     def test_post_templates_registry_delegates(self, handler, mock_http):
         mock_registry = MagicMock()
-        mock_registry.handle_post.return_value = MagicMock(status_code=201, body=b'{}')
+        mock_registry.handle_post.return_value = MagicMock(status_code=201, body=b"{}")
         handler._registry_handler = lambda: mock_registry
         result = handler.handle_post(
             "/api/v1/templates/registry", {}, mock_http(method="POST", body={})
@@ -1156,7 +1333,7 @@ class TestPostRoutingDelegations:
 
     def test_post_generate_delegates_to_builder(self, handler, mock_http):
         mock_builder = MagicMock()
-        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b"{}")
         handler._builder_handler = lambda: mock_builder
         result = handler.handle_post(
             "/api/v1/workflows/generate", {}, mock_http(method="POST", body={})
@@ -1165,7 +1342,7 @@ class TestPostRoutingDelegations:
 
     def test_post_auto_layout_delegates_to_builder(self, handler, mock_http):
         mock_builder = MagicMock()
-        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b"{}")
         handler._builder_handler = lambda: mock_builder
         result = handler.handle_post(
             "/api/v1/workflows/auto-layout", {}, mock_http(method="POST", body={})
@@ -1174,7 +1351,7 @@ class TestPostRoutingDelegations:
 
     def test_post_from_pattern_delegates_to_builder(self, handler, mock_http):
         mock_builder = MagicMock()
-        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b"{}")
         handler._builder_handler = lambda: mock_builder
         result = handler.handle_post(
             "/api/v1/workflows/from-pattern", {}, mock_http(method="POST", body={})
@@ -1183,7 +1360,7 @@ class TestPostRoutingDelegations:
 
     def test_post_validate_delegates_to_builder(self, handler, mock_http):
         mock_builder = MagicMock()
-        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b"{}")
         handler._builder_handler = lambda: mock_builder
         result = handler.handle_post(
             "/api/v1/workflows/validate", {}, mock_http(method="POST", body={})
@@ -1192,7 +1369,7 @@ class TestPostRoutingDelegations:
 
     def test_post_replay_delegates_to_builder(self, handler, mock_http):
         mock_builder = MagicMock()
-        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_builder.handle_post.return_value = MagicMock(status_code=200, body=b"{}")
         handler._builder_handler = lambda: mock_builder
         result = handler.handle_post(
             "/api/v1/workflows/wf_1/replay", {}, mock_http(method="POST", body={})
@@ -1290,7 +1467,9 @@ class TestWorkflowHandlersLegacy:
     @pytest.mark.asyncio
     async def test_handle_create_workflow(self):
         mock_result = {"id": "wf_new"}
-        with patch(f"{PATCH_PKG}.create_workflow", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_PKG}.create_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = await WorkflowHandlers.handle_create_workflow(
                 {"name": "Test"}, {"tenant_id": "t1", "user_id": "u1"}
             )
@@ -1299,10 +1478,10 @@ class TestWorkflowHandlersLegacy:
     @pytest.mark.asyncio
     async def test_handle_update_workflow(self):
         mock_result = {"id": "wf_1", "name": "Updated"}
-        with patch(f"{PATCH_PKG}.update_workflow", new_callable=AsyncMock, return_value=mock_result):
-            result = await WorkflowHandlers.handle_update_workflow(
-                "wf_1", {"name": "Updated"}, {}
-            )
+        with patch(
+            f"{PATCH_PKG}.update_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
+            result = await WorkflowHandlers.handle_update_workflow("wf_1", {"name": "Updated"}, {})
         assert result["name"] == "Updated"
 
     @pytest.mark.asyncio
@@ -1314,7 +1493,9 @@ class TestWorkflowHandlersLegacy:
     @pytest.mark.asyncio
     async def test_handle_execute_workflow(self):
         mock_result = {"id": "exec_1"}
-        with patch(f"{PATCH_PKG}.execute_workflow", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_PKG}.execute_workflow", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = await WorkflowHandlers.handle_execute_workflow(
                 "wf_1", {"inputs": {"key": "val"}}, {"tenant_id": "t1"}
             )
@@ -1323,9 +1504,7 @@ class TestWorkflowHandlersLegacy:
     @pytest.mark.asyncio
     async def test_handle_execute_workflow_invalid_inputs(self):
         with pytest.raises(ValueError, match="inputs must be an object"):
-            await WorkflowHandlers.handle_execute_workflow(
-                "wf_1", {"inputs": "bad"}, {}
-            )
+            await WorkflowHandlers.handle_execute_workflow("wf_1", {"inputs": "bad"}, {})
 
     @pytest.mark.asyncio
     async def test_handle_list_templates(self):
@@ -1337,7 +1516,9 @@ class TestWorkflowHandlersLegacy:
     @pytest.mark.asyncio
     async def test_handle_list_approvals(self):
         mock_result = [{"id": "a1"}]
-        with patch(f"{PATCH_PKG}.list_pending_approvals", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            f"{PATCH_PKG}.list_pending_approvals", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = await WorkflowHandlers.handle_list_approvals({"tenant_id": "t1"})
         assert len(result) == 1
 

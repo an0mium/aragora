@@ -122,7 +122,9 @@ class TestStore:
         assert h1 == h2
 
     def test_per_round_similarity_defaults_to_empty_list(self, store):
-        topic_hash = store.store("topic A", convergence_round=1, total_rounds=3, final_similarity=0.7)
+        topic_hash = store.store(
+            "topic A", convergence_round=1, total_rounds=3, final_similarity=0.7
+        )
         record = store.get_record(topic_hash)
         assert record["per_round_similarity"] == []
 
@@ -356,7 +358,9 @@ class TestGetRecord:
     """Test the get_record() method."""
 
     def test_existing_hash_returns_record(self, store):
-        topic_hash = store.store("test topic", convergence_round=2, total_rounds=4, final_similarity=0.8)
+        topic_hash = store.store(
+            "test topic", convergence_round=2, total_rounds=4, final_similarity=0.8
+        )
         record = store.get_record(topic_hash)
         assert record is not None
         assert record["topic_hash"] == topic_hash
@@ -507,7 +511,9 @@ class TestEdgeCases:
     def test_topic_snippet_truncated_to_200_chars(self, store):
         """Topic index stores at most 200 characters (lowercased)."""
         long_topic = "x" * 500
-        topic_hash = store.store(long_topic, convergence_round=1, total_rounds=2, final_similarity=0.5)
+        topic_hash = store.store(
+            long_topic, convergence_round=1, total_rounds=2, final_similarity=0.5
+        )
         assert len(store._topic_index[topic_hash]) == 200
 
     def test_topic_index_is_lowercased(self, store):
@@ -528,7 +534,9 @@ class TestEdgeCases:
 
     def test_record_has_timestamp(self, store):
         before = time.time()
-        topic_hash = store.store("timed topic", convergence_round=1, total_rounds=2, final_similarity=0.5)
+        topic_hash = store.store(
+            "timed topic", convergence_round=1, total_rounds=2, final_similarity=0.5
+        )
         after = time.time()
 
         record = store.get_record(topic_hash)

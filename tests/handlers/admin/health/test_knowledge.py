@@ -60,6 +60,7 @@ def _mock_km_class(**kwargs):
     attribute on the module object. We patch that attribute.
     """
     import aragora.knowledge.mound as km_mod
+
     original = getattr(km_mod, "KnowledgeMound")
     mock_cls = MagicMock(**kwargs)
     km_mod.KnowledgeMound = mock_cls
@@ -303,16 +304,63 @@ class TestKnowledgeMoundHealthOverallStatus:
         mock_mound = self._make_mound()
 
         with _mock_km_class(return_value=mock_mound):
-            with patch.object(mixin, "_check_km_storage", return_value={"healthy": True, "status": "configured"}):
-                with patch.object(mixin, "_check_culture_accumulator", return_value={"healthy": True, "status": "not_initialized"}):
-                    with patch.object(mixin, "_check_staleness_tracker", return_value={"healthy": True, "status": "not_initialized"}):
-                        with patch.object(mixin, "_check_rlm_integration", return_value={"healthy": True, "status": "not_available"}):
-                            with patch.object(mixin, "_check_debate_integration", return_value={"healthy": True, "status": "not_available"}):
-                                with patch.object(mixin, "_check_km_redis_cache", return_value={"healthy": True, "status": "not_configured"}):
-                                    with patch.object(mixin, "_check_km_adapters", return_value={"healthy": True, "status": "available"}):
-                                        with patch.object(mixin, "_check_control_plane_adapter", return_value={"healthy": True, "status": "available"}):
-                                            with patch.object(mixin, "_check_km_metrics", return_value={"healthy": True, "status": "available"}):
-                                                with patch.object(mixin, "_check_confidence_decay", return_value={"component": {"healthy": True, "status": "not_configured"}, "warnings": []}):
+            with patch.object(
+                mixin, "_check_km_storage", return_value={"healthy": True, "status": "configured"}
+            ):
+                with patch.object(
+                    mixin,
+                    "_check_culture_accumulator",
+                    return_value={"healthy": True, "status": "not_initialized"},
+                ):
+                    with patch.object(
+                        mixin,
+                        "_check_staleness_tracker",
+                        return_value={"healthy": True, "status": "not_initialized"},
+                    ):
+                        with patch.object(
+                            mixin,
+                            "_check_rlm_integration",
+                            return_value={"healthy": True, "status": "not_available"},
+                        ):
+                            with patch.object(
+                                mixin,
+                                "_check_debate_integration",
+                                return_value={"healthy": True, "status": "not_available"},
+                            ):
+                                with patch.object(
+                                    mixin,
+                                    "_check_km_redis_cache",
+                                    return_value={"healthy": True, "status": "not_configured"},
+                                ):
+                                    with patch.object(
+                                        mixin,
+                                        "_check_km_adapters",
+                                        return_value={"healthy": True, "status": "available"},
+                                    ):
+                                        with patch.object(
+                                            mixin,
+                                            "_check_control_plane_adapter",
+                                            return_value={"healthy": True, "status": "available"},
+                                        ):
+                                            with patch.object(
+                                                mixin,
+                                                "_check_km_metrics",
+                                                return_value={
+                                                    "healthy": True,
+                                                    "status": "available",
+                                                },
+                                            ):
+                                                with patch.object(
+                                                    mixin,
+                                                    "_check_confidence_decay",
+                                                    return_value={
+                                                        "component": {
+                                                            "healthy": True,
+                                                            "status": "not_configured",
+                                                        },
+                                                        "warnings": [],
+                                                    },
+                                                ):
                                                     result = mixin.knowledge_mound_health()
                                                     body = _body(result)
                                                     assert body["status"] == "not_configured"
@@ -363,7 +411,9 @@ class TestCheckKmStorage:
 
     def test_postgresql_backend(self, mixin):
         """Detects PostgreSQL when KNOWLEDGE_MOUND_DATABASE_URL contains 'postgres'."""
-        with patch.dict("os.environ", {"KNOWLEDGE_MOUND_DATABASE_URL": "postgresql://localhost/km"}):
+        with patch.dict(
+            "os.environ", {"KNOWLEDGE_MOUND_DATABASE_URL": "postgresql://localhost/km"}
+        ):
             result = mixin._check_km_storage(None)
             assert result["healthy"] is True
             assert result["backend"] == "postgresql"
@@ -386,8 +436,9 @@ class TestCheckKmStorage:
 
     def test_sqlite_when_no_env(self, mixin):
         """Defaults to SQLite when env var is not set."""
-        env_copy = {k: v for k, v in __import__("os").environ.items()
-                    if k != "KNOWLEDGE_MOUND_DATABASE_URL"}
+        env_copy = {
+            k: v for k, v in __import__("os").environ.items() if k != "KNOWLEDGE_MOUND_DATABASE_URL"
+        }
         with patch.dict("os.environ", env_copy, clear=True):
             result = mixin._check_km_storage(None)
             assert result["backend"] == "sqlite"
@@ -442,7 +493,9 @@ class TestCheckKmStorage:
 
     def test_storage_postgres_partial_match(self, mixin):
         """A URL containing 'postgres' anywhere triggers PostgreSQL detection."""
-        with patch.dict("os.environ", {"KNOWLEDGE_MOUND_DATABASE_URL": "my-postgres-instance:5432/db"}):
+        with patch.dict(
+            "os.environ", {"KNOWLEDGE_MOUND_DATABASE_URL": "my-postgres-instance:5432/db"}
+        ):
             result = mixin._check_km_storage(None)
             assert result["backend"] == "postgresql"
 
@@ -691,6 +744,7 @@ class TestCheckRlmIntegration:
 
     def test_attribute_error_from_property_treated_as_import(self, mixin):
         """AttributeError from property on module is treated as ImportError by Python."""
+
         class FakeModule(type(sys)):
             @property
             def HAS_OFFICIAL_RLM(self):
@@ -705,6 +759,7 @@ class TestCheckRlmIntegration:
 
     def test_type_error_caught(self, mixin):
         """TypeError during RLM if-check is caught."""
+
         # HAS_OFFICIAL_RLM imports fine but its __bool__ raises TypeError
         class BrokenBool:
             def __bool__(self):
@@ -721,6 +776,7 @@ class TestCheckRlmIntegration:
 
     def test_runtime_error_caught(self, mixin):
         """RuntimeError during RLM check is caught."""
+
         class FakeModule(type(sys)):
             @property
             def HAS_OFFICIAL_RLM(self):
@@ -734,6 +790,7 @@ class TestCheckRlmIntegration:
 
     def test_value_error_caught(self, mixin):
         """ValueError during RLM check is caught."""
+
         class FakeModule(type(sys)):
             @property
             def HAS_OFFICIAL_RLM(self):
@@ -756,11 +813,13 @@ class TestCheckDebateIntegration:
 
     def test_active_with_stats(self, mixin):
         """When stats function exists and returns data, returns active."""
-        mock_stats_fn = MagicMock(return_value={
-            "facts_count": 42,
-            "consensus_stored": 10,
-            "retrievals_count": 100,
-        })
+        mock_stats_fn = MagicMock(
+            return_value={
+                "facts_count": 42,
+                "consensus_stored": 10,
+                "retrievals_count": 100,
+            }
+        )
         with patch(
             "aragora.debate.knowledge_mound_ops.get_knowledge_mound_stats",
             mock_stats_fn,
@@ -801,6 +860,7 @@ class TestCheckDebateIntegration:
     def test_module_import_error(self, mixin):
         """When knowledge_mound_ops cannot be imported, returns not_available."""
         import aragora.debate as debate_mod
+
         original_attr = getattr(debate_mod, "knowledge_mound_ops", None)
         original_in_sys = sys.modules.get("aragora.debate.knowledge_mound_ops")
         try:
@@ -918,8 +978,11 @@ class TestCheckKmRedisCache:
 
     def test_not_configured_missing_env(self, mixin):
         """When Redis env vars do not exist at all, returns not_configured."""
-        env_copy = {k: v for k, v in __import__("os").environ.items()
-                    if k not in ("KNOWLEDGE_MOUND_REDIS_URL", "REDIS_URL")}
+        env_copy = {
+            k: v
+            for k, v in __import__("os").environ.items()
+            if k not in ("KNOWLEDGE_MOUND_REDIS_URL", "REDIS_URL")
+        }
         with patch.dict("os.environ", env_copy, clear=True):
             result = mixin._check_km_redis_cache()
             assert result["healthy"] is True
@@ -1010,9 +1073,17 @@ class TestCheckKmAdapters:
         result = mixin._check_km_adapters()
         if result["status"] == "available":
             expected = [
-                "continuum", "consensus", "critique", "evidence",
-                "belief", "insights", "elo", "pulse", "cost",
-                "ranking", "culture",
+                "continuum",
+                "consensus",
+                "critique",
+                "evidence",
+                "belief",
+                "insights",
+                "elo",
+                "pulse",
+                "cost",
+                "ranking",
+                "culture",
             ]
             assert result["adapter_list"] == expected
 
@@ -1083,9 +1154,12 @@ class TestCheckControlPlaneAdapter:
 
     def test_import_error(self, mixin):
         """When control plane adapter cannot be imported, returns not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.control_plane_adapter": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.control_plane_adapter": None,
+            },
+        ):
             result = mixin._check_control_plane_adapter()
             assert result["healthy"] is True
             assert result["status"] == "not_available"
@@ -1097,9 +1171,12 @@ class TestCheckControlPlaneAdapter:
         type(mock_mod).ControlPlaneAdapter = property(
             lambda self: (_ for _ in ()).throw(AttributeError("missing"))
         )
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.control_plane_adapter": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.control_plane_adapter": mock_mod,
+            },
+        ):
             result = mixin._check_control_plane_adapter()
             assert result["healthy"] is True
             assert result["status"] in ("available", "error")
@@ -1110,9 +1187,12 @@ class TestCheckControlPlaneAdapter:
         type(mock_mod).ControlPlaneAdapter = property(
             lambda self: (_ for _ in ()).throw(RuntimeError("init fail"))
         )
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.control_plane_adapter": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.control_plane_adapter": mock_mod,
+            },
+        ):
             result = mixin._check_control_plane_adapter()
             assert result["healthy"] is True
 
@@ -1122,9 +1202,12 @@ class TestCheckControlPlaneAdapter:
         type(mock_mod).ControlPlaneAdapter = property(
             lambda self: (_ for _ in ()).throw(TypeError("bad type"))
         )
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.control_plane_adapter": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.control_plane_adapter": mock_mod,
+            },
+        ):
             result = mixin._check_control_plane_adapter()
             assert result["healthy"] is True
 
@@ -1206,9 +1289,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1235,9 +1321,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["status"] == "stopped"
@@ -1248,9 +1337,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = None
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1259,9 +1351,12 @@ class TestCheckConfidenceDecay:
 
     def test_module_not_available(self, mixin):
         """When confidence_decay_scheduler cannot be imported, returns not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": None,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1285,9 +1380,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert "alert" in component
@@ -1313,9 +1411,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             assert "alert" not in result["component"]
             assert len(result["warnings"]) == 0
@@ -1337,9 +1438,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             alert_msg = result["component"]["alert"]["message"]
             assert "ws_a" in alert_msg
@@ -1363,9 +1467,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             alert_msg = result["component"]["alert"]["message"]
             assert "stale_ws" in alert_msg
@@ -1386,9 +1493,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             assert "alert" not in result["component"]
             assert len(result["warnings"]) == 0
@@ -1408,9 +1518,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             assert "alert" not in result["component"]
 
@@ -1431,9 +1544,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             assert result["component"]["status"] == "stopped"
             assert "alert" not in result["component"]
@@ -1453,9 +1569,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             assert "alert" not in result["component"]
             assert len(result["warnings"]) == 0
@@ -1469,9 +1588,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["decay_interval_hours"] == 24
@@ -1483,9 +1605,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.side_effect = RuntimeError("broken")
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1499,9 +1624,12 @@ class TestCheckConfidenceDecay:
         mock_scheduler.get_stats.side_effect = AttributeError("no stats")
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1512,9 +1640,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.side_effect = TypeError("bad")
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1525,9 +1656,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.side_effect = KeyError("missing")
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1538,9 +1672,12 @@ class TestCheckConfidenceDecay:
         mock_mod = MagicMock()
         mock_mod.get_decay_scheduler.side_effect = ValueError("bad val")
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = mixin._check_confidence_decay()
             component = result["component"]
             assert component["healthy"] is True
@@ -1548,9 +1685,12 @@ class TestCheckConfidenceDecay:
 
     def test_returns_dict_with_component_and_warnings(self, mixin):
         """Return type has 'component' and 'warnings' keys."""
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": None,
+            },
+        ):
             result = mixin._check_confidence_decay()
             assert "component" in result
             assert "warnings" in result
@@ -1632,6 +1772,7 @@ class TestEdgeCases:
     def test_module_in_all_exports(self):
         """KnowledgeMixin is in __all__."""
         from aragora.server.handlers.admin.health import knowledge
+
         assert "KnowledgeMixin" in knowledge.__all__
 
     def test_health_check_returns_handler_result(self, mixin):

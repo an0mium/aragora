@@ -176,7 +176,11 @@ class MLDegradationManager:
                 self._degradation_history = self._degradation_history[-500:]
 
             logger.info(
-                "ML degradation: %s %s -> %s: %s", feature.value, status.level.value, level.value, reason
+                "ML degradation: %s %s -> %s: %s",
+                feature.value,
+                status.level.value,
+                level.value,
+                reason,
             )
 
         status.level = level

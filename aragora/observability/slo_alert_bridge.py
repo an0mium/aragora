@@ -574,7 +574,10 @@ def init_slo_alerting(
         register_recovery_callback(recovery_callback)
 
         logger.info(
-            "SLO alerting initialized: pagerduty=%s, slack=%s, teams=%s", config.pagerduty_enabled, config.slack_enabled, config.teams_enabled
+            "SLO alerting initialized: pagerduty=%s, slack=%s, teams=%s",
+            config.pagerduty_enabled,
+            config.slack_enabled,
+            config.teams_enabled,
         )
 
     except ImportError:

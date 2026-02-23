@@ -250,9 +250,7 @@ class TestListPolicyViolations:
         self, handler, mock_policy_store, mock_http_handler
     ):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"policy_id": "pol-002"}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"policy_id": "pol-002"}, mock_http_handler)
         assert _status(result) == 200
         mock_policy_store.list_violations.assert_called_once_with(
             policy_id="pol-002",
@@ -301,9 +299,7 @@ class TestListPolicyViolations:
         self, handler, mock_policy_store, mock_http_handler
     ):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"status": ["open"]}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"status": ["open"]}, mock_http_handler)
         assert _status(result) == 200
         mock_policy_store.list_violations.assert_called_once_with(
             policy_id=None,
@@ -318,9 +314,7 @@ class TestListPolicyViolations:
         self, handler, mock_policy_store, mock_http_handler
     ):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"status": "resolved"}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"status": "resolved"}, mock_http_handler)
         assert _status(result) == 200
         mock_policy_store.list_violations.assert_called_once_with(
             policy_id=None,
@@ -365,35 +359,23 @@ class TestListPolicyViolations:
             offset=0,
         )
 
-    def test_list_violations_with_limit_list(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_with_limit_list(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"limit": ["50"]}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"limit": ["50"]}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["limit"] == 50
 
-    def test_list_violations_with_limit_scalar(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_with_limit_scalar(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"limit": 25}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"limit": 25}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["limit"] == 25
 
-    def test_list_violations_with_offset_list(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_with_offset_list(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"offset": ["10"]}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"offset": ["10"]}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["offset"] == 10
@@ -402,16 +384,12 @@ class TestListPolicyViolations:
         self, handler, mock_policy_store, mock_http_handler
     ):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"offset": 5}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"offset": 5}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["offset"] == 5
 
-    def test_list_violations_with_all_filters(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_with_all_filters(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
         result = handler._handle_list_policy_violations(
             {
@@ -454,37 +432,27 @@ class TestListPolicyViolations:
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
 
-    def test_list_violations_value_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_value_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = ValueError("bad param")
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_list_violations_type_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_type_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = TypeError("wrong type")
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_list_violations_key_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_key_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = KeyError("missing")
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_list_violations_runtime_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_runtime_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = RuntimeError("crash")
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_list_violations_os_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_os_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = OSError("disk failure")
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         assert _status(result) == 500
@@ -494,9 +462,7 @@ class TestListPolicyViolations:
     ):
         """When filter lists contain None, should handle gracefully."""
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"policy_id": [None]}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"policy_id": [None]}, mock_http_handler)
         assert _status(result) == 200
 
 
@@ -537,9 +503,7 @@ class TestGetPolicyViolation:
         body = _body(result)
         assert body["violation"]["id"] == "viol-003"
 
-    def test_get_violation_not_found(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_not_found(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
         result = handler._handle_get_policy_violation("nonexistent", mock_http_handler)
         assert _status(result) == 404
@@ -557,37 +521,27 @@ class TestGetPolicyViolation:
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
 
-    def test_get_violation_value_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_value_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = ValueError("bad")
         result = handler._handle_get_policy_violation("viol-001", mock_http_handler)
         assert _status(result) == 500
 
-    def test_get_violation_type_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_type_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = TypeError("wrong")
         result = handler._handle_get_policy_violation("viol-001", mock_http_handler)
         assert _status(result) == 500
 
-    def test_get_violation_key_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_key_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = KeyError("missing")
         result = handler._handle_get_policy_violation("viol-001", mock_http_handler)
         assert _status(result) == 500
 
-    def test_get_violation_runtime_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_runtime_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = RuntimeError("crash")
         result = handler._handle_get_policy_violation("viol-001", mock_http_handler)
         assert _status(result) == 500
 
-    def test_get_violation_os_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_os_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.side_effect = OSError("disk")
         result = handler._handle_get_policy_violation("viol-001", mock_http_handler)
         assert _status(result) == 500
@@ -718,9 +672,7 @@ class TestGetPolicyViolationStats:
 class TestUpdatePolicyViolation:
     """Tests for _handle_update_policy_violation."""
 
-    def test_update_violation_success_open(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_success_open(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.return_value = True
         body = {"status": "open"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
@@ -740,9 +692,7 @@ class TestUpdatePolicyViolation:
         data = _body(result)
         assert data["status"] == "investigating"
 
-    def test_update_violation_success_resolved(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_success_resolved(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.return_value = True
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
@@ -771,31 +721,23 @@ class TestUpdatePolicyViolation:
             assert _status(result) == 200, f"Failed for status {status}"
             assert _body(result)["status"] == status
 
-    def test_update_violation_missing_status(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_missing_status(self, handler, mock_policy_store, mock_http_handler):
         body = {}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 400
         assert "status" in _body(result).get("error", "").lower()
 
-    def test_update_violation_empty_status(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_empty_status(self, handler, mock_policy_store, mock_http_handler):
         body = {"status": ""}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 400
 
-    def test_update_violation_none_status(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_none_status(self, handler, mock_policy_store, mock_http_handler):
         body = {"status": None}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 400
 
-    def test_update_violation_invalid_status(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_invalid_status(self, handler, mock_policy_store, mock_http_handler):
         body = {"status": "invalid_status"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 400
@@ -809,9 +751,7 @@ class TestUpdatePolicyViolation:
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 400
 
-    def test_update_violation_not_found(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_not_found(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.return_value = False
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("nonexistent", body, mock_http_handler)
@@ -864,41 +804,31 @@ class TestUpdatePolicyViolation:
         data = _body(result)
         assert "resolved" in data["message"]
 
-    def test_update_violation_value_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_value_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.side_effect = ValueError("bad")
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 500
 
-    def test_update_violation_type_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_type_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.side_effect = TypeError("wrong")
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 500
 
-    def test_update_violation_key_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_key_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.side_effect = KeyError("missing")
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 500
 
-    def test_update_violation_runtime_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_runtime_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.side_effect = RuntimeError("crash")
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
         assert _status(result) == 500
 
-    def test_update_violation_os_error(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_update_violation_os_error(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.update_violation_status.side_effect = OSError("disk")
         body = {"status": "resolved"}
         result = handler._handle_update_policy_violation("viol-001", body, mock_http_handler)
@@ -1217,18 +1147,14 @@ class TestGetRouting:
 
     def test_route_list_violations(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
-        result = handler.handle(
-            "/api/control-plane/policies/violations", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/policies/violations", {}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["total"] == 0
 
     def test_route_list_violations_v1(self, handler, mock_policy_store, mock_http_handler):
         """Versioned path /api/v1/control-plane/policies/violations should normalize."""
         mock_policy_store.list_violations.return_value = []
-        result = handler.handle(
-            "/api/v1/control-plane/policies/violations", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/control-plane/policies/violations", {}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["total"] == 0
 
@@ -1252,9 +1178,7 @@ class TestGetRouting:
         assert _status(result) == 200
         assert _body(result)["violation"]["id"] == "viol-002"
 
-    def test_route_get_violation_not_found(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_route_get_violation_not_found(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
         result = handler.handle(
             "/api/control-plane/policies/violations/nonexistent", {}, mock_http_handler
@@ -1328,9 +1252,7 @@ class TestPatchRouting:
         assert _status(result) == 200
         assert _body(result)["status"] == "investigating"
 
-    def test_route_patch_extracts_violation_id(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_route_patch_extracts_violation_id(self, handler, mock_policy_store, mock_http_handler):
         """Verify the violation_id is correctly extracted from the path."""
         mock_policy_store.update_violation_status.return_value = True
         body = {"status": "resolved"}
@@ -1349,9 +1271,7 @@ class TestPatchRouting:
         assert _body(result)["violation_id"] == "my-specific-violation"
 
     def test_route_patch_unknown_path_returns_none(self, handler, mock_http_handler):
-        result = handler.handle_patch(
-            "/api/control-plane/unknown/path", {}, mock_http_handler
-        )
+        result = handler.handle_patch("/api/control-plane/unknown/path", {}, mock_http_handler)
         assert result is None
 
     def test_route_patch_violations_base_path_returns_none(self, handler, mock_http_handler):
@@ -1440,32 +1360,22 @@ class TestGetHasPermission:
 class TestEdgeCases:
     """Miscellaneous edge cases for full coverage."""
 
-    def test_list_violations_single_violation(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
-        mock_policy_store.list_violations.return_value = [
-            {"id": "viol-only", "status": "open"}
-        ]
+    def test_list_violations_single_violation(self, handler, mock_policy_store, mock_http_handler):
+        mock_policy_store.list_violations.return_value = [{"id": "viol-only", "status": "open"}]
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         body = _body(result)
         assert body["total"] == 1
         assert len(body["violations"]) == 1
 
-    def test_list_violations_many_violations(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
-        violations = [
-            {"id": f"viol-{i:03d}", "status": "open"} for i in range(100)
-        ]
+    def test_list_violations_many_violations(self, handler, mock_policy_store, mock_http_handler):
+        violations = [{"id": f"viol-{i:03d}", "status": "open"} for i in range(100)]
         mock_policy_store.list_violations.return_value = violations
         result = handler._handle_list_policy_violations({}, mock_http_handler)
         body = _body(result)
         assert body["total"] == 100
         assert len(body["violations"]) == 100
 
-    def test_get_violation_various_ids(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_get_violation_various_ids(self, handler, mock_policy_store, mock_http_handler):
         """Verify various violation_id formats work."""
         for vid in ["simple", "with-dashes", "with_underscores", "v.dotted", "123"]:
             mock_policy_store.list_violations.return_value = [{"id": vid}]
@@ -1496,24 +1406,16 @@ class TestEdgeCases:
         assert body["open"] == 1
         assert body["resolved"] == 2
 
-    def test_list_violations_limit_zero(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_limit_zero(self, handler, mock_policy_store, mock_http_handler):
         """Limit of zero should be passed to store."""
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"limit": ["0"]}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"limit": ["0"]}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["limit"] == 0
 
-    def test_list_violations_large_offset(
-        self, handler, mock_policy_store, mock_http_handler
-    ):
+    def test_list_violations_large_offset(self, handler, mock_policy_store, mock_http_handler):
         mock_policy_store.list_violations.return_value = []
-        result = handler._handle_list_policy_violations(
-            {"offset": ["9999"]}, mock_http_handler
-        )
+        result = handler._handle_list_policy_violations({"offset": ["9999"]}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["offset"] == 9999
 

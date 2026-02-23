@@ -51,6 +51,7 @@ def _get_store():
     global _store
     if _store is None:
         from aragora.pipeline.graph_store import get_graph_store
+
         _store = get_graph_store()
     return _store
 
@@ -67,9 +68,7 @@ class UniversalGraphHandler(BaseHandler):
         cleaned = strip_version_prefix(path)
         return cleaned.startswith("/api/pipeline/graphs")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         cleaned = strip_version_prefix(path)
         client_ip = get_client_ip(handler)
@@ -141,9 +140,7 @@ class UniversalGraphHandler(BaseHandler):
             return None
 
     @handle_errors("universal graph creation")
-    def handle_post(
-        self, path: str, body: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route POST requests."""
         auth_error = self._check_permission(handler, "pipeline:write")
         if auth_error:
@@ -176,9 +173,7 @@ class UniversalGraphHandler(BaseHandler):
         return None
 
     @handle_errors("universal graph update")
-    def handle_put(
-        self, path: str, body: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle_put(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route PUT requests."""
         auth_error = self._check_permission(handler, "pipeline:write")
         if auth_error:
@@ -239,6 +234,7 @@ class UniversalGraphHandler(BaseHandler):
 
     def _create_graph(self, body: dict[str, Any]) -> HandlerResult:
         from aragora.pipeline.universal_node import UniversalGraph
+
         graph = UniversalGraph(
             id=body.get("id", f"graph-{uuid.uuid4().hex[:8]}"),
             name=body.get("name", "Untitled Pipeline"),
@@ -279,6 +275,7 @@ class UniversalGraphHandler(BaseHandler):
         if "workspace_id" in body:
             graph.workspace_id = body["workspace_id"]
         import time
+
         graph.updated_at = time.time()
         store.update(graph)
         return json_response(graph.to_dict())
@@ -340,10 +337,12 @@ class UniversalGraphHandler(BaseHandler):
                 return error_response("Invalid stage filter", 400)
 
         nodes = store.query_nodes(graph_id, stage=stage, subtype=subtype)
-        return json_response({
-            "nodes": [n.to_dict() for n in nodes],
-            "count": len(nodes),
-        })
+        return json_response(
+            {
+                "nodes": [n.to_dict() for n in nodes],
+                "count": len(nodes),
+            }
+        )
 
     def _add_edge(self, graph_id: str, body: dict[str, Any]) -> HandlerResult:
         from aragora.canvas.stages import StageEdgeType
@@ -426,19 +425,23 @@ class UniversalGraphHandler(BaseHandler):
         for node in created:
             store.add_node(graph_id, node)
 
-        return json_response({
-            "created": [n.to_dict() for n in created],
-            "count": len(created),
-            "target_stage": target_stage.value,
-        })
+        return json_response(
+            {
+                "created": [n.to_dict() for n in created],
+                "count": len(created),
+                "target_stage": target_stage.value,
+            }
+        )
 
     def _provenance_chain(self, graph_id: str, node_id: str) -> HandlerResult:
         store = _get_store()
         chain = store.get_provenance_chain(graph_id, node_id)
-        return json_response({
-            "chain": [n.to_dict() for n in chain],
-            "depth": len(chain),
-        })
+        return json_response(
+            {
+                "chain": [n.to_dict() for n in chain],
+                "depth": len(chain),
+            }
+        )
 
     def _react_flow(self, graph_id: str, params: dict[str, Any]) -> HandlerResult:
         from aragora.canvas.stages import PipelineStage
@@ -464,12 +467,14 @@ class UniversalGraphHandler(BaseHandler):
         graph = store.get(graph_id)
         if graph is None:
             return error_response("Graph not found", 404)
-        return json_response({
-            "graph_id": graph_id,
-            "integrity_hash": graph.integrity_hash(),
-            "node_count": len(graph.nodes),
-            "edge_count": len(graph.edges),
-        })
+        return json_response(
+            {
+                "graph_id": graph_id,
+                "integrity_hash": graph.integrity_hash(),
+                "node_count": len(graph.nodes),
+                "edge_count": len(graph.edges),
+            }
+        )
 
 
 __all__ = ["UniversalGraphHandler"]

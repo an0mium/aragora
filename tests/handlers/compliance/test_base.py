@@ -105,18 +105,14 @@ class TestExtractUserIdFromHeaders:
         """JWT payload with None user_id should fall through to default."""
         mock_payload = SimpleNamespace(user_id=None)
         mock_validate.return_value = mock_payload
-        result = extract_user_id_from_headers(
-            {"Authorization": "Bearer some_jwt_token"}
-        )
+        result = extract_user_id_from_headers({"Authorization": "Bearer some_jwt_token"})
         assert result == "compliance_api"
 
     @patch("aragora.billing.auth.tokens.validate_access_token")
     def test_jwt_returns_none_payload(self, mock_validate):
         """If validate_access_token returns None, fall through to default."""
         mock_validate.return_value = None
-        result = extract_user_id_from_headers(
-            {"Authorization": "Bearer some_jwt_token"}
-        )
+        result = extract_user_id_from_headers({"Authorization": "Bearer some_jwt_token"})
         assert result == "compliance_api"
 
     def test_jwt_import_error_falls_back(self):
@@ -125,42 +121,36 @@ class TestExtractUserIdFromHeaders:
             "sys.modules",
             {"aragora.billing.auth.tokens": None},
         ):
-            result = extract_user_id_from_headers(
-                {"Authorization": "Bearer some_jwt_token"}
-            )
+            result = extract_user_id_from_headers({"Authorization": "Bearer some_jwt_token"})
             assert result == "compliance_api"
 
     @patch("aragora.billing.auth.tokens.validate_access_token")
     def test_jwt_value_error_falls_back(self, mock_validate):
         """ValueError during JWT validation falls back to default."""
         mock_validate.side_effect = ValueError("bad token")
-        result = extract_user_id_from_headers(
-            {"Authorization": "Bearer bad_token"}
-        )
+        result = extract_user_id_from_headers({"Authorization": "Bearer bad_token"})
         assert result == "compliance_api"
 
     @patch("aragora.billing.auth.tokens.validate_access_token")
     def test_jwt_attribute_error_falls_back(self, mock_validate):
         """AttributeError during JWT validation falls back to default."""
         mock_validate.side_effect = AttributeError("no user_id")
-        result = extract_user_id_from_headers(
-            {"Authorization": "Bearer some_token"}
-        )
+        result = extract_user_id_from_headers({"Authorization": "Bearer some_token"})
         assert result == "compliance_api"
 
     def test_lowercase_authorization_header(self):
         """Lowercase 'authorization' header key should also be recognized."""
-        result = extract_user_id_from_headers(
-            {"authorization": "Bearer ara_test1234567890"}
-        )
+        result = extract_user_id_from_headers({"authorization": "Bearer ara_test1234567890"})
         assert result == "api_key:ara_test1234..."
 
     def test_both_cases_prefers_capitalized(self):
         """When both Authorization and authorization exist, capitalize wins."""
-        result = extract_user_id_from_headers({
-            "Authorization": "Bearer ara_UPPERCASE",
-            "authorization": "Bearer ara_lowercase",
-        })
+        result = extract_user_id_from_headers(
+            {
+                "Authorization": "Bearer ara_UPPERCASE",
+                "authorization": "Bearer ara_lowercase",
+            }
+        )
         # The code checks "Authorization" first via .get()
         assert result == "api_key:ara_UPPERCAS..."
 
@@ -340,8 +330,17 @@ class TestAllExports:
         """__all__ should include standard library re-exports."""
         import aragora.server.handlers.compliance._base as base_mod
 
-        for name in ("hashlib", "html", "json", "logging", "datetime",
-                      "timezone", "timedelta", "Any", "Optional"):
+        for name in (
+            "hashlib",
+            "html",
+            "json",
+            "logging",
+            "datetime",
+            "timezone",
+            "timedelta",
+            "Any",
+            "Optional",
+        ):
             assert name in base_mod.__all__, f"{name} missing from __all__"
 
     def test_all_symbols_are_accessible(self):

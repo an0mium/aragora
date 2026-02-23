@@ -17,6 +17,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_factory_singleton():
     """Reset the module-level _factory singleton between tests.
@@ -27,6 +28,7 @@ def _reset_factory_singleton():
     side-effects in ``TestCreateMethod`` corrupting the shared module.
     """
     import aragora.debate.factory as mod
+
     saved = mod._factory
     mod._factory = None
     yield
@@ -36,6 +38,7 @@ def _reset_factory_singleton():
 def _fresh_factory():
     """Import ArenaFactory without triggering heavy transitive imports."""
     from aragora.debate.factory import ArenaFactory
+
     return ArenaFactory()
 
 
@@ -483,9 +486,7 @@ class TestGlobalFunctions:
         env = MagicMock()
         agents = [MagicMock()]
         result = mod.create_arena(env, agents, enable_insights=True)
-        mock_factory.create.assert_called_once_with(
-            env, agents, enable_insights=True
-        )
+        mock_factory.create.assert_called_once_with(env, agents, enable_insights=True)
         assert result is mock_factory.create.return_value
         # Cleanup
         mod._factory = None

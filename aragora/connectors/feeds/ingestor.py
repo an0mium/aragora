@@ -192,7 +192,9 @@ class FeedIngestor:
                     return entries[: source.max_entries]
 
                 except httpx.HTTPStatusError as e:
-                    logger.warning("HTTP error fetching %s: %s", source.name, e.response.status_code)
+                    logger.warning(
+                        "HTTP error fetching %s: %s", source.name, e.response.status_code
+                    )
                     if e.response.status_code >= 500:
                         # Server error, retry with backoff
                         delay = self.base_retry_delay * (2**attempt)

@@ -104,7 +104,9 @@ class CommandRegistry:
         # Register aliases
         for alias in command.aliases:
             if alias in self._aliases:
-                logger.warning("Alias '%s' already registered for '%s'", alias, self._aliases[alias])
+                logger.warning(
+                    "Alias '%s' already registered for '%s'", alias, self._aliases[alias]
+                )
             self._aliases[alias] = command.name
 
         logger.debug("Registered command: %s", command.name)

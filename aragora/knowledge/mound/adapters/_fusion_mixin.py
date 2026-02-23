@@ -428,7 +428,10 @@ class FusionMixin:
 
         if len(filtered_sources) < min_sources:
             logger.info(
-                "[%s] Insufficient sources for fusion: %s < %s", self.adapter_name, len(filtered_sources), min_sources
+                "[%s] Insufficient sources for fusion: %s < %s",
+                self.adapter_name,
+                len(filtered_sources),
+                min_sources,
             )
             result["items_skipped"] = len(km_items)
             result["duration_ms"] = (time.time() - start_time) * 1000

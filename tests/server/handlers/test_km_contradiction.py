@@ -444,7 +444,9 @@ class TestGetContradictionStats:
     async def test_get_stats_mound_error(self, handler):
         """Test stats handles mound errors."""
         test_handler = MockContradictionHandler()
-        test_handler.mound.get_contradiction_stats = MagicMock(side_effect=ValueError("Stats error"))
+        test_handler.mound.get_contradiction_stats = MagicMock(
+            side_effect=ValueError("Stats error")
+        )
 
         result = await test_handler.get_contradiction_stats()
 

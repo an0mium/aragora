@@ -169,41 +169,29 @@ class TestRecordOutcomeEdgeCases:
     def test_impact_score_zero_is_valid(self, handler):
         """An impact_score of exactly 0.0 is a valid value."""
         mock_http = _mock_post_handler(_valid_outcome_body(impact_score=0.0))
-        with patch(
-            "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter"
-        ) as m:
+        with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
-            result = handler._handle_record_outcome(
-                "/api/v1/decisions/dec_z/outcome", mock_http
-            )
+            result = handler._handle_record_outcome("/api/v1/decisions/dec_z/outcome", mock_http)
         assert result["status"] == 201
 
     def test_impact_score_one_is_valid(self, handler):
         """An impact_score of exactly 1.0 is a valid value."""
         mock_http = _mock_post_handler(_valid_outcome_body(impact_score=1.0))
-        with patch(
-            "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter"
-        ) as m:
+        with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
-            result = handler._handle_record_outcome(
-                "/api/v1/decisions/dec_z/outcome", mock_http
-            )
+            result = handler._handle_record_outcome("/api/v1/decisions/dec_z/outcome", mock_http)
         assert result["status"] == 201
 
     def test_impact_score_negative_rejected(self, handler):
         """A negative impact_score is rejected."""
         mock_http = _mock_post_handler(_valid_outcome_body(impact_score=-0.1))
-        result = handler._handle_record_outcome(
-            "/api/v1/decisions/dec_z/outcome", mock_http
-        )
+        result = handler._handle_record_outcome("/api/v1/decisions/dec_z/outcome", mock_http)
         assert result["status"] == 400
 
     def test_impact_score_not_a_number(self, handler):
         """A non-numeric impact_score is rejected."""
         mock_http = _mock_post_handler(_valid_outcome_body(impact_score="high"))
-        result = handler._handle_record_outcome(
-            "/api/v1/decisions/dec_z/outcome", mock_http
-        )
+        result = handler._handle_record_outcome("/api/v1/decisions/dec_z/outcome", mock_http)
         assert result["status"] == 400
 
     def test_oversized_body_rejected(self, handler):
@@ -211,21 +199,15 @@ class TestRecordOutcomeEdgeCases:
         mock_http = MagicMock()
         mock_http.headers = {"Content-Length": str(handler.MAX_BODY_SIZE + 1)}
         mock_http.rfile.read.return_value = b"x" * (handler.MAX_BODY_SIZE + 1)
-        result = handler._handle_record_outcome(
-            "/api/v1/decisions/dec_z/outcome", mock_http
-        )
+        result = handler._handle_record_outcome("/api/v1/decisions/dec_z/outcome", mock_http)
         assert result["status"] == 400
 
     def test_all_valid_outcome_types_accepted(self, handler):
         """Each value in VALID_OUTCOME_TYPES is accepted."""
         for otype in sorted(VALID_OUTCOME_TYPES):
             _outcome_store.clear()
-            mock_http = _mock_post_handler(
-                _valid_outcome_body(outcome_type=otype)
-            )
-            with patch(
-                "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter"
-            ) as m:
+            mock_http = _mock_post_handler(_valid_outcome_body(outcome_type=otype))
+            with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
                 m.return_value = MagicMock(ingest=MagicMock(return_value=True))
                 result = handler._handle_record_outcome(
                     "/api/v1/decisions/dec_z/outcome", mock_http
@@ -285,13 +267,9 @@ class TestEviction:
 
         # Record one more outcome to trigger eviction
         mock_http = _mock_post_handler(_valid_outcome_body())
-        with patch(
-            "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter"
-        ) as m:
+        with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
-            result = handler._handle_record_outcome(
-                "/api/v1/decisions/dec_new/outcome", mock_http
-            )
+            result = handler._handle_record_outcome("/api/v1/decisions/dec_new/outcome", mock_http)
 
         assert result["status"] == 201
         # Store should not exceed MAX_OUTCOMES
@@ -310,8 +288,16 @@ class TestImpactAnalyticsAggregation:
 
     def test_avg_impact_score_computed_correctly(self, handler):
         """The overall average impact score is correct."""
-        _outcome_store["o1"] = {"outcome_type": "success", "impact_score": 0.9, "lessons_learned": ""}
-        _outcome_store["o2"] = {"outcome_type": "failure", "impact_score": 0.1, "lessons_learned": ""}
+        _outcome_store["o1"] = {
+            "outcome_type": "success",
+            "impact_score": 0.9,
+            "lessons_learned": "",
+        }
+        _outcome_store["o2"] = {
+            "outcome_type": "failure",
+            "impact_score": 0.1,
+            "lessons_learned": "",
+        }
 
         result = handler._handle_impact_analytics(MagicMock())
         body = json.loads(result["body"])
@@ -319,8 +305,16 @@ class TestImpactAnalyticsAggregation:
 
     def test_by_type_avg_impact(self, handler):
         """Per-type average impact scores are computed correctly."""
-        _outcome_store["o1"] = {"outcome_type": "success", "impact_score": 0.8, "lessons_learned": ""}
-        _outcome_store["o2"] = {"outcome_type": "success", "impact_score": 0.6, "lessons_learned": ""}
+        _outcome_store["o1"] = {
+            "outcome_type": "success",
+            "impact_score": 0.8,
+            "lessons_learned": "",
+        }
+        _outcome_store["o2"] = {
+            "outcome_type": "success",
+            "impact_score": 0.6,
+            "lessons_learned": "",
+        }
 
         result = handler._handle_impact_analytics(MagicMock())
         body = json.loads(result["body"])
@@ -329,9 +323,21 @@ class TestImpactAnalyticsAggregation:
 
     def test_top_lessons_sorted_by_impact(self, handler):
         """Top lessons are ordered by descending impact score."""
-        _outcome_store["o1"] = {"outcome_type": "success", "impact_score": 0.3, "lessons_learned": "Low impact lesson"}
-        _outcome_store["o2"] = {"outcome_type": "success", "impact_score": 0.9, "lessons_learned": "High impact lesson"}
-        _outcome_store["o3"] = {"outcome_type": "partial", "impact_score": 0.6, "lessons_learned": "Mid impact lesson"}
+        _outcome_store["o1"] = {
+            "outcome_type": "success",
+            "impact_score": 0.3,
+            "lessons_learned": "Low impact lesson",
+        }
+        _outcome_store["o2"] = {
+            "outcome_type": "success",
+            "impact_score": 0.9,
+            "lessons_learned": "High impact lesson",
+        }
+        _outcome_store["o3"] = {
+            "outcome_type": "partial",
+            "impact_score": 0.6,
+            "lessons_learned": "Mid impact lesson",
+        }
 
         result = handler._handle_impact_analytics(MagicMock())
         body = json.loads(result["body"])

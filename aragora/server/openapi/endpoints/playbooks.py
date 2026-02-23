@@ -356,8 +356,16 @@ asynchronously -- poll the run status or connect via WebSocket for real-time upd
                             "status": "queued",
                             "created_at": "2026-02-21T12:00:00Z",
                             "steps": [
-                                {"name": "gather_context", "action": "knowledge_query", "config": {"domain": "healthcare"}},
-                                {"name": "run_debate", "action": "debate", "config": {"template": "clinical_review"}},
+                                {
+                                    "name": "gather_context",
+                                    "action": "knowledge_query",
+                                    "config": {"domain": "healthcare"},
+                                },
+                                {
+                                    "name": "run_debate",
+                                    "action": "debate",
+                                    "config": {"template": "clinical_review"},
+                                },
                                 {"name": "generate_receipt", "action": "receipt", "config": {}},
                             ],
                             "config": {

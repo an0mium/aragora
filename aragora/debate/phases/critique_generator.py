@@ -349,7 +349,10 @@ class CritiqueGenerator:
 
         if crit_result.error:
             logger.error(
-                "critique_error critic=%s target=%s error=%s", critic.name, proposal_agent, crit_result.error
+                "critique_error critic=%s target=%s error=%s",
+                critic.name,
+                proposal_agent,
+                crit_result.error,
             )
             error_type = self._classify_error(crit_result.error)
             provider = getattr(critic, "provider", None) or getattr(critic, "model_type", "unknown")
@@ -400,7 +403,9 @@ class CritiqueGenerator:
 
         if crit_result.critique is None:
             # Handle timeout/error case
-            logger.warning("critique_returned_none critic=%s target=%s", critic.name, proposal_agent)
+            logger.warning(
+                "critique_returned_none critic=%s target=%s", critic.name, proposal_agent
+            )
             ctx.record_agent_failure(
                 critic.name,
                 phase="critique",
@@ -550,7 +555,10 @@ class CritiqueGenerator:
             key = f"{critic_name}:{target_name}"
             self._active_molecules[key] = molecule.molecule_id
             logger.debug(
-                "[molecule] Created critique molecule %s critic=%s target=%s", molecule.molecule_id, critic_name, target_name
+                "[molecule] Created critique molecule %s critic=%s target=%s",
+                molecule.molecule_id,
+                critic_name,
+                target_name,
             )
         except ImportError:
             logger.debug("[molecule] Molecule imports unavailable")

@@ -494,7 +494,6 @@ class TestSyncJobRecovery:
     @pytest.mark.asyncio
     async def test_explicit_recovery_call(self, db_path):
         """Should be able to call recovery explicitly."""
-        import aiosqlite
 
         # Manually insert a running job directly into DB
         async with aiosqlite.connect(str(db_path)) as conn:

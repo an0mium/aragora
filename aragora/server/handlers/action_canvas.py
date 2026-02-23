@@ -99,8 +99,13 @@ class ActionCanvasHandler(SecureHandler):
 
         try:
             return self._route_request(
-                path, method, query_params, body,
-                user_id, workspace_id, auth_context,
+                path,
+                method,
+                query_params,
+                body,
+                user_id,
+                workspace_id,
+                auth_context,
             )
         except PermissionDeniedError as e:
             perm = e.permission_key if hasattr(e, "permission_key") else "unknown"
@@ -201,10 +206,12 @@ class ActionCanvasHandler(SecureHandler):
 
     def _get_store(self):
         from aragora.canvas.action_store import get_action_canvas_store
+
         return get_action_canvas_store()
 
     def _get_canvas_manager(self):
         from aragora.canvas import get_canvas_manager
+
         return get_canvas_manager()
 
     def _run_async(self, coro):
@@ -224,7 +231,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:read")
     def _list_canvases(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         query_params: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
@@ -245,7 +253,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:create")
     def _create_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         body: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
@@ -269,7 +278,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:read")
     def _get_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -296,7 +306,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:update")
     def _update_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -318,7 +329,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:delete")
     def _delete_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -338,7 +350,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:create")
     def _add_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -387,7 +400,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:update")
     def _update_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         body: dict[str, Any],
@@ -423,7 +437,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:delete")
     def _delete_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         user_id: str | None,
@@ -444,7 +459,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:create")
     def _add_edge(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -484,7 +500,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:delete")
     def _delete_edge(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         edge_id: str,
         user_id: str | None,
@@ -505,7 +522,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:read")
     def _export_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -523,7 +541,8 @@ class ActionCanvasHandler(SecureHandler):
 
     @require_permission("actions:advance")
     def _advance_to_orchestration(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -544,15 +563,18 @@ class ActionCanvasHandler(SecureHandler):
                 nodes = [n.to_dict() for n in canvas.nodes.values()]
                 edges = [e.to_dict() for e in canvas.edges.values()]
 
-            return json_response({
-                "source_canvas_id": canvas_id,
-                "source_stage": "actions",
-                "target_stage": "orchestration",
-                "nodes": nodes,
-                "edges": edges,
-                "metadata": canvas_meta.get("metadata", {}),
-                "status": "ready",
-            }, status=201)
+            return json_response(
+                {
+                    "source_canvas_id": canvas_id,
+                    "source_stage": "actions",
+                    "target_stage": "orchestration",
+                    "nodes": nodes,
+                    "edges": edges,
+                    "metadata": canvas_meta.get("metadata", {}),
+                    "status": "ready",
+                },
+                status=201,
+            )
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to advance action canvas: %s", e)
             return error_response("Advance to orchestration failed", 500)

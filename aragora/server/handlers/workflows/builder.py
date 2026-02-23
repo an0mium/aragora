@@ -60,9 +60,7 @@ class WorkflowBuilderHandler(BaseHandler):
 
     @track_handler("workflows/builder", method="GET")
     @require_permission("workflows:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for builder endpoints."""
         if path == "/api/v1/workflows/step-types":
             return self._get_step_catalog(query_params)
@@ -112,11 +110,13 @@ class WorkflowBuilderHandler(BaseHandler):
             if category_filter:
                 items = [i for i in items if i["category"] == category_filter]
 
-            return json_response({
-                "step_types": items,
-                "categories": list_step_categories(),
-                "count": len(items),
-            })
+            return json_response(
+                {
+                    "step_types": items,
+                    "categories": list_step_categories(),
+                    "count": len(items),
+                }
+            )
         except ImportError:
             logger.warning("step_catalog module not available")
             return error_response("Step catalog not available", 503)
@@ -144,11 +144,13 @@ class WorkflowBuilderHandler(BaseHandler):
                     category=body.get("category"),
                 )
             else:
-                result = _run_async(builder.build(
-                    description,
-                    category=body.get("category"),
-                    agents=body.get("agents"),
-                ))
+                result = _run_async(
+                    builder.build(
+                        description,
+                        category=body.get("category"),
+                        agents=body.get("agents"),
+                    )
+                )
 
             return json_response(result.to_dict())
         except ImportError:
@@ -180,11 +182,13 @@ class WorkflowBuilderHandler(BaseHandler):
             else:
                 positions = flow_layout(steps, transitions)
 
-            return json_response({
-                "positions": [p.to_dict() for p in positions],
-                "layout": layout_type,
-                "count": len(positions),
-            })
+            return json_response(
+                {
+                    "positions": [p.to_dict() for p in positions],
+                    "layout": layout_type,
+                    "count": len(positions),
+                }
+            )
         except ImportError:
             logger.warning("layout module not available")
             return error_response("Layout module not available", 503)

@@ -377,7 +377,11 @@ class TestValidateRuleCondition:
 
     def test_value_too_long(self):
         ok, err, _ = validate_rule_condition(
-            {"field": "subject", "operator": "contains", "value": "x" * (MAX_CONDITION_VALUE_LENGTH + 1)}
+            {
+                "field": "subject",
+                "operator": "contains",
+                "value": "x" * (MAX_CONDITION_VALUE_LENGTH + 1),
+            }
         )
         assert ok is False
 
@@ -453,9 +457,15 @@ class TestValidateRoutingRule:
         assert result.is_valid is False
 
     def test_too_many_conditions(self):
-        conds = [{"field": "subject", "operator": "contains", "value": f"v{i}"} for i in range(MAX_CONDITIONS_PER_RULE + 1)]
+        conds = [
+            {"field": "subject", "operator": "contains", "value": f"v{i}"}
+            for i in range(MAX_CONDITIONS_PER_RULE + 1)
+        ]
         result = validate_routing_rule(
-            name="rule", conditions=conds, actions=[{"type": "assign", "target": "u"}], workspace_id="ws-1"
+            name="rule",
+            conditions=conds,
+            actions=[{"type": "assign", "target": "u"}],
+            workspace_id="ws-1",
         )
         assert result.is_valid is False
 
@@ -591,7 +601,9 @@ class TestEvaluateRule:
         assert _evaluate_rule(rule, msg) is False
 
     def test_equals_match(self):
-        rule = self._make_rule([{"field": "from", "operator": "equals", "value": "alice@example.com"}])
+        rule = self._make_rule(
+            [{"field": "from", "operator": "equals", "value": "alice@example.com"}]
+        )
         msg = self._make_message()
         assert _evaluate_rule(rule, msg) is True
 
@@ -606,7 +618,9 @@ class TestEvaluateRule:
         assert _evaluate_rule(rule, msg) is True
 
     def test_sender_domain(self):
-        rule = self._make_rule([{"field": "sender_domain", "operator": "equals", "value": "example.com"}])
+        rule = self._make_rule(
+            [{"field": "sender_domain", "operator": "equals", "value": "example.com"}]
+        )
         msg = self._make_message()
         assert _evaluate_rule(rule, msg) is True
 
@@ -649,7 +663,9 @@ class TestEvaluateRule:
         assert _evaluate_rule(rule, msg) is True
 
     def test_matches_regex(self):
-        rule = self._make_rule([{"field": "subject", "operator": "matches", "value": r"help.*billing"}])
+        rule = self._make_rule(
+            [{"field": "subject", "operator": "matches", "value": r"help.*billing"}]
+        )
         msg = self._make_message()
         assert _evaluate_rule(rule, msg) is True
 
@@ -659,22 +675,36 @@ class TestEvaluateRuleForTest:
         now = datetime.now(timezone.utc)
         inbox = SharedInbox(id="inbox-1", workspace_id="ws-1", name="Test")
         msg1 = SharedInboxMessage(
-            id="m1", inbox_id="inbox-1", email_id="e1",
-            subject="Billing issue", from_address="a@b.com",
-            to_addresses=["x@y.com"], snippet="...", received_at=now,
+            id="m1",
+            inbox_id="inbox-1",
+            email_id="e1",
+            subject="Billing issue",
+            from_address="a@b.com",
+            to_addresses=["x@y.com"],
+            snippet="...",
+            received_at=now,
         )
         msg2 = SharedInboxMessage(
-            id="m2", inbox_id="inbox-1", email_id="e2",
-            subject="Shipping question", from_address="a@b.com",
-            to_addresses=["x@y.com"], snippet="...", received_at=now,
+            id="m2",
+            inbox_id="inbox-1",
+            email_id="e2",
+            subject="Shipping question",
+            from_address="a@b.com",
+            to_addresses=["x@y.com"],
+            snippet="...",
+            received_at=now,
         )
         with _storage_lock:
             _shared_inboxes["inbox-1"] = inbox
             _inbox_messages["inbox-1"] = {"m1": msg1, "m2": msg2}
 
         rule = RoutingRule(
-            id="r1", name="billing", workspace_id="ws-1",
-            conditions=[RuleCondition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing")],
+            id="r1",
+            name="billing",
+            workspace_id="ws-1",
+            conditions=[
+                RuleCondition(RuleConditionField.SUBJECT, RuleConditionOperator.CONTAINS, "billing")
+            ],
             condition_logic="AND",
             actions=[RuleAction(type=RuleActionType.ASSIGN, target="u1")],
         )
@@ -705,8 +735,12 @@ class TestModels:
 
     def test_routing_rule_round_trip(self):
         rule = RoutingRule(
-            id="r1", name="test", workspace_id="ws-1",
-            conditions=[RuleCondition(RuleConditionField.FROM, RuleConditionOperator.EQUALS, "a@b.com")],
+            id="r1",
+            name="test",
+            workspace_id="ws-1",
+            conditions=[
+                RuleCondition(RuleConditionField.FROM, RuleConditionOperator.EQUALS, "a@b.com")
+            ],
             condition_logic="OR",
             actions=[RuleAction(type=RuleActionType.LABEL, target="urgent")],
             priority=3,
@@ -727,9 +761,15 @@ class TestModels:
     def test_shared_inbox_message_to_dict(self):
         now = datetime.now(timezone.utc)
         msg = SharedInboxMessage(
-            id="m1", inbox_id="i1", email_id="e1", subject="Hi",
-            from_address="a@b.com", to_addresses=["c@d.com"],
-            snippet="...", received_at=now, tags=["important"],
+            id="m1",
+            inbox_id="i1",
+            email_id="e1",
+            subject="Hi",
+            from_address="a@b.com",
+            to_addresses=["c@d.com"],
+            snippet="...",
+            received_at=now,
+            tags=["important"],
         )
         d = msg.to_dict()
         assert d["tags"] == ["important"]
@@ -831,9 +871,7 @@ class TestHandlerPostAssignMessage:
 
     @pytest.mark.asyncio
     async def test_assigned_to_not_string(self, handler):
-        result = await handler.handle_post_assign_message(
-            {"assigned_to": 123}, "inbox-1", "msg-1"
-        )
+        result = await handler.handle_post_assign_message({"assigned_to": 123}, "inbox-1", "msg-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -864,9 +902,7 @@ class TestHandlerPostUpdateStatus:
 
     @pytest.mark.asyncio
     async def test_invalid_status(self, handler):
-        result = await handler.handle_post_update_status(
-            {"status": "nonsense"}, "inbox-1", "msg-1"
-        )
+        result = await handler.handle_post_update_status({"status": "nonsense"}, "inbox-1", "msg-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -890,9 +926,7 @@ class TestHandlerPostAddTag:
 
     @pytest.mark.asyncio
     async def test_invalid_tag(self, handler):
-        result = await handler.handle_post_add_tag(
-            {"tag": "bad tag!"}, "inbox-1", "msg-1"
-        )
+        result = await handler.handle_post_add_tag({"tag": "bad tag!"}, "inbox-1", "msg-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -902,9 +936,7 @@ class TestHandlerPostAddTag:
             new_callable=AsyncMock,
         ) as mock_tag:
             mock_tag.return_value = {"success": True, "message": {"id": "msg-1"}}
-            result = await handler.handle_post_add_tag(
-                {"tag": "urgent"}, "inbox-1", "msg-1"
-            )
+            result = await handler.handle_post_add_tag({"tag": "urgent"}, "inbox-1", "msg-1")
             assert _status(result) == 200
 
 
@@ -921,12 +953,14 @@ class TestHandlerPostRoutingRule:
             new_callable=AsyncMock,
         ) as mock_create:
             mock_create.return_value = {"success": True, "rule": {"id": "r1"}}
-            result = await handler.handle_post_routing_rule({
-                "workspace_id": "ws-1",
-                "name": "Test",
-                "conditions": [{"field": "subject", "operator": "contains", "value": "help"}],
-                "actions": [{"type": "assign", "target": "u1"}],
-            })
+            result = await handler.handle_post_routing_rule(
+                {
+                    "workspace_id": "ws-1",
+                    "name": "Test",
+                    "conditions": [{"field": "subject", "operator": "contains", "value": "help"}],
+                    "actions": [{"type": "assign", "target": "u1"}],
+                }
+            )
             assert _status(result) == 200
 
 
@@ -1056,7 +1090,11 @@ class TestHandlerGetInboxMessages:
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = {
-                "success": True, "messages": [], "total": 0, "limit": 10, "offset": 0
+                "success": True,
+                "messages": [],
+                "total": 0,
+                "limit": 10,
+                "offset": 0,
             }
             result = await handler.handle_get_inbox_messages(
                 {"status": "open", "assigned_to": "u1", "tag": "urgent", "limit": "10"},

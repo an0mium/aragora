@@ -92,8 +92,10 @@ def handler():
 @pytest.fixture
 def handler_with_ctx():
     """Factory for creating a KMAdapterStatusHandler with a given context."""
+
     def _make(ctx: dict[str, Any] | None = None):
         return KMAdapterStatusHandler(ctx=ctx)
+
     return _make
 
 
@@ -106,9 +108,34 @@ def _make_specs(*entries: tuple[str, dict]) -> dict[str, MockAdapterSpec]:
 
 
 SAMPLE_SPECS = _make_specs(
-    ("continuum", {"priority": 100, "required_deps": ["continuum_memory"], "forward_method": "store", "reverse_method": "sync_validations_to_continuum"}),
-    ("consensus", {"priority": 90, "required_deps": ["consensus_store"], "forward_method": "sync_to_km", "reverse_method": "sync_from_km"}),
-    ("elo", {"priority": 50, "required_deps": ["elo_system"], "forward_method": "sync_to_km", "reverse_method": None, "enabled_by_default": False}),
+    (
+        "continuum",
+        {
+            "priority": 100,
+            "required_deps": ["continuum_memory"],
+            "forward_method": "store",
+            "reverse_method": "sync_validations_to_continuum",
+        },
+    ),
+    (
+        "consensus",
+        {
+            "priority": 90,
+            "required_deps": ["consensus_store"],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_from_km",
+        },
+    ),
+    (
+        "elo",
+        {
+            "priority": 50,
+            "required_deps": ["elo_system"],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "enabled_by_default": False,
+        },
+    ),
 )
 
 
@@ -578,7 +605,9 @@ class TestCoordinatorErrors:
         result = h.handle("/api/v1/knowledge/adapters", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
-        assert body["coordinator_available"] is True  # coordinator is present even though get_status failed
+        assert (
+            body["coordinator_available"] is True
+        )  # coordinator is present even though get_status failed
 
     @patch("aragora.server.handlers.knowledge.adapters.ADAPTER_SPECS", SAMPLE_SPECS)
     @patch("aragora.server.handlers.knowledge.adapters.KM_AVAILABLE", True)
@@ -651,13 +680,16 @@ class TestSingleAdapter:
     def test_single_adapter_full_structure(self, handler, mock_handler):
         """Verify complete structure of a single adapter entry."""
         single_spec = _make_specs(
-            ("test_adapter", {
-                "priority": 42,
-                "enabled_by_default": True,
-                "required_deps": ["dep_a", "dep_b"],
-                "forward_method": "push",
-                "reverse_method": "pull",
-            }),
+            (
+                "test_adapter",
+                {
+                    "priority": 42,
+                    "enabled_by_default": True,
+                    "required_deps": ["dep_a", "dep_b"],
+                    "forward_method": "push",
+                    "reverse_method": "pull",
+                },
+            ),
         )
         with patch("aragora.server.handlers.knowledge.adapters.ADAPTER_SPECS", single_spec):
             result = handler.handle("/api/v1/knowledge/adapters", {}, mock_handler)
@@ -678,10 +710,13 @@ class TestSingleAdapter:
     def test_single_adapter_no_reverse(self, handler, mock_handler):
         """Adapter with reverse_method=None is properly serialized."""
         spec = _make_specs(
-            ("one_way", {
-                "priority": 5,
-                "reverse_method": None,
-            }),
+            (
+                "one_way",
+                {
+                    "priority": 5,
+                    "reverse_method": None,
+                },
+            ),
         )
         with patch("aragora.server.handlers.knowledge.adapters.ADAPTER_SPECS", spec):
             result = handler.handle("/api/v1/knowledge/adapters", {}, mock_handler)

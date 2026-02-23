@@ -19,8 +19,15 @@ class TestIdeaNodeType:
 
     def test_all_9_types_exist(self):
         expected = {
-            "concept", "cluster", "question", "insight", "evidence",
-            "assumption", "constraint", "observation", "hypothesis",
+            "concept",
+            "cluster",
+            "question",
+            "insight",
+            "evidence",
+            "assumption",
+            "constraint",
+            "observation",
+            "hypothesis",
         }
         actual = {t.value for t in IdeaNodeType}
         assert actual == expected
@@ -32,8 +39,15 @@ class TestIdeaNodeType:
         assert IdeaNodeType.HYPOTHESIS.value == "hypothesis"
 
     def test_original_7_still_present(self):
-        for name in ["CONCEPT", "CLUSTER", "QUESTION", "INSIGHT",
-                      "EVIDENCE", "ASSUMPTION", "CONSTRAINT"]:
+        for name in [
+            "CONCEPT",
+            "CLUSTER",
+            "QUESTION",
+            "INSIGHT",
+            "EVIDENCE",
+            "ASSUMPTION",
+            "CONSTRAINT",
+        ]:
             assert hasattr(IdeaNodeType, name)
 
     def test_str_enum_behavior(self):

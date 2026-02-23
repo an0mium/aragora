@@ -291,7 +291,9 @@ class RelationshipTracker:
         except (RuntimeError, ValueError, TypeError) as e:
             logger.debug("Failed to emit relationship event: %s", e)
 
-    def _emit_relationship_event(self, agent_a: str, agent_b: str, relationship: AgentRelationship) -> None:
+    def _emit_relationship_event(
+        self, agent_a: str, agent_b: str, relationship: AgentRelationship
+    ) -> None:
         """Emit a relationship update event."""
         try:
             from aragora.events.dispatcher import dispatch_event
@@ -305,8 +307,10 @@ class RelationshipTracker:
                     "rivalry_score": round(relationship.rivalry_score, 4),
                     "alliance_score": round(relationship.alliance_score, 4),
                     "relationship_type": (
-                        "rival" if relationship.rivalry_score > 0.5
-                        else "ally" if relationship.alliance_score > 0.5
+                        "rival"
+                        if relationship.rivalry_score > 0.5
+                        else "ally"
+                        if relationship.alliance_score > 0.5
                         else "neutral"
                     ),
                     "influence_a_on_b": round(relationship.influence_a_on_b, 4),

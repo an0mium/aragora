@@ -261,24 +261,32 @@ class TestMockFallback:
 
             with patch(
                 "aragora.server.handlers.playground.PlaygroundHandler._run_debate",
-                return_value=json.loads(json.dumps({
-                    "id": "mock-123",
-                    "topic": "Test",
-                    "status": "completed",
-                    "final_answer": "Mock answer",
-                }).encode()).encode() if False else None,
+                return_value=json.loads(
+                    json.dumps(
+                        {
+                            "id": "mock-123",
+                            "topic": "Test",
+                            "status": "completed",
+                            "final_answer": "Mock answer",
+                        }
+                    ).encode()
+                ).encode()
+                if False
+                else None,
             ):
                 # Actually let _run_debate produce a HandlerResult
                 from aragora.server.handlers.base import json_response as _jr
 
-                mock_hr = _jr({
-                    "id": "mock-123",
-                    "topic": "Test",
-                    "status": "completed",
-                    "final_answer": "Mock answer",
-                    "consensus_reached": True,
-                    "confidence": 0.9,
-                })
+                mock_hr = _jr(
+                    {
+                        "id": "mock-123",
+                        "topic": "Test",
+                        "status": "completed",
+                        "final_answer": "Mock answer",
+                        "consensus_reached": True,
+                        "confidence": 0.9,
+                    }
+                )
                 with patch.object(pg, "_run_debate", return_value=mock_hr):
                     handler = _make_handler_with_body({"topic": "Test"})
                     result = pg.handle_post("/api/v1/playground/debate/live", {}, handler)

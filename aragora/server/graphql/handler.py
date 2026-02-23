@@ -246,7 +246,9 @@ class GraphQLHandler(BaseHandler):
             return json_response(
                 {
                     "data": None,
-                    "errors": [{"message": "Internal server error. Check server logs for details."}],
+                    "errors": [
+                        {"message": "Internal server error. Check server logs for details."}
+                    ],
                 },
                 status=500,
             )
@@ -329,7 +331,9 @@ class GraphQLHandler(BaseHandler):
             logger.warning("GraphQL resolver error in _execute: %s", e)
             return {
                 "data": None,
-                "errors": [{"message": "Operation execution failed. Check server logs for details."}],
+                "errors": [
+                    {"message": "Operation execution failed. Check server logs for details."}
+                ],
             }
 
     def _resolve_operation(

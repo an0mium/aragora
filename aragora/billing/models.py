@@ -437,7 +437,9 @@ class User:
                         break
                 if not allowed:
                     logger.warning(
-                        "API key IP binding rejected: client_ip=%s not in bound_ips for user %s", client_ip, self.id
+                        "API key IP binding rejected: client_ip=%s not in bound_ips for user %s",
+                        client_ip,
+                        self.id,
                     )
                     return False
             except ValueError:
@@ -483,7 +485,10 @@ class User:
         if not was_admin and not self.mfa_enabled:
             self.mfa_grace_period_started_at = datetime.now(timezone.utc)
             logger.info(
-                "User %s promoted to %s. MFA grace period started at %s", self.id, new_role, self.mfa_grace_period_started_at
+                "User %s promoted to %s. MFA grace period started at %s",
+                self.id,
+                new_role,
+                self.mfa_grace_period_started_at,
             )
 
     def clear_mfa_grace_period(self) -> None:
@@ -549,7 +554,10 @@ class User:
         self.updated_at = datetime.now(timezone.utc)
 
         logger.info(
-            "MFA bypass approved for service account %s by %s. Expires: %s", self.id, approved_by, self.mfa_bypass_expires_at
+            "MFA bypass approved for service account %s by %s. Expires: %s",
+            self.id,
+            approved_by,
+            self.mfa_bypass_expires_at,
         )
         try:
             from aragora.audit.unified import audit_admin
@@ -575,7 +583,11 @@ class User:
         self.mfa_bypass_reason = None
         self.updated_at = datetime.now(timezone.utc)
         logger.info(
-            "MFA bypass revoked for service account %s by %s. Reason: %s. Previously approved by: %s", self.id, revoked_by, reason, previous_approved_by
+            "MFA bypass revoked for service account %s by %s. Reason: %s. Previously approved by: %s",
+            self.id,
+            revoked_by,
+            reason,
+            previous_approved_by,
         )
         try:
             from aragora.audit.unified import audit_admin

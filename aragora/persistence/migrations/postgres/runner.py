@@ -206,7 +206,10 @@ class PostgresMigrationRunner:
                 for version in pending:
                     migration = self._migrations[version]
                     logger.info(
-                        "  - %s: %s (checksum: %s)", version, migration['name'], migration['checksum']
+                        "  - %s: %s (checksum: %s)",
+                        version,
+                        migration["name"],
+                        migration["checksum"],
                     )
                 return MigrationResult(
                     success=True,
@@ -302,7 +305,7 @@ class PostgresMigrationRunner:
             if dry_run:
                 logger.info("[DRY RUN] Would rollback %s migrations", len(to_rollback))
                 for row in to_rollback:
-                    logger.info("  - %s: %s", row['version'], row['name'])
+                    logger.info("  - %s: %s", row["version"], row["name"])
                 return MigrationResult(
                     success=True,
                     migrations_applied=0,
@@ -327,7 +330,10 @@ class PostgresMigrationRunner:
                 # Verify checksum if available
                 if row["checksum"] and migration["checksum"] != row["checksum"]:
                     logger.warning(
-                        "Migration %s checksum mismatch: expected %s, got %s", version, row['checksum'], migration['checksum']
+                        "Migration %s checksum mismatch: expected %s, got %s",
+                        version,
+                        row["checksum"],
+                        migration["checksum"],
                     )
 
                 if migration["down_sql"] is None:

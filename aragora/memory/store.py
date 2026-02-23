@@ -1277,7 +1277,7 @@ class CritiqueStore(SQLiteStore):
                     change_types.append("critique_given")
                 if critique_valuable:
                     change_types.append("critique_valuable")
-                logger.debug("[reputation] Updated %s: %s", agent_name, ', '.join(change_types))
+                logger.debug("[reputation] Updated %s: %s", agent_name, ", ".join(change_types))
 
             conn.commit()
 

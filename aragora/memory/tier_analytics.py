@@ -287,15 +287,17 @@ class TierAnalyticsTracker:
                 else StreamEventType.MEMORY_TIER_DEMOTION
             )
             manager = get_cross_subscriber_manager()
-            manager.dispatch(StreamEvent(
-                type=event_type,
-                data={
-                    "memory_id": memory_id,
-                    "from_tier": from_tier.value,
-                    "to_tier": to_tier.value,
-                    "reason": reason,
-                },
-            ))
+            manager.dispatch(
+                StreamEvent(
+                    type=event_type,
+                    data={
+                        "memory_id": memory_id,
+                        "from_tier": from_tier.value,
+                        "to_tier": to_tier.value,
+                        "reason": reason,
+                    },
+                )
+            )
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("Tier movement event emission unavailable: %s", e)
 

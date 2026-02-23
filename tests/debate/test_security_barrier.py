@@ -171,13 +171,15 @@ class TestSecurityBarrierRedactDict:
 
     def test_mixed_types(self):
         sb = SecurityBarrier()
-        result = sb.redact_dict({
-            "name": "safe",
-            "secret": "api_key = xyz",
-            "count": 5,
-            "nested": {"password": "secret = abc"},
-            "items": ["ok", "token = bad"],
-        })
+        result = sb.redact_dict(
+            {
+                "name": "safe",
+                "secret": "api_key = xyz",
+                "count": 5,
+                "nested": {"password": "secret = abc"},
+                "items": ["ok", "token = bad"],
+            }
+        )
         assert result["name"] == "safe"
         assert "[REDACTED]" in result["secret"]
         assert result["count"] == 5

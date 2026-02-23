@@ -129,7 +129,10 @@ class TrialManager:
             self.user_store.save_organization(org)
 
         logger.info(
-            "Started trial for org %s: %s days, %s debates", org.id, self.trial_duration_days, self.trial_debates_limit
+            "Started trial for org %s: %s days, %s debates",
+            org.id,
+            self.trial_duration_days,
+            self.trial_debates_limit,
         )
 
         return self.get_trial_status(org)

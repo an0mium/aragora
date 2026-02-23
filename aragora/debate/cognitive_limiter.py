@@ -385,7 +385,11 @@ class CognitiveLoadLimiter:
         )
 
         logger.debug(
-            "cognitive_limit total_chars=%s budget=%s messages=%s critiques=%s", total_chars, self.budget.max_context_chars, len(result.get('messages', [])), len(result.get('critiques', []))
+            "cognitive_limit total_chars=%s budget=%s messages=%s critiques=%s",
+            total_chars,
+            self.budget.max_context_chars,
+            len(result.get("messages", [])),
+            len(result.get("critiques", [])),
         )
 
         return result

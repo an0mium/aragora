@@ -306,7 +306,12 @@ def require_quota(resource: str = "debate") -> Callable:
 
             if not has_quota and error:
                 logger.info(
-                    "Quota exceeded for org %s: %s/%s %ss (%s tier)", org_id, error.used, error.limit, resource, error.tier
+                    "Quota exceeded for org %s: %s/%s %ss (%s tier)",
+                    org_id,
+                    error.used,
+                    error.limit,
+                    resource,
+                    error.tier,
                 )
                 return HandlerResult(
                     status_code=402,  # Payment Required

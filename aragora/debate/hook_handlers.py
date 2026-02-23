@@ -234,7 +234,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         continuum.on_debate_end(ctx, result)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("Continuum on_debate_end failed: %s", e)
 
                 if self._register(
@@ -258,7 +265,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         consensus.on_consensus_reached(ctx, consensus_text, confidence)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("Consensus memory on_consensus failed: %s", e)
 
                 if self._register(
@@ -349,7 +363,14 @@ class HookHandlerRegistry:
             def handle_debate_outcome(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     outcome_tracker.record_outcome(ctx, result)
-                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                except (
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                    KeyError,
+                    OSError,
+                ) as e:
                     logger.debug("OutcomeTracker record_outcome failed: %s", e)
 
             if self._register(
@@ -574,7 +595,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km.on_debate_end(ctx, result)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("KM on_debate_end failed: %s", e)
 
                 if self._register(
@@ -596,7 +624,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km.on_consensus_reached(ctx, consensus_text, confidence)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("KM on_consensus_reached failed: %s", e)
 
                 if self._register(
@@ -617,7 +652,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km.on_outcome_tracked(ctx, outcome)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("KM on_outcome_tracked failed: %s", e)
 
                 if self._register(
@@ -641,7 +683,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km_coordinator.on_debate_complete(ctx, result)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("KM coordinator on_debate_complete failed: %s", e)
 
                 if self._register(
@@ -663,7 +712,14 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km_coordinator.on_consensus_reached(ctx, consensus_text, confidence)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.debug("KM coordinator on_consensus failed: %s", e)
 
                 if self._register(
@@ -767,7 +823,15 @@ class HookHandlerRegistry:
                     # No event loop, create one
                     asyncio.run(deliver_all())
 
-            except (ImportError, AttributeError, TypeError, KeyError, ValueError, RuntimeError, OSError) as e:
+            except (
+                ImportError,
+                AttributeError,
+                TypeError,
+                KeyError,
+                ValueError,
+                RuntimeError,
+                OSError,
+            ) as e:
                 logger.debug("Webhook debate_end handler failed: %s", e)
 
         if self._register(
@@ -827,14 +891,24 @@ class HookHandlerRegistry:
                     asyncio.get_running_loop()
                     _consensus_task = asyncio.create_task(deliver_all())
                     _consensus_task.add_done_callback(
-                        lambda t: logger.warning("Webhook consensus delivery failed: %s", t.exception())
+                        lambda t: logger.warning(
+                            "Webhook consensus delivery failed: %s", t.exception()
+                        )
                         if not t.cancelled() and t.exception()
                         else None
                     )
                 except RuntimeError:
                     asyncio.run(deliver_all())
 
-            except (ImportError, AttributeError, TypeError, KeyError, ValueError, RuntimeError, OSError) as e:
+            except (
+                ImportError,
+                AttributeError,
+                TypeError,
+                KeyError,
+                ValueError,
+                RuntimeError,
+                OSError,
+            ) as e:
                 logger.debug("Webhook consensus handler failed: %s", e)
 
         if self._register(
@@ -1039,7 +1113,15 @@ class HookHandlerRegistry:
                 except ImportError:
                     logger.debug("Provenance server handlers not available")
 
-            except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+            except (
+                ImportError,
+                AttributeError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                KeyError,
+                OSError,
+            ) as e:
                 logger.warning("Provenance persistence failed: %s", e)
 
         if self._register(
@@ -1160,7 +1242,15 @@ class HookHandlerRegistry:
                                 knowledge_mound=None,  # Use global KM
                             )
                             logger.debug("Enriched plan %s with KM historical data", plan.id)
-                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError, ImportError) as enrich_err:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        KeyError,
+                        OSError,
+                        ImportError,
+                    ) as enrich_err:
                         logger.debug("Plan KM enrichment failed: %s", enrich_err)
 
                 try:
@@ -1197,7 +1287,13 @@ class HookHandlerRegistry:
                                 "confidence": confidence,
                             },
                         )
-                    except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as emit_err:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        OSError,
+                    ) as emit_err:
                         logger.debug("Failed to emit plan_created event: %s", emit_err)
 
                 # Attach plan_id to result for downstream consumers
@@ -1256,7 +1352,14 @@ class HookHandlerRegistry:
                 """Generate compliance artifacts after debate."""
                 try:
                     hook.on_post_debate(ctx, result)
-                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
+                except (
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                    KeyError,
+                    OSError,
+                ) as e:
                     logger.debug("Compliance artifact generation failed: %s", e)
 
             if self._register(

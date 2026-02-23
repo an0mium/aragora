@@ -185,7 +185,11 @@ class AgentHierarchy:
             self._role_history[debate_id].append((agent_name, assignment.role))
 
         logger.info(
-            "Assigned roles for debate %s: orchestrator=%s, monitors=%s, workers=%s", debate_id, self.get_orchestrator(debate_id), [a for a, r in assignments.items() if r.role == HierarchyRole.MONITOR], [a for a, r in assignments.items() if r.role == HierarchyRole.WORKER]
+            "Assigned roles for debate %s: orchestrator=%s, monitors=%s, workers=%s",
+            debate_id,
+            self.get_orchestrator(debate_id),
+            [a for a, r in assignments.items() if r.role == HierarchyRole.MONITOR],
+            [a for a, r in assignments.items() if r.role == HierarchyRole.WORKER],
         )
 
         return assignments

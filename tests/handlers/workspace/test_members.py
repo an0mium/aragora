@@ -197,10 +197,7 @@ def mock_workspace_module():
 
     def _get_profile_roles(profile):
         config = _get_profile_config(profile)
-        return {
-            name: MockRole(name=name, description=f"{name} role")
-            for name in config.roles
-        }
+        return {name: MockRole(name=name, description=f"{name} role") for name in config.roles}
 
     m.get_profile_roles = _get_profile_roles
 
@@ -451,9 +448,7 @@ class TestListMembers:
         result = handler._handle_list_members(req, "ws-1")
         assert _status(result) == 401
 
-    def test_list_members_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_list_members_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -466,9 +461,7 @@ class TestListMembers:
         self, handler, make_handler_request, mock_workspace_module
     ):
         exc_class = mock_workspace_module.AccessDeniedException
-        handler._mock_isolation_manager.list_members = AsyncMock(
-            side_effect=exc_class("denied")
-        )
+        handler._mock_isolation_manager.list_members = AsyncMock(side_effect=exc_class("denied"))
 
         req = make_handler_request()
         result = handler._handle_list_members(req, "ws-1")
@@ -484,18 +477,14 @@ class TestListMembers:
         assert _status(result) == 500
 
     def test_list_members_os_error(self, handler, make_handler_request):
-        handler._mock_isolation_manager.list_members = AsyncMock(
-            side_effect=OSError("io fail")
-        )
+        handler._mock_isolation_manager.list_members = AsyncMock(side_effect=OSError("io fail"))
 
         req = make_handler_request()
         result = handler._handle_list_members(req, "ws-1")
         assert _status(result) == 500
 
     def test_list_members_value_error(self, handler, make_handler_request):
-        handler._mock_isolation_manager.list_members = AsyncMock(
-            side_effect=ValueError("bad val")
-        )
+        handler._mock_isolation_manager.list_members = AsyncMock(side_effect=ValueError("bad val"))
 
         req = make_handler_request()
         result = handler._handle_list_members(req, "ws-1")
@@ -511,35 +500,27 @@ class TestListMembers:
         assert _status(result) == 500
 
     def test_list_members_key_error(self, handler, make_handler_request):
-        handler._mock_isolation_manager.list_members = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        handler._mock_isolation_manager.list_members = AsyncMock(side_effect=KeyError("missing"))
 
         req = make_handler_request()
         result = handler._handle_list_members(req, "ws-1")
         assert _status(result) == 500
 
     def test_list_members_attribute_error(self, handler, make_handler_request):
-        handler._mock_isolation_manager.list_members = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        handler._mock_isolation_manager.list_members = AsyncMock(side_effect=AttributeError("attr"))
 
         req = make_handler_request()
         result = handler._handle_list_members(req, "ws-1")
         assert _status(result) == 500
 
-    def test_list_members_calls_list_members_with_workspace_id(
-        self, handler, make_handler_request
-    ):
+    def test_list_members_calls_list_members_with_workspace_id(self, handler, make_handler_request):
         req = make_handler_request()
         handler._handle_list_members(req, "ws-target")
         handler._mock_isolation_manager.list_members.assert_called_once_with("ws-target")
 
     def test_list_members_default_user_id_empty(self, handler, make_handler_request):
         """When member has no user_id key, it defaults to ''."""
-        handler._mock_isolation_manager.list_members = AsyncMock(
-            return_value=[{}]
-        )
+        handler._mock_isolation_manager.list_members = AsyncMock(return_value=[{}])
 
         req = make_handler_request()
         result = handler._handle_list_members(req, "ws-1")
@@ -629,9 +610,7 @@ class TestAddMember:
         result = handler._handle_add_member(req, "ws-1")
         assert _status(result) == 401
 
-    def test_add_member_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_add_member_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -644,9 +623,7 @@ class TestAddMember:
         self, handler, make_handler_request, mock_workspace_module
     ):
         exc_class = mock_workspace_module.AccessDeniedException
-        handler._mock_isolation_manager.add_member = AsyncMock(
-            side_effect=exc_class("denied")
-        )
+        handler._mock_isolation_manager.add_member = AsyncMock(side_effect=exc_class("denied"))
 
         req = make_handler_request(method="POST", body={"user_id": "u1"})
         result = handler._handle_add_member(req, "ws-1")
@@ -690,9 +667,7 @@ class TestAddMember:
 
     def test_add_member_emits_handler_event(self, handler, make_handler_request):
         """Verify that adding a member emits a workspace UPDATED event."""
-        with patch(
-            "aragora.server.handlers.workspace.members.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.workspace.members.emit_handler_event") as mock_emit:
             req = make_handler_request(method="POST", body={"user_id": "u1"})
             handler._handle_add_member(req, "ws-1")
 
@@ -751,9 +726,7 @@ class TestRemoveMember:
         result = handler._handle_remove_member(req, "ws-1", "user-001")
         assert _status(result) == 401
 
-    def test_remove_member_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_remove_member_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -766,9 +739,7 @@ class TestRemoveMember:
         self, handler, make_handler_request, mock_workspace_module
     ):
         exc_class = mock_workspace_module.AccessDeniedException
-        handler._mock_isolation_manager.remove_member = AsyncMock(
-            side_effect=exc_class("denied")
-        )
+        handler._mock_isolation_manager.remove_member = AsyncMock(side_effect=exc_class("denied"))
 
         req = make_handler_request(method="DELETE")
         result = handler._handle_remove_member(req, "ws-1", "user-001")
@@ -788,9 +759,7 @@ class TestRemoveMember:
         call_kwargs = handler._mock_audit_log.log.call_args.kwargs
         assert call_kwargs["details"]["removed_user_id"] == "user-target"
 
-    def test_remove_member_audit_actor(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_remove_member_audit_actor(self, handler, make_handler_request, mock_workspace_module):
         req = make_handler_request(method="DELETE")
         handler._handle_remove_member(req, "ws-1", "user-001")
 
@@ -806,9 +775,7 @@ class TestRemoveMember:
             id="ws-target", type="workspace", workspace_id="ws-target"
         )
 
-    def test_remove_member_rbac_checks_share_permission(
-        self, handler, make_handler_request
-    ):
+    def test_remove_member_rbac_checks_share_permission(self, handler, make_handler_request):
         """Verify remove member uses PERM_WORKSPACE_SHARE."""
         captured_perms = []
 
@@ -899,9 +866,7 @@ class TestListProfiles:
         result = handler._handle_list_profiles(req)
         assert _status(result) == 401
 
-    def test_list_profiles_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_list_profiles_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -1018,7 +983,9 @@ class TestGetWorkspaceRoles:
         assert len(body["roles"]) == 5
 
     def test_get_roles_enterprise_profile(self, handler, make_handler_request):
-        self._setup_workspace(handler, profile="enterprise", member_roles={"test-user-001": "owner"})
+        self._setup_workspace(
+            handler, profile="enterprise", member_roles={"test-user-001": "owner"}
+        )
 
         req = make_handler_request(path="/api/v1/workspaces/ws-1/roles")
         result = handler._handle_get_workspace_roles(req, "ws-1")
@@ -1031,7 +998,9 @@ class TestGetWorkspaceRoles:
         """When workspace has invalid profile, the handler falls back to lite for
         get_profile_config/get_profile_roles, but get_available_roles_for_assignment
         may propagate a ValueError which the @handle_errors decorator catches as 400."""
-        self._setup_workspace(handler, profile="nonexistent", member_roles={"test-user-001": "owner"})
+        self._setup_workspace(
+            handler, profile="nonexistent", member_roles={"test-user-001": "owner"}
+        )
 
         req = make_handler_request(path="/api/v1/workspaces/ws-1/roles")
         result = handler._handle_get_workspace_roles(req, "ws-1")
@@ -1059,9 +1028,7 @@ class TestGetWorkspaceRoles:
         result = handler._handle_get_workspace_roles(req, "ws-1")
         assert _status(result) == 401
 
-    def test_get_roles_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_get_roles_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -1074,9 +1041,7 @@ class TestGetWorkspaceRoles:
         self, handler, make_handler_request, mock_workspace_module
     ):
         exc_class = mock_workspace_module.AccessDeniedException
-        handler._mock_isolation_manager.get_workspace = AsyncMock(
-            side_effect=exc_class("denied")
-        )
+        handler._mock_isolation_manager.get_workspace = AsyncMock(side_effect=exc_class("denied"))
 
         req = make_handler_request(path="/api/v1/workspaces/ws-1/roles")
         result = handler._handle_get_workspace_roles(req, "ws-1")
@@ -1121,9 +1086,7 @@ class TestGetWorkspaceRoles:
         assert role_map["member"]["can_assign"] is True
         assert role_map["owner"]["can_assign"] is False
 
-    def test_get_roles_calls_get_workspace_with_correct_args(
-        self, handler, make_handler_request
-    ):
+    def test_get_roles_calls_get_workspace_with_correct_args(self, handler, make_handler_request):
         self._setup_workspace(handler)
 
         req = make_handler_request(path="/api/v1/workspaces/ws-1/roles")
@@ -1180,9 +1143,7 @@ class TestUpdateMemberRole:
         result = handler._handle_update_member_role(req, "ws-1", "user-001")
         assert _status(result) == 401
 
-    def test_update_role_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_update_role_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -1229,9 +1190,7 @@ class TestUpdateMemberRole:
         self, handler, make_handler_request, mock_workspace_module
     ):
         exc_class = mock_workspace_module.AccessDeniedException
-        handler._mock_isolation_manager.get_workspace = AsyncMock(
-            side_effect=exc_class("denied")
-        )
+        handler._mock_isolation_manager.get_workspace = AsyncMock(side_effect=exc_class("denied"))
 
         req = make_handler_request(method="PUT", body={"role": "admin"})
         result = handler._handle_update_member_role(req, "ws-1", "user-target")
@@ -1415,7 +1374,7 @@ class TestUpdateMemberRole:
             "rbac_profile": "lite",
             "member_roles": {
                 "test-user-001": "owner",  # assigner
-                "last-one": "owner",       # target
+                "last-one": "owner",  # target
             },
         }
         handler._mock_isolation_manager.get_workspace = AsyncMock(return_value=ws)
@@ -1432,7 +1391,7 @@ class TestUpdateMemberRole:
             "rbac_profile": "lite",
             "member_roles": {
                 "test-user-001": "owner",  # assigner, is the owner
-                "target": "owner",         # target, also owner
+                "target": "owner",  # target, also owner
                 "other": "admin",
             },
         }
@@ -1589,8 +1548,8 @@ class TestUpdateMemberRole:
         ws.to_dict.return_value = {
             "rbac_profile": "lite",
             "member_roles": {
-                "test-user-001": "admin",   # assigner is admin
-                "sole-owner": "owner",       # target is the only owner
+                "test-user-001": "admin",  # assigner is admin
+                "sole-owner": "owner",  # target is the only owner
                 "regular-user": "member",
             },
         }
@@ -1608,9 +1567,7 @@ class TestUpdateMemberRole:
         handler._handle_update_member_role(req, "ws-1", "user-target")
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_update_role_audit_details(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_update_role_audit_details(self, handler, make_handler_request, mock_workspace_module):
         self._setup_workspace(handler)
 
         req = make_handler_request(method="PUT", body={"role": "admin"})
@@ -1823,9 +1780,7 @@ class TestCrossCuttingBehavior:
         req2 = make_handler_request(path="/api/v1/workspaces/profiles")
         assert _status(handler._handle_list_profiles(req2)) == 401
 
-    def test_all_endpoints_respect_rbac(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_all_endpoints_respect_rbac(self, handler, make_handler_request, mock_workspace_module):
         """All endpoints should respect RBAC permission denial."""
         from aragora.server.handlers.base import error_response
 

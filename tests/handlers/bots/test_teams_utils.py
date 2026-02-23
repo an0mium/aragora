@@ -402,9 +402,7 @@ class TestBuildDebateCard:
 
     def test_view_summary_action_present(self):
         card = build_debate_card("d1", "T", ["a"], 1, 3)
-        summary_actions = [
-            a for a in card["actions"] if a["data"].get("action") == "summary"
-        ]
+        summary_actions = [a for a in card["actions"] if a["data"].get("action") == "summary"]
         assert len(summary_actions) == 1
         assert summary_actions[0]["title"] == "View Summary"
         assert summary_actions[0]["data"]["debate_id"] == "d1"

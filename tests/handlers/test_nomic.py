@@ -456,12 +456,15 @@ class TestGetNomicMetrics:
         mock_summary = {"phase_transitions": 10}
         mock_stuck = {"is_stuck": False}
 
-        with patch(
-            "aragora.nomic.metrics.get_nomic_metrics_summary",
-            return_value=mock_summary,
-        ), patch(
-            "aragora.nomic.metrics.check_stuck_phases",
-            return_value=mock_stuck,
+        with (
+            patch(
+                "aragora.nomic.metrics.get_nomic_metrics_summary",
+                return_value=mock_summary,
+            ),
+            patch(
+                "aragora.nomic.metrics.check_stuck_phases",
+                return_value=mock_stuck,
+            ),
         ):
             result = handler._get_nomic_metrics()
             body = _body(result)
@@ -481,12 +484,15 @@ class TestGetNomicMetrics:
 
     def test_metrics_stuck_detected(self, handler):
         """Returns stuck status when phases are stuck."""
-        with patch(
-            "aragora.nomic.metrics.get_nomic_metrics_summary",
-            return_value={"phase": "implement"},
-        ), patch(
-            "aragora.nomic.metrics.check_stuck_phases",
-            return_value={"is_stuck": True, "stuck_phase": "implement", "idle_seconds": 3600},
+        with (
+            patch(
+                "aragora.nomic.metrics.get_nomic_metrics_summary",
+                return_value={"phase": "implement"},
+            ),
+            patch(
+                "aragora.nomic.metrics.check_stuck_phases",
+                return_value={"is_stuck": True, "stuck_phase": "implement", "idle_seconds": 3600},
+            ),
         ):
             result = handler._get_nomic_metrics()
             body = _body(result)
@@ -692,7 +698,9 @@ class TestGetRiskRegister:
         content = "\n".join(json.dumps(r) for r in risks)
         (nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = await handler.handle("/api/nomic/risk-register", {"limit": "500"}, MockHTTPHandler())
+        result = await handler.handle(
+            "/api/nomic/risk-register", {"limit": "500"}, MockHTTPHandler()
+        )
         body = _body(result)
         assert len(body["risks"]) == 5
 
@@ -1123,9 +1131,7 @@ class TestStartNomicLoop:
     async def test_start_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST", body={"cycles": 1})
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/control/start", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/control/start", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1135,9 +1141,7 @@ class TestStartNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/start", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
         assert _status(result) == 409
 
     @pytest.mark.asyncio
@@ -1146,29 +1150,25 @@ class TestStartNomicLoop:
         state = {"running": False}
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
-        with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nonexistent/deep/path")):
+        with patch.object(
+            handler, "get_nomic_dir", return_value=Path("/tmp/nonexistent/deep/path")
+        ):
             http = MockHTTPHandler(method="POST", body={"cycles": 1})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_start_invalid_cycles_type(self, handler, nomic_dir):
         """Returns 400 when cycles is invalid type (list)."""
         http = MockHTTPHandler(method="POST", body={"cycles": [1, 2, 3]})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/start", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_start_invalid_max_cycles_type(self, handler, nomic_dir):
         """Returns 400 when max_cycles is invalid type (dict)."""
         http = MockHTTPHandler(method="POST", body={"max_cycles": {"nested": True}})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/start", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1183,9 +1183,7 @@ class TestStartNomicLoop:
 
         with patch("subprocess.Popen", return_value=mock_proc):
             http = MockHTTPHandler(method="POST", body={"cycles": 3, "auto_approve": True})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
 
         body = _body(result)
         assert _status(result) == 202
@@ -1209,9 +1207,7 @@ class TestStartNomicLoop:
 
         with patch("subprocess.Popen", return_value=mock_proc):
             http = MockHTTPHandler(method="POST", body={})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
 
         body = _body(result)
         assert body["target_cycles"] == 1
@@ -1228,9 +1224,7 @@ class TestStartNomicLoop:
 
         with patch("subprocess.Popen", return_value=mock_proc):
             http = MockHTTPHandler(method="POST", body={"cycles": 999})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
 
         body = _body(result)
         assert body["target_cycles"] <= 100
@@ -1247,9 +1241,7 @@ class TestStartNomicLoop:
 
         with patch("subprocess.Popen", return_value=mock_proc):
             http = MockHTTPHandler(method="POST", body={"cycles": "5"})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
 
         body = _body(result)
         assert body["target_cycles"] == 5
@@ -1266,9 +1258,7 @@ class TestStartNomicLoop:
 
         with patch("subprocess.Popen", return_value=mock_proc):
             http = MockHTTPHandler(method="POST", body={"cycles": 1})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
 
         body = _body(result)
         assert _status(result) == 202
@@ -1280,9 +1270,7 @@ class TestStartNomicLoop:
         (nomic_dir / "nomic_state.json").write_text("not json")
 
         http = MockHTTPHandler(method="POST", body={"cycles": 1})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/start", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1300,9 +1288,7 @@ class TestStartNomicLoop:
 
         with patch("subprocess.Popen", return_value=mock_proc):
             http = MockHTTPHandler(method="POST", body={"cycles": 2})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/start", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/start", {}, http)
 
         body = _body(result)
         assert _status(result) == 202
@@ -1321,18 +1307,14 @@ class TestStopNomicLoop:
     async def test_stop_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/control/stop", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/control/stop", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_stop_not_running(self, handler):
         """Returns 404 when no state file exists."""
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1342,9 +1324,7 @@ class TestStopNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1355,9 +1335,7 @@ class TestStopNomicLoop:
 
         http = MockHTTPHandler(method="POST", body={})
         with patch("os.kill", side_effect=OSError("No such process")):
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/stop", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
         body = _body(result)
         assert body["status"] == "already_stopped"
 
@@ -1371,14 +1349,13 @@ class TestStopNomicLoop:
 
         def fake_kill(pid, sig):
             import signal
+
             if sig == 0:
                 return
             assert sig == signal.SIGTERM
 
         with patch("os.kill", side_effect=fake_kill):
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/stop", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
         body = _body(result)
         assert body["status"] == "stopping"
 
@@ -1392,14 +1369,13 @@ class TestStopNomicLoop:
 
         def fake_kill(pid, sig):
             import signal
+
             if sig == 0:
                 return
             assert sig == signal.SIGKILL
 
         with patch("os.kill", side_effect=fake_kill):
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/stop", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
         body = _body(result)
         assert body["status"] == "killed"
 
@@ -1416,13 +1392,12 @@ class TestStopNomicLoop:
 
         with patch("os.kill", side_effect=fake_kill):
             http = MockHTTPHandler(method="POST", body={})
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/stop", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
 
         body = _body(result)
         assert body["status"] == "stopping"
         import signal
+
         assert signal.SIGTERM in signals_sent
 
     @pytest.mark.asyncio
@@ -1433,9 +1408,7 @@ class TestStopNomicLoop:
 
         with patch("os.kill"):
             http = MockHTTPHandler(method="POST", body={"graceful": True})
-            await handler.handle_post(
-                "/api/v1/nomic/control/stop", {}, http
-            )
+            await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
 
         updated = json.loads((nomic_dir / "nomic_state.json").read_text())
         assert updated["running"] is False
@@ -1448,9 +1421,7 @@ class TestStopNomicLoop:
         (nomic_dir / "nomic_state.json").write_text("corrupt!")
 
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/stop", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/stop", {}, http)
         assert _status(result) == 500
 
 
@@ -1466,18 +1437,14 @@ class TestPauseNomicLoop:
     async def test_pause_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST")
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/control/pause", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/control/pause", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_pause_not_running_no_file(self, handler):
         """Returns 404 when no state file exists."""
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/pause", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/pause", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1487,9 +1454,7 @@ class TestPauseNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/pause", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/pause", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1499,9 +1464,7 @@ class TestPauseNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/pause", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/pause", {}, http)
         assert _status(result) == 409
 
     @pytest.mark.asyncio
@@ -1511,9 +1474,7 @@ class TestPauseNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/pause", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/pause", {}, http)
         body = _body(result)
         assert body["status"] == "paused"
         assert body["cycle"] == 2
@@ -1529,9 +1490,7 @@ class TestPauseNomicLoop:
         (nomic_dir / "nomic_state.json").write_text("bad json")
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/pause", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/pause", {}, http)
         assert _status(result) == 500
 
 
@@ -1547,18 +1506,14 @@ class TestResumeNomicLoop:
     async def test_resume_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST")
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/control/resume", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/control/resume", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_resume_not_running(self, handler):
         """Returns 404 when no state file exists."""
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/resume", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/resume", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1568,9 +1523,7 @@ class TestResumeNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/resume", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/resume", {}, http)
         assert _status(result) == 409
 
     @pytest.mark.asyncio
@@ -1580,9 +1533,7 @@ class TestResumeNomicLoop:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/resume", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/resume", {}, http)
         body = _body(result)
         assert body["status"] == "resumed"
         assert body["cycle"] == 3
@@ -1598,9 +1549,7 @@ class TestResumeNomicLoop:
         (nomic_dir / "nomic_state.json").write_text("bad json")
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/resume", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/resume", {}, http)
         assert _status(result) == 500
 
 
@@ -1616,18 +1565,14 @@ class TestSkipPhase:
     async def test_skip_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST")
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_skip_not_running(self, handler):
         """Returns 404 when no state file exists."""
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1637,9 +1582,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         body = _body(result)
         assert body["next_phase"] == "debate"
         assert body["cycle"] == 5  # Not incremented
@@ -1651,9 +1594,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         body = _body(result)
         assert body["previous_phase"] == "debate"
         assert body["next_phase"] == "design"
@@ -1665,9 +1606,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         body = _body(result)
         assert body["next_phase"] == "implement"
 
@@ -1678,9 +1617,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         body = _body(result)
         assert body["next_phase"] == "verify"
 
@@ -1691,9 +1628,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         body = _body(result)
         assert body["next_phase"] == "context"
         assert body["cycle"] == 3
@@ -1708,9 +1643,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1724,9 +1657,7 @@ class TestSkipPhase:
             (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
             http = MockHTTPHandler(method="POST")
-            result = await handler.handle_post(
-                "/api/v1/nomic/control/skip-phase", {}, http
-            )
+            result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
             body = _body(result)
             assert body["next_phase"] == expected, f"After {phase}, expected {expected}"
 
@@ -1750,9 +1681,7 @@ class TestSkipPhase:
         (nomic_dir / "nomic_state.json").write_text("bad json")
 
         http = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/skip-phase", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/skip-phase", {}, http)
         assert _status(result) == 500
 
 
@@ -1768,27 +1697,21 @@ class TestApproveProposal:
     async def test_approve_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/proposals/approve", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_approve_missing_id(self, handler):
         """Returns 400 when proposal_id is missing."""
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_approve_no_proposals_file(self, handler):
         """Returns 404 when proposals file doesn't exist."""
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1798,9 +1721,7 @@ class TestApproveProposal:
         (nomic_dir / "proposals.json").write_text(json.dumps(data))
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p999"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1818,9 +1739,7 @@ class TestApproveProposal:
             method="POST",
             body={"proposal_id": "p1", "approved_by": "admin"},
         )
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
         body = _body(result)
         assert body["status"] == "approved"
         assert body["proposal_id"] == "p1"
@@ -1838,9 +1757,7 @@ class TestApproveProposal:
         (nomic_dir / "proposals.json").write_text(json.dumps(data))
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
 
         updated = json.loads((nomic_dir / "proposals.json").read_text())
         p1 = updated["proposals"][0]
@@ -1852,9 +1769,7 @@ class TestApproveProposal:
         (nomic_dir / "proposals.json").write_text("bad!")
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1869,9 +1784,7 @@ class TestApproveProposal:
         (nomic_dir / "proposals.json").write_text(json.dumps(data))
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        await handler.handle_post(
-            "/api/v1/nomic/proposals/approve", {}, http
-        )
+        await handler.handle_post("/api/v1/nomic/proposals/approve", {}, http)
 
         updated = json.loads((nomic_dir / "proposals.json").read_text())
         p2 = next(p for p in updated["proposals"] if p["id"] == "p2")
@@ -1890,27 +1803,21 @@ class TestRejectProposal:
     async def test_reject_no_dir(self, handler_no_dir):
         """Returns 503 when nomic dir not configured."""
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler_no_dir.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler_no_dir.handle_post("/api/v1/nomic/proposals/reject", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_reject_missing_id(self, handler):
         """Returns 400 when proposal_id is missing."""
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_reject_no_proposals_file(self, handler):
         """Returns 404 when proposals file doesn't exist."""
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1920,9 +1827,7 @@ class TestRejectProposal:
         (nomic_dir / "proposals.json").write_text(json.dumps(data))
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p999"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1943,9 +1848,7 @@ class TestRejectProposal:
                 "reason": "Does not align with roadmap",
             },
         )
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
         body = _body(result)
         assert body["status"] == "rejected"
         assert body["proposal_id"] == "p1"
@@ -1964,9 +1867,7 @@ class TestRejectProposal:
         (nomic_dir / "proposals.json").write_text(json.dumps(data))
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
 
         updated = json.loads((nomic_dir / "proposals.json").read_text())
         p1 = updated["proposals"][0]
@@ -1979,9 +1880,7 @@ class TestRejectProposal:
         (nomic_dir / "proposals.json").write_text("bad!")
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        result = await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1996,9 +1895,7 @@ class TestRejectProposal:
         (nomic_dir / "proposals.json").write_text(json.dumps(data))
 
         http = MockHTTPHandler(method="POST", body={"proposal_id": "p1"})
-        await handler.handle_post(
-            "/api/v1/nomic/proposals/reject", {}, http
-        )
+        await handler.handle_post("/api/v1/nomic/proposals/reject", {}, http)
 
         updated = json.loads((nomic_dir / "proposals.json").read_text())
         p2 = next(p for p in updated["proposals"] if p["id"] == "p2")
@@ -2023,9 +1920,7 @@ class TestHandleRouting:
     async def test_handle_post_unknown_path_returns_none(self, handler):
         """handle_post() returns None for unknown control paths."""
         http = MockHTTPHandler(method="POST", body={})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/unknown", {}, http
-        )
+        result = await handler.handle_post("/api/v1/nomic/control/unknown", {}, http)
         assert result is None
 
     @pytest.mark.asyncio

@@ -67,18 +67,14 @@ def _mock_km(items=None):
 
 def _mock_supermemory(results=None):
     mock = AsyncMock()
-    mock.search_memories = AsyncMock(
-        return_value=results or [FakeSupermemoryResult()]
-    )
+    mock.search_memories = AsyncMock(return_value=results or [FakeSupermemoryResult()])
     return mock
 
 
 def _mock_claude_mem(observations=None):
     mock = AsyncMock()
     default_obs = [{"id": "obs_1", "content": "claude-mem rate limit insight", "metadata": {}}]
-    mock.search_observations = AsyncMock(
-        return_value=observations or default_obs
-    )
+    mock.search_observations = AsyncMock(return_value=observations or default_obs)
     return mock
 
 
@@ -125,10 +121,12 @@ class TestQueryPipelineE2E:
             claude_mem_adapter=_mock_claude_mem(),
         )
 
-        resp = await gw.query(UnifiedMemoryQuery(
-            query="rate limiting",
-            limit=20,
-        ))
+        resp = await gw.query(
+            UnifiedMemoryQuery(
+                query="rate limiting",
+                limit=20,
+            )
+        )
 
         assert resp.total_found == 4  # 1 from each source
         assert len(resp.sources_queried) == 4
@@ -157,18 +155,16 @@ class TestQueryPipelineE2E:
         """Low-confidence results filtered out."""
         gw = MemoryGateway(
             config=MemoryGatewayConfig(enabled=True),
-            continuum_memory=_mock_continuum(
-                [FakeContinuumEntry(importance=0.2)]
-            ),
-            knowledge_mound=_mock_km(
-                [FakeKMItem(confidence=0.95)]
-            ),
+            continuum_memory=_mock_continuum([FakeContinuumEntry(importance=0.2)]),
+            knowledge_mound=_mock_km([FakeKMItem(confidence=0.95)]),
         )
 
-        resp = await gw.query(UnifiedMemoryQuery(
-            query="test",
-            min_confidence=0.5,
-        ))
+        resp = await gw.query(
+            UnifiedMemoryQuery(
+                query="test",
+                min_confidence=0.5,
+            )
+        )
         assert all(r.confidence >= 0.5 for r in resp.results)
 
     @pytest.mark.asyncio
@@ -181,10 +177,12 @@ class TestQueryPipelineE2E:
             supermemory_adapter=_mock_supermemory(),
         )
 
-        resp = await gw.query(UnifiedMemoryQuery(
-            query="test",
-            sources=["km"],
-        ))
+        resp = await gw.query(
+            UnifiedMemoryQuery(
+                query="test",
+                sources=["km"],
+            )
+        )
         assert resp.sources_queried == ["km"]
         assert all(r.source_system == "km" for r in resp.results)
 
@@ -197,11 +195,13 @@ class TestQueryPipelineE2E:
 class TestRetentionGateE2E:
     def test_retention_gate_evaluates_items(self):
         """RetentionGate evaluates items with surprise scores."""
-        gate = RetentionGate(config=RetentionGateConfig(
-            enable_surprise_driven_decay=True,
-            forget_threshold=0.15,
-            consolidate_threshold=0.7,
-        ))
+        gate = RetentionGate(
+            config=RetentionGateConfig(
+                enable_surprise_driven_decay=True,
+                forget_threshold=0.15,
+                consolidate_threshold=0.7,
+            )
+        )
 
         # High surprise → consolidate
         decision = gate.evaluate(
@@ -349,9 +349,17 @@ class TestDedupE2E:
         engine = CrossSystemDedupEngine(near_duplicate_threshold=0.5)
 
         items = [
-            {"id": "cm_1", "source": "continuum", "content": "rate limiting with token bucket algorithm"},
+            {
+                "id": "cm_1",
+                "source": "continuum",
+                "content": "rate limiting with token bucket algorithm",
+            },
             {"id": "km_1", "source": "km", "content": "rate limiting with token bucket algorithm"},
-            {"id": "sm_1", "source": "supermemory", "content": "rate limiting with token bucket strategy"},
+            {
+                "id": "sm_1",
+                "source": "supermemory",
+                "content": "rate limiting with token bucket strategy",
+            },
             {"id": "obs_1", "source": "claude_mem", "content": "completely unrelated content"},
         ]
 

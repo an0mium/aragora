@@ -88,9 +88,7 @@ class InMemoryStorage:
             )"""
         )
         if rows:
-            cur.executemany(
-                "INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows
-            )
+            cur.executemany("INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows)
         self._conn.commit()
 
     @contextmanager
@@ -181,6 +179,7 @@ def _clear_ttl_cache():
 def _reset_rate_limiter():
     """Reset rate limiters before each test."""
     from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
     clear_all_limiters()
     yield
     clear_all_limiters()
@@ -355,9 +354,7 @@ class TestRBACAuth:
             raise UnauthorizedError("No token")
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
-            result = await handler.handle_post(
-                "/api/v1/dashboard/export", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/dashboard/export", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -386,9 +383,7 @@ class TestRBACAuth:
             patch.object(SecureHandler, "get_auth_context", mock_auth),
             patch.object(SecureHandler, "check_permission", mock_check),
         ):
-            result = await handler.handle_post(
-                "/api/v1/dashboard/export", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/dashboard/export", {}, mock_http)
 
         assert _status(result) == 403
 
@@ -404,9 +399,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_handle_rate_limit_exceeded(self, handler, mock_http):
         """When rate limiter denies, return 429."""
-        with patch(
-            "aragora.server.handlers.admin.dashboard._dashboard_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.admin.dashboard._dashboard_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = await handler.handle("/api/v1/dashboard", {}, mock_http)
 
@@ -416,13 +409,9 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_handle_post_rate_limit_exceeded(self, handler, mock_http):
         """When rate limiter denies POST, return 429."""
-        with patch(
-            "aragora.server.handlers.admin.dashboard._dashboard_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.admin.dashboard._dashboard_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = await handler.handle_post(
-                "/api/v1/dashboard/export", {}, mock_http
-            )
+            result = await handler.handle_post("/api/v1/dashboard/export", {}, mock_http)
 
         assert _status(result) == 429
 
@@ -490,9 +479,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_debate_detail_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/debates/{id} returns debate detail stub."""
-        result = await handler.handle(
-            "/api/v1/dashboard/debates/d1", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/debates/d1", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == "d1"
@@ -529,9 +516,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_team_performance_detail_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/team-performance/{team_id} returns detail."""
-        result = await handler.handle(
-            "/api/v1/dashboard/team-performance/claude", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/team-performance/claude", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["team_id"] == "claude"
@@ -539,9 +524,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_top_senders_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/top-senders returns senders."""
-        result = await handler.handle(
-            "/api/v1/dashboard/top-senders", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/top-senders", {}, mock_http)
         assert _status(result) == 200
         assert "senders" in _body(result)
 
@@ -555,9 +538,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_activity_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/activity returns activity feed."""
-        result = await handler.handle(
-            "/api/v1/dashboard/activity", {"limit": "20"}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/activity", {"limit": "20"}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert "activity" in body
@@ -566,9 +547,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_inbox_summary_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/inbox-summary returns summary."""
-        result = await handler.handle(
-            "/api/v1/dashboard/inbox-summary", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/inbox-summary", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert "total_messages" in body
@@ -576,9 +555,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_quick_actions_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/quick-actions returns actions."""
-        result = await handler.handle(
-            "/api/v1/dashboard/quick-actions", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/quick-actions", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert "actions" in body
@@ -587,9 +564,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_urgent_items_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/urgent returns urgent items."""
-        result = await handler.handle(
-            "/api/v1/dashboard/urgent", {"limit": "20"}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/urgent", {"limit": "20"}, mock_http)
         assert _status(result) == 200
         assert "items" in _body(result)
 
@@ -605,9 +580,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_search_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/search returns search results."""
-        result = await handler.handle(
-            "/api/v1/dashboard/search", {"q": "finance"}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/search", {"q": "finance"}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert "results" in body
@@ -616,9 +589,7 @@ class TestHandleRouteDispatch:
     @pytest.mark.asyncio
     async def test_quality_metrics_endpoint(self, handler, mock_http):
         """GET /api/v1/dashboard/quality-metrics returns quality data."""
-        result = await handler.handle(
-            "/api/v1/dashboard/quality-metrics", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/quality-metrics", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert "calibration" in body
@@ -663,9 +634,7 @@ class TestHandleRouteDispatch:
             patch.object(SecureHandler, "get_auth_context", mock_auth),
             patch.object(SecureHandler, "check_permission", mock_check),
         ):
-            result = await h.handle(
-                "/api/v1/dashboard/quality-metrics", {}, mock_http
-            )
+            result = await h.handle("/api/v1/dashboard/quality-metrics", {}, mock_http)
 
         assert _status(result) == 403
 
@@ -730,9 +699,7 @@ class TestHandlePostRouteDispatch:
     @pytest.mark.asyncio
     async def test_export_dashboard_data(self, handler, mock_http):
         """POST /api/v1/dashboard/export returns export snapshot."""
-        result = await handler.handle_post(
-            "/api/v1/dashboard/export", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/dashboard/export", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert "generated_at" in body
@@ -764,9 +731,7 @@ class TestQueryParamParsing:
     @pytest.mark.asyncio
     async def test_debates_limit_clamped_to_50(self, handler, mock_http):
         """Limit is clamped to max 50 for legacy debates."""
-        result = await handler.handle(
-            "/api/dashboard/debates", {"limit": "999"}, mock_http
-        )
+        result = await handler.handle("/api/dashboard/debates", {"limit": "999"}, mock_http)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -788,17 +753,13 @@ class TestQueryParamParsing:
     @pytest.mark.asyncio
     async def test_activity_limit_clamped_to_100(self, handler, mock_http):
         """GET /api/v1/dashboard/activity limit clamped to 100."""
-        result = await handler.handle(
-            "/api/v1/dashboard/activity", {"limit": "500"}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/activity", {"limit": "500"}, mock_http)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_urgent_limit_clamped_to_100(self, handler, mock_http):
         """GET /api/v1/dashboard/urgent limit clamped to 100."""
-        result = await handler.handle(
-            "/api/v1/dashboard/urgent", {"limit": "500"}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/urgent", {"limit": "500"}, mock_http)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -812,9 +773,7 @@ class TestQueryParamParsing:
     @pytest.mark.asyncio
     async def test_search_empty_query(self, handler, mock_http):
         """GET /api/v1/dashboard/search with empty q returns empty results."""
-        result = await handler.handle(
-            "/api/v1/dashboard/search", {"q": ""}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/search", {"q": ""}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["results"] == []
@@ -823,9 +782,7 @@ class TestQueryParamParsing:
     @pytest.mark.asyncio
     async def test_search_no_q_param(self, handler, mock_http):
         """GET /api/v1/dashboard/search with no q param returns empty."""
-        result = await handler.handle(
-            "/api/v1/dashboard/search", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/search", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["results"] == []
@@ -958,6 +915,7 @@ class TestGetConsensusInsights:
     def test_default_insights_on_import_error(self, handler):
         """When consensus memory is not importable, returns defaults."""
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -1039,6 +997,7 @@ class TestGetConnectorType:
             return_value="github",
         ):
             from aragora.server.handlers.admin.dashboard_health import get_connector_type
+
             result = get_connector_type(mock_connector)
             assert result == "github"
 
@@ -1154,9 +1113,7 @@ class TestStorageErrorHandling:
     async def test_debates_list_with_error_storage(self, mock_http):
         """Storage errors produce empty debates list."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/debates", {"limit": "10"}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/debates", {"limit": "10"}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["debates"] == []
@@ -1166,9 +1123,7 @@ class TestStorageErrorHandling:
     async def test_activity_with_error_storage(self, mock_http):
         """Storage errors produce empty activity list."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/activity", {"limit": "10"}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/activity", {"limit": "10"}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["activity"] == []
@@ -1177,9 +1132,7 @@ class TestStorageErrorHandling:
     async def test_urgent_with_error_storage(self, mock_http):
         """Storage errors produce empty urgent items list."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/urgent", {"limit": "10"}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/urgent", {"limit": "10"}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["items"] == []
@@ -1188,9 +1141,7 @@ class TestStorageErrorHandling:
     async def test_search_with_error_storage(self, mock_http):
         """Storage errors produce empty search results."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/search", {"q": "test"}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/search", {"q": "test"}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["results"] == []
@@ -1199,9 +1150,7 @@ class TestStorageErrorHandling:
     async def test_labels_with_error_storage(self, mock_http):
         """Storage errors produce empty labels list."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/labels", {}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/labels", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["labels"] == []
@@ -1210,9 +1159,7 @@ class TestStorageErrorHandling:
     async def test_top_senders_with_error_storage(self, mock_http):
         """Storage errors produce empty senders list."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/top-senders", {}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/top-senders", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["senders"] == []
@@ -1221,18 +1168,14 @@ class TestStorageErrorHandling:
     async def test_dismiss_with_error_storage(self, mock_http):
         """Storage errors on dismiss return 500."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle_post(
-            "/api/v1/dashboard/urgent/d1/dismiss", {}, mock_http
-        )
+        result = await h.handle_post("/api/v1/dashboard/urgent/d1/dismiss", {}, mock_http)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_complete_with_error_storage(self, mock_http):
         """Storage errors on complete return 500."""
         h = DashboardHandler(ctx={"storage": ErrorStorage()})
-        result = await h.handle_post(
-            "/api/v1/dashboard/pending-actions/d1/complete", {}, mock_http
-        )
+        result = await h.handle_post("/api/v1/dashboard/pending-actions/d1/complete", {}, mock_http)
         assert _status(result) == 500
 
 
@@ -1308,9 +1251,7 @@ class TestStorageBackedPaths:
     @pytest.mark.asyncio
     async def test_labels_with_data(self, handler_with_storage, mock_http):
         """Labels returns domain counts."""
-        result = await handler_with_storage.handle(
-            "/api/v1/dashboard/labels", {}, mock_http
-        )
+        result = await handler_with_storage.handle("/api/v1/dashboard/labels", {}, mock_http)
         body = _body(result)
         assert len(body["labels"]) >= 1
         # finance appears twice
@@ -1321,9 +1262,7 @@ class TestStorageBackedPaths:
     @pytest.mark.asyncio
     async def test_top_senders_with_data(self, handler_with_storage, mock_http):
         """Top senders returns domain-based sender counts."""
-        result = await handler_with_storage.handle(
-            "/api/v1/dashboard/top-senders", {}, mock_http
-        )
+        result = await handler_with_storage.handle("/api/v1/dashboard/top-senders", {}, mock_http)
         body = _body(result)
         assert len(body["senders"]) >= 1
 
@@ -1354,9 +1293,7 @@ class TestDashboardWithElo:
     @pytest.mark.asyncio
     async def test_stat_cards_with_elo(self, handler_with_elo, mock_http):
         """Stat cards include agent count and avg ELO from ELO system."""
-        result = await handler_with_elo.handle(
-            "/api/v1/dashboard/stat-cards", {}, mock_http
-        )
+        result = await handler_with_elo.handle("/api/v1/dashboard/stat-cards", {}, mock_http)
         body = _body(result)
         cards = body["cards"]
         # Should have agent card and elo card at minimum
@@ -1367,18 +1304,14 @@ class TestDashboardWithElo:
     @pytest.mark.asyncio
     async def test_overview_with_elo(self, handler_with_elo, mock_http):
         """Overview stats include agent count from ELO."""
-        result = await handler_with_elo.handle(
-            "/api/v1/dashboard/overview", {}, mock_http
-        )
+        result = await handler_with_elo.handle("/api/v1/dashboard/overview", {}, mock_http)
         body = _body(result)
         agent_stat = [s for s in body["stats"] if s["label"] == "Total Agents"]
         assert len(agent_stat) == 1
         assert agent_stat[0]["value"] == 3
 
     @pytest.mark.asyncio
-    async def test_team_performance_groups_by_provider(
-        self, handler_with_elo, mock_http
-    ):
+    async def test_team_performance_groups_by_provider(self, handler_with_elo, mock_http):
         """Team performance groups agents by provider prefix."""
         result = await handler_with_elo.handle(
             "/api/v1/dashboard/team-performance", {"limit": "50"}, mock_http
@@ -1391,9 +1324,7 @@ class TestDashboardWithElo:
         assert "mistral" in team_ids
 
     @pytest.mark.asyncio
-    async def test_team_performance_detail_with_members(
-        self, handler_with_elo, mock_http
-    ):
+    async def test_team_performance_detail_with_members(self, handler_with_elo, mock_http):
         """Team detail includes member info."""
         result = await handler_with_elo.handle(
             "/api/v1/dashboard/team-performance/claude", {}, mock_http
@@ -1423,9 +1354,7 @@ class TestNoStorage:
     @pytest.mark.asyncio
     async def test_inbox_summary_no_storage(self, handler, mock_http):
         """Inbox summary returns zeros without storage."""
-        result = await handler.handle(
-            "/api/v1/dashboard/inbox-summary", {}, mock_http
-        )
+        result = await handler.handle("/api/v1/dashboard/inbox-summary", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total_messages"] == 0
@@ -1441,9 +1370,7 @@ class TestNoStorage:
     @pytest.mark.asyncio
     async def test_dismiss_no_storage(self, handler, mock_http):
         """Dismiss without storage succeeds (no update to make)."""
-        result = await handler.handle_post(
-            "/api/v1/dashboard/urgent/item1/dismiss", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/dashboard/urgent/item1/dismiss", {}, mock_http)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1457,9 +1384,7 @@ class TestNoStorage:
     @pytest.mark.asyncio
     async def test_export_no_storage(self, handler, mock_http):
         """Export without storage returns partial data."""
-        result = await handler.handle_post(
-            "/api/v1/dashboard/export", {}, mock_http
-        )
+        result = await handler.handle_post("/api/v1/dashboard/export", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["summary"] == {}
@@ -1582,9 +1507,7 @@ class TestEdgeCases:
     async def test_empty_database(self, mock_http):
         """Handler works with empty database."""
         h = DashboardHandler(ctx={"storage": InMemoryStorage()})
-        result = await h.handle(
-            "/api/v1/dashboard/debates", {"limit": "10"}, mock_http
-        )
+        result = await h.handle("/api/v1/dashboard/debates", {"limit": "10"}, mock_http)
         body = _body(result)
         assert body["total"] == 0
         assert body["debates"] == []

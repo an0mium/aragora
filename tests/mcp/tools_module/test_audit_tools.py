@@ -17,7 +17,6 @@ from aragora.mcp.tools_module.audit import (
 )
 
 
-
 class TestListAuditPresetsTool:
     """Tests for list_audit_presets_tool."""
 

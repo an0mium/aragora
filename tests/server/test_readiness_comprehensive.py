@@ -102,11 +102,13 @@ class TestReadinessProbeStartupCheck:
         route_index_mock = MagicMock()
         route_index_mock._exact_routes = {"/health": ("_h", None)}
 
-        with patch(
-                 "aragora.server.handler_registry.core.get_route_index",
-                 return_value=route_index_mock,
-             ), \
-             patch.dict("os.environ", {}, clear=True):
+        with (
+            patch(
+                "aragora.server.handler_registry.core.get_route_index",
+                return_value=route_index_mock,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
             result = readiness_probe_fast(mock_handler)
             status, body = _parse_probe_result(result)
             assert status == 200
@@ -122,11 +124,13 @@ class TestReadinessProbeStartupCheck:
         route_index_mock = MagicMock()
         route_index_mock._exact_routes = {"/health": ("_h", None)}
 
-        with patch(
-                 "aragora.server.handler_registry.core.get_route_index",
-                 return_value=route_index_mock,
-             ), \
-             patch.dict("os.environ", {}, clear=True):
+        with (
+            patch(
+                "aragora.server.handler_registry.core.get_route_index",
+                return_value=route_index_mock,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
             result = readiness_probe_fast(mock_handler)
             _, body = _parse_probe_result(result)
             assert "startup_complete" in body["checks"]
@@ -145,11 +149,13 @@ class TestReadinessProbeHandlerCheck:
         route_index_mock = MagicMock()
         route_index_mock._exact_routes = {}
 
-        with patch(
-                 "aragora.server.handler_registry.core.get_route_index",
-                 return_value=route_index_mock,
-             ), \
-             patch.dict("os.environ", {}, clear=True):
+        with (
+            patch(
+                "aragora.server.handler_registry.core.get_route_index",
+                return_value=route_index_mock,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
             result = readiness_probe_fast(mock_handler)
             status, body = _parse_probe_result(result)
             assert status == 503
@@ -168,11 +174,13 @@ class TestReadinessProbeHandlerCheck:
             "/api/v1/debates": ("_debates_handler", None),
         }
 
-        with patch(
-                 "aragora.server.handler_registry.core.get_route_index",
-                 return_value=route_index_mock,
-             ), \
-             patch.dict("os.environ", {}, clear=True):
+        with (
+            patch(
+                "aragora.server.handler_registry.core.get_route_index",
+                return_value=route_index_mock,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
             result = readiness_probe_fast(mock_handler)
             status, body = _parse_probe_result(result)
             assert status == 200
@@ -188,11 +196,13 @@ class TestReadinessProbeHandlerCheck:
         route_index_mock = MagicMock()
         route_index_mock._exact_routes = {"/health": ("_h", None)}
 
-        with patch(
-                 "aragora.server.handler_registry.core.get_route_index",
-                 return_value=route_index_mock,
-             ), \
-             patch.dict("os.environ", {}, clear=True):
+        with (
+            patch(
+                "aragora.server.handler_registry.core.get_route_index",
+                return_value=route_index_mock,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
             result = readiness_probe_fast(mock_handler)
             _, body = _parse_probe_result(result)
             assert "startup_complete" in body["checks"]

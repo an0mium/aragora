@@ -403,9 +403,7 @@ class TestUnsupportedClaims:
         result = analyzer.analyze(content, agent="agent", round_num=1)
         # The "definitely" claim has evidence in same sentence
         # so it should not be flagged as unsupported
-        unsupported_with_because = [
-            c for c in result.unsupported_claims if "because" in c.lower()
-        ]
+        unsupported_with_because = [c for c in result.unsupported_claims if "because" in c.lower()]
         assert len(unsupported_with_because) == 0
 
 
@@ -599,9 +597,7 @@ class TestObserverWithStructuralAnalysis:
         structural = observer_with_structural.get_structural_results()
         assert len(structural) >= 1
         assert any(
-            f.fallacy_type == FallacyType.AD_HOMINEM
-            for r in structural
-            for f in r.fallacies
+            f.fallacy_type == FallacyType.AD_HOMINEM for r in structural for f in r.fallacies
         )
 
     def test_combined_confidence_max(self, observer_with_structural):
@@ -612,9 +608,7 @@ class TestObserverWithStructuralAnalysis:
             "However, you're clearly just biased in your assessment "
             "and your limited understanding undermines your argument."
         )
-        observations = observer_with_structural.observe(
-            agent="agent", content=content, round_num=1
-        )
+        observations = observer_with_structural.observe(agent="agent", content=content, round_num=1)
         # The structural analyzer may boost confidence
         for obs in observations:
             assert obs.confidence >= 0.3  # At least min_confidence
@@ -661,9 +655,7 @@ class TestCartographerStructuralAnnotation:
         )
 
         annotation = {
-            "fallacies": [
-                {"fallacy_type": "ad_hominem", "confidence": 0.8}
-            ],
+            "fallacies": [{"fallacy_type": "ad_hominem", "confidence": 0.8}],
         }
         result = cartographer.add_structural_annotation(node_id, annotation)
 
@@ -674,9 +666,7 @@ class TestCartographerStructuralAnnotation:
 
     def test_annotation_nonexistent_node(self, cartographer):
         """Should return False for nonexistent node."""
-        result = cartographer.add_structural_annotation(
-            "nonexistent", {"fallacies": []}
-        )
+        result = cartographer.add_structural_annotation("nonexistent", {"fallacies": []})
         assert result is False
 
     def test_annotation_creates_edges_for_relationships(self, cartographer):

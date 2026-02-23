@@ -204,9 +204,7 @@ def mock_registry():
     registry.star.return_value = None
     registry.list_categories.return_value = ["analysis", "coding", "debate"]
     registry.export_template.side_effect = lambda tid: (
-        json.dumps({"id": tid, "name": "Exported"})
-        if tid == "tpl-1"
-        else None
+        json.dumps({"id": tid, "name": "Exported"}) if tid == "tpl-1" else None
     )
 
     return registry
@@ -884,12 +882,15 @@ class TestRateTemplate:
     def test_rate_returns_200(self, handler, http_handler_with_body, mock_registry):
         h = http_handler_with_body({"score": 5})
         handler.set_request_context(h, {})
-        with patch(
-            "aragora.server.handlers.marketplace._get_registry",
-            return_value=mock_registry,
-        ), patch(
-            "aragora.marketplace.TemplateRating",
-            MagicMock(),
+        with (
+            patch(
+                "aragora.server.handlers.marketplace._get_registry",
+                return_value=mock_registry,
+            ),
+            patch(
+                "aragora.marketplace.TemplateRating",
+                MagicMock(),
+            ),
         ):
             result = handler.handle_rate_template("tpl-1")
         assert _status(result) == 200
@@ -897,12 +898,15 @@ class TestRateTemplate:
     def test_rate_returns_average(self, handler, http_handler_with_body, mock_registry):
         h = http_handler_with_body({"score": 4})
         handler.set_request_context(h, {})
-        with patch(
-            "aragora.server.handlers.marketplace._get_registry",
-            return_value=mock_registry,
-        ), patch(
-            "aragora.marketplace.TemplateRating",
-            MagicMock(),
+        with (
+            patch(
+                "aragora.server.handlers.marketplace._get_registry",
+                return_value=mock_registry,
+            ),
+            patch(
+                "aragora.marketplace.TemplateRating",
+                MagicMock(),
+            ),
         ):
             result = handler.handle_rate_template("tpl-1")
         body = _body(result)
@@ -912,12 +916,15 @@ class TestRateTemplate:
     def test_rate_with_review(self, handler, http_handler_with_body, mock_registry):
         h = http_handler_with_body({"score": 5, "review": "Excellent!"})
         handler.set_request_context(h, {})
-        with patch(
-            "aragora.server.handlers.marketplace._get_registry",
-            return_value=mock_registry,
-        ), patch(
-            "aragora.marketplace.TemplateRating",
-            MagicMock(),
+        with (
+            patch(
+                "aragora.server.handlers.marketplace._get_registry",
+                return_value=mock_registry,
+            ),
+            patch(
+                "aragora.marketplace.TemplateRating",
+                MagicMock(),
+            ),
         ):
             result = handler.handle_rate_template("tpl-1")
         assert _status(result) == 200
@@ -1006,12 +1013,15 @@ class TestRateTemplate:
         mock_registry.rate.side_effect = TypeError("bad type")
         h = http_handler_with_body({"score": 5})
         handler.set_request_context(h, {})
-        with patch(
-            "aragora.server.handlers.marketplace._get_registry",
-            return_value=mock_registry,
-        ), patch(
-            "aragora.marketplace.TemplateRating",
-            MagicMock(),
+        with (
+            patch(
+                "aragora.server.handlers.marketplace._get_registry",
+                return_value=mock_registry,
+            ),
+            patch(
+                "aragora.marketplace.TemplateRating",
+                MagicMock(),
+            ),
         ):
             result = handler.handle_rate_template("tpl-1")
         assert _status(result) == 500
@@ -1019,12 +1029,15 @@ class TestRateTemplate:
     def test_rate_value_error(self, handler, http_handler_with_body, mock_registry):
         h = http_handler_with_body({"score": 3})
         handler.set_request_context(h, {})
-        with patch(
-            "aragora.server.handlers.marketplace._get_registry",
-            return_value=mock_registry,
-        ), patch(
-            "aragora.marketplace.TemplateRating",
-            side_effect=ValueError("bad rating"),
+        with (
+            patch(
+                "aragora.server.handlers.marketplace._get_registry",
+                return_value=mock_registry,
+            ),
+            patch(
+                "aragora.marketplace.TemplateRating",
+                side_effect=ValueError("bad rating"),
+            ),
         ):
             result = handler.handle_rate_template("tpl-1")
         assert _status(result) == 400

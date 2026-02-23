@@ -310,9 +310,11 @@ class TestRateLimitDecorator:
 
     def test_rate_limit_returns_429(self):
         """Verify rate limiting returns 429 when exceeded."""
+
         @rate_limit(requests_per_minute=2, use_distributed=False)
         def my_handler(self, path, query, handler=None):
             from aragora.server.handlers.base import json_response
+
             return json_response({"ok": True})
 
         mock_self = MagicMock()
@@ -329,4 +331,7 @@ class TestRateLimitDecorator:
         if result is not None:
             body = json.loads(result.body)
             if result.status_code == 429:
-                assert "rate" in body.get("error", "").lower() or "limit" in body.get("error", "").lower()
+                assert (
+                    "rate" in body.get("error", "").lower()
+                    or "limit" in body.get("error", "").lower()
+                )

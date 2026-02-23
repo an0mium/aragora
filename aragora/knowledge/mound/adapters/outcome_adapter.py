@@ -242,12 +242,15 @@ class OutcomeAdapter(KnowledgeMoundAdapter):
             )
             self._ingested_outcomes[outcome_id] = result
 
-            self._emit_event("outcome_ingested", {
-                "outcome_id": outcome_id,
-                "decision_id": decision_id,
-                "outcome_type": outcome_type,
-                "impact_score": impact_score,
-            })
+            self._emit_event(
+                "outcome_ingested",
+                {
+                    "outcome_id": outcome_id,
+                    "decision_id": decision_id,
+                    "outcome_type": outcome_type,
+                    "impact_score": impact_score,
+                },
+            )
 
             logger.info(
                 "[outcome_adapter] Ingested outcome %s as KM item %s",

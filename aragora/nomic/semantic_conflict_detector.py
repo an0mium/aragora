@@ -10,6 +10,7 @@ Two tiers:
 1. Fast AST-based static analysis (always runs)
 2. Optional Arena debate for ambiguous cases
 """
+
 from __future__ import annotations
 
 import ast
@@ -92,7 +93,7 @@ class SemanticConflictDetector:
 
         # Pairwise comparison
         for i, branch_a in enumerate(branches):
-            for branch_b in branches[i + 1:]:
+            for branch_b in branches[i + 1 :]:
                 changes_a = branch_changes.get(branch_a, {})
                 changes_b = branch_changes.get(branch_b, {})
 
@@ -101,14 +102,19 @@ class SemanticConflictDetector:
 
                 # Static AST scan
                 static_conflicts = self._static_scan(
-                    branch_a, branch_b, changes_a, changes_b,
+                    branch_a,
+                    branch_b,
+                    changes_a,
+                    changes_b,
                 )
                 all_conflicts.extend(static_conflicts)
 
                 # Optional debate scan for ambiguous cases
                 if self.enable_debate and static_conflicts:
                     debate_conflicts = self._debate_scan(
-                        branch_a, branch_b, static_conflicts,
+                        branch_a,
+                        branch_b,
+                        static_conflicts,
                     )
                     all_conflicts.extend(debate_conflicts)
 
@@ -182,13 +188,21 @@ class SemanticConflictDetector:
 
             # Check signature changes
             sig_conflicts = self._check_signature_conflicts(
-                file_path, content_a, content_b, branch_a, branch_b,
+                file_path,
+                content_a,
+                content_b,
+                branch_a,
+                branch_b,
             )
             conflicts.extend(sig_conflicts)
 
             # Check import conflicts
             import_conflicts = self._check_import_conflicts(
-                file_path, content_a, content_b, branch_a, branch_b,
+                file_path,
+                content_a,
+                content_b,
+                branch_a,
+                branch_b,
             )
             conflicts.extend(import_conflicts)
 
@@ -286,12 +300,10 @@ class SemanticConflictDetector:
         # For now we flag cases where both branches add imports from each other's
         # changed modules.
         changed_modules_a = {
-            f.replace("/", ".").replace(".py", "")
-            for f in self._get_module_names(content_a)
+            f.replace("/", ".").replace(".py", "") for f in self._get_module_names(content_a)
         }
         changed_modules_b = {
-            f.replace("/", ".").replace(".py", "")
-            for f in self._get_module_names(content_b)
+            f.replace("/", ".").replace(".py", "") for f in self._get_module_names(content_b)
         }
 
         cross_imports = (modules_a & changed_modules_b) | (modules_b & changed_modules_a)

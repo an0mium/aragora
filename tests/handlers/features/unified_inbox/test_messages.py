@@ -414,9 +414,12 @@ class TestScoreMessages:
 
         messages = generate_sample_messages(account, 2)
 
-        with patch.dict("sys.modules", {
-            "aragora.services.email_prioritization": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.services.email_prioritization": mock_module,
+            },
+        ):
             scored = await score_messages(messages)
             assert len(scored) == 2
 
@@ -951,14 +954,17 @@ class TestParametrizedFetchErrors:
     """Parametrized tests for all handled exception types in fetch_all_messages."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("error_cls", [
-        ConnectionError,
-        TimeoutError,
-        OSError,
-        ValueError,
-        RuntimeError,
-        KeyError,
-    ])
+    @pytest.mark.parametrize(
+        "error_cls",
+        [
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            KeyError,
+        ],
+    )
     async def test_all_error_types_handled(self, mock_store, error_cls):
         from aragora.server.handlers.features.unified_inbox.messages import (
             fetch_all_messages,
@@ -982,16 +988,19 @@ class TestParametrizedFetchErrors:
 class TestParametrizedSampleCounts:
     """Parametrized tests for various sample message counts."""
 
-    @pytest.mark.parametrize("count,expected", [
-        (0, 0),
-        (1, 1),
-        (2, 2),
-        (3, 3),
-        (4, 4),
-        (5, 5),
-        (10, 5),
-        (100, 5),
-    ])
+    @pytest.mark.parametrize(
+        "count,expected",
+        [
+            (0, 0),
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (4, 4),
+            (5, 5),
+            (10, 5),
+            (100, 5),
+        ],
+    )
     def test_sample_count_clamping(self, count, expected):
         from aragora.server.handlers.features.unified_inbox.messages import (
             generate_sample_messages,

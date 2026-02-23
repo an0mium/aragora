@@ -317,37 +317,27 @@ class TestHandleSetWebhook:
     def test_set_webhook_post_allowed(
         self, handler, mock_http_post, _patch_check_permission_allow, _patch_set_webhook
     ):
-        result = handler.handle(
-            "/api/v1/integrations/telegram/set-webhook", {}, mock_http_post
-        )
+        result = handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http_post)
         assert _status(result) == 200
         _patch_set_webhook.assert_called_once_with(mock_http_post)
 
     def test_set_webhook_get_returns_405(self, handler, mock_http_get):
-        result = handler.handle(
-            "/api/v1/integrations/telegram/set-webhook", {}, mock_http_get
-        )
+        result = handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http_get)
         assert _status(result) == 405
         assert "Method not allowed" in _body(result).get("error", "")
 
     def test_set_webhook_permission_denied(
         self, handler, mock_http_post, _patch_check_permission_deny
     ):
-        result = handler.handle(
-            "/api/v1/integrations/telegram/set-webhook", {}, mock_http_post
-        )
+        result = handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http_post)
         assert _status(result) == 403
 
     def test_set_webhook_permission_check_called_with_admin(
         self, handler, mock_http_post, _patch_set_webhook
     ):
         """Verify _check_permission is called with PERM_TELEGRAM_ADMIN."""
-        with patch.object(
-            TelegramHandler, "_check_permission", return_value=None
-        ) as perm_mock:
-            handler.handle(
-                "/api/v1/integrations/telegram/set-webhook", {}, mock_http_post
-            )
+        with patch.object(TelegramHandler, "_check_permission", return_value=None) as perm_mock:
+            handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http_post)
             perm_mock.assert_called_once_with(mock_http_post, "telegram:admin")
 
 
@@ -362,36 +352,26 @@ class TestHandleWebhook:
     def test_webhook_post_with_valid_secret(
         self, handler, mock_http_post, _patch_verify_secret_ok, _patch_handle_webhook
     ):
-        result = handler.handle(
-            "/api/v1/integrations/telegram/webhook", {}, mock_http_post
-        )
+        result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http_post)
         assert _status(result) == 200
         _patch_handle_webhook.assert_called_once_with(mock_http_post)
 
     def test_webhook_get_returns_405(self, handler, mock_http_get):
-        result = handler.handle(
-            "/api/v1/integrations/telegram/webhook", {}, mock_http_get
-        )
+        result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http_get)
         assert _status(result) == 405
         assert "Method not allowed" in _body(result).get("error", "")
 
     def test_webhook_secret_verification_fails_returns_401(
         self, handler, mock_http_post, _patch_verify_secret_fail
     ):
-        result = handler.handle(
-            "/api/v1/integrations/telegram/webhook", {}, mock_http_post
-        )
+        result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http_post)
         assert _status(result) == 401
         assert "Unauthorized" in _body(result).get("error", "")
 
     def test_webhook_calls_verify_secret(self, handler, mock_http_post, _patch_handle_webhook):
         """_verify_secret is called before _handle_webhook."""
-        with patch.object(
-            TelegramHandler, "_verify_secret", return_value=True
-        ) as verify_mock:
-            handler.handle(
-                "/api/v1/integrations/telegram/webhook", {}, mock_http_post
-            )
+        with patch.object(TelegramHandler, "_verify_secret", return_value=True) as verify_mock:
+            handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http_post)
             verify_mock.assert_called_once_with(mock_http_post)
 
 
@@ -425,13 +405,9 @@ class TestHandleUnknown:
 class TestHandlePost:
     """Tests for handle_post method."""
 
-    def test_handle_post_delegates_to_handle(
-        self, handler, mock_http_post, _patch_get_status
-    ):
+    def test_handle_post_delegates_to_handle(self, handler, mock_http_post, _patch_get_status):
         """handle_post should delegate to handle()."""
-        result = handler.handle_post(
-            "/api/v1/integrations/telegram/status", {}, mock_http_post
-        )
+        result = handler.handle_post("/api/v1/integrations/telegram/status", {}, mock_http_post)
         assert _status(result) == 200
 
     def test_handle_post_passes_empty_query_params(self, handler, mock_http_post):
@@ -492,45 +468,28 @@ class TestHandleEdgeCases:
         )
         assert _status(result) == 200
 
-    def test_webhook_post_method_check_before_secret_check(
-        self, handler, mock_http_get
-    ):
+    def test_webhook_post_method_check_before_secret_check(self, handler, mock_http_get):
         """GET on webhook returns 405 before even checking the secret."""
-        with patch.object(
-            TelegramHandler, "_verify_secret"
-        ) as verify_mock:
-            result = handler.handle(
-                "/api/v1/integrations/telegram/webhook", {}, mock_http_get
-            )
+        with patch.object(TelegramHandler, "_verify_secret") as verify_mock:
+            result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http_get)
             assert _status(result) == 405
             verify_mock.assert_not_called()
 
-    def test_set_webhook_method_check_before_permission_check(
-        self, handler, mock_http_get
-    ):
+    def test_set_webhook_method_check_before_permission_check(self, handler, mock_http_get):
         """GET on set-webhook returns 405 before checking permissions."""
-        with patch.object(
-            TelegramHandler, "_check_permission"
-        ) as perm_mock:
-            result = handler.handle(
-                "/api/v1/integrations/telegram/set-webhook", {}, mock_http_get
-            )
+        with patch.object(TelegramHandler, "_check_permission") as perm_mock:
+            result = handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http_get)
             assert _status(result) == 405
             perm_mock.assert_not_called()
 
-    def test_set_webhook_permission_check_before_set_webhook_call(
-        self, handler, mock_http_post
-    ):
+    def test_set_webhook_permission_check_before_set_webhook_call(self, handler, mock_http_post):
         """When permission denied, _set_webhook is never called."""
         denied = MagicMock(status_code=403, body=b'{"error":"denied"}')
-        with patch.object(
-            TelegramHandler, "_check_permission", return_value=denied
-        ), patch.object(
-            TelegramHandler, "_set_webhook"
-        ) as set_mock:
-            result = handler.handle(
-                "/api/v1/integrations/telegram/set-webhook", {}, mock_http_post
-            )
+        with (
+            patch.object(TelegramHandler, "_check_permission", return_value=denied),
+            patch.object(TelegramHandler, "_set_webhook") as set_mock,
+        ):
+            result = handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http_post)
             assert _status(result) == 403
             set_mock.assert_not_called()
 
@@ -538,12 +497,8 @@ class TestHandleEdgeCases:
         self, handler, mock_http_post, _patch_verify_secret_fail
     ):
         """When secret verification fails, _handle_webhook is not called."""
-        with patch.object(
-            TelegramHandler, "_handle_webhook"
-        ) as hook_mock:
-            result = handler.handle(
-                "/api/v1/integrations/telegram/webhook", {}, mock_http_post
-            )
+        with patch.object(TelegramHandler, "_handle_webhook") as hook_mock:
+            result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http_post)
             assert _status(result) == 401
             hook_mock.assert_not_called()
 
@@ -588,4 +543,5 @@ class TestMixinComposition:
 
     def test_is_base_handler(self, handler):
         from aragora.server.handlers.base import BaseHandler
+
         assert isinstance(handler, BaseHandler)

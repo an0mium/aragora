@@ -99,7 +99,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         try:
             from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
 
-            if not hasattr(self, '_stream_server'):
+            if not hasattr(self, "_stream_server"):
                 self._stream_server = NomicLoopStreamServer()
             return self._stream_server
         except ImportError:
@@ -172,16 +172,16 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         Returns whether a cycle is running, idle, the current phase,
         and progress information.
         """
-        active_run_ids = [
-            rid for rid, task in _active_tasks.items() if not task.done()
-        ]
+        active_run_ids = [rid for rid, task in _active_tasks.items() if not task.done()]
 
         if not active_run_ids:
-            return json_response({
-                "state": "idle",
-                "active_runs": 0,
-                "runs": [],
-            })
+            return json_response(
+                {
+                    "state": "idle",
+                    "active_runs": 0,
+                    "runs": [],
+                }
+            )
 
         store = self._get_store()
         active_runs = []
@@ -191,11 +191,13 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 if run:
                     active_runs.append(run.to_dict())
 
-        return json_response({
-            "state": "running",
-            "active_runs": len(active_run_ids),
-            "runs": active_runs,
-        })
+        return json_response(
+            {
+                "state": "running",
+                "active_runs": len(active_run_ids),
+                "runs": active_runs,
+            }
+        )
 
     # ------------------------------------------------------------------
     # GET /api/self-improve/runs, /history
@@ -212,12 +214,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         status = query_params.get("status")
 
         runs = store.list_runs(limit=limit, offset=offset, status=status)
-        return json_response({
-            "runs": [r.to_dict() for r in runs],
-            "total": len(runs),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "runs": [r.to_dict() for r in runs],
+                "total": len(runs),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     # ------------------------------------------------------------------
     # GET /api/self-improve/runs/:id
@@ -295,7 +299,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             try:
                 stream = self._get_stream_server()
                 if stream:
-                    await stream.emit_phase_completed("planning", cycle=1, duration_sec=0.0, result_summary="Dry-run plan generated")
+                    await stream.emit_phase_completed(
+                        "planning",
+                        cycle=1,
+                        duration_sec=0.0,
+                        result_summary="Dry-run plan generated",
+                    )
             except (RuntimeError, OSError) as e:
                 logger.debug("WebSocket emit skipped: %s", type(e).__name__)
             return json_response(
@@ -305,8 +314,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         # Start async execution
         task = asyncio.create_task(
             self._execute_run(
-                run.run_id, goal, tracks, mode, budget_limit, max_cycles,
-                scan_mode=scan_mode, quick_mode=quick_mode,
+                run.run_id,
+                goal,
+                tracks,
+                mode,
+                budget_limit,
+                max_cycles,
+                scan_mode=scan_mode,
+                quick_mode=quick_mode,
                 require_approval=require_approval,
             )
         )
@@ -342,10 +357,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         if task and not task.done():
             task.cancel()
 
-        return json_response({
-            "run_id": run_id,
-            "status": "cancelled",
-        })
+        return json_response(
+            {
+                "run_id": run_id,
+                "status": "cancelled",
+            }
+        )
 
     # ------------------------------------------------------------------
     # POST /api/self-improve/coordinate (HierarchicalCoordinator)
@@ -387,7 +404,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         # Start async coordination
         task = asyncio.create_task(
             self._execute_coordination(
-                run.run_id, goal, tracks,
+                run.run_id,
+                goal,
+                tracks,
                 max_cycles=max_cycles,
                 quality_threshold=quality_threshold,
                 max_parallel=max_parallel,
@@ -443,12 +462,8 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 status="completed" if result.success else "failed",
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 total_subtasks=len(result.worker_reports),
-                completed_subtasks=sum(
-                    1 for r in result.worker_reports if r.success
-                ),
-                failed_subtasks=sum(
-                    1 for r in result.worker_reports if not r.success
-                ),
+                completed_subtasks=sum(1 for r in result.worker_reports if r.success),
+                failed_subtasks=sum(1 for r in result.worker_reports if not r.success),
                 summary=(
                     f"Coordination completed in {result.cycles_used} cycles"
                     if result.success
@@ -623,7 +638,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             # Emit error event
             try:
                 if stream:
-                    await stream.emit_error("SelfImprovePipeline failed, falling back to orchestrator")
+                    await stream.emit_error(
+                        "SelfImprovePipeline failed, falling back to orchestrator"
+                    )
             except (RuntimeError, OSError):
                 pass
 
@@ -657,7 +674,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             # Emit loop_stopped
             try:
                 if stream:
-                    await stream.emit_loop_stopped(reason=result.summary or "Orchestration complete")
+                    await stream.emit_loop_stopped(
+                        reason=result.summary or "Orchestration complete"
+                    )
             except (RuntimeError, OSError) as e:
                 logger.debug("WebSocket emit skipped: %s", type(e).__name__)
 
@@ -695,22 +714,26 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             coordinator = BranchCoordinator()
             worktrees = coordinator.list_worktrees()
-            return json_response({
-                "worktrees": [
-                    {
-                        "branch_name": wt.branch_name,
-                        "worktree_path": str(wt.worktree_path),
-                        "track": wt.track,
-                        "created_at": wt.created_at,
-                        "assignment_id": wt.assignment_id,
-                    }
-                    for wt in worktrees
-                ],
-                "total": len(worktrees),
-            })
+            return json_response(
+                {
+                    "worktrees": [
+                        {
+                            "branch_name": wt.branch_name,
+                            "worktree_path": str(wt.worktree_path),
+                            "track": wt.track,
+                            "created_at": wt.created_at,
+                            "assignment_id": wt.assignment_id,
+                        }
+                        for wt in worktrees
+                    ],
+                    "total": len(worktrees),
+                }
+            )
         except (ImportError, OSError, ValueError) as e:
             logger.warning("Failed to list worktrees: %s", type(e).__name__)
-            return json_response({"worktrees": [], "total": 0, "error": "Worktree listing unavailable"})
+            return json_response(
+                {"worktrees": [], "total": 0, "error": "Worktree listing unavailable"}
+            )
 
     def _cleanup_worktrees(self) -> HandlerResult:
         """Clean up all managed worktrees."""
@@ -719,10 +742,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             coordinator = BranchCoordinator()
             removed = coordinator.cleanup_all_worktrees()
-            return json_response({
-                "removed": removed,
-                "status": "cleaned",
-            })
+            return json_response(
+                {
+                    "removed": removed,
+                    "status": "cleaned",
+                }
+            )
         except (ImportError, OSError, ValueError):
             logger.warning("Worktree cleanup failed")
             return error_response("Worktree cleanup failed", 503)

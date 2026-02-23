@@ -271,12 +271,8 @@ class TestGetRoutes:
         assert route["tag"] == "Testing"
 
     def test_filter_by_tag(self, handler):
-        cls_a = self._make_mock_handler_cls(
-            "HandlerA", ["/api/v1/alpha"], doc="Alpha handler."
-        )
-        cls_b = self._make_mock_handler_cls(
-            "HandlerB", ["/api/v1/beta"], doc="Beta handler."
-        )
+        cls_a = self._make_mock_handler_cls("HandlerA", ["/api/v1/alpha"], doc="Alpha handler.")
+        cls_b = self._make_mock_handler_cls("HandlerB", ["/api/v1/beta"], doc="Beta handler.")
         mock_rules = [("alpha", "Alpha"), ("beta", "Beta")]
         with patch(
             "aragora.server.handlers._registry.ALL_HANDLERS",
@@ -293,9 +289,7 @@ class TestGetRoutes:
         assert body["routes"][0]["tag"] == "Alpha"
 
     def test_filter_by_tag_case_insensitive(self, handler):
-        cls = self._make_mock_handler_cls(
-            "HandlerA", ["/api/v1/alpha"], doc="Alpha handler."
-        )
+        cls = self._make_mock_handler_cls("HandlerA", ["/api/v1/alpha"], doc="Alpha handler.")
         mock_rules = [("alpha", "Alpha")]
         with patch(
             "aragora.server.handlers._registry.ALL_HANDLERS",
@@ -311,9 +305,7 @@ class TestGetRoutes:
         assert body["total"] == 1
 
     def test_filter_by_method(self, handler):
-        cls_get = self._make_mock_handler_cls(
-            "GetHandler", ["/api/v1/get-only"], doc="GET only."
-        )
+        cls_get = self._make_mock_handler_cls("GetHandler", ["/api/v1/get-only"], doc="GET only.")
         cls_post = self._make_mock_handler_cls(
             "PostHandler",
             ["/api/v1/post-only"],
@@ -336,9 +328,7 @@ class TestGetRoutes:
         assert body["routes"][0]["handler"] == "PostHandler"
 
     def test_filter_by_method_case_insensitive(self, handler):
-        cls = self._make_mock_handler_cls(
-            "GetHandler", ["/api/v1/get-only"], doc="GET only."
-        )
+        cls = self._make_mock_handler_cls("GetHandler", ["/api/v1/get-only"], doc="GET only.")
         mock_rules = []
         with patch(
             "aragora.server.handlers._registry.ALL_HANDLERS",
@@ -391,12 +381,8 @@ class TestGetRoutes:
         assert body["routes"] == []
 
     def test_duplicate_paths_deduplicated(self, handler):
-        cls_a = self._make_mock_handler_cls(
-            "HandlerA", ["/api/v1/dup"], doc="First."
-        )
-        cls_b = self._make_mock_handler_cls(
-            "HandlerB", ["/api/v1/dup"], doc="Second."
-        )
+        cls_a = self._make_mock_handler_cls("HandlerA", ["/api/v1/dup"], doc="First.")
+        cls_b = self._make_mock_handler_cls("HandlerB", ["/api/v1/dup"], doc="Second.")
         mock_rules = []
         with patch(
             "aragora.server.handlers._registry.ALL_HANDLERS",
@@ -413,12 +399,8 @@ class TestGetRoutes:
         assert paths.count("/api/v1/dup") == 1
 
     def test_routes_sorted_by_path(self, handler):
-        cls_b = self._make_mock_handler_cls(
-            "HandlerB", ["/api/v1/zeta"], doc=""
-        )
-        cls_a = self._make_mock_handler_cls(
-            "HandlerA", ["/api/v1/alpha"], doc=""
-        )
+        cls_b = self._make_mock_handler_cls("HandlerB", ["/api/v1/zeta"], doc="")
+        cls_a = self._make_mock_handler_cls("HandlerA", ["/api/v1/alpha"], doc="")
         mock_rules = []
         with patch(
             "aragora.server.handlers._registry.ALL_HANDLERS",
@@ -480,7 +462,11 @@ class TestGetStats:
             "paths": {
                 "/a": {"get": {"tags": ["Alpha"]}},
                 "/b": {"get": {"tags": ["Beta"]}, "post": {"tags": ["Beta"]}},
-                "/c": {"get": {"tags": ["Gamma"]}, "post": {"tags": ["Gamma"]}, "delete": {"tags": ["Gamma"]}},
+                "/c": {
+                    "get": {"tags": ["Gamma"]},
+                    "post": {"tags": ["Gamma"]},
+                    "delete": {"tags": ["Gamma"]},
+                },
             }
         }
         with patch(

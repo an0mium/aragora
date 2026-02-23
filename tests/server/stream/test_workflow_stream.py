@@ -20,6 +20,7 @@ from aragora.events.types import StreamEventType
 # Fixtures
 # =========================================================================
 
+
 @pytest.fixture
 def emitter():
     return WorkflowStreamEmitter()
@@ -38,12 +39,14 @@ def mock_ws_factory():
         ws = AsyncMock()
         ws.send_str = AsyncMock()
         return ws
+
     return factory
 
 
 # =========================================================================
 # Initialization
 # =========================================================================
+
 
 class TestInitialization:
     def test_initial_state(self, emitter):
@@ -57,6 +60,7 @@ class TestInitialization:
 # =========================================================================
 # Client management
 # =========================================================================
+
 
 class TestClientManagement:
     def test_add_client(self, emitter, mock_ws):
@@ -100,6 +104,7 @@ class TestClientManagement:
 # =========================================================================
 # Event emission
 # =========================================================================
+
 
 class TestEventEmission:
     @pytest.mark.asyncio
@@ -184,6 +189,7 @@ class TestEventEmission:
 # Event history
 # =========================================================================
 
+
 class TestEventHistory:
     @pytest.mark.asyncio
     async def test_history_stored(self, emitter):
@@ -242,6 +248,7 @@ class TestEventHistory:
 # Convenience methods
 # =========================================================================
 
+
 class TestConvenienceMethods:
     @pytest.mark.asyncio
     async def test_emit_step_started(self, emitter, mock_ws):
@@ -294,6 +301,7 @@ class TestConvenienceMethods:
 # =========================================================================
 # Global emitter (singleton)
 # =========================================================================
+
 
 class TestGlobalEmitter:
     def test_get_creates_singleton(self):

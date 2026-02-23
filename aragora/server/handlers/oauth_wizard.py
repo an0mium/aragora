@@ -560,7 +560,15 @@ class OAuthWizardHandler(SecureHandler):
             store = await self._maybe_await(get_slack_workspace_store())
             self._normalize_mock_side_effect(store.list_active)
             workspaces = await self._maybe_await(store.list_active(limit=1))
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            AttributeError,
+        ) as e:
             logger.warning("Slack connection check failed: %s", e)
             return {"status": "error", "error": "Slack connection check failed"}
 
@@ -586,7 +594,15 @@ class OAuthWizardHandler(SecureHandler):
             store = await self._maybe_await(get_teams_tenant_store())
             self._normalize_mock_side_effect(store.list_active)
             workspaces = await self._maybe_await(store.list_active(limit=1))
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            AttributeError,
+        ) as e:
             logger.warning("Teams connection check failed: %s", e)
             return {"status": "error", "error": "Teams connection check failed"}
 
@@ -705,7 +721,15 @@ class OAuthWizardHandler(SecureHandler):
                         "team_id": data.get("team_id"),
                     }
                 return {"success": False, "error": data.get("error", "Unknown")}
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            RuntimeError,
+        ) as e:
             logger.warning("Slack API test failed: %s", e)
             return {"success": False, "error": "Slack API test failed"}
 
@@ -742,7 +766,15 @@ class OAuthWizardHandler(SecureHandler):
                 elif response.status_code == 401:
                     return {"success": False, "error": "Token expired"}
                 return {"success": False, "error": f"API returned {response.status_code}"}
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            RuntimeError,
+        ) as e:
             logger.warning("Teams API test failed: %s", e)
             return {"success": False, "error": "Teams API test failed"}
 
@@ -766,7 +798,15 @@ class OAuthWizardHandler(SecureHandler):
                     data = response.json()
                     return {"success": True, "bot_name": data.get("username")}
                 return {"success": False, "error": f"API returned {response.status_code}"}
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
+        except (
+            ImportError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            RuntimeError,
+        ) as e:
             logger.warning("Discord API test failed: %s", e)
             return {"success": False, "error": "Discord API test failed"}
 

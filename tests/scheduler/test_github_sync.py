@@ -57,10 +57,12 @@ class TestGitHubSecretsSyncBackend:
         mock_session.put = AsyncMock(return_value=mock_put_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with (
             patch(
@@ -88,18 +90,18 @@ class TestGitHubSecretsSyncBackend:
         mock_response = MagicMock()
         mock_response.status_code = 401
         # raise_for_status raises on 4xx status
-        mock_response.raise_for_status = MagicMock(
-            side_effect=RuntimeError("401 Unauthorized")
-        )
+        mock_response.raise_for_status = MagicMock(side_effect=RuntimeError("401 Unauthorized"))
 
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -125,10 +127,12 @@ class TestGitHubSecretsSyncBackend:
         mock_session.get = AsyncMock(side_effect=ConnectionError("Network unreachable"))
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -153,10 +157,12 @@ class TestGitHubSecretsSyncBackend:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -182,9 +188,7 @@ class TestGitHubSecretsSyncBackend:
 
             # Generate a test keypair
             private_key = PrivateKey.generate()
-            public_key_b64 = base64.b64encode(
-                bytes(private_key.public_key)
-            ).decode()
+            public_key_b64 = base64.b64encode(bytes(private_key.public_key)).decode()
 
             encrypted = backend._encrypt_secret(public_key_b64, "test-secret-value")
 

@@ -57,6 +57,7 @@ def _ensure_clean_run_async():
     a minimal synchronous bridge that creates a fresh event loop, ensuring tests
     are independent of external event-loop state.
     """
+
     def _safe_run_async(coro):
         """Run a coroutine synchronously in a fresh event loop."""
         loop = asyncio.new_event_loop()

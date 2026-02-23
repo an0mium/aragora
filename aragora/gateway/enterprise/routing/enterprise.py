@@ -340,7 +340,9 @@ class EnterpriseTenantHandler:
 
         if not compliant:
             logger.warning(
-                "No compliant endpoints for tenant %s, requirements: %s", config.tenant_id, config.compliance_requirements
+                "No compliant endpoints for tenant %s, requirements: %s",
+                config.tenant_id,
+                config.compliance_requirements,
             )
             # Fall back to all endpoints if no compliant ones
             compliant = endpoints

@@ -70,17 +70,11 @@ def _assert_transitions_reference_valid_steps(template: dict, label: str) -> Non
 
 def _assert_playbook_fields(template: dict, label: str) -> None:
     """Assert playbook-specific fields present on vertical templates."""
-    assert "compliance_frameworks" in template, (
-        f"{label} missing 'compliance_frameworks'"
-    )
+    assert "compliance_frameworks" in template, f"{label} missing 'compliance_frameworks'"
     assert isinstance(template["compliance_frameworks"], list)
-    assert len(template["compliance_frameworks"]) > 0, (
-        f"{label} has no compliance_frameworks"
-    )
+    assert len(template["compliance_frameworks"]) > 0, f"{label} has no compliance_frameworks"
 
-    assert "required_agent_types" in template, (
-        f"{label} missing 'required_agent_types'"
-    )
+    assert "required_agent_types" in template, f"{label} missing 'required_agent_types'"
     assert isinstance(template["required_agent_types"], list)
     assert len(template["required_agent_types"]) >= 3, (
         f"{label} should have at least 3 required agent types"
@@ -108,14 +102,14 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        _assert_template_structure(
-            HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL"
-        )
+
+        _assert_template_structure(HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL")
 
     def test_template_identity(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         assert HEALTHCARE_CLINICAL_DECISION_TEMPLATE["name"] == (
             "Healthcare Clinical Decision Playbook"
         )
@@ -125,22 +119,21 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        _assert_playbook_fields(
-            HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL"
-        )
+
+        _assert_playbook_fields(HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL")
 
     def test_steps_valid(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        _assert_steps_valid(
-            HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL"
-        )
+
+        _assert_steps_valid(HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL")
 
     def test_transitions_reference_valid_steps(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         _assert_transitions_reference_valid_steps(
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE, "HEALTHCARE_CLINICAL"
         )
@@ -149,6 +142,7 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         frameworks = HEALTHCARE_CLINICAL_DECISION_TEMPLATE["compliance_frameworks"]
         assert "HIPAA" in frameworks
         assert "HITECH" in frameworks
@@ -158,6 +152,7 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         agents = HEALTHCARE_CLINICAL_DECISION_TEMPLATE["required_agent_types"]
         assert "clinical_reviewer" in agents
         assert "compliance_officer" in agents
@@ -167,6 +162,7 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         tags = HEALTHCARE_CLINICAL_DECISION_TEMPLATE["tags"]
         assert "healthcare" in tags
         assert "hipaa" in tags
@@ -180,24 +176,23 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "phi_screening" in step_ids
 
     def test_has_compliance_pre_check(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "compliance_pre_check" in step_ids
 
     def test_compliance_pre_check_has_checks(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
@@ -212,15 +207,15 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "evidence_grading" in step_ids
 
     def test_evidence_grading_has_grade_levels(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
@@ -236,46 +231,41 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "patient_safety_screening" in step_ids
 
     def test_has_do_no_harm_gate(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "do_no_harm_gate" in step_ids
 
     def test_has_clinical_outcome_tracking(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "clinical_outcome_tracking" in step_ids
 
     def test_has_decision_receipt_generation(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert "generate_decision_receipt" in step_ids
 
     def test_archive_retention_six_years(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         archive_step = next(
-            s
-            for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-            if s["id"] == "archive"
+            s for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"] if s["id"] == "archive"
         )
         assert archive_step["config"]["retention_years"] == 6
 
@@ -283,6 +273,7 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         output = HEALTHCARE_CLINICAL_DECISION_TEMPLATE["output_format"]
         assert "decision_receipt" in output
         assert "clinical_summary" in output
@@ -292,37 +283,35 @@ class TestHealthcareClinicalDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         for step in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]:
             if step.get("type") == "debate":
-                assert "agents" in step["config"], (
-                    f"Debate step '{step['id']}' missing agents"
-                )
+                assert "agents" in step["config"], f"Debate step '{step['id']}' missing agents"
                 assert len(step["config"]["agents"]) >= 2
 
     def test_no_duplicate_step_ids(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]]
         assert len(step_ids) == len(set(step_ids))
 
     def test_json_serialization_roundtrip(self):
         from aragora.workflow.templates.catalog.verticals.healthcare import (
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
         )
+
         serialized = json.dumps(HEALTHCARE_CLINICAL_DECISION_TEMPLATE)
         deserialized = json.loads(serialized)
         assert deserialized["name"] == HEALTHCARE_CLINICAL_DECISION_TEMPLATE["name"]
-        assert len(deserialized["steps"]) == len(
-            HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"]
-        )
+        assert len(deserialized["steps"]) == len(HEALTHCARE_CLINICAL_DECISION_TEMPLATE["steps"])
         assert len(deserialized["transitions"]) == len(
             HEALTHCARE_CLINICAL_DECISION_TEMPLATE["transitions"]
         )
-        assert deserialized["compliance_frameworks"] == (
-            HEALTHCARE_CLINICAL_DECISION_TEMPLATE["compliance_frameworks"]
+        assert (
+            deserialized["compliance_frameworks"]
+            == (HEALTHCARE_CLINICAL_DECISION_TEMPLATE["compliance_frameworks"])
         )
 
 
@@ -338,14 +327,14 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        _assert_template_structure(
-            FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY"
-        )
+
+        _assert_template_structure(FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY")
 
     def test_template_identity(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         assert FINANCIAL_REGULATORY_DECISION_TEMPLATE["name"] == (
             "Financial Regulatory Decision Playbook"
         )
@@ -355,22 +344,21 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        _assert_playbook_fields(
-            FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY"
-        )
+
+        _assert_playbook_fields(FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY")
 
     def test_steps_valid(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        _assert_steps_valid(
-            FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY"
-        )
+
+        _assert_steps_valid(FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY")
 
     def test_transitions_reference_valid_steps(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         _assert_transitions_reference_valid_steps(
             FINANCIAL_REGULATORY_DECISION_TEMPLATE, "FINANCIAL_REGULATORY"
         )
@@ -379,6 +367,7 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         frameworks = FINANCIAL_REGULATORY_DECISION_TEMPLATE["compliance_frameworks"]
         assert "SOX" in frameworks
         assert "BASEL_III" in frameworks
@@ -389,6 +378,7 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         agents = FINANCIAL_REGULATORY_DECISION_TEMPLATE["required_agent_types"]
         assert "financial_auditor" in agents
         assert "compliance_officer" in agents
@@ -399,6 +389,7 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         tags = FINANCIAL_REGULATORY_DECISION_TEMPLATE["tags"]
         assert "finance" in tags
         assert "sox" in tags
@@ -411,15 +402,15 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert "segregation_of_duties_check" in step_ids
 
     def test_sod_check_has_rules(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
@@ -434,15 +425,15 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert "regulatory_compliance_screening" in step_ids
 
     def test_regulatory_screening_has_compliance_checks(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
@@ -458,9 +449,8 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert "market_risk_assessment" in step_ids
         assert "credit_risk_assessment" in step_ids
         assert "operational_risk_assessment" in step_ids
@@ -470,6 +460,7 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
@@ -483,37 +474,33 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert "materiality_gate" in step_ids
 
     def test_has_audit_trail_generation(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert "generate_audit_trail" in step_ids
 
     def test_has_decision_receipt_generation(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert "generate_decision_receipt" in step_ids
 
     def test_archive_retention_seven_years(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         archive_step = next(
-            s
-            for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-            if s["id"] == "archive"
+            s for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"] if s["id"] == "archive"
         )
         assert archive_step["config"]["retention_years"] == 7
 
@@ -521,6 +508,7 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         output = FINANCIAL_REGULATORY_DECISION_TEMPLATE["output_format"]
         assert "decision_receipt" in output
         assert "risk_report" in output
@@ -530,39 +518,35 @@ class TestFinancialRegulatoryDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         for step in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]:
             if step.get("type") == "debate":
-                assert "agents" in step["config"], (
-                    f"Debate step '{step['id']}' missing agents"
-                )
+                assert "agents" in step["config"], f"Debate step '{step['id']}' missing agents"
                 assert len(step["config"]["agents"]) >= 2
 
     def test_no_duplicate_step_ids(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]]
         assert len(step_ids) == len(set(step_ids))
 
     def test_json_serialization_roundtrip(self):
         from aragora.workflow.templates.catalog.verticals.financial import (
             FINANCIAL_REGULATORY_DECISION_TEMPLATE,
         )
+
         serialized = json.dumps(FINANCIAL_REGULATORY_DECISION_TEMPLATE)
         deserialized = json.loads(serialized)
-        assert deserialized["name"] == (
-            FINANCIAL_REGULATORY_DECISION_TEMPLATE["name"]
-        )
-        assert len(deserialized["steps"]) == len(
-            FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"]
-        )
+        assert deserialized["name"] == (FINANCIAL_REGULATORY_DECISION_TEMPLATE["name"])
+        assert len(deserialized["steps"]) == len(FINANCIAL_REGULATORY_DECISION_TEMPLATE["steps"])
         assert len(deserialized["transitions"]) == len(
             FINANCIAL_REGULATORY_DECISION_TEMPLATE["transitions"]
         )
-        assert deserialized["compliance_frameworks"] == (
-            FINANCIAL_REGULATORY_DECISION_TEMPLATE["compliance_frameworks"]
+        assert (
+            deserialized["compliance_frameworks"]
+            == (FINANCIAL_REGULATORY_DECISION_TEMPLATE["compliance_frameworks"])
         )
 
 
@@ -578,39 +562,36 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        _assert_template_structure(
-            LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS"
-        )
+
+        _assert_template_structure(LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS")
 
     def test_template_identity(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        assert LEGAL_ANALYSIS_DECISION_TEMPLATE["name"] == (
-            "Legal Analysis Decision Playbook"
-        )
+
+        assert LEGAL_ANALYSIS_DECISION_TEMPLATE["name"] == ("Legal Analysis Decision Playbook")
         assert LEGAL_ANALYSIS_DECISION_TEMPLATE["category"] == "legal"
 
     def test_playbook_fields(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        _assert_playbook_fields(
-            LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS"
-        )
+
+        _assert_playbook_fields(LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS")
 
     def test_steps_valid(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        _assert_steps_valid(
-            LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS"
-        )
+
+        _assert_steps_valid(LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS")
 
     def test_transitions_reference_valid_steps(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         _assert_transitions_reference_valid_steps(
             LEGAL_ANALYSIS_DECISION_TEMPLATE, "LEGAL_ANALYSIS"
         )
@@ -619,6 +600,7 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         frameworks = LEGAL_ANALYSIS_DECISION_TEMPLATE["compliance_frameworks"]
         assert "ABA_MODEL_RULES" in frameworks
         assert "ATTORNEY_CLIENT_PRIVILEGE" in frameworks
@@ -629,6 +611,7 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         agents = LEGAL_ANALYSIS_DECISION_TEMPLATE["required_agent_types"]
         assert "contract_analyst" in agents
         assert "compliance_officer" in agents
@@ -638,6 +621,7 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         tags = LEGAL_ANALYSIS_DECISION_TEMPLATE["tags"]
         assert "legal" in tags
         assert "precedent" in tags
@@ -650,15 +634,15 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "conflict_of_interest_check" in step_ids
 
     def test_conflict_check_has_rules(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
@@ -672,15 +656,15 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "privilege_classification" in step_ids
 
     def test_privilege_classification_has_tiers(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
@@ -695,6 +679,7 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
@@ -708,9 +693,8 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "precedent_retrieval" in step_ids
         assert "precedent_analysis" in step_ids
 
@@ -718,15 +702,15 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "jurisdictional_analysis" in step_ids
 
     def test_jurisdictional_analysis_has_dimensions(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
@@ -741,15 +725,15 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "liability_assessment" in step_ids
 
     def test_liability_assessment_has_risk_dimensions(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         step = next(
             s
             for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
@@ -764,46 +748,41 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "privilege_review" in step_ids
 
     def test_has_partner_sign_off(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "partner_sign_off" in step_ids
 
     def test_has_decision_receipt_generation(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "generate_decision_receipt" in step_ids
 
     def test_has_legal_memorandum_generation(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert "generate_legal_memorandum" in step_ids
 
     def test_archive_retention_ten_years(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         archive_step = next(
-            s
-            for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-            if s["id"] == "archive"
+            s for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"] if s["id"] == "archive"
         )
         assert archive_step["config"]["retention_years"] == 10
 
@@ -811,10 +790,9 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         archive_step = next(
-            s
-            for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-            if s["id"] == "archive"
+            s for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"] if s["id"] == "archive"
         )
         assert archive_step["config"]["access_control"] == "attorney_eyes_only"
 
@@ -822,6 +800,7 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         output = LEGAL_ANALYSIS_DECISION_TEMPLATE["output_format"]
         assert "decision_receipt" in output
         assert "legal_memorandum" in output
@@ -831,11 +810,8 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        sections = (
-            LEGAL_ANALYSIS_DECISION_TEMPLATE["output_format"]["legal_memorandum"][
-                "sections"
-            ]
-        )
+
+        sections = LEGAL_ANALYSIS_DECISION_TEMPLATE["output_format"]["legal_memorandum"]["sections"]
         assert "question_presented" in sections
         assert "brief_answer" in sections
         assert "statement_of_facts" in sections
@@ -847,37 +823,35 @@ class TestLegalAnalysisDecisionTemplate:
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         for step in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]:
             if step.get("type") == "debate":
-                assert "agents" in step["config"], (
-                    f"Debate step '{step['id']}' missing agents"
-                )
+                assert "agents" in step["config"], f"Debate step '{step['id']}' missing agents"
                 assert len(step["config"]["agents"]) >= 2
 
     def test_no_duplicate_step_ids(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
-        step_ids = [
-            s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        ]
+
+        step_ids = [s["id"] for s in LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]]
         assert len(step_ids) == len(set(step_ids))
 
     def test_json_serialization_roundtrip(self):
         from aragora.workflow.templates.catalog.verticals.legal import (
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
         )
+
         serialized = json.dumps(LEGAL_ANALYSIS_DECISION_TEMPLATE)
         deserialized = json.loads(serialized)
         assert deserialized["name"] == LEGAL_ANALYSIS_DECISION_TEMPLATE["name"]
-        assert len(deserialized["steps"]) == len(
-            LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"]
-        )
+        assert len(deserialized["steps"]) == len(LEGAL_ANALYSIS_DECISION_TEMPLATE["steps"])
         assert len(deserialized["transitions"]) == len(
             LEGAL_ANALYSIS_DECISION_TEMPLATE["transitions"]
         )
-        assert deserialized["compliance_frameworks"] == (
-            LEGAL_ANALYSIS_DECISION_TEMPLATE["compliance_frameworks"]
+        assert (
+            deserialized["compliance_frameworks"]
+            == (LEGAL_ANALYSIS_DECISION_TEMPLATE["compliance_frameworks"])
         )
 
 
@@ -935,6 +909,7 @@ class TestVerticalTemplateRegistry:
             LEGAL_ANALYSIS_DECISION_TEMPLATE,
             VERTICAL_TEMPLATES,
         )
+
         assert HEALTHCARE_CLINICAL_DECISION_TEMPLATE is not None
         assert FINANCIAL_REGULATORY_DECISION_TEMPLATE is not None
         assert LEGAL_ANALYSIS_DECISION_TEMPLATE is not None
@@ -972,21 +947,15 @@ class TestAllVerticalTemplatesStructure:
 
     def test_all_have_playbook_tag(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():
-            assert "playbook" in template["tags"], (
-                f"{key} missing 'playbook' tag"
-            )
+            assert "playbook" in template["tags"], f"{key} missing 'playbook' tag"
 
     def test_all_have_decision_receipt_tag(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():
-            assert "decision-receipt" in template["tags"], (
-                f"{key} missing 'decision-receipt' tag"
-            )
+            assert "decision-receipt" in template["tags"], f"{key} missing 'decision-receipt' tag"
 
     def test_all_have_at_least_five_tags(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():
-            assert len(template["tags"]) >= 5, (
-                f"{key} should have at least 5 tags"
-            )
+            assert len(template["tags"]) >= 5, f"{key} should have at least 5 tags"
 
     def test_all_have_compliance_frameworks(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():
@@ -1008,9 +977,7 @@ class TestAllVerticalTemplatesStructure:
 
     def test_all_archive_steps_have_retention_years(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():
-            archive_step = next(
-                s for s in template["steps"] if s["id"] == "archive"
-            )
+            archive_step = next(s for s in template["steps"] if s["id"] == "archive")
             assert "retention_years" in archive_step["config"], (
                 f"{key} archive step missing retention_years"
             )
@@ -1027,9 +994,7 @@ class TestAllVerticalTemplatesStructure:
     def test_no_duplicate_step_ids_in_any(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():
             step_ids = [s["id"] for s in template["steps"]]
-            assert len(step_ids) == len(set(step_ids)), (
-                f"{key} has duplicate step IDs"
-            )
+            assert len(step_ids) == len(set(step_ids)), f"{key} has duplicate step IDs"
 
     def test_all_have_gauntlet_receipt_output(self, all_vertical_templates):
         for key, template in all_vertical_templates.items():

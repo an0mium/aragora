@@ -65,11 +65,13 @@ def _ensure_embeddings_checked() -> None:
 # aragora.debate.evidence_linker import EMBEDDINGS_AVAILABLE``).  Reads go
 # through the module-level ``__getattr__`` so the lazy check runs first.
 
+
 def __getattr__(name: str):
     if name == "EMBEDDINGS_AVAILABLE":
         _ensure_embeddings_checked()
         return _EMBEDDINGS_AVAILABLE
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # Claim detection patterns
 CLAIM_INDICATORS = [
@@ -184,7 +186,9 @@ class EvidenceClaimLinker:
         if use_embeddings is True and not _EMBEDDINGS_AVAILABLE:
             logger.warning("Embeddings requested but sentence-transformers not installed")
         elif (
-            use_embeddings is not False and _EMBEDDINGS_AVAILABLE and _SentenceTransformer is not None
+            use_embeddings is not False
+            and _EMBEDDINGS_AVAILABLE
+            and _SentenceTransformer is not None
         ):
             try:
                 self._embedder = _SentenceTransformer(embedding_model)

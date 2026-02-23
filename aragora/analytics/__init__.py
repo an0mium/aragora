@@ -32,6 +32,8 @@ from .dashboard import (
 from .benchmarking import (
     BenchmarkAggregator,
     BenchmarkAggregate,
+    BenchmarkMetric,
+    get_benchmark_aggregator,
 )
 from .debate_analytics import (
     DebateAnalytics,

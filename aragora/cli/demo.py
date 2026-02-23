@@ -196,9 +196,7 @@ def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
     }
 
 
-def _print_receipt_summary(
-    result: DebateResult, elapsed: float, receipt_file: str
-) -> None:
+def _print_receipt_summary(result: DebateResult, elapsed: float, receipt_file: str) -> None:
     """Print a compact decision receipt summary."""
     print()
     print("=" * 64)

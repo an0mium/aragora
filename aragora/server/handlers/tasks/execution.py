@@ -28,7 +28,13 @@ from aragora.events.handler_events import (
     STARTED,
     emit_handler_event,
 )
-from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, handle_errors, json_response
+from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    handle_errors,
+    json_response,
+)
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.tasks.router import VALID_TASK_TYPES, TaskRouter
 

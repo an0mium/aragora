@@ -518,9 +518,7 @@ class TestGetReplay:
         events = [{"type": "e"}]
         _create_replay_dir(replays_dir, "r-off", events=events)
 
-        result = handler.handle(
-            "/api/replays/r-off", {"offset": "100"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/replays/r-off", {"offset": "100"}, MockHTTPHandler())
         body = _body(result)
         assert body["event_count"] == 0
         assert body["total_events"] == 1
@@ -589,9 +587,7 @@ class TestGetReplay:
         events = [{"t": i} for i in range(5)]
         _create_replay_dir(replays_dir, "r-clamp", events=events)
 
-        result = handler.handle(
-            "/api/replays/r-clamp", {"limit": "0"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/replays/r-clamp", {"limit": "0"}, MockHTTPHandler())
         body = _body(result)
         assert body["limit"] == 1
         assert body["event_count"] == 1
@@ -603,9 +599,7 @@ class TestGetReplay:
         events = [{"t": i} for i in range(3)]
         _create_replay_dir(replays_dir, "r-neg-off", events=events)
 
-        result = handler.handle(
-            "/api/replays/r-neg-off", {"offset": "-5"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/replays/r-neg-off", {"offset": "-5"}, MockHTTPHandler())
         body = _body(result)
         assert body["offset"] == 0
 
@@ -694,14 +688,12 @@ class TestLearningEvolution:
         for i in range(10):
             conn.execute(
                 "INSERT INTO meta_patterns VALUES (?, ?, ?, ?, ?)",
-                (i, f"type_{i}", 0.5, 1, f"2026-01-{i+1:02d}T00:00:00"),
+                (i, f"type_{i}", 0.5, 1, f"2026-01-{i + 1:02d}T00:00:00"),
             )
         conn.commit()
         conn.close()
 
-        result = handler.handle(
-            "/api/learning/evolution", {"limit": "3"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/learning/evolution", {"limit": "3"}, MockHTTPHandler())
         body = _body(result)
         assert body["patterns_count"] == 3
 
@@ -888,15 +880,13 @@ class TestLearningEvolution:
         """Limit parameter restricts debate history entries scanned."""
         state = {
             "debate_history": [
-                {"timestamp": f"2026-01-{i+1:02d}T00:00:00", "consensus_reached": True}
+                {"timestamp": f"2026-01-{i + 1:02d}T00:00:00", "consensus_reached": True}
                 for i in range(30)
             ],
         }
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
-        result = handler.handle(
-            "/api/learning/evolution", {"limit": "5"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/learning/evolution", {"limit": "5"}, MockHTTPHandler())
         body = _body(result)
         # limit=5 means last 5 debate entries are used from history
         assert body["debates_count"] <= 5
@@ -915,9 +905,7 @@ class TestMetaLearningStats:
     """Tests for meta-learning stats endpoint."""
 
     def test_no_nomic_dir(self, handler_no_dir):
-        result = handler_no_dir.handle(
-            "/api/meta-learning/stats", {}, MockHTTPHandler()
-        )
+        result = handler_no_dir.handle("/api/meta-learning/stats", {}, MockHTTPHandler())
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "no_data"
@@ -1030,7 +1018,7 @@ class TestMetaLearningStats:
                     i,
                     i + 1,
                     json.dumps({"pattern_retention_rate": 0.5 + i * 0.1}),
-                    f"2026-01-{i+1:02d}T00:00:00",
+                    f"2026-01-{i + 1:02d}T00:00:00",
                 ),
             )
         conn.commit()
@@ -1087,10 +1075,10 @@ class TestMetaLearningStats:
         # first_half (older)  = [0.85, 0.9] avg=0.875
         # 0.325 < 0.875 - 0.05 => declining
         data = [
-            (0, 0.9, "2026-01-01"),   # oldest, high retention
+            (0, 0.9, "2026-01-01"),  # oldest, high retention
             (1, 0.85, "2026-01-02"),
             (2, 0.35, "2026-01-03"),
-            (3, 0.3, "2026-01-04"),   # newest, low retention
+            (3, 0.3, "2026-01-04"),  # newest, low retention
         ]
         for i, ret, date in data:
             conn.execute(
@@ -1116,7 +1104,7 @@ class TestMetaLearningStats:
                     i,
                     i + 1,
                     json.dumps({"pattern_retention_rate": 0.7}),
-                    f"2026-01-{i+1:02d}T00:00:00",
+                    f"2026-01-{i + 1:02d}T00:00:00",
                 ),
             )
         conn.commit()
@@ -1133,7 +1121,7 @@ class TestMetaLearningStats:
         for i in range(3):
             conn.execute(
                 "INSERT INTO meta_efficiency_log VALUES (?, ?, ?, ?)",
-                (i, i + 1, json.dumps({}), f"2026-01-{i+1:02d}T00:00:00"),
+                (i, i + 1, json.dumps({}), f"2026-01-{i + 1:02d}T00:00:00"),
             )
         conn.commit()
         conn.close()
@@ -1149,18 +1137,16 @@ class TestMetaLearningStats:
         for i in range(10):
             conn.execute(
                 "INSERT INTO meta_hyperparams VALUES (?, ?, ?, ?, ?)",
-                (i, "{}", "{}", f"reason_{i}", f"2026-01-{i+1:02d}T00:00:00"),
+                (i, "{}", "{}", f"reason_{i}", f"2026-01-{i + 1:02d}T00:00:00"),
             )
             conn.execute(
                 "INSERT INTO meta_efficiency_log VALUES (?, ?, ?, ?)",
-                (i, i + 1, "{}", f"2026-01-{i+1:02d}T00:00:00"),
+                (i, i + 1, "{}", f"2026-01-{i + 1:02d}T00:00:00"),
             )
         conn.commit()
         conn.close()
 
-        result = handler.handle(
-            "/api/meta-learning/stats", {"limit": "3"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/meta-learning/stats", {"limit": "3"}, MockHTTPHandler())
         body = _body(result)
         assert len(body["adjustment_history"]) == 3
         assert len(body["efficiency_log"]) == 3
@@ -1172,15 +1158,11 @@ class TestMetaLearningStats:
         conn.close()
 
         # Limit 0 clamped to 1
-        result = handler.handle(
-            "/api/meta-learning/stats", {"limit": "0"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/meta-learning/stats", {"limit": "0"}, MockHTTPHandler())
         assert _status(result) == 200
 
         # Limit 999 clamped to 50
-        result = handler.handle(
-            "/api/meta-learning/stats", {"limit": "999"}, MockHTTPHandler()
-        )
+        result = handler.handle("/api/meta-learning/stats", {"limit": "999"}, MockHTTPHandler())
         assert _status(result) == 200
 
     def test_hyperparams_malformed_json(self, handler, nomic_dir):
@@ -1276,9 +1258,7 @@ class TestEdgeCases:
                 success_rate REAL, occurrence_count INTEGER, created_at TEXT
             )
         """)
-        conn.execute(
-            "INSERT INTO meta_patterns VALUES (1, 'test', 0.8, 5, '2026-01-01T00:00:00')"
-        )
+        conn.execute("INSERT INTO meta_patterns VALUES (1, 'test', 0.8, 5, '2026-01-01T00:00:00')")
         conn.commit()
         conn.close()
 
@@ -1291,9 +1271,7 @@ class TestEdgeCases:
 
         # Create state with debate history
         state = {
-            "debate_history": [
-                {"timestamp": "2026-01-01T00:00:00", "consensus_reached": True}
-            ]
+            "debate_history": [{"timestamp": "2026-01-01T00:00:00", "consensus_reached": True}]
         }
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 

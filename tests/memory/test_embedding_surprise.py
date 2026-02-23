@@ -56,9 +56,7 @@ def _make_embed_service(
 
         service.embed = AsyncMock(side_effect=_embed)
     else:
-        service.embed = AsyncMock(
-            return_value=FakeEmbeddingResult(embedding=[1.0, 0.0, 0.0])
-        )
+        service.embed = AsyncMock(return_value=FakeEmbeddingResult(embedding=[1.0, 0.0, 0.0]))
 
     return service
 
@@ -81,9 +79,7 @@ class TestEmbeddingSurpriseScorer:
     def test_fallback_on_empty_context(self):
         """With empty context, no embedding comparison possible."""
         service = _make_embed_service()
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score("something novel", "test", existing_context="")
         # Empty context → falls back to keyword scoring (novelty=1.0)
         assert score.novelty > 0
@@ -97,9 +93,7 @@ class TestEmbeddingSurpriseScorer:
                 "deep learning": [1.0, 0.0, 0.0],
             }
         )
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score(
             "machine learning models",
             "test",
@@ -116,9 +110,7 @@ class TestEmbeddingSurpriseScorer:
                 "cooking recipes": [0.0, 1.0, 0.0],
             }
         )
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score(
             "machine learning techniques",
             "test",
@@ -135,9 +127,7 @@ class TestEmbeddingSurpriseScorer:
                 "machine learning": [0.85, 0.15, 0.0],
             }
         )
-        embed_scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        embed_scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         embed_score = embed_scorer.score(
             "artificial intelligence systems",
             "test",
@@ -158,9 +148,7 @@ class TestEmbeddingSurpriseScorer:
     def test_fallback_on_embed_error(self):
         """When embedding service raises, falls back to keyword scoring."""
         service = _make_embed_service(side_effect=RuntimeError("API timeout"))
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score(
             "novel content here",
             "test",
@@ -178,9 +166,7 @@ class TestEmbeddingSurpriseScorer:
                 "world": [0.0, 1.0, 0.0],
             }
         )
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
 
         # First call
         scorer.score("hello world", "test", existing_context="world example")
@@ -202,18 +188,14 @@ class TestEmbeddingSurpriseScorer:
                 "context": [0.0, 1.0, 0.0],
             }
         )
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score("novel content", "test", existing_context="existing context")
         assert "[embedding]" in score.reason
 
     def test_empty_content_has_zero_novelty(self):
         """Empty content has zero novelty (no keywords to extract)."""
         service = _make_embed_service()
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         # When content has no keywords, falls back to super().score()
         # which returns novelty=0.0, momentum=0.5 (neutral), combined=0.15
         score = scorer.score("", "test", existing_context="some context")
@@ -249,9 +231,7 @@ class TestEmbeddingSurpriseScorer:
                 "old conclusion": [0.0, 1.0, 0.0],
             }
         )
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score_debate_outcome(
             conclusion="new conclusion here",
             domain="tech",
@@ -282,9 +262,7 @@ class TestEmbeddingSurpriseScorer:
                 "context": [1.0, 0.0, 0.0],
             }
         )
-        scorer = EmbeddingSurpriseScorer(
-            threshold=0.3, embedding_service=service
-        )
+        scorer = EmbeddingSurpriseScorer(threshold=0.3, embedding_service=service)
         score = scorer.score(
             "content text here",
             "test",

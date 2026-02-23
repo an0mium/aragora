@@ -129,7 +129,8 @@ class AmazonConnector(EnterpriseConnector):
         try:
             if self.use_mock:
                 logger.info(
-                    "Amazon SP-API connector initialized in mock mode (marketplace: %s)", self.amazon_credentials.marketplace_id
+                    "Amazon SP-API connector initialized in mock mode (marketplace: %s)",
+                    self.amazon_credentials.marketplace_id,
                 )
                 return True
 
@@ -158,7 +159,8 @@ class AmazonConnector(EnterpriseConnector):
                 self._marketplace = marketplace
 
                 logger.info(
-                    "Connecting to Amazon SP-API (marketplace: %s)", self.amazon_credentials.marketplace_id
+                    "Connecting to Amazon SP-API (marketplace: %s)",
+                    self.amazon_credentials.marketplace_id,
                 )
                 return True
 

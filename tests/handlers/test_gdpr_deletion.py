@@ -272,9 +272,7 @@ class TestGetDeletionStatus:
 
     def test_multiple_requests_returned(self, handler, mock_scheduler):
         req1 = _MockDeletionRequest(request_id="req-001")
-        req2 = _MockDeletionRequest(
-            request_id="req-002", status=_MockDeletionStatus.COMPLETED
-        )
+        req2 = _MockDeletionRequest(request_id="req-002", status=_MockDeletionStatus.COMPLETED)
         mock_scheduler.store.get_requests_for_user.return_value = [req1, req2]
         result = handler.handle(PATH, {}, _make_http_handler())
         body = _body(result)
@@ -282,12 +280,8 @@ class TestGetDeletionStatus:
         assert len(body["requests"]) == 2
 
     def test_mixed_statuses_pending_wins(self, handler, mock_scheduler):
-        completed = _MockDeletionRequest(
-            request_id="req-old", status=_MockDeletionStatus.COMPLETED
-        )
-        pending = _MockDeletionRequest(
-            request_id="req-new", status=_MockDeletionStatus.PENDING
-        )
+        completed = _MockDeletionRequest(request_id="req-old", status=_MockDeletionStatus.COMPLETED)
+        pending = _MockDeletionRequest(request_id="req-new", status=_MockDeletionStatus.PENDING)
         mock_scheduler.store.get_requests_for_user.return_value = [
             completed,
             pending,
@@ -446,9 +440,7 @@ class TestScheduleDeletion:
         result = handler.handle_post(PATH, {}, http)
         assert _status(result) == 409
 
-    def test_schedule_allowed_when_only_completed_exists(
-        self, handler, mock_scheduler
-    ):
+    def test_schedule_allowed_when_only_completed_exists(self, handler, mock_scheduler):
         completed = _MockDeletionRequest(status=_MockDeletionStatus.COMPLETED)
         mock_scheduler.store.get_requests_for_user.return_value = [completed]
         req = _MockDeletionRequest()
@@ -457,9 +449,7 @@ class TestScheduleDeletion:
         result = handler.handle_post(PATH, {}, http)
         assert _status(result) == 201
 
-    def test_schedule_allowed_when_only_cancelled_exists(
-        self, handler, mock_scheduler
-    ):
+    def test_schedule_allowed_when_only_cancelled_exists(self, handler, mock_scheduler):
         cancelled = _MockDeletionRequest(status=_MockDeletionStatus.CANCELLED)
         mock_scheduler.store.get_requests_for_user.return_value = [cancelled]
         req = _MockDeletionRequest()
@@ -712,11 +702,13 @@ class TestEdgeCases:
         mock_scheduler.store.get_requests_for_user.return_value = []
         req = _MockDeletionRequest()
         mock_scheduler.schedule_deletion.return_value = req
-        http = _make_http_handler(body={
-            "reason": "test",
-            "unknown_field": "value",
-            "another": 42,
-        })
+        http = _make_http_handler(
+            body={
+                "reason": "test",
+                "unknown_field": "value",
+                "another": 42,
+            }
+        )
         result = handler.handle_post(PATH, {}, http)
         assert _status(result) == 201
 
@@ -725,10 +717,12 @@ class TestEdgeCases:
         mock_scheduler.store.get_requests_for_user.return_value = [req]
         cancelled = _MockDeletionRequest(status=_MockDeletionStatus.CANCELLED)
         mock_scheduler.cancel_deletion.return_value = cancelled
-        http = _make_http_handler(body={
-            "reason": "test",
-            "extra": True,
-        })
+        http = _make_http_handler(
+            body={
+                "reason": "test",
+                "extra": True,
+            }
+        )
         result = handler.handle_delete(PATH, {}, http)
         assert _status(result) == 200
 

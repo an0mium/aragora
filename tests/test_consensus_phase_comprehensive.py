@@ -1261,7 +1261,10 @@ class TestConsensusStrength:
 
         # Method was extracted to WinnerSelector; requires normalize_choice callback
         phase._winner_selector.determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping,
+            mock_context,
+            vote_counts,
+            total_votes,
+            choice_mapping,
             normalize_choice=lambda choice, agents, proposals: choice,
         )
 
@@ -1286,7 +1289,10 @@ class TestConsensusStrength:
 
         # Method was extracted to WinnerSelector; requires normalize_choice callback
         phase._winner_selector.determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping,
+            mock_context,
+            vote_counts,
+            total_votes,
+            choice_mapping,
             normalize_choice=lambda choice, agents, proposals: choice,
         )
 
@@ -1320,7 +1326,10 @@ class TestDissentingViews:
 
         # Method was extracted to WinnerSelector; requires normalize_choice callback
         phase._winner_selector.determine_majority_winner(
-            mock_context, vote_counts, total_votes, choice_mapping,
+            mock_context,
+            vote_counts,
+            total_votes,
+            choice_mapping,
             normalize_choice=lambda choice, agents, proposals: choice,
         )
 

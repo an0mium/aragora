@@ -71,11 +71,13 @@ class WebhookMixin:
             is_production = env not in ("development", "dev", "local", "test")
             if is_production:
                 logger.error(
-                    "SECURITY: %s signing_secret not configured in production. Rejecting webhook to prevent signature bypass.", self.platform_name
+                    "SECURITY: %s signing_secret not configured in production. Rejecting webhook to prevent signature bypass.",
+                    self.platform_name,
                 )
                 return False
             logger.warning(
-                "%s signing_secret not set - skipping verification. This is only acceptable in development!", self.platform_name
+                "%s signing_secret not set - skipping verification. This is only acceptable in development!",
+                self.platform_name,
             )
             return True
 

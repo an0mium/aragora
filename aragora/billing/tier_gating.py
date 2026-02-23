@@ -80,6 +80,7 @@ FEATURE_TIER_MAP: dict[str, str] = {
 
 # --- Tier comparison helper --------------------------------------------------
 
+
 def tier_sufficient(user_tier: str, required_tier: str) -> bool:
     """Check whether user_tier meets or exceeds required_tier."""
     user_rank = TIER_ORDER.get(user_tier, 0)
@@ -88,6 +89,7 @@ def tier_sufficient(user_tier: str, required_tier: str) -> bool:
 
 
 # --- Organization tier resolver ----------------------------------------------
+
 
 def _resolve_org_tier(context: Any) -> str | None:
     """Resolve the subscription tier for a user's organization.
@@ -144,6 +146,7 @@ def _resolve_org(org_id: str) -> Any | None:
 
 # --- Trial status -----------------------------------------------------------
 
+
 @dataclass
 class TrialStatus:
     """Status of an organization's trial period."""
@@ -198,6 +201,7 @@ def get_trial_status(org_id: str) -> TrialStatus:
 
 # --- Error class for tier violations ----------------------------------------
 
+
 class TierInsufficientError(Exception):
     """Raised when a user's subscription tier is too low for a feature."""
 
@@ -218,9 +222,7 @@ class TierInsufficientError(Exception):
 
     def to_response(self) -> dict[str, Any]:
         """Build a JSON-serializable error response with upgrade prompt."""
-        display_required = TIER_DISPLAY_NAMES.get(
-            self.required_tier, self.required_tier
-        )
+        display_required = TIER_DISPLAY_NAMES.get(self.required_tier, self.required_tier)
         return {
             "error": str(self),
             "code": "tier_insufficient",
@@ -232,6 +234,7 @@ class TierInsufficientError(Exception):
 
 
 # --- Decorator ---------------------------------------------------------------
+
 
 def require_tier(
     minimum_tier: str,
@@ -253,17 +256,14 @@ def require_tier(
         - If billing/org cannot be resolved (graceful degradation), allows access.
     """
     if minimum_tier not in TIER_ORDER:
-        raise ValueError(
-            f"Unknown tier {minimum_tier!r}. "
-            f"Valid tiers: {list(TIER_ORDER.keys())}"
-        )
+        raise ValueError(f"Unknown tier {minimum_tier!r}. Valid tiers: {list(TIER_ORDER.keys())}")
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
-
         def _is_auth_context(obj: Any) -> bool:
             """Check if obj is an AuthorizationContext (by type or duck-typing)."""
             try:
                 from aragora.rbac.models import AuthorizationContext
+
                 if isinstance(obj, AuthorizationContext):
                     return True
             except ImportError:
@@ -275,9 +275,7 @@ def require_tier(
             org_id = getattr(obj, "org_id", None)
             return org_id is None or isinstance(org_id, str)
 
-        def _get_context(
-            args: tuple[Any, ...], kwargs: dict[str, Any]
-        ) -> Any | None:
+        def _get_context(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any | None:
             """Extract AuthorizationContext from arguments."""
             # Check kwargs
             if context_param in kwargs:
@@ -342,6 +340,7 @@ def require_tier(
 
 
 # --- Free-tier debate rate limiter -------------------------------------------
+
 
 class DebateRateLimiter:
     """Track debate usage per organization for free-tier enforcement.

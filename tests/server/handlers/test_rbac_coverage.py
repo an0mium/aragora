@@ -466,7 +466,7 @@ class TestRoutePermissionCoverage:
                 errors.append(f"{rule.pattern}: {e}")
 
         if errors:
-            pytest.fail(f"Invalid regex patterns in route permissions:\n" + "\n".join(errors))
+            pytest.fail("Invalid regex patterns in route permissions:\n" + "\n".join(errors))
 
     def test_route_permission_coverage_stats(self) -> None:
         """Report on route permission coverage (informational)."""
@@ -518,6 +518,6 @@ class TestRoutePermissionCoverage:
 
         if missing:
             pytest.fail(
-                f"Standard API patterns missing route permission rules:\n"
+                "Standard API patterns missing route permission rules:\n"
                 + "\n".join(f"  - {m}" for m in missing)
             )

@@ -129,7 +129,9 @@ def _verify_discord_signature(
     # --- Check: Required headers present ---
     if not signature or not timestamp:
         logger.warning(
-            "Missing required Discord signature headers: signature=%s, timestamp=%s", 'present' if signature else 'missing', 'present' if timestamp else 'missing'
+            "Missing required Discord signature headers: signature=%s, timestamp=%s",
+            "present" if signature else "missing",
+            "present" if timestamp else "missing",
         )
         return False
 
@@ -139,7 +141,11 @@ def _verify_discord_signature(
         current_time = int(time.time())
         if abs(current_time - request_time) > _MAX_TIMESTAMP_AGE:
             logger.warning(
-                "Discord request timestamp too old: request_time=%s, current_time=%s, delta=%ss > %ss", request_time, current_time, abs(current_time - request_time), _MAX_TIMESTAMP_AGE
+                "Discord request timestamp too old: request_time=%s, current_time=%s, delta=%ss > %ss",
+                request_time,
+                current_time,
+                abs(current_time - request_time),
+                _MAX_TIMESTAMP_AGE,
             )
             return False
     except (ValueError, OverflowError):

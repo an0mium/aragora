@@ -104,7 +104,8 @@ class MessagingMixin:
             return SendMessageResponse(success=False, error=error or "Send failed")
 
         logger.warning(
-            "%s send_message: no webhook_url configured and no platform-specific override provided", self.platform_name
+            "%s send_message: no webhook_url configured and no platform-specific override provided",
+            self.platform_name,
         )
         return SendMessageResponse(
             success=False,
@@ -139,7 +140,10 @@ class MessagingMixin:
         from ..models import SendMessageResponse
 
         logger.warning(
-            "%s does not implement update_message; message %s in channel %s was not updated", self.platform_name, message_id, channel_id
+            "%s does not implement update_message; message %s in channel %s was not updated",
+            self.platform_name,
+            message_id,
+            channel_id,
         )
         return SendMessageResponse(
             success=False,
@@ -168,7 +172,10 @@ class MessagingMixin:
             True if deleted successfully, False otherwise
         """
         logger.warning(
-            "%s does not implement delete_message; message %s in channel %s was not deleted", self.platform_name, message_id, channel_id
+            "%s does not implement delete_message; message %s in channel %s was not deleted",
+            self.platform_name,
+            message_id,
+            channel_id,
         )
         return False
 

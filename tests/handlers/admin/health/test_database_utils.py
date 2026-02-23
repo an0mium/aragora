@@ -151,6 +151,7 @@ class TestHandleStoreCheckErrors:
 
     def test_successful_check(self):
         """Successful check_fn returns its result and healthy=True."""
+
         def check():
             return {"healthy": True, "status": "connected"}
 
@@ -161,6 +162,7 @@ class TestHandleStoreCheckErrors:
 
     def test_successful_check_healthy_false(self):
         """check_fn returning healthy=False is passed through correctly."""
+
         def check():
             return {"healthy": False, "status": "degraded"}
 
@@ -170,6 +172,7 @@ class TestHandleStoreCheckErrors:
 
     def test_successful_check_no_healthy_key(self):
         """check_fn returning dict without healthy key defaults to healthy=True."""
+
         def check():
             return {"status": "ok"}
 
@@ -178,6 +181,7 @@ class TestHandleStoreCheckErrors:
 
     def test_sqlite_error(self):
         """sqlite3.Error -> database error type, not healthy."""
+
         def check():
             raise sqlite3.OperationalError("database is locked")
 
@@ -189,6 +193,7 @@ class TestHandleStoreCheckErrors:
 
     def test_sqlite_integrity_error(self):
         """sqlite3.IntegrityError -> database error type."""
+
         def check():
             raise sqlite3.IntegrityError("constraint failed")
 
@@ -198,6 +203,7 @@ class TestHandleStoreCheckErrors:
 
     def test_os_error(self):
         """OSError -> database error type."""
+
         def check():
             raise OSError("disk full")
 
@@ -207,6 +213,7 @@ class TestHandleStoreCheckErrors:
 
     def test_io_error(self):
         """IOError (alias for OSError) -> database error type."""
+
         def check():
             raise IOError("read error")
 
@@ -216,6 +223,7 @@ class TestHandleStoreCheckErrors:
 
     def test_key_error(self):
         """KeyError -> data_access error type."""
+
         def check():
             raise KeyError("missing_key")
 
@@ -225,6 +233,7 @@ class TestHandleStoreCheckErrors:
 
     def test_type_error(self):
         """TypeError -> data_access error type."""
+
         def check():
             raise TypeError("wrong type")
 
@@ -234,6 +243,7 @@ class TestHandleStoreCheckErrors:
 
     def test_attribute_error(self):
         """AttributeError -> data_access error type."""
+
         def check():
             raise AttributeError("no such attribute")
 
@@ -243,6 +253,7 @@ class TestHandleStoreCheckErrors:
 
     def test_import_error(self):
         """ImportError -> module_not_available, healthy=True."""
+
         def check():
             raise ImportError("no module named 'foo'")
 
@@ -253,6 +264,7 @@ class TestHandleStoreCheckErrors:
 
     def test_value_error(self):
         """ValueError -> generic health check failed."""
+
         def check():
             raise ValueError("invalid value")
 
@@ -263,6 +275,7 @@ class TestHandleStoreCheckErrors:
 
     def test_runtime_error(self):
         """RuntimeError -> generic health check failed."""
+
         def check():
             raise RuntimeError("unexpected failure")
 
@@ -272,6 +285,7 @@ class TestHandleStoreCheckErrors:
 
     def test_error_message_sanitized_sqlite(self):
         """sqlite3 error message is NOT leaked in the result dict."""
+
         def check():
             raise sqlite3.OperationalError("table users has 5 columns but 6 values were supplied")
 
@@ -280,6 +294,7 @@ class TestHandleStoreCheckErrors:
 
     def test_error_message_sanitized_key(self):
         """KeyError original message is NOT leaked in result."""
+
         def check():
             raise KeyError("secret_column_name")
 
@@ -288,6 +303,7 @@ class TestHandleStoreCheckErrors:
 
     def test_error_message_sanitized_runtime(self):
         """RuntimeError original message is NOT leaked in result."""
+
         def check():
             raise RuntimeError("connection string: postgres://user:pass@host/db")
 
@@ -911,9 +927,7 @@ class TestHandleStoreCheckErrorsWithRealFunctions:
         mock_elo.get_leaderboard.side_effect = OSError("disk full")
         h = _make_handler({"elo_system": mock_elo})
 
-        result, healthy = handle_store_check_errors(
-            "elo_system", lambda: check_elo_system(h)
-        )
+        result, healthy = handle_store_check_errors("elo_system", lambda: check_elo_system(h))
         assert healthy is False
         assert result["error_type"] == "database"
 
@@ -983,9 +997,7 @@ class TestHandleStoreCheckErrorsWithRealFunctions:
         mock_elo.get_leaderboard.side_effect = KeyError("missing")
         h = _make_handler({"elo_system": mock_elo})
 
-        result, healthy = handle_store_check_errors(
-            "elo_system", lambda: check_elo_system(h)
-        )
+        result, healthy = handle_store_check_errors("elo_system", lambda: check_elo_system(h))
         assert healthy is False
         assert result["error_type"] == "data_access"
 
@@ -995,9 +1007,7 @@ class TestHandleStoreCheckErrorsWithRealFunctions:
         mock_elo.get_leaderboard.side_effect = AttributeError("no method")
         h = _make_handler({"elo_system": mock_elo})
 
-        result, healthy = handle_store_check_errors(
-            "elo_system", lambda: check_elo_system(h)
-        )
+        result, healthy = handle_store_check_errors("elo_system", lambda: check_elo_system(h))
         assert healthy is False
         assert result["error_type"] == "data_access"
 
@@ -1035,9 +1045,7 @@ class TestHandleStoreCheckErrorsWithRealFunctions:
         """SyncStore ImportError wrapped -> module_not_available."""
         h = _make_handler()
         with patch.dict("sys.modules", {"aragora.connectors.enterprise.sync_store": None}):
-            result, healthy = handle_store_check_errors(
-                "sync_store", lambda: check_sync_store(h)
-            )
+            result, healthy = handle_store_check_errors("sync_store", lambda: check_sync_store(h))
             assert healthy is True
             assert result["status"] == "module_not_available"
 
@@ -1116,13 +1124,15 @@ class TestCrossCutting:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = []
 
-        h = _make_handler({
-            "storage": mock_storage,
-            "elo_system": mock_elo,
-            "insight_store": MagicMock(),
-            "flip_detector": MagicMock(),
-            "user_store": MagicMock(),
-        })
+        h = _make_handler(
+            {
+                "storage": mock_storage,
+                "elo_system": mock_elo,
+                "insight_store": MagicMock(),
+                "flip_detector": MagicMock(),
+                "user_store": MagicMock(),
+            }
+        )
 
         results = [
             check_debate_storage(h),
@@ -1172,6 +1182,7 @@ class TestSecurityEdgeCases:
 
     def test_handle_store_check_errors_does_not_leak_traceback(self):
         """Error result does not contain traceback information."""
+
         def check():
             raise RuntimeError("secret internal error with /path/to/secret")
 
@@ -1181,6 +1192,7 @@ class TestSecurityEdgeCases:
 
     def test_handle_store_check_errors_does_not_leak_db_path(self):
         """Error result does not contain database path."""
+
         def check():
             raise sqlite3.OperationalError("unable to open database file: /var/data/secrets.db")
 
@@ -1189,15 +1201,17 @@ class TestSecurityEdgeCases:
 
     def test_ctx_with_none_values(self):
         """Handler with None values in ctx does not crash."""
-        h = _make_handler({
-            "insight_store": None,
-            "flip_detector": None,
-            "user_store": None,
-            "integration_store": None,
-            "gmail_token_store": None,
-            "sync_store": None,
-            "decision_result_store": None,
-        })
+        h = _make_handler(
+            {
+                "insight_store": None,
+                "flip_detector": None,
+                "user_store": None,
+                "integration_store": None,
+                "gmail_token_store": None,
+                "sync_store": None,
+                "decision_result_store": None,
+            }
+        )
         assert check_insight_store(h)["status"] == "not_initialized"
         assert check_flip_detector(h)["status"] == "not_initialized"
         assert check_user_store(h)["status"] == "not_initialized"
@@ -1234,6 +1248,7 @@ class TestSecurityEdgeCases:
 
     def test_handle_store_check_errors_with_empty_store_name(self):
         """Empty store name does not cause crash."""
+
         def check():
             return {"healthy": True, "status": "ok"}
 
@@ -1242,6 +1257,7 @@ class TestSecurityEdgeCases:
 
     def test_handle_store_check_errors_with_special_chars_in_name(self):
         """Store name with special characters does not cause crash."""
+
         def check():
             raise RuntimeError("fail")
 
@@ -1306,6 +1322,7 @@ class TestSecurityEdgeCases:
 
     def test_handle_store_check_errors_file_not_found(self):
         """FileNotFoundError (subclass of OSError) -> database error."""
+
         def check():
             raise FileNotFoundError("No such file: /tmp/missing.db")
 
@@ -1315,6 +1332,7 @@ class TestSecurityEdgeCases:
 
     def test_handle_store_check_errors_permission_error(self):
         """PermissionError (subclass of OSError) -> database error."""
+
         def check():
             raise PermissionError("Permission denied: /var/data/db")
 
@@ -1398,17 +1416,19 @@ class TestReturnValueContracts:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = []
 
-        h = _make_handler({
-            "storage": mock_storage,
-            "elo_system": mock_elo,
-            "insight_store": MagicMock(),
-            "flip_detector": MagicMock(),
-            "user_store": MagicMock(),
-            "integration_store": MagicMock(),
-            "gmail_token_store": MagicMock(),
-            "sync_store": MagicMock(),
-            "decision_result_store": MagicMock(),
-        })
+        h = _make_handler(
+            {
+                "storage": mock_storage,
+                "elo_system": mock_elo,
+                "insight_store": MagicMock(),
+                "flip_detector": MagicMock(),
+                "user_store": MagicMock(),
+                "integration_store": MagicMock(),
+                "gmail_token_store": MagicMock(),
+                "sync_store": MagicMock(),
+                "decision_result_store": MagicMock(),
+            }
+        )
 
         # debate_storage and elo_system have "type" key
         assert "type" in check_debate_storage(h)

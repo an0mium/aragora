@@ -121,12 +121,9 @@ def _make_receipt(
                 event_type="trickster_intervention",
                 agent="Trickster",
                 description=(
-                    f"{intervention.intervention_type.value}: "
-                    f"{intervention.challenge_text[:100]}"
+                    f"{intervention.intervention_type.value}: {intervention.challenge_text[:100]}"
                 ),
-                evidence_hash=hashlib.sha256(
-                    intervention.challenge_text.encode()
-                ).hexdigest(),
+                evidence_hash=hashlib.sha256(intervention.challenge_text.encode()).hexdigest(),
             )
         )
         vulnerability_details.append(
@@ -148,9 +145,7 @@ def _make_receipt(
         supporting_agents=agents_involved,
         dissenting_agents=[],
         method="trickster_qualified_majority",
-        evidence_hash=hashlib.sha256(
-            json.dumps(stats, default=str).encode()
-        ).hexdigest(),
+        evidence_hash=hashlib.sha256(json.dumps(stats, default=str).encode()).hexdigest(),
     )
 
     return DecisionReceipt(

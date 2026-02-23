@@ -208,11 +208,17 @@ class SessionMixin:
                 )
                 responses.append(response)
                 logger.debug(
-                    "Routed debate %s result to %s channel %s", debate_id[:8], self.platform_name, target_channel
+                    "Routed debate %s result to %s channel %s",
+                    debate_id[:8],
+                    self.platform_name,
+                    target_channel,
                 )
             except (RuntimeError, OSError, ValueError, Exception) as e:
                 logger.error(
-                    "Failed to route debate result to %s channel %s: %s", self.platform_name, target_channel, e
+                    "Failed to route debate result to %s channel %s: %s",
+                    self.platform_name,
+                    target_channel,
+                    e,
                 )
 
         return responses

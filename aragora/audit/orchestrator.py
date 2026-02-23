@@ -455,7 +455,9 @@ class AuditOrchestrator:
                                 if auditor.validate_finding(finding, context):
                                     auditor_findings.append(finding)
                         except (ValueError, RuntimeError, OSError) as e:
-                            logger.warning("Error in %s on chunk %s: %s", vertical.value, chunk.id, e)
+                            logger.warning(
+                                "Error in %s on chunk %s: %s", vertical.value, chunk.id, e
+                            )
 
                     # Cross-document analysis
                     if auditor.capabilities.supports_cross_document:

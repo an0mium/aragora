@@ -135,7 +135,8 @@ class AudienceInbox:
                 self._overflow_count += 1
                 if self._overflow_count % 100 == 1:  # Log every 100 drops
                     logger.warning(
-                        "[audience] Inbox overflow, dropping old messages (total dropped: %s)", self._overflow_count
+                        "[audience] Inbox overflow, dropping old messages (total dropped: %s)",
+                        self._overflow_count,
                     )
 
     def get_all(self) -> list[AudienceMessage]:
@@ -293,7 +294,8 @@ class SyncEventEmitter:
         # Warn on TOKEN events with empty task_id (can cause text interleaving)
         if event.type.name.startswith("TOKEN") and not event.task_id:
             logger.warning(
-                "[stream] TOKEN event for %s has empty task_id. This may cause text interleaving between concurrent streams.", event.agent
+                "[stream] TOKEN event for %s has empty task_id. This may cause text interleaving between concurrent streams.",
+                event.agent,
             )
 
         # Assign sequence numbers (thread-safe)
@@ -318,7 +320,8 @@ class SyncEventEmitter:
                     self._overflow_count += 1
                     if self._overflow_count % 1000 == 1:
                         logger.warning(
-                            "[stream] Queue overflow, dropping old events (total: %s)", self._overflow_count
+                            "[stream] Queue overflow, dropping old events (total: %s)",
+                            self._overflow_count,
                         )
                 except queue.Empty:
                     break

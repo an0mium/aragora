@@ -44,9 +44,15 @@ async def generate_pipeline_receipt(
             )
             stages[stage_name] = [
                 {
-                    "id": getattr(n, "id", n.get("id", "")) if isinstance(n, dict) else getattr(n, "id", ""),
-                    "label": getattr(n, "label", n.get("label", "")) if isinstance(n, dict) else getattr(n, "label", ""),
-                    "type": getattr(n, "node_type", n.get("node_type", "")) if isinstance(n, dict) else getattr(n, "node_type", ""),
+                    "id": getattr(n, "id", n.get("id", ""))
+                    if isinstance(n, dict)
+                    else getattr(n, "id", ""),
+                    "label": getattr(n, "label", n.get("label", ""))
+                    if isinstance(n, dict)
+                    else getattr(n, "label", ""),
+                    "type": getattr(n, "node_type", n.get("node_type", ""))
+                    if isinstance(n, dict)
+                    else getattr(n, "node_type", ""),
                 }
                 for n in (stage_nodes or [])
             ]

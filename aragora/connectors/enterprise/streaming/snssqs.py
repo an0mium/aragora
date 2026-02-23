@@ -409,7 +409,9 @@ class SNSSQSConnector(EnterpriseConnector):
                     await self._health_monitor.record_failure(e)
 
                 if attempt == self.config.resilience.max_retries:
-                    logger.error("[SNS/SQS] Connection failed after %s attempts: %s", attempt + 1, e)
+                    logger.error(
+                        "[SNS/SQS] Connection failed after %s attempts: %s", attempt + 1, e
+                    )
                     return False
 
                 delay = backoff.get_delay(attempt)
@@ -593,7 +595,8 @@ class SNSSQSConnector(EnterpriseConnector):
 
                     if consecutive_failures > self.config.resilience.max_retries:
                         logger.error(
-                            "[SNS/SQS] Too many consecutive failures (%s), stopping consume", consecutive_failures
+                            "[SNS/SQS] Too many consecutive failures (%s), stopping consume",
+                            consecutive_failures,
                         )
                         break
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 # Trust tier computation
 # ---------------------------------------------------------------------------
 
+
 class TestComputeTrustTier:
     """Tests for _compute_trust_tier helper."""
 
@@ -94,6 +95,7 @@ class TestComputeTrustTier:
 # ---------------------------------------------------------------------------
 # agent_to_dict enrichment
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class _MockSummary:

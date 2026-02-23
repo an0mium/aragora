@@ -113,11 +113,14 @@ class ExplanationBuilder:
 
         # Emit provenance event if provenance tracker contributed
         if self.provenance_tracker and decision.evidence_chain:
-            self._emit_event("EXPLAINABILITY_PROVENANCE", {
-                "debate_id": debate_id,
-                "evidence_count": len(decision.evidence_chain),
-                "has_provenance": True,
-            })
+            self._emit_event(
+                "EXPLAINABILITY_PROVENANCE",
+                {
+                    "debate_id": debate_id,
+                    "evidence_count": len(decision.evidence_chain),
+                    "has_provenance": True,
+                },
+            )
 
         decision.vote_pivots = self._build_vote_pivots(result, context)
         decision.belief_changes = self._build_belief_changes(result, context)
@@ -125,41 +128,55 @@ class ExplanationBuilder:
             result, context, decision
         )
 
-        self._emit_event("EXPLAINABILITY_FACTORS", {
-            "debate_id": debate_id,
-            "evidence_count": len(decision.evidence_chain),
-            "vote_pivots": len(decision.vote_pivots),
-            "belief_changes": len(decision.belief_changes),
-        })
+        self._emit_event(
+            "EXPLAINABILITY_FACTORS",
+            {
+                "debate_id": debate_id,
+                "evidence_count": len(decision.evidence_chain),
+                "vote_pivots": len(decision.vote_pivots),
+                "belief_changes": len(decision.belief_changes),
+            },
+        )
 
         if include_counterfactuals:
             decision.counterfactuals = self._build_counterfactuals(result, decision)
             if decision.counterfactuals:
-                self._emit_event("EXPLAINABILITY_COUNTERFACTUAL", {
-                    "debate_id": debate_id,
-                    "counterfactual_count": len(decision.counterfactuals),
-                    "top_sensitivity": decision.counterfactuals[0].sensitivity if decision.counterfactuals else 0,
-                })
+                self._emit_event(
+                    "EXPLAINABILITY_COUNTERFACTUAL",
+                    {
+                        "debate_id": debate_id,
+                        "counterfactual_count": len(decision.counterfactuals),
+                        "top_sensitivity": decision.counterfactuals[0].sensitivity
+                        if decision.counterfactuals
+                        else 0,
+                    },
+                )
 
         # Compute summary metrics
         decision.evidence_quality_score = self._compute_evidence_quality(decision)
         decision.agent_agreement_score = self._compute_agreement_score(result, decision)
         decision.belief_stability_score = self._compute_belief_stability(decision)
 
-        self._emit_event("EXPLAINABILITY_NARRATIVE", {
-            "debate_id": debate_id,
-            "conclusion_length": len(decision.conclusion),
-            "evidence_quality": decision.evidence_quality_score,
-            "agreement_score": decision.agent_agreement_score,
-        })
+        self._emit_event(
+            "EXPLAINABILITY_NARRATIVE",
+            {
+                "debate_id": debate_id,
+                "conclusion_length": len(decision.conclusion),
+                "evidence_quality": decision.evidence_quality_score,
+                "agreement_score": decision.agent_agreement_score,
+            },
+        )
 
-        self._emit_event("EXPLAINABILITY_COMPLETE", {
-            "debate_id": debate_id,
-            "evidence_quality": decision.evidence_quality_score,
-            "agreement_score": decision.agent_agreement_score,
-            "belief_stability": decision.belief_stability_score,
-            "counterfactuals": len(decision.counterfactuals),
-        })
+        self._emit_event(
+            "EXPLAINABILITY_COMPLETE",
+            {
+                "debate_id": debate_id,
+                "evidence_quality": decision.evidence_quality_score,
+                "agreement_score": decision.agent_agreement_score,
+                "belief_stability": decision.belief_stability_score,
+                "counterfactuals": len(decision.counterfactuals),
+            },
+        )
 
         return decision
 
@@ -169,6 +186,7 @@ class ExplanationBuilder:
             return
         try:
             from aragora.server.stream.events import StreamEvent, StreamEventType
+
             event_type = getattr(StreamEventType, event_name, None)
             if event_type is not None:
                 self.event_emitter.emit(StreamEvent(type=event_type, data=data))

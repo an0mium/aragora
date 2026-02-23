@@ -307,7 +307,9 @@ class CalibrationCostBridge:
 
         recommended = candidates[0][0]
         logger.info(
-            "cost_efficient_agent_recommended agent=%s from %s candidates", recommended, len(available_agents)
+            "cost_efficient_agent_recommended agent=%s from %s candidates",
+            recommended,
+            len(available_agents),
         )
 
         return recommended

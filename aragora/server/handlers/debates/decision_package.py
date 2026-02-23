@@ -52,21 +52,36 @@ def _generate_next_steps(
 
     if verdict == "APPROVED" and confidence >= 0.8:
         steps.append({"action": "Proceed with implementation", "priority": "high"})
-        steps.append({"action": "Document decision rationale for audit trail", "priority": "medium"})
+        steps.append(
+            {"action": "Document decision rationale for audit trail", "priority": "medium"}
+        )
     elif verdict == "APPROVED_WITH_CONDITIONS":
         steps.append({"action": "Address conditions before proceeding", "priority": "high"})
-        steps.append({"action": "Schedule follow-up review after conditions met", "priority": "medium"})
-        steps.append({"action": "Document conditions and acceptance criteria", "priority": "medium"})
+        steps.append(
+            {"action": "Schedule follow-up review after conditions met", "priority": "medium"}
+        )
+        steps.append(
+            {"action": "Document conditions and acceptance criteria", "priority": "medium"}
+        )
     elif verdict == "NEEDS_REVIEW":
         steps.append({"action": "Escalate to human decision-maker", "priority": "high"})
         steps.append({"action": "Gather additional evidence or expert input", "priority": "high"})
         if not consensus_reached:
-            steps.append({"action": "Consider running a follow-up debate with additional agents", "priority": "medium"})
+            steps.append(
+                {
+                    "action": "Consider running a follow-up debate with additional agents",
+                    "priority": "medium",
+                }
+            )
     else:
-        steps.append({"action": "Review debate results and determine next action", "priority": "medium"})
+        steps.append(
+            {"action": "Review debate results and determine next action", "priority": "medium"}
+        )
 
     if confidence < 0.5:
-        steps.append({"action": "Low confidence detected -- seek additional validation", "priority": "high"})
+        steps.append(
+            {"action": "Low confidence detected -- seek additional validation", "priority": "high"}
+        )
 
     return steps
 
@@ -230,7 +245,9 @@ class DecisionPackageHandler(BaseHandler):
     # Internal: assemble the package
     # ------------------------------------------------------------------
 
-    def _assemble_package(self, debate_id: str) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+    def _assemble_package(
+        self, debate_id: str
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Assemble a decision package for the given debate.
 
         Returns:
@@ -271,7 +288,15 @@ class DecisionPackageHandler(BaseHandler):
                     "checksum": receipt.checksum,
                     "created_at": str(receipt.created_at) if receipt.created_at else None,
                 }
-        except (ImportError, KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as exc:
+        except (
+            ImportError,
+            KeyError,
+            ValueError,
+            OSError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+        ) as exc:
             logger.debug("Receipt not available for %s: %s", debate_id, exc)
 
         # -- Verdict & confidence (from receipt or result) --
@@ -308,7 +333,14 @@ class DecisionPackageHandler(BaseHandler):
                     )
                 map_json = cart.export_json(include_full_content=False)
                 argument_map = json.loads(map_json)
-        except (ImportError, json.JSONDecodeError, KeyError, ValueError, TypeError, AttributeError) as exc:
+        except (
+            ImportError,
+            json.JSONDecodeError,
+            KeyError,
+            ValueError,
+            TypeError,
+            AttributeError,
+        ) as exc:
             logger.debug("Argument map not available for %s: %s", debate_id, exc)
 
         # -- Cost --

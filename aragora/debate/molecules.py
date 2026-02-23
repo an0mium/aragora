@@ -272,7 +272,11 @@ class MoleculeTracker:
         self._debate_molecules[debate_id].append(molecule.molecule_id)
 
         logger.debug(
-            "Created molecule %s type=%s debate=%s round=%s", molecule.molecule_id, molecule_type.value, debate_id, round_number
+            "Created molecule %s type=%s debate=%s round=%s",
+            molecule.molecule_id,
+            molecule_type.value,
+            debate_id,
+            round_number,
         )
 
         return molecule
@@ -342,7 +346,11 @@ class MoleculeTracker:
         self._agent_workload[agent.name] = self._agent_workload.get(agent.name, 0) + 1
 
         logger.info(
-            "Assigned molecule %s to %s (attempt %s/%s)", molecule_id, agent.name, molecule.attempts, molecule.max_attempts
+            "Assigned molecule %s to %s (attempt %s/%s)",
+            molecule_id,
+            agent.name,
+            molecule.attempts,
+            molecule.max_attempts,
         )
 
         return True
@@ -452,7 +460,11 @@ class MoleculeTracker:
             self._agent_workload[agent_name] = max(0, self._agent_workload.get(agent_name, 1) - 1)
 
         logger.warning(
-            "Molecule %s failed: %s (attempts %s/%s)", molecule_id, error, molecule.attempts, molecule.max_attempts
+            "Molecule %s failed: %s (attempts %s/%s)",
+            molecule_id,
+            error,
+            molecule.attempts,
+            molecule.max_attempts,
         )
 
         return True

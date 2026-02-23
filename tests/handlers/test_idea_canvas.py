@@ -156,7 +156,12 @@ class TestRouteMatching:
     def test_unknown_path_returns_none(self, handler):
         result = handler._route_request(
             "/api/v1/ideas/test/unknown/route",
-            "GET", {}, {}, "u1", "ws1", _ctx(),
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert result is None
 
@@ -164,13 +169,25 @@ class TestRouteMatching:
 
     def test_list_method_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas", "DELETE", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas",
+            "DELETE",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
     def test_list_put_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas", "PUT", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas",
+            "PUT",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -178,13 +195,25 @@ class TestRouteMatching:
 
     def test_export_post_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/export", "POST", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/export",
+            "POST",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
     def test_export_delete_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/export", "DELETE", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/export",
+            "DELETE",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -192,7 +221,13 @@ class TestRouteMatching:
 
     def test_promote_get_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/promote", "GET", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/promote",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -200,13 +235,25 @@ class TestRouteMatching:
 
     def test_nodes_get_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/nodes", "GET", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/nodes",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
     def test_nodes_delete_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/nodes", "DELETE", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/nodes",
+            "DELETE",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -214,13 +261,25 @@ class TestRouteMatching:
 
     def test_single_node_post_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/nodes/n1", "POST", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/nodes/n1",
+            "POST",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
     def test_single_node_get_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/nodes/n1", "GET", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/nodes/n1",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -228,7 +287,13 @@ class TestRouteMatching:
 
     def test_edges_get_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/edges", "GET", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/edges",
+            "GET",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -236,13 +301,25 @@ class TestRouteMatching:
 
     def test_single_edge_post_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/edges/e1", "POST", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/edges/e1",
+            "POST",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
     def test_single_edge_put_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc/edges/e1", "PUT", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc/edges/e1",
+            "PUT",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -250,7 +327,13 @@ class TestRouteMatching:
 
     def test_canvas_by_id_post_not_allowed(self, handler):
         result = handler._route_request(
-            "/api/v1/ideas/abc", "POST", {}, {}, "u1", "ws1", _ctx(),
+            "/api/v1/ideas/abc",
+            "POST",
+            {},
+            {},
+            "u1",
+            "ws1",
+            _ctx(),
         )
         assert _status(result) == 405
 
@@ -261,7 +344,6 @@ class TestRouteMatching:
 
 
 class TestListCanvases:
-
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     def test_list_empty(self, mock_get_store, handler):
         store = MagicMock()
@@ -278,7 +360,9 @@ class TestListCanvases:
     def test_list_with_results(self, mock_get_store, handler):
         store = MagicMock()
         store.list_canvases.return_value = [
-            {"id": "a"}, {"id": "b"}, {"id": "c"},
+            {"id": "a"},
+            {"id": "b"},
+            {"id": "c"},
         ]
         mock_get_store.return_value = store
 
@@ -295,7 +379,8 @@ class TestListCanvases:
         handler._list_canvases(
             _ctx(),
             {"workspace_id": "w2", "owner_id": "o2", "limit": "50", "offset": "10"},
-            "u1", "ws1",
+            "u1",
+            "ws1",
         )
         call_kwargs = store.list_canvases.call_args
         assert call_kwargs.kwargs["workspace_id"] == "w2"
@@ -353,7 +438,6 @@ class TestListCanvases:
 
 
 class TestCreateCanvas:
-
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     def test_create_success(self, mock_get_store, handler):
         store = MagicMock()
@@ -361,7 +445,10 @@ class TestCreateCanvas:
         mock_get_store.return_value = store
 
         result = handler._create_canvas(
-            _ctx(), {"name": "My Ideas", "description": "brainstorm"}, "u1", "ws1",
+            _ctx(),
+            {"name": "My Ideas", "description": "brainstorm"},
+            "u1",
+            "ws1",
         )
         assert _status(result) == 201
         assert _body(result)["name"] == "My Ideas"
@@ -404,7 +491,10 @@ class TestCreateCanvas:
         mock_get_store.return_value = store
 
         handler._create_canvas(
-            _ctx(), {"metadata": {"custom": True}}, "u1", "ws1",
+            _ctx(),
+            {"metadata": {"custom": True}},
+            "u1",
+            "ws1",
         )
         assert store.save_canvas.call_args.kwargs["metadata"] == {"custom": True}
 
@@ -424,7 +514,6 @@ class TestCreateCanvas:
 
 
 class TestGetCanvas:
-
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     def test_get_not_found(self, mock_get_store, handler):
         store = MagicMock()
@@ -488,7 +577,6 @@ class TestGetCanvas:
 
 
 class TestUpdateCanvas:
-
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     def test_update_success(self, mock_get_store, handler):
         store = MagicMock()
@@ -496,7 +584,10 @@ class TestUpdateCanvas:
         mock_get_store.return_value = store
 
         result = handler._update_canvas(
-            _ctx(), "ic-1", {"name": "Renamed"}, "u1",
+            _ctx(),
+            "ic-1",
+            {"name": "Renamed"},
+            "u1",
         )
         assert _status(result) == 200
         assert _body(result)["name"] == "Renamed"
@@ -517,7 +608,8 @@ class TestUpdateCanvas:
         mock_get_store.return_value = store
 
         handler._update_canvas(
-            _ctx(), "ic-1",
+            _ctx(),
+            "ic-1",
             {"name": "N", "description": "D", "metadata": {"k": "v"}},
             "u1",
         )
@@ -542,7 +634,6 @@ class TestUpdateCanvas:
 
 
 class TestDeleteCanvas:
-
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     def test_delete_success(self, mock_get_store, handler):
         store = MagicMock()
@@ -580,11 +671,13 @@ class TestDeleteCanvas:
 
 
 class TestAddNode:
-
     def test_invalid_idea_type_returns_400(self, handler):
         with patch.object(handler, "_get_canvas_manager"):
             result = handler._add_node(
-                _ctx(), "c1", {"idea_type": "TOTALLY_INVALID"}, "u1",
+                _ctx(),
+                "c1",
+                {"idea_type": "TOTALLY_INVALID"},
+                "u1",
             )
             assert _status(result) == 400
             assert "Invalid idea type" in _body(result).get("error", "")
@@ -597,7 +690,8 @@ class TestAddNode:
                 mock_run.return_value = node_obj
 
                 result = handler._add_node(
-                    _ctx(), "c1",
+                    _ctx(),
+                    "c1",
                     {"idea_type": "concept", "label": "Hello", "position": {"x": 10, "y": 20}},
                     "u1",
                 )
@@ -609,7 +703,10 @@ class TestAddNode:
             mgr.return_value = MagicMock()
             with patch.object(handler, "_run_async", return_value=None):
                 result = handler._add_node(
-                    _ctx(), "missing", {"idea_type": "concept"}, "u1",
+                    _ctx(),
+                    "missing",
+                    {"idea_type": "concept"},
+                    "u1",
                 )
                 assert _status(result) == 404
 
@@ -626,9 +723,15 @@ class TestAddNode:
     def test_add_node_all_valid_types(self, handler):
         """Every IdeaNodeType enum value should be accepted."""
         valid_types = [
-            "concept", "cluster", "question", "insight",
-            "evidence", "assumption", "constraint",
-            "observation", "hypothesis",
+            "concept",
+            "cluster",
+            "question",
+            "insight",
+            "evidence",
+            "assumption",
+            "constraint",
+            "observation",
+            "hypothesis",
         ]
         for idea_type in valid_types:
             with patch.object(handler, "_get_canvas_manager") as mgr:
@@ -637,7 +740,10 @@ class TestAddNode:
                 node.to_dict.return_value = {"id": f"n-{idea_type}"}
                 with patch.object(handler, "_run_async", return_value=node):
                     result = handler._add_node(
-                        _ctx(), "c1", {"idea_type": idea_type}, "u1",
+                        _ctx(),
+                        "c1",
+                        {"idea_type": idea_type},
+                        "u1",
                     )
                     assert _status(result) == 201, f"Failed for idea_type={idea_type}"
 
@@ -649,7 +755,10 @@ class TestAddNode:
             node.to_dict.return_value = {"id": "n3"}
             with patch.object(handler, "_run_async", return_value=node):
                 result = handler._add_node(
-                    _ctx(), "c1", {"idea_type": "concept", "position": {}}, "u1",
+                    _ctx(),
+                    "c1",
+                    {"idea_type": "concept", "position": {}},
+                    "u1",
                 )
                 assert _status(result) == 201
 
@@ -673,7 +782,8 @@ class TestAddNode:
 
             with patch.object(handler, "_run_async", side_effect=capture_run):
                 handler._add_node(
-                    _ctx(), "c1",
+                    _ctx(),
+                    "c1",
                     {"idea_type": "concept", "data": {"custom": "val"}},
                     "u1",
                 )
@@ -687,7 +797,6 @@ class TestAddNode:
 
 
 class TestUpdateNode:
-
     def test_update_success(self, handler):
         with patch.object(handler, "_get_canvas_manager") as mgr:
             mgr.return_value = MagicMock()
@@ -695,7 +804,11 @@ class TestUpdateNode:
             node.to_dict.return_value = {"id": "n1", "label": "Updated"}
             with patch.object(handler, "_run_async", return_value=node):
                 result = handler._update_node(
-                    _ctx(), "c1", "n1", {"label": "Updated"}, "u1",
+                    _ctx(),
+                    "c1",
+                    "n1",
+                    {"label": "Updated"},
+                    "u1",
                 )
                 assert _status(result) == 200
                 assert _body(result)["label"] == "Updated"
@@ -705,7 +818,11 @@ class TestUpdateNode:
             mgr.return_value = MagicMock()
             with patch.object(handler, "_run_async", return_value=None):
                 result = handler._update_node(
-                    _ctx(), "c1", "missing", {"label": "X"}, "u1",
+                    _ctx(),
+                    "c1",
+                    "missing",
+                    {"label": "X"},
+                    "u1",
                 )
                 assert _status(result) == 404
 
@@ -716,8 +833,11 @@ class TestUpdateNode:
             node.to_dict.return_value = {"id": "n1"}
             with patch.object(handler, "_run_async", return_value=node):
                 result = handler._update_node(
-                    _ctx(), "c1", "n1",
-                    {"position": {"x": 100, "y": 200}}, "u1",
+                    _ctx(),
+                    "c1",
+                    "n1",
+                    {"position": {"x": 100, "y": 200}},
+                    "u1",
                 )
                 assert _status(result) == 200
 
@@ -728,8 +848,11 @@ class TestUpdateNode:
             node.to_dict.return_value = {"id": "n1"}
             with patch.object(handler, "_run_async", return_value=node):
                 result = handler._update_node(
-                    _ctx(), "c1", "n1",
-                    {"data": {"priority": "high"}}, "u1",
+                    _ctx(),
+                    "c1",
+                    "n1",
+                    {"data": {"priority": "high"}},
+                    "u1",
                 )
                 assert _status(result) == 200
 
@@ -745,7 +868,6 @@ class TestUpdateNode:
 
 
 class TestDeleteNode:
-
     def test_delete_success(self, handler):
         with patch.object(handler, "_get_canvas_manager") as mgr:
             mgr.return_value = MagicMock()
@@ -775,7 +897,6 @@ class TestDeleteNode:
 
 
 class TestAddEdge:
-
     def test_add_success(self, handler):
         with patch.object(handler, "_get_canvas_manager") as mgr:
             mgr.return_value = MagicMock()
@@ -783,8 +904,10 @@ class TestAddEdge:
             edge.to_dict.return_value = {"id": "e1", "source": "n1", "target": "n2"}
             with patch.object(handler, "_run_async", return_value=edge):
                 result = handler._add_edge(
-                    _ctx(), "c1",
-                    {"source_id": "n1", "target_id": "n2"}, "u1",
+                    _ctx(),
+                    "c1",
+                    {"source_id": "n1", "target_id": "n2"},
+                    "u1",
                 )
                 assert _status(result) == 201
 
@@ -796,22 +919,30 @@ class TestAddEdge:
             edge.to_dict.return_value = {"id": "e2"}
             with patch.object(handler, "_run_async", return_value=edge):
                 result = handler._add_edge(
-                    _ctx(), "c1",
-                    {"source": "n1", "target": "n2"}, "u1",
+                    _ctx(),
+                    "c1",
+                    {"source": "n1", "target": "n2"},
+                    "u1",
                 )
                 assert _status(result) == 201
 
     def test_missing_source_returns_400(self, handler):
         with patch.object(handler, "_get_canvas_manager"):
             result = handler._add_edge(
-                _ctx(), "c1", {"target_id": "n2"}, "u1",
+                _ctx(),
+                "c1",
+                {"target_id": "n2"},
+                "u1",
             )
             assert _status(result) == 400
 
     def test_missing_target_returns_400(self, handler):
         with patch.object(handler, "_get_canvas_manager"):
             result = handler._add_edge(
-                _ctx(), "c1", {"source_id": "n1"}, "u1",
+                _ctx(),
+                "c1",
+                {"source_id": "n1"},
+                "u1",
             )
             assert _status(result) == 400
 
@@ -825,8 +956,10 @@ class TestAddEdge:
             mgr.return_value = MagicMock()
             with patch.object(handler, "_run_async", return_value=None):
                 result = handler._add_edge(
-                    _ctx(), "missing",
-                    {"source_id": "n1", "target_id": "n2"}, "u1",
+                    _ctx(),
+                    "missing",
+                    {"source_id": "n1", "target_id": "n2"},
+                    "u1",
                 )
                 assert _status(result) == 404
 
@@ -838,14 +971,23 @@ class TestAddEdge:
             edge.to_dict.return_value = {"id": "e3"}
             with patch.object(handler, "_run_async", return_value=edge):
                 result = handler._add_edge(
-                    _ctx(), "c1",
+                    _ctx(),
+                    "c1",
                     {"source_id": "n1", "target_id": "n2", "type": "BOGUS"},
                     "u1",
                 )
                 assert _status(result) == 201
 
     def test_valid_edge_types_accepted(self, handler):
-        valid_types = ["default", "data_flow", "control_flow", "reference", "dependency", "critique", "support"]
+        valid_types = [
+            "default",
+            "data_flow",
+            "control_flow",
+            "reference",
+            "dependency",
+            "critique",
+            "support",
+        ]
         for etype in valid_types:
             with patch.object(handler, "_get_canvas_manager") as mgr:
                 mgr.return_value = MagicMock()
@@ -853,7 +995,8 @@ class TestAddEdge:
                 edge.to_dict.return_value = {"id": f"e-{etype}"}
                 with patch.object(handler, "_run_async", return_value=edge):
                     result = handler._add_edge(
-                        _ctx(), "c1",
+                        _ctx(),
+                        "c1",
                         {"source_id": "n1", "target_id": "n2", "type": etype},
                         "u1",
                     )
@@ -862,8 +1005,10 @@ class TestAddEdge:
     def test_add_edge_error(self, handler):
         with patch.object(handler, "_get_canvas_manager", side_effect=ImportError("no canvas")):
             result = handler._add_edge(
-                _ctx(), "c1",
-                {"source_id": "n1", "target_id": "n2"}, "u1",
+                _ctx(),
+                "c1",
+                {"source_id": "n1", "target_id": "n2"},
+                "u1",
             )
             assert _status(result) == 500
 
@@ -874,7 +1019,6 @@ class TestAddEdge:
 
 
 class TestDeleteEdge:
-
     def test_delete_success(self, handler):
         with patch.object(handler, "_get_canvas_manager") as mgr:
             mgr.return_value = MagicMock()
@@ -904,7 +1048,6 @@ class TestDeleteEdge:
 
 
 class TestExportCanvas:
-
     def test_export_not_found(self, handler):
         with patch.object(handler, "_get_canvas_manager") as mgr:
             mgr.return_value = MagicMock()
@@ -946,13 +1089,15 @@ class TestExportCanvas:
 
 
 class TestPromoteNodes:
-
     def test_canvas_not_found(self, handler):
         with patch.object(handler, "_get_canvas_manager") as mgr:
             mgr.return_value = MagicMock()
             with patch.object(handler, "_run_async", return_value=None):
                 result = handler._promote_nodes(
-                    _ctx(), "missing", {"node_ids": ["n1"]}, "u1",
+                    _ctx(),
+                    "missing",
+                    {"node_ids": ["n1"]},
+                    "u1",
                 )
                 assert _status(result) == 404
 
@@ -970,7 +1115,10 @@ class TestPromoteNodes:
             canvas_obj = MagicMock()
             with patch.object(handler, "_run_async", return_value=canvas_obj):
                 result = handler._promote_nodes(
-                    _ctx(), "c1", {"node_ids": []}, "u1",
+                    _ctx(),
+                    "c1",
+                    {"node_ids": []},
+                    "u1",
                 )
                 assert _status(result) == 400
 
@@ -989,7 +1137,10 @@ class TestPromoteNodes:
                     return_value=(goals_canvas, [prov]),
                 ):
                     result = handler._promote_nodes(
-                        _ctx(), "c1", {"node_ids": ["n1"]}, "u1",
+                        _ctx(),
+                        "c1",
+                        {"node_ids": ["n1"]},
+                        "u1",
                     )
                     assert _status(result) == 201
                     data = _body(result)
@@ -1013,8 +1164,10 @@ class TestPromoteNodes:
                     return_value=(goals_canvas, provs),
                 ):
                     result = handler._promote_nodes(
-                        _ctx(), "c1",
-                        {"node_ids": ["n1", "n2", "n3"]}, "u1",
+                        _ctx(),
+                        "c1",
+                        {"node_ids": ["n1", "n2", "n3"]},
+                        "u1",
                     )
                     assert _status(result) == 201
                     assert _body(result)["promoted_count"] == 3
@@ -1034,7 +1187,10 @@ class TestPromoteNodes:
                     return_value=(goals_canvas, [prov]),
                 ) as mock_promote:
                     handler._promote_nodes(
-                        _ctx(), "c1", {"node_ids": ["n1"]}, None,
+                        _ctx(),
+                        "c1",
+                        {"node_ids": ["n1"]},
+                        None,
                     )
                     # user_id should fall back to "anonymous"
                     assert mock_promote.call_args[0][2] == "anonymous"
@@ -1042,7 +1198,10 @@ class TestPromoteNodes:
     def test_promote_error(self, handler):
         with patch.object(handler, "_get_canvas_manager", side_effect=ValueError("bad")):
             result = handler._promote_nodes(
-                _ctx(), "c1", {"node_ids": ["n1"]}, "u1",
+                _ctx(),
+                "c1",
+                {"node_ids": ["n1"]},
+                "u1",
             )
             assert _status(result) == 500
 
@@ -1053,7 +1212,6 @@ class TestPromoteNodes:
 
 
 class TestRateLimiting:
-
     @patch("aragora.server.handlers.idea_canvas._ideas_limiter")
     def test_rate_limit_blocks_request(self, mock_limiter, handler, mock_req):
         mock_limiter.is_allowed.return_value = False
@@ -1077,7 +1235,6 @@ class TestRateLimiting:
 
 
 class TestHandleIntegration:
-
     def _always_allow_checker(self):
         """Return a permission checker mock that always allows."""
         checker = MagicMock()
@@ -1091,7 +1248,12 @@ class TestHandleIntegration:
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     @patch("aragora.rbac.decorators.get_permission_checker")
     def test_handle_list_success(
-        self, mock_checker, mock_get_store, mock_limiter, handler, mock_req,
+        self,
+        mock_checker,
+        mock_get_store,
+        mock_limiter,
+        handler,
+        mock_req,
     ):
         mock_checker.return_value = self._always_allow_checker()
         mock_limiter.is_allowed.return_value = True
@@ -1107,7 +1269,12 @@ class TestHandleIntegration:
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     @patch("aragora.rbac.decorators.get_permission_checker")
     def test_handle_create_success(
-        self, mock_checker, mock_get_store, mock_limiter, handler, mock_req,
+        self,
+        mock_checker,
+        mock_get_store,
+        mock_limiter,
+        handler,
+        mock_req,
     ):
         mock_checker.return_value = self._always_allow_checker()
         mock_limiter.is_allowed.return_value = True
@@ -1116,7 +1283,8 @@ class TestHandleIntegration:
         mock_get_store.return_value = store
 
         result = handler.handle(
-            "/api/v1/ideas", {},
+            "/api/v1/ideas",
+            {},
             mock_req("POST", body={"name": "New Canvas"}),
         )
         assert result is not None
@@ -1128,7 +1296,8 @@ class TestHandleIntegration:
         mock_limiter.is_allowed.return_value = True
         result = handler.handle(
             "/api/v1/ideas/c1/unknown/extra",
-            {}, mock_req("GET"),
+            {},
+            mock_req("GET"),
         )
         # Unmatched sub-path returns None (not handled)
         assert result is None
@@ -1137,7 +1306,12 @@ class TestHandleIntegration:
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     @patch("aragora.rbac.decorators.get_permission_checker")
     def test_handle_delete_canvas_success(
-        self, mock_checker, mock_get_store, mock_limiter, handler, mock_req,
+        self,
+        mock_checker,
+        mock_get_store,
+        mock_limiter,
+        handler,
+        mock_req,
     ):
         mock_checker.return_value = self._always_allow_checker()
         mock_limiter.is_allowed.return_value = True
@@ -1153,7 +1327,12 @@ class TestHandleIntegration:
     @patch("aragora.canvas.idea_store.get_idea_canvas_store")
     @patch("aragora.rbac.decorators.get_permission_checker")
     def test_handle_update_canvas_success(
-        self, mock_checker, mock_get_store, mock_limiter, handler, mock_req,
+        self,
+        mock_checker,
+        mock_get_store,
+        mock_limiter,
+        handler,
+        mock_req,
     ):
         mock_checker.return_value = self._always_allow_checker()
         mock_limiter.is_allowed.return_value = True
@@ -1162,7 +1341,8 @@ class TestHandleIntegration:
         mock_get_store.return_value = store
 
         result = handler.handle(
-            "/api/v1/ideas/abc", {},
+            "/api/v1/ideas/abc",
+            {},
             mock_req("PUT", body={"name": "Updated"}),
         )
         assert result is not None
@@ -1171,7 +1351,11 @@ class TestHandleIntegration:
     @patch("aragora.server.handlers.idea_canvas._ideas_limiter")
     @patch("aragora.rbac.decorators.get_permission_checker")
     def test_handle_permission_denied(
-        self, mock_checker, mock_limiter, handler, mock_req,
+        self,
+        mock_checker,
+        mock_limiter,
+        handler,
+        mock_req,
     ):
         """PermissionDeniedError is caught and returns 403."""
         checker = MagicMock()
@@ -1189,7 +1373,11 @@ class TestHandleIntegration:
     @patch("aragora.server.handlers.idea_canvas._ideas_limiter")
     @patch("aragora.rbac.decorators.get_permission_checker")
     def test_handle_workspace_from_query(
-        self, mock_checker, mock_limiter, handler, mock_req,
+        self,
+        mock_checker,
+        mock_limiter,
+        handler,
+        mock_req,
     ):
         """workspace_id in query params overrides user's org_id."""
         mock_checker.return_value = self._always_allow_checker()
@@ -1216,7 +1404,6 @@ class TestHandleIntegration:
 
 
 class TestGetRequestBody:
-
     def test_valid_json(self, handler):
         h = MagicMock()
         h.request = MagicMock()
@@ -1252,7 +1439,6 @@ class TestGetRequestBody:
 
 
 class TestConstructor:
-
     def test_default_ctx(self):
         h = IdeaCanvasHandler()
         assert h.ctx == {}
@@ -1272,68 +1458,80 @@ class TestConstructor:
 
 
 class TestRegexPatterns:
-
     def test_id_with_hyphens(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_BY_ID
+
         assert IDEAS_BY_ID.match("/api/v1/ideas/my-canvas-123") is not None
 
     def test_id_with_underscores(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_BY_ID
+
         assert IDEAS_BY_ID.match("/api/v1/ideas/my_canvas_123") is not None
 
     def test_id_alphanumeric(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_BY_ID
+
         assert IDEAS_BY_ID.match("/api/v1/ideas/abc123XYZ") is not None
 
     def test_id_rejects_special_chars(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_BY_ID
+
         assert IDEAS_BY_ID.match("/api/v1/ideas/bad!@#id") is None
 
     def test_id_rejects_empty(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_BY_ID
+
         assert IDEAS_BY_ID.match("/api/v1/ideas/") is None
 
     def test_node_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_NODE
+
         m = IDEAS_NODE.match("/api/v1/ideas/c1/nodes/n2")
         assert m is not None
         assert m.groups() == ("c1", "n2")
 
     def test_edge_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_EDGE
+
         m = IDEAS_EDGE.match("/api/v1/ideas/c1/edges/e3")
         assert m is not None
         assert m.groups() == ("c1", "e3")
 
     def test_export_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_EXPORT
+
         m = IDEAS_EXPORT.match("/api/v1/ideas/canvas-abc/export")
         assert m is not None
         assert m.group(1) == "canvas-abc"
 
     def test_promote_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_PROMOTE
+
         m = IDEAS_PROMOTE.match("/api/v1/ideas/canvas-abc/promote")
         assert m is not None
         assert m.group(1) == "canvas-abc"
 
     def test_nodes_collection_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_NODES
+
         m = IDEAS_NODES.match("/api/v1/ideas/c1/nodes")
         assert m is not None
         assert m.group(1) == "c1"
 
     def test_edges_collection_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_EDGES
+
         m = IDEAS_EDGES.match("/api/v1/ideas/c1/edges")
         assert m is not None
         assert m.group(1) == "c1"
 
     def test_list_pattern(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_LIST
+
         assert IDEAS_LIST.match("/api/v1/ideas") is not None
         assert IDEAS_LIST.match("/api/v1/ideas/") is None
 
     def test_id_rejects_slashes(self, handler):
         from aragora.server.handlers.idea_canvas import IDEAS_BY_ID
+
         assert IDEAS_BY_ID.match("/api/v1/ideas/a/b") is None

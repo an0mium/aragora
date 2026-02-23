@@ -140,8 +140,7 @@ HEALTHCARE_CLINICAL_DECISION_TEMPLATE: dict[str, Any] = {
             "type": "human_checkpoint",
             "name": "Compliance Remediation",
             "description": (
-                "Route to compliance officer for manual remediation "
-                "when automated checks fail."
+                "Route to compliance officer for manual remediation when automated checks fail."
             ),
             "config": {
                 "approval_type": "remediation",
@@ -328,9 +327,7 @@ HEALTHCARE_CLINICAL_DECISION_TEMPLATE: dict[str, Any] = {
             "id": "attending_review",
             "type": "human_checkpoint",
             "name": "Attending Physician Review",
-            "description": (
-                "Final clinical review and sign-off by attending physician."
-            ),
+            "description": ("Final clinical review and sign-off by attending physician."),
             "config": {
                 "approval_type": "sign_off",
                 "required_role": "attending_physician",
@@ -379,8 +376,7 @@ HEALTHCARE_CLINICAL_DECISION_TEMPLATE: dict[str, Any] = {
             "type": "memory_write",
             "name": "Archive Clinical Decision",
             "description": (
-                "Archive decision with all supporting evidence for "
-                "HIPAA-compliant retention."
+                "Archive decision with all supporting evidence for HIPAA-compliant retention."
             ),
             "config": {
                 "domain": "healthcare/clinical/decisions",

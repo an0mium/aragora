@@ -539,7 +539,15 @@ class SocialMediaHandler(BaseHandler):
                     status=500,
                 )
 
-        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
+        except (
+            ImportError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            ValueError,
+            RuntimeError,
+            KeyError,
+        ) as e:
             logger.error("Failed to publish to Twitter: %s", e)
             return error_response(_safe_error_message(e, "twitter_publish"), status=500)
 
@@ -654,6 +662,14 @@ class SocialMediaHandler(BaseHandler):
                     status=500,
                 )
 
-        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
+        except (
+            ImportError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            ValueError,
+            RuntimeError,
+            KeyError,
+        ) as e:
             logger.error("Failed to publish to YouTube: %s", e)
             return error_response(_safe_error_message(e, "youtube_publish"), status=500)

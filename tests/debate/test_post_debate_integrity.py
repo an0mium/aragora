@@ -89,9 +89,7 @@ class TestBuildIntegrityPackageFromResult:
             participants=["claude", "gpt4"],
         )
 
-        package = build_integrity_package_from_result(
-            dr, include_receipt=True, include_plan=False
-        )
+        package = build_integrity_package_from_result(dr, include_receipt=True, include_plan=False)
 
         assert package.debate_id == "d-001"
         assert package.receipt is not None
@@ -107,9 +105,7 @@ class TestBuildIntegrityPackageFromResult:
             final_answer="Answer",
         )
 
-        package = build_integrity_package_from_result(
-            dr, include_receipt=False, include_plan=False
-        )
+        package = build_integrity_package_from_result(dr, include_receipt=False, include_plan=False)
 
         assert package.debate_id == "d-002"
         assert package.receipt is None
@@ -125,9 +121,7 @@ class TestBuildIntegrityPackageFromResult:
             confidence=0.8,
         )
 
-        package = build_integrity_package_from_result(
-            dr, include_receipt=True, include_plan=False
-        )
+        package = build_integrity_package_from_result(dr, include_receipt=True, include_plan=False)
 
         d = package.to_dict()
         assert d["debate_id"] == "d-003"
@@ -144,7 +138,12 @@ class TestCoordinatorIntegrityStep:
     """Test that coordinator.run() generates integrity package when configured."""
 
     def test_integrity_step_disabled_by_default(self):
-        config = PostDebateConfig(auto_explain=False, auto_create_plan=False, auto_notify=False, auto_execution_bridge=False)
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=False,
+            auto_notify=False,
+            auto_execution_bridge=False,
+        )
         coordinator = PostDebateCoordinator(config=config)
 
         result = coordinator.run(
@@ -207,7 +206,12 @@ class TestCoordinatorIntegrityStep:
         )
 
         mock_package = MagicMock()
-        mock_package.to_dict.return_value = {"debate_id": "d-102", "receipt": {}, "plan": None, "context_snapshot": None}
+        mock_package.to_dict.return_value = {
+            "debate_id": "d-102",
+            "receipt": {},
+            "plan": None,
+            "context_snapshot": None,
+        }
 
         with patch(
             "aragora.pipeline.decision_integrity.build_integrity_package_from_result",
@@ -276,7 +280,12 @@ class TestCoordinatorIntegrityStep:
         coordinator = PostDebateCoordinator(config=config)
 
         mock_package = MagicMock()
-        mock_package.to_dict.return_value = {"debate_id": "d-105", "receipt": {}, "plan": None, "context_snapshot": None}
+        mock_package.to_dict.return_value = {
+            "debate_id": "d-105",
+            "receipt": {},
+            "plan": None,
+            "context_snapshot": None,
+        }
 
         with (
             patch.object(coordinator, "_step_explain", return_value={"explanation": "because"}),

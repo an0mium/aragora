@@ -21,6 +21,7 @@ from aragora.server.handlers.base import error_response, json_response
 def clear_permission_cache():
     """Reset permission checker to a fresh instance for test isolation."""
     from aragora.rbac.checker import set_permission_checker, PermissionChecker
+
     set_permission_checker(PermissionChecker())
     yield
     set_permission_checker(PermissionChecker())

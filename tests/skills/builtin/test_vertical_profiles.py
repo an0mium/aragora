@@ -125,9 +125,7 @@ class TestVerticalProfileSkill:
 
     @pytest.mark.asyncio
     async def test_default_action_is_info(self):
-        config = VerticalConfig(
-            name="test", display_name="T", weight_profile="tw", description="T"
-        )
+        config = VerticalConfig(name="test", display_name="T", weight_profile="tw", description="T")
         skill = VerticalProfileSkill(config)
         result = await skill.execute({})
         assert "name" in result.data
@@ -152,9 +150,7 @@ class TestVerticalProfileSkill:
     @pytest.mark.asyncio
     @patch("aragora.debate.presets.get_preset", side_effect=ImportError("no presets"))
     async def test_configure_handles_import_error(self, mock_get_preset):
-        config = VerticalConfig(
-            name="test", display_name="T", weight_profile="tw", description="T"
-        )
+        config = VerticalConfig(name="test", display_name="T", weight_profile="tw", description="T")
         skill = VerticalProfileSkill(config)
         result = await skill.execute({"action": "configure"})
         assert result.status == SkillStatus.FAILURE

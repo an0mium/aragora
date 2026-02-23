@@ -478,9 +478,7 @@ class SurpriseChainTracker:
         """Remove chains that have exceeded their TTL."""
         now = _time.monotonic()
         self._chains = [
-            c
-            for c in self._chains
-            if (now - c.last_updated) < self.config.chain_ttl_seconds
+            c for c in self._chains if (now - c.last_updated) < self.config.chain_ttl_seconds
         ]
 
     @property
@@ -739,9 +737,7 @@ class EmbeddingSurpriseScorer(ContentSurpriseScorer):
 
         return base_score
 
-    def _compute_embedding_novelty(
-        self, content: str, context: str
-    ) -> float | None:
+    def _compute_embedding_novelty(self, content: str, context: str) -> float | None:
         """Compute novelty as cosine distance between embeddings.
 
         Returns None on failure (no service, error, etc.).

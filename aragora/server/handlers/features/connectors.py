@@ -79,7 +79,8 @@ async def _get_store() -> SyncStore | None:
             logger.info("Using persistent sync store for enterprise connectors")
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(
-                "ENTERPRISE CONNECTORS: Failed to initialize sync store: %s. Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!", e
+                "ENTERPRISE CONNECTORS: Failed to initialize sync store: %s. Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!",
+                e,
             )
     return _store
 
@@ -556,7 +557,8 @@ class ConnectorsHandler(SecureHandler):
         task = asyncio.create_task(self._run_sync(sync_id, connector_id))
         task.add_done_callback(
             lambda t: logger.error("Connector sync %s failed: %s", sync_id, t.exception())
-            if not t.cancelled() and t.exception() else None
+            if not t.cancelled() and t.exception()
+            else None
         )
 
         logger.info("Started sync %s for connector %s", sync_id, connector_id)

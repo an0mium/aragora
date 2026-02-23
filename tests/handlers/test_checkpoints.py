@@ -159,9 +159,7 @@ def mock_manager(mock_store):
     manager.list_debates_with_checkpoints = AsyncMock(return_value=[])
     manager.resume_from_checkpoint = AsyncMock(return_value=None)
     manager.add_intervention = AsyncMock(return_value=True)
-    manager.create_checkpoint = AsyncMock(
-        return_value=MockDebateCheckpoint()
-    )
+    manager.create_checkpoint = AsyncMock(return_value=MockDebateCheckpoint())
     return manager
 
 
@@ -187,9 +185,7 @@ def mock_http_handler():
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset the module-level rate limiter between tests."""
-    with patch(
-        "aragora.server.handlers.checkpoints._checkpoint_limiter"
-    ) as mock_limiter:
+    with patch("aragora.server.handlers.checkpoints._checkpoint_limiter") as mock_limiter:
         mock_limiter.is_allowed.return_value = True
         yield mock_limiter
 
@@ -251,18 +247,14 @@ class TestListCheckpoints:
     async def test_list_empty(self, handler, mock_http_handler, mock_store):
         mock_store.list_checkpoints.return_value = []
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["checkpoints"] == []
         assert body["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_with_results(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_list_with_results(self, handler, mock_http_handler, mock_store):
         checkpoints = [
             {
                 "checkpoint_id": "cp-001",
@@ -283,18 +275,14 @@ class TestListCheckpoints:
         ]
         mock_store.list_checkpoints.return_value = checkpoints
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert len(body["checkpoints"]) == 2
         assert body["total"] == 2
 
     @pytest.mark.asyncio
-    async def test_list_with_debate_id_filter(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_list_with_debate_id_filter(self, handler, mock_http_handler, mock_store):
         mock_store.list_checkpoints.return_value = []
 
         result = await handler.handle(
@@ -304,14 +292,10 @@ class TestListCheckpoints:
         )
         body = _body(result)
         assert _status(result) == 200
-        mock_store.list_checkpoints.assert_called_once_with(
-            debate_id="dbt-001"
-        )
+        mock_store.list_checkpoints.assert_called_once_with(debate_id="dbt-001")
 
     @pytest.mark.asyncio
-    async def test_list_with_status_filter(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_list_with_status_filter(self, handler, mock_http_handler, mock_store):
         checkpoints = [
             {"checkpoint_id": "cp-001", "status": "complete"},
             {"checkpoint_id": "cp-002", "status": "expired"},
@@ -332,13 +316,8 @@ class TestListCheckpoints:
             assert cp["status"] == "complete"
 
     @pytest.mark.asyncio
-    async def test_list_pagination(
-        self, handler, mock_http_handler, mock_store
-    ):
-        checkpoints = [
-            {"checkpoint_id": f"cp-{i:03d}", "status": "complete"}
-            for i in range(10)
-        ]
+    async def test_list_pagination(self, handler, mock_http_handler, mock_store):
+        checkpoints = [{"checkpoint_id": f"cp-{i:03d}", "status": "complete"} for i in range(10)]
         mock_store.list_checkpoints.return_value = checkpoints
 
         result = await handler.handle(
@@ -355,14 +334,10 @@ class TestListCheckpoints:
         assert body["checkpoints"][0]["checkpoint_id"] == "cp-002"
 
     @pytest.mark.asyncio
-    async def test_list_default_pagination(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_list_default_pagination(self, handler, mock_http_handler, mock_store):
         mock_store.list_checkpoints.return_value = []
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         body = _body(result)
         assert body["limit"] == 50
         assert body["offset"] == 0
@@ -377,23 +352,17 @@ class TestListResumableDebates:
     """Tests for listing debates with resumable checkpoints."""
 
     @pytest.mark.asyncio
-    async def test_list_resumable_empty(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_list_resumable_empty(self, handler, mock_http_handler, mock_manager):
         mock_manager.list_debates_with_checkpoints.return_value = []
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/resumable", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/resumable", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["debates"] == []
         assert body["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_resumable_with_results(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_list_resumable_with_results(self, handler, mock_http_handler, mock_manager):
         debates = [
             {
                 "debate_id": "dbt-001",
@@ -412,9 +381,7 @@ class TestListResumableDebates:
         ]
         mock_manager.list_debates_with_checkpoints.return_value = debates
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/resumable", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/resumable", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert len(body["debates"]) == 2
@@ -430,9 +397,7 @@ class TestGetCheckpoint:
     """Tests for getting a specific checkpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_success(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_get_checkpoint_success(self, handler, mock_http_handler, mock_store):
         checkpoint = MockDebateCheckpoint()
         mock_store.load.return_value = checkpoint
 
@@ -447,28 +412,20 @@ class TestGetCheckpoint:
         assert body["checkpoint"]["integrity_valid"] is True
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_not_found(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_get_checkpoint_not_found(self, handler, mock_http_handler, mock_store):
         mock_store.load.return_value = None
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/nonexistent", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/nonexistent", {}, mock_http_handler)
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_integrity_invalid(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_get_checkpoint_integrity_invalid(self, handler, mock_http_handler, mock_store):
         checkpoint = MockDebateCheckpoint(_integrity_valid=False)
         mock_store.load.return_value = checkpoint
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/cp-bad", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/cp-bad", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["checkpoint"]["integrity_valid"] is False
@@ -483,9 +440,7 @@ class TestResumeCheckpoint:
     """Tests for resuming a debate from checkpoint."""
 
     @pytest.mark.asyncio
-    async def test_resume_success(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_resume_success(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         resumed = MockResumedDebate()
         mock_manager.resume_from_checkpoint.return_value = resumed
@@ -509,9 +464,7 @@ class TestResumeCheckpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_resume_default_resumed_by(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_resume_default_resumed_by(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         resumed = MockResumedDebate()
         mock_manager.resume_from_checkpoint.return_value = resumed
@@ -529,9 +482,7 @@ class TestResumeCheckpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_resume_not_found(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_resume_not_found(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         mock_manager.resume_from_checkpoint.return_value = None
 
@@ -542,7 +493,10 @@ class TestResumeCheckpoint:
         )
         assert _status(result) == 404
         body = _body(result)
-        assert "not found" in body.get("error", "").lower() or "corrupted" in body.get("error", "").lower()
+        assert (
+            "not found" in body.get("error", "").lower()
+            or "corrupted" in body.get("error", "").lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -554,45 +508,33 @@ class TestDeleteCheckpoint:
     """Tests for deleting a checkpoint."""
 
     @pytest.mark.asyncio
-    async def test_delete_success(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_delete_success(self, handler, mock_http_handler, mock_store):
         mock_http_handler.command = "DELETE"
         checkpoint = MockDebateCheckpoint()
         mock_store.load.return_value = checkpoint
         mock_store.delete.return_value = True
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/cp-001", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/cp-001", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert "deleted" in body.get("message", "").lower()
 
     @pytest.mark.asyncio
-    async def test_delete_not_found(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_delete_not_found(self, handler, mock_http_handler, mock_store):
         mock_http_handler.command = "DELETE"
         mock_store.load.return_value = None
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/cp-nonexistent", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/cp-nonexistent", {}, mock_http_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_delete_failure(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_delete_failure(self, handler, mock_http_handler, mock_store):
         mock_http_handler.command = "DELETE"
         checkpoint = MockDebateCheckpoint()
         mock_store.load.return_value = checkpoint
         mock_store.delete.return_value = False
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/cp-001", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/cp-001", {}, mock_http_handler)
         assert _status(result) == 500
         body = _body(result)
         assert "failed" in body.get("error", "").lower()
@@ -607,15 +549,11 @@ class TestAddIntervention:
     """Tests for adding intervention notes."""
 
     @pytest.mark.asyncio
-    async def test_add_intervention_success(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_add_intervention_success(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         mock_manager.add_intervention.return_value = True
 
-        body_data = json.dumps(
-            {"note": "The debate is stuck", "by": "reviewer"}
-        ).encode()
+        body_data = json.dumps({"note": "The debate is stuck", "by": "reviewer"}).encode()
         result = await handler.handle(
             "/api/v1/checkpoints/cp-001/intervention",
             {},
@@ -633,9 +571,7 @@ class TestAddIntervention:
         )
 
     @pytest.mark.asyncio
-    async def test_add_intervention_default_by(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_add_intervention_default_by(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         mock_manager.add_intervention.return_value = True
 
@@ -654,9 +590,7 @@ class TestAddIntervention:
         )
 
     @pytest.mark.asyncio
-    async def test_add_intervention_missing_note(
-        self, handler, mock_http_handler
-    ):
+    async def test_add_intervention_missing_note(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
 
         body_data = json.dumps({"by": "reviewer"}).encode()
@@ -671,9 +605,7 @@ class TestAddIntervention:
         assert "note" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_add_intervention_empty_body(
-        self, handler, mock_http_handler
-    ):
+    async def test_add_intervention_empty_body(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
 
         result = await handler.handle(
@@ -685,9 +617,7 @@ class TestAddIntervention:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_add_intervention_not_found(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_add_intervention_not_found(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         mock_manager.add_intervention.return_value = False
 
@@ -710,14 +640,10 @@ class TestListDebateCheckpoints:
     """Tests for listing checkpoints of a specific debate."""
 
     @pytest.mark.asyncio
-    async def test_list_debate_checkpoints_empty(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_list_debate_checkpoints_empty(self, handler, mock_http_handler, mock_store):
         mock_store.list_checkpoints.return_value = []
 
-        result = await handler.handle(
-            "/api/v1/debates/dbt-001/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/debates/dbt-001/checkpoints", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["debate_id"] == "dbt-001"
@@ -742,16 +668,12 @@ class TestListDebateCheckpoints:
         ]
         mock_store.list_checkpoints.return_value = checkpoints
 
-        result = await handler.handle(
-            "/api/v1/debates/dbt-001/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/debates/dbt-001/checkpoints", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["debate_id"] == "dbt-001"
         assert body["total"] == 2
-        mock_store.list_checkpoints.assert_called_once_with(
-            debate_id="dbt-001"
-        )
+        mock_store.list_checkpoints.assert_called_once_with(debate_id="dbt-001")
 
     @pytest.mark.asyncio
     async def test_list_debate_checkpoints_sorted_desc(
@@ -765,9 +687,7 @@ class TestListDebateCheckpoints:
         ]
         mock_store.list_checkpoints.return_value = checkpoints
 
-        result = await handler.handle(
-            "/api/v1/debates/dbt-001/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/debates/dbt-001/checkpoints", {}, mock_http_handler)
         body = _body(result)
         assert body["checkpoints"][0]["checkpoint_id"] == "cp-002"
         assert body["checkpoints"][1]["checkpoint_id"] == "cp-003"
@@ -783,15 +703,11 @@ class TestCreateCheckpoint:
     """Tests for creating a checkpoint for a running debate."""
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_success(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_create_checkpoint_success(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -815,16 +731,12 @@ class TestCreateCheckpoint:
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
 
-            body_data = json.dumps(
-                {"phase": "critique", "note": "Manual save point"}
-            ).encode()
+            body_data = json.dumps({"phase": "critique", "note": "Manual save point"}).encode()
             result = await handler.handle(
                 "/api/v1/debates/debate-001/checkpoint",
                 {},
@@ -836,14 +748,10 @@ class TestCreateCheckpoint:
         assert body["phase"] == "critique"
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_debate_not_found(
-        self, handler, mock_http_handler
-    ):
+    async def test_create_checkpoint_debate_not_found(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = None
             mock_get_sm.return_value = mock_sm
@@ -856,16 +764,12 @@ class TestCreateCheckpoint:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_bad_state(
-        self, handler, mock_http_handler
-    ):
+    async def test_create_checkpoint_bad_state(self, handler, mock_http_handler):
         """Cannot checkpoint a completed debate."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="completed")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -887,9 +791,7 @@ class TestCreateCheckpoint:
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="paused")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -909,9 +811,7 @@ class TestCreateCheckpoint:
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="initializing")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -924,15 +824,11 @@ class TestCreateCheckpoint:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_failed_state_rejected(
-        self, handler, mock_http_handler
-    ):
+    async def test_create_checkpoint_failed_state_rejected(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="failed")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -955,9 +851,7 @@ class TestCreateCheckpoint:
         mock_cp.metadata = None
         mock_manager.create_checkpoint.return_value = mock_cp
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -975,17 +869,13 @@ class TestCreateCheckpoint:
         assert mock_cp.metadata["note"] == "Save before lunch"
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_manager_error(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_create_checkpoint_manager_error(self, handler, mock_http_handler, mock_manager):
         """When manager raises, returns 500."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
         mock_manager.create_checkpoint.side_effect = RuntimeError("DB error")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1003,13 +893,9 @@ class TestCreateCheckpoint:
     ):
         """Dict messages are passed through as-is."""
         mock_http_handler.command = "POST"
-        debate_state = MockDebateState(
-            messages=[{"content": "hello", "role": "user"}]
-        )
+        debate_state = MockDebateState(messages=[{"content": "hello", "role": "user"}])
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1022,9 +908,7 @@ class TestCreateCheckpoint:
         assert _status(result) == 200
         # Check messages were passed correctly to create_checkpoint
         call_kwargs = mock_manager.create_checkpoint.call_args[1]
-        assert call_kwargs["messages"] == [
-            {"content": "hello", "role": "user"}
-        ]
+        assert call_kwargs["messages"] == [{"content": "hello", "role": "user"}]
 
     @pytest.mark.asyncio
     async def test_create_checkpoint_message_conversion_to_dict(
@@ -1035,9 +919,7 @@ class TestCreateCheckpoint:
         msg = MockMessageWithToDict()
         debate_state = MockDebateState(messages=[msg])
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1049,9 +931,7 @@ class TestCreateCheckpoint:
             )
         assert _status(result) == 200
         call_kwargs = mock_manager.create_checkpoint.call_args[1]
-        assert call_kwargs["messages"] == [
-            {"content": "message via to_dict", "role": "assistant"}
-        ]
+        assert call_kwargs["messages"] == [{"content": "message via to_dict", "role": "assistant"}]
 
     @pytest.mark.asyncio
     async def test_create_checkpoint_message_conversion_str(
@@ -1061,9 +941,7 @@ class TestCreateCheckpoint:
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(messages=["simple string message"])
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1075,9 +953,7 @@ class TestCreateCheckpoint:
             )
         assert _status(result) == 200
         call_kwargs = mock_manager.create_checkpoint.call_args[1]
-        assert call_kwargs["messages"] == [
-            {"content": "simple string message"}
-        ]
+        assert call_kwargs["messages"] == [{"content": "simple string message"}]
 
 
 # ---------------------------------------------------------------------------
@@ -1089,16 +965,12 @@ class TestPauseDebate:
     """Tests for pausing a debate with checkpoint creation."""
 
     @pytest.mark.asyncio
-    async def test_pause_success(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_pause_success(self, handler, mock_http_handler, mock_manager):
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
 
         with (
-            patch(
-                "aragora.server.state.get_state_manager"
-            ) as mock_get_sm,
+            patch("aragora.server.state.get_state_manager") as mock_get_sm,
             patch(
                 "aragora.server.handlers.debates.intervention.get_debate_state",
             ) as mock_int_state,
@@ -1125,14 +997,10 @@ class TestPauseDebate:
         assert "hint" in body
 
     @pytest.mark.asyncio
-    async def test_pause_debate_not_found(
-        self, handler, mock_http_handler
-    ):
+    async def test_pause_debate_not_found(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = None
             mock_get_sm.return_value = mock_sm
@@ -1145,15 +1013,11 @@ class TestPauseDebate:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_pause_bad_state_completed(
-        self, handler, mock_http_handler
-    ):
+    async def test_pause_bad_state_completed(self, handler, mock_http_handler):
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="completed")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1168,16 +1032,12 @@ class TestPauseDebate:
         assert "completed" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_pause_bad_state_paused(
-        self, handler, mock_http_handler
-    ):
+    async def test_pause_bad_state_paused(self, handler, mock_http_handler):
         """Cannot pause an already-paused debate."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="paused")
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1190,17 +1050,13 @@ class TestPauseDebate:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_pause_initializing_allowed(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_pause_initializing_allowed(self, handler, mock_http_handler, mock_manager):
         """Can pause an initializing debate."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(status="initializing")
 
         with (
-            patch(
-                "aragora.server.state.get_state_manager"
-            ) as mock_get_sm,
+            patch("aragora.server.state.get_state_manager") as mock_get_sm,
             patch(
                 "aragora.server.handlers.debates.intervention.get_debate_state",
             ) as mock_int_state,
@@ -1221,17 +1077,13 @@ class TestPauseDebate:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_pause_without_checkpoint(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_pause_without_checkpoint(self, handler, mock_http_handler, mock_manager):
         """Pause with create_checkpoint=false skips checkpoint creation."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
 
         with (
-            patch(
-                "aragora.server.state.get_state_manager"
-            ) as mock_get_sm,
+            patch("aragora.server.state.get_state_manager") as mock_get_sm,
             patch(
                 "aragora.server.handlers.debates.intervention.get_debate_state",
             ) as mock_int_state,
@@ -1258,9 +1110,7 @@ class TestPauseDebate:
         mock_manager.create_checkpoint.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_pause_with_note(
-        self, handler, mock_http_handler, mock_manager, mock_store
-    ):
+    async def test_pause_with_note(self, handler, mock_http_handler, mock_manager, mock_store):
         """Pause note is stored in checkpoint metadata."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
@@ -1269,9 +1119,7 @@ class TestPauseDebate:
         mock_manager.create_checkpoint.return_value = mock_cp
 
         with (
-            patch(
-                "aragora.server.state.get_state_manager"
-            ) as mock_get_sm,
+            patch("aragora.server.state.get_state_manager") as mock_get_sm,
             patch(
                 "aragora.server.handlers.debates.intervention.get_debate_state",
             ) as mock_int_state,
@@ -1284,9 +1132,7 @@ class TestPauseDebate:
             mock_get_sm.return_value = mock_sm
             mock_int_state.return_value = {}
 
-            body_data = json.dumps(
-                {"note": "Lunch break"}
-            ).encode()
+            body_data = json.dumps({"note": "Lunch break"}).encode()
             result = await handler.handle(
                 "/api/v1/debates/debate-001/checkpoint/pause",
                 {},
@@ -1298,17 +1144,13 @@ class TestPauseDebate:
         mock_store.save.assert_called_once_with(mock_cp)
 
     @pytest.mark.asyncio
-    async def test_pause_updates_debate_status(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_pause_updates_debate_status(self, handler, mock_http_handler, mock_manager):
         """Pause sets the debate status to 'paused'."""
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
 
         with (
-            patch(
-                "aragora.server.state.get_state_manager"
-            ) as mock_get_sm,
+            patch("aragora.server.state.get_state_manager") as mock_get_sm,
             patch(
                 "aragora.server.handlers.debates.intervention.get_debate_state",
             ) as mock_int_state,
@@ -1327,9 +1169,7 @@ class TestPauseDebate:
                 mock_http_handler,
             )
         assert _status(result) == 200
-        mock_sm.update_debate_status.assert_called_once_with(
-            "debate-001", status="paused"
-        )
+        mock_sm.update_debate_status.assert_called_once_with("debate-001", status="paused")
 
     @pytest.mark.asyncio
     async def test_pause_checkpoint_error_still_succeeds(
@@ -1341,9 +1181,7 @@ class TestPauseDebate:
         mock_manager.create_checkpoint.side_effect = RuntimeError("DB error")
 
         with (
-            patch(
-                "aragora.server.state.get_state_manager"
-            ) as mock_get_sm,
+            patch("aragora.server.state.get_state_manager") as mock_get_sm,
             patch(
                 "aragora.server.handlers.debates.intervention.get_debate_state",
             ) as mock_int_state,
@@ -1373,9 +1211,7 @@ class TestPauseDebate:
         mock_http_handler.command = "POST"
         debate_state = MockDebateState()
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm
@@ -1400,14 +1236,10 @@ class TestRateLimiting:
     """Tests for rate limit enforcement."""
 
     @pytest.mark.asyncio
-    async def test_rate_limit_exceeded(
-        self, handler, mock_http_handler, reset_rate_limiter
-    ):
+    async def test_rate_limit_exceeded(self, handler, mock_http_handler, reset_rate_limiter):
         reset_rate_limiter.is_allowed.return_value = False
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         assert _status(result) == 429
         body = _body(result)
         assert "rate limit" in body.get("error", "").lower()
@@ -1419,9 +1251,7 @@ class TestRateLimiting:
         reset_rate_limiter.is_allowed.return_value = True
         mock_store.list_checkpoints.return_value = []
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         assert _status(result) == 200
 
 
@@ -1434,49 +1264,33 @@ class TestNotFound:
     """Tests for unmatched routes returning 404."""
 
     @pytest.mark.asyncio
-    async def test_unknown_method_on_checkpoints(
-        self, handler, mock_http_handler
-    ):
+    async def test_unknown_method_on_checkpoints(self, handler, mock_http_handler):
         """PUT on /api/v1/checkpoints returns 404 (no PUT route defined)."""
         mock_http_handler.command = "PUT"
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_post_on_list_checkpoints(
-        self, handler, mock_http_handler
-    ):
+    async def test_post_on_list_checkpoints(self, handler, mock_http_handler):
         """POST on /api/v1/checkpoints returns 404."""
         mock_http_handler.command = "POST"
 
-        result = await handler.handle(
-            "/api/v1/checkpoints", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_delete_on_resume_path(
-        self, handler, mock_http_handler
-    ):
+    async def test_delete_on_resume_path(self, handler, mock_http_handler):
         """DELETE on .../resume returns 404."""
         mock_http_handler.command = "DELETE"
 
-        result = await handler.handle(
-            "/api/v1/checkpoints/cp-001/resume", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/checkpoints/cp-001/resume", {}, mock_http_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_get_on_debate_checkpoint_create(
-        self, handler, mock_http_handler
-    ):
+    async def test_get_on_debate_checkpoint_create(self, handler, mock_http_handler):
         """GET on /api/v1/debates/{id}/checkpoint returns 404 (needs POST)."""
-        result = await handler.handle(
-            "/api/v1/debates/dbt-001/checkpoint", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/debates/dbt-001/checkpoint", {}, mock_http_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1511,11 +1325,10 @@ class TestHandlerInit:
         assert h._checkpoint_manager is None
 
     def test_get_checkpoint_manager_creates_instance(self):
-        with patch(
-            "aragora.server.handlers.checkpoints.DatabaseCheckpointStore"
-        ) as mock_db_store, patch(
-            "aragora.server.handlers.checkpoints.CheckpointManager"
-        ) as mock_cm:
+        with (
+            patch("aragora.server.handlers.checkpoints.DatabaseCheckpointStore") as mock_db_store,
+            patch("aragora.server.handlers.checkpoints.CheckpointManager") as mock_cm,
+        ):
             mock_db_store.return_value = MagicMock()
             mock_cm.return_value = MagicMock()
             h = CheckpointHandler({})
@@ -1540,14 +1353,9 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     @pytest.mark.asyncio
-    async def test_pagination_offset_beyond_total(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_pagination_offset_beyond_total(self, handler, mock_http_handler, mock_store):
         """Offset beyond total returns empty list."""
-        checkpoints = [
-            {"checkpoint_id": f"cp-{i}", "status": "complete"}
-            for i in range(3)
-        ]
+        checkpoints = [{"checkpoint_id": f"cp-{i}", "status": "complete"} for i in range(3)]
         mock_store.list_checkpoints.return_value = checkpoints
 
         result = await handler.handle(
@@ -1561,9 +1369,7 @@ class TestEdgeCases:
         assert body["checkpoints"] == []
 
     @pytest.mark.asyncio
-    async def test_status_filter_no_matches(
-        self, handler, mock_http_handler, mock_store
-    ):
+    async def test_status_filter_no_matches(self, handler, mock_http_handler, mock_store):
         """Status filter that matches nothing returns empty."""
         checkpoints = [
             {"checkpoint_id": "cp-001", "status": "complete"},
@@ -1580,9 +1386,7 @@ class TestEdgeCases:
         assert body["checkpoints"] == []
 
     @pytest.mark.asyncio
-    async def test_resume_with_modifications_body(
-        self, handler, mock_http_handler, mock_manager
-    ):
+    async def test_resume_with_modifications_body(self, handler, mock_http_handler, mock_manager):
         """Resume with modifications body is accepted (body parsed)."""
         mock_http_handler.command = "POST"
         resumed = MockResumedDebate()
@@ -1617,9 +1421,7 @@ class TestEdgeCases:
         mock_http_handler.command = "POST"
         debate_state = MockDebateState(messages=[])
 
-        with patch(
-            "aragora.server.state.get_state_manager"
-        ) as mock_get_sm:
+        with patch("aragora.server.state.get_state_manager") as mock_get_sm:
             mock_sm = MagicMock()
             mock_sm.get_debate.return_value = debate_state
             mock_get_sm.return_value = mock_sm

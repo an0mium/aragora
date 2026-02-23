@@ -14,7 +14,6 @@ from aragora.mcp.tools_module.debate import (
 )
 
 
-
 class TestRunDebateTool:
     """Tests for run_debate_tool."""
 

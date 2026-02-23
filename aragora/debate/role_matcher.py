@@ -118,7 +118,9 @@ class RoleMatcher:
         self._calibration_cache: dict[str, CalibrationSummary] = {}
 
         logger.info(
-            "RoleMatcher initialized: strategy=%s, developmental=%s", self.config.strategy, self.config.enable_developmental_assignment
+            "RoleMatcher initialized: strategy=%s, developmental=%s",
+            self.config.strategy,
+            self.config.enable_developmental_assignment,
         )
 
     def match_roles(
@@ -484,7 +486,14 @@ class RoleMatcher:
                     summary = self.calibration_tracker.get_calibration_summary(agent)
                     self._calibration_cache[agent] = summary
                     result[agent] = summary
-                except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                ) as e:
                     logger.debug("Failed to get calibration for %s: %s", agent, e)
                     result[agent] = None
 

@@ -920,7 +920,10 @@ class SelfImprovementManager:
 
         if not result.passed:
             logger.warning(
-                "Verification failed: %s syntax errors, %s test failures, %s security issues", len(result.syntax_errors), result.tests_failed, len(result.security_issues)
+                "Verification failed: %s syntax errors, %s test failures, %s security issues",
+                len(result.syntax_errors),
+                result.tests_failed,
+                len(result.security_issues),
             )
 
             # Auto-rollback if configured

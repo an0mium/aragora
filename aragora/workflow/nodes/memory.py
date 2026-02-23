@@ -142,7 +142,12 @@ class MemoryReadStep(BaseStep):
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.error("Memory read failed: %s", e)
-            response = {"items": [], "total_count": 0, "query": query, "error": "Memory read failed"}
+            response = {
+                "items": [],
+                "total_count": 0,
+                "query": query,
+                "error": "Memory read failed",
+            }
             _emit(False, 0, query, "Memory read failed")
             return response
 

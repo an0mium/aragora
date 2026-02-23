@@ -164,9 +164,7 @@ def mock_mound():
     mound.create_role = AsyncMock(return_value=MockRole())
     mound.assign_role = AsyncMock(return_value=MockRoleAssignment())
     mound.revoke_role = AsyncMock(return_value=True)
-    mound.get_user_permissions = AsyncMock(
-        return_value={Permission.READ, Permission.CREATE}
-    )
+    mound.get_user_permissions = AsyncMock(return_value={Permission.READ, Permission.CREATE})
     mound.check_permission = AsyncMock(return_value=True)
     mound.query_audit = AsyncMock(
         return_value=[
@@ -254,11 +252,7 @@ class TestCreateRole:
 
     def test_create_role_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.create_role(
-                name="Test", permissions=["read"]
-            )
-        )
+        result = _run(handler_no_mound.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 503
         body = _body(result)
         assert "not available" in body["error"].lower()
@@ -279,11 +273,7 @@ class TestCreateRole:
 
     def test_create_role_invalid_permission_returns_400(self, handler):
         """Invalid permission string returns 400 with valid permissions list."""
-        result = _run(
-            handler.create_role(
-                name="Test", permissions=["read", "invalid_perm"]
-            )
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read", "invalid_perm"]))
         assert _status(result) == 400
         body = _body(result)
         assert "invalid permission" in body["error"].lower()
@@ -291,48 +281,36 @@ class TestCreateRole:
     def test_create_role_mound_error_returns_500(self, handler, mock_mound):
         """Server error from mound returns 500."""
         mock_mound.create_role = AsyncMock(side_effect=OSError("db fail"))
-        result = _run(
-            handler.create_role(name="Test", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 500
 
     def test_create_role_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
         mock_mound.create_role = AsyncMock(side_effect=ValueError("bad data"))
-        result = _run(
-            handler.create_role(name="Test", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 500
 
     def test_create_role_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
         mock_mound.create_role = AsyncMock(side_effect=KeyError("missing"))
-        result = _run(
-            handler.create_role(name="Test", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 500
 
     def test_create_role_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
         mock_mound.create_role = AsyncMock(side_effect=TypeError("wrong type"))
-        result = _run(
-            handler.create_role(name="Test", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 500
 
     def test_create_role_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
         mock_mound.create_role = AsyncMock(side_effect=AttributeError("missing attr"))
-        result = _run(
-            handler.create_role(name="Test", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 500
 
     def test_create_role_with_default_optional_params(self, handler, mock_mound):
         """Optional params default correctly."""
-        result = _run(
-            handler.create_role(name="Test", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Test", permissions=["read"]))
         assert _status(result) == 200
         call_kwargs = mock_mound.create_role.call_args.kwargs
         assert call_kwargs["description"] == ""
@@ -355,18 +333,14 @@ class TestCreateRole:
 
     def test_create_role_single_permission(self, handler, mock_mound):
         """Single permission is wrapped in a set."""
-        result = _run(
-            handler.create_role(name="Viewer", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Viewer", permissions=["read"]))
         assert _status(result) == 200
         call_kwargs = mock_mound.create_role.call_args.kwargs
         assert call_kwargs["permissions"] == {Permission.READ}
 
     def test_create_role_admin_permission(self, handler, mock_mound):
         """Admin permission value is accepted."""
-        result = _run(
-            handler.create_role(name="Admin", permissions=["admin"])
-        )
+        result = _run(handler.create_role(name="Admin", permissions=["admin"]))
         assert _status(result) == 200
         call_kwargs = mock_mound.create_role.call_args.kwargs
         assert Permission.ADMIN in call_kwargs["permissions"]
@@ -399,9 +373,7 @@ class TestAssignRole:
 
     def test_assign_role_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.assign_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler_no_mound.assign_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 503
 
     def test_assign_role_missing_user_id_returns_400(self, handler):
@@ -424,9 +396,7 @@ class TestAssignRole:
     def test_assign_role_value_error_returns_404(self, handler, mock_mound):
         """ValueError (e.g., role not found) returns 404."""
         mock_mound.assign_role = AsyncMock(side_effect=ValueError("Role not found"))
-        result = _run(
-            handler.assign_role(user_id="user-1", role_id="nonexistent")
-        )
+        result = _run(handler.assign_role(user_id="user-1", role_id="nonexistent"))
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body["error"].lower()
@@ -434,33 +404,25 @@ class TestAssignRole:
     def test_assign_role_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
         mock_mound.assign_role = AsyncMock(side_effect=KeyError("missing"))
-        result = _run(
-            handler.assign_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.assign_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_assign_role_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
         mock_mound.assign_role = AsyncMock(side_effect=OSError("disk full"))
-        result = _run(
-            handler.assign_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.assign_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_assign_role_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
         mock_mound.assign_role = AsyncMock(side_effect=TypeError("wrong type"))
-        result = _run(
-            handler.assign_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.assign_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_assign_role_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
         mock_mound.assign_role = AsyncMock(side_effect=AttributeError("attr"))
-        result = _run(
-            handler.assign_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.assign_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_assign_role_default_optional_params(self, handler, mock_mound):
@@ -506,9 +468,7 @@ class TestRevokeRole:
     def test_revoke_role_success(self, handler, mock_mound):
         """Successful revoke returns success message."""
         result = _run(
-            handler.revoke_role(
-                user_id="user-123", role_id="role-001", workspace_id="ws-1"
-            )
+            handler.revoke_role(user_id="user-123", role_id="role-001", workspace_id="ws-1")
         )
         assert _status(result) == 200
         body = _body(result)
@@ -519,9 +479,7 @@ class TestRevokeRole:
 
     def test_revoke_role_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler_no_mound.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 503
 
     def test_revoke_role_missing_user_id_returns_400(self, handler):
@@ -537,9 +495,7 @@ class TestRevokeRole:
     def test_revoke_role_not_found_returns_404(self, handler, mock_mound):
         """When mound.revoke_role returns False, returns 404."""
         mock_mound.revoke_role = AsyncMock(return_value=False)
-        result = _run(
-            handler.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body["error"].lower()
@@ -547,41 +503,31 @@ class TestRevokeRole:
     def test_revoke_role_server_error_returns_500(self, handler, mock_mound):
         """Server error returns 500."""
         mock_mound.revoke_role = AsyncMock(side_effect=OSError("db error"))
-        result = _run(
-            handler.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_revoke_role_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
         mock_mound.revoke_role = AsyncMock(side_effect=ValueError("bad"))
-        result = _run(
-            handler.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_revoke_role_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
         mock_mound.revoke_role = AsyncMock(side_effect=KeyError("missing"))
-        result = _run(
-            handler.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_revoke_role_type_error_returns_500(self, handler, mock_mound):
         """TypeError returns 500."""
         mock_mound.revoke_role = AsyncMock(side_effect=TypeError("bad type"))
-        result = _run(
-            handler.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_revoke_role_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError returns 500."""
         mock_mound.revoke_role = AsyncMock(side_effect=AttributeError("attr"))
-        result = _run(
-            handler.revoke_role(user_id="user-1", role_id="role-1")
-        )
+        result = _run(handler.revoke_role(user_id="user-1", role_id="role-1"))
         assert _status(result) == 500
 
     def test_revoke_role_default_workspace(self, handler, mock_mound):
@@ -592,11 +538,7 @@ class TestRevokeRole:
 
     def test_revoke_role_with_workspace(self, handler, mock_mound):
         """workspace_id is forwarded to mound."""
-        _run(
-            handler.revoke_role(
-                user_id="user-1", role_id="role-1", workspace_id="ws-prod"
-            )
-        )
+        _run(handler.revoke_role(user_id="user-1", role_id="role-1", workspace_id="ws-prod"))
         call_kwargs = mock_mound.revoke_role.call_args.kwargs
         assert call_kwargs["workspace_id"] == "ws-prod"
 
@@ -611,9 +553,7 @@ class TestGetUserPermissions:
 
     def test_get_permissions_success(self, handler, mock_mound):
         """Successfully getting permissions returns user_id and permission list."""
-        result = _run(
-            handler.get_user_permissions(user_id="user-123", workspace_id="ws-1")
-        )
+        result = _run(handler.get_user_permissions(user_id="user-123", workspace_id="ws-1"))
         assert _status(result) == 200
         body = _body(result)
         assert body["user_id"] == "user-123"
@@ -623,9 +563,7 @@ class TestGetUserPermissions:
 
     def test_get_permissions_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.get_user_permissions(user_id="user-1")
-        )
+        result = _run(handler_no_mound.get_user_permissions(user_id="user-1"))
         assert _status(result) == 503
 
     def test_get_permissions_empty_user_id_returns_400(self, handler):
@@ -645,25 +583,19 @@ class TestGetUserPermissions:
 
     def test_get_permissions_server_error_returns_500(self, handler, mock_mound):
         """Server error returns 500."""
-        mock_mound.get_user_permissions = AsyncMock(
-            side_effect=OSError("db fail")
-        )
+        mock_mound.get_user_permissions = AsyncMock(side_effect=OSError("db fail"))
         result = _run(handler.get_user_permissions(user_id="user-1"))
         assert _status(result) == 500
 
     def test_get_permissions_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
-        mock_mound.get_user_permissions = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_user_permissions = AsyncMock(side_effect=ValueError("bad"))
         result = _run(handler.get_user_permissions(user_id="user-1"))
         assert _status(result) == 500
 
     def test_get_permissions_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
-        mock_mound.get_user_permissions = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_user_permissions = AsyncMock(side_effect=KeyError("missing"))
         result = _run(handler.get_user_permissions(user_id="user-1"))
         assert _status(result) == 500
 
@@ -683,11 +615,7 @@ class TestGetUserPermissions:
 
     def test_get_permissions_with_workspace(self, handler, mock_mound):
         """workspace_id is forwarded to mound."""
-        _run(
-            handler.get_user_permissions(
-                user_id="user-1", workspace_id="ws-test"
-            )
-        )
+        _run(handler.get_user_permissions(user_id="user-1", workspace_id="ws-test"))
         call_kwargs = mock_mound.get_user_permissions.call_args.kwargs
         assert call_kwargs["workspace_id"] == "ws-test"
 
@@ -726,18 +654,14 @@ class TestCheckPermission:
     def test_check_permission_denied(self, handler, mock_mound):
         """User without permission returns has_permission=False."""
         mock_mound.check_permission = AsyncMock(return_value=False)
-        result = _run(
-            handler.check_permission(user_id="user-1", permission="delete")
-        )
+        result = _run(handler.check_permission(user_id="user-1", permission="delete"))
         assert _status(result) == 200
         body = _body(result)
         assert body["has_permission"] is False
 
     def test_check_permission_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.check_permission(user_id="u1", permission="read")
-        )
+        result = _run(handler_no_mound.check_permission(user_id="u1", permission="read"))
         assert _status(result) == 503
 
     def test_check_permission_missing_user_id_returns_400(self, handler):
@@ -747,18 +671,12 @@ class TestCheckPermission:
 
     def test_check_permission_missing_permission_returns_400(self, handler):
         """Empty permission returns 400."""
-        result = _run(
-            handler.check_permission(user_id="user-1", permission="")
-        )
+        result = _run(handler.check_permission(user_id="user-1", permission=""))
         assert _status(result) == 400
 
     def test_check_permission_invalid_permission_returns_400(self, handler):
         """Invalid permission string returns 400 with valid options."""
-        result = _run(
-            handler.check_permission(
-                user_id="user-1", permission="not_a_real_perm"
-            )
-        )
+        result = _run(handler.check_permission(user_id="user-1", permission="not_a_real_perm"))
         assert _status(result) == 400
         body = _body(result)
         assert "invalid permission" in body["error"].lower()
@@ -766,47 +684,31 @@ class TestCheckPermission:
 
     def test_check_permission_server_error_returns_500(self, handler, mock_mound):
         """Server error returns 500."""
-        mock_mound.check_permission = AsyncMock(
-            side_effect=OSError("db fail")
-        )
-        result = _run(
-            handler.check_permission(user_id="user-1", permission="read")
-        )
+        mock_mound.check_permission = AsyncMock(side_effect=OSError("db fail"))
+        result = _run(handler.check_permission(user_id="user-1", permission="read"))
         assert _status(result) == 500
 
     def test_check_permission_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.check_permission = AsyncMock(
-            side_effect=ValueError("bad")
-        )
-        result = _run(
-            handler.check_permission(user_id="user-1", permission="read")
-        )
+        mock_mound.check_permission = AsyncMock(side_effect=ValueError("bad"))
+        result = _run(handler.check_permission(user_id="user-1", permission="read"))
         assert _status(result) == 500
 
     def test_check_permission_default_workspace_none(self, handler, mock_mound):
         """Default workspace_id is None in response."""
-        result = _run(
-            handler.check_permission(user_id="user-1", permission="read")
-        )
+        result = _run(handler.check_permission(user_id="user-1", permission="read"))
         body = _body(result)
         assert body["workspace_id"] is None
 
     def test_check_permission_mound_called_with_enum(self, handler, mock_mound):
         """Permission string is converted to enum before passing to mound."""
-        _run(
-            handler.check_permission(user_id="user-1", permission="read")
-        )
+        _run(handler.check_permission(user_id="user-1", permission="read"))
         call_kwargs = mock_mound.check_permission.call_args.kwargs
         assert call_kwargs["permission"] == Permission.READ
 
     def test_check_permission_with_workspace(self, handler, mock_mound):
         """workspace_id is forwarded to mound."""
-        _run(
-            handler.check_permission(
-                user_id="user-1", permission="read", workspace_id="ws-prod"
-            )
-        )
+        _run(handler.check_permission(user_id="user-1", permission="read", workspace_id="ws-prod"))
         call_kwargs = mock_mound.check_permission.call_args.kwargs
         assert call_kwargs["workspace_id"] == "ws-prod"
 
@@ -814,9 +716,7 @@ class TestCheckPermission:
         """Every valid permission string is accepted."""
         for perm in Permission:
             mock_mound.check_permission = AsyncMock(return_value=True)
-            result = _run(
-                handler.check_permission(user_id="user-1", permission=perm.value)
-            )
+            result = _run(handler.check_permission(user_id="user-1", permission=perm.value))
             assert _status(result) == 200, f"Permission {perm.value} should be valid"
 
 
@@ -860,9 +760,7 @@ class TestQueryAuditTrail:
 
     def test_query_audit_invalid_action_returns_400(self, handler):
         """Invalid action string returns 400."""
-        result = _run(
-            handler.query_audit_trail(action="not_real_action")
-        )
+        result = _run(handler.query_audit_trail(action="not_real_action"))
         assert _status(result) == 400
         body = _body(result)
         assert "invalid action" in body["error"].lower()
@@ -961,9 +859,7 @@ class TestGetUserActivity:
 
     def test_get_activity_success(self, handler, mock_mound):
         """Successfully getting user activity returns activity data."""
-        result = _run(
-            handler.get_user_activity(user_id="user-123", days=30)
-        )
+        result = _run(handler.get_user_activity(user_id="user-123", days=30))
         assert _status(result) == 200
         body = _body(result)
         assert body["user_id"] == "user-123"
@@ -971,9 +867,7 @@ class TestGetUserActivity:
 
     def test_get_activity_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = _run(
-            handler_no_mound.get_user_activity(user_id="user-1")
-        )
+        result = _run(handler_no_mound.get_user_activity(user_id="user-1"))
         assert _status(result) == 503
 
     def test_get_activity_empty_user_id_returns_400(self, handler):
@@ -995,41 +889,31 @@ class TestGetUserActivity:
 
     def test_get_activity_server_error_returns_500(self, handler, mock_mound):
         """Server error returns 500."""
-        mock_mound.get_user_activity = AsyncMock(
-            side_effect=OSError("db fail")
-        )
+        mock_mound.get_user_activity = AsyncMock(side_effect=OSError("db fail"))
         result = _run(handler.get_user_activity(user_id="user-1"))
         assert _status(result) == 500
 
     def test_get_activity_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
-        mock_mound.get_user_activity = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_user_activity = AsyncMock(side_effect=ValueError("bad"))
         result = _run(handler.get_user_activity(user_id="user-1"))
         assert _status(result) == 500
 
     def test_get_activity_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
-        mock_mound.get_user_activity = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_user_activity = AsyncMock(side_effect=KeyError("missing"))
         result = _run(handler.get_user_activity(user_id="user-1"))
         assert _status(result) == 500
 
     def test_get_activity_type_error_returns_500(self, handler, mock_mound):
         """TypeError returns 500."""
-        mock_mound.get_user_activity = AsyncMock(
-            side_effect=TypeError("bad type")
-        )
+        mock_mound.get_user_activity = AsyncMock(side_effect=TypeError("bad type"))
         result = _run(handler.get_user_activity(user_id="user-1"))
         assert _status(result) == 500
 
     def test_get_activity_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError returns 500."""
-        mock_mound.get_user_activity = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.get_user_activity = AsyncMock(side_effect=AttributeError("attr"))
         result = _run(handler.get_user_activity(user_id="user-1"))
         assert _status(result) == 500
 
@@ -1080,33 +964,25 @@ class TestGetGovernanceStats:
 
     def test_get_stats_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
-        mock_mound.get_governance_stats = MagicMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_governance_stats = MagicMock(side_effect=ValueError("bad"))
         result = _run(handler.get_governance_stats())
         assert _status(result) == 500
 
     def test_get_stats_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
-        mock_mound.get_governance_stats = MagicMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_governance_stats = MagicMock(side_effect=KeyError("missing"))
         result = _run(handler.get_governance_stats())
         assert _status(result) == 500
 
     def test_get_stats_type_error_returns_500(self, handler, mock_mound):
         """TypeError returns 500."""
-        mock_mound.get_governance_stats = MagicMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.get_governance_stats = MagicMock(side_effect=TypeError("wrong type"))
         result = _run(handler.get_governance_stats())
         assert _status(result) == 500
 
     def test_get_stats_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError returns 500."""
-        mock_mound.get_governance_stats = MagicMock(
-            side_effect=AttributeError("missing attr")
-        )
+        mock_mound.get_governance_stats = MagicMock(side_effect=AttributeError("missing attr"))
         result = _run(handler.get_governance_stats())
         assert _status(result) == 500
 
@@ -1133,9 +1009,7 @@ class TestGetGovernanceStats:
 
     def test_get_stats_custom_fields(self, handler, mock_mound):
         """Custom fields in stats are passed through."""
-        mock_mound.get_governance_stats = MagicMock(
-            return_value={"custom": "value", "count": 42}
-        )
+        mock_mound.get_governance_stats = MagicMock(return_value={"custom": "value", "count": 42})
         result = _run(handler.get_governance_stats())
         body = _body(result)
         assert body["custom"] == "value"
@@ -1158,19 +1032,19 @@ class TestGovernanceRouting:
         """POST /governance/roles dispatches to _handle_create_role."""
         mock_http = MagicMock()
         mock_http.command = "POST"
-        mock_http.request.body = json.dumps({
-            "name": "Test Role",
-            "permissions": ["read"],
-        }).encode()
+        mock_http.request.body = json.dumps(
+            {
+                "name": "Test Role",
+                "permissions": ["read"],
+            }
+        ).encode()
 
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
 
         # Add the _handle_create_role wrapper from RoutingMixin to our test handler
         handler._handle_create_role = lambda h: RoutingMixin._handle_create_role(handler, h)
 
-        result = RoutingMixin._route_governance_roles(
-            handler, "/governance/roles", {}, mock_http
-        )
+        result = RoutingMixin._route_governance_roles(handler, "/governance/roles", {}, mock_http)
         assert result is not None
         assert _status(result) == 200
         mock_mound.create_role.assert_called_once()
@@ -1181,6 +1055,7 @@ class TestGovernanceRouting:
         mock_handler.command = "GET"
 
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
+
         result = RoutingMixin._route_governance_roles(
             handler, "/governance/roles", {}, mock_handler
         )
@@ -1189,6 +1064,7 @@ class TestGovernanceRouting:
     def test_handle_governance_stats_via_routing(self, handler, mock_mound):
         """_handle_governance_stats calls get_governance_stats via _run_async."""
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
+
         result = RoutingMixin._handle_governance_stats(handler)
         assert _status(result) == 200
         body = _body(result)
@@ -1235,16 +1111,12 @@ class TestGovernanceEdgeCases:
 
     def test_check_permission_none_user_id_returns_400(self, handler):
         """None user_id returns 400."""
-        result = _run(
-            handler.check_permission(user_id=None, permission="read")
-        )
+        result = _run(handler.check_permission(user_id=None, permission="read"))
         assert _status(result) == 400
 
     def test_check_permission_none_permission_returns_400(self, handler):
         """None permission returns 400."""
-        result = _run(
-            handler.check_permission(user_id="user-1", permission=None)
-        )
+        result = _run(handler.check_permission(user_id="user-1", permission=None))
         assert _status(result) == 400
 
     def test_get_user_permissions_none_user_id_returns_400(self, handler):
@@ -1266,9 +1138,7 @@ class TestGovernanceEdgeCases:
             workspace_id="ws-special",
         )
         mock_mound.create_role = AsyncMock(return_value=custom_role)
-        result = _run(
-            handler.create_role(name="Special Role", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="Special Role", permissions=["read"]))
         body = _body(result)
         assert body["role"]["id"] == "role-custom"
         assert body["role"]["name"] == "Special Role"
@@ -1310,33 +1180,25 @@ class TestGovernanceEdgeCases:
 
     def test_revoke_role_message_format(self, handler, mock_mound):
         """Revoke message includes the role_id and user_id."""
-        result = _run(
-            handler.revoke_role(user_id="alice", role_id="editor-role")
-        )
+        result = _run(handler.revoke_role(user_id="alice", role_id="editor-role"))
         body = _body(result)
         assert "editor-role" in body["message"]
         assert "alice" in body["message"]
 
     def test_create_role_response_has_success_true(self, handler, mock_mound):
         """Create role response always has success=True."""
-        result = _run(
-            handler.create_role(name="R", permissions=["read"])
-        )
+        result = _run(handler.create_role(name="R", permissions=["read"]))
         body = _body(result)
         assert body["success"] is True
 
     def test_assign_role_response_has_success_true(self, handler, mock_mound):
         """Assign role response always has success=True."""
-        result = _run(
-            handler.assign_role(user_id="u1", role_id="r1")
-        )
+        result = _run(handler.assign_role(user_id="u1", role_id="r1"))
         body = _body(result)
         assert body["success"] is True
 
     def test_revoke_role_response_has_success_true(self, handler, mock_mound):
         """Revoke role response has success=True when revoke succeeds."""
-        result = _run(
-            handler.revoke_role(user_id="u1", role_id="r1")
-        )
+        result = _run(handler.revoke_role(user_id="u1", role_id="r1"))
         body = _body(result)
         assert body["success"] is True

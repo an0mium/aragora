@@ -252,7 +252,7 @@ class NewsAPIConnector(BaseConnector):
             data = response.json()
 
             if data.get("status") != "ok":
-                logger.error("NewsAPI error: %s", data.get('message', 'Unknown error'))
+                logger.error("NewsAPI error: %s", data.get("message", "Unknown error"))
                 return []
 
             results = self._parse_articles(data.get("articles", []))

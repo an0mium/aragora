@@ -397,9 +397,7 @@ class TestHandleGitHubCallback:
     @pytest.mark.asyncio
     async def test_error_from_github_uses_error_as_fallback_desc(self, handler, impl):
         """When error_description is missing, uses error value as description."""
-        result = await handler._handle_github_callback(
-            MagicMock(), {"error": "server_error"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"error": "server_error"})
         assert result is handler._redirect_error_result
         assert "server_error" in handler._last_error
 
@@ -414,41 +412,36 @@ class TestHandleGitHubCallback:
     async def test_invalid_state_redirects_with_error(self, handler, impl):
         """Invalid/expired state triggers error redirect."""
         impl._validate_state = lambda s: None
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "bad-state"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "bad-state"})
         assert result is handler._redirect_error_result
         assert "expired" in handler._last_error.lower() or "invalid" in handler._last_error.lower()
 
     @pytest.mark.asyncio
     async def test_missing_code_redirects_with_error(self, handler, impl):
         """Missing authorization code triggers error redirect."""
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "valid-state"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "valid-state"})
         assert result is handler._redirect_error_result
         assert "code" in handler._last_error.lower()
 
     @pytest.mark.asyncio
     async def test_token_exchange_failure_redirects(self, handler, impl):
         """Failed token exchange redirects with error."""
-        handler._exchange_github_code = MagicMock(
-            side_effect=ConnectionError("network down")
-        )
+        handler._exchange_github_code = MagicMock(side_effect=ConnectionError("network down"))
         result = await handler._handle_github_callback(
             MagicMock(), {"state": "s", "code": "auth-code"}
         )
         assert result is handler._redirect_error_result
-        assert "exchange" in handler._last_error.lower() or "authorization" in handler._last_error.lower()
+        assert (
+            "exchange" in handler._last_error.lower()
+            or "authorization" in handler._last_error.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_token_exchange_httpx_error_redirects(self, handler, impl):
         """httpx.HTTPError during token exchange redirects with error."""
         import httpx
 
-        handler._exchange_github_code = MagicMock(
-            side_effect=httpx.HTTPError("bad gateway")
-        )
+        handler._exchange_github_code = MagicMock(side_effect=httpx.HTTPError("bad gateway"))
         result = await handler._handle_github_callback(
             MagicMock(), {"state": "s", "code": "auth-code"}
         )
@@ -457,12 +450,8 @@ class TestHandleGitHubCallback:
     @pytest.mark.asyncio
     async def test_no_access_token_redirects(self, handler, impl):
         """No access_token in response triggers error redirect."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"error": "bad_verification_code"}
-        )
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"error": "bad_verification_code"})
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
         assert "access token" in handler._last_error.lower()
 
@@ -472,32 +461,24 @@ class TestHandleGitHubCallback:
         handler._exchange_github_code = MagicMock(
             return_value={"error_description": "code expired"}
         )
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
 
     @pytest.mark.asyncio
     async def test_user_info_failure_redirects(self, handler, impl):
         """Failed user info retrieval redirects with error."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         handler._get_github_user_info = MagicMock(
             side_effect=ConnectionError("cannot reach GitHub")
         )
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
         assert "user info" in handler._last_error.lower()
 
     @pytest.mark.asyncio
     async def test_no_user_store_redirects(self, handler, impl):
         """When user store is unavailable, redirect with error."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -509,9 +490,7 @@ class TestHandleGitHubCallback:
         handler._user_store = None
         handler._get_user_store = lambda: None
 
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
         assert "unavailable" in handler._last_error.lower()
 
@@ -520,9 +499,7 @@ class TestHandleGitHubCallback:
         """When state has user_id, account linking flow is triggered."""
         impl._validate_state = lambda s: {"user_id": "link-user-99", "redirect_url": "/"}
 
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -532,18 +509,14 @@ class TestHandleGitHubCallback:
         )
         handler._get_github_user_info = MagicMock(return_value=user_info)
 
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._account_linking_result
         assert handler._last_linking_user_id == "link-user-99"
 
     @pytest.mark.asyncio
     async def test_existing_user_by_oauth_logs_in(self, handler, impl):
         """When user exists by OAuth provider ID, log them in."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -560,17 +533,13 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
 
     @pytest.mark.asyncio
     async def test_existing_email_links_oauth_when_verified(self, handler, impl):
         """When user found by email with verified email, link OAuth to existing account."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -590,18 +559,14 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
         handler._user_store._link_oauth.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_existing_email_blocks_unverified(self, handler, impl):
         """When user found by email but email NOT verified, block linking."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -615,18 +580,14 @@ class TestHandleGitHubCallback:
         email_user = FakeUser(id="u-email", email="existing@example.com")
         handler._user_store.get_user_by_email = MagicMock(return_value=email_user)
 
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
         assert "verification" in handler._last_error.lower()
 
     @pytest.mark.asyncio
     async def test_new_user_created_when_not_found(self, handler, impl):
         """When no existing user found, create a new OAuth user."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -645,18 +606,14 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
         handler._user_store._create_oauth.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_user_creation_failure_redirects(self, handler, impl):
         """When user creation returns None, redirect with error."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -669,18 +626,14 @@ class TestHandleGitHubCallback:
         handler._user_store.get_user_by_email = MagicMock(return_value=None)
         handler._user_store._create_oauth = MagicMock(return_value=None)
 
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
         assert "create" in handler._last_error.lower() or "failed" in handler._last_error.lower()
 
     @pytest.mark.asyncio
     async def test_last_login_updated_on_success(self, handler, impl):
         """After successful login, last_login_at is updated on user store."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -697,23 +650,17 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         handler._user_store.update_user.assert_called_once()
         call_kwargs = handler._user_store.update_user.call_args
-        assert "last_login_at" in call_kwargs.kwargs or (
-            len(call_kwargs.args) > 1
-        )
+        assert "last_login_at" in call_kwargs.kwargs or (len(call_kwargs.args) > 1)
 
     @pytest.mark.asyncio
     async def test_redirect_url_from_state_data(self, handler, impl):
         """Redirect URL from state_data is used for final redirect."""
         impl._validate_state = lambda s: {"redirect_url": "http://localhost/custom-redir"}
 
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -730,9 +677,7 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert handler._last_redirect_url == "http://localhost/custom-redir"
 
     @pytest.mark.asyncio
@@ -760,17 +705,13 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
 
     @pytest.mark.asyncio
     async def test_user_info_async_result_awaited(self, handler, impl):
         """When _get_github_user_info returns a coroutine, it is awaited."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
 
         user_info = OAuthUserInfo(
             provider="github",
@@ -792,17 +733,13 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
 
     @pytest.mark.asyncio
     async def test_async_user_store_email_lookup(self, handler, impl):
         """When user store has get_user_by_email_async, it is used."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -822,9 +759,7 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
         handler._user_store.get_user_by_email_async.assert_called_once_with(
             "async-email@example.com"
@@ -833,9 +768,7 @@ class TestHandleGitHubCallback:
     @pytest.mark.asyncio
     async def test_async_update_user(self, handler, impl):
         """When user store has update_user_async, it is used."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -852,55 +785,37 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=FakeTokenPair(),
         ):
-            result = await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_tokens_result
         handler._user_store.update_user_async.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_token_exchange_json_decode_error(self, handler, impl):
         """json.JSONDecodeError during token exchange redirects with error."""
-        handler._exchange_github_code = MagicMock(
-            side_effect=json.JSONDecodeError("bad", "", 0)
-        )
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        handler._exchange_github_code = MagicMock(side_effect=json.JSONDecodeError("bad", "", 0))
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
 
     @pytest.mark.asyncio
     async def test_user_info_key_error(self, handler, impl):
         """KeyError during user info retrieval redirects with error."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         handler._get_github_user_info = MagicMock(side_effect=KeyError("id"))
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
 
     @pytest.mark.asyncio
     async def test_user_info_value_error(self, handler, impl):
         """ValueError during user info retrieval redirects with error."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
-        handler._get_github_user_info = MagicMock(
-            side_effect=ValueError("missing email")
-        )
-        result = await handler._handle_github_callback(
-            MagicMock(), {"state": "s", "code": "c"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
+        handler._get_github_user_info = MagicMock(side_effect=ValueError("missing email"))
+        result = await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         assert result is handler._redirect_error_result
 
     @pytest.mark.asyncio
     async def test_create_token_pair_called_with_user_data(self, handler, impl):
         """create_token_pair is called with user fields."""
-        handler._exchange_github_code = MagicMock(
-            return_value={"access_token": "tok"}
-        )
+        handler._exchange_github_code = MagicMock(return_value={"access_token": "tok"})
         user_info = OAuthUserInfo(
             provider="github",
             provider_user_id="12345",
@@ -923,9 +838,7 @@ class TestHandleGitHubCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             mock_ctp,
         ):
-            await handler._handle_github_callback(
-                MagicMock(), {"state": "s", "code": "c"}
-            )
+            await handler._handle_github_callback(MagicMock(), {"state": "s", "code": "c"})
         mock_ctp.assert_called_once_with(
             user_id="u-toktest",
             email="toktest@example.com",
@@ -1037,10 +950,13 @@ class TestExchangeGitHubCodeAsync:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_github_code("test-code")
             # Should return a coroutine in async context
             import inspect
+
             if inspect.isawaitable(result):
                 result = await result
         assert result == {"access_token": "gho_async"}
@@ -1056,9 +972,12 @@ class TestExchangeGitHubCodeAsync:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_github_code("test-code")
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="Invalid JSON"):
                     await result
@@ -1082,7 +1001,12 @@ class TestGetGitHubUserInfoSync:
 
     def test_public_email_returned(self, handler, impl):
         """When user data has public email, it is used directly."""
-        user_data = {"id": 42, "email": "public@example.com", "name": "Octocat", "avatar_url": "http://img/oc"}
+        user_data = {
+            "id": 42,
+            "email": "public@example.com",
+            "name": "Octocat",
+            "avatar_url": "http://img/oc",
+        }
         resp = self._make_urlopen_response(user_data)
 
         with patch(
@@ -1285,7 +1209,12 @@ class TestGetGitHubUserInfoAsync:
     @pytest.mark.asyncio
     async def test_async_public_email(self, handler, impl):
         """Async path with public email returns OAuthUserInfo."""
-        user_data = {"id": 42, "email": "async@example.com", "name": "AsyncUser", "avatar_url": "http://img"}
+        user_data = {
+            "id": 42,
+            "email": "async@example.com",
+            "name": "AsyncUser",
+            "avatar_url": "http://img",
+        }
         mock_response = MagicMock()
         mock_response.json.return_value = user_data
 
@@ -1294,9 +1223,12 @@ class TestGetGitHubUserInfoAsync:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 result = await result
         assert result.email == "async@example.com"
@@ -1333,6 +1265,7 @@ class TestGetGitHubUserInfoAsync:
         ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 result = await result
         assert result.email == "primary@example.com"
@@ -1367,6 +1300,7 @@ class TestGetGitHubUserInfoAsync:
         ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="email"):
                     await result
@@ -1383,9 +1317,12 @@ class TestGetGitHubUserInfoAsync:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="id"):
                     await result
@@ -1401,9 +1338,12 @@ class TestGetGitHubUserInfoAsync:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.github.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="Invalid JSON"):
                     await result
@@ -1436,6 +1376,7 @@ class TestGetGitHubUserInfoAsync:
         ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="Invalid JSON"):
                     await result
@@ -1472,6 +1413,7 @@ class TestGetGitHubUserInfoAsync:
         ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 result = await result
         assert result.email == "verified@example.com"
@@ -1508,6 +1450,7 @@ class TestGetGitHubUserInfoAsync:
         ):
             result = handler._get_github_user_info("token-abc")
             import inspect
+
             if inspect.isawaitable(result):
                 result = await result
         assert result.email == "only@example.com"
@@ -1539,9 +1482,7 @@ class TestHandleRouting:
             "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=FakeAuthCtx(is_authenticated=False),
         ):
-            result = oauth_handler.handle(
-                "/api/v1/auth/oauth/github", {}, mock_http_handler, "GET"
-            )
+            result = oauth_handler.handle("/api/v1/auth/oauth/github", {}, mock_http_handler, "GET")
         assert _status(result) == 302
 
     def test_github_callback_routed(self, oauth_handler, impl, mock_http_handler):
@@ -1562,15 +1503,11 @@ class TestHandleRouting:
             "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=FakeAuthCtx(is_authenticated=False),
         ):
-            result = oauth_handler.handle(
-                "/api/auth/oauth/github", {}, mock_http_handler, "GET"
-            )
+            result = oauth_handler.handle("/api/auth/oauth/github", {}, mock_http_handler, "GET")
         assert _status(result) == 302
 
     def test_rate_limited_returns_429(self, oauth_handler, impl, mock_http_handler):
         """When rate limiter denies request, returns 429."""
         impl._oauth_limiter.is_allowed = MagicMock(return_value=False)
-        result = oauth_handler.handle(
-            "/api/v1/auth/oauth/github", {}, mock_http_handler, "GET"
-        )
+        result = oauth_handler.handle("/api/v1/auth/oauth/github", {}, mock_http_handler, "GET")
         assert _status(result) == 429

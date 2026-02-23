@@ -382,7 +382,9 @@ class ZapierIntegration(BaseIntegration):
         # SSRF protection: defense in depth - re-validate URL before request
         is_valid, error = _validate_webhook_url(trigger.webhook_url)
         if not is_valid:
-            logger.warning("Zapier trigger %s URL blocked by SSRF protection: %s", trigger.id, error)
+            logger.warning(
+                "Zapier trigger %s URL blocked by SSRF protection: %s", trigger.id, error
+            )
             return False
 
         # Format payload for Zapier
@@ -406,7 +408,9 @@ class ZapierIntegration(BaseIntegration):
                     logger.warning("Zapier trigger %s failed: %s", trigger.id, response.status)
                     return False
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error("Zapier trigger %s connection error: %s: %s", trigger.id, type(e).__name__, e)
+            logger.error(
+                "Zapier trigger %s connection error: %s: %s", trigger.id, type(e).__name__, e
+            )
             return False
         except (ValueError, TypeError) as e:
             logger.error("Zapier trigger %s payload error: %s: %s", trigger.id, type(e).__name__, e)

@@ -566,7 +566,14 @@ class TestRemoveMember:
     @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_cannot_remove_owner(
-        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user, owner_user
+        self,
+        mock_extract,
+        mock_check_perm,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        admin_user,
+        owner_user,
     ):
         """Test cannot remove the owner."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
@@ -588,7 +595,13 @@ class TestRemoveMember:
     @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_cannot_remove_self(
-        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user
+        self,
+        mock_extract,
+        mock_check_perm,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        admin_user,
     ):
         """Test cannot remove yourself."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
@@ -633,7 +646,14 @@ class TestRemoveMember:
     @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_remove_member_success(
-        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user, member_user
+        self,
+        mock_extract,
+        mock_check_perm,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        admin_user,
+        member_user,
     ):
         """Test successful member removal."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
@@ -708,7 +728,14 @@ class TestUpdateMemberRole:
     @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_update_role_success(
-        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, owner_user, member_user
+        self,
+        mock_extract,
+        mock_check_perm,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        owner_user,
+        member_user,
     ):
         """Test successful role update."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=owner_user.id)
@@ -787,7 +814,13 @@ class TestInvitationManagement:
     @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_revoke_invitation_success(
-        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user
+        self,
+        mock_extract,
+        mock_check_perm,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        admin_user,
     ):
         """Test successful invitation revocation."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)

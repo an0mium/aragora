@@ -363,7 +363,9 @@ class TestConnectPlatform:
     async def test_connect_unsupported_platform(self, handler):
         req = MockRequest(path="/api/v1/ecommerce/connect", method="POST")
         with patch.object(
-            handler, "_get_json_body", return_value={"platform": "etsy", "credentials": {"key": "val"}}
+            handler,
+            "_get_json_body",
+            return_value={"platform": "etsy", "credentials": {"key": "val"}},
         ):
             result = await handler.handle_request(req)
         assert _status(result) == 400
@@ -1015,9 +1017,7 @@ class TestGetInventory:
     ):
         from aragora.server.handlers.features.ecommerce.models import _platform_connectors
 
-        mock_connector.get_inventory_levels = AsyncMock(
-            side_effect=ConnectionError("down")
-        )
+        mock_connector.get_inventory_levels = AsyncMock(side_effect=ConnectionError("down"))
         _platform_connectors["shopify"] = mock_connector
 
         req = MockRequest(path="/api/v1/ecommerce/inventory", method="GET", query={})
@@ -1270,9 +1270,7 @@ class TestCreateShipment:
     """Test creating a shipment."""
 
     @pytest.mark.asyncio
-    async def test_create_shipment_success(
-        self, handler, connected_shipstation, mock_connector
-    ):
+    async def test_create_shipment_success(self, handler, connected_shipstation, mock_connector):
         from aragora.server.handlers.features.ecommerce.models import _platform_connectors
 
         label = MagicMock()
@@ -1836,10 +1834,10 @@ class TestNormalizeMethods:
         order = MagicMock()
         order.id = overrides.get("id", 1)
         order.order_number = overrides.get("order_number", "1001")
-        order.fulfillment_status = overrides.get("fulfillment_status", None)
+        order.fulfillment_status = overrides.get("fulfillment_status")
         order.financial_status = overrides.get("financial_status", "paid")
         order.email = overrides.get("email", "a@b.com")
-        order.customer = overrides.get("customer", None)
+        order.customer = overrides.get("customer")
         order.total_price = overrides.get("total_price", "50.00")
         order.subtotal_price = overrides.get("subtotal_price", "45.00")
         order.total_tax = overrides.get("total_tax", "5.00")

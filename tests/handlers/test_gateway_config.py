@@ -236,9 +236,7 @@ class TestGetConfig:
 
     def test_query_params_are_ignored(self, handler):
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/config", {"foo": "bar", "limit": "10"}, http
-        )
+        result = handler.handle("/api/v1/gateway/config", {"foo": "bar", "limit": "10"}, http)
         assert _status(result) == 200
 
 
@@ -262,9 +260,7 @@ class TestGetDefaults:
     def test_defaults_not_affected_by_config_changes(self, handler_with_config):
         """Defaults should always return the class-level DEFAULT_CONFIG, not current config."""
         http = MockHTTPHandler()
-        result = handler_with_config.handle(
-            "/api/v1/gateway/config/defaults", {}, http
-        )
+        result = handler_with_config.handle("/api/v1/gateway/config/defaults", {}, http)
         assert _status(result) == 200
         body = _body(result)
         defaults = body["defaults"]
@@ -456,9 +452,7 @@ class TestUpdateConfigUnknownKeys:
         assert "nonexistent_key" not in body["config"]
 
     def test_mixed_known_and_unknown_keys(self, handler):
-        http = MockHTTPHandler(
-            body={"agent_timeout": 45, "unknown_field": True}
-        )
+        http = MockHTTPHandler(body={"agent_timeout": 45, "unknown_field": True})
         result = handler.handle_post("/api/v1/gateway/config", {}, http)
         assert _status(result) == 200
         body = _body(result)
@@ -685,9 +679,7 @@ class TestUpdateConfigValidation:
     # --- Validation stops at first invalid field ---
     def test_validation_stops_on_first_invalid(self, handler):
         """If an invalid field is encountered, the response is 400 immediately."""
-        http = MockHTTPHandler(
-            body={"agent_timeout": -1, "max_concurrent_agents": 50}
-        )
+        http = MockHTTPHandler(body={"agent_timeout": -1, "max_concurrent_agents": 50})
         result = handler.handle_post("/api/v1/gateway/config", {}, http)
         assert _status(result) == 400
 
@@ -726,9 +718,7 @@ class TestHandlePostRouting:
 
     def test_post_returns_none_for_defaults_path(self, handler):
         http = MockHTTPHandler(body={})
-        result = handler.handle_post(
-            "/api/v1/gateway/config/defaults", {}, http
-        )
+        result = handler.handle_post("/api/v1/gateway/config/defaults", {}, http)
         assert result is None
 
     def test_post_returns_none_for_unrelated_path(self, handler):
@@ -770,9 +760,7 @@ class TestInitialization:
         assert ctx["gateway_config"]["agent_timeout"] == 99
 
     def test_init_does_not_overwrite_existing_updated_at(self):
-        ctx: dict[str, Any] = {
-            "gateway_config_updated_at": "2020-01-01T00:00:00+00:00"
-        }
+        ctx: dict[str, Any] = {"gateway_config_updated_at": "2020-01-01T00:00:00+00:00"}
         handler = GatewayConfigHandler(server_context=ctx)
         assert ctx["gateway_config_updated_at"] == "2020-01-01T00:00:00+00:00"
 
@@ -834,9 +822,7 @@ class TestMultiStepScenarios:
 
         # Get defaults (should be unaffected)
         http_defaults = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/config/defaults", {}, http_defaults
-        )
+        result = handler.handle("/api/v1/gateway/config/defaults", {}, http_defaults)
         body = _body(result)
         assert body["defaults"]["consensus_threshold"] == 0.7
 
@@ -869,28 +855,20 @@ class TestValidatorConsistency:
 
     def test_every_validator_has_a_message(self):
         for key in CONFIG_VALIDATORS:
-            assert key in CONFIG_VALIDATION_MESSAGES, (
-                f"Missing validation message for: {key}"
-            )
+            assert key in CONFIG_VALIDATION_MESSAGES, f"Missing validation message for: {key}"
 
     def test_every_message_has_a_validator(self):
         for key in CONFIG_VALIDATION_MESSAGES:
-            assert key in CONFIG_VALIDATORS, (
-                f"Orphan validation message for: {key}"
-            )
+            assert key in CONFIG_VALIDATORS, f"Orphan validation message for: {key}"
 
     def test_validators_match_default_config_keys(self):
-        assert set(CONFIG_VALIDATORS.keys()) == set(
-            GatewayConfigHandler.DEFAULT_CONFIG.keys()
-        )
+        assert set(CONFIG_VALIDATORS.keys()) == set(GatewayConfigHandler.DEFAULT_CONFIG.keys())
 
     def test_all_default_values_pass_validation(self):
         """Every default value should pass its own validator."""
         for key, value in GatewayConfigHandler.DEFAULT_CONFIG.items():
             validator = CONFIG_VALIDATORS[key]
-            assert validator(value), (
-                f"Default value for {key} ({value!r}) fails its validator"
-            )
+            assert validator(value), f"Default value for {key} ({value!r}) fails its validator"
 
 
 # ===========================================================================
@@ -962,7 +940,5 @@ class TestEdgeCases:
     def test_post_config_path_only(self, handler):
         """handle_post returns None for defaults path."""
         http = MockHTTPHandler(body={})
-        result = handler.handle_post(
-            "/api/v1/gateway/config/defaults", {}, http
-        )
+        result = handler.handle_post("/api/v1/gateway/config/defaults", {}, http)
         assert result is None

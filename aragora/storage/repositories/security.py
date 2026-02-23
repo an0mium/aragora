@@ -145,7 +145,10 @@ class SecurityRepository:
                     (lockout_until.isoformat(), email),
                 )
                 logger.warning(
-                    "Account locked: email=%s, attempts=%s, locked_until=%s", email, failed_attempts, lockout_until.isoformat()
+                    "Account locked: email=%s, attempts=%s, locked_until=%s",
+                    email,
+                    failed_attempts,
+                    lockout_until.isoformat(),
                 )
 
             return failed_attempts, lockout_until

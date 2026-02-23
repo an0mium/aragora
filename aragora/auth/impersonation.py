@@ -196,11 +196,19 @@ class ImpersonationManager:
                 self._audit_callback(entry)
             except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
                 # Catch callback errors to ensure they don't block impersonation
-                logger.error("Failed to persist audit entry via callback: %s: %s", type(e).__name__, e)
+                logger.error(
+                    "Failed to persist audit entry via callback: %s: %s", type(e).__name__, e
+                )
 
         # Always log to structured logger
         logger.info(
-            "[IMPERSONATION AUDIT] %s: admin=%s target=%s session=%s success=%s ip=%s", entry.event_type, entry.admin_user_id, entry.target_user_id, entry.session_id, entry.success, entry.ip_address
+            "[IMPERSONATION AUDIT] %s: admin=%s target=%s session=%s success=%s ip=%s",
+            entry.event_type,
+            entry.admin_user_id,
+            entry.target_user_id,
+            entry.session_id,
+            entry.success,
+            entry.ip_address,
         )
 
     def _notify_target(self, session: ImpersonationSession) -> None:
@@ -573,7 +581,9 @@ class ImpersonationManager:
             for sid, _ in sorted_sessions[:evict_count]:
                 self._cleanup_expired_session(sid)
             logger.warning(
-                "Evicted %s oldest impersonation sessions (limit: %s)", evict_count, self.MAX_TOTAL_SESSIONS
+                "Evicted %s oldest impersonation sessions (limit: %s)",
+                evict_count,
+                self.MAX_TOTAL_SESSIONS,
             )
 
     def _cleanup_expired_session(self, session_id: str) -> None:

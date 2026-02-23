@@ -34,10 +34,12 @@ class TestRotateAnthropic:
         mock_session.post = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -93,10 +95,12 @@ class TestRotateAnthropic:
         mock_session.post = AsyncMock(side_effect=ConnectionError("Network error"))
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -129,10 +133,12 @@ class TestRotateAnthropic:
         mock_session.post = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         # Also mock validation to succeed
         handler._validate_anthropic = AsyncMock(return_value=True)
@@ -178,10 +184,12 @@ class TestRotateStripe:
         mock_session.post = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -216,10 +224,12 @@ class TestRotateStripe:
         mock_session.post = AsyncMock(side_effect=TimeoutError("Timeout"))
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -261,10 +271,12 @@ class TestRotateCloudflare:
         mock_session.delete = AsyncMock(return_value=delete_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -310,10 +322,12 @@ class TestRotateCloudflare:
         mock_session.post = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -342,10 +356,12 @@ class TestValidateStripe:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -364,10 +380,12 @@ class TestValidateStripe:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -395,10 +413,12 @@ class TestValidateCloudflare:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -418,10 +438,12 @@ class TestValidateCloudflare:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -448,10 +470,12 @@ class TestValidateXai:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -467,10 +491,12 @@ class TestValidateXai:
         mock_session.get = AsyncMock(side_effect=ConnectionError("Network error"))
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -497,10 +523,12 @@ class TestValidateDeepseek:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -519,10 +547,12 @@ class TestValidateDeepseek:
         mock_session.get = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -549,10 +579,12 @@ class TestRevokeAnthropic:
         mock_session.delete = AsyncMock(return_value=mock_response)
 
         mock_pool = MagicMock()
-        mock_pool.get_session = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_pool.get_session = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
 
         with patch(
             "aragora.server.http_client_pool.get_http_pool",
@@ -633,9 +665,7 @@ class TestProviderDispatch:
         """Verify xAI validator is called for xai provider."""
         handler._validate_xai = AsyncMock(return_value=True)
 
-        result = await handler.validate_credentials(
-            "XAI_KEY", "key-value", {"provider": "xai"}
-        )
+        result = await handler.validate_credentials("XAI_KEY", "key-value", {"provider": "xai"})
 
         assert result is True
         handler._validate_xai.assert_called_once()
@@ -645,9 +675,7 @@ class TestProviderDispatch:
         """Verify DeepSeek validator is called for deepseek provider."""
         handler._validate_deepseek = AsyncMock(return_value=True)
 
-        result = await handler.validate_credentials(
-            "DS_KEY", "key-value", {"provider": "deepseek"}
-        )
+        result = await handler.validate_credentials("DS_KEY", "key-value", {"provider": "deepseek"})
 
         assert result is True
         handler._validate_deepseek.assert_called_once()

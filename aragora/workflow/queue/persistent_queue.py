@@ -183,7 +183,8 @@ class PersistentTaskQueue(TaskQueue):
                 recovered_count = await self.recover_tasks(tenant_id)
                 if recovered_count > 0:
                     logger.info(
-                        "Auto-recovered %s tasks on queue start", recovered_count,
+                        "Auto-recovered %s tasks on queue start",
+                        recovered_count,
                         extra={"tenant_id": tenant_id, "recovered_count": recovered_count},
                     )
             except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError) as e:

@@ -494,7 +494,8 @@ class TestPreview:
     async def test_all_default_scopes(self, handler, handler_module, monkeypatch):
         """All default scopes render correctly."""
         monkeypatch.setattr(
-            handler_module, "SLACK_SCOPES",
+            handler_module,
+            "SLACK_SCOPES",
             "channels:history,chat:write,commands,users:read,team:read,channels:read",
         )
         result = await handler.handle("GET", "/api/integrations/slack/preview", {}, {}, {}, None)
@@ -517,8 +518,12 @@ class TestCallback:
     @pytest.mark.asyncio
     async def test_error_param_returns_400(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"error": "access_denied"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"error": "access_denied"},
+            {},
+            None,
         )
         assert _status(result) == 400
         body = _body(result)
@@ -527,24 +532,36 @@ class TestCallback:
     @pytest.mark.asyncio
     async def test_missing_code_returns_400(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"state": "abc"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"state": "abc"},
+            {},
+            None,
         )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_state_returns_400(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"code": "abc"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"code": "abc"},
+            {},
+            None,
         )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_both_code_and_state_returns_400(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 400
 
@@ -552,36 +569,50 @@ class TestCallback:
     async def test_invalid_state_returns_400(self, handler, mock_state_store):
         mock_state_store.validate_and_consume.return_value = None
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"code": "abc", "state": "invalid"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"code": "abc", "state": "invalid"},
+            {},
+            None,
         )
         assert _status(result) == 400
         body = _body(result)
-        assert "expired" in body.get("error", "").lower() or "invalid" in body.get("error", "").lower()
+        assert (
+            "expired" in body.get("error", "").lower() or "invalid" in body.get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_successful_callback(self, handler, mock_workspace_store):
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-new-token",
-            "team": {"id": "W123", "name": "My Team"},
-            "bot_user_id": "B789",
-            "authed_user": {"id": "U456"},
-            "scope": "channels:history,chat:write",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": "My Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history,chat:write",
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ), \
-             patch(
-                 "aragora.storage.slack_workspace_store.SlackWorkspace",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "test-code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 200
         html = _html(result)
@@ -594,8 +625,12 @@ class TestCallback:
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "bad-code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "bad-code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 400
         body = _body(result)
@@ -603,37 +638,49 @@ class TestCallback:
 
     @pytest.mark.asyncio
     async def test_callback_missing_workspace_id_returns_500(self, handler):
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-token",
-            "team": {"id": "", "name": "No ID"},
-            "bot_user_id": "B789",
-            "authed_user": {"id": "U456"},
-            "scope": "channels:history",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "", "name": "No ID"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history",
+            }
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_callback_missing_access_token_returns_500(self, handler):
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "",
-            "team": {"id": "W123", "name": "No Token"},
-            "bot_user_id": "B789",
-            "authed_user": {"id": "U456"},
-            "scope": "channels:history",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "",
+                "team": {"id": "W123", "name": "No Token"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history",
+            }
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 500
 
@@ -641,8 +688,12 @@ class TestCallback:
     async def test_callback_no_credentials_returns_503(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "SLACK_CLIENT_ID", None)
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"code": "code", "state": "test-state-token-abc123"},
+            {},
+            None,
         )
         assert _status(result) == 503
 
@@ -650,27 +701,39 @@ class TestCallback:
     async def test_callback_no_secret_returns_503(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "SLACK_CLIENT_SECRET", None)
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"code": "code", "state": "test-state-token-abc123"},
+            {},
+            None,
         )
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_callback_workspace_store_import_error(self, handler):
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-token",
-            "team": {"id": "W999", "name": "Store Fail"},
-            "bot_user_id": "B1",
-            "authed_user": {"id": "U1"},
-            "scope": "channels:history",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W999", "name": "Store Fail"},
+                "bot_user_id": "B1",
+                "authed_user": {"id": "U1"},
+                "scope": "channels:history",
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}),
+        ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 503
 
@@ -678,67 +741,90 @@ class TestCallback:
     async def test_callback_workspace_save_fails(self, handler, mock_workspace_store):
         mock_workspace_store.save.return_value = False
 
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-token",
-            "team": {"id": "W999", "name": "Save Fail"},
-            "bot_user_id": "B1",
-            "authed_user": {"id": "U1"},
-            "scope": "channels:history",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W999", "name": "Save Fail"},
+                "bot_user_id": "B1",
+                "authed_user": {"id": "U1"},
+                "scope": "channels:history",
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ), \
-             patch(
-                 "aragora.storage.slack_workspace_store.SlackWorkspace",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_callback_method_not_allowed(self, handler):
         result = await handler.handle(
-            "POST", "/api/integrations/slack/callback", {}, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/callback",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 405
 
     @pytest.mark.asyncio
     async def test_callback_with_refresh_token(self, handler, mock_workspace_store):
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-token",
-            "team": {"id": "W123", "name": "Refresh Team"},
-            "bot_user_id": "B789",
-            "authed_user": {"id": "U456"},
-            "scope": "channels:history",
-            "refresh_token": "xoxr-refresh-token",
-            "expires_in": 43200,
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W123", "name": "Refresh Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history",
+                "refresh_token": "xoxr-refresh-token",
+                "expires_in": 43200,
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ), \
-             patch(
-                 "aragora.storage.slack_workspace_store.SlackWorkspace",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_callback_fallback_state_validation(self, handler, handler_module, mock_state_store):
+    async def test_callback_fallback_state_validation(
+        self, handler, handler_module, mock_state_store
+    ):
         """When centralized store returns None, fall back to in-memory."""
         mock_state_store.validate_and_consume.return_value = None
         handler_module._oauth_states_fallback["fallback-state"] = {
@@ -747,63 +833,81 @@ class TestCallback:
             "created_at": time.time(),
         }
 
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-token",
-            "team": {"id": "W111", "name": "Fallback"},
-            "bot_user_id": "B1",
-            "authed_user": {"id": "U1"},
-            "scope": "channels:history",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W111", "name": "Fallback"},
+                "bot_user_id": "B1",
+                "authed_user": {"id": "U1"},
+                "scope": "channels:history",
+            }
+        )
 
         mock_ws_store = MagicMock()
         mock_ws_store.save.return_value = True
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_ws_store,
-             ), \
-             patch(
-                 "aragora.storage.slack_workspace_store.SlackWorkspace",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_ws_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "fallback-state"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "fallback-state"},
+                {},
+                None,
             )
         assert _status(result) == 200
         # Fallback state should have been consumed (popped)
         assert "fallback-state" not in handler_module._oauth_states_fallback
 
     @pytest.mark.asyncio
-    async def test_callback_state_from_oauth_state_object(self, handler, mock_state_store, mock_workspace_store):
+    async def test_callback_state_from_oauth_state_object(
+        self, handler, mock_state_store, mock_workspace_store
+    ):
         """When state store returns an OAuthState object instead of dict."""
         state_obj = MagicMock()
         state_obj.metadata = {"tenant_id": "t-obj", "provider": "slack"}
         mock_state_store.validate_and_consume.return_value = state_obj
 
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-token",
-            "team": {"id": "W123", "name": "ObjState"},
-            "bot_user_id": "B1",
-            "authed_user": {"id": "U1"},
-            "scope": "channels:history",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W123", "name": "ObjState"},
+                "bot_user_id": "B1",
+                "authed_user": {"id": "U1"},
+                "scope": "channels:history",
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ), \
-             patch(
-                 "aragora.storage.slack_workspace_store.SlackWorkspace",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/callback", {},
-                {"code": "code", "state": "test-state-token-abc123"}, {}, None,
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
             )
         assert _status(result) == 200
 
@@ -814,8 +918,12 @@ class TestCallback:
         handler_module._slack_oauth_audit = mock_audit
 
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"error": "access_denied"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"error": "access_denied"},
+            {},
+            None,
         )
         assert _status(result) == 400
         mock_audit.log_oauth.assert_called_once()
@@ -845,7 +953,12 @@ class TestUninstall:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         body_data = _body(result)
@@ -853,7 +966,9 @@ class TestUninstall:
         mock_workspace_store.deactivate.assert_called_once_with("W123")
 
     @pytest.mark.asyncio
-    async def test_app_uninstalled_uses_event_team_id(self, handler, mock_workspace_store, monkeypatch):
+    async def test_app_uninstalled_uses_event_team_id(
+        self, handler, mock_workspace_store, monkeypatch
+    ):
         """When body.team_id is absent, falls back to event.team_id."""
         monkeypatch.setenv("ARAGORA_ENV", "test")
         monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
@@ -865,7 +980,12 @@ class TestUninstall:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         mock_workspace_store.deactivate.assert_called_once_with("W789")
@@ -886,13 +1006,20 @@ class TestUninstall:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         mock_workspace_store.deactivate.assert_called_once_with("W123")
 
     @pytest.mark.asyncio
-    async def test_tokens_revoked_no_bot_tokens_no_deactivation(self, handler, mock_workspace_store, monkeypatch):
+    async def test_tokens_revoked_no_bot_tokens_no_deactivation(
+        self, handler, mock_workspace_store, monkeypatch
+    ):
         monkeypatch.setenv("ARAGORA_ENV", "test")
         monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
         body = {
@@ -907,7 +1034,12 @@ class TestUninstall:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         mock_workspace_store.deactivate.assert_not_called()
@@ -918,7 +1050,12 @@ class TestUninstall:
         monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
         body = {"event": {"type": "unknown_event"}}
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            {},
+            None,
         )
         assert _status(result) == 200
         assert _body(result).get("ok") is True
@@ -929,7 +1066,12 @@ class TestUninstall:
         monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
         body = {"event": {"type": "app_uninstalled"}}
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            {},
+            None,
         )
         assert _status(result) == 503
 
@@ -943,9 +1085,10 @@ class TestUninstall:
         timestamp = str(int(time.time()))
         body_str = json.dumps(body, separators=(",", ":"))
         sig_basestring = f"v0:{timestamp}:{body_str}"
-        computed_sig = "v0=" + hmac.new(
-            signing_secret.encode(), sig_basestring.encode(), hashlib.sha256
-        ).hexdigest()
+        computed_sig = (
+            "v0="
+            + hmac.new(signing_secret.encode(), sig_basestring.encode(), hashlib.sha256).hexdigest()
+        )
 
         headers = {
             "x-slack-request-timestamp": timestamp,
@@ -957,7 +1100,12 @@ class TestUninstall:
             return_value=MagicMock(),
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/uninstall", body, {}, headers, None,
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                headers,
+                None,
             )
         assert _status(result) == 200
 
@@ -973,7 +1121,12 @@ class TestUninstall:
             "x-slack-signature": "v0=invalid_signature_hex",
         }
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, headers, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            headers,
+            None,
         )
         assert _status(result) == 401
 
@@ -983,7 +1136,12 @@ class TestUninstall:
         monkeypatch.setenv("SLACK_SIGNING_SECRET", "some-secret")
         body = {"event": {"type": "app_uninstalled"}}
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            {},
+            None,
         )
         assert _status(result) == 401
 
@@ -994,7 +1152,12 @@ class TestUninstall:
         headers = {"x-slack-signature": "v0=somesig"}
         body = {"event": {"type": "app_uninstalled"}}
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, headers, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            headers,
+            None,
         )
         assert _status(result) == 401
 
@@ -1009,7 +1172,12 @@ class TestUninstall:
         }
         body = {"event": {"type": "app_uninstalled"}}
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, headers, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            headers,
+            None,
         )
         assert _status(result) == 401
 
@@ -1023,14 +1191,24 @@ class TestUninstall:
         }
         body = {"event": {"type": "app_uninstalled"}}
         result = await handler.handle(
-            "POST", "/api/integrations/slack/uninstall", body, {}, headers, None,
+            "POST",
+            "/api/integrations/slack/uninstall",
+            body,
+            {},
+            headers,
+            None,
         )
         assert _status(result) == 401
 
     @pytest.mark.asyncio
     async def test_method_not_allowed_get(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/uninstall", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/uninstall",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 405
 
@@ -1045,7 +1223,12 @@ class TestUninstall:
         }
         with patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/uninstall", body, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
             )
         # Still acks - graceful degradation
         assert _status(result) == 200
@@ -1066,7 +1249,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
 
@@ -1077,7 +1265,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert "workspaces" in body
@@ -1091,12 +1284,24 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         ws = _body(result)["workspaces"][0]
         expected_fields = [
-            "workspace_id", "workspace_name", "is_active", "token_status",
-            "token_expires_at", "installed_at", "installed_by", "scopes", "tenant_id",
+            "workspace_id",
+            "workspace_name",
+            "is_active",
+            "token_status",
+            "token_expires_at",
+            "installed_at",
+            "installed_by",
+            "scopes",
+            "tenant_id",
         ]
         for field in expected_fields:
             assert field in ws, f"Missing field: {field}"
@@ -1109,7 +1314,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["workspaces"][0]["token_status"] == "valid"
@@ -1122,7 +1332,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["workspaces"][0]["token_status"] == "expired"
@@ -1135,7 +1350,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["workspaces"][0]["token_status"] == "expiring_soon"
@@ -1148,7 +1368,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["workspaces"][0]["token_status"] == "valid"
@@ -1157,7 +1382,12 @@ class TestListWorkspaces:
     async def test_store_import_error_returns_503(self, handler):
         with patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 503
 
@@ -1169,7 +1399,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["total"] == 0
@@ -1178,7 +1413,12 @@ class TestListWorkspaces:
     @pytest.mark.asyncio
     async def test_method_not_allowed_post(self, handler):
         result = await handler.handle(
-            "POST", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/workspaces",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 405
 
@@ -1190,7 +1430,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 500
 
@@ -1202,7 +1447,12 @@ class TestListWorkspaces:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 500
 
@@ -1222,7 +1472,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
 
@@ -1233,7 +1488,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["workspace_id"] == "W123"
@@ -1247,13 +1507,27 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         expected_fields = [
-            "workspace_id", "workspace_name", "is_active", "token_status",
-            "token_expires_at", "expires_in_seconds", "has_refresh_token",
-            "scopes", "installed_at", "installed_by", "bot_user_id", "tenant_id",
+            "workspace_id",
+            "workspace_name",
+            "is_active",
+            "token_status",
+            "token_expires_at",
+            "expires_in_seconds",
+            "has_refresh_token",
+            "scopes",
+            "installed_at",
+            "installed_by",
+            "bot_user_id",
+            "tenant_id",
         ]
         for field in expected_fields:
             assert field in body, f"Missing field: {field}"
@@ -1266,7 +1540,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["token_status"] == "expired"
@@ -1280,7 +1559,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["token_status"] == "expiring_soon"
@@ -1293,7 +1577,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["token_status"] == "expiring_today"
@@ -1306,7 +1595,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["token_status"] == "valid"
@@ -1319,7 +1613,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["has_refresh_token"] is True
@@ -1332,7 +1631,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         body = _body(result)
         assert body["has_refresh_token"] is False
@@ -1345,7 +1649,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W999/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W999/status",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 404
 
@@ -1353,7 +1662,12 @@ class TestWorkspaceStatus:
     async def test_store_import_error_returns_503(self, handler):
         with patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 503
 
@@ -1365,19 +1679,31 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_method_not_allowed_post(self, handler):
         result = await handler.handle(
-            "POST", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/workspaces/W123/status",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 405
 
     @pytest.mark.asyncio
-    async def test_different_workspace_id_param(self, handler, mock_workspace_store, mock_workspace):
+    async def test_different_workspace_id_param(
+        self, handler, mock_workspace_store, mock_workspace
+    ):
         """Workspace ID is extracted from path and passed to store."""
         mock_workspace.workspace_id = "W-CUSTOM-42"
         mock_workspace_store.get.return_value = mock_workspace
@@ -1386,7 +1712,12 @@ class TestWorkspaceStatus:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "GET", "/api/integrations/slack/workspaces/W-CUSTOM-42/status", {}, {}, {}, None,
+                "GET",
+                "/api/integrations/slack/workspaces/W-CUSTOM-42/status",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         mock_workspace_store.get.assert_called_with("W-CUSTOM-42")
@@ -1402,20 +1733,29 @@ class TestRefreshToken:
 
     @pytest.mark.asyncio
     async def test_successful_refresh(self, handler, mock_workspace_store):
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-new-token",
-            "refresh_token": "xoxr-new-refresh",
-            "expires_in": 43200,
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "refresh_token": "xoxr-new-refresh",
+                "expires_in": 43200,
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         body = _body(result)
@@ -1431,33 +1771,54 @@ class TestRefreshToken:
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W999/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W999/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_no_refresh_token_returns_400(self, handler, mock_workspace, mock_workspace_store):
+    async def test_no_refresh_token_returns_400(
+        self, handler, mock_workspace, mock_workspace_store
+    ):
         mock_workspace.refresh_token = None
         with patch(
             "aragora.storage.slack_workspace_store.get_slack_workspace_store",
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 400
         body = _body(result)
-        assert "refresh token" in body.get("error", "").lower() or "Re-installation" in body.get("error", "")
+        assert "refresh token" in body.get("error", "").lower() or "Re-installation" in body.get(
+            "error", ""
+        )
 
     @pytest.mark.asyncio
-    async def test_inactive_workspace_returns_400(self, handler, mock_workspace, mock_workspace_store):
+    async def test_inactive_workspace_returns_400(
+        self, handler, mock_workspace, mock_workspace_store
+    ):
         mock_workspace.is_active = False
         with patch(
             "aragora.storage.slack_workspace_store.get_slack_workspace_store",
             return_value=mock_workspace_store,
         ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 400
 
@@ -1465,13 +1826,20 @@ class TestRefreshToken:
     async def test_slack_api_error_during_refresh(self, handler, mock_workspace_store):
         mock_client, _ = _make_httpx_mock({"ok": False, "error": "token_expired"})
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 400
         body = _body(result)
@@ -1486,13 +1854,20 @@ class TestRefreshToken:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(side_effect=httpx.HTTPError("connection failed"))
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 502
 
@@ -1500,19 +1875,28 @@ class TestRefreshToken:
     async def test_save_failure_returns_500(self, handler, mock_workspace_store):
         mock_workspace_store.save.return_value = False
 
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-new",
-            "expires_in": 43200,
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new",
+                "expires_in": 43200,
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 500
 
@@ -1520,32 +1904,51 @@ class TestRefreshToken:
     async def test_store_import_error_returns_503(self, handler):
         with patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_method_not_allowed_get(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/workspaces/W123/refresh",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 405
 
     @pytest.mark.asyncio
     async def test_refresh_without_expires_in(self, handler, mock_workspace_store):
         """When Slack omits expires_in, token_expires_at should be None."""
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-new-token",
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         body = _body(result)
@@ -1553,22 +1956,33 @@ class TestRefreshToken:
         assert body["expires_in_seconds"] is None
 
     @pytest.mark.asyncio
-    async def test_refresh_updates_workspace_tokens(self, handler, mock_workspace, mock_workspace_store):
+    async def test_refresh_updates_workspace_tokens(
+        self, handler, mock_workspace, mock_workspace_store
+    ):
         """Verify that the workspace object's tokens are updated."""
-        mock_client, _ = _make_httpx_mock({
-            "ok": True,
-            "access_token": "xoxb-updated-token",
-            "refresh_token": "xoxr-updated-refresh",
-            "expires_in": 86400,
-        })
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-updated-token",
+                "refresh_token": "xoxr-updated-refresh",
+                "expires_in": 86400,
+            }
+        )
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 200
         assert mock_workspace.access_token == "xoxb-updated-token"
@@ -1583,13 +1997,20 @@ class TestRefreshToken:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(side_effect=ConnectionError("no route to host"))
 
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             patch(
-                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-                 return_value=mock_workspace_store,
-             ):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
             result = await handler.handle(
-                "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
             )
         assert _status(result) == 500
 
@@ -1605,14 +2026,24 @@ class TestNotFound:
     @pytest.mark.asyncio
     async def test_unknown_path_returns_404(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/unknown", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/unknown",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_close_path_returns_404(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/settings", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/settings",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 404
 
@@ -1630,7 +2061,12 @@ class TestPermissions:
     async def test_install_requires_auth_in_production(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "ARAGORA_ENV", "production")
         result = await handler.handle(
-            "GET", "/api/integrations/slack/install", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/install",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 401
 
@@ -1638,7 +2074,12 @@ class TestPermissions:
     @pytest.mark.no_auto_auth
     async def test_preview_requires_auth(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/preview", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/preview",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 401
 
@@ -1646,7 +2087,12 @@ class TestPermissions:
     @pytest.mark.no_auto_auth
     async def test_workspaces_requires_auth(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/workspaces", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/workspaces",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 401
 
@@ -1654,7 +2100,12 @@ class TestPermissions:
     @pytest.mark.no_auto_auth
     async def test_workspace_status_requires_auth(self, handler):
         result = await handler.handle(
-            "GET", "/api/integrations/slack/workspaces/W123/status", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/workspaces/W123/status",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 401
 
@@ -1662,7 +2113,12 @@ class TestPermissions:
     @pytest.mark.no_auto_auth
     async def test_workspace_refresh_requires_auth(self, handler):
         result = await handler.handle(
-            "POST", "/api/integrations/slack/workspaces/W123/refresh", {}, {}, {}, None,
+            "POST",
+            "/api/integrations/slack/workspaces/W123/refresh",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 401
 
@@ -1670,8 +2126,12 @@ class TestPermissions:
     async def test_callback_does_not_require_auth(self, handler):
         """Callback endpoint works even without auth (validates state instead)."""
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"error": "access_denied"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"error": "access_denied"},
+            {},
+            None,
         )
         assert _status(result) == 400
 
@@ -1680,7 +2140,12 @@ class TestPermissions:
         """In development mode, install endpoint works without auth."""
         monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
         result = await handler.handle(
-            "GET", "/api/integrations/slack/install", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/install",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 302
 
@@ -1689,7 +2154,12 @@ class TestPermissions:
         """In local mode, install endpoint works without auth."""
         monkeypatch.setattr(handler_module, "ARAGORA_ENV", "local")
         result = await handler.handle(
-            "GET", "/api/integrations/slack/install", {}, {}, {}, None,
+            "GET",
+            "/api/integrations/slack/install",
+            {},
+            {},
+            {},
+            None,
         )
         assert _status(result) == 302
 
@@ -1707,9 +2177,15 @@ class TestCheckPermission:
 
     def test_require_all_true_all_pass(self, handler):
         with patch.object(handler, "check_permission", return_value=True):
-            assert handler._check_permission(
-                MagicMock(), "perm1", "perm2", require_all=True,
-            ) is True
+            assert (
+                handler._check_permission(
+                    MagicMock(),
+                    "perm1",
+                    "perm2",
+                    require_all=True,
+                )
+                is True
+            )
 
     def test_require_all_false_any_pass(self, handler):
         call_count = 0
@@ -1730,7 +2206,8 @@ class TestCheckPermission:
         from aragora.server.handlers.secure import ForbiddenError
 
         with patch.object(
-            handler, "check_permission",
+            handler,
+            "check_permission",
             side_effect=ForbiddenError("denied", permission="perm1"),
         ):
             with pytest.raises(ForbiddenError):
@@ -1751,7 +2228,10 @@ class TestCheckPermission:
         with patch.object(handler, "check_permission", side_effect=side_effect):
             with pytest.raises(ForbiddenError):
                 handler._check_permission(
-                    MagicMock(), "perm1", "perm2", require_all=True,
+                    MagicMock(),
+                    "perm1",
+                    "perm2",
+                    require_all=True,
                 )
 
 
@@ -1841,8 +2321,12 @@ class TestHandleCallingConventions:
     async def test_direct_call_convention(self, handler):
         """Direct: handle(method, path, body, query_params, headers, handler)."""
         result = await handler.handle(
-            "GET", "/api/integrations/slack/callback", {},
-            {"error": "denied"}, {}, None,
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"error": "denied"},
+            {},
+            None,
         )
         assert _status(result) == 400
 

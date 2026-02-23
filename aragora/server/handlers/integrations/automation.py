@@ -137,7 +137,10 @@ class AutomationHandler(SecureHandler):
             decision = rbac.check_permission(rbac_context, permission, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    "Permission denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission, decision.reason
+                    "Permission denied: user=%s permission=%s reason=%s",
+                    auth_ctx.user_id,
+                    permission,
+                    decision.reason,
                 )
                 return error_response("Permission denied", status=403)
 

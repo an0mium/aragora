@@ -182,22 +182,14 @@ class ArgumentVerificationResult:
         if total_chains == 0 and self.total_nodes_analyzed == 0:
             return 1.0  # No arguments to check
 
-        chain_score = (
-            len(self.valid_chains) / total_chains if total_chains > 0 else 1.0
-        )
+        chain_score = len(self.valid_chains) / total_chains if total_chains > 0 else 1.0
 
         nodes = max(self.total_nodes_analyzed, 1)
-        contradiction_score = max(
-            0.0, 1.0 - len(self.contradictions) / nodes
-        )
-        unsupported_score = max(
-            0.0, 1.0 - len(self.unsupported_conclusions) / nodes
-        )
+        contradiction_score = max(0.0, 1.0 - len(self.contradictions) / nodes)
+        unsupported_score = max(0.0, 1.0 - len(self.unsupported_conclusions) / nodes)
 
         return round(
-            chain_score * 0.4
-            + contradiction_score * 0.3
-            + unsupported_score * 0.3,
+            chain_score * 0.4 + contradiction_score * 0.3 + unsupported_score * 0.3,
             3,
         )
 
@@ -205,9 +197,7 @@ class ArgumentVerificationResult:
         return {
             "valid_chains": [c.to_dict() for c in self.valid_chains],
             "invalid_chains": [c.to_dict() for c in self.invalid_chains],
-            "unsupported_conclusions": [
-                u.to_dict() for u in self.unsupported_conclusions
-            ],
+            "unsupported_conclusions": [u.to_dict() for u in self.unsupported_conclusions],
             "contradictions": [c.to_dict() for c in self.contradictions],
             "circular_dependencies": self.circular_dependencies,
             "is_sound": self.is_sound,
@@ -391,9 +381,7 @@ class ArgumentStructureVerifier:
 
         return unsupported
 
-    def _detect_contradictions(
-        self, graph: ArgumentCartographer
-    ) -> list[ContradictionPair]:
+    def _detect_contradictions(self, graph: ArgumentCartographer) -> list[ContradictionPair]:
         """
         Detect contradictory premises in the argument graph.
 
@@ -593,9 +581,7 @@ class ArgumentStructureVerifier:
                 proof_result=proof_result,
             )
 
-    def _build_implication_claim(
-        self, premise_texts: list[str], conclusion_text: str
-    ) -> str:
+    def _build_implication_claim(self, premise_texts: list[str], conclusion_text: str) -> str:
         """
         Build a natural language implication from premises to conclusion.
 
@@ -662,9 +648,7 @@ class ArgumentStructureVerifier:
             # Fall back to Lean
             return await self._try_lean(claim, timeout_seconds)
 
-    async def _try_lean(
-        self, claim: str, timeout_seconds: float
-    ) -> FormalProofResult | None:
+    async def _try_lean(self, claim: str, timeout_seconds: float) -> FormalProofResult | None:
         """Attempt verification using LeanBackend."""
         if not self._lean_backend.is_available:
             return None
@@ -687,9 +671,7 @@ class ArgumentStructureVerifier:
                 error_message=f"Lean error: {e}",
             )
 
-    async def _try_z3(
-        self, claim: str, timeout_seconds: float
-    ) -> FormalProofResult | None:
+    async def _try_z3(self, claim: str, timeout_seconds: float) -> FormalProofResult | None:
         """Attempt verification using Z3Backend."""
         if not self._z3_backend.is_available:
             return None

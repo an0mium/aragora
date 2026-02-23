@@ -253,7 +253,7 @@ async def update_debate_bead(
             await bead_store.update_status(bead_id, BeadStatus.FAILED)
 
         logger.debug(
-            "Updated debate bead: %s status=%s", bead_id[:8], 'completed' if success else 'failed'
+            "Updated debate bead: %s status=%s", bead_id[:8], "completed" if success else "failed"
         )
 
     except ImportError:
@@ -316,7 +316,9 @@ async def init_hook_tracking(
                 logger.warning("Failed to push hook for %s: %s", agent_id, e)
 
         if hook_entries:
-            logger.info("GUPP: Tracked debate %s on %s agent hooks", debate_id[:8], len(hook_entries))
+            logger.info(
+                "GUPP: Tracked debate %s on %s agent hooks", debate_id[:8], len(hook_entries)
+            )
 
         return hook_entries
 
@@ -435,7 +437,9 @@ async def recover_pending_debates(
         result = list(debates_to_resume.values())
         if result:
             logger.info(
-                "GUPP recovery: Found %s debates to resume across %s agent hooks", len(result), sum(len(d['agents']) for d in result)
+                "GUPP recovery: Found %s debates to resume across %s agent hooks",
+                len(result),
+                sum(len(d["agents"]) for d in result),
             )
 
         return result

@@ -929,8 +929,7 @@ class CodeReviewOrchestrator:
 
             findings_text = "\n".join(
                 f"- [{f.severity.value.upper()}] {f.category.value}: "
-                f"{f.description}"
-                + (f" (suggestion: {f.suggestion})" if f.suggestion else "")
+                f"{f.description}" + (f" (suggestion: {f.suggestion})" if f.suggestion else "")
                 for f in findings
             )
 

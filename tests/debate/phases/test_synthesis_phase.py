@@ -230,10 +230,7 @@ class TestExtractClaims:
 
     def test_limits_to_five_claims(self):
         """Returns at most 5 claims."""
-        text = ". ".join(
-            f"Point {i} is important and should be considered"
-            for i in range(10)
-        )
+        text = ". ".join(f"Point {i} is important and should be considered" for i in range(10))
         claims = _extract_claims(text)
         assert len(claims) <= 5
 
@@ -436,11 +433,13 @@ A hybrid approach combines microservices for scaling with monolith simplicity.
             name="synth-agent",
             generate=AsyncMock(return_value=structured_output),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
         ctx.proposals = {
             "agent1": "Microservices are best for independent scaling and team autonomy.",
             "agent2": "Monolith is better for simplified debugging and lower overhead.",
@@ -475,11 +474,13 @@ Combined architecture approach.
             name="synth-agent",
             generate=AsyncMock(return_value=structured_output),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
 
         synthesizer = DialecticalSynthesizer()
         result = await synthesizer.synthesize(ctx)
@@ -493,9 +494,11 @@ Combined architecture approach.
     @pytest.mark.asyncio
     async def test_skips_when_only_one_position(self):
         """Synthesis is skipped when fewer than min_opposing_positions exist."""
-        ctx = make_context(proposals={
-            "agent1": "Only one proposal here.",
-        })
+        ctx = make_context(
+            proposals={
+                "agent1": "Only one proposal here.",
+            }
+        )
 
         synthesizer = DialecticalSynthesizer()
         result = await synthesizer.synthesize(ctx)
@@ -530,11 +533,13 @@ Combined architecture approach.
             name="failing-agent",
             generate=AsyncMock(side_effect=RuntimeError("API timeout")),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
 
         config = SynthesisConfig(max_synthesis_attempts=2)
         synthesizer = DialecticalSynthesizer(config)
@@ -550,11 +555,13 @@ Combined architecture approach.
             name="empty-agent",
             generate=AsyncMock(return_value=""),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
 
         config = SynthesisConfig(max_synthesis_attempts=1)
         synthesizer = DialecticalSynthesizer(config)
@@ -574,11 +581,13 @@ Combined architecture approach.
                 ]
             ),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
 
         synthesizer = DialecticalSynthesizer()
         result = await synthesizer.synthesize(ctx)
@@ -593,11 +602,13 @@ Combined architecture approach.
             name="conn-error-agent",
             generate=AsyncMock(side_effect=ConnectionError("Connection refused")),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
 
         config = SynthesisConfig(max_synthesis_attempts=1)
         synthesizer = DialecticalSynthesizer(config)
@@ -612,11 +623,13 @@ Combined architecture approach.
             name="timeout-agent",
             generate=AsyncMock(side_effect=TimeoutError("Timed out")),
         )
-        ctx = make_context(agents=[
-            agent,
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-        ])
+        ctx = make_context(
+            agents=[
+                agent,
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+            ]
+        )
 
         config = SynthesisConfig(max_synthesis_attempts=1)
         synthesizer = DialecticalSynthesizer(config)
@@ -737,11 +750,13 @@ class TestSelectSynthesisAgent:
         config = SynthesisConfig(prefer_agent="agent2")
         synthesizer = DialecticalSynthesizer(config)
 
-        ctx = make_context(agents=[
-            MockAgent(name="agent1"),
-            MockAgent(name="agent2"),
-            MockAgent(name="agent3"),
-        ])
+        ctx = make_context(
+            agents=[
+                MockAgent(name="agent1"),
+                MockAgent(name="agent2"),
+                MockAgent(name="agent3"),
+            ]
+        )
 
         agent = synthesizer._select_synthesis_agent(ctx)
         assert agent is not None
@@ -751,11 +766,13 @@ class TestSelectSynthesisAgent:
         """Selects agent with synthesizer role when no preferred agent."""
         synthesizer = DialecticalSynthesizer()
 
-        ctx = make_context(agents=[
-            MockAgent(name="agent1", role="proposer"),
-            MockAgent(name="agent2", role="synthesizer"),
-            MockAgent(name="agent3", role="critic"),
-        ])
+        ctx = make_context(
+            agents=[
+                MockAgent(name="agent1", role="proposer"),
+                MockAgent(name="agent2", role="synthesizer"),
+                MockAgent(name="agent3", role="critic"),
+            ]
+        )
 
         agent = synthesizer._select_synthesis_agent(ctx)
         assert agent is not None
@@ -765,10 +782,12 @@ class TestSelectSynthesisAgent:
         """Falls back to first agent when no preferred or synthesizer role."""
         synthesizer = DialecticalSynthesizer()
 
-        ctx = make_context(agents=[
-            MockAgent(name="agent1", role="proposer"),
-            MockAgent(name="agent2", role="critic"),
-        ])
+        ctx = make_context(
+            agents=[
+                MockAgent(name="agent1", role="proposer"),
+                MockAgent(name="agent2", role="critic"),
+            ]
+        )
 
         agent = synthesizer._select_synthesis_agent(ctx)
         assert agent is not None
@@ -787,10 +806,12 @@ class TestSelectSynthesisAgent:
         config = SynthesisConfig(prefer_agent="nonexistent")
         synthesizer = DialecticalSynthesizer(config)
 
-        ctx = make_context(agents=[
-            MockAgent(name="agent1", role="synthesizer"),
-            MockAgent(name="agent2", role="critic"),
-        ])
+        ctx = make_context(
+            agents=[
+                MockAgent(name="agent1", role="synthesizer"),
+                MockAgent(name="agent2", role="critic"),
+            ]
+        )
 
         agent = synthesizer._select_synthesis_agent(ctx)
         assert agent is not None
@@ -804,11 +825,13 @@ class TestSelectSynthesisAgent:
             role="synthesizer",
             generate=AsyncMock(return_value="### Synthesis\nGood combined approach."),
         )
-        ctx = make_context(agents=[
-            MockAgent(name="agent1", role="proposer"),
-            synth_agent,
-            MockAgent(name="agent2", role="critic"),
-        ])
+        ctx = make_context(
+            agents=[
+                MockAgent(name="agent1", role="proposer"),
+                synth_agent,
+                MockAgent(name="agent2", role="critic"),
+            ]
+        )
 
         synthesizer = DialecticalSynthesizer()
         result = await synthesizer.synthesize(ctx)

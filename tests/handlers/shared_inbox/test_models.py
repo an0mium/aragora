@@ -235,15 +235,11 @@ class TestRuleCondition:
 
     def test_from_dict_invalid_field_raises(self):
         with pytest.raises(ValueError):
-            RuleCondition.from_dict(
-                {"field": "nope", "operator": "contains", "value": "x"}
-            )
+            RuleCondition.from_dict({"field": "nope", "operator": "contains", "value": "x"})
 
     def test_from_dict_invalid_operator_raises(self):
         with pytest.raises(ValueError):
-            RuleCondition.from_dict(
-                {"field": "subject", "operator": "nope", "value": "x"}
-            )
+            RuleCondition.from_dict({"field": "subject", "operator": "nope", "value": "x"})
 
     def test_from_dict_missing_field_raises(self):
         with pytest.raises(KeyError):
@@ -504,9 +500,7 @@ class TestRoutingRule:
             "id": "rule-500",
             "name": "From dict test",
             "workspace_id": "ws-300",
-            "conditions": [
-                {"field": "from", "operator": "equals", "value": "ceo@co.com"}
-            ],
+            "conditions": [{"field": "from", "operator": "equals", "value": "ceo@co.com"}],
             "condition_logic": "AND",
             "actions": [{"type": "escalate", "target": "mgr-team"}],
             "priority": 1,

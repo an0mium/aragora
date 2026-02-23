@@ -269,7 +269,9 @@ class TestExtractUserIdFromHeaders:
 
     def test_no_authorization_header_returns_default(self):
         """Headers without Authorization returns default."""
-        assert _extract_user_id_from_headers({"Content-Type": "application/json"}) == "compliance_api"
+        assert (
+            _extract_user_id_from_headers({"Content-Type": "application/json"}) == "compliance_api"
+        )
 
     def test_empty_authorization_returns_default(self):
         """Empty Authorization header returns default."""
@@ -376,9 +378,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["legal_holds"] == []
@@ -395,9 +395,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.return_value = holds
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["count"] == 2
@@ -409,9 +407,7 @@ class TestListLegalHolds:
     async def test_list_active_only_default_true(self, handler, mock_hold_manager):
         """Default query is active_only=true."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         body = _body(result)
         assert body["filters"]["active_only"] is True
         mock_hold_manager.get_active_holds.assert_called_once()
@@ -462,9 +458,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.side_effect = RuntimeError("DB down")
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -473,9 +467,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.side_effect = AttributeError("missing attr")
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -484,9 +476,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.side_effect = KeyError("missing key")
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -495,9 +485,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         body = _body(result)
         assert set(body.keys()) == {"legal_holds", "count", "filters"}
 
@@ -508,9 +496,7 @@ class TestListLegalHolds:
         mock_hold_manager.get_active_holds.return_value = [hold]
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         body = _body(result)
         assert body["legal_holds"][0]["reason"] == "test reason"
 
@@ -540,9 +526,7 @@ class TestCreateLegalHold:
     async def test_requires_user_ids(self, handler):
         """Missing user_ids returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"reason": "Litigation"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
         assert "user_ids" in _body(result).get("error", "")
 
@@ -550,9 +534,7 @@ class TestCreateLegalHold:
     async def test_empty_user_ids_returns_400(self, handler):
         """Empty user_ids list returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"user_ids": [], "reason": "Litigation"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
         assert "user_ids" in _body(result).get("error", "")
 
@@ -560,9 +542,7 @@ class TestCreateLegalHold:
     async def test_requires_reason(self, handler):
         """Missing reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"]})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
         assert "reason" in _body(result).get("error", "")
 
@@ -570,9 +550,7 @@ class TestCreateLegalHold:
     async def test_empty_reason_returns_400(self, handler):
         """Empty string reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": ""})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
         assert "reason" in _body(result).get("error", "")
 
@@ -580,9 +558,7 @@ class TestCreateLegalHold:
     async def test_missing_both_required_fields(self, handler):
         """Missing both user_ids and reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -598,9 +574,7 @@ class TestCreateLegalHold:
         mock_h = _MockHTTPHandler(
             "POST", body={"user_ids": ["u1", "u2"], "reason": "Patent dispute"}
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         body = _body(result)
         assert "Legal hold created successfully" in body["message"]
@@ -621,9 +595,7 @@ class TestCreateLegalHold:
                 "case_reference": "CASE-2026-001",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         mock_hold_manager.create_hold.assert_called_once()
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
@@ -645,9 +617,7 @@ class TestCreateLegalHold:
                 "case_reference": "REF-99",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         body = _body(result)
         assert body["legal_hold"]["case_reference"] == "REF-99"
@@ -657,12 +627,8 @@ class TestCreateLegalHold:
         """Missing case_reference passes None."""
         mock_hold_manager.create_hold.return_value = MockLegalHold()
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Audit"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Audit"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["case_reference"] is None
@@ -677,9 +643,7 @@ class TestCreateLegalHold:
             "POST",
             body={"user_ids": ["u1"], "reason": "Audit", "expires_at": expires},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["expires_at"] is not None
@@ -695,9 +659,7 @@ class TestCreateLegalHold:
             "POST",
             body={"user_ids": ["u1"], "reason": "Audit", "expires_at": expires},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -707,9 +669,7 @@ class TestCreateLegalHold:
             "POST",
             body={"user_ids": ["u1"], "reason": "Audit", "expires_at": "not-a-date"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 400
         assert "expires_at" in _body(result).get("error", "").lower()
 
@@ -718,12 +678,8 @@ class TestCreateLegalHold:
         """Missing expires_at passes None to hold_manager."""
         mock_hold_manager.create_hold.return_value = MockLegalHold()
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Audit"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Audit"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["expires_at"] is None
@@ -734,12 +690,8 @@ class TestCreateLegalHold:
         created_hold = MockLegalHold(hold_id="hold-audit")
         mock_hold_manager.create_hold.return_value = created_hold
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         mock_audit_store.log_event.assert_called_once()
         call_kwargs = mock_audit_store.log_event.call_args[1]
@@ -760,9 +712,7 @@ class TestCreateLegalHold:
                 "case_reference": "CASE-1",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         metadata = mock_audit_store.log_event.call_args[1]["metadata"]
         assert metadata["user_ids"] == ["u1", "u2"]
         assert metadata["reason"] == "Dispute"
@@ -776,12 +726,8 @@ class TestCreateLegalHold:
         mock_hold_manager.create_hold.return_value = MockLegalHold()
         mock_audit_store.log_event.side_effect = RuntimeError("Audit DB down")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -792,12 +738,8 @@ class TestCreateLegalHold:
         mock_hold_manager.create_hold.return_value = MockLegalHold()
         mock_audit_store.log_event.side_effect = OSError("Disk full")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -808,12 +750,8 @@ class TestCreateLegalHold:
         mock_hold_manager.create_hold.return_value = MockLegalHold()
         mock_audit_store.log_event.side_effect = ValueError("Bad data")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -821,12 +759,8 @@ class TestCreateLegalHold:
         """RuntimeError from create_hold returns 500."""
         mock_hold_manager.create_hold.side_effect = RuntimeError("DB failure")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -834,12 +768,8 @@ class TestCreateLegalHold:
         """ValueError from create_hold returns 500."""
         mock_hold_manager.create_hold.side_effect = ValueError("Invalid")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -847,35 +777,23 @@ class TestCreateLegalHold:
         """TypeError from create_hold returns 500."""
         mock_hold_manager.create_hold.side_effect = TypeError("Bad type")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_creation_extracts_user_from_headers_no_auth(
-        self, handler, mock_hold_manager
-    ):
+    async def test_creation_extracts_user_from_headers_no_auth(self, handler, mock_hold_manager):
         """Without auth header, created_by defaults to compliance_api."""
         mock_hold_manager.create_hold.return_value = MockLegalHold()
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Litigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Litigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["created_by"] == "compliance_api"
 
     @pytest.mark.asyncio
-    async def test_creation_extracts_user_from_api_key_header(
-        self, handler, mock_hold_manager
-    ):
+    async def test_creation_extracts_user_from_api_key_header(self, handler, mock_hold_manager):
         """With Bearer ara_ API key, created_by uses key identifier."""
         mock_hold_manager.create_hold.return_value = MockLegalHold()
 
@@ -887,9 +805,7 @@ class TestCreateLegalHold:
                 "Authorization": "Bearer ara_test_key_abcdef",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["created_by"].startswith("api_key:")
@@ -897,34 +813,24 @@ class TestCreateLegalHold:
     @pytest.mark.asyncio
     async def test_creation_with_multiple_user_ids(self, handler, mock_hold_manager):
         """Multiple user_ids are forwarded correctly."""
-        mock_hold_manager.create_hold.return_value = MockLegalHold(
-            user_ids=["u1", "u2", "u3"]
-        )
+        mock_hold_manager.create_hold.return_value = MockLegalHold(user_ids=["u1", "u2", "u3"])
 
         mock_h = _MockHTTPHandler(
             "POST",
             body={"user_ids": ["u1", "u2", "u3"], "reason": "Class action"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["user_ids"] == ["u1", "u2", "u3"]
 
     @pytest.mark.asyncio
-    async def test_creation_response_contains_legal_hold_key(
-        self, handler, mock_hold_manager
-    ):
+    async def test_creation_response_contains_legal_hold_key(self, handler, mock_hold_manager):
         """Response body has 'message' and 'legal_hold' keys."""
         mock_hold_manager.create_hold.return_value = MockLegalHold()
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Test"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Test"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         body = _body(result)
         assert "message" in body
         assert "legal_hold" in body
@@ -956,9 +862,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = False
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-nope", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-nope", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -971,9 +875,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "Legal hold released successfully" in body["message"]
@@ -986,9 +888,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={"released_by": "admin@example.com"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-x", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-x", {}, mock_h)
         mock_hold_manager.release_hold.assert_called_once_with("hold-x", "admin@example.com")
 
     @pytest.mark.asyncio
@@ -998,9 +898,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-d", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-d", {}, mock_h)
         mock_hold_manager.release_hold.assert_called_once_with("hold-d", "compliance_api")
 
     @pytest.mark.asyncio
@@ -1014,9 +912,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-audit", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-audit", {}, mock_h)
         assert _status(result) == 200
         mock_audit_store.log_event.assert_called_once()
         call_kwargs = mock_audit_store.log_event.call_args[1]
@@ -1036,9 +932,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={"released_by": "admin"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-m", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-m", {}, mock_h)
         metadata = mock_audit_store.log_event.call_args[1]["metadata"]
         assert metadata["released_by"] == "admin"
         assert metadata["released_at"] == release_time.isoformat()
@@ -1053,9 +947,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-none", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-none", {}, mock_h)
         assert _status(result) == 200
         metadata = mock_audit_store.log_event.call_args[1]["metadata"]
         assert metadata["released_at"] is None
@@ -1070,9 +962,7 @@ class TestReleaseLegalHold:
         mock_audit_store.log_event.side_effect = RuntimeError("Audit DB down")
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-a", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-a", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1085,9 +975,7 @@ class TestReleaseLegalHold:
         mock_audit_store.log_event.side_effect = OSError("Disk full")
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-b", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-b", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1100,9 +988,7 @@ class TestReleaseLegalHold:
         mock_audit_store.log_event.side_effect = ValueError("Bad data")
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-c", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-c", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1111,9 +997,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.side_effect = RuntimeError("DB failure")
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-err", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-err", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1122,9 +1006,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.side_effect = ValueError("Invalid")
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-err", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-err", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1133,9 +1015,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.side_effect = KeyError("Not found")
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-err", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-err", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1158,9 +1038,7 @@ class TestReleaseLegalHold:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-s", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-s", {}, mock_h)
         body = _body(result)
         assert set(body.keys()) == {"message", "legal_hold"}
 
@@ -1177,21 +1055,15 @@ class TestLegalHoldRouteDispatch:
     async def test_get_legal_holds_route(self, handler, mock_hold_manager):
         """GET /api/v2/compliance/gdpr/legal-holds dispatches to _list_legal_holds."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_post_legal_holds_route(self, handler, mock_hold_manager):
         """POST /api/v2/compliance/gdpr/legal-holds dispatches to _create_legal_hold."""
         mock_hold_manager.create_hold.return_value = MockLegalHold()
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Test"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Test"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -1199,18 +1071,14 @@ class TestLegalHoldRouteDispatch:
         """DELETE /api/v2/compliance/gdpr/legal-holds/:id dispatches to _release_legal_hold."""
         mock_hold_manager.release_hold.return_value = None
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h)
         assert _status(result) == 404  # Not found since mock returns None
 
     @pytest.mark.asyncio
     async def test_wrong_method_get_on_delete_route_returns_404(self, handler):
         """GET on /legal-holds/:id returns 404 (no GET handler for individual holds)."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h)
         # The path matches the startswith check but method doesn't match DELETE
         # So it falls through to the 404
         assert _status(result) == 404
@@ -1219,9 +1087,7 @@ class TestLegalHoldRouteDispatch:
     async def test_post_on_delete_route_returns_404(self, handler):
         """POST on /legal-holds/:id returns 404 (only DELETE is valid)."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/hold-001", {}, mock_h)
         # POST to legal-holds (exact) would create, but /legal-holds/hold-001 has no POST handler
         assert _status(result) == 404
 
@@ -1229,9 +1095,7 @@ class TestLegalHoldRouteDispatch:
     async def test_delete_on_list_route_returns_404(self, handler):
         """DELETE on /legal-holds (without ID) returns 404."""
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 404
 
 
@@ -1248,12 +1112,8 @@ class TestLegalHoldEdgeCases:
         """Single user_id in list is handled correctly."""
         mock_hold_manager.create_hold.return_value = MockLegalHold(user_ids=["u1"])
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": ["u1"], "reason": "Investigation"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": ["u1"], "reason": "Investigation"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -1262,12 +1122,8 @@ class TestLegalHoldEdgeCases:
         user_ids = [f"user-{i}" for i in range(100)]
         mock_hold_manager.create_hold.return_value = MockLegalHold(user_ids=user_ids)
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_ids": user_ids, "reason": "Mass hold"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_ids": user_ids, "reason": "Mass hold"})
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert len(call_kwargs["user_ids"]) == 100
@@ -1292,9 +1148,7 @@ class TestLegalHoldEdgeCases:
     async def test_list_holds_with_null_query_params(self, handler, mock_hold_manager):
         """None query_params are handled (coerced to empty dict by handler)."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", None, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", None, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1311,9 +1165,7 @@ class TestLegalHoldEdgeCases:
                 "expires_at": None,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["case_reference"] is None
@@ -1351,9 +1203,7 @@ class TestLegalHoldEdgeCases:
         mock_hold_manager.release_hold.return_value = released
 
         mock_h = _MockHTTPHandler("DELETE", body={"released_by": "legal-team@corp.com"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds/h1", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds/h1", {}, mock_h)
         assert _status(result) == 200
         mock_hold_manager.release_hold.assert_called_once_with("h1", "legal-team@corp.com")
 
@@ -1383,9 +1233,7 @@ class TestLegalHoldEdgeCases:
                 "expires_at": "2026-12-31T23:59:59Z",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
         call_kwargs = mock_hold_manager.create_hold.call_args[1]
         assert call_kwargs["expires_at"].year == 2026
@@ -1404,9 +1252,7 @@ class TestLegalHoldEdgeCases:
                 "expires_at": "2026-06-15T12:00:00+05:30",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/legal-holds", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/legal-holds", {}, mock_h)
         assert _status(result) == 201
 
 

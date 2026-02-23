@@ -149,9 +149,7 @@ class TestAssignStances:
 
     def test_rotates_stances(self):
         agents = [FakeAgent(name="a"), FakeAgent(name="b"), FakeAgent(name="c")]
-        mgr = _make_manager(
-            agents, FakeProtocol(asymmetric_stances=True, rotate_stances=True)
-        )
+        mgr = _make_manager(agents, FakeProtocol(asymmetric_stances=True, rotate_stances=True))
         mgr.assign_stances(round_num=1)
         # With rotation, agent 0 gets stance (0+1)%3 = 1 = "negative"
         assert agents[0].stance == "negative"
@@ -160,9 +158,7 @@ class TestAssignStances:
 
     def test_no_rotation(self):
         agents = [FakeAgent(name="a"), FakeAgent(name="b")]
-        mgr = _make_manager(
-            agents, FakeProtocol(asymmetric_stances=True, rotate_stances=False)
-        )
+        mgr = _make_manager(agents, FakeProtocol(asymmetric_stances=True, rotate_stances=False))
         mgr.assign_stances(round_num=0)
         mgr.assign_stances(round_num=1)
         # Without rotation, stances are the same regardless of round
@@ -316,7 +312,9 @@ class TestRoleRotation:
         mgr.role_matcher = mock_matcher
         mgr.update_role_assignments(round_num=2, debate_domain="security")
         mock_matcher.match_roles.assert_called_once_with(
-            agent_names=["a", "b"], round_num=2, debate_domain="security",
+            agent_names=["a", "b"],
+            round_num=2,
+            debate_domain="security",
         )
 
     def test_update_role_assignments_with_rotator(self):

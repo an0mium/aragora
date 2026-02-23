@@ -599,7 +599,10 @@ class AuditScheduler:
                 await self._emit("findings_detected", job, run, result.findings)
 
             logger.info(
-                "Job %s completed: %s findings in %sms", job.job_id, run.findings_count, run.duration_ms
+                "Job %s completed: %s findings in %sms",
+                job.job_id,
+                run.findings_count,
+                run.duration_ms,
             )
 
         except asyncio.TimeoutError:

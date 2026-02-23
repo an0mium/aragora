@@ -258,7 +258,10 @@ class OutcomeComplexityBridge:
             self._maybe_recalibrate(complexity)
 
         logger.debug(
-            "outcome_complexity_recorded complexity=%s succeeded=%s timeout=%s", complexity, succeeded, timeout
+            "outcome_complexity_recorded complexity=%s succeeded=%s timeout=%s",
+            complexity,
+            succeeded,
+            timeout,
         )
 
     def _maybe_recalibrate(self, complexity: str) -> TimeoutAdjustment | None:

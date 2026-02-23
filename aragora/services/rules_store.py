@@ -242,7 +242,7 @@ class RulesStore:
                 ),
             )
 
-        logger.info("[RulesStore] Created rule %s: %s", rule_data['id'], rule_data['name'])
+        logger.info("[RulesStore] Created rule %s: %s", rule_data["id"], rule_data["name"])
         return rule_data
 
     def get_rule(self, rule_id: str) -> dict[str, Any] | None:
@@ -451,7 +451,7 @@ class RulesStore:
                 ),
             )
 
-        logger.info("[RulesStore] Created inbox %s: %s", inbox_data['id'], inbox_data['name'])
+        logger.info("[RulesStore] Created inbox %s: %s", inbox_data["id"], inbox_data["name"])
         return inbox_data
 
     def get_inbox(self, inbox_id: str) -> dict[str, Any] | None:

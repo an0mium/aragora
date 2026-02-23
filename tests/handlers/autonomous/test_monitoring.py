@@ -42,6 +42,7 @@ from aragora.server.handlers.autonomous.monitoring import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _parse(response: web.Response) -> dict:
     """Extract JSON dict from an aiohttp json_response."""
     return json.loads(response.body)
@@ -152,6 +153,7 @@ def _make_trend(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_globals():
     """Ensure globals are fresh before/after each test."""
@@ -189,6 +191,7 @@ def install_mocks(mock_trend_monitor, mock_anomaly_detector):
 # ---------------------------------------------------------------------------
 # validate_metric_name unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestValidateMetricName:
     def test_valid_simple_name(self):
@@ -236,6 +239,7 @@ class TestValidateMetricName:
 # ---------------------------------------------------------------------------
 # validate_metric_value unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestValidateMetricValue:
     def test_valid_int(self):
@@ -313,6 +317,7 @@ class TestValidateMetricValue:
 # ---------------------------------------------------------------------------
 # record_metric endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestRecordMetric:
     @pytest.mark.asyncio
@@ -526,6 +531,7 @@ class TestRecordMetric:
 # get_trend endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestGetTrend:
     @pytest.mark.asyncio
     async def test_trend_found(self, install_mocks):
@@ -672,8 +678,14 @@ class TestGetTrend:
         data = await _parse(resp)
         trend = data["trend"]
         expected_keys = {
-            "metric_name", "direction", "current_value", "previous_value",
-            "change_percent", "period_start", "period_end", "data_points",
+            "metric_name",
+            "direction",
+            "current_value",
+            "previous_value",
+            "change_percent",
+            "period_start",
+            "period_end",
+            "data_points",
             "confidence",
         }
         assert expected_keys.issubset(set(trend.keys()))
@@ -682,6 +694,7 @@ class TestGetTrend:
 # ---------------------------------------------------------------------------
 # get_all_trends endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestGetAllTrends:
     @pytest.mark.asyncio
@@ -811,6 +824,7 @@ class TestGetAllTrends:
 # get_anomalies endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestGetAnomalies:
     @pytest.mark.asyncio
     async def test_anomalies_empty(self, install_mocks):
@@ -889,8 +903,14 @@ class TestGetAnomalies:
 
         anomaly = data["anomalies"][0]
         expected_keys = {
-            "id", "metric_name", "value", "expected_value",
-            "deviation", "timestamp", "severity", "description",
+            "id",
+            "metric_name",
+            "value",
+            "expected_value",
+            "deviation",
+            "timestamp",
+            "severity",
+            "description",
         }
         assert expected_keys.issubset(set(anomaly.keys()))
 
@@ -984,6 +1004,7 @@ class TestGetAnomalies:
 # ---------------------------------------------------------------------------
 # get_baseline_stats endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestGetBaselineStats:
     @pytest.mark.asyncio
@@ -1149,6 +1170,7 @@ class TestGetBaselineStats:
 # get_circuit_breaker_status endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestGetCircuitBreakerStatus:
     @pytest.mark.asyncio
     async def test_cb_status_success(self):
@@ -1254,6 +1276,7 @@ class TestGetCircuitBreakerStatus:
 # Handler ROUTES and register_routes
 # ---------------------------------------------------------------------------
 
+
 class TestHandlerMeta:
     def test_routes_constant(self):
         """ROUTES should list all registered endpoints."""
@@ -1262,8 +1285,10 @@ class TestHandlerMeta:
         assert "/api/v1/autonomous/monitoring/trends" in routes
         assert "/api/v1/autonomous/monitoring/trends/*" in routes
         assert "/api/v1/autonomous/monitoring/anomalies" in routes
-        assert "/api/v1/autonomous/monitoring/baseline" in routes or \
-            "/api/v1/autonomous/monitoring/baseline/*" in routes
+        assert (
+            "/api/v1/autonomous/monitoring/baseline" in routes
+            or "/api/v1/autonomous/monitoring/baseline/*" in routes
+        )
         assert "/api/v1/autonomous/monitoring/circuit-breaker" in routes
 
     def test_register_routes(self):
@@ -1271,7 +1296,11 @@ class TestHandlerMeta:
         app = web.Application()
         MonitoringHandler.register_routes(app)
 
-        route_paths = [r.resource.canonical for r in app.router.routes() if hasattr(r, 'resource') and r.resource]
+        route_paths = [
+            r.resource.canonical
+            for r in app.router.routes()
+            if hasattr(r, "resource") and r.resource
+        ]
         assert any("monitoring/record" in p for p in route_paths)
         assert any("monitoring/trends" in p for p in route_paths)
         assert any("monitoring/anomalies" in p for p in route_paths)
@@ -1283,7 +1312,11 @@ class TestHandlerMeta:
         app = web.Application()
         MonitoringHandler.register_routes(app, prefix="/custom")
 
-        route_paths = [r.resource.canonical for r in app.router.routes() if hasattr(r, 'resource') and r.resource]
+        route_paths = [
+            r.resource.canonical
+            for r in app.router.routes()
+            if hasattr(r, "resource") and r.resource
+        ]
         assert any("/custom/monitoring/record" in p for p in route_paths)
 
     def test_init_default_ctx(self):
@@ -1298,6 +1331,7 @@ class TestHandlerMeta:
 # ---------------------------------------------------------------------------
 # Global accessor tests
 # ---------------------------------------------------------------------------
+
 
 class TestGlobalAccessors:
     def test_get_trend_monitor_creates_instance(self):
@@ -1352,6 +1386,7 @@ class TestGlobalAccessors:
 # ---------------------------------------------------------------------------
 # Circuit breaker integration behaviour
 # ---------------------------------------------------------------------------
+
 
 class TestCircuitBreakerIntegration:
     @pytest.mark.asyncio

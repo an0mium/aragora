@@ -136,7 +136,9 @@ class TestFetchKnowledgeContext:
         assert result is not None
         assert "KNOWLEDGE MOUND CONTEXT" in result
         mound.query_semantic.assert_awaited_once_with(
-            text="task", limit=5, min_confidence=0.5,
+            text="task",
+            limit=5,
+            min_confidence=0.5,
         )
 
     @pytest.mark.asyncio
@@ -329,7 +331,9 @@ class TestFetchKnowledgeContext:
 
         assert result is not None
         mound.query_semantic.assert_awaited_once_with(
-            text="task", limit=5, min_confidence=0.5,
+            text="task",
+            limit=5,
+            min_confidence=0.5,
         )
         mound.query_with_visibility.assert_not_awaited()
 
@@ -648,7 +652,8 @@ class TestIngestDebateOutcome:
         callback = MagicMock()
 
         ops = KnowledgeMoundOperations(
-            knowledge_mound=mound, notify_callback=callback,
+            knowledge_mound=mound,
+            notify_callback=callback,
         )
         await ops.ingest_debate_outcome(_make_result(), _make_env())
 
@@ -662,7 +667,8 @@ class TestIngestDebateOutcome:
         callback = MagicMock()
 
         ops = KnowledgeMoundOperations(
-            knowledge_mound=mound, notify_callback=callback,
+            knowledge_mound=mound,
+            notify_callback=callback,
         )
         await ops.ingest_debate_outcome(_make_result(), _make_env())
         callback.assert_not_called()

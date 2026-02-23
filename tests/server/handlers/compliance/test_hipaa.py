@@ -1643,10 +1643,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "Patient John Smith (SSN: 123-45-6789) visited on 01/15/2024",
-                "method": "redact",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "Patient John Smith (SSN: 123-45-6789) visited on 01/15/2024",
+                    "method": "redact",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1662,10 +1664,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "Email: test@example.com, Phone: 555-123-4567",
-                "method": "hash",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "Email: test@example.com, Phone: 555-123-4567",
+                    "method": "hash",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1679,10 +1683,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "SSN: 123-45-6789",
-                "method": "suppress",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "SSN: 123-45-6789",
+                    "method": "suppress",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1695,14 +1701,16 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "data": {
-                    "patient_name": "John Smith",
-                    "ssn": "123-45-6789",
-                    "diagnosis": "Common cold",
-                },
-                "method": "redact",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "data": {
+                        "patient_name": "John Smith",
+                        "ssn": "123-45-6789",
+                        "diagnosis": "Common cold",
+                    },
+                    "method": "redact",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1720,10 +1728,12 @@ class TestHIPAADeidentify:
     @pytest.mark.asyncio
     async def test_deidentify_invalid_method(self, hipaa_handler):
         """De-identify rejects invalid anonymization method."""
-        result = await hipaa_handler._hipaa_deidentify({
-            "content": "Test content",
-            "method": "invalid_method",
-        })
+        result = await hipaa_handler._hipaa_deidentify(
+            {
+                "content": "Test content",
+                "method": "invalid_method",
+            }
+        )
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -1736,11 +1746,13 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "Email: test@example.com, SSN: 123-45-6789",
-                "method": "redact",
-                "identifier_types": ["ssn"],
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "Email: test@example.com, SSN: 123-45-6789",
+                    "method": "redact",
+                    "identifier_types": ["ssn"],
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1750,10 +1762,12 @@ class TestHIPAADeidentify:
     @pytest.mark.asyncio
     async def test_deidentify_invalid_identifier_type(self, hipaa_handler):
         """De-identify rejects invalid identifier type."""
-        result = await hipaa_handler._hipaa_deidentify({
-            "content": "Test content",
-            "identifier_types": ["not_a_real_type"],
-        })
+        result = await hipaa_handler._hipaa_deidentify(
+            {
+                "content": "Test content",
+                "identifier_types": ["not_a_real_type"],
+            }
+        )
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -1766,10 +1780,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "Patient John Smith has SSN 123-45-6789",
-                "method": "pseudonymize",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "Patient John Smith has SSN 123-45-6789",
+                    "method": "pseudonymize",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1783,10 +1799,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            await hipaa_handler._hipaa_deidentify({
-                "content": "SSN: 123-45-6789",
-                "method": "redact",
-            })
+            await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "SSN: 123-45-6789",
+                    "method": "redact",
+                }
+            )
 
         mock_audit_store.log_event.assert_called_once()
         call_kwargs = mock_audit_store.log_event.call_args
@@ -1799,10 +1817,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "IP: 192.168.1.100",
-                "method": "generalize",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "IP: 192.168.1.100",
+                    "method": "generalize",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1816,10 +1836,12 @@ class TestHIPAADeidentify:
             "aragora.server.handlers.compliance.hipaa.get_audit_store",
             return_value=mock_audit_store,
         ):
-            result = await hipaa_handler._hipaa_deidentify({
-                "content": "a b c d",
-                "method": "redact",
-            })
+            result = await hipaa_handler._hipaa_deidentify(
+                {
+                    "content": "a b c d",
+                    "method": "redact",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1852,9 +1874,11 @@ class TestHIPAASafeHarborVerify:
     @pytest.mark.asyncio
     async def test_verify_compliant_content(self, hipaa_handler):
         """Verify content with no PHI is compliant."""
-        result = await hipaa_handler._hipaa_safe_harbor_verify({
-            "content": "a b c d",
-        })
+        result = await hipaa_handler._hipaa_safe_harbor_verify(
+            {
+                "content": "a b c d",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1865,9 +1889,11 @@ class TestHIPAASafeHarborVerify:
     @pytest.mark.asyncio
     async def test_verify_non_compliant_content(self, hipaa_handler):
         """Verify content with PHI is non-compliant."""
-        result = await hipaa_handler._hipaa_safe_harbor_verify({
-            "content": "Patient John Smith, SSN 123-45-6789, email john@example.com",
-        })
+        result = await hipaa_handler._hipaa_safe_harbor_verify(
+            {
+                "content": "Patient John Smith, SSN 123-45-6789, email john@example.com",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1878,9 +1904,11 @@ class TestHIPAASafeHarborVerify:
     @pytest.mark.asyncio
     async def test_verify_identifier_details(self, hipaa_handler):
         """Verify identifier details are returned with truncated values."""
-        result = await hipaa_handler._hipaa_safe_harbor_verify({
-            "content": "SSN: 123-45-6789",
-        })
+        result = await hipaa_handler._hipaa_safe_harbor_verify(
+            {
+                "content": "SSN: 123-45-6789",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1904,9 +1932,11 @@ class TestHIPAASafeHarborVerify:
     @pytest.mark.asyncio
     async def test_verify_verification_notes(self, hipaa_handler):
         """Verify verification notes are included."""
-        result = await hipaa_handler._hipaa_safe_harbor_verify({
-            "content": "a b c d",
-        })
+        result = await hipaa_handler._hipaa_safe_harbor_verify(
+            {
+                "content": "a b c d",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1936,9 +1966,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_ssn(self, hipaa_handler):
         """Detect SSN in content."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "SSN: 123-45-6789",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "SSN: 123-45-6789",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1949,9 +1981,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_email(self, hipaa_handler):
         """Detect email addresses in content."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "Contact: john.doe@hospital.org",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "Contact: john.doe@hospital.org",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1962,9 +1996,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_phone_number(self, hipaa_handler):
         """Detect phone numbers in content."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "Call: 555-123-4567",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "Call: 555-123-4567",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1975,9 +2011,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_ip_address(self, hipaa_handler):
         """Detect IP addresses in content."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "Server: 192.168.1.100",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "Server: 192.168.1.100",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1988,9 +2026,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_multiple_identifiers(self, hipaa_handler):
         """Detect multiple different identifier types."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "Patient John Smith, SSN 123-45-6789, email john@example.com, IP 10.0.0.1",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "Patient John Smith, SSN 123-45-6789, email john@example.com, IP 10.0.0.1",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -2001,9 +2041,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_no_phi(self, hipaa_handler):
         """Detect returns empty when no PHI found."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "a b c d",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "a b c d",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -2013,10 +2055,12 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_with_confidence_filter(self, hipaa_handler):
         """Detect filters by minimum confidence."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "SSN: 123-45-6789, some text at 123 Main Street",
-            "min_confidence": 0.9,
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "SSN: 123-45-6789, some text at 123 Main Street",
+                "min_confidence": 0.9,
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -2036,9 +2080,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_identifier_positions(self, hipaa_handler):
         """Detect returns correct start/end positions."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "SSN: 123-45-6789",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "SSN: 123-45-6789",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -2050,9 +2096,11 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_detect_hipaa_reference(self, hipaa_handler):
         """Detect response includes HIPAA reference."""
-        result = await hipaa_handler._hipaa_detect_phi({
-            "content": "Test",
-        })
+        result = await hipaa_handler._hipaa_detect_phi(
+            {
+                "content": "Test",
+            }
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)

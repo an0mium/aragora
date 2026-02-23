@@ -145,40 +145,30 @@ class TestOpenAPIEndpoint:
         assert "deprecated" not in spec
 
     def test_to_openapi_spec_with_description(self):
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=[], description="Desc"
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=[], description="Desc")
         spec = ep.to_openapi_spec()
         assert spec["description"] == "Desc"
 
     def test_to_openapi_spec_with_operation_id(self):
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=[], operation_id="my_op"
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=[], operation_id="my_op")
         spec = ep.to_openapi_spec()
         assert spec["operationId"] == "my_op"
 
     def test_to_openapi_spec_with_parameters(self):
         params = [{"name": "id", "in": "path", "required": True}]
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=[], parameters=params
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=[], parameters=params)
         spec = ep.to_openapi_spec()
         assert spec["parameters"] == params
 
     def test_to_openapi_spec_with_request_body(self):
         body = {"content": {"application/json": {"schema": {"type": "object"}}}}
-        ep = OpenAPIEndpoint(
-            path="/t", method="POST", summary="S", tags=[], request_body=body
-        )
+        ep = OpenAPIEndpoint(path="/t", method="POST", summary="S", tags=[], request_body=body)
         spec = ep.to_openapi_spec()
         assert spec["requestBody"] == body
 
     def test_to_openapi_spec_with_custom_responses(self):
         resps = {"201": {"description": "Created"}, "400": {"description": "Bad"}}
-        ep = OpenAPIEndpoint(
-            path="/t", method="POST", summary="S", tags=[], responses=resps
-        )
+        ep = OpenAPIEndpoint(path="/t", method="POST", summary="S", tags=[], responses=resps)
         spec = ep.to_openapi_spec()
         assert spec["responses"] == resps
         # No default 200 when custom responses provided
@@ -186,23 +176,17 @@ class TestOpenAPIEndpoint:
 
     def test_to_openapi_spec_with_security(self):
         sec = [{"bearerAuth": []}, {"apiKey": []}]
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=[], security=sec
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=[], security=sec)
         spec = ep.to_openapi_spec()
         assert spec["security"] == sec
 
     def test_to_openapi_spec_deprecated(self):
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=[], deprecated=True
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=[], deprecated=True)
         spec = ep.to_openapi_spec()
         assert spec["deprecated"] is True
 
     def test_to_openapi_spec_not_deprecated_omits_key(self):
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=[], deprecated=False
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=[], deprecated=False)
         spec = ep.to_openapi_spec()
         assert "deprecated" not in spec
 
@@ -246,9 +230,7 @@ class TestOpenAPIEndpoint:
         assert spec["tags"] == []
 
     def test_multiple_tags(self):
-        ep = OpenAPIEndpoint(
-            path="/t", method="GET", summary="S", tags=["A", "B", "C"]
-        )
+        ep = OpenAPIEndpoint(path="/t", method="GET", summary="S", tags=["A", "B", "C"])
         spec = ep.to_openapi_spec()
         assert spec["tags"] == ["A", "B", "C"]
 
@@ -498,9 +480,7 @@ class TestApiEndpoint:
 
     @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_response_model_generates_schema(self):
-        @api_endpoint(
-            path="/p", summary="S", tags=[], response_model=SampleResponse
-        )
+        @api_endpoint(path="/p", summary="S", tags=[], response_model=SampleResponse)
         def my_func():
             pass
 
@@ -548,9 +528,7 @@ class TestApiEndpoint:
         class PlainClass:
             pass
 
-        @api_endpoint(
-            path="/p", method="POST", summary="S", tags=[], request_model=PlainClass
-        )
+        @api_endpoint(path="/p", method="POST", summary="S", tags=[], request_model=PlainClass)
         def my_func():
             pass
 
@@ -582,9 +560,7 @@ class TestRegistry:
         assert endpoints == []
 
     def test_get_registered_endpoints_returns_copy(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[]))
         ep_list1 = get_registered_endpoints()
         ep_list2 = get_registered_endpoints()
         assert ep_list1 is not ep_list2
@@ -592,9 +568,7 @@ class TestRegistry:
 
     def test_get_registered_endpoints_copy_isolation(self):
         """Modifying returned list does not affect the global registry."""
-        register_endpoint(
-            OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[]))
         ep_list = get_registered_endpoints()
         ep_list.clear()
         assert len(get_registered_endpoints()) == 1
@@ -610,19 +584,13 @@ class TestRegistry:
     def test_register_multiple_endpoints(self):
         for i in range(5):
             register_endpoint(
-                OpenAPIEndpoint(
-                    path=f"/ep{i}", method="GET", summary=f"EP {i}", tags=[]
-                )
+                OpenAPIEndpoint(path=f"/ep{i}", method="GET", summary=f"EP {i}", tags=[])
             )
         assert len(get_registered_endpoints()) == 5
 
     def test_clear_registry(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[])
-        )
-        register_endpoint(
-            OpenAPIEndpoint(path="/b", method="POST", summary="B", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[]))
+        register_endpoint(OpenAPIEndpoint(path="/b", method="POST", summary="B", tags=[]))
         assert len(get_registered_endpoints()) == 2
         clear_registry()
         assert len(get_registered_endpoints()) == 0
@@ -673,20 +641,14 @@ class TestRegistry:
         assert "post" in result["/api/v1/items"]
 
     def test_get_registered_endpoints_dict_multiple_paths(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[])
-        )
-        register_endpoint(
-            OpenAPIEndpoint(path="/b", method="POST", summary="B", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[]))
+        register_endpoint(OpenAPIEndpoint(path="/b", method="POST", summary="B", tags=[]))
         result = get_registered_endpoints_dict()
         assert "/a" in result
         assert "/b" in result
 
     def test_get_registered_endpoints_dict_method_lowercased(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/t", method="DELETE", summary="D", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/t", method="DELETE", summary="D", tags=[]))
         result = get_registered_endpoints_dict()
         assert "delete" in result["/t"]
 
@@ -699,16 +661,8 @@ class TestRegistry:
 
     def test_duplicate_in_dict_last_wins(self):
         """When same path+method is registered twice, last registration wins in dict."""
-        register_endpoint(
-            OpenAPIEndpoint(
-                path="/dup", method="GET", summary="First", tags=["A"]
-            )
-        )
-        register_endpoint(
-            OpenAPIEndpoint(
-                path="/dup", method="GET", summary="Second", tags=["B"]
-            )
-        )
+        register_endpoint(OpenAPIEndpoint(path="/dup", method="GET", summary="First", tags=["A"]))
+        register_endpoint(OpenAPIEndpoint(path="/dup", method="GET", summary="Second", tags=["B"]))
         result = get_registered_endpoints_dict()
         assert result["/dup"]["get"]["summary"] == "Second"
 
@@ -1081,9 +1035,7 @@ class TestIsPydanticModel:
 
     def test_pydantic_import_failure(self):
         """When pydantic cannot be imported, returns False."""
-        with patch(
-            "aragora.server.handlers.openapi_decorator._is_pydantic_model"
-        ) as mock_fn:
+        with patch("aragora.server.handlers.openapi_decorator._is_pydantic_model") as mock_fn:
             # We can't easily mock the import inside the function, so we
             # test the behavior by calling directly with a non-pydantic type
             pass
@@ -1206,15 +1158,11 @@ class TestIntegration:
         assert "500" in ep.responses
 
     def test_register_then_clear_then_reregister(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/a", method="GET", summary="A", tags=[]))
         assert len(get_registered_endpoints()) == 1
         clear_registry()
         assert len(get_registered_endpoints()) == 0
-        register_endpoint(
-            OpenAPIEndpoint(path="/b", method="POST", summary="B", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/b", method="POST", summary="B", tags=[]))
         assert len(get_registered_endpoints()) == 1
         assert get_registered_endpoints()[0].path == "/b"
 

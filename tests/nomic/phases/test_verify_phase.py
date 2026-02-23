@@ -451,9 +451,7 @@ class TestVerifyPhaseRunTests:
         with patch.dict("sys.modules", {"aragora.nomic.testfixer.runner": None}):
             with patch("asyncio.create_subprocess_exec") as mock_exec:
                 mock_proc = AsyncMock()
-                mock_proc.communicate = AsyncMock(
-                    side_effect=asyncio.TimeoutError()
-                )
+                mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
                 mock_proc.kill = AsyncMock()
                 mock_proc.wait = AsyncMock()
                 mock_exec.return_value = mock_proc
@@ -478,9 +476,7 @@ class TestVerifyPhaseRunTests:
             with patch("asyncio.create_subprocess_exec") as mock_exec:
                 mock_proc = AsyncMock()
                 mock_proc.returncode = 0
-                mock_proc.communicate = AsyncMock(
-                    return_value=(b"5 passed in 1.0s", b"")
-                )
+                mock_proc.communicate = AsyncMock(return_value=(b"5 passed in 1.0s", b""))
                 mock_exec.return_value = mock_proc
 
                 result = await phase._run_tests()

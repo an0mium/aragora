@@ -256,7 +256,11 @@ class DebateSessionManager:
 
         self._store.set_debate_session(new_session)
         logger.info(
-            "Handoff session from %s to %s: %s -> %s", old_session.channel, new_channel, session_id, new_session_id
+            "Handoff session from %s to %s: %s -> %s",
+            old_session.channel,
+            new_channel,
+            session_id,
+            new_session_id,
         )
         return new_session
 

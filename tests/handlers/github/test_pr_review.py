@@ -221,9 +221,7 @@ class TestReviewComment:
         assert d["category"] == "quality"
 
     def test_to_dict_no_suggestion(self):
-        comment = ReviewComment(
-            id="c3", file_path="app.py", line=1, body="OK"
-        )
+        comment = ReviewComment(id="c3", file_path="app.py", line=1, body="OK")
         assert comment.to_dict()["suggestion"] is None
 
 
@@ -335,7 +333,10 @@ class TestHandlePostTriggerReview:
         result = await handler.handle_post_trigger_review(data)
         assert _status(result) == 400
         body = _body(result)
-        assert "repository" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        assert (
+            "repository" in body.get("error", "").lower()
+            or "required" in body.get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_trigger_review_missing_pr_number(self, handler):
@@ -408,7 +409,10 @@ class TestHandleGetPr:
         result = await handler.handle_get_pr({}, pr_number=42)
         assert _status(result) == 400
         body = _body(result)
-        assert "repository" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        assert (
+            "repository" in body.get("error", "").lower()
+            or "required" in body.get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     @patch(
@@ -417,9 +421,7 @@ class TestHandleGetPr:
     )
     async def test_get_pr_success(self, mock_get_pr, handler, sample_pr_details):
         mock_get_pr.return_value = sample_pr_details
-        result = await handler.handle_get_pr(
-            {"repository": "owner/repo"}, pr_number=42
-        )
+        result = await handler.handle_get_pr({"repository": "owner/repo"}, pr_number=42)
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["success"] is True
@@ -432,9 +434,7 @@ class TestHandleGetPr:
     )
     async def test_get_pr_not_found(self, mock_get_pr, handler):
         mock_get_pr.return_value = None
-        result = await handler.handle_get_pr(
-            {"repository": "owner/repo"}, pr_number=999
-        )
+        result = await handler.handle_get_pr({"repository": "owner/repo"}, pr_number=999)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -444,9 +444,7 @@ class TestHandleGetPr:
     )
     async def test_get_pr_invalid_repo_format(self, mock_get_pr, handler):
         """Repository without owner/repo format should return 404."""
-        result = await handler.handle_get_pr(
-            {"repository": "invalid-no-slash"}, pr_number=42
-        )
+        result = await handler.handle_get_pr({"repository": "invalid-no-slash"}, pr_number=42)
         # The standalone function returns success=False with error
         assert _status(result) in (400, 404)
 
@@ -461,17 +459,13 @@ class TestHandleGetReviewStatus:
 
     @pytest.mark.asyncio
     async def test_get_review_status_not_found(self, handler):
-        result = await handler.handle_get_review_status(
-            {}, review_id="nonexistent"
-        )
+        result = await handler.handle_get_review_status({}, review_id="nonexistent")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_review_status_found(self, handler, sample_review_result):
         _review_results["review_abc123"] = sample_review_result
-        result = await handler.handle_get_review_status(
-            {}, review_id="review_abc123"
-        )
+        result = await handler.handle_get_review_status({}, review_id="review_abc123")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["success"] is True
@@ -502,9 +496,7 @@ class TestHandleGetReviewStatus:
             error="Internal server error",
         )
         _review_results["review_fail"] = result
-        resp = await handler.handle_get_review_status(
-            {}, review_id="review_fail"
-        )
+        resp = await handler.handle_get_review_status({}, review_id="review_fail")
         assert _status(resp) == 200
         body = _body(resp)
         assert body["data"]["review"]["status"] == "failed"
@@ -526,9 +518,7 @@ class TestHandleListReviews:
 
     @pytest.mark.asyncio
     async def test_list_reviews_empty(self, handler):
-        result = await handler.handle_list_reviews(
-            {"repository": "owner/repo"}, pr_number=42
-        )
+        result = await handler.handle_list_reviews({"repository": "owner/repo"}, pr_number=42)
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["reviews"] == []
@@ -539,9 +529,7 @@ class TestHandleListReviews:
         _review_results["review_abc123"] = sample_review_result
         _pr_reviews["owner/repo/42"] = ["review_abc123"]
 
-        result = await handler.handle_list_reviews(
-            {"repository": "owner/repo"}, pr_number=42
-        )
+        result = await handler.handle_list_reviews({"repository": "owner/repo"}, pr_number=42)
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["total"] == 1
@@ -550,20 +538,24 @@ class TestHandleListReviews:
     @pytest.mark.asyncio
     async def test_list_reviews_multiple(self, handler):
         r1 = PRReviewResult(
-            review_id="r1", pr_number=10, repository="o/r",
-            status=ReviewStatus.COMPLETED, verdict=ReviewVerdict.APPROVE,
+            review_id="r1",
+            pr_number=10,
+            repository="o/r",
+            status=ReviewStatus.COMPLETED,
+            verdict=ReviewVerdict.APPROVE,
         )
         r2 = PRReviewResult(
-            review_id="r2", pr_number=10, repository="o/r",
-            status=ReviewStatus.COMPLETED, verdict=ReviewVerdict.COMMENT,
+            review_id="r2",
+            pr_number=10,
+            repository="o/r",
+            status=ReviewStatus.COMPLETED,
+            verdict=ReviewVerdict.COMMENT,
         )
         _review_results["r1"] = r1
         _review_results["r2"] = r2
         _pr_reviews["o/r/10"] = ["r1", "r2"]
 
-        result = await handler.handle_list_reviews(
-            {"repository": "o/r"}, pr_number=10
-        )
+        result = await handler.handle_list_reviews({"repository": "o/r"}, pr_number=10)
         body = _body(result)
         assert body["data"]["total"] == 2
 
@@ -571,9 +563,7 @@ class TestHandleListReviews:
     async def test_list_reviews_stale_id_ignored(self, handler):
         """Review IDs in _pr_reviews but not in _review_results are skipped."""
         _pr_reviews["o/r/5"] = ["nonexistent_id"]
-        result = await handler.handle_list_reviews(
-            {"repository": "o/r"}, pr_number=5
-        )
+        result = await handler.handle_list_reviews({"repository": "o/r"}, pr_number=5)
         body = _body(result)
         assert body["data"]["total"] == 0
         assert body["data"]["reviews"] == []
@@ -593,7 +583,10 @@ class TestHandlePostSubmitReview:
         result = await handler.handle_post_submit_review(data, pr_number=42)
         assert _status(result) == 400
         body = _body(result)
-        assert "required" in body.get("error", "").lower() or "repository" in body.get("error", "").lower()
+        assert (
+            "required" in body.get("error", "").lower()
+            or "repository" in body.get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_submit_review_missing_event(self, handler):
@@ -634,9 +627,7 @@ class TestHandlePostSubmitReview:
             "repository": "owner/repo",
             "event": "COMMENT",
             "body": "Some notes.",
-            "comments": [
-                {"path": "file.py", "line": 10, "body": "Fix this."}
-            ],
+            "comments": [{"path": "file.py", "line": 10, "body": "Fix this."}],
         }
         result = await handler.handle_post_submit_review(data, pr_number=42)
         assert _status(result) == 200
@@ -736,9 +727,7 @@ class TestHandleTriggerPrReviewFunction:
         # Create a fake running task
         loop = asyncio.get_event_loop()
         future = loop.create_future()
-        _running_reviews["owner/repo/42"] = asyncio.ensure_future(
-            asyncio.sleep(100)
-        )
+        _running_reviews["owner/repo/42"] = asyncio.ensure_future(asyncio.sleep(100))
         try:
             result = await handle_trigger_pr_review(
                 repository="owner/repo",
@@ -771,25 +760,19 @@ class TestHandleGetPrDetailsFunction:
     )
     async def test_get_details_success(self, mock_get_pr, sample_pr_details):
         mock_get_pr.return_value = sample_pr_details
-        result = await handle_get_pr_details(
-            repository="owner/repo", pr_number=42
-        )
+        result = await handle_get_pr_details(repository="owner/repo", pr_number=42)
         assert result["success"] is True
         assert result["pr"]["number"] == 42
 
     @pytest.mark.asyncio
     async def test_get_details_invalid_repo(self):
-        result = await handle_get_pr_details(
-            repository="no-slash", pr_number=1
-        )
+        result = await handle_get_pr_details(repository="no-slash", pr_number=1)
         assert result["success"] is False
         assert "invalid" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_get_details_three_part_repo(self):
-        result = await handle_get_pr_details(
-            repository="a/b/c", pr_number=1
-        )
+        result = await handle_get_pr_details(repository="a/b/c", pr_number=1)
         assert result["success"] is False
 
     @pytest.mark.asyncio
@@ -799,9 +782,7 @@ class TestHandleGetPrDetailsFunction:
     )
     async def test_get_details_not_found(self, mock_get_pr):
         mock_get_pr.return_value = None
-        result = await handle_get_pr_details(
-            repository="owner/repo", pr_number=999
-        )
+        result = await handle_get_pr_details(repository="owner/repo", pr_number=999)
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
@@ -838,9 +819,7 @@ class TestHandleListPrReviewsFunction:
 
     @pytest.mark.asyncio
     async def test_list_empty(self):
-        result = await handle_list_pr_reviews(
-            repository="owner/repo", pr_number=42
-        )
+        result = await handle_list_pr_reviews(repository="owner/repo", pr_number=42)
         assert result["success"] is True
         assert result["reviews"] == []
         assert result["total"] == 0
@@ -849,9 +828,7 @@ class TestHandleListPrReviewsFunction:
     async def test_list_with_reviews(self, sample_review_result):
         _review_results["review_abc123"] = sample_review_result
         _pr_reviews["owner/repo/42"] = ["review_abc123"]
-        result = await handle_list_pr_reviews(
-            repository="owner/repo", pr_number=42
-        )
+        result = await handle_list_pr_reviews(repository="owner/repo", pr_number=42)
         assert result["success"] is True
         assert result["total"] == 1
         assert result["reviews"][0]["review_id"] == "review_abc123"
@@ -860,9 +837,7 @@ class TestHandleListPrReviewsFunction:
     async def test_list_different_pr_returns_empty(self, sample_review_result):
         _review_results["review_abc123"] = sample_review_result
         _pr_reviews["owner/repo/42"] = ["review_abc123"]
-        result = await handle_list_pr_reviews(
-            repository="owner/repo", pr_number=99
-        )
+        result = await handle_list_pr_reviews(repository="owner/repo", pr_number=99)
         assert result["total"] == 0
 
 
@@ -946,6 +921,7 @@ class TestGitHubClient:
         with patch.dict("os.environ", {}, clear=False):
             # Remove GITHUB_TOKEN if set
             import os
+
             old_val = os.environ.pop("GITHUB_TOKEN", None)
             try:
                 client = GitHubClient(token=None)
@@ -1056,9 +1032,7 @@ class TestHandleSync:
         assert result is None
 
     def test_handle_returns_none_for_reviews(self, handler):
-        result = handler.handle(
-            "/api/v1/github/pr/42/reviews", {}, MagicMock()
-        )
+        result = handler.handle("/api/v1/github/pr/42/reviews", {}, MagicMock())
         assert result is None
 
 
@@ -1088,9 +1062,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_review_comment_left_side(self):
         """ReviewComment with LEFT side."""
-        comment = ReviewComment(
-            id="c1", file_path="f.py", line=1, body="test", side="LEFT"
-        )
+        comment = ReviewComment(id="c1", file_path="f.py", line=1, body="test", side="LEFT")
         assert comment.to_dict()["side"] == "LEFT"
 
     @pytest.mark.asyncio
@@ -1125,8 +1097,13 @@ class TestEdgeCases:
     async def test_pr_details_empty_diff(self):
         """PRDetails with no diff field."""
         pr = PRDetails(
-            number=1, title="T", body="B", state="open",
-            author="a", base_branch="main", head_branch="b",
+            number=1,
+            title="T",
+            body="B",
+            state="open",
+            author="a",
+            base_branch="main",
+            head_branch="b",
         )
         assert pr.diff is None
 
@@ -1134,8 +1111,13 @@ class TestEdgeCases:
     async def test_pr_details_with_commits(self):
         """PRDetails with commits populated."""
         pr = PRDetails(
-            number=1, title="T", body="B", state="open",
-            author="a", base_branch="main", head_branch="b",
+            number=1,
+            title="T",
+            body="B",
+            state="open",
+            author="a",
+            base_branch="main",
+            head_branch="b",
             commits=[{"sha": "abc123", "message": "initial"}],
         )
         assert len(pr.commits) == 1
@@ -1145,8 +1127,11 @@ class TestEdgeCases:
     async def test_review_comment_error_severity(self):
         """ReviewComment with error severity."""
         comment = ReviewComment(
-            id="c1", file_path="f.py", line=1,
-            body="Security issue!", severity="error",
+            id="c1",
+            file_path="f.py",
+            line=1,
+            body="Security issue!",
+            severity="error",
             category="security",
         )
         d = comment.to_dict()
@@ -1177,6 +1162,7 @@ class TestBugDetectorImport:
             with patch.dict("sys.modules", {"aragora.analysis.codebase.bug_detector": None}):
                 # Force re-import attempt
                 import aragora.server.handlers.github.pr_review as mod
+
                 old_imported = mod._bug_detector_imported
                 mod._bug_detector_imported = False
                 try:
@@ -1300,15 +1286,18 @@ class TestPerformReviewHeuristics:
 
         mock_bug_det.return_value = ([], [])
         pr = PRDetails(
-            number=1, title="T", body="B", state="open",
-            author="a", base_branch="main", head_branch="b",
+            number=1,
+            title="T",
+            body="B",
+            state="open",
+            author="a",
+            base_branch="main",
+            head_branch="b",
             changed_files=[
                 {"filename": "readme.txt", "patch": "@@ +1 @@\n+hello"},
             ],
         )
-        comments, verdict, summary = await _perform_review(
-            pr, "quick", use_debate=False
-        )
+        comments, verdict, summary = await _perform_review(pr, "quick", use_debate=False)
         assert verdict == ReviewVerdict.APPROVE
 
     @pytest.mark.asyncio
@@ -1322,8 +1311,13 @@ class TestPerformReviewHeuristics:
 
         mock_bug_det.return_value = ([], [])
         pr = PRDetails(
-            number=1, title="T", body="B", state="open",
-            author="a", base_branch="main", head_branch="b",
+            number=1,
+            title="T",
+            body="B",
+            state="open",
+            author="a",
+            base_branch="main",
+            head_branch="b",
             changed_files=[
                 {
                     "filename": "src/module.py",
@@ -1331,9 +1325,7 @@ class TestPerformReviewHeuristics:
                 },
             ],
         )
-        comments, verdict, summary = await _perform_review(
-            pr, "quick", use_debate=False
-        )
+        comments, verdict, summary = await _perform_review(pr, "quick", use_debate=False)
         test_comments = [c for c in comments if "test" in c.body.lower()]
         assert len(test_comments) >= 1
 
@@ -1348,8 +1340,13 @@ class TestPerformReviewHeuristics:
 
         mock_bug_det.return_value = ([], [])
         pr = PRDetails(
-            number=1, title="T", body="B", state="open",
-            author="a", base_branch="main", head_branch="b",
+            number=1,
+            title="T",
+            body="B",
+            state="open",
+            author="a",
+            base_branch="main",
+            head_branch="b",
             changed_files=[
                 {
                     "filename": "src/module.py",
@@ -1361,12 +1358,9 @@ class TestPerformReviewHeuristics:
                 },
             ],
         )
-        comments, verdict, summary = await _perform_review(
-            pr, "quick", use_debate=False
-        )
+        comments, verdict, summary = await _perform_review(pr, "quick", use_debate=False)
         test_missing_comments = [
-            c for c in comments
-            if "test" in c.body.lower() and "missing" in c.body.lower()
+            c for c in comments if "test" in c.body.lower() and "missing" in c.body.lower()
         ]
         assert len(test_missing_comments) == 0
 
@@ -1384,22 +1378,28 @@ class TestPerformReviewHeuristics:
 
         bug_comments = [
             RC(
-                id="bug1", file_path="f.py", line=1,
-                body="Null dereference", severity="error",
+                id="bug1",
+                file_path="f.py",
+                line=1,
+                body="Null dereference",
+                severity="error",
                 category="bug_detection",
             )
         ]
         mock_bug_det.return_value = (bug_comments, ["bug_null_deref"])
         pr = PRDetails(
-            number=1, title="T", body="B", state="open",
-            author="a", base_branch="main", head_branch="b",
+            number=1,
+            title="T",
+            body="B",
+            state="open",
+            author="a",
+            base_branch="main",
+            head_branch="b",
             changed_files=[
                 {"filename": "readme.txt", "patch": "@@ +1 @@\n+hello"},
             ],
         )
-        comments, verdict, summary = await _perform_review(
-            pr, "quick", use_debate=False
-        )
+        comments, verdict, summary = await _perform_review(pr, "quick", use_debate=False)
         assert verdict == ReviewVerdict.REQUEST_CHANGES
         assert "bug detector" in summary.lower()
 
@@ -1491,11 +1491,7 @@ class TestParseDebateResult:
     def test_parse_comment_without_line_number(self, sample_pr_details):
         from aragora.server.handlers.github.pr_review import _parse_debate_result
 
-        answer = (
-            "VERDICT: APPROVE\n"
-            "SUMMARY: OK.\n\n"
-            "- helper.py - Generic suggestion\n"
-        )
+        answer = "VERDICT: APPROVE\nSUMMARY: OK.\n\n- helper.py - Generic suggestion\n"
         comments, verdict, summary = _parse_debate_result(answer, sample_pr_details)
         # Comments without line number default to line 1
         for c in comments:
@@ -1519,9 +1515,7 @@ class TestIntegration:
         body = _body(trigger_result)
         review_id = body["data"]["review_id"]
 
-        status_result = await handler.handle_get_review_status(
-            {}, review_id=review_id
-        )
+        status_result = await handler.handle_get_review_status({}, review_id=review_id)
         status_body = _body(status_result)
         assert _status(status_result) == 200
         assert status_body["data"]["review"]["review_id"] == review_id
@@ -1536,9 +1530,7 @@ class TestIntegration:
         body = _body(trigger_result)
         review_id = body["data"]["review_id"]
 
-        list_result = await handler.handle_list_reviews(
-            {"repository": "owner/repo"}, pr_number=55
-        )
+        list_result = await handler.handle_list_reviews({"repository": "owner/repo"}, pr_number=55)
         list_body = _body(list_result)
         assert list_body["data"]["total"] >= 1
         review_ids = [r["review_id"] for r in list_body["data"]["reviews"]]

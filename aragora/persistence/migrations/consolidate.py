@@ -1192,7 +1192,12 @@ class DatabaseConsolidator:
                     columns = table_config["columns"]
 
                     logger.info(
-                        "%sMigrating %s:%s -> %s:%s", '[DRY RUN] ' if dry_run else '', source_db_name, source_table, target_db_name, target_table
+                        "%sMigrating %s:%s -> %s:%s",
+                        "[DRY RUN] " if dry_run else "",
+                        source_db_name,
+                        source_table,
+                        target_db_name,
+                        target_table,
                     )
 
                     if dry_run:

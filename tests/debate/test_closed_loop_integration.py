@@ -91,7 +91,9 @@ class _FakeArena:
         self.enable_live_explainability = True
         self.live_explainability_stream = None
         self.enable_post_debate_workflow = False
-        self.disable_post_debate_pipeline = True  # Skip full coordinator in handle_debate_completion
+        self.disable_post_debate_pipeline = (
+            True  # Skip full coordinator in handle_debate_completion
+        )
         self.enable_auto_execution = False
         self.post_debate_config = None
         self.compliance_monitor = None
@@ -248,14 +250,17 @@ class TestClosedLoopIntegration:
             "agents_flagged": ["gpt4"],
         }
 
-        with patch.object(
-            coordinator,
-            "_step_argument_verification",
-            return_value=verification_result,
-        ), patch.object(
-            coordinator,
-            "_step_outcome_feedback",
-            return_value=feedback_result,
+        with (
+            patch.object(
+                coordinator,
+                "_step_argument_verification",
+                return_value=verification_result,
+            ),
+            patch.object(
+                coordinator,
+                "_step_outcome_feedback",
+                return_value=feedback_result,
+            ),
         ):
             result = coordinator.run(
                 "integration-test-001",

@@ -70,6 +70,7 @@ _UTILS = "aragora.server.handlers.admin.health.knowledge_mound_utils"
 # Helper to build mock util functions that return preset results
 # ---------------------------------------------------------------------------
 
+
 def _default_component(healthy=True, status="active"):
     """Build a default component dict."""
     return {"healthy": healthy, "status": status}
@@ -78,13 +79,16 @@ def _default_component(healthy=True, status="active"):
 def _make_all_utils_healthy():
     """Return a dict of patch targets -> return values for all utils in a healthy state."""
     return {
-        f"{_MOD}.check_knowledge_mound_module": (
-            {"healthy": True, "status": "available"}, False
-        ),
+        f"{_MOD}.check_knowledge_mound_module": ({"healthy": True, "status": "available"}, False),
         f"{_MOD}.check_mound_core_initialization": (
-            {"healthy": True, "status": "initialized", "workspace_id": "health_check"}, MagicMock()
+            {"healthy": True, "status": "initialized", "workspace_id": "health_check"},
+            MagicMock(),
         ),
-        f"{_MOD}.check_storage_backend": {"healthy": True, "status": "configured", "backend": "sqlite"},
+        f"{_MOD}.check_storage_backend": {
+            "healthy": True,
+            "status": "configured",
+            "backend": "sqlite",
+        },
         f"{_MOD}.check_culture_accumulator": {"healthy": True, "status": "active"},
         f"{_MOD}.check_staleness_tracker": {"healthy": True, "status": "active"},
         f"{_MOD}.check_rlm_integration": {"healthy": True, "status": "active"},
@@ -94,9 +98,7 @@ def _make_all_utils_healthy():
         f"{_MOD}.check_bidirectional_adapters": {"healthy": True, "status": "available"},
         f"{_MOD}.check_control_plane_adapter": {"healthy": True, "status": "available"},
         f"{_MOD}.check_km_metrics": {"healthy": True, "status": "available"},
-        f"{_MOD}.check_confidence_decay_scheduler": (
-            {"healthy": True, "status": "active"}, []
-        ),
+        f"{_MOD}.check_confidence_decay_scheduler": ({"healthy": True, "status": "active"}, []),
     }
 
 
@@ -167,10 +169,19 @@ class TestKnowledgeMoundHealth:
         from aragora.server.handlers.admin.health.knowledge_mound import knowledge_mound_health
 
         expected_keys = {
-            "module", "core", "storage", "culture_accumulator",
-            "staleness_tracker", "rlm_integration", "codebase_context",
-            "debate_integration", "redis_cache", "bidirectional_adapters",
-            "control_plane_adapter", "km_metrics", "confidence_decay",
+            "module",
+            "core",
+            "storage",
+            "culture_accumulator",
+            "staleness_tracker",
+            "rlm_integration",
+            "codebase_context",
+            "debate_integration",
+            "redis_cache",
+            "bidirectional_adapters",
+            "control_plane_adapter",
+            "km_metrics",
+            "confidence_decay",
         }
         with _PatchContext():
             result = knowledge_mound_health(MagicMock())
@@ -290,9 +301,10 @@ class TestKnowledgeMoundHealthModuleAbort:
             f"{_MOD}.check_mound_core_initialization": mock_core,
         }
         # Need to use direct patching to check call count
-        with patch(f"{_MOD}.check_knowledge_mound_module", return_value=(
-            {"healthy": False, "status": "not_available"}, True
-        )):
+        with patch(
+            f"{_MOD}.check_knowledge_mound_module",
+            return_value=({"healthy": False, "status": "not_available"}, True),
+        ):
             with patch(f"{_MOD}.check_mound_core_initialization") as mock_init:
                 result = knowledge_mound_health(MagicMock())
                 mock_init.assert_not_called()
@@ -353,10 +365,12 @@ class TestKnowledgeMoundHealthStatusLogic:
         # Make all components healthy but with non-active statuses
         overrides = {
             f"{_MOD}.check_knowledge_mound_module": (
-                {"healthy": True, "status": "available"}, False
+                {"healthy": True, "status": "available"},
+                False,
             ),
             f"{_MOD}.check_mound_core_initialization": (
-                {"healthy": True, "status": "initialized"}, MagicMock()
+                {"healthy": True, "status": "initialized"},
+                MagicMock(),
             ),
             f"{_MOD}.check_storage_backend": {"healthy": True, "status": "configured"},
             f"{_MOD}.check_culture_accumulator": {"healthy": True, "status": "not_initialized"},
@@ -364,12 +378,16 @@ class TestKnowledgeMoundHealthStatusLogic:
             f"{_MOD}.check_rlm_integration": {"healthy": True, "status": "not_available"},
             f"{_MOD}.check_codebase_context": {"healthy": True, "status": "missing"},
             f"{_MOD}.check_debate_integration": {"healthy": True, "status": "not_available"},
-            f"{_MOD}.check_knowledge_mound_redis_cache": {"healthy": True, "status": "not_configured"},
+            f"{_MOD}.check_knowledge_mound_redis_cache": {
+                "healthy": True,
+                "status": "not_configured",
+            },
             f"{_MOD}.check_bidirectional_adapters": {"healthy": True, "status": "partial"},
             f"{_MOD}.check_control_plane_adapter": {"healthy": True, "status": "not_available"},
             f"{_MOD}.check_km_metrics": {"healthy": True, "status": "not_available"},
             f"{_MOD}.check_confidence_decay_scheduler": (
-                {"healthy": True, "status": "not_configured"}, []
+                {"healthy": True, "status": "not_configured"},
+                [],
             ),
         }
         with _PatchContext(overrides):
@@ -384,7 +402,8 @@ class TestKnowledgeMoundHealthStatusLogic:
 
         overrides = {
             f"{_MOD}.check_mound_core_initialization": (
-                {"healthy": False, "status": "initialization_failed"}, None
+                {"healthy": False, "status": "initialization_failed"},
+                None,
             ),
             # Some components still active
             f"{_MOD}.check_rlm_integration": {"healthy": True, "status": "active"},
@@ -534,75 +553,201 @@ class TestKnowledgeMoundHealthComponents:
         from aragora.server.handlers.admin.health.knowledge_mound import knowledge_mound_health
 
         mock_mound = MagicMock()
-        with patch(f"{_MOD}.check_knowledge_mound_module", return_value=(
-            {"healthy": True, "status": "available"}, False
-        )):
-            with patch(f"{_MOD}.check_mound_core_initialization", return_value=(
-                {"healthy": True, "status": "initialized"}, mock_mound
-            )):
-                with patch(f"{_MOD}.check_storage_backend", return_value={"healthy": True, "status": "ok"}) as mock_sb:
-                    with patch(f"{_MOD}.check_culture_accumulator", return_value={"healthy": True, "status": "ok"}):
-                        with patch(f"{_MOD}.check_staleness_tracker", return_value={"healthy": True, "status": "ok"}):
-                            with patch(f"{_MOD}.check_rlm_integration", return_value={"healthy": True, "status": "ok"}):
-                                with patch(f"{_MOD}.check_codebase_context", return_value={"healthy": True, "status": "ok"}):
-                                    with patch(f"{_MOD}.check_debate_integration", return_value={"healthy": True, "status": "ok"}):
-                                        with patch(f"{_MOD}.check_knowledge_mound_redis_cache", return_value={"healthy": True, "status": "ok"}):
-                                            with patch(f"{_MOD}.check_bidirectional_adapters", return_value={"healthy": True, "status": "ok"}):
-                                                with patch(f"{_MOD}.check_control_plane_adapter", return_value={"healthy": True, "status": "ok"}):
-                                                    with patch(f"{_MOD}.check_km_metrics", return_value={"healthy": True, "status": "ok"}):
-                                                        with patch(f"{_MOD}.check_confidence_decay_scheduler", return_value=({"healthy": True, "status": "ok"}, [])):
+        with patch(
+            f"{_MOD}.check_knowledge_mound_module",
+            return_value=({"healthy": True, "status": "available"}, False),
+        ):
+            with patch(
+                f"{_MOD}.check_mound_core_initialization",
+                return_value=({"healthy": True, "status": "initialized"}, mock_mound),
+            ):
+                with patch(
+                    f"{_MOD}.check_storage_backend", return_value={"healthy": True, "status": "ok"}
+                ) as mock_sb:
+                    with patch(
+                        f"{_MOD}.check_culture_accumulator",
+                        return_value={"healthy": True, "status": "ok"},
+                    ):
+                        with patch(
+                            f"{_MOD}.check_staleness_tracker",
+                            return_value={"healthy": True, "status": "ok"},
+                        ):
+                            with patch(
+                                f"{_MOD}.check_rlm_integration",
+                                return_value={"healthy": True, "status": "ok"},
+                            ):
+                                with patch(
+                                    f"{_MOD}.check_codebase_context",
+                                    return_value={"healthy": True, "status": "ok"},
+                                ):
+                                    with patch(
+                                        f"{_MOD}.check_debate_integration",
+                                        return_value={"healthy": True, "status": "ok"},
+                                    ):
+                                        with patch(
+                                            f"{_MOD}.check_knowledge_mound_redis_cache",
+                                            return_value={"healthy": True, "status": "ok"},
+                                        ):
+                                            with patch(
+                                                f"{_MOD}.check_bidirectional_adapters",
+                                                return_value={"healthy": True, "status": "ok"},
+                                            ):
+                                                with patch(
+                                                    f"{_MOD}.check_control_plane_adapter",
+                                                    return_value={"healthy": True, "status": "ok"},
+                                                ):
+                                                    with patch(
+                                                        f"{_MOD}.check_km_metrics",
+                                                        return_value={
+                                                            "healthy": True,
+                                                            "status": "ok",
+                                                        },
+                                                    ):
+                                                        with patch(
+                                                            f"{_MOD}.check_confidence_decay_scheduler",
+                                                            return_value=(
+                                                                {"healthy": True, "status": "ok"},
+                                                                [],
+                                                            ),
+                                                        ):
                                                             knowledge_mound_health(MagicMock())
-                                                            mock_sb.assert_called_once_with(mock_mound)
+                                                            mock_sb.assert_called_once_with(
+                                                                mock_mound
+                                                            )
 
     def test_mound_instance_passed_to_culture_check(self):
         """The mound instance from core init is passed to check_culture_accumulator."""
         from aragora.server.handlers.admin.health.knowledge_mound import knowledge_mound_health
 
         mock_mound = MagicMock()
-        with patch(f"{_MOD}.check_knowledge_mound_module", return_value=(
-            {"healthy": True, "status": "available"}, False
-        )):
-            with patch(f"{_MOD}.check_mound_core_initialization", return_value=(
-                {"healthy": True, "status": "initialized"}, mock_mound
-            )):
-                with patch(f"{_MOD}.check_storage_backend", return_value={"healthy": True, "status": "ok"}):
-                    with patch(f"{_MOD}.check_culture_accumulator", return_value={"healthy": True, "status": "ok"}) as mock_ca:
-                        with patch(f"{_MOD}.check_staleness_tracker", return_value={"healthy": True, "status": "ok"}):
-                            with patch(f"{_MOD}.check_rlm_integration", return_value={"healthy": True, "status": "ok"}):
-                                with patch(f"{_MOD}.check_codebase_context", return_value={"healthy": True, "status": "ok"}):
-                                    with patch(f"{_MOD}.check_debate_integration", return_value={"healthy": True, "status": "ok"}):
-                                        with patch(f"{_MOD}.check_knowledge_mound_redis_cache", return_value={"healthy": True, "status": "ok"}):
-                                            with patch(f"{_MOD}.check_bidirectional_adapters", return_value={"healthy": True, "status": "ok"}):
-                                                with patch(f"{_MOD}.check_control_plane_adapter", return_value={"healthy": True, "status": "ok"}):
-                                                    with patch(f"{_MOD}.check_km_metrics", return_value={"healthy": True, "status": "ok"}):
-                                                        with patch(f"{_MOD}.check_confidence_decay_scheduler", return_value=({"healthy": True, "status": "ok"}, [])):
+        with patch(
+            f"{_MOD}.check_knowledge_mound_module",
+            return_value=({"healthy": True, "status": "available"}, False),
+        ):
+            with patch(
+                f"{_MOD}.check_mound_core_initialization",
+                return_value=({"healthy": True, "status": "initialized"}, mock_mound),
+            ):
+                with patch(
+                    f"{_MOD}.check_storage_backend", return_value={"healthy": True, "status": "ok"}
+                ):
+                    with patch(
+                        f"{_MOD}.check_culture_accumulator",
+                        return_value={"healthy": True, "status": "ok"},
+                    ) as mock_ca:
+                        with patch(
+                            f"{_MOD}.check_staleness_tracker",
+                            return_value={"healthy": True, "status": "ok"},
+                        ):
+                            with patch(
+                                f"{_MOD}.check_rlm_integration",
+                                return_value={"healthy": True, "status": "ok"},
+                            ):
+                                with patch(
+                                    f"{_MOD}.check_codebase_context",
+                                    return_value={"healthy": True, "status": "ok"},
+                                ):
+                                    with patch(
+                                        f"{_MOD}.check_debate_integration",
+                                        return_value={"healthy": True, "status": "ok"},
+                                    ):
+                                        with patch(
+                                            f"{_MOD}.check_knowledge_mound_redis_cache",
+                                            return_value={"healthy": True, "status": "ok"},
+                                        ):
+                                            with patch(
+                                                f"{_MOD}.check_bidirectional_adapters",
+                                                return_value={"healthy": True, "status": "ok"},
+                                            ):
+                                                with patch(
+                                                    f"{_MOD}.check_control_plane_adapter",
+                                                    return_value={"healthy": True, "status": "ok"},
+                                                ):
+                                                    with patch(
+                                                        f"{_MOD}.check_km_metrics",
+                                                        return_value={
+                                                            "healthy": True,
+                                                            "status": "ok",
+                                                        },
+                                                    ):
+                                                        with patch(
+                                                            f"{_MOD}.check_confidence_decay_scheduler",
+                                                            return_value=(
+                                                                {"healthy": True, "status": "ok"},
+                                                                [],
+                                                            ),
+                                                        ):
                                                             knowledge_mound_health(MagicMock())
-                                                            mock_ca.assert_called_once_with(mock_mound)
+                                                            mock_ca.assert_called_once_with(
+                                                                mock_mound
+                                                            )
 
     def test_mound_instance_passed_to_staleness_check(self):
         """The mound instance from core init is passed to check_staleness_tracker."""
         from aragora.server.handlers.admin.health.knowledge_mound import knowledge_mound_health
 
         mock_mound = MagicMock()
-        with patch(f"{_MOD}.check_knowledge_mound_module", return_value=(
-            {"healthy": True, "status": "available"}, False
-        )):
-            with patch(f"{_MOD}.check_mound_core_initialization", return_value=(
-                {"healthy": True, "status": "initialized"}, mock_mound
-            )):
-                with patch(f"{_MOD}.check_storage_backend", return_value={"healthy": True, "status": "ok"}):
-                    with patch(f"{_MOD}.check_culture_accumulator", return_value={"healthy": True, "status": "ok"}):
-                        with patch(f"{_MOD}.check_staleness_tracker", return_value={"healthy": True, "status": "ok"}) as mock_st:
-                            with patch(f"{_MOD}.check_rlm_integration", return_value={"healthy": True, "status": "ok"}):
-                                with patch(f"{_MOD}.check_codebase_context", return_value={"healthy": True, "status": "ok"}):
-                                    with patch(f"{_MOD}.check_debate_integration", return_value={"healthy": True, "status": "ok"}):
-                                        with patch(f"{_MOD}.check_knowledge_mound_redis_cache", return_value={"healthy": True, "status": "ok"}):
-                                            with patch(f"{_MOD}.check_bidirectional_adapters", return_value={"healthy": True, "status": "ok"}):
-                                                with patch(f"{_MOD}.check_control_plane_adapter", return_value={"healthy": True, "status": "ok"}):
-                                                    with patch(f"{_MOD}.check_km_metrics", return_value={"healthy": True, "status": "ok"}):
-                                                        with patch(f"{_MOD}.check_confidence_decay_scheduler", return_value=({"healthy": True, "status": "ok"}, [])):
+        with patch(
+            f"{_MOD}.check_knowledge_mound_module",
+            return_value=({"healthy": True, "status": "available"}, False),
+        ):
+            with patch(
+                f"{_MOD}.check_mound_core_initialization",
+                return_value=({"healthy": True, "status": "initialized"}, mock_mound),
+            ):
+                with patch(
+                    f"{_MOD}.check_storage_backend", return_value={"healthy": True, "status": "ok"}
+                ):
+                    with patch(
+                        f"{_MOD}.check_culture_accumulator",
+                        return_value={"healthy": True, "status": "ok"},
+                    ):
+                        with patch(
+                            f"{_MOD}.check_staleness_tracker",
+                            return_value={"healthy": True, "status": "ok"},
+                        ) as mock_st:
+                            with patch(
+                                f"{_MOD}.check_rlm_integration",
+                                return_value={"healthy": True, "status": "ok"},
+                            ):
+                                with patch(
+                                    f"{_MOD}.check_codebase_context",
+                                    return_value={"healthy": True, "status": "ok"},
+                                ):
+                                    with patch(
+                                        f"{_MOD}.check_debate_integration",
+                                        return_value={"healthy": True, "status": "ok"},
+                                    ):
+                                        with patch(
+                                            f"{_MOD}.check_knowledge_mound_redis_cache",
+                                            return_value={"healthy": True, "status": "ok"},
+                                        ):
+                                            with patch(
+                                                f"{_MOD}.check_bidirectional_adapters",
+                                                return_value={"healthy": True, "status": "ok"},
+                                            ):
+                                                with patch(
+                                                    f"{_MOD}.check_control_plane_adapter",
+                                                    return_value={"healthy": True, "status": "ok"},
+                                                ):
+                                                    with patch(
+                                                        f"{_MOD}.check_km_metrics",
+                                                        return_value={
+                                                            "healthy": True,
+                                                            "status": "ok",
+                                                        },
+                                                    ):
+                                                        with patch(
+                                                            f"{_MOD}.check_confidence_decay_scheduler",
+                                                            return_value=(
+                                                                {"healthy": True, "status": "ok"},
+                                                                [],
+                                                            ),
+                                                        ):
                                                             knowledge_mound_health(MagicMock())
-                                                            mock_st.assert_called_once_with(mock_mound)
+                                                            mock_st.assert_called_once_with(
+                                                                mock_mound
+                                                            )
 
 
 # ============================================================================
@@ -617,9 +762,12 @@ class TestDecayHealthImportError:
         """When confidence_decay_scheduler cannot be imported, returns 'not_available'."""
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": None,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["status"] == "not_available"
@@ -629,9 +777,12 @@ class TestDecayHealthImportError:
         """Module not available returns HTTP 503."""
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": None,
+            },
+        ):
             result = decay_health(MagicMock())
             assert _status(result) == 503
 
@@ -639,9 +790,12 @@ class TestDecayHealthImportError:
         """Import error response includes response_time_ms."""
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": None,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert "response_time_ms" in body
@@ -664,9 +818,12 @@ class TestDecayHealthNotConfigured:
         mock_mod.get_decay_scheduler.return_value = None
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["status"] == "not_configured"
@@ -680,9 +837,12 @@ class TestDecayHealthNotConfigured:
         mock_mod.get_decay_scheduler.return_value = None
         mock_mod.DECAY_METRICS_AVAILABLE = True
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             assert _status(result) == 200
 
@@ -694,9 +854,12 @@ class TestDecayHealthNotConfigured:
         mock_mod.get_decay_scheduler.return_value = None
         mock_mod.DECAY_METRICS_AVAILABLE = True
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["metrics_available"] is True
@@ -709,9 +872,12 @@ class TestDecayHealthNotConfigured:
         mock_mod.get_decay_scheduler.return_value = None
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert "response_time_ms" in body
@@ -760,9 +926,12 @@ class TestDecayHealthRunning:
         recent = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         mock_mod = self._make_scheduler(last_runs={"ws1": recent})
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["status"] == "healthy"
@@ -772,9 +941,12 @@ class TestDecayHealthRunning:
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
         mock_mod = self._make_scheduler()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             assert _status(result) == 200
 
@@ -783,9 +955,12 @@ class TestDecayHealthRunning:
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
         mock_mod = self._make_scheduler()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             scheduler = body["scheduler"]
@@ -799,9 +974,12 @@ class TestDecayHealthRunning:
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
         mock_mod = self._make_scheduler()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             stats = body["statistics"]
@@ -817,9 +995,12 @@ class TestDecayHealthRunning:
         recent = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         mock_mod = self._make_scheduler(last_runs={"ws1": recent, "ws2": recent})
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             ws = body["workspaces"]
@@ -834,9 +1015,12 @@ class TestDecayHealthRunning:
         recent = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
         mock_mod = self._make_scheduler(last_runs={"my_ws": recent})
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             details = body["workspaces"]["details"]
@@ -850,9 +1034,12 @@ class TestDecayHealthRunning:
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
         mock_mod = self._make_scheduler()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["metrics_available"] is True
@@ -864,9 +1051,12 @@ class TestDecayHealthRunning:
         recent = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         mock_mod = self._make_scheduler(last_runs={"ws1": recent})
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["warnings"] is None
@@ -876,9 +1066,12 @@ class TestDecayHealthRunning:
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
         mock_mod = self._make_scheduler()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["timestamp"].endswith("Z")
@@ -888,9 +1081,12 @@ class TestDecayHealthRunning:
         from aragora.server.handlers.admin.health.knowledge_mound import decay_health
 
         mock_mod = self._make_scheduler()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["response_time_ms"] >= 0
@@ -923,9 +1119,12 @@ class TestDecayHealthStopped:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["status"] == "stopped"
@@ -946,9 +1145,12 @@ class TestDecayHealthStopped:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             # Even though ws is stale, status is "stopped" because running=False
@@ -978,9 +1180,12 @@ class TestDecayHealthDegraded:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = True
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["status"] == "degraded"
@@ -1000,9 +1205,12 @@ class TestDecayHealthDegraded:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["warnings"] is not None
@@ -1028,9 +1236,12 @@ class TestDecayHealthDegraded:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["workspaces"]["stale_count"] == 1
@@ -1055,9 +1266,12 @@ class TestDecayHealthDegraded:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["workspaces"]["stale_count"] == 3
@@ -1078,9 +1292,12 @@ class TestDecayHealthDegraded:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_stale"]
@@ -1111,9 +1328,12 @@ class TestDecayHealthWorkspaceStatus:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_fresh"]
@@ -1136,9 +1356,12 @@ class TestDecayHealthWorkspaceStatus:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_edge"]
@@ -1159,9 +1382,12 @@ class TestDecayHealthWorkspaceStatus:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_over"]
@@ -1181,9 +1407,12 @@ class TestDecayHealthWorkspaceStatus:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["workspaces"]["details"] is None
@@ -1212,9 +1441,12 @@ class TestDecayHealthParseErrors:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_bad"]
@@ -1235,9 +1467,12 @@ class TestDecayHealthParseErrors:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_empty"]
@@ -1257,9 +1492,12 @@ class TestDecayHealthParseErrors:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["workspaces"]["stale_count"] == 0
@@ -1283,9 +1521,12 @@ class TestDecayHealthParseErrors:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["workspaces"]["total"] == 2
@@ -1315,9 +1556,12 @@ class TestDecayHealthTimestamp:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["timestamp"].endswith("Z")
@@ -1339,9 +1583,12 @@ class TestDecayHealthTimestamp:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["response_time_ms"] >= 0
@@ -1371,9 +1618,12 @@ class TestDecayHealthEdgeCases:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             detail = body["workspaces"]["details"]["ws_z"]
@@ -1395,9 +1645,12 @@ class TestDecayHealthEdgeCases:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["scheduler"]["decay_interval_hours"] == 24
@@ -1423,9 +1676,12 @@ class TestDecayHealthEdgeCases:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             warning = body["warnings"][0]
@@ -1447,18 +1703,21 @@ class TestDecayHealthEdgeCases:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             hours = body["workspaces"]["details"]["ws_round"]["hours_since_decay"]
             # Should be approximately 3.5, rounded to 1 decimal
             assert 3.0 <= hours <= 4.0
             # Verify it's rounded to 1 decimal
-            assert str(hours).count('.') <= 1
-            if '.' in str(hours):
-                decimal_places = len(str(hours).split('.')[1])
+            assert str(hours).count(".") <= 1
+            if "." in str(hours):
+                decimal_places = len(str(hours).split(".")[1])
                 assert decimal_places <= 1
 
     def test_metrics_available_false(self):
@@ -1475,9 +1734,12 @@ class TestDecayHealthEdgeCases:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             result = decay_health(MagicMock())
             body = _body(result)
             assert body["metrics_available"] is False
@@ -1496,9 +1758,12 @@ class TestDecayHealthEdgeCases:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
             # Pass None as handler - should not cause any error
             result = decay_health(None)
             body = _body(result)
@@ -1526,15 +1791,14 @@ class TestViaHealthHandler:
     def health_handler(self):
         """Create a HealthHandler instance."""
         from aragora.server.handlers.admin.health import HealthHandler
+
         return HealthHandler(ctx={})
 
     @pytest.mark.asyncio
     async def test_knowledge_mound_route(self, health_handler, mock_http_handler=None):
         """HealthHandler routes /api/v1/health/knowledge-mound correctly."""
         with _PatchContext():
-            result = await health_handler.handle(
-                "/api/v1/health/knowledge-mound", {}, MagicMock()
-            )
+            result = await health_handler.handle("/api/v1/health/knowledge-mound", {}, MagicMock())
             body = _body(result)
             assert body["status"] in ("healthy", "degraded", "not_configured", "unavailable")
 
@@ -1551,12 +1815,13 @@ class TestViaHealthHandler:
         mock_mod.get_decay_scheduler.return_value = mock_scheduler
         mock_mod.DECAY_METRICS_AVAILABLE = False
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
-        }):
-            result = await health_handler.handle(
-                "/api/v1/health/decay", {}, MagicMock()
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.confidence_decay_scheduler": mock_mod,
+            },
+        ):
+            result = await health_handler.handle("/api/v1/health/decay", {}, MagicMock())
             body = _body(result)
             assert body["status"] in ("healthy", "degraded", "stopped")
 
@@ -1598,10 +1863,12 @@ class TestKnowledgeMoundHealthActiveCount:
 
         overrides = {
             f"{_MOD}.check_knowledge_mound_module": (
-                {"healthy": True, "status": "available"}, False
+                {"healthy": True, "status": "available"},
+                False,
             ),
             f"{_MOD}.check_mound_core_initialization": (
-                {"healthy": True, "status": "initialized"}, MagicMock()
+                {"healthy": True, "status": "initialized"},
+                MagicMock(),
             ),
             f"{_MOD}.check_storage_backend": {"healthy": True, "status": "configured"},
             f"{_MOD}.check_culture_accumulator": {"healthy": True, "status": "active"},
@@ -1609,13 +1876,14 @@ class TestKnowledgeMoundHealthActiveCount:
             f"{_MOD}.check_rlm_integration": {"healthy": True, "status": "active"},
             f"{_MOD}.check_codebase_context": {"healthy": True, "status": "missing"},
             f"{_MOD}.check_debate_integration": {"healthy": True, "status": "not_available"},
-            f"{_MOD}.check_knowledge_mound_redis_cache": {"healthy": True, "status": "not_configured"},
+            f"{_MOD}.check_knowledge_mound_redis_cache": {
+                "healthy": True,
+                "status": "not_configured",
+            },
             f"{_MOD}.check_bidirectional_adapters": {"healthy": True, "status": "available"},
             f"{_MOD}.check_control_plane_adapter": {"healthy": True, "status": "available"},
             f"{_MOD}.check_km_metrics": {"healthy": True, "status": "available"},
-            f"{_MOD}.check_confidence_decay_scheduler": (
-                {"healthy": True, "status": "active"}, []
-            ),
+            f"{_MOD}.check_confidence_decay_scheduler": ({"healthy": True, "status": "active"}, []),
         }
         with _PatchContext(overrides):
             result = knowledge_mound_health(MagicMock())
@@ -1660,7 +1928,8 @@ class TestKnowledgeMoundHealthSummary:
 
         overrides = {
             f"{_MOD}.check_mound_core_initialization": (
-                {"healthy": False, "status": "initialization_failed"}, None
+                {"healthy": False, "status": "initialization_failed"},
+                None,
             ),
             f"{_MOD}.check_storage_backend": {"healthy": False, "status": "error"},
         }

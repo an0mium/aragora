@@ -85,7 +85,7 @@ def _make_debate_result(**overrides: Any) -> MagicMock:
     result.total_cost_usd = overrides.get("total_cost_usd", 0.05)
     result.total_tokens = overrides.get("total_tokens", 5000)
     result.per_agent_cost = overrides.get("per_agent_cost", {})
-    result.budget_limit_usd = overrides.get("budget_limit_usd", None)
+    result.budget_limit_usd = overrides.get("budget_limit_usd")
     result.metadata = overrides.get("metadata", {})
     result.to_dict.return_value = {
         "debate_id": result.debate_id,

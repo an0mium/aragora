@@ -384,7 +384,9 @@ class TestStructuralAnalyzerFallacyDetection:
     def test_ad_hominem_keyword_your_bias(self):
         """AD_HOMINEM is detected from multiple keywords including 'you always' and 'your bias'."""
         # 'you always' + 'your bias' → 2 keyword matches → score 0.4
-        content = "you always display your bias in every debate and people like you get things wrong."
+        content = (
+            "you always display your bias in every debate and people like you get things wrong."
+        )
         result = self.analyzer.analyze(content)
         types = [f.fallacy_type for f in result.fallacies]
         assert FallacyType.AD_HOMINEM in types
@@ -437,7 +439,9 @@ class TestStructuralAnalyzerFallacyDetection:
     def test_appeal_to_ignorance_keyword_detection(self):
         """APPEAL_TO_IGNORANCE is detected from keyword + regex pattern."""
         # 'no one has proven' keyword (0.2) + regex "can't be disproven" (0.35) → 0.55
-        content = "No one has proven this approach wrong and it can't be disproven by anyone at all."
+        content = (
+            "No one has proven this approach wrong and it can't be disproven by anyone at all."
+        )
         result = self.analyzer.analyze(content)
         types = [f.fallacy_type for f in result.fallacies]
         assert FallacyType.APPEAL_TO_IGNORANCE in types
@@ -459,7 +463,9 @@ class TestStructuralAnalyzerFallacyDetection:
 
     def test_fallacy_confidence_at_or_above_threshold(self):
         """All reported fallacies have confidence >= 0.3."""
-        content = "Your bias is clearly showing and you are just clearly wrong about this subject matter."
+        content = (
+            "Your bias is clearly showing and you are just clearly wrong about this subject matter."
+        )
         result = self.analyzer.analyze(content)
         for f in result.fallacies:
             assert f.confidence >= 0.3
@@ -493,7 +499,9 @@ class TestStructuralAnalyzerFallacyDetection:
 
     def test_fallacy_has_explanation(self):
         """Detected fallacies include a non-empty explanation."""
-        content = "Your bias is clearly influencing your judgment and everyone can see it quite plainly."
+        content = (
+            "Your bias is clearly influencing your judgment and everyone can see it quite plainly."
+        )
         result = self.analyzer.analyze(content)
         for f in result.fallacies:
             assert f.explanation
@@ -543,9 +551,7 @@ class TestStructuralAnalyzerPremiseChains:
             "Therefore we must migrate to a new platform immediately."
         )
         result = self.analyzer.analyze(content)
-        chains_with_conclusion = [
-            c for c in result.premise_chains if "Therefore" in c.conclusion
-        ]
+        chains_with_conclusion = [c for c in result.premise_chains if "Therefore" in c.conclusion]
         if chains_with_conclusion:
             chain = chains_with_conclusion[0]
             if chain.has_gap:
@@ -565,7 +571,9 @@ class TestStructuralAnalyzerPremiseChains:
 
     def test_short_sentences_excluded_from_chains(self):
         """Sentences shorter than 10 chars are not used as premises."""
-        content = "OK. Fine. Therefore we should redesign the entire authentication system entirely."
+        content = (
+            "OK. Fine. Therefore we should redesign the entire authentication system entirely."
+        )
         result = self.analyzer.analyze(content)
         for chain in result.premise_chains:
             for premise in chain.premises:
@@ -605,9 +613,7 @@ class TestStructuralAnalyzerUnsupportedClaims:
             "a 40% improvement in throughput under load testing conditions."
         )
         result = self.analyzer.analyze(content)
-        unsupported = [
-            c for c in result.unsupported_claims if "clearly the best approach" in c
-        ]
+        unsupported = [c for c in result.unsupported_claims if "clearly the best approach" in c]
         assert len(unsupported) == 0
 
     def test_obviously_keyword_triggers_detection(self):
@@ -671,10 +677,7 @@ class TestStructuralAnalyzerContradictions:
 
     def test_contradiction_tuples_are_truncated(self):
         """Each element in a contradiction tuple is at most 150 chars."""
-        content = (
-            "We should " + "x " * 80 + ". "
-            "We should not " + "y " * 80 + "."
-        )
+        content = "We should " + "x " * 80 + ". We should not " + "y " * 80 + "."
         result = self.analyzer.analyze(content)
         for a, b in result.contradictions:
             assert len(a) <= 150
@@ -985,21 +988,27 @@ class TestObserverRebuttalPattern:
     def test_rebuttal_via_keyword_disagree(self):
         """'disagree' keyword combined with 'however' regex reaches threshold."""
         # 'disagree' keyword (0.15) + regex 'however,' (0.30) → 0.45
-        content = "However, I disagree with the proposed architectural approach for scaling systems."
+        content = (
+            "However, I disagree with the proposed architectural approach for scaling systems."
+        )
         results = self.observer.observe("gpt", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.REBUTTAL in patterns
 
     def test_rebuttal_via_keyword_on_the_contrary(self):
         """'on the contrary' keyword triggers REBUTTAL detection."""
-        content = "On the contrary, the data shows that this approach is less effective than claimed."
+        content = (
+            "On the contrary, the data shows that this approach is less effective than claimed."
+        )
         results = self.observer.observe("gpt", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.REBUTTAL in patterns
 
     def test_rebuttal_via_regex(self):
         """Regex 'however,' triggers REBUTTAL detection."""
-        content = "The architecture looks good, however, there are critical security gaps remaining."
+        content = (
+            "The architecture looks good, however, there are critical security gaps remaining."
+        )
         results = self.observer.observe("gpt", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.REBUTTAL in patterns
@@ -1020,7 +1029,9 @@ class TestObserverSynthesisPattern:
 
     def test_synthesis_via_keyword_both_perspectives(self):
         """'both perspectives' keyword triggers SYNTHESIS detection."""
-        content = "Considering both perspectives, we can see a path forward that satisfies everyone."
+        content = (
+            "Considering both perspectives, we can see a path forward that satisfies everyone."
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.SYNTHESIS in patterns
@@ -1034,7 +1045,9 @@ class TestObserverSynthesisPattern:
 
     def test_synthesis_via_keyword_middle_ground(self):
         """'middle ground' triggers SYNTHESIS via regex."""
-        content = "Let us find the middle ground that satisfies all parties involved in this discussion."
+        content = (
+            "Let us find the middle ground that satisfies all parties involved in this discussion."
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.SYNTHESIS in patterns
@@ -1048,7 +1061,9 @@ class TestObserverAppealToAuthority:
 
     def test_authority_via_keyword_according_to(self):
         """'according to' keyword triggers APPEAL_TO_AUTHORITY detection."""
-        content = "According to the latest industry reports, this design pattern is highly recommended."
+        content = (
+            "According to the latest industry reports, this design pattern is highly recommended."
+        )
         results = self.observer.observe("gemini", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.APPEAL_TO_AUTHORITY in patterns
@@ -1056,7 +1071,9 @@ class TestObserverAppealToAuthority:
     def test_authority_via_keyword_research_shows(self):
         """'research shows' keyword combined with 'according to' reaches threshold."""
         # 'research shows' (0.15) + regex 'research show' (0.30) → 0.45
-        content = "Research shows that this approach reduces downtime. According to the studies done."
+        content = (
+            "Research shows that this approach reduces downtime. According to the studies done."
+        )
         results = self.observer.observe("gemini", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.APPEAL_TO_AUTHORITY in patterns
@@ -1077,7 +1094,9 @@ class TestObserverAppealToEvidence:
 
     def test_evidence_via_keyword_for_example(self):
         """'for example' keyword triggers APPEAL_TO_EVIDENCE detection."""
-        content = "For example, consider how Netflix handles their distributed caching layer effectively."
+        content = (
+            "For example, consider how Netflix handles their distributed caching layer effectively."
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.APPEAL_TO_EVIDENCE in patterns
@@ -1113,14 +1132,18 @@ class TestObserverTechnicalDepth:
 
     def test_technical_via_keyword_implementation(self):
         """'implementation' keyword triggers TECHNICAL_DEPTH detection."""
-        content = "The implementation uses async/await patterns to avoid blocking the event loop here."
+        content = (
+            "The implementation uses async/await patterns to avoid blocking the event loop here."
+        )
         results = self.observer.observe("codex", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.TECHNICAL_DEPTH in patterns
 
     def test_technical_via_keyword_architecture(self):
         """'architecture' keyword triggers TECHNICAL_DEPTH detection."""
-        content = "The proposed architecture separates concerns cleanly between services and databases."
+        content = (
+            "The proposed architecture separates concerns cleanly between services and databases."
+        )
         results = self.observer.observe("codex", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.TECHNICAL_DEPTH in patterns
@@ -1128,7 +1151,9 @@ class TestObserverTechnicalDepth:
     def test_technical_via_keyword_scalability(self):
         """'scalability' + 'performance' keywords combine to reach threshold."""
         # Two keywords: 'scalability' + 'performance' → 0.30
-        content = "Scalability requirements demand we consider performance. Architecture matters here."
+        content = (
+            "Scalability requirements demand we consider performance. Architecture matters here."
+        )
         results = self.observer.observe("codex", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.TECHNICAL_DEPTH in patterns
@@ -1142,14 +1167,18 @@ class TestObserverRhetoricalQuestion:
 
     def test_rhetorical_question_via_what_if(self):
         """'what if' before a question mark triggers RHETORICAL_QUESTION."""
-        content = "What if we approached this problem from the user perspective instead of technical?"
+        content = (
+            "What if we approached this problem from the user perspective instead of technical?"
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.RHETORICAL_QUESTION in patterns
 
     def test_rhetorical_question_via_why_would(self):
         """'why would' before a question mark triggers RHETORICAL_QUESTION."""
-        content = "Why would we choose complexity over simplicity when simpler solutions clearly exist?"
+        content = (
+            "Why would we choose complexity over simplicity when simpler solutions clearly exist?"
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.RHETORICAL_QUESTION in patterns
@@ -1177,7 +1206,9 @@ class TestObserverAnalogy:
 
     def test_analogy_via_keyword_similar_to(self):
         """'similar to' keyword triggers ANALOGY detection."""
-        content = "This pattern is similar to the observer pattern we use throughout the codebase here."
+        content = (
+            "This pattern is similar to the observer pattern we use throughout the codebase here."
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.ANALOGY in patterns
@@ -1205,7 +1236,9 @@ class TestObserverQualification:
 
     def test_qualification_via_keyword_depends_on(self):
         """'depends on' keyword triggers QUALIFICATION detection."""
-        content = "The best approach really depends on the specific use case and scale of the system."
+        content = (
+            "The best approach really depends on the specific use case and scale of the system."
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.QUALIFICATION in patterns
@@ -1219,7 +1252,9 @@ class TestObserverQualification:
 
     def test_qualification_via_keyword_typically(self):
         """'typically' keyword triggers QUALIFICATION detection."""
-        content = "This approach typically works well for systems with moderate load and steady traffic."
+        content = (
+            "This approach typically works well for systems with moderate load and steady traffic."
+        )
         results = self.observer.observe("claude", content)
         patterns = [r.pattern for r in results]
         assert RhetoricalPattern.QUALIFICATION in patterns
@@ -1289,9 +1324,7 @@ class TestObserverBroadcastCallback:
     def test_broadcast_callback_invoked_when_observations_present(self):
         """broadcast_callback is called when observations are detected."""
         callback = MagicMock()
-        observer = RhetoricalAnalysisObserver(
-            broadcast_callback=callback, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(broadcast_callback=callback, min_confidence=0.3)
         content = "I agree with the fair point about performance and I acknowledge your concerns."
         observer.observe("claude", content)
         callback.assert_called_once()
@@ -1299,9 +1332,7 @@ class TestObserverBroadcastCallback:
     def test_broadcast_callback_not_invoked_when_no_observations(self):
         """broadcast_callback is NOT called when no observations are detected."""
         callback = MagicMock()
-        observer = RhetoricalAnalysisObserver(
-            broadcast_callback=callback, min_confidence=0.99
-        )
+        observer = RhetoricalAnalysisObserver(broadcast_callback=callback, min_confidence=0.99)
         content = "Some neutral content that does not trigger any rhetorical patterns at all."
         observer.observe("claude", content)
         callback.assert_not_called()
@@ -1325,12 +1356,11 @@ class TestObserverBroadcastCallback:
 
     def test_broadcast_callback_exception_does_not_propagate(self):
         """Exceptions in broadcast_callback are swallowed gracefully."""
+
         def bad_callback(payload):
             raise RuntimeError("callback error")
 
-        observer = RhetoricalAnalysisObserver(
-            broadcast_callback=bad_callback, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(broadcast_callback=bad_callback, min_confidence=0.3)
         content = "I agree with the fair point about the technical implementation here."
         results = observer.observe("claude", content)
         assert isinstance(results, list)
@@ -1363,7 +1393,10 @@ class TestObserverCommentaryGeneration:
     def test_commentary_uses_random_choice(self):
         """Commentary uses random.choice from templates list."""
         # The module imports random locally inside _generate_commentary, so patch at module level
-        with patch("random.choice", return_value="{agent} shows intellectual humility, acknowledging a valid point") as mock_choice:
+        with patch(
+            "random.choice",
+            return_value="{agent} shows intellectual humility, acknowledging a valid point",
+        ) as mock_choice:
             observer = RhetoricalAnalysisObserver(min_confidence=0.3)
             content = "I agree this is a fair point about technical implementation quality."
             results = observer.observe("claude", content)
@@ -1399,9 +1432,7 @@ class TestObserverStructuralIntegration:
     def test_structural_results_accumulated(self):
         """Structural results are stored when analyzer is configured."""
         analyzer = StructuralAnalyzer()
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=analyzer, min_confidence=0.1
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=analyzer, min_confidence=0.1)
         content = (
             "I agree this is a fair point. However, the algorithm implementation architecture "
             "needs optimization for scalability. Therefore we should refactor accordingly."
@@ -1413,9 +1444,7 @@ class TestObserverStructuralIntegration:
     def test_structural_results_multiple_calls(self):
         """Multiple observe calls accumulate structural results."""
         analyzer = StructuralAnalyzer()
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=analyzer, min_confidence=0.1
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=analyzer, min_confidence=0.1)
         content = "This is a fair point about the technical implementation architecture here."
         observer.observe("claude", content)
         observer.observe("gpt", content)
@@ -1435,9 +1464,7 @@ class TestObserverStructuralIntegration:
         mock_result = StructuralAnalysisResult(confidence=0.95)
         mock_analyzer.analyze.return_value = mock_result
 
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=mock_analyzer, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=mock_analyzer, min_confidence=0.3)
         content = "I agree with the fair point about the technical implementation here."
         results = observer.observe("claude", content)
         for r in results:
@@ -1448,9 +1475,7 @@ class TestObserverStructuralIntegration:
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.side_effect = RuntimeError("analysis failed")
 
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=mock_analyzer, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=mock_analyzer, min_confidence=0.3)
         content = "I agree with the fair point about technical implementation here."
         results = observer.observe("claude", content)
         assert isinstance(results, list)
@@ -1461,9 +1486,7 @@ class TestObserverStructuralIntegration:
         mock_result = StructuralAnalysisResult(confidence=0.0)
         mock_analyzer.analyze.return_value = mock_result
 
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=mock_analyzer, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=mock_analyzer, min_confidence=0.3)
         content = "I agree with the fair point about implementation here."
         observer.observe("claude", content)
         observer.reset()
@@ -1473,9 +1496,7 @@ class TestObserverStructuralIntegration:
     def test_structural_results_returns_copy(self):
         """get_structural_results returns a copy of the internal list."""
         analyzer = StructuralAnalyzer()
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=analyzer, min_confidence=0.1
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=analyzer, min_confidence=0.1)
         content = "I agree with the fair point about the technical implementation here."
         observer.observe("claude", content)
         result1 = observer.get_structural_results()
@@ -1584,7 +1605,9 @@ class TestObserverDebateDynamics:
     def test_debate_character_collaborative(self):
         """High concession+synthesis ratio produces 'collaborative' character."""
         concession_content = "I agree and acknowledge this fair point as truly valid here."
-        synthesis_content = "Combining both perspectives we find common ground and reconcile views here."
+        synthesis_content = (
+            "Combining both perspectives we find common ground and reconcile views here."
+        )
         for _ in range(5):
             self.observer.observe("alice", concession_content)
             self.observer.observe("bob", synthesis_content)
@@ -1809,9 +1832,7 @@ class TestObserverReset:
     def test_reset_clears_structural_results(self):
         """reset() clears structural_results list."""
         analyzer = StructuralAnalyzer()
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=analyzer, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=analyzer, min_confidence=0.3)
         content = "I agree with fair point about technical implementation architecture here."
         observer.observe("claude", content)
         observer.reset()
@@ -1940,9 +1961,7 @@ class TestObserverIntegration:
     def test_structural_plus_rhetorical_combined(self):
         """StructuralAnalyzer + RhetoricalAnalysisObserver work together correctly."""
         analyzer = StructuralAnalyzer()
-        observer = RhetoricalAnalysisObserver(
-            structural_analyzer=analyzer, min_confidence=0.3
-        )
+        observer = RhetoricalAnalysisObserver(structural_analyzer=analyzer, min_confidence=0.3)
 
         content = (
             "I agree this is a fair point. Since the database queries are slow, "

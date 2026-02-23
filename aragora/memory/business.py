@@ -72,10 +72,7 @@ class BusinessKnowledgeIngester:
         outcome: str,
     ) -> RememberResult:
         """Store business interaction (meeting, call, decision)."""
-        content = (
-            f"Interaction with {', '.join(participants)}: {summary}\n"
-            f"Outcome: {outcome}"
-        )
+        content = f"Interaction with {', '.join(participants)}: {summary}\nOutcome: {outcome}"
         return await self._fabric.remember(
             content=content,
             source="business_interaction",
@@ -112,10 +109,7 @@ class BusinessKnowledgeIngester:
         Returns:
             RememberResult
         """
-        content = (
-            f"[customer:{customer_id}] {interaction}\n"
-            f"Sentiment: {sentiment:.2f}"
-        )
+        content = f"[customer:{customer_id}] {interaction}\nSentiment: {sentiment:.2f}"
 
         # Fetch existing customer context for surprise calibration
         existing = await self._fabric.query(

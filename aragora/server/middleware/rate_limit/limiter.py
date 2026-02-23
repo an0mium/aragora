@@ -305,7 +305,11 @@ class RateLimiter:
 
             if total > 0:
                 logger.debug(
-                    "Rate limiter stats: %s IP, %s token, %s tenant, %s endpoint buckets", len(self._ip_buckets), len(self._token_buckets), len(self._tenant_buckets), sum(len(v) for v in self._endpoint_buckets.values())
+                    "Rate limiter stats: %s IP, %s token, %s tenant, %s endpoint buckets",
+                    len(self._ip_buckets),
+                    len(self._token_buckets),
+                    len(self._tenant_buckets),
+                    sum(len(v) for v in self._endpoint_buckets.values()),
                 )
 
     def cleanup(self, max_age_seconds: int = 300) -> int:

@@ -350,6 +350,7 @@ class TestCreateSession:
             method="POST",
             path="/api/v1/audit/sessions",
         )
+
         # Override json() to raise
         async def bad_json():
             raise json.JSONDecodeError("bad", "", 0)
@@ -1738,7 +1739,9 @@ class TestRunAuditBackground:
         assert _sessions[sid]["status"] == "cancelled"
 
     @pytest.mark.asyncio
-    async def test_background_audit_cleans_cancellation_token(self, handler, seeded_running_session):
+    async def test_background_audit_cleans_cancellation_token(
+        self, handler, seeded_running_session
+    ):
         """Test cancellation token is cleaned up after background audit."""
         mock_token_cls = MagicMock()
         mock_token = MagicMock()

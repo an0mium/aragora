@@ -662,9 +662,7 @@ class TestRecommendations:
     def test_secondary_domains_passed(self, mock_cls, mock_req, handler):
         mock_sel = _mock_selector()
         mock_cls.return_value = mock_sel
-        http = MockHTTPHandler(
-            body={"secondary_domains": ["security", "testing"]}
-        )
+        http = MockHTTPHandler(body={"secondary_domains": ["security", "testing"]})
 
         handler.handle_post("/api/routing/recommendations", {}, http)
         call_kwargs = mock_req.call_args
@@ -676,9 +674,7 @@ class TestRecommendations:
     def test_required_traits_passed(self, mock_cls, mock_req, handler):
         mock_sel = _mock_selector()
         mock_cls.return_value = mock_sel
-        http = MockHTTPHandler(
-            body={"required_traits": ["analytical", "creative"]}
-        )
+        http = MockHTTPHandler(body={"required_traits": ["analytical", "creative"]})
 
         handler.handle_post("/api/routing/recommendations", {}, http)
         call_kwargs = mock_req.call_args
@@ -731,9 +727,7 @@ class TestAutoRoute:
     def test_with_task_id(self, mock_cls, mock_det, handler):
         mock_sel = _mock_selector()
         mock_cls.create_with_defaults.return_value = mock_sel
-        http = MockHTTPHandler(
-            body={"task": "Do something", "task_id": "custom-id"}
-        )
+        http = MockHTTPHandler(body={"task": "Do something", "task_id": "custom-id"})
 
         handler.handle_post("/api/routing/auto-route", {}, http)
         mock_sel.auto_route.assert_called_once()
@@ -746,9 +740,7 @@ class TestAutoRoute:
     def test_with_exclude(self, mock_cls, mock_det, handler):
         mock_sel = _mock_selector()
         mock_cls.create_with_defaults.return_value = mock_sel
-        http = MockHTTPHandler(
-            body={"task": "Do something", "exclude": ["gpt4", "gemini"]}
-        )
+        http = MockHTTPHandler(body={"task": "Do something", "exclude": ["gpt4", "gemini"]})
 
         handler.handle_post("/api/routing/auto-route", {}, http)
         call_kwargs = mock_sel.auto_route.call_args
@@ -974,9 +966,7 @@ class TestDetectDomain:
     @patch(f"{ROUTING_MOD}.DomainDetector")
     def test_confidence_rounded(self, mock_cls, handler):
         """Confidence scores should be rounded to 3 decimal places."""
-        mock_det = _mock_detector(
-            domains=[("code", 0.123456789)]
-        )
+        mock_det = _mock_detector(domains=[("code", 0.123456789)])
         mock_cls.return_value = mock_det
         http = MockHTTPHandler(body={"task": "Something"})
 
@@ -1252,9 +1242,7 @@ class TestEdgeCases:
         """'description' field takes precedence over 'task' field."""
         mock_sel = _mock_selector()
         mock_cls.return_value = mock_sel
-        http = MockHTTPHandler(
-            body={"description": "Primary description", "task": "Fallback task"}
-        )
+        http = MockHTTPHandler(body={"description": "Primary description", "task": "Fallback task"})
 
         handler.handle_post("/api/routing/recommendations", {}, http)
         call_kwargs = mock_req.call_args

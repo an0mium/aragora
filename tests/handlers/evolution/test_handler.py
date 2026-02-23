@@ -129,13 +129,9 @@ class MockPromptEvolver:
     def get_evolution_history(self, agent: str, limit: int = 10) -> list:
         return self._history[:limit]
 
-    def get_top_patterns(
-        self, pattern_type: str | None = None, limit: int = 10
-    ) -> list:
+    def get_top_patterns(self, pattern_type: str | None = None, limit: int = 10) -> list:
         if pattern_type:
-            return [p for p in self._patterns if p.get("type") == pattern_type][
-                :limit
-            ]
+            return [p for p in self._patterns if p.get("type") == pattern_type][:limit]
         return self._patterns[:limit]
 
     def get_prompt_version(
@@ -151,15 +147,9 @@ class MockPromptEvolver:
 # Patch targets
 # ---------------------------------------------------------------------------
 
-_PROMPT_EVOLVER_PATCH = (
-    "aragora.server.handlers.evolution.handler.PromptEvolver"
-)
-_GET_DB_PATH_PATCH = (
-    "aragora.server.handlers.evolution.handler.get_db_path"
-)
-_GET_CLIENT_IP_PATCH = (
-    "aragora.server.handlers.evolution.handler.get_client_ip"
-)
+_PROMPT_EVOLVER_PATCH = "aragora.server.handlers.evolution.handler.PromptEvolver"
+_GET_DB_PATH_PATCH = "aragora.server.handlers.evolution.handler.get_db_path"
+_GET_CLIENT_IP_PATCH = "aragora.server.handlers.evolution.handler.get_client_ip"
 
 # Save originals to restore
 _ORIG_EVOLUTION_AVAILABLE = _handler_mod.EVOLUTION_AVAILABLE
@@ -313,8 +303,10 @@ class TestRootEndpoint:
         mock_conn.cursor.return_value = mock_cursor
         mock_evolver.connection.return_value = mock_conn
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution", {}, http)
 
         assert _status(result) == 200
@@ -338,8 +330,10 @@ class TestRootEndpoint:
         mock_conn.cursor.return_value = mock_cursor
         mock_evolver.connection.return_value = mock_conn
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/v1/evolution", {}, http)
 
         assert _status(result) == 200
@@ -378,8 +372,10 @@ class TestSummaryEndpoint:
         mock_conn.cursor.return_value = mock_cursor
         mock_evolver.connection.return_value = mock_conn
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 200
@@ -403,8 +399,10 @@ class TestSummaryEndpoint:
         mock_conn.cursor.return_value = mock_cursor
         mock_evolver.connection.return_value = mock_conn
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/v1/evolution/summary", {}, http)
 
         assert _status(result) == 200
@@ -413,8 +411,10 @@ class TestSummaryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.connection.side_effect = OSError("db error")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 500
@@ -424,8 +424,10 @@ class TestSummaryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.connection.side_effect = KeyError("missing key")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 500
@@ -434,8 +436,10 @@ class TestSummaryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.connection.side_effect = ValueError("bad value")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 500
@@ -444,8 +448,10 @@ class TestSummaryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.connection.side_effect = TypeError("bad type")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 500
@@ -454,8 +460,10 @@ class TestSummaryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.connection.side_effect = AttributeError("no attr")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 500
@@ -471,8 +479,10 @@ class TestSummaryEndpoint:
         mock_conn.cursor.return_value = mock_cursor
         mock_evolver.connection.return_value = mock_conn
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 200
@@ -510,8 +520,10 @@ class TestPatternsEndpoint:
             {"type": "semantic", "name": "tone shift", "count": 3},
         ]
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 200
@@ -526,88 +538,80 @@ class TestPatternsEndpoint:
             {"type": "structural", "name": "loop unroll", "count": 5},
         ]
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/patterns", {"type": "structural"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/patterns", {"type": "structural"}, http)
 
         assert _status(result) == 200
         body = _body(result)
         assert body["filter"] == "structural"
-        mock_evolver.get_top_patterns.assert_called_once_with(
-            pattern_type="structural", limit=10
-        )
+        mock_evolver.get_top_patterns.assert_called_once_with(pattern_type="structural", limit=10)
 
     def test_patterns_with_custom_limit(self, handler, http):
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/patterns", {"limit": "5"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/patterns", {"limit": "5"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_top_patterns.assert_called_once_with(
-            pattern_type=None, limit=5
-        )
+        mock_evolver.get_top_patterns.assert_called_once_with(pattern_type=None, limit=5)
 
     def test_patterns_limit_clamped_min(self, handler, http):
         """Limit below 1 is clamped to 1."""
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/patterns", {"limit": "0"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/patterns", {"limit": "0"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_top_patterns.assert_called_once_with(
-            pattern_type=None, limit=1
-        )
+        mock_evolver.get_top_patterns.assert_called_once_with(pattern_type=None, limit=1)
 
     def test_patterns_limit_clamped_max(self, handler, http):
         """Limit above 50 is clamped to 50."""
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/patterns", {"limit": "100"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/patterns", {"limit": "100"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_top_patterns.assert_called_once_with(
-            pattern_type=None, limit=50
-        )
+        mock_evolver.get_top_patterns.assert_called_once_with(pattern_type=None, limit=50)
 
     def test_patterns_limit_negative_clamped(self, handler, http):
         """Negative limit is clamped to 1."""
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/patterns", {"limit": "-5"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/patterns", {"limit": "-5"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_top_patterns.assert_called_once_with(
-            pattern_type=None, limit=1
-        )
+        mock_evolver.get_top_patterns.assert_called_once_with(pattern_type=None, limit=1)
 
     def test_patterns_versioned_path(self, handler, http):
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/v1/evolution/patterns", {}, http)
 
         assert _status(result) == 200
@@ -616,8 +620,10 @@ class TestPatternsEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.side_effect = OSError("db failure")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 500
@@ -627,8 +633,10 @@ class TestPatternsEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.side_effect = KeyError("bad key")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 500
@@ -637,8 +645,10 @@ class TestPatternsEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.side_effect = ValueError("bad")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 500
@@ -647,8 +657,10 @@ class TestPatternsEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.side_effect = TypeError("wrong type")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 500
@@ -657,8 +669,10 @@ class TestPatternsEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.side_effect = AttributeError("missing")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 500
@@ -667,8 +681,10 @@ class TestPatternsEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 200
@@ -686,16 +702,12 @@ class TestHistoryEndpoint:
     """Test GET /api/evolution/{agent}/history."""
 
     def test_history_returns_503_when_unavailable(self, handler_unavailable, http):
-        result = handler_unavailable.handle(
-            "/api/evolution/claude/history", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/claude/history", {}, http)
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "")
 
     def test_history_returns_503_no_nomic_dir(self, handler_no_nomic, http):
-        result = handler_no_nomic.handle(
-            "/api/evolution/claude/history", {}, http
-        )
+        result = handler_no_nomic.handle("/api/evolution/claude/history", {}, http)
         assert _status(result) == 503
         assert "not configured" in _body(result).get("error", "")
 
@@ -707,8 +719,10 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = history_data
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/claude/history", {}, http)
 
         assert _status(result) == 200
@@ -721,53 +735,49 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = [{"version": 1}]
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/history", {"limit": "5"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/history", {"limit": "5"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_evolution_history.assert_called_once_with(
-            "claude", limit=5
-        )
+        mock_evolver.get_evolution_history.assert_called_once_with("claude", limit=5)
 
     def test_history_limit_clamped_min(self, handler, http):
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/history", {"limit": "0"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/history", {"limit": "0"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_evolution_history.assert_called_once_with(
-            "claude", limit=1
-        )
+        mock_evolver.get_evolution_history.assert_called_once_with("claude", limit=1)
 
     def test_history_limit_clamped_max(self, handler, http):
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/history", {"limit": "100"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/history", {"limit": "100"}, http)
 
         assert _status(result) == 200
-        mock_evolver.get_evolution_history.assert_called_once_with(
-            "claude", limit=50
-        )
+        mock_evolver.get_evolution_history.assert_called_once_with("claude", limit=50)
 
     def test_history_different_agent(self, handler, http):
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/gpt4/history", {}, http)
 
         assert _status(result) == 200
@@ -778,19 +788,17 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/v1/evolution/claude/history", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/v1/evolution/claude/history", {}, http)
 
         assert _status(result) == 200
 
     def test_history_invalid_agent_name(self, handler, http):
         """Agent names with special chars should be rejected."""
-        result = handler.handle(
-            "/api/evolution/../../etc/history", {}, http
-        )
+        result = handler.handle("/api/evolution/../../etc/history", {}, http)
         assert _status(result) == 400
 
     def test_history_empty_agent_name(self, handler, http):
@@ -803,11 +811,11 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.side_effect = OSError("db down")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/history", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/history", {}, http)
 
         assert _status(result) == 500
         assert "Failed" in _body(result).get("error", "")
@@ -816,11 +824,11 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.side_effect = KeyError("no key")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/history", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/history", {}, http)
 
         assert _status(result) == 500
 
@@ -828,11 +836,11 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.side_effect = ValueError("bad")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/history", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/history", {}, http)
 
         assert _status(result) == 500
 
@@ -840,11 +848,11 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/my_agent/history", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/my_agent/history", {}, http)
 
         assert _status(result) == 200
         assert _body(result)["agent"] == "my_agent"
@@ -853,11 +861,11 @@ class TestHistoryEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_evolution_history.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/my-agent/history", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/my-agent/history", {}, http)
 
         assert _status(result) == 200
         assert _body(result)["agent"] == "my-agent"
@@ -865,9 +873,7 @@ class TestHistoryEndpoint:
     def test_history_agent_name_too_long(self, handler, http):
         """Agent names longer than 32 chars should be rejected."""
         long_name = "a" * 33
-        result = handler.handle(
-            f"/api/evolution/{long_name}/history", {}, http
-        )
+        result = handler.handle(f"/api/evolution/{long_name}/history", {}, http)
         assert _status(result) == 400
 
 
@@ -880,16 +886,12 @@ class TestPromptEndpoint:
     """Test GET /api/evolution/{agent}/prompt."""
 
     def test_prompt_returns_503_when_unavailable(self, handler_unavailable, http):
-        result = handler_unavailable.handle(
-            "/api/evolution/claude/prompt", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/claude/prompt", {}, http)
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "")
 
     def test_prompt_returns_503_no_nomic_dir(self, handler_no_nomic, http):
-        result = handler_no_nomic.handle(
-            "/api/evolution/claude/prompt", {}, http
-        )
+        result = handler_no_nomic.handle("/api/evolution/claude/prompt", {}, http)
         assert _status(result) == 503
         assert "not configured" in _body(result).get("error", "")
 
@@ -906,8 +908,10 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = mock_pv
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 200
@@ -926,11 +930,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = mock_pv
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {"version": "2"}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {"version": "2"}, http)
 
         assert _status(result) == 200
         mock_evolver.get_prompt_version.assert_called_once_with("claude", 2)
@@ -941,11 +945,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = mock_pv
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 200
         # get_int_param returns 0 as default when key is absent
@@ -955,11 +959,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = None
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 404
         assert "No prompt version found" in _body(result).get("error", "")
@@ -968,11 +972,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = None
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/gpt4/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/gpt4/prompt", {}, http)
 
         assert _status(result) == 404
         assert "gpt4" in _body(result).get("error", "")
@@ -982,29 +986,27 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = mock_pv
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/v1/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/v1/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 200
 
     def test_prompt_invalid_agent_name(self, handler, http):
-        result = handler.handle(
-            "/api/evolution/bad!agent/prompt", {}, http
-        )
+        result = handler.handle("/api/evolution/bad!agent/prompt", {}, http)
         assert _status(result) == 400
 
     def test_prompt_internal_error(self, handler, http):
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.side_effect = OSError("db error")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 500
         assert "Failed" in _body(result).get("error", "")
@@ -1013,11 +1015,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.side_effect = KeyError("no key")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 500
 
@@ -1025,11 +1027,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.side_effect = ValueError("bad")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 500
 
@@ -1037,11 +1039,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.side_effect = TypeError("wrong")
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/claude/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 500
 
@@ -1050,11 +1052,11 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = mock_pv
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/gemini/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/gemini/prompt", {}, http)
 
         assert _status(result) == 200
         assert _body(result)["agent"] == "gemini"
@@ -1064,20 +1066,18 @@ class TestPromptEndpoint:
         mock_evolver = MagicMock()
         mock_evolver.get_prompt_version.return_value = mock_pv
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
-            result = handler.handle(
-                "/api/evolution/gpt4o/prompt", {}, http
-            )
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
+            result = handler.handle("/api/evolution/gpt4o/prompt", {}, http)
 
         assert _status(result) == 200
         assert _body(result)["agent"] == "gpt4o"
 
     def test_prompt_agent_name_too_long(self, handler, http):
         long_name = "x" * 33
-        result = handler.handle(
-            f"/api/evolution/{long_name}/prompt", {}, http
-        )
+        result = handler.handle(f"/api/evolution/{long_name}/prompt", {}, http)
         assert _status(result) == 400
 
 
@@ -1092,9 +1092,7 @@ class TestRateLimiting:
     def test_rate_limit_exceeded(self, handler, http):
         with patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.1"):
             # Fill up the rate limiter
-            with patch.object(
-                _handler_mod._evolution_limiter, "is_allowed", return_value=False
-            ):
+            with patch.object(_handler_mod._evolution_limiter, "is_allowed", return_value=False):
                 result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 429
@@ -1104,48 +1102,48 @@ class TestRateLimiting:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.2"), \
-             patch.object(
-                 _handler_mod._evolution_limiter, "is_allowed", return_value=True
-             ), \
-             patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.2"),
+            patch.object(_handler_mod._evolution_limiter, "is_allowed", return_value=True),
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         assert _status(result) == 200
 
     def test_rate_limit_on_summary(self, handler, http):
-        with patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.3"), \
-             patch.object(
-                 _handler_mod._evolution_limiter, "is_allowed", return_value=False
-             ):
+        with (
+            patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.3"),
+            patch.object(_handler_mod._evolution_limiter, "is_allowed", return_value=False),
+        ):
             result = handler.handle("/api/evolution/summary", {}, http)
 
         assert _status(result) == 429
 
     def test_rate_limit_on_history(self, handler, http):
-        with patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.4"), \
-             patch.object(
-                 _handler_mod._evolution_limiter, "is_allowed", return_value=False
-             ):
+        with (
+            patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.4"),
+            patch.object(_handler_mod._evolution_limiter, "is_allowed", return_value=False),
+        ):
             result = handler.handle("/api/evolution/claude/history", {}, http)
 
         assert _status(result) == 429
 
     def test_rate_limit_on_prompt(self, handler, http):
-        with patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.5"), \
-             patch.object(
-                 _handler_mod._evolution_limiter, "is_allowed", return_value=False
-             ):
+        with (
+            patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.5"),
+            patch.object(_handler_mod._evolution_limiter, "is_allowed", return_value=False),
+        ):
             result = handler.handle("/api/evolution/claude/prompt", {}, http)
 
         assert _status(result) == 429
 
     def test_rate_limit_on_root(self, handler, http):
-        with patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.6"), \
-             patch.object(
-                 _handler_mod._evolution_limiter, "is_allowed", return_value=False
-             ):
+        with (
+            patch(_GET_CLIENT_IP_PATCH, return_value="10.0.0.6"),
+            patch.object(_handler_mod._evolution_limiter, "is_allowed", return_value=False),
+        ):
             result = handler.handle("/api/evolution", {}, http)
 
         assert _status(result) == 429
@@ -1174,8 +1172,10 @@ class TestAuthentication:
         mock_evolver = MagicMock()
         mock_evolver.get_top_patterns.return_value = []
 
-        with patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver), \
-             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"):
+        with (
+            patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
+            patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
+        ):
             result = handler.handle("/api/evolution/patterns", {}, http)
 
         # Should succeed with 200, not 401
@@ -1268,27 +1268,19 @@ class TestEvolutionUnavailable:
     """Test behavior when EVOLUTION_AVAILABLE is False or PromptEvolver is None."""
 
     def test_history_503_when_flag_false(self, handler_unavailable, http):
-        result = handler_unavailable.handle(
-            "/api/evolution/claude/history", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/claude/history", {}, http)
         assert _status(result) == 503
 
     def test_prompt_503_when_flag_false(self, handler_unavailable, http):
-        result = handler_unavailable.handle(
-            "/api/evolution/claude/prompt", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/claude/prompt", {}, http)
         assert _status(result) == 503
 
     def test_patterns_503_when_flag_false(self, handler_unavailable, http):
-        result = handler_unavailable.handle(
-            "/api/evolution/patterns", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/patterns", {}, http)
         assert _status(result) == 503
 
     def test_summary_503_when_flag_false(self, handler_unavailable, http):
-        result = handler_unavailable.handle(
-            "/api/evolution/summary", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/summary", {}, http)
         assert _status(result) == 503
 
     def test_root_503_when_flag_false(self, handler_unavailable, http):
@@ -1319,26 +1311,18 @@ class TestNomicDirNotConfigured:
     """Test behavior when nomic_dir is not in context."""
 
     def test_history_503_no_nomic_dir(self, handler_no_nomic, http):
-        result = handler_no_nomic.handle(
-            "/api/evolution/claude/history", {}, http
-        )
+        result = handler_no_nomic.handle("/api/evolution/claude/history", {}, http)
         assert _status(result) == 503
         assert "not configured" in _body(result).get("error", "")
 
     def test_patterns_503_no_nomic_dir(self, handler_no_nomic, http):
-        result = handler_no_nomic.handle(
-            "/api/evolution/patterns", {}, http
-        )
+        result = handler_no_nomic.handle("/api/evolution/patterns", {}, http)
         assert _status(result) == 503
 
     def test_prompt_503_no_nomic_dir(self, handler_no_nomic, http):
-        result = handler_no_nomic.handle(
-            "/api/evolution/claude/prompt", {}, http
-        )
+        result = handler_no_nomic.handle("/api/evolution/claude/prompt", {}, http)
         assert _status(result) == 503
 
     def test_summary_503_no_nomic_dir(self, handler_no_nomic, http):
-        result = handler_no_nomic.handle(
-            "/api/evolution/summary", {}, http
-        )
+        result = handler_no_nomic.handle("/api/evolution/summary", {}, http)
         assert _status(result) == 503

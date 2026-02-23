@@ -36,9 +36,7 @@ from aragora.server.handlers.knowledge_base.mound.sync import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.sync._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.sync._run_async"
 
 
 def _body(result) -> dict:
@@ -91,11 +89,13 @@ def _make_invalid_json_handler() -> MagicMock:
 @dataclass
 class MockSyncResult:
     """Mock sync result with nodes_synced attribute."""
+
     nodes_synced: int = 42
 
 
 class MockSyncResultNoAttr:
     """Mock sync result without nodes_synced attribute."""
+
     pass
 
 
@@ -199,11 +199,13 @@ class TestSyncContinuum:
 
     def test_sync_continuum_with_all_params(self, handler, mock_mound):
         """All parameters together are forwarded correctly."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-123",
-            "since": "2025-06-01",
-            "limit": 200,
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-123",
+                "since": "2025-06-01",
+                "limit": 200,
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_sync_continuum(mock_http)
         mock_mound.sync_continuum_incremental.assert_called_once_with(
@@ -267,9 +269,7 @@ class TestSyncContinuum:
 
     def test_sync_continuum_result_without_nodes_synced(self, handler, mock_mound):
         """Result without nodes_synced attribute returns synced=0."""
-        mock_mound.sync_continuum_incremental = MagicMock(
-            return_value=MockSyncResultNoAttr()
-        )
+        mock_mound.sync_continuum_incremental = MagicMock(return_value=MockSyncResultNoAttr())
         mock_http = _make_http_handler({})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_continuum(mock_http)
@@ -337,16 +337,22 @@ class TestSyncContinuum:
             return original_result
 
         mock_http = _make_http_handler({})
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch(
-                 "aragora.server.handlers.knowledge_base.mound.sync.get_continuum_memory",
-                 create=True,
-             ) as mock_get_continuum:
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.sync.get_continuum_memory",
+                create=True,
+            ) as mock_get_continuum,
+        ):
             # Patch the import inside the handler
             import aragora.server.handlers.knowledge_base.mound.sync as sync_mod
-            with patch.dict("sys.modules", {
-                "aragora.memory": MagicMock(get_continuum_memory=mock_get_continuum),
-            }):
+
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.memory": MagicMock(get_continuum_memory=mock_get_continuum),
+                },
+            ):
                 result = handler._handle_sync_continuum(mock_http)
         # The result depends on whether the fallback succeeded
         # With our mock, the second call returns the result
@@ -359,14 +365,18 @@ class TestSyncContinuum:
         def mock_run_async(coro):
             raise AttributeError("no method")
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": None}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": None}),
+        ):
             # The import will fail with ImportError since the module is set to None
             result = handler._handle_sync_continuum(mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["synced"] == 0
-        assert "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        assert (
+            "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        )
         assert body["workspace_id"] == "ws-test"
 
     def test_sync_continuum_fallback_runtime_error(self, handler, mock_mound):
@@ -382,13 +392,17 @@ class TestSyncContinuum:
         mock_http = _make_http_handler({})
         mock_memory_module = MagicMock()
         mock_memory_module.get_continuum_memory = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": mock_memory_module}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": mock_memory_module}),
+        ):
             result = handler._handle_sync_continuum(mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["synced"] == 0
-        assert "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        assert (
+            "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        )
 
     def test_sync_continuum_value_error_in_body_parse(self, handler):
         """ValueError during body parsing returns 400."""
@@ -426,11 +440,13 @@ class TestSyncContinuum:
 
     def test_sync_continuum_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in body are ignored."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-1",
-            "extra_field": "ignored",
-            "another": 123,
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-1",
+                "extra_field": "ignored",
+                "another": 123,
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_continuum(mock_http)
         assert _status(result) == 200
@@ -486,11 +502,13 @@ class TestSyncConsensus:
 
     def test_sync_consensus_with_all_params(self, handler, mock_mound):
         """All parameters together are forwarded correctly."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-all",
-            "since": "2025-07-01",
-            "limit": 500,
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-all",
+                "since": "2025-07-01",
+                "limit": 500,
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_sync_consensus(mock_http)
         mock_mound.sync_consensus_incremental.assert_called_once_with(
@@ -546,9 +564,7 @@ class TestSyncConsensus:
 
     def test_sync_consensus_result_without_nodes_synced(self, handler, mock_mound):
         """Result without nodes_synced attribute returns synced=0."""
-        mock_mound.sync_consensus_incremental = MagicMock(
-            return_value=MockSyncResultNoAttr()
-        )
+        mock_mound.sync_consensus_incremental = MagicMock(return_value=MockSyncResultNoAttr())
         mock_http = _make_http_handler({})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_consensus(mock_http)
@@ -599,8 +615,10 @@ class TestSyncConsensus:
         mock_http = _make_http_handler({})
         mock_memory_module = MagicMock()
         mock_memory_module.ConsensusMemory = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": mock_memory_module}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": mock_memory_module}),
+        ):
             result = handler._handle_sync_consensus(mock_http)
         assert _status(result) == 200
 
@@ -611,13 +629,17 @@ class TestSyncConsensus:
         def mock_run_async(coro):
             raise AttributeError("no method")
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": None}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": None}),
+        ):
             result = handler._handle_sync_consensus(mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["synced"] == 0
-        assert "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        assert (
+            "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        )
         assert body["workspace_id"] == "ws-fallback"
 
     def test_sync_consensus_fallback_runtime_error(self, handler, mock_mound):
@@ -633,8 +655,10 @@ class TestSyncConsensus:
         mock_http = _make_http_handler({})
         mock_memory_module = MagicMock()
         mock_memory_module.ConsensusMemory = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": mock_memory_module}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": mock_memory_module}),
+        ):
             result = handler._handle_sync_consensus(mock_http)
         assert _status(result) == 200
         body = _body(result)
@@ -649,10 +673,12 @@ class TestSyncConsensus:
 
     def test_sync_consensus_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in body are ignored."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-1",
-            "unknown_param": "value",
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-1",
+                "unknown_param": "value",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_consensus(mock_http)
         assert _status(result) == 200
@@ -708,11 +734,13 @@ class TestSyncFacts:
 
     def test_sync_facts_with_all_params(self, handler, mock_mound):
         """All parameters together are forwarded correctly."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-full",
-            "since": "2025-11-15",
-            "limit": 300,
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-full",
+                "since": "2025-11-15",
+                "limit": 300,
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_sync_facts(mock_http)
         mock_mound.sync_facts_incremental.assert_called_once_with(
@@ -768,9 +796,7 @@ class TestSyncFacts:
 
     def test_sync_facts_result_without_nodes_synced(self, handler, mock_mound):
         """Result without nodes_synced attribute returns synced=0."""
-        mock_mound.sync_facts_incremental = MagicMock(
-            return_value=MockSyncResultNoAttr()
-        )
+        mock_mound.sync_facts_incremental = MagicMock(return_value=MockSyncResultNoAttr())
         mock_http = _make_http_handler({})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_facts(mock_http)
@@ -779,9 +805,7 @@ class TestSyncFacts:
 
     def test_sync_facts_result_with_zero_synced(self, handler, mock_mound):
         """Result with nodes_synced=0 returns synced=0."""
-        mock_mound.sync_facts_incremental = MagicMock(
-            return_value=MockSyncResult(nodes_synced=0)
-        )
+        mock_mound.sync_facts_incremental = MagicMock(return_value=MockSyncResult(nodes_synced=0))
         mock_http = _make_http_handler({})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_facts(mock_http)
@@ -821,10 +845,15 @@ class TestSyncFacts:
         mock_http = _make_http_handler({})
         mock_fact_module = MagicMock()
         mock_fact_module.FactStore = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {
-                 "aragora.knowledge.fact_store": mock_fact_module,
-             }):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.knowledge.fact_store": mock_fact_module,
+                },
+            ),
+        ):
             result = handler._handle_sync_facts(mock_http)
         assert _status(result) == 200
 
@@ -835,13 +864,17 @@ class TestSyncFacts:
         def mock_run_async(coro):
             raise AttributeError("no method")
 
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.knowledge.fact_store": None}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.knowledge.fact_store": None}),
+        ):
             result = handler._handle_sync_facts(mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["synced"] == 0
-        assert "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        assert (
+            "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        )
         assert body["workspace_id"] == "ws-facts"
 
     def test_sync_facts_fallback_runtime_error(self, handler, mock_mound):
@@ -857,10 +890,15 @@ class TestSyncFacts:
         mock_http = _make_http_handler({})
         mock_fact_module = MagicMock()
         mock_fact_module.FactStore = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {
-                 "aragora.knowledge.fact_store": mock_fact_module,
-             }):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.knowledge.fact_store": mock_fact_module,
+                },
+            ),
+        ):
             result = handler._handle_sync_facts(mock_http)
         assert _status(result) == 200
         body = _body(result)
@@ -875,11 +913,13 @@ class TestSyncFacts:
 
     def test_sync_facts_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in body are ignored."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-1",
-            "unknown": True,
-            "more_stuff": [1, 2, 3],
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-1",
+                "unknown": True,
+                "more_stuff": [1, 2, 3],
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_facts(mock_http)
         assert _status(result) == 200
@@ -926,8 +966,9 @@ class TestSyncEdgeCases:
             with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
                 getattr(handler, method_name)(mock_http)
             call_kwargs = mock_method.call_args
-            assert call_kwargs.kwargs.get("limit") == 100, \
+            assert call_kwargs.kwargs.get("limit") == 100, (
                 f"{method_name} should default limit to 100"
+            )
 
     def test_all_three_endpoints_return_503_when_no_mound(self, handler_no_mound):
         """All three sync endpoints return 503 when mound is unavailable."""
@@ -1001,9 +1042,7 @@ class TestSyncEdgeCases:
 
     def test_sync_facts_xss_in_workspace(self, handler, mock_mound):
         """XSS in workspace_id is stored as-is (rendering layer handles escaping)."""
-        mock_http = _make_http_handler(
-            {"workspace_id": "<script>alert('xss')</script>"}
-        )
+        mock_http = _make_http_handler({"workspace_id": "<script>alert('xss')</script>"})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_facts(mock_http)
         assert _status(result) == 200
@@ -1054,10 +1093,12 @@ class TestSyncEdgeCases:
 
     def test_sync_with_nested_body_object(self, handler, mock_mound):
         """Nested objects in body do not cause errors (extra fields ignored)."""
-        mock_http = _make_http_handler({
-            "workspace_id": "ws-1",
-            "nested": {"key": "value"},
-        })
+        mock_http = _make_http_handler(
+            {
+                "workspace_id": "ws-1",
+                "nested": {"key": "value"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_sync_continuum(mock_http)
         assert _status(result) == 200
@@ -1123,12 +1164,16 @@ class TestFallbackAttributeError:
         mock_http = _make_http_handler({})
         mock_memory_module = MagicMock()
         mock_memory_module.get_continuum_memory = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": mock_memory_module}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": mock_memory_module}),
+        ):
             result = handler._handle_sync_continuum(mock_http)
         body = _body(result)
         assert body["synced"] == 0
-        assert "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        assert (
+            "not available" in body["message"].lower() or "not connected" in body["message"].lower()
+        )
 
     def test_consensus_fallback_attribute_error_in_retry(self, handler, mock_mound):
         """AttributeError inside consensus fallback returns graceful message."""
@@ -1145,8 +1190,10 @@ class TestFallbackAttributeError:
         mock_http = _make_http_handler({})
         mock_memory_module = MagicMock()
         mock_memory_module.ConsensusMemory = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {"aragora.memory": mock_memory_module}):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict("sys.modules", {"aragora.memory": mock_memory_module}),
+        ):
             result = handler._handle_sync_consensus(mock_http)
         body = _body(result)
         assert body["synced"] == 0
@@ -1166,10 +1213,15 @@ class TestFallbackAttributeError:
         mock_http = _make_http_handler({})
         mock_fact_module = MagicMock()
         mock_fact_module.FactStore = MagicMock(return_value=MagicMock())
-        with patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async), \
-             patch.dict("sys.modules", {
-                 "aragora.knowledge.fact_store": mock_fact_module,
-             }):
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=mock_run_async),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.knowledge.fact_store": mock_fact_module,
+                },
+            ),
+        ):
             result = handler._handle_sync_facts(mock_http)
         body = _body(result)
         assert body["synced"] == 0

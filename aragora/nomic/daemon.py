@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class DaemonState(Enum):
     """Daemon lifecycle states."""
+
     IDLE = "idle"
     RUNNING = "running"
     ASSESSING = "assessing"
@@ -46,6 +47,7 @@ class DaemonState(Enum):
 @dataclass
 class CycleResult:
     """Result of a single daemon improvement cycle."""
+
     cycle_number: int
     health_before: float
     health_after: float | None = None
@@ -75,6 +77,7 @@ class CycleResult:
 @dataclass
 class DaemonConfig:
     """Configuration for the self-improvement daemon."""
+
     # Assessment thresholds
     health_threshold: float = 0.95  # Skip if health above this
     min_candidates: int = 1  # Skip if fewer candidates than this
@@ -102,6 +105,7 @@ class DaemonConfig:
 @dataclass
 class DaemonStatus:
     """Current daemon status snapshot."""
+
     state: str
     cycles_completed: int = 0
     cycles_failed: int = 0
@@ -299,8 +303,7 @@ class SelfImprovementDaemon:
             if len(candidates) < self.config.min_candidates:
                 result.skipped = True
                 result.skip_reason = (
-                    f"Only {len(candidates)} candidates < "
-                    f"min {self.config.min_candidates}"
+                    f"Only {len(candidates)} candidates < min {self.config.min_candidates}"
                 )
                 result.duration_seconds = time.time() - start
                 return result
@@ -343,9 +346,8 @@ class SelfImprovementDaemon:
             # Step 7: Record outcome
             self._record_outcome(objective, pipeline_result)
 
-            result.success = (
-                getattr(pipeline_result, "subtasks_completed", 0) > 0
-                and not getattr(pipeline_result, "regressions_detected", False)
+            result.success = getattr(pipeline_result, "subtasks_completed", 0) > 0 and not getattr(
+                pipeline_result, "regressions_detected", False
             )
             result.duration_seconds = time.time() - start
 
@@ -403,11 +405,13 @@ class SelfImprovementDaemon:
                 and getattr(pipeline_result, "subtasks_failed", 0) == 0
             )
 
-            goal_outcomes = [{
-                "track": "core",
-                "success": success,
-                "description": objective,
-            }]
+            goal_outcomes = [
+                {
+                    "track": "core",
+                    "success": success,
+                    "description": objective,
+                }
+            ]
 
             planner = MetaPlanner()
             planner.record_outcome(goal_outcomes=goal_outcomes, objective=objective)

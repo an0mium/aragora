@@ -719,7 +719,10 @@ class WebhookRetryQueue:
                             self._stats["dead_lettered"] += 1
 
                         logger.warning(
-                            "Webhook delivery %s moved to dead-letter after %s attempts: %s", delivery.id, delivery.attempts, error
+                            "Webhook delivery %s moved to dead-letter after %s attempts: %s",
+                            delivery.id,
+                            delivery.attempts,
+                            error,
                         )
 
                         # Call dead-letter callback
@@ -737,7 +740,11 @@ class WebhookRetryQueue:
                             self._stats["retries"] += 1
 
                         logger.info(
-                            "Webhook delivery %s failed, scheduling retry %s/%s at %s", delivery.id, delivery.attempts + 1, delivery.max_attempts, delivery.next_retry_at.isoformat()
+                            "Webhook delivery %s failed, scheduling retry %s/%s at %s",
+                            delivery.id,
+                            delivery.attempts + 1,
+                            delivery.max_attempts,
+                            delivery.next_retry_at.isoformat(),
                         )
 
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:

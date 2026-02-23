@@ -643,7 +643,10 @@ class DRDrillScheduler:
         self._storage.save_schedule("weekly_integrity", "data_integrity_check", next_weekly)
 
         logger.info(
-            "Initialized DR schedules: monthly=%s, quarterly=%s, weekly=%s", next_monthly, next_quarterly, next_weekly
+            "Initialized DR schedules: monthly=%s, quarterly=%s, weekly=%s",
+            next_monthly,
+            next_quarterly,
+            next_weekly,
         )
 
     async def _run_loop(self) -> None:

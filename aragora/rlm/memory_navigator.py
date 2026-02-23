@@ -236,9 +236,7 @@ class RLMMemoryNavigator:
                         detail["content"] = getattr(item, "content", "")
                         detail["confidence"] = getattr(item, "confidence", 0.0)
                         detail["tags"] = getattr(item, "tags", [])
-                        detail["created_at"] = str(
-                            getattr(item, "created_at", "")
-                        )
+                        detail["created_at"] = str(getattr(item, "created_at", ""))
                         return detail
 
             elif source == "continuum" and self._gateway.continuum_memory:
@@ -248,9 +246,7 @@ class RLMMemoryNavigator:
                     if entry:
                         detail["content"] = getattr(entry, "content", "")
                         detail["importance"] = getattr(entry, "importance", 0.0)
-                        detail["surprise_score"] = getattr(
-                            entry, "surprise_score", 0.0
-                        )
+                        detail["surprise_score"] = getattr(entry, "surprise_score", 0.0)
                         detail["tier"] = getattr(entry, "tier", "")
                         return detail
 
@@ -297,8 +293,7 @@ class RLMMemoryNavigator:
         items = [
             item
             for item in items
-            if item.surprise_score is not None
-            and item.surprise_score >= min_surprise
+            if item.surprise_score is not None and item.surprise_score >= min_surprise
         ]
         # Sort by surprise descending
         items.sort(

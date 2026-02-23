@@ -551,7 +551,12 @@ class UserManagementMixin:
             db_cleared = user_store.reset_failed_login_attempts(email)
 
         logger.info(
-            "Admin %s unlocked user %s (email=%s, tracker_cleared=%s, db_cleared=%s)", auth_ctx.user_id, target_user_id, email, lockout_cleared, db_cleared
+            "Admin %s unlocked user %s (email=%s, tracker_cleared=%s, db_cleared=%s)",
+            auth_ctx.user_id,
+            target_user_id,
+            email,
+            lockout_cleared,
+            db_cleared,
         )
 
         # Log audit event

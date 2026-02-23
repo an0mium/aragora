@@ -125,61 +125,47 @@ class TestGoalExtractorWithDomain:
     def test_extractor_without_domain_has_no_domain_goals(self, sample_canvas_data):
         extractor = GoalExtractor()
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         assert len(domain_goals) == 0
 
     def test_extractor_with_healthcare_domain(self, sample_canvas_data):
         extractor = GoalExtractor(domain="healthcare")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         assert len(domain_goals) == 3
         assert all(g.metadata.get("domain") == "healthcare" for g in domain_goals)
 
     def test_extractor_with_financial_domain(self, sample_canvas_data):
         extractor = GoalExtractor(domain="financial")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         assert len(domain_goals) == 3
         assert all(g.metadata.get("domain") == "financial" for g in domain_goals)
 
     def test_extractor_with_legal_domain(self, sample_canvas_data):
         extractor = GoalExtractor(domain="legal")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         assert len(domain_goals) == 3
         assert all(g.metadata.get("domain") == "legal" for g in domain_goals)
 
     def test_extractor_with_unknown_domain_adds_no_extras(self, sample_canvas_data):
         extractor = GoalExtractor(domain="unknown")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         assert len(domain_goals) == 0
 
     def test_domain_goals_have_high_confidence(self, sample_canvas_data):
         extractor = GoalExtractor(domain="healthcare")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         for g in domain_goals:
             assert g.confidence == 0.9
 
     def test_domain_goals_have_correct_types(self, sample_canvas_data):
         extractor = GoalExtractor(domain="healthcare")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         types = {g.goal_type for g in domain_goals}
         # Healthcare should have goal, risk, and principle types
         assert GoalNodeType.GOAL in types
@@ -189,20 +175,14 @@ class TestGoalExtractorWithDomain:
     def test_domain_goals_from_raw_ideas(self, sample_ideas):
         extractor = GoalExtractor(domain="financial")
         result = extractor.extract_from_raw_ideas(sample_ideas)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         assert len(domain_goals) == 3
 
     def test_domain_goals_combined_with_structural(self, sample_canvas_data):
         extractor = GoalExtractor(domain="legal")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        structural_goals = [
-            g for g in result.goals if not g.metadata.get("domain_injected")
-        ]
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        structural_goals = [g for g in result.goals if not g.metadata.get("domain_injected")]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         # Should have both structural and domain goals
         assert len(structural_goals) > 0
         assert len(domain_goals) == 3
@@ -217,9 +197,7 @@ class TestGoalExtractorWithDomain:
     def test_domain_goal_priorities(self, sample_canvas_data):
         extractor = GoalExtractor(domain="financial")
         result = extractor.extract_from_ideas(sample_canvas_data)
-        domain_goals = [
-            g for g in result.goals if g.metadata.get("domain_injected")
-        ]
+        domain_goals = [g for g in result.goals if g.metadata.get("domain_injected")]
         priorities = {g.priority for g in domain_goals}
         # Financial goals should be critical or high priority
         assert all(p in ("critical", "high") for p in priorities)

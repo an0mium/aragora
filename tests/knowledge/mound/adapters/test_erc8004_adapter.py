@@ -736,10 +736,10 @@ class TestCalibrationReputation:
     @pytest.mark.parametrize(
         "brier_score,expected_rep",
         [
-            (0.0, 1000),   # Perfect calibration -> max reputation
-            (0.5, 500),    # Moderate -> 500
-            (1.0, 0),      # Worst -> 0
-            (0.15, 850),   # Good calibration -> high reputation
+            (0.0, 1000),  # Perfect calibration -> max reputation
+            (0.5, 500),  # Moderate -> 500
+            (1.0, 0),  # Worst -> 0
+            (0.15, 850),  # Good calibration -> high reputation
         ],
     )
     async def test_calibration_brier_to_reputation_scaling(
@@ -997,9 +997,7 @@ class TestPredictionCommitment:
         mock_rep_contract = MagicMock()
         mock_rep_contract.give_feedback.return_value = "0xcommit123"
 
-        with patch.object(
-            adapter, "_get_reputation_contract", return_value=mock_rep_contract
-        ):
+        with patch.object(adapter, "_get_reputation_contract", return_value=mock_rep_contract):
             result = await adapter.register_prediction_commitment(
                 agent_id="claude",
                 token_id=42,
@@ -1100,9 +1098,7 @@ class TestPredictionCommitment:
         events: list[tuple] = []
         adapter._emit_event = lambda name, data: events.append((name, data))
 
-        await adapter.register_prediction_commitment(
-            agent_id="claude", token_id=1, topic="test"
-        )
+        await adapter.register_prediction_commitment(agent_id="claude", token_id=1, topic="test")
 
         assert len(events) == 1
         assert events[0][0] == "prediction_committed"
@@ -1122,9 +1118,7 @@ class TestPredictionCommitment:
         mock_rep_contract = MagicMock()
         mock_rep_contract.give_feedback.side_effect = RuntimeError("RPC error")
 
-        with patch.object(
-            adapter, "_get_reputation_contract", return_value=mock_rep_contract
-        ):
+        with patch.object(adapter, "_get_reputation_contract", return_value=mock_rep_contract):
             result = await adapter.register_prediction_commitment(
                 agent_id="claude", token_id=42, topic="test"
             )
@@ -1136,7 +1130,6 @@ class TestPredictionCommitment:
     @pytest.mark.asyncio
     async def test_commitment_tag2_is_topic_hash(self):
         """On-chain commitment should use topic hash as tag2 for lookup."""
-        import hashlib
 
         provider = _make_mock_provider()
         signer = _make_mock_signer()
@@ -1152,12 +1145,8 @@ class TestPredictionCommitment:
         topic = "Should we use GraphQL?"
         expected_tag2 = hashlib.sha256(topic.encode()).hexdigest()[:16]
 
-        with patch.object(
-            adapter, "_get_reputation_contract", return_value=mock_rep_contract
-        ):
-            await adapter.register_prediction_commitment(
-                agent_id="claude", token_id=1, topic=topic
-            )
+        with patch.object(adapter, "_get_reputation_contract", return_value=mock_rep_contract):
+            await adapter.register_prediction_commitment(agent_id="claude", token_id=1, topic=topic)
 
         call_kwargs = mock_rep_contract.give_feedback.call_args.kwargs
         assert call_kwargs["tag2"] == expected_tag2

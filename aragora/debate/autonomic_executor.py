@@ -553,9 +553,7 @@ class AutonomicExecutor:
 
             progress_task = asyncio.create_task(_report_progress())
             progress_task.add_done_callback(
-                lambda t: logger.debug(
-                    "[Autonomic] Progress monitoring error: %s", t.exception()
-                )
+                lambda t: logger.debug("[Autonomic] Progress monitoring error: %s", t.exception())
                 if not t.cancelled() and t.exception()
                 else None
             )
@@ -637,7 +635,9 @@ class AutonomicExecutor:
             )
             if not validation_result.is_valid:
                 logger.warning(
-                    "[Autonomic] Agent %s response validation failed: %s", agent.name, validation_result.errors
+                    "[Autonomic] Agent %s response validation failed: %s",
+                    agent.name,
+                    validation_result.errors,
                 )
             elif validation_result.warnings:
                 for warning in validation_result.warnings:
@@ -705,7 +705,9 @@ class AutonomicExecutor:
 
             # Notify immune system of failure
             if self.immune_system:
-                self.immune_system.agent_failed(agent.name, f"connection_error:{type(e).__name__}", recoverable=True)
+                self.immune_system.agent_failed(
+                    agent.name, f"connection_error:{type(e).__name__}", recoverable=True
+                )
 
             # Emit telemetry for connection error
             self._emit_agent_telemetry(
@@ -738,7 +740,9 @@ class AutonomicExecutor:
 
             # Notify immune system of failure
             if self.immune_system:
-                self.immune_system.agent_failed(agent.name, f"internal_error:{type(e).__name__}", recoverable=False)
+                self.immune_system.agent_failed(
+                    agent.name, f"internal_error:{type(e).__name__}", recoverable=False
+                )
 
             # Emit telemetry for exception
             self._emit_agent_telemetry(
@@ -1124,12 +1128,17 @@ class AutonomicExecutor:
                     partial = self.streaming_buffer.get_partial(current_agent.name)
                     if partial and len(partial) > 100:
                         logger.warning(
-                            "[Autonomic] %s timed out but has %s chars of partial content", current_agent.name, len(partial)
+                            "[Autonomic] %s timed out but has %s chars of partial content",
+                            current_agent.name,
+                            len(partial),
                         )
                         # Could use partial content as fallback
 
                     logger.warning(
-                        "[Autonomic] %s timed out on attempt %s/%s", current_agent.name, attempt + 1, max_retries
+                        "[Autonomic] %s timed out on attempt %s/%s",
+                        current_agent.name,
+                        attempt + 1,
+                        max_retries,
                     )
                     last_error = f"timeout after {timeout:.1f}s"
 
@@ -1138,7 +1147,10 @@ class AutonomicExecutor:
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)
                     logger.warning(
-                        "[Autonomic] %s connection error on attempt %s: %s", current_agent.name, attempt + 1, e
+                        "[Autonomic] %s connection error on attempt %s: %s",
+                        current_agent.name,
+                        attempt + 1,
+                        e,
                     )
                     last_error = f"timeout after {timeout:.1f}s"
 
@@ -1147,7 +1159,10 @@ class AutonomicExecutor:
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)
                     logger.warning(
-                        "[Autonomic] %s connection error on attempt %s: %s", current_agent.name, attempt + 1, e
+                        "[Autonomic] %s connection error on attempt %s: %s",
+                        current_agent.name,
+                        attempt + 1,
+                        e,
                     )
                     last_error = f"connection_error:{type(e).__name__}"
 
@@ -1156,7 +1171,11 @@ class AutonomicExecutor:
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)
                     logger.exception(
-                        "[Autonomic] %s failed on attempt %s: %s: %s", current_agent.name, attempt + 1, type(e).__name__, e
+                        "[Autonomic] %s failed on attempt %s: %s: %s",
+                        current_agent.name,
+                        attempt + 1,
+                        type(e).__name__,
+                        e,
                     )
                     last_error = f"agent_error:{type(e).__name__}"
                     # Don't retry on unexpected errors
@@ -1170,7 +1189,9 @@ class AutonomicExecutor:
             partial = self.streaming_buffer.get_partial(tried_agent.name)
             if partial and len(partial) > 200:
                 logger.info(
-                    "[Autonomic] Using partial content (%s chars) from %s", len(partial), tried_agent.name
+                    "[Autonomic] Using partial content (%s chars) from %s",
+                    len(partial),
+                    tried_agent.name,
                 )
                 sanitized = OutputSanitizer.sanitize_agent_output(partial, tried_agent.name)
                 return f"{sanitized}\n\n[System: Response truncated due to timeout]"

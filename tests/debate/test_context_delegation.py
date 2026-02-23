@@ -234,7 +234,9 @@ class TestGetContinuumContext:
         # The import may fail naturally or succeed; either way the method
         # should not raise. We patch builtins.__import__ to force ImportError
         # for the specific module.
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
             if name == "aragora.memory.access":
@@ -369,13 +371,9 @@ class TestGatherTrendingContext:
 
 class TestRefreshEvidenceForRound:
     @pytest.mark.asyncio
-    async def test_with_updated_pack_updates_all_three(
-        self, mock_gatherer, cache, mock_grounder
-    ):
+    async def test_with_updated_pack_updates_all_three(self, mock_gatherer, cache, mock_grounder):
         updated_pack = {"new": "evidence"}
-        mock_gatherer.refresh_evidence_for_round = AsyncMock(
-            return_value=(5, updated_pack)
-        )
+        mock_gatherer.refresh_evidence_for_round = AsyncMock(return_value=(5, updated_pack))
         prompt_builder = MagicMock()
         d = ContextDelegator(
             context_gatherer=mock_gatherer,
@@ -395,9 +393,7 @@ class TestRefreshEvidenceForRound:
         prompt_builder.set_evidence_pack.assert_called_once_with(updated_pack)
 
     @pytest.mark.asyncio
-    async def test_no_updated_pack_doesnt_update(
-        self, mock_gatherer, cache, mock_grounder
-    ):
+    async def test_no_updated_pack_doesnt_update(self, mock_gatherer, cache, mock_grounder):
         mock_gatherer.refresh_evidence_for_round = AsyncMock(return_value=(0, None))
         prompt_builder = MagicMock()
         d = ContextDelegator(
@@ -418,13 +414,9 @@ class TestRefreshEvidenceForRound:
         prompt_builder.set_evidence_pack.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_cache_no_grounder_no_builder_with_updated_pack(
-        self, mock_gatherer
-    ):
+    async def test_no_cache_no_grounder_no_builder_with_updated_pack(self, mock_gatherer):
         updated_pack = {"data": True}
-        mock_gatherer.refresh_evidence_for_round = AsyncMock(
-            return_value=(2, updated_pack)
-        )
+        mock_gatherer.refresh_evidence_for_round = AsyncMock(return_value=(2, updated_pack))
         d = ContextDelegator(
             context_gatherer=mock_gatherer,
             cache=None,
@@ -457,17 +449,13 @@ class TestFetchHistoricalContext:
         d = ContextDelegator(memory_manager=mock_memory_manager)
         result = await d.fetch_historical_context("task", limit=5)
         assert result == "historical-ctx"
-        mock_memory_manager.fetch_historical_context.assert_awaited_once_with(
-            "task", 5
-        )
+        mock_memory_manager.fetch_historical_context.assert_awaited_once_with("task", 5)
 
     @pytest.mark.asyncio
     async def test_default_limit_is_three(self, mock_memory_manager):
         d = ContextDelegator(memory_manager=mock_memory_manager)
         await d.fetch_historical_context("task")
-        mock_memory_manager.fetch_historical_context.assert_awaited_once_with(
-            "task", 3
-        )
+        mock_memory_manager.fetch_historical_context.assert_awaited_once_with("task", 3)
 
 
 # ---------------------------------------------------------------------------
@@ -485,9 +473,7 @@ class TestFormatPatternsForPrompt:
         d = ContextDelegator(memory_manager=mock_memory_manager)
         result = d.format_patterns_for_prompt(patterns)
         assert result == "formatted-patterns"
-        mock_memory_manager._format_patterns_for_prompt.assert_called_once_with(
-            patterns
-        )
+        mock_memory_manager._format_patterns_for_prompt.assert_called_once_with(patterns)
 
 
 # ---------------------------------------------------------------------------

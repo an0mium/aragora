@@ -9,6 +9,7 @@ Covers:
 - nomic_ci_test_selector script
 - SemanticConflictDetector (basic wiring tests)
 """
+
 from __future__ import annotations
 
 import json
@@ -37,6 +38,7 @@ from aragora.nomic.branch_coordinator import BranchCoordinator, BranchCoordinato
 # CITestFailure
 # ============================================================
 
+
 class TestCITestFailure:
     def test_creation(self):
         f = CITestFailure(test_name="test_foo", error_message="assert failed")
@@ -52,6 +54,7 @@ class TestCITestFailure:
 # ============================================================
 # CITestSummary
 # ============================================================
+
 
 class TestCITestSummary:
     def test_creation_defaults(self):
@@ -77,6 +80,7 @@ class TestCITestSummary:
 # ============================================================
 # CIResult
 # ============================================================
+
 
 class TestCIResult:
     def test_creation(self):
@@ -118,6 +122,7 @@ class TestCIResult:
 # CIResultCollector
 # ============================================================
 
+
 class TestCIResultCollector:
     def test_gh_available_with_gh(self):
         with patch("aragora.nomic.ci_feedback.shutil.which", return_value="/usr/bin/gh"):
@@ -142,15 +147,17 @@ class TestCIResultCollector:
     @patch("aragora.nomic.ci_feedback.shutil.which", return_value="/usr/bin/gh")
     def test_poll_success(self, mock_which, mock_run):
         run_data = {
-            "workflow_runs": [{
-                "id": 100,
-                "head_branch": "dev/test",
-                "head_sha": "abc123",
-                "status": "completed",
-                "conclusion": "success",
-                "run_started_at": "2026-02-15T10:00:00Z",
-                "updated_at": "2026-02-15T10:05:00Z",
-            }]
+            "workflow_runs": [
+                {
+                    "id": 100,
+                    "head_branch": "dev/test",
+                    "head_sha": "abc123",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_started_at": "2026-02-15T10:00:00Z",
+                    "updated_at": "2026-02-15T10:05:00Z",
+                }
+            ]
         }
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -264,7 +271,9 @@ class TestCIResultCollector:
             commit_sha="abc12345",
             conclusion="failure",
             test_summary=CITestSummary(
-                total=10, passed=8, failed=2,
+                total=10,
+                passed=8,
+                failed=2,
                 failure_details=[
                     CITestFailure("test_a", "assert failed"),
                     CITestFailure("test_b", "timeout"),
@@ -291,6 +300,7 @@ class TestCIResultCollector:
 # ============================================================
 # VerifyPhase CI Integration
 # ============================================================
+
 
 class TestVerifyPhaseCI:
     @pytest.mark.asyncio
@@ -400,9 +410,11 @@ class TestVerifyPhaseCI:
 # FeedbackLoop CI Integration
 # ============================================================
 
+
 class TestFeedbackLoopCI:
     def _make_assignment(self):
         from aragora.nomic.task_decomposer import SubTask
+
         subtask = SubTask(
             id="test_1",
             title="Test task",
@@ -460,6 +472,7 @@ class TestFeedbackLoopCI:
 # PlanningContext CI Fields
 # ============================================================
 
+
 class TestPlanningContextCI:
     def test_ci_failures_field(self):
         ctx = PlanningContext(ci_failures=["test_foo failed"])
@@ -502,6 +515,7 @@ class TestPlanningContextCI:
 # ============================================================
 # Nomic CI Test Selector
 # ============================================================
+
 
 class TestNomicCITestSelector:
     def test_infer_test_paths_source_file(self, tmp_path):
@@ -574,25 +588,30 @@ class TestNomicCITestSelector:
 # SemanticConflictDetector (basic wiring)
 # ============================================================
 
+
 class TestSemanticConflictDetectorBasic:
     def test_import(self):
         from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
         assert SemanticConflictDetector is not None
 
     def test_creation(self, tmp_path):
         from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
         detector = SemanticConflictDetector(tmp_path)
         assert detector.repo_path == tmp_path
         assert detector.enable_debate is True
 
     def test_detect_no_branches(self, tmp_path):
         from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
         detector = SemanticConflictDetector(tmp_path)
         result = detector.detect([], "main")
         assert result == []
 
     def test_extract_signatures(self):
         from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
         detector = SemanticConflictDetector(Path("/tmp"))
         code = """
 def foo(a, b, c=1):
@@ -615,6 +634,7 @@ async def bar(x, *args, **kwargs):
 
     def test_extract_signatures_invalid_syntax(self):
         from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
         detector = SemanticConflictDetector(Path("/tmp"))
         sigs = detector._extract_signatures("def foo(:")
         assert sigs == []
@@ -624,6 +644,7 @@ async def bar(x, *args, **kwargs):
             SemanticConflictDetector,
             FunctionSignature,
         )
+
         sig_a = FunctionSignature("foo", ["a", "b"], 0, False, False, False)
         sig_b = FunctionSignature("foo", ["a", "b", "c"], 0, False, False, False)
         assert SemanticConflictDetector._signatures_conflict(sig_a, sig_b) is True
@@ -633,12 +654,14 @@ async def bar(x, *args, **kwargs):
             SemanticConflictDetector,
             FunctionSignature,
         )
+
         sig_a = FunctionSignature("foo", ["a", "b"], 0, False, False, False)
         sig_b = FunctionSignature("foo", ["a", "b"], 0, False, False, False)
         assert SemanticConflictDetector._signatures_conflict(sig_a, sig_b) is False
 
     def test_extract_imports(self):
         from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
         detector = SemanticConflictDetector(Path("/tmp"))
         code = """
 import os
@@ -656,6 +679,7 @@ from aragora.nomic import ci_feedback
 # ============================================================
 # BranchCoordinator semantic conflict wiring
 # ============================================================
+
 
 class TestBranchCoordinatorSemanticConflicts:
     def test_config_has_enable_flag(self):
@@ -683,6 +707,7 @@ class TestBranchCoordinatorSemanticConflicts:
 # ============================================================
 # Auto-detect repo
 # ============================================================
+
 
 class TestAutoDetectRepo:
     @patch("aragora.nomic.ci_feedback.shutil.which", return_value=None)

@@ -419,8 +419,12 @@ class TestBuildDashboardData:
     def test_top_findings_ordered_by_severity(self):
         tid = "rpt-tenant"
         _seed_finding(tenant_id=tid, finding_id="f_low", severity=FindingSeverity.LOW, title="Low")
-        _seed_finding(tenant_id=tid, finding_id="f_crit", severity=FindingSeverity.CRITICAL, title="Critical")
-        _seed_finding(tenant_id=tid, finding_id="f_high", severity=FindingSeverity.HIGH, title="High")
+        _seed_finding(
+            tenant_id=tid, finding_id="f_crit", severity=FindingSeverity.CRITICAL, title="Critical"
+        )
+        _seed_finding(
+            tenant_id=tid, finding_id="f_high", severity=FindingSeverity.HIGH, title="High"
+        )
 
         data = build_dashboard_data(tid)
         titles = [f["title"] for f in data["top_findings"]]

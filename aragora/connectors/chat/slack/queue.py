@@ -524,7 +524,10 @@ class SlackMessageQueue:
                 stats = await self.process_pending()
                 if stats["processed"] > 0:
                     logger.info(
-                        "Queue processed: %s delivered, %s retry, %s dead", stats['delivered'], stats['failed'], stats['dead']
+                        "Queue processed: %s delivered, %s retry, %s dead",
+                        stats["delivered"],
+                        stats["failed"],
+                        stats["dead"],
                     )
             except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
                 logger.exception("Queue processor error: %s", e)

@@ -49,7 +49,9 @@ class CorrectionReport:
     total_cycles: int
     overall_success_rate: float
     track_success_rates: dict[str, float]  # track -> rate
-    track_streaks: dict[str, int]  # track -> consecutive successes (positive) or failures (negative)
+    track_streaks: dict[
+        str, int
+    ]  # track -> consecutive successes (positive) or failures (negative)
     agent_correlations: dict[str, float]  # agent -> correlation with success
     failing_patterns: list[str]  # Human-readable failure patterns
 
@@ -62,7 +64,9 @@ class StrategyRecommendation:
     recommendation: str
     reason: str
     confidence: float  # How confident we are in this recommendation (0.0-1.0)
-    action_type: str  # "deprioritize", "change_approach", "rotate_agent", "increase_scope", "decrease_scope"
+    action_type: (
+        str  # "deprioritize", "change_approach", "rotate_agent", "increase_scope", "decrease_scope"
+    )
 
 
 class SelfCorrectionEngine:
@@ -142,9 +146,7 @@ class SelfCorrectionEngine:
 
         return report
 
-    def compute_priority_adjustments(
-        self, report: CorrectionReport
-    ) -> dict[str, float]:
+    def compute_priority_adjustments(self, report: CorrectionReport) -> dict[str, float]:
         """Compute priority adjustments for each track based on patterns.
 
         Returns dict mapping track name to adjustment factor (1.0 = no change,
@@ -190,9 +192,7 @@ class SelfCorrectionEngine:
 
         return adjustments
 
-    def recommend_strategy_change(
-        self, report: CorrectionReport
-    ) -> list[StrategyRecommendation]:
+    def recommend_strategy_change(self, report: CorrectionReport) -> list[StrategyRecommendation]:
         """Recommend strategy changes based on failure patterns.
 
         Produces actionable recommendations when patterns indicate systemic
@@ -229,10 +229,7 @@ class SelfCorrectionEngine:
         for agent, correlation in report.agent_correlations.items():
             if correlation < 0.3:
                 # Find which tracks this agent is failing on
-                failing_tracks = [
-                    t for t, rate in report.track_success_rates.items()
-                    if rate < 0.5
-                ]
+                failing_tracks = [t for t, rate in report.track_success_rates.items() if rate < 0.5]
                 track_str = ", ".join(failing_tracks[:3]) if failing_tracks else "multiple tracks"
                 recommendations.append(
                     StrategyRecommendation(
@@ -280,8 +277,7 @@ class SelfCorrectionEngine:
                     StrategyRecommendation(
                         track=track,
                         recommendation=(
-                            f"Deprioritize track '{track}' until root cause is "
-                            f"investigated."
+                            f"Deprioritize track '{track}' until root cause is investigated."
                         ),
                         reason=(
                             f"Track '{track}' has a {rate:.0%} success rate with "
@@ -307,9 +303,7 @@ class SelfCorrectionEngine:
 
     def _filter_by_age(self, outcomes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter outcomes that are older than max_pattern_age_days."""
-        cutoff = datetime.now(timezone.utc) - timedelta(
-            days=self.config.max_pattern_age_days
-        )
+        cutoff = datetime.now(timezone.utc) - timedelta(days=self.config.max_pattern_age_days)
         filtered: list[dict[str, Any]] = []
 
         for outcome in outcomes:
@@ -328,9 +322,7 @@ class SelfCorrectionEngine:
 
         return filtered
 
-    def _compute_track_success_rates(
-        self, outcomes: list[dict[str, Any]]
-    ) -> dict[str, float]:
+    def _compute_track_success_rates(self, outcomes: list[dict[str, Any]]) -> dict[str, float]:
         """Compute success rate for each track."""
         track_attempts: dict[str, int] = defaultdict(int)
         track_successes: dict[str, int] = defaultdict(int)
@@ -346,9 +338,7 @@ class SelfCorrectionEngine:
             for track, count in track_attempts.items()
         }
 
-    def _compute_track_streaks(
-        self, outcomes: list[dict[str, Any]]
-    ) -> dict[str, int]:
+    def _compute_track_streaks(self, outcomes: list[dict[str, Any]]) -> dict[str, int]:
         """Compute consecutive success/failure streaks per track.
 
         Positive values indicate consecutive successes, negative values
@@ -381,9 +371,7 @@ class SelfCorrectionEngine:
 
         return streaks
 
-    def _compute_agent_correlations(
-        self, outcomes: list[dict[str, Any]]
-    ) -> dict[str, float]:
+    def _compute_agent_correlations(self, outcomes: list[dict[str, Any]]) -> dict[str, float]:
         """Compute correlation between each agent and success.
 
         Returns a simple success rate per agent (0.0 = always fails,
@@ -418,9 +406,7 @@ class SelfCorrectionEngine:
         # Pattern: tracks with consecutive failures
         for track, streak in track_streaks.items():
             if streak < 0 and abs(streak) >= self.config.failure_repeat_threshold:
-                patterns.append(
-                    f"Track '{track}' has {abs(streak)} consecutive failures."
-                )
+                patterns.append(f"Track '{track}' has {abs(streak)} consecutive failures.")
 
         # Pattern: agents with low success correlation
         for agent, correlation in agent_correlations.items():

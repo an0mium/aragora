@@ -357,7 +357,9 @@ class TestUpdateConfigBasic:
         assert result["config"]["internal_domains"] == ["corp.com"]
 
     @pytest.mark.asyncio
-    async def test_update_auto_archive_senders(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_update_auto_archive_senders(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Can update auto_archive_senders field."""
         result = await handle_update_config(
             user_id="user-1",
@@ -387,7 +389,9 @@ class TestUpdateConfigBasic:
         assert result["config"]["tier_2_confidence_threshold"] == 0.45
 
     @pytest.mark.asyncio
-    async def test_update_enable_slack_signals(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_update_enable_slack_signals(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Can update enable_slack_signals."""
         result = await handle_update_config(
             user_id="user-1",
@@ -397,7 +401,9 @@ class TestUpdateConfigBasic:
         assert result["config"]["enable_slack_signals"] is False
 
     @pytest.mark.asyncio
-    async def test_update_enable_calendar_signals(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_update_enable_calendar_signals(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Can update enable_calendar_signals."""
         result = await handle_update_config(
             user_id="user-1",
@@ -407,7 +413,9 @@ class TestUpdateConfigBasic:
         assert result["config"]["enable_calendar_signals"] is False
 
     @pytest.mark.asyncio
-    async def test_update_enable_drive_signals(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_update_enable_drive_signals(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Can update enable_drive_signals."""
         result = await handle_update_config(
             user_id="user-1",
@@ -426,7 +434,9 @@ class TestUpdateConfigPartial:
     """Tests for partial config updates (only specified fields change)."""
 
     @pytest.mark.asyncio
-    async def test_partial_update_preserves_existing(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_partial_update_preserves_existing(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Updating one field does not reset others."""
         storage_module._user_configs["user-1"] = {
             "vip_domains": ["existing.com"],
@@ -442,7 +452,9 @@ class TestUpdateConfigPartial:
         assert result["config"]["tier_1_confidence_threshold"] == 0.85
 
     @pytest.mark.asyncio
-    async def test_multiple_fields_updated_at_once(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_multiple_fields_updated_at_once(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Can update multiple fields in a single call."""
         result = await handle_update_config(
             user_id="user-1",
@@ -469,7 +481,9 @@ class TestUpdateConfigPartial:
         assert result["config"]["vip_domains"] == ["keep.com"]
 
     @pytest.mark.asyncio
-    async def test_none_config_updates_treated_as_empty(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_none_config_updates_treated_as_empty(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """None config_updates is treated as empty dict."""
         result = await handle_update_config(
             user_id="user-1",
@@ -498,7 +512,9 @@ class TestUpdateConfigPersistence:
     """Tests for store persistence and prioritizer reset."""
 
     @pytest.mark.asyncio
-    async def test_save_called_with_correct_args(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_save_called_with_correct_args(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """_save_config_to_store is called with user_id and updated config."""
         await handle_update_config(
             user_id="user-1",
@@ -512,7 +528,9 @@ class TestUpdateConfigPersistence:
         assert call_args[0][2] == "ws-1"
 
     @pytest.mark.asyncio
-    async def test_prioritizer_reset_on_update(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_prioritizer_reset_on_update(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Prioritizer is reset to None after config update."""
         storage_module._prioritizer = MagicMock()
         await handle_update_config(
@@ -676,7 +694,9 @@ class TestUpdateConfigResponse:
     """Tests for the response returned by handle_update_config."""
 
     @pytest.mark.asyncio
-    async def test_response_contains_full_config(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_response_contains_full_config(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Response includes the full config, not just updated fields."""
         result = await handle_update_config(
             user_id="user-1",
@@ -686,15 +706,22 @@ class TestUpdateConfigResponse:
         cfg = result["config"]
         # Should have all config keys
         expected_keys = {
-            "vip_domains", "vip_addresses", "internal_domains",
-            "auto_archive_senders", "tier_1_confidence_threshold",
-            "tier_2_confidence_threshold", "enable_slack_signals",
-            "enable_calendar_signals", "enable_drive_signals",
+            "vip_domains",
+            "vip_addresses",
+            "internal_domains",
+            "auto_archive_senders",
+            "tier_1_confidence_threshold",
+            "tier_2_confidence_threshold",
+            "enable_slack_signals",
+            "enable_calendar_signals",
+            "enable_drive_signals",
         }
         assert set(cfg.keys()) == expected_keys
 
     @pytest.mark.asyncio
-    async def test_response_reflects_applied_update(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_response_reflects_applied_update(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """The config in the response reflects the update that was just applied."""
         result = await handle_update_config(
             user_id="user-1",
@@ -707,7 +734,9 @@ class TestUpdateConfigResponse:
         assert result["config"]["tier_1_confidence_threshold"] == 0.99
 
     @pytest.mark.asyncio
-    async def test_response_uses_handle_get_config_internally(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_response_uses_handle_get_config_internally(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """handle_update_config calls handle_get_config to build the response."""
         # We verify this by checking that the response matches get_config's format
         await handle_update_config(
@@ -740,7 +769,9 @@ class TestConfigRoundTrip:
             assert result["config"][key] == value
 
     @pytest.mark.asyncio
-    async def test_sequential_updates_accumulate(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_sequential_updates_accumulate(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """Multiple sequential updates accumulate correctly."""
         await handle_update_config(
             user_id="user-seq",
@@ -785,7 +816,9 @@ class TestUpdateConfigDefaultArgs:
         assert storage_module._user_configs["default"]["vip_domains"] == ["def.com"]
 
     @pytest.mark.asyncio
-    async def test_default_workspace_passed_to_get(self, mock_perm_ok, mock_load_config, mock_save_config):
+    async def test_default_workspace_passed_to_get(
+        self, mock_perm_ok, mock_load_config, mock_save_config
+    ):
         """The get_config call inside update uses the same workspace_id."""
         result = await handle_update_config(
             user_id="user-1",

@@ -582,7 +582,10 @@ class SharingHandler(BaseHandler):
                     settings.share_token = None
 
                 logger.info(
-                    "Debate %s visibility changed: %s -> %s", debate_id, old_visibility.value, new_visibility.value
+                    "Debate %s visibility changed: %s -> %s",
+                    debate_id,
+                    old_visibility.value,
+                    new_visibility.value,
                 )
             except ValueError:
                 return error_response(

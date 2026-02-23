@@ -175,20 +175,24 @@ class TestSignatureVerifierMixin:
     def test_returns_true_on_verified(self, mock_verify):
         mock_verify.return_value = _FakeVerificationResult(verified=True)
         mixin = self._make_mixin()
-        handler = _make_handler({
-            "X-Slack-Request-Timestamp": "1234567890",
-            "X-Slack-Signature": "v0=abc123",
-        })
+        handler = _make_handler(
+            {
+                "X-Slack-Request-Timestamp": "1234567890",
+                "X-Slack-Signature": "v0=abc123",
+            }
+        )
         assert mixin.verify_signature(handler, '{"text":"hi"}', "secret123") is True
 
     @patch("aragora.connectors.chat.webhook_security.verify_slack_signature")
     def test_passes_timestamp_header(self, mock_verify):
         mock_verify.return_value = _FakeVerificationResult(verified=True)
         mixin = self._make_mixin()
-        handler = _make_handler({
-            "X-Slack-Request-Timestamp": "1700000000",
-            "X-Slack-Signature": "v0=sig",
-        })
+        handler = _make_handler(
+            {
+                "X-Slack-Request-Timestamp": "1700000000",
+                "X-Slack-Signature": "v0=sig",
+            }
+        )
         mixin.verify_signature(handler, "body", "secret")
         mock_verify.assert_called_once()
         assert mock_verify.call_args.kwargs["timestamp"] == "1700000000"
@@ -205,9 +209,11 @@ class TestSignatureVerifierMixin:
     def test_passes_signature_header(self, mock_verify):
         mock_verify.return_value = _FakeVerificationResult(verified=True)
         mixin = self._make_mixin()
-        handler = _make_handler({
-            "X-Slack-Signature": "v0=deadbeef",
-        })
+        handler = _make_handler(
+            {
+                "X-Slack-Signature": "v0=deadbeef",
+            }
+        )
         mixin.verify_signature(handler, "body", "secret")
         assert mock_verify.call_args.kwargs["signature"] == "v0=deadbeef"
 
@@ -230,10 +236,14 @@ class TestSignatureVerifierMixin:
 
     @patch("aragora.connectors.chat.webhook_security.verify_slack_signature")
     def test_logs_warning_on_failed_with_error(self, mock_verify, caplog):
-        mock_verify.return_value = _FakeVerificationResult(verified=False, error="timestamp expired")
+        mock_verify.return_value = _FakeVerificationResult(
+            verified=False, error="timestamp expired"
+        )
         mixin = self._make_mixin()
         handler = _make_handler()
-        with caplog.at_level(logging.WARNING, logger="aragora.server.handlers.social.slack.security"):
+        with caplog.at_level(
+            logging.WARNING, logger="aragora.server.handlers.social.slack.security"
+        ):
             result = mixin.verify_signature(handler, "body", "secret")
         assert result is False
         assert "timestamp expired" in caplog.text
@@ -243,7 +253,9 @@ class TestSignatureVerifierMixin:
         mock_verify.return_value = _FakeVerificationResult(verified=False, error=None)
         mixin = self._make_mixin()
         handler = _make_handler()
-        with caplog.at_level(logging.WARNING, logger="aragora.server.handlers.social.slack.security"):
+        with caplog.at_level(
+            logging.WARNING, logger="aragora.server.handlers.social.slack.security"
+        ):
             mixin.verify_signature(handler, "body", "secret")
         # No warning should be logged when error is None
         assert "Slack signature verification failed" not in caplog.text
@@ -349,8 +361,10 @@ class TestSignatureVerifierMixin:
             pass
 
         obj = MyHandler()
-        handler = _make_handler({
-            "X-Slack-Request-Timestamp": "12345",
-            "X-Slack-Signature": "v0=sig",
-        })
+        handler = _make_handler(
+            {
+                "X-Slack-Request-Timestamp": "12345",
+                "X-Slack-Signature": "v0=sig",
+            }
+        )
         assert obj.verify_signature(handler, "body", "secret") is True

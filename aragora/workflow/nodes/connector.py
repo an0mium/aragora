@@ -407,7 +407,9 @@ class ConnectorStep(BaseStep):
                     self._execute_operation(connector, operation, interpolated_params),
                     timeout=timeout,
                 )
-                logger.info("[ConnectorStep] %s: %s.%s succeeded", self._name, connector_type, operation)
+                logger.info(
+                    "[ConnectorStep] %s: %s.%s succeeded", self._name, connector_type, operation
+                )
                 return self._format_result(result)
 
             except asyncio.TimeoutError:
@@ -426,7 +428,15 @@ class ConnectorStep(BaseStep):
                 logger.warning("[ConnectorStep] %s: %s, retrying in %ss...", self._name, e, delay)
                 await asyncio.sleep(delay)
 
-            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                AttributeError,
+                KeyError,
+            ) as e:
                 logger.error("[ConnectorStep] %s: Unexpected error: %s", self._name, e)
                 raise
 

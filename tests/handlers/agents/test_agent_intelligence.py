@@ -211,9 +211,7 @@ class TestGetMetadata:
     async def test_no_nomic_dir(self, handler, mock_http_handler):
         """Returns message when nomic_dir is not available."""
         handler.ctx = {}  # no nomic_dir
-        result = await handler.handle(
-            "/api/v1/agent/claude/metadata", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
         body = _body(result)
         assert body["agent"] == "claude"
         assert body["metadata"] is None
@@ -228,9 +226,7 @@ class TestGetMetadata:
             "aragora.server.handlers.agents.agent_intelligence.get_db_path",
             return_value=tmp_path / "nonexistent_elo.db",
         ):
-            result = await handler.handle(
-                "/api/v1/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
             body = _body(result)
             assert body["agent"] == "claude"
             assert body["metadata"] is None
@@ -280,9 +276,7 @@ class TestGetMetadata:
             "aragora.server.handlers.agents.agent_intelligence.get_db_path",
             return_value=db_path,
         ):
-            result = await handler.handle(
-                "/api/v1/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             assert body["agent"] == "claude"
@@ -320,9 +314,7 @@ class TestGetMetadata:
             "aragora.server.handlers.agents.agent_intelligence.get_db_path",
             return_value=db_path,
         ):
-            result = await handler.handle(
-                "/api/v1/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
             body = _body(result)
             assert body["agent"] == "claude"
             assert body["metadata"] is None
@@ -342,9 +334,7 @@ class TestGetMetadata:
             "aragora.server.handlers.agents.agent_intelligence.get_db_path",
             return_value=db_path,
         ):
-            result = await handler.handle(
-                "/api/v1/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
             body = _body(result)
             assert body["agent"] == "claude"
             assert body["metadata"] is None
@@ -393,9 +383,7 @@ class TestGetMetadata:
             "aragora.server.handlers.agents.agent_intelligence.get_db_path",
             return_value=db_path,
         ):
-            result = await handler.handle(
-                "/api/v1/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             meta = body["metadata"]
@@ -437,9 +425,7 @@ class TestGetMetadata:
             "aragora.server.handlers.agents.agent_intelligence.get_db_path",
             return_value=db_path,
         ):
-            result = await handler.handle(
-                "/api/v1/agent/claude/metadata", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agent/claude/metadata", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             meta = body["metadata"]

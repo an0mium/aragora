@@ -8,6 +8,7 @@ Usage:
     python scripts/nomic_ci_test_selector.py --changed-files aragora/foo/bar.py aragora/baz/qux.py --run
     python scripts/nomic_ci_test_selector.py --changed-files aragora/foo/bar.py --dry-run
 """
+
 import argparse
 import json
 import subprocess
@@ -25,7 +26,7 @@ def infer_test_paths(changed_files: list[str]) -> list[str]:
             test_paths.append(path)
             continue
         if path.startswith("aragora/"):
-            rel = path[len("aragora/"):]
+            rel = path[len("aragora/") :]
             parts = rel.rsplit("/", 1)
             if len(parts) == 2:
                 directory, filename = parts
@@ -73,9 +74,13 @@ def main():
 
     if args.run:
         cmd = [
-            sys.executable, "-m", "pytest",
+            sys.executable,
+            "-m",
+            "pytest",
             *test_paths,
-            "--timeout=120", "-v", "--tb=short",
+            "--timeout=120",
+            "-v",
+            "--tb=short",
             "--junit-xml=.nomic-ci-junit.xml",
         ]
         proc = subprocess.run(cmd)

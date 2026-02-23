@@ -103,12 +103,28 @@ def mock_http_post():
 def _clean_env(monkeypatch):
     """Remove all provider env vars for clean tests."""
     env_vars = [
-        "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_REDIRECT_URI", "SLACK_SCOPES",
-        "TEAMS_CLIENT_ID", "TEAMS_CLIENT_SECRET", "TEAMS_REDIRECT_URI", "TEAMS_SCOPES",
-        "DISCORD_BOT_TOKEN", "DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET",
-        "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM",
-        "GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_OAUTH_REDIRECT_URI",
-        "GITHUB_APP_ID", "GITHUB_PRIVATE_KEY", "GITHUB_WEBHOOK_SECRET",
+        "SLACK_CLIENT_ID",
+        "SLACK_CLIENT_SECRET",
+        "SLACK_REDIRECT_URI",
+        "SLACK_SCOPES",
+        "TEAMS_CLIENT_ID",
+        "TEAMS_CLIENT_SECRET",
+        "TEAMS_REDIRECT_URI",
+        "TEAMS_SCOPES",
+        "DISCORD_BOT_TOKEN",
+        "DISCORD_CLIENT_ID",
+        "DISCORD_CLIENT_SECRET",
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_USER",
+        "SMTP_PASSWORD",
+        "SMTP_FROM",
+        "GOOGLE_OAUTH_CLIENT_ID",
+        "GOOGLE_OAUTH_CLIENT_SECRET",
+        "GOOGLE_OAUTH_REDIRECT_URI",
+        "GITHUB_APP_ID",
+        "GITHUB_PRIVATE_KEY",
+        "GITHUB_WEBHOOK_SECRET",
     ]
     for var in env_vars:
         monkeypatch.delenv(var, raising=False)
@@ -120,6 +136,7 @@ def _reset_rate_limiter():
     """Reset distributed rate limiter state between tests."""
     try:
         from aragora.server.middleware.rate_limit.distributed import get_distributed_limiter
+
         limiter = get_distributed_limiter()
         if hasattr(limiter, "_buckets"):
             limiter._buckets = defaultdict(dict)
@@ -255,7 +272,9 @@ class TestGetWizardConfig:
         assert body["wizard"]["summary"]["configured"] == 0
 
     @pytest.mark.asyncio
-    async def test_wizard_config_with_configured_provider(self, handler, mock_http_get, monkeypatch):
+    async def test_wizard_config_with_configured_provider(
+        self, handler, mock_http_get, monkeypatch
+    ):
         monkeypatch.setenv("SLACK_CLIENT_ID", "test-id")
         monkeypatch.setenv("SLACK_CLIENT_SECRET", "test-secret")
         result = await handler.handle("/api/v2/integrations/wizard", {}, mock_http_get)
@@ -369,7 +388,9 @@ class TestListProviders:
         assert body["total"] == len(PROVIDERS)
 
     @pytest.mark.asyncio
-    async def test_filter_combined_category_and_configured(self, handler, mock_http_get, monkeypatch):
+    async def test_filter_combined_category_and_configured(
+        self, handler, mock_http_get, monkeypatch
+    ):
         monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
         result = await handler.handle(
             "/api/v2/integrations/wizard/providers",
@@ -524,19 +545,29 @@ class TestValidateConfig:
 
     @pytest.mark.asyncio
     async def test_validate_slack_with_config_values(self, handler):
-        mock = _make_handler("POST", {
-            "provider": "slack",
-            "config": {"SLACK_CLIENT_ID": "id", "SLACK_CLIENT_SECRET": "secret"},
-        })
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "slack",
+                "config": {"SLACK_CLIENT_ID": "id", "SLACK_CLIENT_SECRET": "secret"},
+            },
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert body["valid"] is True
 
     @pytest.mark.asyncio
     async def test_validate_checks_optional_vars(self, handler):
-        mock = _make_handler("POST", {"provider": "slack", "config": {
-            "SLACK_CLIENT_ID": "id", "SLACK_CLIENT_SECRET": "secret",
-        }})
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "slack",
+                "config": {
+                    "SLACK_CLIENT_ID": "id",
+                    "SLACK_CLIENT_SECRET": "secret",
+                },
+            },
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         optional_checks = [c for c in body["checks"] if not c["required"]]
@@ -544,10 +575,13 @@ class TestValidateConfig:
 
     @pytest.mark.asyncio
     async def test_validate_recommendations_valid(self, handler):
-        mock = _make_handler("POST", {
-            "provider": "slack",
-            "config": {"SLACK_CLIENT_ID": "id", "SLACK_CLIENT_SECRET": "secret"},
-        })
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "slack",
+                "config": {"SLACK_CLIENT_ID": "id", "SLACK_CLIENT_SECRET": "secret"},
+            },
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert len(body["recommendations"]) >= 1
@@ -572,10 +606,13 @@ class TestValidateConfig:
 
     @pytest.mark.asyncio
     async def test_validate_github_provider(self, handler):
-        mock = _make_handler("POST", {
-            "provider": "github",
-            "config": {"GITHUB_APP_ID": "123", "GITHUB_PRIVATE_KEY": "key"},
-        })
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "github",
+                "config": {"GITHUB_APP_ID": "123", "GITHUB_PRIVATE_KEY": "key"},
+            },
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert body["valid"] is True
@@ -598,13 +635,16 @@ class TestValidateConfig:
 
     @pytest.mark.asyncio
     async def test_validate_gmail_provider(self, handler):
-        mock = _make_handler("POST", {
-            "provider": "gmail",
-            "config": {
-                "GOOGLE_OAUTH_CLIENT_ID": "id",
-                "GOOGLE_OAUTH_CLIENT_SECRET": "secret",
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "gmail",
+                "config": {
+                    "GOOGLE_OAUTH_CLIENT_ID": "id",
+                    "GOOGLE_OAUTH_CLIENT_SECRET": "secret",
+                },
             },
-        })
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert body["valid"] is True
@@ -612,10 +652,13 @@ class TestValidateConfig:
 
     @pytest.mark.asyncio
     async def test_validate_partial_config(self, handler):
-        mock = _make_handler("POST", {
-            "provider": "slack",
-            "config": {"SLACK_CLIENT_ID": "id"},
-        })
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "slack",
+                "config": {"SLACK_CLIENT_ID": "id"},
+            },
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert body["valid"] is False
@@ -645,9 +688,7 @@ class TestTestConnection:
     @pytest.mark.asyncio
     async def test_unknown_provider(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/nonexistent/test", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/nonexistent/test", {}, mock)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -655,9 +696,7 @@ class TestTestConnection:
         mock = _make_handler("POST", {})
         with patch.object(handler, "_test_slack_api", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"success": True, "team": "TestTeam"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/slack/test", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/slack/test", {}, mock)
         assert _status(result) == 200
         body = _body(result)
         assert body["provider"] == "slack"
@@ -669,9 +708,7 @@ class TestTestConnection:
         mock = _make_handler("POST", {})
         with patch.object(handler, "_test_teams_api", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"success": True, "display_name": "TestUser"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/teams/test", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/teams/test", {}, mock)
         assert _status(result) == 200
         body = _body(result)
         assert body["provider"] == "teams"
@@ -682,9 +719,7 @@ class TestTestConnection:
         mock = _make_handler("POST", {})
         with patch.object(handler, "_test_discord_api", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"success": True, "bot_name": "TestBot"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/discord/test", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/discord/test", {}, mock)
         body = _body(result)
         assert body["provider"] == "discord"
         assert body["test_result"]["success"] is True
@@ -692,9 +727,7 @@ class TestTestConnection:
     @pytest.mark.asyncio
     async def test_unimplemented_provider_test(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/email/test", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/email/test", {}, mock)
         body = _body(result)
         assert body["provider"] == "email"
         assert body["test_result"]["success"] is False
@@ -704,13 +737,12 @@ class TestTestConnection:
     async def test_test_connection_exception(self, handler):
         mock = _make_handler("POST", {})
         with patch.object(
-            handler, "_test_slack_api",
+            handler,
+            "_test_slack_api",
             new_callable=AsyncMock,
             side_effect=ConnectionError("network down"),
         ):
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/slack/test", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/slack/test", {}, mock)
         body = _body(result)
         assert body["test_result"]["success"] is False
         assert "failed" in body["test_result"]["error"].lower()
@@ -718,18 +750,14 @@ class TestTestConnection:
     @pytest.mark.asyncio
     async def test_github_test_not_implemented(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/github/test", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/github/test", {}, mock)
         body = _body(result)
         assert body["test_result"]["success"] is False
 
     @pytest.mark.asyncio
     async def test_gmail_test_not_implemented(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/gmail/test", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/gmail/test", {}, mock)
         body = _body(result)
         assert body["test_result"]["success"] is False
 
@@ -789,7 +817,8 @@ class TestListWorkspaces:
     @pytest.mark.asyncio
     async def test_workspaces_exception(self, handler, mock_http_get):
         with patch.object(
-            handler, "_get_slack_workspaces",
+            handler,
+            "_get_slack_workspaces",
             new_callable=AsyncMock,
             side_effect=ImportError("module not found"),
         ):
@@ -847,9 +876,7 @@ class TestDisconnect:
         mock = _make_handler("POST", {"workspace_id": "W123"})
         with patch.object(handler, "_disconnect_slack_workspace", new_callable=AsyncMock) as mock_d:
             mock_d.return_value = {"success": True, "message": "Workspace W123 disconnected"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/slack/disconnect", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/slack/disconnect", {}, mock)
         body = _body(result)
         assert body["provider"] == "slack"
         assert body["disconnected"] is True
@@ -857,9 +884,7 @@ class TestDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_slack_missing_workspace_id(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/slack/disconnect", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/slack/disconnect", {}, mock)
         assert _status(result) == 400
         body = _body(result)
         assert "workspace_id" in body.get("error", "").lower()
@@ -869,18 +894,14 @@ class TestDisconnect:
         mock = _make_handler("POST", {"tenant_id": "T123"})
         with patch.object(handler, "_disconnect_teams_tenant", new_callable=AsyncMock) as mock_d:
             mock_d.return_value = {"success": True, "message": "Tenant T123 disconnected"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/teams/disconnect", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/teams/disconnect", {}, mock)
         body = _body(result)
         assert body["disconnected"] is True
 
     @pytest.mark.asyncio
     async def test_disconnect_teams_missing_tenant_id(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/teams/disconnect", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/teams/disconnect", {}, mock)
         assert _status(result) == 400
         body = _body(result)
         assert "tenant_id" in body.get("error", "").lower()
@@ -899,9 +920,7 @@ class TestDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_discord_missing_guild_id(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/discord/disconnect", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/discord/disconnect", {}, mock)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -909,9 +928,7 @@ class TestDisconnect:
         mock = _make_handler("POST", {"user_id": "user@example.com"})
         with patch.object(handler, "_disconnect_gmail_account", new_callable=AsyncMock) as mock_d:
             mock_d.return_value = {"success": True, "message": "Gmail disconnected"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/gmail/disconnect", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/gmail/disconnect", {}, mock)
         body = _body(result)
         assert body["disconnected"] is True
 
@@ -920,17 +937,13 @@ class TestDisconnect:
         mock = _make_handler("POST", {})
         with patch.object(handler, "_disconnect_gmail_account", new_callable=AsyncMock) as mock_d:
             mock_d.return_value = {"success": True, "message": "Gmail disconnected"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/gmail/disconnect", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/gmail/disconnect", {}, mock)
         mock_d.assert_called_once_with("default")
 
     @pytest.mark.asyncio
     async def test_disconnect_email_success(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/email/disconnect", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/email/disconnect", {}, mock)
         body = _body(result)
         assert body["disconnected"] is True
         assert "cleared" in body["message"].lower()
@@ -938,22 +951,19 @@ class TestDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_unsupported_provider(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/github/disconnect", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/github/disconnect", {}, mock)
         assert _status(result) == 501
 
     @pytest.mark.asyncio
     async def test_disconnect_exception(self, handler):
         mock = _make_handler("POST", {"workspace_id": "W1"})
         with patch.object(
-            handler, "_disconnect_slack_workspace",
+            handler,
+            "_disconnect_slack_workspace",
             new_callable=AsyncMock,
             side_effect=RuntimeError("store error"),
         ):
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/slack/disconnect", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/slack/disconnect", {}, mock)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -961,9 +971,7 @@ class TestDisconnect:
         mock = _make_handler("POST", {"workspace_id": "W1"})
         with patch.object(handler, "_disconnect_slack_workspace", new_callable=AsyncMock) as mock_d:
             mock_d.return_value = {"success": False, "message": "Not found"}
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/slack/disconnect", {}, mock
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/slack/disconnect", {}, mock)
         body = _body(result)
         assert body["disconnected"] is False
 
@@ -1038,13 +1046,12 @@ class TestPermissions:
         mock = _make_handler("POST", {"workspace_id": "W1"})
         with patch.object(handler, "check_permission") as mock_perm:
             with patch.object(
-                handler, "_disconnect_slack_workspace",
+                handler,
+                "_disconnect_slack_workspace",
                 new_callable=AsyncMock,
                 return_value={"success": True, "message": "ok"},
             ):
-                await handler.handle(
-                    "/api/v2/integrations/wizard/slack/disconnect", {}, mock
-                )
+                await handler.handle("/api/v2/integrations/wizard/slack/disconnect", {}, mock)
             mock_perm.assert_called()
             call_args = mock_perm.call_args
             assert call_args[0][1] == CONNECTOR_DELETE
@@ -1054,13 +1061,12 @@ class TestPermissions:
         mock = _make_handler("POST", {})
         with patch.object(handler, "check_permission") as mock_perm:
             with patch.object(
-                handler, "_test_slack_api",
+                handler,
+                "_test_slack_api",
                 new_callable=AsyncMock,
                 return_value={"success": True},
             ):
-                await handler.handle(
-                    "/api/v2/integrations/wizard/slack/test", {}, mock
-                )
+                await handler.handle("/api/v2/integrations/wizard/slack/test", {}, mock)
             mock_perm.assert_called()
             call_args = mock_perm.call_args
             assert call_args[0][1] == CONNECTOR_CREATE
@@ -1068,6 +1074,7 @@ class TestPermissions:
     @pytest.mark.asyncio
     async def test_permission_denied_returns_403(self, handler, mock_http_get):
         from aragora.rbac.decorators import PermissionDeniedError
+
         with patch.object(handler, "check_permission", side_effect=PermissionDeniedError("denied")):
             result = await handler.handle("/api/v2/integrations/wizard", {}, mock_http_get)
         assert _status(result) == 403
@@ -1075,8 +1082,10 @@ class TestPermissions:
     @pytest.mark.asyncio
     async def test_role_required_returns_403(self, handler, mock_http_get):
         from aragora.rbac.decorators import RoleRequiredError
+
         with patch.object(
-            handler, "check_permission",
+            handler,
+            "check_permission",
             side_effect=RoleRequiredError("admin role required", {"admin"}, set()),
         ):
             result = await handler.handle("/api/v2/integrations/wizard", {}, mock_http_get)
@@ -1100,16 +1109,12 @@ class TestNotFound:
 
     @pytest.mark.asyncio
     async def test_wrong_method_on_validate(self, handler, mock_http_get):
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/validate", {}, mock_http_get
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock_http_get)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_on_test_endpoint(self, handler, mock_http_get):
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/slack/test", {}, mock_http_get
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/slack/test", {}, mock_http_get)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1122,9 +1127,7 @@ class TestNotFound:
     @pytest.mark.asyncio
     async def test_post_on_workspaces(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle(
-            "/api/v2/integrations/wizard/slack/workspaces", {}, mock
-        )
+        result = await handler.handle("/api/v2/integrations/wizard/slack/workspaces", {}, mock)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1210,7 +1213,8 @@ class TestCheckConnection:
     @pytest.mark.asyncio
     async def test_check_connection_exception(self, handler):
         with patch.object(
-            handler, "_check_slack_connection",
+            handler,
+            "_check_slack_connection",
             new_callable=AsyncMock,
             side_effect=ConnectionError("failed"),
         ):
@@ -1220,7 +1224,8 @@ class TestCheckConnection:
     @pytest.mark.asyncio
     async def test_check_slack_connection_import_error(self, handler):
         with patch.object(
-            handler, "_check_slack_connection",
+            handler,
+            "_check_slack_connection",
             new_callable=AsyncMock,
             side_effect=ImportError("no module"),
         ):
@@ -1383,6 +1388,7 @@ class TestSlackApiTest:
     async def test_slack_import_error(self, handler):
         """When the slack store module is not available, returns failure."""
         import builtins
+
         original_import = builtins.__import__
 
         def patched_import(name, *args, **kwargs):
@@ -1404,6 +1410,7 @@ class TestSlackApiTest:
     async def test_discord_import_error(self, handler, monkeypatch):
         monkeypatch.setenv("DISCORD_BOT_TOKEN", "token")
         import builtins
+
         original_import = builtins.__import__
 
         def patched_import(name, *args, **kwargs):
@@ -1528,7 +1535,8 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_connection_error_returns_500(self, handler, mock_http_get):
         with patch.object(
-            handler, "_get_wizard_config",
+            handler,
+            "_get_wizard_config",
             new_callable=AsyncMock,
             side_effect=ConnectionError("network down"),
         ):
@@ -1538,7 +1546,8 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_timeout_error_returns_500(self, handler, mock_http_get):
         with patch.object(
-            handler, "_get_wizard_config",
+            handler,
+            "_get_wizard_config",
             new_callable=AsyncMock,
             side_effect=TimeoutError("timed out"),
         ):
@@ -1548,7 +1557,8 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_value_error_returns_500(self, handler, mock_http_get):
         with patch.object(
-            handler, "_list_providers",
+            handler,
+            "_list_providers",
             new_callable=AsyncMock,
             side_effect=ValueError("bad value"),
         ):
@@ -1560,13 +1570,12 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_runtime_error_returns_500(self, handler, mock_http_get):
         with patch.object(
-            handler, "_get_status",
+            handler,
+            "_get_status",
             new_callable=AsyncMock,
             side_effect=RuntimeError("unexpected"),
         ):
-            result = await handler.handle(
-                "/api/v2/integrations/wizard/status", {}, mock_http_get
-            )
+            result = await handler.handle("/api/v2/integrations/wizard/status", {}, mock_http_get)
         assert _status(result) == 500
 
     @pytest.mark.no_auto_auth
@@ -1592,9 +1601,16 @@ class TestProviderData:
 
     def test_all_providers_have_required_fields(self):
         required_fields = [
-            "name", "description", "category", "setup_time_minutes",
-            "features", "required_env_vars", "optional_env_vars",
-            "oauth_scopes", "install_url", "docs_url",
+            "name",
+            "description",
+            "category",
+            "setup_time_minutes",
+            "features",
+            "required_env_vars",
+            "optional_env_vars",
+            "oauth_scopes",
+            "install_url",
+            "docs_url",
         ]
         for pid, pdata in PROVIDERS.items():
             for field in required_fields:
@@ -1652,6 +1668,7 @@ class TestMaybeAwait:
     async def test_awaitable_value(self, handler):
         async def coro():
             return "hello"
+
         result = await handler._maybe_await(coro())
         assert result == "hello"
 
@@ -1726,10 +1743,13 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_validate_with_extra_config_keys(self, handler):
-        mock = _make_handler("POST", {
-            "provider": "discord",
-            "config": {"DISCORD_BOT_TOKEN": "tok", "EXTRA_KEY": "value"},
-        })
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "discord",
+                "config": {"DISCORD_BOT_TOKEN": "tok", "EXTRA_KEY": "value"},
+            },
+        )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert body["valid"] is True

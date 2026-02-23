@@ -123,11 +123,13 @@ class TestWellCalibratedPool:
         agents = [_FakeAgent("a1"), _FakeAgent("a2"), _FakeAgent("a3")]
 
         # All agents have Brier = 0.10 (well below NEUTRAL_BRIER=0.25)
-        tracker = _make_calibration_tracker({
-            "a1": _FakeCalibrationSummary("a1", total_predictions=20, brier_score=0.10),
-            "a2": _FakeCalibrationSummary("a2", total_predictions=20, brier_score=0.10),
-            "a3": _FakeCalibrationSummary("a3", total_predictions=20, brier_score=0.10),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a1": _FakeCalibrationSummary("a1", total_predictions=20, brier_score=0.10),
+                "a2": _FakeCalibrationSummary("a2", total_predictions=20, brier_score=0.10),
+                "a3": _FakeCalibrationSummary("a3", total_predictions=20, brier_score=0.10),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -139,10 +141,12 @@ class TestWellCalibratedPool:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a1"), _FakeAgent("a2")]
 
-        tracker = _make_calibration_tracker({
-            "a1": _FakeCalibrationSummary("a1", total_predictions=50, brier_score=0.05),
-            "a2": _FakeCalibrationSummary("a2", total_predictions=50, brier_score=0.05),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a1": _FakeCalibrationSummary("a1", total_predictions=50, brier_score=0.05),
+                "a2": _FakeCalibrationSummary("a2", total_predictions=50, brier_score=0.05),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -153,9 +157,13 @@ class TestWellCalibratedPool:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("perfect")]
 
-        tracker = _make_calibration_tracker({
-            "perfect": _FakeCalibrationSummary("perfect", total_predictions=100, brier_score=0.0),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "perfect": _FakeCalibrationSummary(
+                    "perfect", total_predictions=100, brier_score=0.0
+                ),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -176,10 +184,12 @@ class TestPoorlyCalibratedPool:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("bad1"), _FakeAgent("bad2")]
 
-        tracker = _make_calibration_tracker({
-            "bad1": _FakeCalibrationSummary("bad1", total_predictions=30, brier_score=0.45),
-            "bad2": _FakeCalibrationSummary("bad2", total_predictions=30, brier_score=0.45),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "bad1": _FakeCalibrationSummary("bad1", total_predictions=30, brier_score=0.45),
+                "bad2": _FakeCalibrationSummary("bad2", total_predictions=30, brier_score=0.45),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -191,9 +201,13 @@ class TestPoorlyCalibratedPool:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("terrible")]
 
-        tracker = _make_calibration_tracker({
-            "terrible": _FakeCalibrationSummary("terrible", total_predictions=20, brier_score=0.8),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "terrible": _FakeCalibrationSummary(
+                    "terrible", total_predictions=20, brier_score=0.8
+                ),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -205,10 +219,12 @@ class TestPoorlyCalibratedPool:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("good"), _FakeAgent("bad")]
 
-        tracker = _make_calibration_tracker({
-            "good": _FakeCalibrationSummary("good", total_predictions=20, brier_score=0.10),
-            "bad": _FakeCalibrationSummary("bad", total_predictions=20, brier_score=0.50),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "good": _FakeCalibrationSummary("good", total_predictions=20, brier_score=0.10),
+                "bad": _FakeCalibrationSummary("bad", total_predictions=20, brier_score=0.50),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -235,9 +251,11 @@ class TestClamping:
         ac = AdaptiveConsensus(config)
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=100, brier_score=0.0),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=100, brier_score=0.0),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -255,9 +273,11 @@ class TestClamping:
         ac = AdaptiveConsensus(config)
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=50, brier_score=1.0),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=50, brier_score=1.0),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -270,9 +290,11 @@ class TestClamping:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=20, brier_score=0.20),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=20, brier_score=0.20),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -294,10 +316,14 @@ class TestInsufficientSamples:
         ac = AdaptiveConsensus(config)
         agents = [_FakeAgent("enough"), _FakeAgent("not_enough")]
 
-        tracker = _make_calibration_tracker({
-            "enough": _FakeCalibrationSummary("enough", total_predictions=15, brier_score=0.10),
-            "not_enough": _FakeCalibrationSummary("not_enough", total_predictions=3, brier_score=0.90),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "enough": _FakeCalibrationSummary("enough", total_predictions=15, brier_score=0.10),
+                "not_enough": _FakeCalibrationSummary(
+                    "not_enough", total_predictions=3, brier_score=0.90
+                ),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
 
@@ -310,10 +336,12 @@ class TestInsufficientSamples:
         ac = AdaptiveConsensus(config)
         agents = [_FakeAgent("a"), _FakeAgent("b")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=10, brier_score=0.1),
-            "b": _FakeCalibrationSummary("b", total_predictions=5, brier_score=0.9),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=10, brier_score=0.1),
+                "b": _FakeCalibrationSummary("b", total_predictions=5, brier_score=0.9),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
         assert threshold == pytest.approx(0.6)  # base threshold
@@ -323,9 +351,11 @@ class TestInsufficientSamples:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=5, brier_score=0.10),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=5, brier_score=0.10),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
         # Should NOT be the base threshold; agent has exactly min_samples
@@ -337,9 +367,11 @@ class TestInsufficientSamples:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=4, brier_score=0.10),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=4, brier_score=0.10),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
         assert threshold == pytest.approx(0.6)  # falls back to base
@@ -366,10 +398,12 @@ class TestExplanation:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("alice"), _FakeAgent("bob")]
 
-        tracker = _make_calibration_tracker({
-            "alice": _FakeCalibrationSummary("alice", total_predictions=20, brier_score=0.15),
-            "bob": _FakeCalibrationSummary("bob", total_predictions=30, brier_score=0.20),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "alice": _FakeCalibrationSummary("alice", total_predictions=20, brier_score=0.15),
+                "bob": _FakeCalibrationSummary("bob", total_predictions=30, brier_score=0.20),
+            }
+        )
 
         threshold, explanation = ac.compute_threshold_with_explanation(
             agents, calibration_tracker=tracker
@@ -385,9 +419,11 @@ class TestExplanation:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=10, brier_score=0.30),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=10, brier_score=0.30),
+            }
+        )
 
         threshold, explanation = ac.compute_threshold_with_explanation(
             agents, calibration_tracker=tracker
@@ -401,9 +437,11 @@ class TestExplanation:
         ac = AdaptiveConsensus(config)
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=50, brier_score=0.0),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=50, brier_score=0.0),
+            }
+        )
 
         threshold, explanation = ac.compute_threshold_with_explanation(
             agents, calibration_tracker=tracker
@@ -415,9 +453,11 @@ class TestExplanation:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=20, brier_score=NEUTRAL_BRIER),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=20, brier_score=NEUTRAL_BRIER),
+            }
+        )
 
         threshold, explanation = ac.compute_threshold_with_explanation(
             agents, calibration_tracker=tracker
@@ -429,10 +469,12 @@ class TestExplanation:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("x"), _FakeAgent("y")]
 
-        tracker = _make_calibration_tracker({
-            "x": _FakeCalibrationSummary("x", total_predictions=25, brier_score=0.12),
-            "y": _FakeCalibrationSummary("y", total_predictions=40, brier_score=0.18),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "x": _FakeCalibrationSummary("x", total_predictions=25, brier_score=0.12),
+                "y": _FakeCalibrationSummary("y", total_predictions=40, brier_score=0.18),
+            }
+        )
 
         threshold_plain = ac.compute_threshold(agents, calibration_tracker=tracker)
         threshold_expl, _ = ac.compute_threshold_with_explanation(
@@ -454,10 +496,12 @@ class TestEloFallback:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a1"), _FakeAgent("a2")]
 
-        elo = _make_elo_system({
-            "a1": _FakeAgentRating("a1", calibration_total=20, calibration_brier_sum=2.0),
-            "a2": _FakeAgentRating("a2", calibration_total=20, calibration_brier_sum=4.0),
-        })
+        elo = _make_elo_system(
+            {
+                "a1": _FakeAgentRating("a1", calibration_total=20, calibration_brier_sum=2.0),
+                "a2": _FakeAgentRating("a2", calibration_total=20, calibration_brier_sum=4.0),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, elo_system=elo)
 
@@ -471,18 +515,20 @@ class TestEloFallback:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a1")]
 
-        tracker = _make_calibration_tracker({
-            "a1": _FakeCalibrationSummary("a1", total_predictions=20, brier_score=0.10),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a1": _FakeCalibrationSummary("a1", total_predictions=20, brier_score=0.10),
+            }
+        )
 
         # ELO has different (worse) data -- should be ignored
-        elo = _make_elo_system({
-            "a1": _FakeAgentRating("a1", calibration_total=20, calibration_brier_sum=16.0),
-        })
-
-        threshold = ac.compute_threshold(
-            agents, elo_system=elo, calibration_tracker=tracker
+        elo = _make_elo_system(
+            {
+                "a1": _FakeAgentRating("a1", calibration_total=20, calibration_brier_sum=16.0),
+            }
         )
+
+        threshold = ac.compute_threshold(agents, elo_system=elo, calibration_tracker=tracker)
 
         # Should use tracker brier=0.10, not elo brier=0.80
         assert threshold == pytest.approx(0.555)
@@ -492,18 +538,24 @@ class TestEloFallback:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("tracked"), _FakeAgent("elo_only")]
 
-        tracker = _make_calibration_tracker({
-            "tracked": _FakeCalibrationSummary("tracked", total_predictions=20, brier_score=0.10),
-            # "elo_only" not in tracker -> KeyError
-        })
-
-        elo = _make_elo_system({
-            "elo_only": _FakeAgentRating("elo_only", calibration_total=20, calibration_brier_sum=4.0),
-        })
-
-        threshold = ac.compute_threshold(
-            agents, elo_system=elo, calibration_tracker=tracker
+        tracker = _make_calibration_tracker(
+            {
+                "tracked": _FakeCalibrationSummary(
+                    "tracked", total_predictions=20, brier_score=0.10
+                ),
+                # "elo_only" not in tracker -> KeyError
+            }
         )
+
+        elo = _make_elo_system(
+            {
+                "elo_only": _FakeAgentRating(
+                    "elo_only", calibration_total=20, calibration_brier_sum=4.0
+                ),
+            }
+        )
+
+        threshold = ac.compute_threshold(agents, elo_system=elo, calibration_tracker=tracker)
 
         # tracked -> tracker brier=0.10
         # elo_only -> elo brier=4.0/20=0.20
@@ -515,9 +567,11 @@ class TestEloFallback:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        elo = _make_elo_system({
-            "a": _FakeAgentRating("a", calibration_total=2, calibration_brier_sum=0.2),
-        })
+        elo = _make_elo_system(
+            {
+                "a": _FakeAgentRating("a", calibration_total=2, calibration_brier_sum=0.2),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, elo_system=elo)
         assert threshold == pytest.approx(0.6)  # base, because 2 < 5
@@ -526,9 +580,11 @@ class TestEloFallback:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        elo = _make_elo_system({
-            "a": _FakeAgentRating("a", calibration_total=10, calibration_brier_sum=2.0),
-        })
+        elo = _make_elo_system(
+            {
+                "a": _FakeAgentRating("a", calibration_total=10, calibration_brier_sum=2.0),
+            }
+        )
 
         _, explanation = ac.compute_threshold_with_explanation(agents, elo_system=elo)
         assert "elo_system" in explanation
@@ -547,9 +603,11 @@ class TestEdgeCases:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("a")]
 
-        tracker = _make_calibration_tracker({
-            "a": _FakeCalibrationSummary("a", total_predictions=20, brier_score=NEUTRAL_BRIER),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "a": _FakeCalibrationSummary("a", total_predictions=20, brier_score=NEUTRAL_BRIER),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
         assert threshold == pytest.approx(0.6)
@@ -558,9 +616,11 @@ class TestEdgeCases:
         ac = AdaptiveConsensus()
         agents = [_FakeAgent("solo")]
 
-        tracker = _make_calibration_tracker({
-            "solo": _FakeCalibrationSummary("solo", total_predictions=50, brier_score=0.15),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "solo": _FakeCalibrationSummary("solo", total_predictions=50, brier_score=0.15),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
         # 0.6 + 0.3 * (0.15 - 0.25) = 0.6 - 0.03 = 0.57
@@ -604,11 +664,13 @@ class TestEdgeCases:
         # Use a plain string as an "agent" -- getattr(agent, "name", str(agent))
         agents = ["agent_string"]
 
-        tracker = _make_calibration_tracker({
-            "agent_string": _FakeCalibrationSummary(
-                "agent_string", total_predictions=10, brier_score=0.20
-            ),
-        })
+        tracker = _make_calibration_tracker(
+            {
+                "agent_string": _FakeCalibrationSummary(
+                    "agent_string", total_predictions=10, brier_score=0.20
+                ),
+            }
+        )
 
         threshold = ac.compute_threshold(agents, calibration_tracker=tracker)
         # 0.6 + 0.3 * (0.20 - 0.25) = 0.585

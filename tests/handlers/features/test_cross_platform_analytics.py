@@ -508,9 +508,7 @@ class TestRouting:
     @pytest.mark.asyncio
     async def test_trends_get_routes(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -540,26 +538,24 @@ class TestRouting:
     @pytest.mark.asyncio
     async def test_query_post_routes(self, handler):
         req = _make_request(body={"metrics": ["users"]})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_alerts_get_routes(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/alerts", "GET")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_alerts_post_routes(self, handler):
-        req = _make_request(body={
-            "name": "Test Rule",
-            "metric_name": "error_rate",
-            "threshold": 0.05,
-        })
+        req = _make_request(
+            body={
+                "name": "Test Rule",
+                "metric_name": "error_rate",
+                "threshold": 0.05,
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -568,35 +564,27 @@ class TestRouting:
     @pytest.mark.asyncio
     async def test_export_get_routes(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_demo_get_routes(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/demo", "GET")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_handle_compat_delegates(self, handler):
         """handle() should delegate to handle_request()."""
         req = _make_request()
-        result = await handler.handle(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle(req, "/api/v1/analytics/cross-platform/demo", "GET")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_query_get_returns_404(self, handler):
         """Query endpoint only accepts POST."""
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "GET")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -688,10 +676,17 @@ class TestSummaryEndpoint:
         # Seed an alert
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=datetime.now(timezone.utc),
-                current_value=1.0, threshold=0.5, message="test",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=datetime.now(timezone.utc),
+                current_value=1.0,
+                threshold=0.5,
+                message="test",
             )
         }
         req = _make_request()
@@ -812,9 +807,7 @@ class TestTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_default(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         assert _status(result) == 200
         data = _data(result)
         assert "data_points" in data
@@ -824,36 +817,28 @@ class TestTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_7d_range(self, handler):
         req = _make_request(query={"range": "7d"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         data = _data(result)
         assert len(data["data_points"]) == 7
 
     @pytest.mark.asyncio
     async def test_trends_30d_range(self, handler):
         req = _make_request(query={"range": "30d"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         data = _data(result)
         assert len(data["data_points"]) == 30
 
     @pytest.mark.asyncio
     async def test_trends_24h_range(self, handler):
         req = _make_request(query={"range": "24h"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         data = _data(result)
         assert len(data["data_points"]) == 24
 
     @pytest.mark.asyncio
     async def test_trends_has_platform_data(self, handler):
         req = _make_request(query={"range": "7d"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         data = _data(result)
         dp = data["data_points"][0]
         assert "aragora" in dp
@@ -864,9 +849,7 @@ class TestTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_overall_trend_calculated(self, handler):
         req = _make_request(query={"range": "7d"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         data = _data(result)
         assert "overall_trend" in data
         assert data["overall_trend"] in ("up", "down", "stable")
@@ -875,9 +858,7 @@ class TestTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_custom_metric(self, handler):
         req = _make_request(query={"metric": "events"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/trends", "GET")
         data = _data(result)
         assert data["metric"] == "events"
 
@@ -1098,14 +1079,14 @@ class TestQueryEndpoint:
 
     @pytest.mark.asyncio
     async def test_query_basic(self, handler):
-        req = _make_request(body={
-            "metrics": ["debates_total", "users"],
-            "platforms": ["aragora", "google_analytics"],
-            "range": "24h",
-        })
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
+        req = _make_request(
+            body={
+                "metrics": ["debates_total", "users"],
+                "platforms": ["aragora", "google_analytics"],
+                "range": "24h",
+            }
         )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 200
         data = _data(result)
         assert "results" in data
@@ -1115,9 +1096,7 @@ class TestQueryEndpoint:
     @pytest.mark.asyncio
     async def test_query_no_metrics_returns_400(self, handler):
         req = _make_request(body={"metrics": [], "platforms": ["aragora"]})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 400
         body = _body(result)
         assert "error" in body
@@ -1125,17 +1104,13 @@ class TestQueryEndpoint:
     @pytest.mark.asyncio
     async def test_query_missing_metrics_field(self, handler):
         req = _make_request(body={"platforms": ["aragora"]})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_query_default_platforms(self, handler):
         req = _make_request(body={"metrics": ["users"]})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 200
         data = _data(result)
         # Default platforms are aragora, google_analytics, mixpanel
@@ -1146,13 +1121,13 @@ class TestQueryEndpoint:
 
     @pytest.mark.asyncio
     async def test_query_unknown_platform_skipped(self, handler):
-        req = _make_request(body={
-            "metrics": ["users"],
-            "platforms": ["unknown_platform"],
-        })
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
+        req = _make_request(
+            body={
+                "metrics": ["users"],
+                "platforms": ["unknown_platform"],
+            }
         )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 200
         data = _data(result)
         # Unknown platform should be skipped
@@ -1161,26 +1136,26 @@ class TestQueryEndpoint:
     @pytest.mark.asyncio
     async def test_query_metric_not_in_data(self, handler):
         """Querying a metric that doesn't exist returns None for that metric."""
-        req = _make_request(body={
-            "metrics": ["nonexistent_metric"],
-            "platforms": ["aragora"],
-        })
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
+        req = _make_request(
+            body={
+                "metrics": ["nonexistent_metric"],
+                "platforms": ["aragora"],
+            }
         )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 200
         data = _data(result)
         assert data["results"]["aragora"]["nonexistent_metric"] is None
 
     @pytest.mark.asyncio
     async def test_query_mixpanel_platform(self, handler):
-        req = _make_request(body={
-            "metrics": ["events_tracked"],
-            "platforms": ["mixpanel"],
-        })
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
+        req = _make_request(
+            body={
+                "metrics": ["events_tracked"],
+                "platforms": ["mixpanel"],
+            }
         )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 200
         data = _data(result)
         assert data["results"]["mixpanel"]["events_tracked"] == 567890
@@ -1189,9 +1164,7 @@ class TestQueryEndpoint:
     async def test_query_empty_body(self, handler):
         """Empty body defaults to empty metrics list, which should return 400."""
         req = _make_request(body={})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/query", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/query", "POST")
         assert _status(result) == 400
 
 
@@ -1206,9 +1179,7 @@ class TestListAlertsEndpoint:
     @pytest.mark.asyncio
     async def test_list_alerts_empty(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/alerts", "GET")
         assert _status(result) == 200
         data = _data(result)
         assert data["alerts"] == []
@@ -1220,22 +1191,32 @@ class TestListAlertsEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="test alert",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="test alert",
             )
         }
         _alert_rules["test-tenant"] = {
             "r1": AlertRule(
-                id="r1", name="R", metric_name="m", condition="above",
-                threshold=0.5, severity=AlertSeverity.WARNING, enabled=True,
+                id="r1",
+                name="R",
+                metric_name="m",
+                condition="above",
+                threshold=0.5,
+                severity=AlertSeverity.WARNING,
+                enabled=True,
             )
         }
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/alerts", "GET")
         data = _data(result)
         assert len(data["alerts"]) == 1
         assert len(data["rules"]) == 1
@@ -1248,22 +1229,34 @@ class TestListAlertsEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="active",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="active",
             ),
             "a2": Alert(
-                id="a2", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACKNOWLEDGED, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="acked",
+                id="a2",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACKNOWLEDGED,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="acked",
             ),
         }
         req = _make_request(query={"status": "active"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/alerts", "GET")
         data = _data(result)
         assert len(data["alerts"]) == 1
         assert data["alerts"][0]["status"] == "active"
@@ -1273,22 +1266,34 @@ class TestListAlertsEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="warn",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="warn",
             ),
             "a2": Alert(
-                id="a2", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.CRITICAL,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=2.0, threshold=0.5, message="critical",
+                id="a2",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.CRITICAL,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=2.0,
+                threshold=0.5,
+                message="critical",
             ),
         }
         req = _make_request(query={"severity": "critical"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/alerts", "GET")
         data = _data(result)
         assert len(data["alerts"]) == 1
         assert data["alerts"][0]["severity"] == "critical"
@@ -1298,32 +1303,54 @@ class TestListAlertsEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="active1",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="active1",
             ),
             "a2": Alert(
-                id="a2", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACKNOWLEDGED, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="acked",
+                id="a2",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACKNOWLEDGED,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="acked",
             ),
         }
         _alert_rules["test-tenant"] = {
             "r1": AlertRule(
-                id="r1", name="R1", metric_name="m", condition="above",
-                threshold=0.5, severity=AlertSeverity.WARNING, enabled=True,
+                id="r1",
+                name="R1",
+                metric_name="m",
+                condition="above",
+                threshold=0.5,
+                severity=AlertSeverity.WARNING,
+                enabled=True,
             ),
             "r2": AlertRule(
-                id="r2", name="R2", metric_name="m2", condition="below",
-                threshold=1.0, severity=AlertSeverity.INFO, enabled=False,
+                id="r2",
+                name="R2",
+                metric_name="m2",
+                condition="below",
+                threshold=1.0,
+                severity=AlertSeverity.INFO,
+                enabled=False,
             ),
         }
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/alerts", "GET")
         data = _data(result)
         assert data["summary"]["total_alerts"] == 2
         assert data["summary"]["active"] == 1
@@ -1341,14 +1368,16 @@ class TestCreateAlertEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_alert_success(self, handler):
-        req = _make_request(body={
-            "name": "High Error Rate",
-            "metric_name": "error_rate",
-            "condition": "above",
-            "threshold": 0.05,
-            "severity": "critical",
-            "platforms": ["aragora"],
-        })
+        req = _make_request(
+            body={
+                "name": "High Error Rate",
+                "metric_name": "error_rate",
+                "condition": "above",
+                "threshold": 0.05,
+                "severity": "critical",
+                "platforms": ["aragora"],
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1365,11 +1394,13 @@ class TestCreateAlertEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_alert_stored_in_memory(self, handler):
-        req = _make_request(body={
-            "name": "Test Rule",
-            "metric_name": "m",
-            "threshold": 1.0,
-        })
+        req = _make_request(
+            body={
+                "name": "Test Rule",
+                "metric_name": "m",
+                "threshold": 1.0,
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1380,10 +1411,12 @@ class TestCreateAlertEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_alert_missing_name(self, handler):
-        req = _make_request(body={
-            "metric_name": "error_rate",
-            "threshold": 0.05,
-        })
+        req = _make_request(
+            body={
+                "metric_name": "error_rate",
+                "threshold": 0.05,
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1391,10 +1424,12 @@ class TestCreateAlertEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_alert_missing_metric_name(self, handler):
-        req = _make_request(body={
-            "name": "Test Rule",
-            "threshold": 0.05,
-        })
+        req = _make_request(
+            body={
+                "name": "Test Rule",
+                "threshold": 0.05,
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1402,10 +1437,12 @@ class TestCreateAlertEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_alert_missing_threshold(self, handler):
-        req = _make_request(body={
-            "name": "Test Rule",
-            "metric_name": "error_rate",
-        })
+        req = _make_request(
+            body={
+                "name": "Test Rule",
+                "metric_name": "error_rate",
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1413,11 +1450,13 @@ class TestCreateAlertEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_alert_defaults(self, handler):
-        req = _make_request(body={
-            "name": "Default Rule",
-            "metric_name": "m",
-            "threshold": 5.0,
-        })
+        req = _make_request(
+            body={
+                "name": "Default Rule",
+                "metric_name": "m",
+                "threshold": 5.0,
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1432,12 +1471,14 @@ class TestCreateAlertEndpoint:
     @pytest.mark.asyncio
     async def test_create_alert_invalid_severity(self, handler):
         """Invalid severity enum value should cause a 500 error (ValueError)."""
-        req = _make_request(body={
-            "name": "Rule",
-            "metric_name": "m",
-            "threshold": 1.0,
-            "severity": "not_a_severity",
-        })
+        req = _make_request(
+            body={
+                "name": "Rule",
+                "metric_name": "m",
+                "threshold": 1.0,
+                "severity": "not_a_severity",
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1446,12 +1487,14 @@ class TestCreateAlertEndpoint:
     @pytest.mark.asyncio
     async def test_create_alert_invalid_platform(self, handler):
         """Invalid platform enum value should cause a 500 error (ValueError)."""
-        req = _make_request(body={
-            "name": "Rule",
-            "metric_name": "m",
-            "threshold": 1.0,
-            "platforms": ["invalid_platform"],
-        })
+        req = _make_request(
+            body={
+                "name": "Rule",
+                "metric_name": "m",
+                "threshold": 1.0,
+                "platforms": ["invalid_platform"],
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -1460,11 +1503,13 @@ class TestCreateAlertEndpoint:
     @pytest.mark.asyncio
     async def test_create_multiple_alert_rules(self, handler):
         for i in range(3):
-            req = _make_request(body={
-                "name": f"Rule {i}",
-                "metric_name": f"metric_{i}",
-                "threshold": float(i),
-            })
+            req = _make_request(
+                body={
+                    "name": f"Rule {i}",
+                    "metric_name": f"metric_{i}",
+                    "threshold": float(i),
+                }
+            )
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/alerts", "POST"
             )
@@ -1486,10 +1531,17 @@ class TestAcknowledgeAlertEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "alert-123": Alert(
-                id="alert-123", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="test",
+                id="alert-123",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="test",
             )
         }
         req = _make_request()
@@ -1513,10 +1565,17 @@ class TestAcknowledgeAlertEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="test",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="test",
             )
         }
         req = _make_request()
@@ -1533,10 +1592,17 @@ class TestAcknowledgeAlertEndpoint:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="test",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="test",
             )
         }
         req = _make_request()
@@ -1556,9 +1622,7 @@ class TestExportEndpoint:
     @pytest.mark.asyncio
     async def test_export_json_format(self, handler):
         req = _make_request(query={"format": "json", "range": "7d"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         assert _status(result) == 200
         data = _data(result)
         assert data["export_format"] == "json"
@@ -1572,12 +1636,12 @@ class TestExportEndpoint:
     @pytest.mark.asyncio
     async def test_export_csv_format(self, handler):
         req = _make_request(query={"format": "csv"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         assert _status(result) == 200
         assert result.content_type == "text/csv"
-        assert result.headers.get("Content-Disposition") == "attachment; filename=analytics_export.csv"
+        assert (
+            result.headers.get("Content-Disposition") == "attachment; filename=analytics_export.csv"
+        )
         csv_content = result.body.decode("utf-8")
         lines = csv_content.split("\n")
         assert lines[0] == "platform,metric,value"
@@ -1587,9 +1651,7 @@ class TestExportEndpoint:
     @pytest.mark.asyncio
     async def test_export_csv_contains_all_platforms(self, handler):
         req = _make_request(query={"format": "csv"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         csv_content = result.body.decode("utf-8")
         for platform in ["aragora", "google_analytics", "mixpanel", "metabase", "segment"]:
             assert platform in csv_content
@@ -1597,9 +1659,7 @@ class TestExportEndpoint:
     @pytest.mark.asyncio
     async def test_export_unsupported_format(self, handler):
         req = _make_request(query={"format": "xml"})
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         assert _status(result) == 400
         body = _body(result)
         assert "error" in body
@@ -1607,9 +1667,7 @@ class TestExportEndpoint:
     @pytest.mark.asyncio
     async def test_export_default_format_is_json(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         assert _status(result) == 200
         data = _data(result)
         assert data["export_format"] == "json"
@@ -1617,9 +1675,7 @@ class TestExportEndpoint:
     @pytest.mark.asyncio
     async def test_export_default_range(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/export", "GET")
         data = _data(result)
         assert data["time_range"] == "7d"
 
@@ -1635,9 +1691,7 @@ class TestDemoEndpoint:
     @pytest.mark.asyncio
     async def test_demo_returns_full_data(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/demo", "GET")
         assert _status(result) == 200
         data = _data(result)
         assert data["is_demo"] is True
@@ -1645,9 +1699,7 @@ class TestDemoEndpoint:
     @pytest.mark.asyncio
     async def test_demo_summary_values(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/demo", "GET")
         data = _data(result)
         summary = data["summary"]
         assert summary["platforms_connected"] == 5
@@ -1660,9 +1712,7 @@ class TestDemoEndpoint:
     @pytest.mark.asyncio
     async def test_demo_platform_data(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/demo", "GET")
         data = _data(result)
         platforms = data["platforms"]
         assert "aragora" in platforms
@@ -1675,9 +1725,7 @@ class TestDemoEndpoint:
     @pytest.mark.asyncio
     async def test_demo_trends(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/demo", "GET")
         data = _data(result)
         assert data["trends"]["users"] == "up"
         assert data["trends"]["events"] == "up"
@@ -1686,9 +1734,7 @@ class TestDemoEndpoint:
     @pytest.mark.asyncio
     async def test_demo_alerts_active(self, handler):
         req = _make_request()
-        result = await handler.handle_request(
-            req, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/analytics/cross-platform/demo", "GET")
         data = _data(result)
         assert data["alerts_active"] == 2
 
@@ -1707,10 +1753,17 @@ class TestPathParameterExtraction:
         now = datetime.now(timezone.utc)
         _active_alerts["test-tenant"] = {
             "my-alert-id": Alert(
-                id="my-alert-id", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="test",
+                id="my-alert-id",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="test",
             )
         }
         req = _make_request()
@@ -1795,10 +1848,17 @@ class TestPathParameterExtraction:
 
         _active_alerts["test-tenant"] = {
             "acknowledge": Alert(
-                id="acknowledge", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="test",
+                id="acknowledge",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="test",
             )
         }
         # With the handler's logic: parts[6]=="acknowledge", alert_id=parts[5]="alerts"
@@ -1854,10 +1914,17 @@ class TestTenantIsolation:
         now = datetime.now(timezone.utc)
         _active_alerts["tenant-a"] = {
             "a1": Alert(
-                id="a1", rule_id="r1", rule_name="R", metric_name="m",
-                platform=Platform.ARAGORA, severity=AlertSeverity.WARNING,
-                status=AlertStatus.ACTIVE, triggered_at=now,
-                current_value=1.0, threshold=0.5, message="tenant-a alert",
+                id="a1",
+                rule_id="r1",
+                rule_name="R",
+                metric_name="m",
+                platform=Platform.ARAGORA,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACTIVE,
+                triggered_at=now,
+                current_value=1.0,
+                threshold=0.5,
+                message="tenant-a alert",
             )
         }
         _active_alerts["tenant-b"] = {}
@@ -1888,9 +1955,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_outer_exception_handler_catches_value_error(self, handler):
         """The outer try/except in handle_request catches ValueError and returns 500."""
-        with patch.object(
-            handler, "_handle_summary", side_effect=ValueError("boom")
-        ):
+        with patch.object(handler, "_handle_summary", side_effect=ValueError("boom")):
             req = _make_request()
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/summary", "GET"
@@ -1899,9 +1964,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_outer_exception_handler_catches_key_error(self, handler):
-        with patch.object(
-            handler, "_handle_metrics", side_effect=KeyError("missing")
-        ):
+        with patch.object(handler, "_handle_metrics", side_effect=KeyError("missing")):
             req = _make_request()
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/metrics", "GET"
@@ -1910,9 +1973,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_outer_exception_handler_catches_type_error(self, handler):
-        with patch.object(
-            handler, "_handle_trends", side_effect=TypeError("wrong type")
-        ):
+        with patch.object(handler, "_handle_trends", side_effect=TypeError("wrong type")):
             req = _make_request()
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/trends", "GET"
@@ -1921,9 +1982,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_outer_exception_handler_catches_runtime_error(self, handler):
-        with patch.object(
-            handler, "_handle_comparison", side_effect=RuntimeError("runtime fail")
-        ):
+        with patch.object(handler, "_handle_comparison", side_effect=RuntimeError("runtime fail")):
             req = _make_request()
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/comparison", "GET"
@@ -1932,9 +1991,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_outer_exception_handler_catches_os_error(self, handler):
-        with patch.object(
-            handler, "_handle_export", side_effect=OSError("disk fail")
-        ):
+        with patch.object(handler, "_handle_export", side_effect=OSError("disk fail")):
             req = _make_request()
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/export", "GET"
@@ -1948,10 +2005,12 @@ class TestErrorHandling:
             "aragora.server.handlers.features.cross_platform_analytics.fetch_aragora_metrics",
             side_effect=ValueError("fetch error"),
         ):
-            req = _make_request(body={
-                "metrics": ["users"],
-                "platforms": ["aragora"],
-            })
+            req = _make_request(
+                body={
+                    "metrics": ["users"],
+                    "platforms": ["aragora"],
+                }
+            )
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/query", "POST"
             )
@@ -1960,12 +2019,14 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_create_alert_internal_error_returns_500(self, handler):
         """Create alert endpoint catches ValueError from invalid enum."""
-        req = _make_request(body={
-            "name": "Rule",
-            "metric_name": "m",
-            "threshold": 1.0,
-            "severity": "nonexistent_severity_value",
-        })
+        req = _make_request(
+            body={
+                "name": "Rule",
+                "metric_name": "m",
+                "threshold": 1.0,
+                "severity": "nonexistent_severity_value",
+            }
+        )
         result = await handler.handle_request(
             req, "/api/v1/analytics/cross-platform/alerts", "POST"
         )
@@ -2107,9 +2168,7 @@ class TestAuthenticationRouting:
         """When get_auth_context raises UnauthorizedError, returns 401."""
         from aragora.server.handlers.secure import UnauthorizedError
 
-        with patch.object(
-            handler, "get_auth_context", side_effect=UnauthorizedError("no token")
-        ):
+        with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError("no token")):
             req = _make_request()
             result = await handler.handle_request(
                 req, "/api/v1/analytics/cross-platform/summary", "GET"
@@ -2124,12 +2183,16 @@ class TestAuthenticationRouting:
         from aragora.rbac.models import AuthorizationContext
 
         mock_ctx = AuthorizationContext(
-            user_id="user1", user_email="u@e.com", org_id="o1",
-            roles=set(), permissions=set(),
+            user_id="user1",
+            user_email="u@e.com",
+            org_id="o1",
+            roles=set(),
+            permissions=set(),
         )
         with patch.object(handler, "get_auth_context", return_value=mock_ctx):
             with patch.object(
-                handler, "check_permission",
+                handler,
+                "check_permission",
                 side_effect=ForbiddenError("denied", permission="analytics:read"),
             ):
                 req = _make_request()
@@ -2146,8 +2209,11 @@ class TestAuthenticationRouting:
         from aragora.rbac.models import AuthorizationContext
 
         mock_ctx = AuthorizationContext(
-            user_id="user1", user_email="u@e.com", org_id="o1",
-            roles=set(), permissions=set(),
+            user_id="user1",
+            user_email="u@e.com",
+            org_id="o1",
+            roles=set(),
+            permissions=set(),
         )
 
         check_calls = []
@@ -2173,8 +2239,11 @@ class TestAuthenticationRouting:
         from aragora.rbac.models import AuthorizationContext
 
         mock_ctx = AuthorizationContext(
-            user_id="user1", user_email="u@e.com", org_id="o1",
-            roles=set(), permissions=set(),
+            user_id="user1",
+            user_email="u@e.com",
+            org_id="o1",
+            roles=set(),
+            permissions=set(),
         )
 
         check_calls = []
@@ -2200,8 +2269,11 @@ class TestAuthenticationRouting:
         from aragora.rbac.models import AuthorizationContext
 
         mock_ctx = AuthorizationContext(
-            user_id="user1", user_email="u@e.com", org_id="o1",
-            roles=set(), permissions=set(),
+            user_id="user1",
+            user_email="u@e.com",
+            org_id="o1",
+            roles=set(),
+            permissions=set(),
         )
 
         check_calls = []

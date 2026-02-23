@@ -338,9 +338,11 @@ class TestValidationSync:
         fact_id = result.facts[0].fact_id
         original_confidence = result.facts[0].confidence
 
-        sync_result = await adapter.sync_validations_from_km([
-            {"fact_id": fact_id, "confidence_adjustment": -0.1, "reason": "contradicted"},
-        ])
+        sync_result = await adapter.sync_validations_from_km(
+            [
+                {"fact_id": fact_id, "confidence_adjustment": -0.1, "reason": "contradicted"},
+            ]
+        )
 
         assert sync_result["applied"] == 1
         assert sync_result["skipped"] == 0
@@ -357,9 +359,11 @@ class TestValidationSync:
 
         fact_id = result.facts[0].fact_id
 
-        await adapter.sync_validations_from_km([
-            {"fact_id": fact_id, "confidence_adjustment": -5.0, "reason": "wrong"},
-        ])
+        await adapter.sync_validations_from_km(
+            [
+                {"fact_id": fact_id, "confidence_adjustment": -5.0, "reason": "wrong"},
+            ]
+        )
 
         fact = adapter.get_fact(fact_id)
         assert fact is not None
@@ -369,9 +373,11 @@ class TestValidationSync:
     async def test_validation_skips_unknown_facts(self):
         adapter = LangExtractAdapter()
 
-        sync_result = await adapter.sync_validations_from_km([
-            {"fact_id": "nonexistent", "confidence_adjustment": 0.1},
-        ])
+        sync_result = await adapter.sync_validations_from_km(
+            [
+                {"fact_id": "nonexistent", "confidence_adjustment": 0.1},
+            ]
+        )
 
         assert sync_result["applied"] == 0
         assert sync_result["skipped"] == 1
@@ -383,9 +389,11 @@ class TestValidationSync:
         result = await adapter.extract_from_document("/tmp/doc.pdf", schema)
 
         fact_id = result.facts[0].fact_id
-        await adapter.sync_validations_from_km([
-            {"fact_id": fact_id, "confidence_adjustment": 0.05, "reason": "confirmed"},
-        ])
+        await adapter.sync_validations_from_km(
+            [
+                {"fact_id": fact_id, "confidence_adjustment": 0.05, "reason": "confirmed"},
+            ]
+        )
 
         log = adapter.get_validation_log()
         assert len(log) == 1

@@ -113,7 +113,11 @@ class KnowledgePipelineStep(BaseStep):
             chunk_strategy = "semantic"
 
         logger.info(
-            "KnowledgePipelineStep '%s' starting: sources=%s, workspace=%s, strategy=%s", self.name, len(sources), workspace_id, chunk_strategy
+            "KnowledgePipelineStep '%s' starting: sources=%s, workspace=%s, strategy=%s",
+            self.name,
+            len(sources),
+            workspace_id,
+            chunk_strategy,
         )
 
         try:
@@ -151,7 +155,15 @@ class KnowledgePipelineStep(BaseStep):
                     )
                     results.append(result)
                     self._documents_processed += result.get("documents", 0)
-                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
+                except (
+                    ImportError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    OSError,
+                    ConnectionError,
+                    AttributeError,
+                ) as e:
                     logger.error("Failed to process source '%s': %s", source, e)
                     errors.append(
                         {
@@ -345,7 +357,15 @@ class KnowledgePipelineStep(BaseStep):
                 "chunks": chunks_created,
             }
 
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            AttributeError,
+        ) as e:
             logger.error("Connector processing failed: %s", e)
             return {
                 "source": source,

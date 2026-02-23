@@ -73,21 +73,25 @@ async def search_codebase_tool(
             for symbol in getattr(crawled_file, "symbols", []):
                 name = getattr(symbol, "name", "")
                 if query_lower in name.lower():
-                    results.append({
-                        "file": file_path,
-                        "symbol": name,
-                        "kind": getattr(symbol, "kind", "unknown"),
-                        "line": getattr(symbol, "line", 0),
-                        "match_type": "symbol",
-                    })
+                    results.append(
+                        {
+                            "file": file_path,
+                            "symbol": name,
+                            "kind": getattr(symbol, "kind", "unknown"),
+                            "line": getattr(symbol, "line", 0),
+                            "match_type": "symbol",
+                        }
+                    )
 
             # Check file path
             if query_lower in file_path.lower():
-                results.append({
-                    "file": file_path,
-                    "match_type": "path",
-                    "lines": getattr(crawled_file, "line_count", 0),
-                })
+                results.append(
+                    {
+                        "file": file_path,
+                        "match_type": "path",
+                        "lines": getattr(crawled_file, "line_count", 0),
+                    }
+                )
 
             if len(results) >= limit:
                 break

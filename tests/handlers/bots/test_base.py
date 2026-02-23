@@ -375,9 +375,7 @@ class TestBuildStatusResponse:
 
     def test_extra_status_overrides_platform_config(self, enabled_bot):
         """extra_status takes precedence over platform config."""
-        result = enabled_bot._build_status_response(
-            extra_status={"token_configured": False}
-        )
+        result = enabled_bot._build_status_response(extra_status={"token_configured": False})
 
         body = _body(result)
         assert body["token_configured"] is False
@@ -590,9 +588,7 @@ class TestHandleWebhookAuthFailed:
 
     def test_audit_called_when_available(self, bot):
         with patch("aragora.server.handlers.bots.base.logger"):
-            with patch(
-                "aragora.audit.unified.audit_security"
-            ) as mock_audit:
+            with patch("aragora.audit.unified.audit_security") as mock_audit:
                 bot.handle_webhook_auth_failed("signature")
 
                 mock_audit.assert_called_once_with(
@@ -777,7 +773,7 @@ class TestParseJsonBody:
 
     def test_json_array(self, bot):
         """Arrays are valid JSON but not dicts - still parses."""
-        body = b'[1, 2, 3]'
+        body = b"[1, 2, 3]"
 
         data, error = bot._parse_json_body(body)
 
@@ -1004,9 +1000,7 @@ class TestAuditWebhookAuthFailure:
     """Tests for _audit_webhook_auth_failure()."""
 
     def test_calls_audit_security(self, bot):
-        with patch(
-            "aragora.audit.unified.audit_security"
-        ) as mock_audit:
+        with patch("aragora.audit.unified.audit_security") as mock_audit:
             bot._audit_webhook_auth_failure("signature", reason="bad hmac")
 
             mock_audit.assert_called_once_with(
@@ -1018,9 +1012,7 @@ class TestAuditWebhookAuthFailure:
             )
 
     def test_without_reason(self, bot):
-        with patch(
-            "aragora.audit.unified.audit_security"
-        ) as mock_audit:
+        with patch("aragora.audit.unified.audit_security") as mock_audit:
             bot._audit_webhook_auth_failure("token")
 
             mock_audit.assert_called_once_with(

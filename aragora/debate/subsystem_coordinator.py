@@ -1164,7 +1164,8 @@ class SubsystemCoordinator:
             task = loop.create_task(coro)
             task.add_done_callback(
                 lambda t: logger.error(
-                    "Debate subsystem async task failed: %s", t.exception(),
+                    "Debate subsystem async task failed: %s",
+                    t.exception(),
                 )
                 if not t.cancelled() and t.exception()
                 else None

@@ -209,7 +209,9 @@ class TestFullPipeline:
             with patch(
                 "aragora.server.handlers.features.broadcast.BroadcastOptions"
             ) as MockOptions:
-                MockOptions.return_value = MagicMock(video_enabled=True, custom_title="Custom Title")
+                MockOptions.return_value = MagicMock(
+                    video_enabled=True, custom_title="Custom Title"
+                )
 
                 result = broadcast_handler._run_full_pipeline(
                     "test-123",

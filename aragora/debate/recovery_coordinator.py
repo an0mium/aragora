@@ -392,7 +392,10 @@ class RecoveryCoordinator:
             if decision.requires_approval:
                 event.result = "pending_approval"
                 logger.info(
-                    "Recovery %s requires approval: %s for %s", event.id, decision.action.value, decision.target_agent_id
+                    "Recovery %s requires approval: %s for %s",
+                    event.id,
+                    decision.action.value,
+                    decision.target_agent_id,
                 )
             else:
                 # Execute the action

@@ -139,9 +139,7 @@ class TestAgentResponseError:
 
     def test_with_all_params(self):
         cause = RuntimeError("fail")
-        exc = AgentResponseError(
-            agent_name="gpt", phase="critique", cause=cause
-        )
+        exc = AgentResponseError(agent_name="gpt", phase="critique", cause=cause)
         msg = str(exc)
         assert "gpt" in msg
         assert "critique" in msg

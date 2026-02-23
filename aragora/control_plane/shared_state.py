@@ -328,7 +328,9 @@ class SharedControlPlaneState:
 
             conn.close()
             logger.debug(
-                "Loaded %s agents, %s tasks from SQLite", len(self._local_agents), len(self._local_tasks)
+                "Loaded %s agents, %s tasks from SQLite",
+                len(self._local_agents),
+                len(self._local_tasks),
             )
 
         except (OSError, sqlite3.Error, json.JSONDecodeError) as e:
@@ -382,7 +384,11 @@ class SharedControlPlaneState:
             return False
         except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError inherits directly from Exception, not builtin ConnectionError
             error_name = type(e).__name__
-            if "ConnectionError" in error_name or "TimeoutError" in error_name or "RedisError" in error_name:
+            if (
+                "ConnectionError" in error_name
+                or "TimeoutError" in error_name
+                or "RedisError" in error_name
+            ):
                 if is_distributed_state_required():
                     raise DistributedStateError(
                         "shared_state",

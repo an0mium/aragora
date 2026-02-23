@@ -146,11 +146,14 @@ class TestGetConnector:
             original = mod.__dict__.get("TeamsConnector")
             try:
                 # We need to mock the dynamic import
-                with patch.dict("sys.modules", {
-                    "aragora.connectors.chat.teams": MagicMock(
-                        TeamsConnector=MagicMock(return_value=fake_connector)
-                    ),
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.connectors.chat.teams": MagicMock(
+                            TeamsConnector=MagicMock(return_value=fake_connector)
+                        ),
+                    },
+                ):
                     manager._connector = None
                     result = await manager._get_connector()
                     assert result is fake_connector
@@ -509,7 +512,9 @@ class TestSendToConversation:
         activity = mock_connector._http_request.call_args.kwargs["json"]
         assert activity["text"] == "Card fallback"
         assert len(activity["attachments"]) == 1
-        assert activity["attachments"][0]["contentType"] == "application/vnd.microsoft.card.adaptive"
+        assert (
+            activity["attachments"][0]["contentType"] == "application/vnd.microsoft.card.adaptive"
+        )
         assert activity["attachments"][0]["content"] is card
 
     @pytest.mark.asyncio
@@ -681,9 +686,7 @@ class TestSendToChannel:
     @pytest.mark.asyncio
     async def test_app_id_in_conversation_params(self, manager, mock_connector):
         manager._connector = mock_connector
-        with patch(
-            "aragora.server.handlers.bots.teams.channels.TEAMS_APP_ID", "app-id-123"
-        ):
+        with patch("aragora.server.handlers.bots.teams.channels.TEAMS_APP_ID", "app-id-123"):
             await manager.send_to_channel(
                 team_id="team-1",
                 channel_id="chan-1",
@@ -767,9 +770,7 @@ class TestCreatePersonalConversation:
     async def test_app_id_in_params(self, manager, mock_connector):
         manager._connector = mock_connector
         mock_connector._http_request.return_value = {"id": "c-1"}
-        with patch(
-            "aragora.server.handlers.bots.teams.channels.TEAMS_APP_ID", "my-app"
-        ):
+        with patch("aragora.server.handlers.bots.teams.channels.TEAMS_APP_ID", "my-app"):
             await manager.create_personal_conversation(
                 user_id="user-1",
                 tenant_id="tenant-abc",

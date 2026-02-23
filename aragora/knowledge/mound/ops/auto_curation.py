@@ -439,7 +439,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                 candidates.append(candidate)
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning("Failed to score node %s: %s", node.get('id'), e)
+                logger.warning("Failed to score node %s: %s", node.get("id"), e)
                 continue
 
         # Sort by quality score (lowest first - most needing action)

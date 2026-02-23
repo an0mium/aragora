@@ -502,16 +502,12 @@ class TestHandleRemoveTeamMember:
 
     @pytest.mark.asyncio
     async def test_missing_inbox_id(self):
-        result = await handle_remove_team_member(
-            data={}, inbox_id="", member_user_id="user-2"
-        )
+        result = await handle_remove_team_member(data={}, inbox_id="", member_user_id="user-2")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_member_user_id(self):
-        result = await handle_remove_team_member(
-            data={}, inbox_id="inbox-1", member_user_id=""
-        )
+        result = await handle_remove_team_member(data={}, inbox_id="inbox-1", member_user_id="")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -549,9 +545,7 @@ class TestHandleRemoveTeamMember:
 
     @pytest.mark.asyncio
     async def test_skips_activity_log_without_org_id(self, mock_emitter, _patch_activity_store):
-        await handle_remove_team_member(
-            data={}, inbox_id="inbox-1", member_user_id="user-2"
-        )
+        await handle_remove_team_member(data={}, inbox_id="inbox-1", member_user_id="user-2")
         _patch_activity_store.log_activity.assert_not_called()
 
     @pytest.mark.asyncio
@@ -565,9 +559,7 @@ class TestHandleRemoveTeamMember:
     @pytest.mark.asyncio
     async def test_no_emit_on_not_found(self, mock_emitter):
         mock_emitter.remove_team_member.return_value = False
-        await handle_remove_team_member(
-            data={}, inbox_id="inbox-1", member_user_id="nonexistent"
-        )
+        await handle_remove_team_member(data={}, inbox_id="inbox-1", member_user_id="nonexistent")
         mock_emitter.emit_activity.assert_not_awaited()
 
 
@@ -596,24 +588,18 @@ class TestHandleStartViewing:
 
     @pytest.mark.asyncio
     async def test_default_user_name(self, mock_emitter):
-        await handle_start_viewing(
-            data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1"
-        )
+        await handle_start_viewing(data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1")
         call_kwargs = mock_emitter.emit_user_viewing.call_args.kwargs
         assert call_kwargs["user_name"] == "Unknown"
 
     @pytest.mark.asyncio
     async def test_missing_inbox_id(self):
-        result = await handle_start_viewing(
-            data={}, inbox_id="", message_id="msg-1"
-        )
+        result = await handle_start_viewing(data={}, inbox_id="", message_id="msg-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_message_id(self):
-        result = await handle_start_viewing(
-            data={}, inbox_id="inbox-1", message_id=""
-        )
+        result = await handle_start_viewing(data={}, inbox_id="inbox-1", message_id="")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -633,9 +619,7 @@ class TestHandleStartViewing:
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.emit_user_viewing.side_effect = RuntimeError("ws fail")
-        result = await handle_start_viewing(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_start_viewing(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -677,9 +661,7 @@ class TestHandleStopViewing:
 
     @pytest.mark.asyncio
     async def test_default_user_name(self, mock_emitter):
-        await handle_stop_viewing(
-            data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1"
-        )
+        await handle_stop_viewing(data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1")
         call_kwargs = mock_emitter.emit_user_left.call_args.kwargs
         assert call_kwargs["user_name"] == "Unknown"
 
@@ -705,9 +687,7 @@ class TestHandleStopViewing:
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.emit_user_left.side_effect = ValueError("err")
-        result = await handle_stop_viewing(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_stop_viewing(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -749,9 +729,7 @@ class TestHandleStartTyping:
 
     @pytest.mark.asyncio
     async def test_default_user_name(self, mock_emitter):
-        await handle_start_typing(
-            data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1"
-        )
+        await handle_start_typing(data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1")
         call_kwargs = mock_emitter.emit_user_typing.call_args.kwargs
         assert call_kwargs["user_name"] == "Unknown"
 
@@ -782,9 +760,7 @@ class TestHandleStartTyping:
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.emit_user_typing.side_effect = TypeError("bad")
-        result = await handle_start_typing(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_start_typing(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -826,9 +802,7 @@ class TestHandleStopTyping:
 
     @pytest.mark.asyncio
     async def test_default_user_name(self, mock_emitter):
-        await handle_stop_typing(
-            data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1"
-        )
+        await handle_stop_typing(data={}, inbox_id="inbox-1", message_id="msg-1", user_id="u1")
         call_kwargs = mock_emitter.emit_user_stopped_typing.call_args.kwargs
         assert call_kwargs["user_name"] == "Unknown"
 
@@ -854,9 +828,7 @@ class TestHandleStopTyping:
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.emit_user_stopped_typing.side_effect = AttributeError("no attr")
-        result = await handle_stop_typing(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_stop_typing(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -885,9 +857,7 @@ class TestHandleGetNotes:
 
     @pytest.mark.asyncio
     async def test_success_empty(self, mock_emitter):
-        result = await handle_get_notes(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_get_notes(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["notes"] == []
@@ -901,9 +871,7 @@ class TestHandleGetNotes:
             MockNote("n2", "Second note", "u2", "Bob"),
         ]
         mock_emitter.get_notes.return_value = notes
-        result = await handle_get_notes(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_get_notes(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["count"] == 2
@@ -937,9 +905,7 @@ class TestHandleGetNotes:
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.get_notes.side_effect = RuntimeError("db fail")
-        result = await handle_get_notes(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_get_notes(data={}, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 500
 
 
@@ -966,9 +932,7 @@ class TestHandleAddNote:
     @pytest.mark.asyncio
     async def test_default_author_name(self, mock_emitter):
         data = {"content": "A note"}
-        await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1", user_id="u1"
-        )
+        await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1", user_id="u1")
         call_kwargs = mock_emitter.add_note.call_args.kwargs
         assert call_kwargs["author_name"] == "Unknown"
 
@@ -987,18 +951,14 @@ class TestHandleAddNote:
     @pytest.mark.asyncio
     async def test_missing_content(self):
         data = {"author_name": "Alice"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 400
         assert "content" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_empty_content(self):
         data = {"content": "", "author_name": "Alice"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1017,9 +977,7 @@ class TestHandleAddNote:
     async def test_no_mentions(self, mock_emitter):
         mock_emitter.extract_mentions.return_value = []
         data = {"content": "Just a regular note"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["mentions_created"] == 0
@@ -1030,35 +988,27 @@ class TestHandleAddNote:
         mock_emitter.extract_mentions.return_value = ["alice", "bob"]
         mock_emitter.create_mention.side_effect = ValueError("user not found")
         data = {"content": "Hey @alice @bob"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         # Should still succeed even if mention creation fails
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_logs_activity_with_org_id(self, mock_emitter, _patch_activity_store):
         data = {"content": "A note", "org_id": "org-1"}
-        await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         _patch_activity_store.log_activity.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_skips_activity_log_without_org_id(self, mock_emitter, _patch_activity_store):
         data = {"content": "A note"}
-        await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         _patch_activity_store.log_activity.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.add_note.side_effect = RuntimeError("fail")
         data = {"content": "A note"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1076,9 +1026,7 @@ class TestHandleAddNote:
         note = MockNote("note-42", "Hello world", "u1", "Alice")
         mock_emitter.add_note.return_value = note
         data = {"content": "Hello world"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         body = _body(result)
         assert body["data"]["note"]["id"] == "note-42"
         assert body["data"]["note"]["content"] == "Hello world"
@@ -1089,9 +1037,7 @@ class TestHandleAddNote:
         long_content = "x" * 200
         mock_emitter.extract_mentions.return_value = ["alice"]
         data = {"content": long_content}
-        await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1", user_id="user-1"
-        )
+        await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1", user_id="user-1")
         call_kwargs = mock_emitter.create_mention.call_args.kwargs
         assert len(call_kwargs["context"]) == 100
 
@@ -1101,9 +1047,7 @@ class TestHandleAddNote:
         mock_emitter.extract_mentions.return_value = ["alice"]
         mock_emitter.create_mention.side_effect = RuntimeError("boom")
         data = {"content": "Hey @alice"}
-        result = await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1")
         assert _status(result) == 200
 
 
@@ -1202,9 +1146,7 @@ class TestHandleAcknowledgeMention:
 
     @pytest.mark.asyncio
     async def test_success(self, mock_emitter):
-        result = await handle_acknowledge_mention(
-            data={}, mention_id="mention-1", user_id="user-1"
-        )
+        result = await handle_acknowledge_mention(data={}, mention_id="mention-1", user_id="user-1")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["acknowledged"] is True
@@ -1241,21 +1183,21 @@ class TestHandleAcknowledgeMention:
         )
         assert _status(result) == 200
         call_args = mock_emitter.acknowledge_mention.call_args
-        assert call_args[0][1] == "mention-param" or call_args.kwargs.get("mention_id") == "mention-param" or call_args[0] == ("default", "mention-param")
+        assert (
+            call_args[0][1] == "mention-param"
+            or call_args.kwargs.get("mention_id") == "mention-param"
+            or call_args[0] == ("default", "mention-param")
+        )
 
     @pytest.mark.asyncio
     async def test_exception_returns_500(self, mock_emitter):
         mock_emitter.acknowledge_mention.side_effect = RuntimeError("fail")
-        result = await handle_acknowledge_mention(
-            data={}, mention_id="mention-1"
-        )
+        result = await handle_acknowledge_mention(data={}, mention_id="mention-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_acknowledged_at_is_iso_format(self, mock_emitter):
-        result = await handle_acknowledge_mention(
-            data={}, mention_id="mention-1", user_id="user-1"
-        )
+        result = await handle_acknowledge_mention(data={}, mention_id="mention-1", user_id="user-1")
         body = _body(result)
         ack_at = body["data"]["acknowledged_at"]
         # Should parse without error
@@ -1264,9 +1206,7 @@ class TestHandleAcknowledgeMention:
     @pytest.mark.asyncio
     async def test_key_error_returns_500(self, mock_emitter):
         mock_emitter.acknowledge_mention.side_effect = KeyError("missing key")
-        result = await handle_acknowledge_mention(
-            data={}, mention_id="mention-1"
-        )
+        result = await handle_acknowledge_mention(data={}, mention_id="mention-1")
         assert _status(result) == 500
 
 
@@ -1295,9 +1235,7 @@ class TestHandleGetActivityFeed:
 
     @pytest.mark.asyncio
     async def test_inbox_id_from_data(self):
-        result = await handle_get_activity_feed(
-            data={"inbox_id": "inbox-data"}, inbox_id=""
-        )
+        result = await handle_get_activity_feed(data={"inbox_id": "inbox-data"}, inbox_id="")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["inbox_id"] == "inbox-data"
@@ -1310,33 +1248,25 @@ class TestHandleGetActivityFeed:
 
     @pytest.mark.asyncio
     async def test_custom_limit(self):
-        result = await handle_get_activity_feed(
-            data={"limit": 25}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"limit": 25}, inbox_id="inbox-1")
         body = _body(result)
         assert body["data"]["limit"] == 25
 
     @pytest.mark.asyncio
     async def test_limit_capped_at_200(self):
-        result = await handle_get_activity_feed(
-            data={"limit": 500}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"limit": 500}, inbox_id="inbox-1")
         body = _body(result)
         assert body["data"]["limit"] == 200
 
     @pytest.mark.asyncio
     async def test_limit_minimum_1(self):
-        result = await handle_get_activity_feed(
-            data={"limit": 0}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"limit": 0}, inbox_id="inbox-1")
         body = _body(result)
         assert body["data"]["limit"] == 1
 
     @pytest.mark.asyncio
     async def test_negative_limit_clamped(self):
-        result = await handle_get_activity_feed(
-            data={"limit": -10}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"limit": -10}, inbox_id="inbox-1")
         body = _body(result)
         assert body["data"]["limit"] == 1
 
@@ -1348,25 +1278,19 @@ class TestHandleGetActivityFeed:
 
     @pytest.mark.asyncio
     async def test_custom_offset(self):
-        result = await handle_get_activity_feed(
-            data={"offset": 10}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"offset": 10}, inbox_id="inbox-1")
         body = _body(result)
         assert body["data"]["offset"] == 10
 
     @pytest.mark.asyncio
     async def test_negative_offset_clamped(self):
-        result = await handle_get_activity_feed(
-            data={"offset": -5}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"offset": -5}, inbox_id="inbox-1")
         body = _body(result)
         assert body["data"]["offset"] == 0
 
     @pytest.mark.asyncio
     async def test_invalid_limit_returns_500(self):
-        result = await handle_get_activity_feed(
-            data={"limit": "not_a_number"}, inbox_id="inbox-1"
-        )
+        result = await handle_get_activity_feed(data={"limit": "not_a_number"}, inbox_id="inbox-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1411,9 +1335,7 @@ class TestLogActivity:
     async def test_activity_logged_on_add_note(self, mock_emitter, _patch_activity_store):
         """Verify _log_activity is called when adding a note with org_id."""
         data = {"content": "A note", "org_id": "org-1"}
-        await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1", user_id="user-1"
-        )
+        await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1", user_id="user-1")
         _patch_activity_store.log_activity.assert_called_once()
 
     def test_log_activity_no_store(self):
@@ -1491,9 +1413,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_add_note_passes_correct_args(self, mock_emitter):
         data = {"content": "Hello", "author_name": "Alice"}
-        await handle_add_note(
-            data=data, inbox_id="inbox-1", message_id="msg-1", user_id="user-1"
-        )
+        await handle_add_note(data=data, inbox_id="inbox-1", message_id="msg-1", user_id="user-1")
         mock_emitter.add_note.assert_awaited_once_with(
             inbox_id="inbox-1",
             message_id="msg-1",
@@ -1504,16 +1424,12 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_acknowledge_passes_user_and_mention(self, mock_emitter):
-        await handle_acknowledge_mention(
-            data={}, mention_id="m-1", user_id="user-1"
-        )
+        await handle_acknowledge_mention(data={}, mention_id="m-1", user_id="user-1")
         mock_emitter.acknowledge_mention.assert_awaited_once_with("user-1", "m-1")
 
     @pytest.mark.asyncio
     async def test_remove_member_passes_correct_args(self, mock_emitter):
-        await handle_remove_team_member(
-            data={}, inbox_id="inbox-1", member_user_id="target-user"
-        )
+        await handle_remove_team_member(data={}, inbox_id="inbox-1", member_user_id="target-user")
         mock_emitter.remove_team_member.assert_awaited_once_with("inbox-1", "target-user")
 
     @pytest.mark.asyncio
@@ -1542,7 +1458,7 @@ class TestEdgeCases:
             if role == "":
                 # empty role falls through to validation since it's not in valid_roles
                 # but data.get("role", "member") returns "" which is not in valid_roles
-                assert _status(result) == 400, f"Empty role should be rejected"
+                assert _status(result) == 400, "Empty role should be rejected"
             else:
                 assert _status(result) == 400, f"Role '{role}' should be rejected"
 
@@ -1550,9 +1466,7 @@ class TestEdgeCases:
     async def test_concurrent_viewers(self, mock_emitter):
         """Multiple viewers can be returned."""
         mock_emitter.get_message_viewers.return_value = ["u1", "u2", "u3"]
-        result = await handle_start_viewing(
-            data={}, inbox_id="inbox-1", message_id="msg-1"
-        )
+        result = await handle_start_viewing(data={}, inbox_id="inbox-1", message_id="msg-1")
         body = _body(result)
         assert len(body["data"]["current_viewers"]) == 3
 

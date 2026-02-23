@@ -831,9 +831,7 @@ class TestPublicSpectateSSEGenerator:
         frames = []
 
         async def collect():
-            async for frame in public_spectate_sse_generator(
-                debate_id, heartbeat_interval=0.1
-            ):
+            async for frame in public_spectate_sse_generator(debate_id, heartbeat_interval=0.1):
                 frames.append(frame)
                 if len(frames) >= 3:
                     break
@@ -896,9 +894,7 @@ class TestPublicSpectateSSEGenerator:
         set_public_spectate(debate_id, True)
 
         async def collect():
-            async for frame in public_spectate_sse_generator(
-                debate_id, max_queue_size=10
-            ):
+            async for frame in public_spectate_sse_generator(debate_id, max_queue_size=10):
                 break
 
         await asyncio.wait_for(collect(), timeout=2.0)
@@ -916,7 +912,9 @@ class TestSecurity:
     def test_path_traversal_in_debate_id(self):
         h = DebateShareHandler()
         # Path traversal attempt
-        result = h.handle("/api/v1/debates/../../../etc/passwd/spectate/public", {}, _make_http_handler())
+        result = h.handle(
+            "/api/v1/debates/../../../etc/passwd/spectate/public", {}, _make_http_handler()
+        )
         # The handler will try to extract the ID which is ".." - this is fine
         # since it's not a filesystem operation. The key is it doesn't crash.
         # The path has wrong number of segments so can_handle returns False
@@ -925,9 +923,7 @@ class TestSecurity:
     def test_sql_injection_in_debate_id_spectate(self):
         """SQL injection in debate ID should not crash the handler."""
         h = DebateShareHandler()
-        result = h.handle(
-            "/api/v1/debates/' OR 1=1 --/spectate/public", {}, _make_http_handler()
-        )
+        result = h.handle("/api/v1/debates/' OR 1=1 --/spectate/public", {}, _make_http_handler())
         # The debate isn't shared, so it returns 403
         assert _status(result) == 403
         body = _body(result)
@@ -935,9 +931,7 @@ class TestSecurity:
 
     def test_sql_injection_in_debate_id_share(self):
         h = DebateShareHandler()
-        result = h.handle_post(
-            "/api/v1/debates/' OR 1=1 --/share", {}, _make_http_handler()
-        )
+        result = h.handle_post("/api/v1/debates/' OR 1=1 --/share", {}, _make_http_handler())
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == "' OR 1=1 --"
@@ -949,9 +943,7 @@ class TestSecurity:
         # <script>alert(1)</script> contains no slashes so it's a valid segment
         xss_id = "<script>alert(1)<.script>"
         set_public_spectate(xss_id, True)
-        result = h.handle(
-            f"/api/v1/debates/{xss_id}/spectate/public", {}, _make_http_handler()
-        )
+        result = h.handle(f"/api/v1/debates/{xss_id}/spectate/public", {}, _make_http_handler())
         assert _status(result) == 200
         body = _body(result)
         # The ID is passed through but JSON encoding escapes HTML
@@ -960,26 +952,20 @@ class TestSecurity:
     def test_very_long_debate_id(self):
         h = DebateShareHandler()
         long_id = "a" * 10000
-        result = h.handle(
-            f"/api/v1/debates/{long_id}/spectate/public", {}, _make_http_handler()
-        )
+        result = h.handle(f"/api/v1/debates/{long_id}/spectate/public", {}, _make_http_handler())
         # Should return 403 (not shared) without crashing
         assert _status(result) == 403
 
     def test_null_byte_in_debate_id(self):
         h = DebateShareHandler()
-        result = h.handle(
-            "/api/v1/debates/test\x00id/spectate/public", {}, _make_http_handler()
-        )
+        result = h.handle("/api/v1/debates/test\x00id/spectate/public", {}, _make_http_handler())
         assert _status(result) == 403
 
     def test_unicode_debate_id_spectate(self):
         h = DebateShareHandler()
         uid = "debat-\u00e9-\u4e2d\u6587"
         set_public_spectate(uid, True)
-        result = h.handle(
-            f"/api/v1/debates/{uid}/spectate/public", {}, _make_http_handler()
-        )
+        result = h.handle(f"/api/v1/debates/{uid}/spectate/public", {}, _make_http_handler())
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == uid
@@ -1023,9 +1009,7 @@ class TestEdgeCases:
         h1 = DebateShareHandler()
         h2 = DebateShareHandler()
         h1.handle_post("/api/v1/debates/shared-state/share", {}, _make_http_handler())
-        result = h2.handle(
-            "/api/v1/debates/shared-state/spectate/public", {}, _make_http_handler()
-        )
+        result = h2.handle("/api/v1/debates/shared-state/spectate/public", {}, _make_http_handler())
         assert _status(result) == 200
 
     def test_max_public_spectators_constant(self):
@@ -1040,9 +1024,7 @@ class TestEdgeCases:
         h.handle_delete("/api/v1/debates/lifecycle/share", {}, handler)
         assert is_publicly_shared("lifecycle") is False
 
-        result = h.handle(
-            "/api/v1/debates/lifecycle/spectate/public", {}, handler
-        )
+        result = h.handle("/api/v1/debates/lifecycle/spectate/public", {}, handler)
         assert _status(result) == 403
 
     def test_push_with_all_optional_params(self):
@@ -1079,11 +1061,16 @@ class TestEdgeCases:
         debate_id = "fields-test"
         set_public_spectate(debate_id, True)
         h = DebateShareHandler()
-        result = h.handle(
-            f"/api/v1/debates/{debate_id}/spectate/public", {}, _make_http_handler()
-        )
+        result = h.handle(f"/api/v1/debates/{debate_id}/spectate/public", {}, _make_http_handler())
         body = _body(result)
-        expected_keys = {"debate_id", "spectate_available", "public", "active_viewers", "max_viewers", "sse_url"}
+        expected_keys = {
+            "debate_id",
+            "spectate_available",
+            "public",
+            "active_viewers",
+            "max_viewers",
+            "sse_url",
+        }
         assert expected_keys.issubset(set(body.keys()))
 
     def test_share_response_includes_all_fields(self):

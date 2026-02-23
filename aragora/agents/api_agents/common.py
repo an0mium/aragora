@@ -187,7 +187,10 @@ def get_shared_connector() -> aiohttp.TCPConnector:
             )
             _pool_state.loop_id = current_loop_id
             logger.debug(
-                "Created shared TCP connector: limit=%s, per_host=%s, loop_id=%s", total, per_host, current_loop_id
+                "Created shared TCP connector: limit=%s, per_host=%s, loop_id=%s",
+                total,
+                per_host,
+                current_loop_id,
             )
         return _pool_state.connector
 

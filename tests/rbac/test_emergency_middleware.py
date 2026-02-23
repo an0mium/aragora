@@ -328,9 +328,6 @@ class TestEmergencyExports:
         """Emergency classes importable directly from emergency module."""
         from aragora.rbac.emergency import (
             BreakGlassAccess,
-            EmergencyAccessRecord,
-            EmergencyAccessStatus,
-            get_break_glass_access,
         )
 
         assert BreakGlassAccess is not None

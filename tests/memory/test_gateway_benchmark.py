@@ -123,19 +123,13 @@ class TestGatewayFanOutBenchmark:
     @pytest.mark.asyncio
     async def test_parallel_4_sources_2000_results(self):
         """Fan-out merges 500 results from each of 4 sources."""
-        continuum = SimpleNamespace(
-            search=lambda query, limit: _make_continuum_results(500)
-        )
+        continuum = SimpleNamespace(search=lambda query, limit: _make_continuum_results(500))
         km = AsyncMock()
         km.query = AsyncMock(return_value=_make_km_query_result(500))
         supermemory = AsyncMock()
-        supermemory.search_memories = AsyncMock(
-            return_value=_make_supermemory_results(500)
-        )
+        supermemory.search_memories = AsyncMock(return_value=_make_supermemory_results(500))
         claude_mem = AsyncMock()
-        claude_mem.search_observations = AsyncMock(
-            return_value=_make_claude_mem_results(500)
-        )
+        claude_mem.search_observations = AsyncMock(return_value=_make_claude_mem_results(500))
 
         gateway = MemoryGateway(
             config=MemoryGatewayConfig(
@@ -148,9 +142,7 @@ class TestGatewayFanOutBenchmark:
         )
 
         start = time.time()
-        response = await gateway.query(
-            UnifiedMemoryQuery(query="test", limit=2000, dedup=False)
-        )
+        response = await gateway.query(UnifiedMemoryQuery(query="test", limit=2000, dedup=False))
         elapsed = time.time() - start
         assert response.total_found == 2000
         assert len(response.sources_queried) == 4
@@ -191,9 +183,7 @@ class TestGatewayFanOutBenchmark:
         )
 
         start = time.time()
-        response = await gateway.query(
-            UnifiedMemoryQuery(query="test", limit=500, dedup=True)
-        )
+        response = await gateway.query(UnifiedMemoryQuery(query="test", limit=500, dedup=True))
         elapsed = time.time() - start
         assert len(response.results) == n  # Dedup removes 250 duplicates
         assert response.duplicates_removed == n

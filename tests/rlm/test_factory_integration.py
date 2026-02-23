@@ -323,7 +323,9 @@ class TestTrueRLMRouting:
             used_true_rlm=False,
             used_compression_fallback=True,
         )
-        with patch("aragora.rlm.bridge.AragoraRLM.query", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            "aragora.rlm.bridge.AragoraRLM.query", new_callable=AsyncMock, return_value=mock_result
+        ):
             result = await compress_and_query(
                 query="Summarize this",
                 content="This is a test document about software architecture.",

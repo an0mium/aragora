@@ -357,7 +357,10 @@ class SkillRegistry:
 
         self._skills[name] = skill
         logger.info(
-            "Registered skill: %s v%s with capabilities: %s", name, skill.manifest.version, [c.value for c in skill.manifest.capabilities]
+            "Registered skill: %s v%s with capabilities: %s",
+            name,
+            skill.manifest.version,
+            [c.value for c in skill.manifest.capabilities],
         )
 
     def unregister(self, name: str) -> bool:

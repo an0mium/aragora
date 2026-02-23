@@ -156,7 +156,9 @@ class TenantDataIsolation:
         invalid_shared = self.config.shared_resources - ALLOWED_SHARED_RESOURCES
         if invalid_shared:
             logger.error(
-                "SECURITY: Invalid shared resources configured: %s. Only these resources can be shared: %s", invalid_shared, ALLOWED_SHARED_RESOURCES
+                "SECURITY: Invalid shared resources configured: %s. Only these resources can be shared: %s",
+                invalid_shared,
+                ALLOWED_SHARED_RESOURCES,
             )
             raise ValueError(
                 f"Invalid shared resources: {invalid_shared}. "
@@ -215,7 +217,9 @@ class TenantDataIsolation:
             if self.config.audit_access:
                 tid = tenant_id or get_current_tenant_id() or "unknown"
                 logger.info(
-                    "Shared resource access: tenant=%s resource=%s (bypass isolation allowed)", tid, resource_type
+                    "Shared resource access: tenant=%s resource=%s (bypass isolation allowed)",
+                    tid,
+                    resource_type,
                 )
                 self._audit_log.append(
                     IsolationAuditEntry(
@@ -455,7 +459,8 @@ class TenantDataIsolation:
                 # key recovery without external state (KMS). Configure a
                 # KMS provider for production use.
                 logger.warning(
-                    "Using salt-based key derivation for tenant %s. Configure a KMS provider for production use.", tid
+                    "Using salt-based key derivation for tenant %s. Configure a KMS provider for production use.",
+                    tid,
                 )
                 salt = hashlib.sha256(f"aragora_tenant_salt_{tid}".encode()).digest()
                 self._encryption_keys[tid] = hmac.new(
@@ -584,7 +589,8 @@ class TenantDataIsolation:
             else:
                 # Fallback: Derive key using HKDF with a per-tenant random salt.
                 logger.warning(
-                    "Using salt-based key derivation for tenant %s. Configure a KMS provider for production use.", tid
+                    "Using salt-based key derivation for tenant %s. Configure a KMS provider for production use.",
+                    tid,
                 )
                 if tid not in self._tenant_salts:
                     self._tenant_salts[tid] = os.urandom(32)
@@ -655,7 +661,11 @@ class TenantDataIsolation:
 
         if not allowed:
             logger.warning(
-                "Isolation violation: tenant=%s resource=%s action=%s reason=%s", tenant_id, resource_type, action, reason
+                "Isolation violation: tenant=%s resource=%s action=%s reason=%s",
+                tenant_id,
+                resource_type,
+                action,
+                reason,
             )
 
     def get_audit_log(
@@ -806,7 +816,10 @@ class TenantIsolationEnforcer:
 
         if requesting_tenant != resource_tenant:
             logger.warning(
-                "Cross-tenant access denied: %s -> %s/%s", requesting_tenant, resource_tenant, resource_id
+                "Cross-tenant access denied: %s -> %s/%s",
+                requesting_tenant,
+                resource_tenant,
+                resource_id,
             )
             raise PermissionError(
                 f"Cross-tenant access denied: tenant {requesting_tenant} "

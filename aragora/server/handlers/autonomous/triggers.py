@@ -125,7 +125,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized listing triggers: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden listing triggers: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -212,7 +214,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized adding trigger: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden adding trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -280,7 +284,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized removing trigger: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden removing trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -341,7 +347,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized enabling trigger: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden enabling trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -402,7 +410,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized disabling trigger: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden disabling trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -446,7 +456,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized starting scheduler: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden starting scheduler: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -490,7 +502,9 @@ class TriggerHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized stopping scheduler: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden stopping scheduler: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)

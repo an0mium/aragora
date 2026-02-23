@@ -147,7 +147,9 @@ def _create_verify_claims_callback(arena: Arena):
                         disproven_count += 1
                         _track_verification("z3_disproved", verification_time)
                         logger.debug(
-                            "claim_z3_disproved type=%s counterexample=%s", claim_type, result.error_message
+                            "claim_z3_disproved type=%s counterexample=%s",
+                            claim_type,
+                            result.error_message,
                         )
                         continue  # Don't also count via confidence fallback
                     elif result.status == FormalProofStatus.TIMEOUT:
@@ -156,7 +158,14 @@ def _create_verify_claims_callback(arena: Arena):
                         # Translation failed or other status
                         _track_verification("z3_translation_failed", verification_time)
                     # Fall through to confidence check
-                except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ImportError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    OSError,
+                    ImportError,
+                ) as e:
                     logger.debug("Z3 verification failed for claim: %s", e)
 
             # Fallback: Count high-confidence claims as "verified"
@@ -203,7 +212,8 @@ def init_phases(arena: Arena) -> None:
         flip_detector=arena.flip_detector,
         calibration_tracker=arena.calibration_tracker,
         supermemory_adapter=getattr(arena, "supermemory_adapter", None),
-        vertical=getattr(arena, "_weight_profile", None) or (
+        vertical=getattr(arena, "_weight_profile", None)
+        or (
             (v.value if hasattr(v, "value") else v)
             if (v := getattr(arena, "vertical", None)) is not None
             else None

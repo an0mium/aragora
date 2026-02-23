@@ -440,7 +440,9 @@ class RedisCache:
                         await self.invalidate_node(event.item_id)
                     # Also invalidate related queries
                     await self.invalidate_queries(event.workspace_id)
-                    logger.debug("Cache invalidated: node %s in %s", event.item_id, event.workspace_id)
+                    logger.debug(
+                        "Cache invalidated: node %s in %s", event.item_id, event.workspace_id
+                    )
 
                 elif event.event_type == "node_deleted":
                     if event.item_id:
@@ -448,7 +450,9 @@ class RedisCache:
                         await self.remove_stale_node(event.item_id)
                     await self.invalidate_queries(event.workspace_id)
                     logger.debug(
-                        "Cache invalidated: deleted node %s in %s", event.item_id, event.workspace_id
+                        "Cache invalidated: deleted node %s in %s",
+                        event.item_id,
+                        event.workspace_id,
                     )
 
                 elif event.event_type == "query_invalidated":
@@ -484,14 +488,16 @@ class RedisCache:
         try:
             from aragora.events.types import StreamEvent, StreamEventType
 
-            self._event_emitter.emit(StreamEvent(
-                type=StreamEventType.KM_CACHE_INVALIDATED,
-                data={
-                    "event_type": event_type,
-                    "workspace_id": workspace_id,
-                    "item_id": item_id,
-                },
-            ))
+            self._event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.KM_CACHE_INVALIDATED,
+                    data={
+                        "event_type": event_type,
+                        "workspace_id": workspace_id,
+                        "item_id": item_id,
+                    },
+                )
+            )
         except (ImportError, AttributeError, TypeError):
             pass
 

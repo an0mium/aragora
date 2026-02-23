@@ -705,7 +705,15 @@ class TaskHandlerMixin:
                     "total": len(jobs),
                 }
             )
-        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
             logger.error("Error getting queue: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -875,7 +883,15 @@ class TaskHandlerMixin:
                     "has_more": offset + limit < total,
                 }
             )
-        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
             logger.error("Error getting task history: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -1046,7 +1062,15 @@ class TaskHandlerMixin:
         except asyncio.TimeoutError:
             record_deliberation_error(request.request_id, "Deliberation timed out", "timeout")
             return error_response("Deliberation request timed out", 408)
-        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:  # broad catch: last-resort handler
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Deliberation failed: %s", e)
             record_deliberation_error(request.request_id, "Deliberation failed")
             return error_response("Deliberation failed", 500)

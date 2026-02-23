@@ -27,9 +27,11 @@ from aragora.billing.tier_gating import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeAuthContext:
     """Minimal AuthorizationContext stand-in for tests."""
+
     user_id: str = "user-1"
     org_id: str | None = "org-1"
     roles: set[str] = field(default_factory=lambda: {"member"})
@@ -39,6 +41,7 @@ class FakeAuthContext:
 # ---------------------------------------------------------------------------
 # tier_sufficient
 # ---------------------------------------------------------------------------
+
 
 class TestTierSufficient:
     def test_same_tier_is_sufficient(self):
@@ -61,6 +64,7 @@ class TestTierSufficient:
 # ---------------------------------------------------------------------------
 # TIER_ORDER and FEATURE_TIER_MAP
 # ---------------------------------------------------------------------------
+
 
 class TestTierConstants:
     def test_tier_order_has_all_tiers(self):
@@ -89,6 +93,7 @@ class TestTierConstants:
 # TierInsufficientError
 # ---------------------------------------------------------------------------
 
+
 class TestTierInsufficientError:
     def test_error_message_without_feature(self):
         err = TierInsufficientError("professional", "free")
@@ -114,9 +119,11 @@ class TestTierInsufficientError:
 # @require_tier decorator
 # ---------------------------------------------------------------------------
 
+
 class TestRequireTierDecorator:
     def test_sync_function_allowed(self):
         """Sync function proceeds when tier is sufficient."""
+
         @require_tier("professional")
         def my_func(context):
             return "ok"
@@ -130,6 +137,7 @@ class TestRequireTierDecorator:
 
     def test_sync_function_blocked(self):
         """Sync function raises TierInsufficientError when tier is too low."""
+
         @require_tier("professional", feature_name="Knowledge Mound")
         def my_func(context):
             return "ok"
@@ -147,6 +155,7 @@ class TestRequireTierDecorator:
     @pytest.mark.asyncio
     async def test_async_function_allowed(self):
         """Async function proceeds when tier is sufficient."""
+
         @require_tier("enterprise")
         async def my_func(context):
             return "enterprise_result"
@@ -162,6 +171,7 @@ class TestRequireTierDecorator:
     @pytest.mark.asyncio
     async def test_async_function_blocked(self):
         """Async function raises TierInsufficientError when tier is too low."""
+
         @require_tier("enterprise", feature_name="SSO")
         async def my_func(context):
             return "ok"
@@ -176,6 +186,7 @@ class TestRequireTierDecorator:
 
     def test_graceful_degradation_no_context(self):
         """If no context is found, access is allowed (graceful degradation)."""
+
         @require_tier("professional")
         def my_func(data):
             return "ok"
@@ -185,6 +196,7 @@ class TestRequireTierDecorator:
 
     def test_graceful_degradation_unresolvable_tier(self):
         """If org tier cannot be resolved, access is allowed."""
+
         @require_tier("professional")
         def my_func(context):
             return "ok"
@@ -199,12 +211,14 @@ class TestRequireTierDecorator:
     def test_invalid_tier_name_raises_valueerror(self):
         """Passing an unknown tier to the decorator raises ValueError."""
         with pytest.raises(ValueError, match="Unknown tier"):
+
             @require_tier("platinum")
             def my_func(context):
                 return "ok"
 
     def test_context_extracted_from_positional_arg(self):
         """Context can be found in positional args by duck typing."""
+
         @require_tier("professional")
         def my_func(ctx):
             return "ok"
@@ -218,6 +232,7 @@ class TestRequireTierDecorator:
 
     def test_context_extracted_from_handler_auth_context(self):
         """Context can be found via handler._auth_context attribute."""
+
         @require_tier("professional")
         def my_func(handler):
             return "ok"
@@ -238,6 +253,7 @@ class TestRequireTierDecorator:
 # ---------------------------------------------------------------------------
 # DebateRateLimiter
 # ---------------------------------------------------------------------------
+
 
 class TestDebateRateLimiter:
     def test_allows_within_limit(self):
@@ -293,6 +309,7 @@ class TestGetDebateRateLimiter:
     def test_returns_singleton(self):
         # Reset the global
         import aragora.billing.tier_gating as mod
+
         mod._debate_limiter = None
         limiter1 = get_debate_rate_limiter()
         limiter2 = get_debate_rate_limiter()
@@ -305,9 +322,11 @@ class TestGetDebateRateLimiter:
 # Trial Expiry Enforcement
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeOrg:
     """Minimal Organization stand-in for trial tests."""
+
     id: str = "org-1"
     tier: str = "free"
     is_trial_expired: bool = False
@@ -372,26 +391,32 @@ class TestRequireTierTrialEnforcement:
 
     def test_active_trial_passes_gate(self):
         """Free-tier user with active trial can access free-tier features."""
+
         @require_tier("free")
         def my_func(context):
             return "ok"
 
         ctx = FakeAuthContext(subscription_tier="free", org_id="org-1")
         fake_org = FakeOrg(is_trial_expired=False, trial_days_remaining=5)
-        with patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"), \
-             patch("aragora.billing.tier_gating._resolve_org", return_value=fake_org):
+        with (
+            patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"),
+            patch("aragora.billing.tier_gating._resolve_org", return_value=fake_org),
+        ):
             assert my_func(context=ctx) == "ok"
 
     def test_expired_trial_blocks_with_upgrade_prompt(self):
         """Free-tier user with expired trial is blocked."""
+
         @require_tier("free")
         def my_func(context):
             return "ok"
 
         ctx = FakeAuthContext(subscription_tier="free", org_id="org-1")
         fake_org = FakeOrg(is_trial_expired=True, trial_days_remaining=0)
-        with patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"), \
-             patch("aragora.billing.tier_gating._resolve_org", return_value=fake_org):
+        with (
+            patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"),
+            patch("aragora.billing.tier_gating._resolve_org", return_value=fake_org),
+        ):
             with pytest.raises(TrialExpiredError) as exc_info:
                 my_func(context=ctx)
             resp = exc_info.value.to_response()
@@ -400,13 +425,16 @@ class TestRequireTierTrialEnforcement:
 
     def test_paid_tier_bypasses_trial_check(self):
         """Paid-tier users skip trial expiry checking entirely."""
+
         @require_tier("free")
         def my_func(context):
             return "ok"
 
         ctx = FakeAuthContext(subscription_tier="professional", org_id="org-1")
-        with patch("aragora.billing.tier_gating._resolve_org_tier", return_value="professional"), \
-             patch("aragora.billing.tier_gating._resolve_org") as mock_resolve:
+        with (
+            patch("aragora.billing.tier_gating._resolve_org_tier", return_value="professional"),
+            patch("aragora.billing.tier_gating._resolve_org") as mock_resolve,
+        ):
             result = my_func(context=ctx)
             assert result == "ok"
             # _resolve_org should NOT be called for paid tiers
@@ -428,24 +456,30 @@ class TestRequireTierTrialEnforcement:
     @pytest.mark.asyncio
     async def test_async_expired_trial_blocks(self):
         """Async function is also blocked when trial is expired."""
+
         @require_tier("free")
         async def my_func(context):
             return "ok"
 
         ctx = FakeAuthContext(subscription_tier="free", org_id="org-1")
         fake_org = FakeOrg(is_trial_expired=True, trial_days_remaining=0)
-        with patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"), \
-             patch("aragora.billing.tier_gating._resolve_org", return_value=fake_org):
+        with (
+            patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"),
+            patch("aragora.billing.tier_gating._resolve_org", return_value=fake_org),
+        ):
             with pytest.raises(TrialExpiredError):
                 await my_func(context=ctx)
 
     def test_org_unresolvable_allows_access(self):
         """When _resolve_org returns None for free tier, access is allowed (graceful degradation)."""
+
         @require_tier("free")
         def my_func(context):
             return "ok"
 
         ctx = FakeAuthContext(subscription_tier="free", org_id="org-1")
-        with patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"), \
-             patch("aragora.billing.tier_gating._resolve_org", return_value=None):
+        with (
+            patch("aragora.billing.tier_gating._resolve_org_tier", return_value="free"),
+            patch("aragora.billing.tier_gating._resolve_org", return_value=None),
+        ):
             assert my_func(context=ctx) == "ok"

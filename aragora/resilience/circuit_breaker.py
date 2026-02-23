@@ -346,7 +346,9 @@ class CircuitBreaker:
         elapsed = time.time() - self._circuit_open_at[entity]
         if elapsed >= self.cooldown_seconds:
             logger.debug(
-                "Circuit breaker HALF-OPEN for %s (cooldown %ss elapsed)", entity, self.cooldown_seconds
+                "Circuit breaker HALF-OPEN for %s (cooldown %ss elapsed)",
+                entity,
+                self.cooldown_seconds,
             )
             return True
 
@@ -514,7 +516,9 @@ class CircuitBreaker:
             raise
         except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
             # Record all other exceptions as failures
-            logger.debug("Circuit breaker recorded failure for %s: %s: %s", name, type(e).__name__, e)
+            logger.debug(
+                "Circuit breaker recorded failure for %s: %s: %s", name, type(e).__name__, e
+            )
             self.record_failure(entity)
             raise
 

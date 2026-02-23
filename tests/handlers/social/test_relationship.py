@@ -85,9 +85,7 @@ def _create_db(tmp_path: Path, rows: list[tuple]) -> Path:
         )
     """)
     for row in rows:
-        conn.execute(
-            "INSERT INTO agent_relationships VALUES (?, ?, ?, ?, ?, ?)", row
-        )
+        conn.execute("INSERT INTO agent_relationships VALUES (?, ?, ?, ?, ?, ?)", row)
     conn.commit()
     conn.close()
     return db_path
@@ -301,9 +299,7 @@ class TestRateLimiting:
         import aragora.server.handlers.social.relationship as mod
 
         monkeypatch.setattr(mod._relationship_limiter, "is_allowed", lambda key: False)
-        result = handler.handle(
-            "/api/v1/relationships/summary", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/relationships/summary", {}, mock_http_handler)
         assert _status(result) == 429
         assert "Rate limit" in _body(result).get("error", "")
 
@@ -316,63 +312,48 @@ class TestRateLimiting:
 class TestTrackerUnavailable:
     """Tests when relationship tracker module is not installed."""
 
-    def test_summary_returns_503_when_tracker_unavailable(
-        self, handler, mock_http_handler
-    ):
+    def test_summary_returns_503_when_tracker_unavailable(self, handler, mock_http_handler):
         with patch(
             "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
             False,
         ):
-            result = handler.handle(
-                "/api/v1/relationships/summary", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/relationships/summary", {}, mock_http_handler)
             assert _status(result) == 503
 
-    def test_graph_returns_503_when_tracker_unavailable(
-        self, handler, mock_http_handler
-    ):
+    def test_graph_returns_503_when_tracker_unavailable(self, handler, mock_http_handler):
         with patch(
             "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
             False,
         ):
-            result = handler.handle(
-                "/api/v1/relationships/graph", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/relationships/graph", {}, mock_http_handler)
             assert _status(result) == 503
 
-    def test_stats_returns_503_when_tracker_unavailable(
-        self, handler, mock_http_handler
-    ):
+    def test_stats_returns_503_when_tracker_unavailable(self, handler, mock_http_handler):
         with patch(
             "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
             False,
         ):
-            result = handler.handle(
-                "/api/v1/relationships/stats", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/relationships/stats", {}, mock_http_handler)
             assert _status(result) == 503
 
-    def test_pair_returns_503_when_tracker_unavailable(
-        self, handler, mock_http_handler
-    ):
+    def test_pair_returns_503_when_tracker_unavailable(self, handler, mock_http_handler):
         with patch(
             "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
             False,
         ):
-            result = handler.handle(
-                "/api/v1/relationship/alice/bob", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/relationship/alice/bob", {}, mock_http_handler)
             assert _status(result) == 503
 
     def test_tracker_init_failure(self, handler, mock_http_handler):
         """When _get_tracker returns None (init error), return 503."""
-        with patch.object(handler, "_get_tracker", return_value=None), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(handler, "_get_tracker", return_value=None),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
-            result = handler.handle(
-                "/api/v1/relationships/summary", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/relationships/summary", {}, mock_http_handler)
             assert _status(result) == 503
             assert "initialize" in _body(result).get("error", "").lower()
 
@@ -395,12 +376,15 @@ class TestGetTracker:
     def test_fallback_default_tracker(self, handler):
         """When nomic_dir is None, falls back to default constructor."""
         mock_cls = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch(
-            "aragora.server.handlers.social.relationship.RelationshipTracker",
-            mock_cls,
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.RelationshipTracker",
+                mock_cls,
+            ),
         ):
             result = handler._get_tracker(None)
             mock_cls.assert_called_once_with()
@@ -412,15 +396,19 @@ class TestGetTracker:
         fake_db = tmp_path / "fake.db"
         fake_db.touch()
         h = RelationshipHandler(ctx={"nomic_dir": tmp_path})
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch(
-            "aragora.server.handlers.social.relationship.RelationshipTracker",
-            mock_cls,
-        ), patch(
-            "aragora.server.handlers.social.relationship.get_db_path",
-            return_value=fake_db,
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.RelationshipTracker",
+                mock_cls,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.get_db_path",
+                return_value=fake_db,
+            ),
         ):
             result = h._get_tracker(tmp_path)
             mock_cls.assert_called_once_with(elo_db_path=str(fake_db))
@@ -431,39 +419,49 @@ class TestGetTracker:
         mock_cls = MagicMock()
         missing = tmp_path / "nonexistent.db"
         h = RelationshipHandler(ctx={"nomic_dir": tmp_path})
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch(
-            "aragora.server.handlers.social.relationship.RelationshipTracker",
-            mock_cls,
-        ), patch(
-            "aragora.server.handlers.social.relationship.get_db_path",
-            return_value=missing,
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.RelationshipTracker",
+                mock_cls,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.get_db_path",
+                return_value=missing,
+            ),
         ):
             result = h._get_tracker(tmp_path)
             mock_cls.assert_called_once_with()
 
     def test_catches_os_error(self, handler):
         mock_cls = MagicMock(side_effect=OSError("disk full"))
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch(
-            "aragora.server.handlers.social.relationship.RelationshipTracker",
-            mock_cls,
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.RelationshipTracker",
+                mock_cls,
+            ),
         ):
             result = handler._get_tracker(None)
             assert result is None
 
     def test_catches_runtime_error(self, handler):
         mock_cls = MagicMock(side_effect=RuntimeError("bad state"))
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch(
-            "aragora.server.handlers.social.relationship.RelationshipTracker",
-            mock_cls,
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.RelationshipTracker",
+                mock_cls,
+            ),
         ):
             result = handler._get_tracker(None)
             assert result is None
@@ -478,9 +476,7 @@ class TestSummaryEndpoint:
     """Tests for GET /api/v1/relationships/summary."""
 
     def _call(self, handler, mock_http, **kwargs):
-        return handler.handle(
-            "/api/v1/relationships/summary", kwargs, mock_http
-        )
+        return handler.handle("/api/v1/relationships/summary", kwargs, mock_http)
 
     def test_empty_table(self, tmp_path, mock_http_handler):
         """Empty database returns zero summary."""
@@ -488,9 +484,12 @@ class TestSummaryEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -508,9 +507,12 @@ class TestSummaryEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -529,9 +531,12 @@ class TestSummaryEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -554,9 +559,12 @@ class TestSummaryEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -572,9 +580,12 @@ class TestSummaryEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -585,12 +596,16 @@ class TestSummaryEndpoint:
         tracker = MagicMock()
         tracker.db_path = "/nonexistent/path.db"
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch(
-            "aragora.server.handlers.social.relationship.get_db_connection",
-            side_effect=OSError("disk failure"),
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch(
+                "aragora.server.handlers.social.relationship.get_db_connection",
+                side_effect=OSError("disk failure"),
+            ),
         ):
             result = self._call(h, mock_http_handler)
         assert _status(result) == 500
@@ -605,9 +620,7 @@ class TestGraphEndpoint:
     """Tests for GET /api/v1/relationships/graph."""
 
     def _call(self, handler, mock_http, params=None):
-        return handler.handle(
-            "/api/v1/relationships/graph", params or {}, mock_http
-        )
+        return handler.handle("/api/v1/relationships/graph", params or {}, mock_http)
 
     def test_empty_graph(self, tmp_path, mock_http_handler):
         """Empty DB returns empty graph."""
@@ -615,9 +628,12 @@ class TestGraphEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -636,9 +652,12 @@ class TestGraphEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -663,9 +682,12 @@ class TestGraphEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler, params={"min_debates": "5"})
         body = _body(result)
@@ -682,9 +704,12 @@ class TestGraphEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler, params={"min_score": "0.99"})
         body = _body(result)
@@ -694,16 +719,19 @@ class TestGraphEndpoint:
     def test_graph_node_counters(self, tmp_path, mock_http_handler):
         """Nodes track rivals/allies counters."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),   # rivalry
-            ("claude", "gemini", 20, 20, 0, 0),   # alliance
+            ("claude", "gpt4", 20, 0, 10, 10),  # rivalry
+            ("claude", "gemini", 20, 20, 0, 0),  # alliance
         ]
         db_path = _create_db(tmp_path, rows)
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -717,11 +745,13 @@ class TestGraphEndpoint:
         tracker = MagicMock()
         tracker.db_path = "/nonexistent/path.db"
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch.object(
-            h, "_fetch_relationships", side_effect=OSError("disk failure")
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch.object(h, "_fetch_relationships", side_effect=OSError("disk failure")),
         ):
             result = self._call(h, mock_http_handler)
         assert _status(result) == 500
@@ -736,9 +766,7 @@ class TestStatsEndpoint:
     """Tests for GET /api/v1/relationships/stats."""
 
     def _call(self, handler, mock_http, params=None):
-        return handler.handle(
-            "/api/v1/relationships/stats", params or {}, mock_http
-        )
+        return handler.handle("/api/v1/relationships/stats", params or {}, mock_http)
 
     def test_empty_stats(self, tmp_path, mock_http_handler):
         """Empty DB returns empty stats."""
@@ -746,9 +774,12 @@ class TestStatsEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -764,17 +795,20 @@ class TestStatsEndpoint:
     def test_stats_with_data(self, tmp_path, mock_http_handler):
         """Stats with actual relationship data."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),   # rivalry
+            ("claude", "gpt4", 20, 0, 10, 10),  # rivalry
             ("gemini", "mistral", 10, 10, 0, 0),  # alliance
-            ("alice", "bob", 5, 2, 2, 1),         # neutral (scores below threshold)
+            ("alice", "bob", 5, 2, 2, 1),  # neutral (scores below threshold)
         ]
         db_path = _create_db(tmp_path, rows)
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -792,9 +826,12 @@ class TestStatsEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -804,16 +841,19 @@ class TestStatsEndpoint:
     def test_highest_agreement_pair(self, tmp_path, mock_http_handler):
         """highest_agreement_pair tracks pair with best agreement rate."""
         rows = [
-            ("claude", "gpt4", 10, 9, 0, 0),   # 90% agreement
-            ("alice", "bob", 10, 5, 3, 2),       # 50% agreement
+            ("claude", "gpt4", 10, 9, 0, 0),  # 90% agreement
+            ("alice", "bob", 10, 5, 3, 2),  # 50% agreement
         ]
         db_path = _create_db(tmp_path, rows)
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -829,9 +869,12 @@ class TestStatsEndpoint:
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -840,16 +883,19 @@ class TestStatsEndpoint:
     def test_rivalry_and_alliance_counts(self, tmp_path, mock_http_handler):
         """Verify correct classification counts."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),    # rivalry (high rivalry score)
-            ("gemini", "mistral", 20, 20, 0, 0),   # alliance (high alliance)
+            ("claude", "gpt4", 20, 0, 10, 10),  # rivalry (high rivalry score)
+            ("gemini", "mistral", 20, 20, 0, 0),  # alliance (high alliance)
         ]
         db_path = _create_db(tmp_path, rows)
         tracker = MagicMock()
         tracker.db_path = db_path
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -863,11 +909,13 @@ class TestStatsEndpoint:
         tracker = MagicMock()
         tracker.db_path = "/nonexistent/path.db"
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch.object(
-            h, "_fetch_relationships", side_effect=ValueError("bad data")
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch.object(h, "_fetch_relationships", side_effect=ValueError("bad data")),
         ):
             result = self._call(h, mock_http_handler)
         assert _status(result) == 500
@@ -882,9 +930,7 @@ class TestPairDetailEndpoint:
     """Tests for GET /api/v1/relationship/{agent_a}/{agent_b}."""
 
     def _call(self, handler, mock_http, agent_a="claude", agent_b="gpt4"):
-        return handler.handle(
-            f"/api/v1/relationship/{agent_a}/{agent_b}", {}, mock_http
-        )
+        return handler.handle(f"/api/v1/relationship/{agent_a}/{agent_b}", {}, mock_http)
 
     def test_no_interactions(self, mock_http_handler):
         """When debate_count is 0, returns relationship_exists=False."""
@@ -893,9 +939,12 @@ class TestPairDetailEndpoint:
         tracker = MagicMock()
         tracker.get_relationship.return_value = mock_rel
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -921,9 +970,12 @@ class TestPairDetailEndpoint:
         tracker = MagicMock()
         tracker.get_relationship.return_value = mock_rel
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
@@ -962,9 +1014,12 @@ class TestPairDetailEndpoint:
         tracker = MagicMock()
         tracker.get_relationship.return_value = mock_rel
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler, "gemini", "mistral")
         body = _body(result)
@@ -973,10 +1028,13 @@ class TestPairDetailEndpoint:
     def test_invalid_agent_name(self, mock_http_handler):
         """Agent names with special chars should be rejected (400)."""
         h = RelationshipHandler()
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch.object(h, "_get_tracker", return_value=MagicMock()):
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch.object(h, "_get_tracker", return_value=MagicMock()),
+        ):
             result = self._call(h, mock_http_handler, "claude!!", "gpt4")
         assert _status(result) == 400
 
@@ -984,10 +1042,13 @@ class TestPairDetailEndpoint:
         """Agent names exceeding 32 chars should be rejected."""
         h = RelationshipHandler()
         long_name = "a" * 33
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch.object(h, "_get_tracker", return_value=MagicMock()):
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch.object(h, "_get_tracker", return_value=MagicMock()),
+        ):
             result = self._call(h, mock_http_handler, long_name, "gpt4")
         assert _status(result) == 400
 
@@ -995,10 +1056,13 @@ class TestPairDetailEndpoint:
         """Empty agent segment should fail validation."""
         h = RelationshipHandler()
         # Construct path directly
-        with patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
-        ), patch.object(h, "_get_tracker", return_value=MagicMock()):
+        with (
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
+            patch.object(h, "_get_tracker", return_value=MagicMock()),
+        ):
             result = h.handle("/api/v1/relationship//gpt4", {}, mock_http_handler)
         # May return 400 or None depending on can_handle
         if result is not None:
@@ -1009,9 +1073,12 @@ class TestPairDetailEndpoint:
         tracker = MagicMock()
         tracker.get_relationship.side_effect = TypeError("unexpected type")
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         assert _status(result) == 500
@@ -1021,9 +1088,12 @@ class TestPairDetailEndpoint:
         tracker = MagicMock()
         tracker.get_relationship.side_effect = OSError("connection lost")
         h = RelationshipHandler()
-        with patch.object(h, "_get_tracker", return_value=tracker), patch(
-            "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
-            True,
+        with (
+            patch.object(h, "_get_tracker", return_value=tracker),
+            patch(
+                "aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE",
+                True,
+            ),
         ):
             result = self._call(h, mock_http_handler)
         assert _status(result) == 500
@@ -1044,18 +1114,28 @@ class TestHandleDispatch:
 
     def test_summary_dispatches(self, handler, mock_http_handler):
         """Summary path dispatches to _get_summary."""
-        with patch.object(handler, "_get_summary", return_value=MagicMock(status_code=200)) as mock_summary, patch(
-            "aragora.server.handlers.social.relationship._relationship_limiter"
-        ) as mock_limiter:
+        with (
+            patch.object(
+                handler, "_get_summary", return_value=MagicMock(status_code=200)
+            ) as mock_summary,
+            patch(
+                "aragora.server.handlers.social.relationship._relationship_limiter"
+            ) as mock_limiter,
+        ):
             mock_limiter.is_allowed.return_value = True
             handler.handle("/api/v1/relationships/summary", {}, mock_http_handler)
             mock_summary.assert_called_once()
 
     def test_graph_dispatches_with_params(self, handler, mock_http_handler):
         """Graph path dispatches with min_debates and min_score."""
-        with patch.object(handler, "_get_graph", return_value=MagicMock(status_code=200)) as mock_graph, patch(
-            "aragora.server.handlers.social.relationship._relationship_limiter"
-        ) as mock_limiter:
+        with (
+            patch.object(
+                handler, "_get_graph", return_value=MagicMock(status_code=200)
+            ) as mock_graph,
+            patch(
+                "aragora.server.handlers.social.relationship._relationship_limiter"
+            ) as mock_limiter,
+        ):
             mock_limiter.is_allowed.return_value = True
             handler.handle(
                 "/api/v1/relationships/graph",
@@ -1066,9 +1146,14 @@ class TestHandleDispatch:
 
     def test_stats_dispatches(self, handler, mock_http_handler):
         """Stats path dispatches to _get_stats."""
-        with patch.object(handler, "_get_stats", return_value=MagicMock(status_code=200)) as mock_stats, patch(
-            "aragora.server.handlers.social.relationship._relationship_limiter"
-        ) as mock_limiter:
+        with (
+            patch.object(
+                handler, "_get_stats", return_value=MagicMock(status_code=200)
+            ) as mock_stats,
+            patch(
+                "aragora.server.handlers.social.relationship._relationship_limiter"
+            ) as mock_limiter,
+        ):
             mock_limiter.is_allowed.return_value = True
             handler.handle("/api/v1/relationships/stats", {}, mock_http_handler)
             mock_stats.assert_called_once()

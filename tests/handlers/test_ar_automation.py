@@ -172,7 +172,10 @@ def mock_ar():
     ar.record_payment = AsyncMock(return_value=MockInvoice(status="paid"))
     ar.track_aging = AsyncMock(return_value=MockAgingReport())
     ar.suggest_collections = AsyncMock(
-        return_value=[MockCollectionSuggestion("CUST-001"), MockCollectionSuggestion("CUST-002", "email")]
+        return_value=[
+            MockCollectionSuggestion("CUST-001"),
+            MockCollectionSuggestion("CUST-002", "email"),
+        ]
     )
     ar.add_customer = AsyncMock()
     ar.get_customer_balance = AsyncMock(return_value=Decimal("3500.00"))
@@ -462,10 +465,12 @@ class TestListInvoices:
 
     @pytest.mark.asyncio
     async def test_list_invoices_with_date_filters(self, mock_ar):
-        result = await handle_list_invoices({
-            "start_date": "2026-01-01",
-            "end_date": "2026-01-31",
-        })
+        result = await handle_list_invoices(
+            {
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-31",
+            }
+        )
         assert _status(result) == 200
         call_kwargs = mock_ar.list_invoices.call_args.kwargs
         assert call_kwargs["start_date"] is not None
@@ -687,50 +692,38 @@ class TestSendReminder:
 
     @pytest.mark.asyncio
     async def test_send_reminder_escalation_level_2(self, mock_ar):
-        result = await handle_send_reminder(
-            {"escalation_level": 2}, invoice_id="INV-001"
-        )
+        result = await handle_send_reminder({"escalation_level": 2}, invoice_id="INV-001")
         assert _status(result) == 200
         body = _body(result)
         assert "level 2" in body["data"]["message"]
 
     @pytest.mark.asyncio
     async def test_send_reminder_escalation_level_4(self, mock_ar):
-        result = await handle_send_reminder(
-            {"escalation_level": 4}, invoice_id="INV-001"
-        )
+        result = await handle_send_reminder({"escalation_level": 4}, invoice_id="INV-001")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_send_reminder_escalation_level_below_range(self):
-        result = await handle_send_reminder(
-            {"escalation_level": 0}, invoice_id="INV-001"
-        )
+        result = await handle_send_reminder({"escalation_level": 0}, invoice_id="INV-001")
         assert _status(result) == 400
         assert "1-4" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_send_reminder_escalation_level_above_range(self):
-        result = await handle_send_reminder(
-            {"escalation_level": 5}, invoice_id="INV-001"
-        )
+        result = await handle_send_reminder({"escalation_level": 5}, invoice_id="INV-001")
         assert _status(result) == 400
         assert "1-4" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_send_reminder_escalation_level_invalid_string(self):
-        result = await handle_send_reminder(
-            {"escalation_level": "abc"}, invoice_id="INV-001"
-        )
+        result = await handle_send_reminder({"escalation_level": "abc"}, invoice_id="INV-001")
         assert _status(result) == 400
         assert "integer" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
     async def test_send_reminder_escalation_level_none(self):
         """None escalation_level should use default of 1."""
-        result = await handle_send_reminder(
-            {"escalation_level": None}, invoice_id="INV-001"
-        )
+        result = await handle_send_reminder({"escalation_level": None}, invoice_id="INV-001")
         # None causes int(None) -> TypeError caught by the except block
         assert _status(result) == 400
 
@@ -1247,10 +1240,21 @@ class TestARAutomationHandlerClass:
     def test_dynamic_routes_reference_correct_handlers(self):
         routes = ARAutomationHandler.DYNAMIC_ROUTES
         assert routes["GET /api/v1/accounting/ar/invoices/{invoice_id}"] is handle_get_invoice
-        assert routes["POST /api/v1/accounting/ar/invoices/{invoice_id}/send"] is handle_send_invoice
-        assert routes["POST /api/v1/accounting/ar/invoices/{invoice_id}/reminder"] is handle_send_reminder
-        assert routes["POST /api/v1/accounting/ar/invoices/{invoice_id}/payment"] is handle_record_payment
-        assert routes["GET /api/v1/accounting/ar/customers/{customer_id}/balance"] is handle_get_customer_balance
+        assert (
+            routes["POST /api/v1/accounting/ar/invoices/{invoice_id}/send"] is handle_send_invoice
+        )
+        assert (
+            routes["POST /api/v1/accounting/ar/invoices/{invoice_id}/reminder"]
+            is handle_send_reminder
+        )
+        assert (
+            routes["POST /api/v1/accounting/ar/invoices/{invoice_id}/payment"]
+            is handle_record_payment
+        )
+        assert (
+            routes["GET /api/v1/accounting/ar/customers/{customer_id}/balance"]
+            is handle_get_customer_balance
+        )
 
     def test_total_route_count(self):
         total = len(ARAutomationHandler._ROUTE_MAP) + len(ARAutomationHandler.DYNAMIC_ROUTES)
@@ -1287,7 +1291,9 @@ class TestARAutomationSingleton:
         # The real function (unpatched at import time) should return the cached instance
         # Note: we reference the original function object stored in the module
         # before the autouse fixture replaces the name.
-        original_fn = get_ar_automation.__wrapped__ if hasattr(get_ar_automation, "__wrapped__") else None
+        original_fn = (
+            get_ar_automation.__wrapped__ if hasattr(get_ar_automation, "__wrapped__") else None
+        )
         if original_fn is None:
             # If not wrapped, access the module directly to test caching
             assert mod._ar_automation is sentinel
@@ -1525,9 +1531,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_record_payment_user_id_param(self, mock_ar):
-        result = await handle_record_payment(
-            {"amount": 500}, invoice_id="INV-001", user_id="admin"
-        )
+        result = await handle_record_payment({"amount": 500}, invoice_id="INV-001", user_id="admin")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1548,9 +1552,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_customer_balance_user_id_param(self, mock_ar):
-        result = await handle_get_customer_balance(
-            {}, customer_id="CUST-001", user_id="admin"
-        )
+        result = await handle_get_customer_balance({}, customer_id="CUST-001", user_id="admin")
         assert _status(result) == 200
 
     @pytest.mark.asyncio

@@ -120,9 +120,7 @@ def handler():
     """Create an InboxCommandHandler with mocked services (no services by default)."""
     from aragora.server.handlers.inbox_command import InboxCommandHandler
 
-    with patch(
-        "aragora.server.handlers.inbox_command.ServiceRegistry"
-    ) as mock_registry_cls:
+    with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_registry_cls:
         mock_registry = MagicMock()
         mock_registry.has.return_value = False
         mock_registry_cls.get.return_value = mock_registry
@@ -172,9 +170,7 @@ def handler_with_services(gmail_connector, prioritizer, sender_history):
     """Create an InboxCommandHandler with all services mocked."""
     from aragora.server.handlers.inbox_command import InboxCommandHandler
 
-    with patch(
-        "aragora.server.handlers.inbox_command.ServiceRegistry"
-    ) as mock_registry_cls:
+    with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_registry_cls:
         mock_registry = MagicMock()
         mock_registry.has.return_value = False
         mock_registry_cls.get.return_value = mock_registry
@@ -200,26 +196,37 @@ class TestFetchPrioritizedEmails:
     async def test_returns_demo_when_no_gmail(self, handler):
         """Falls back to demo emails when gmail_connector is None."""
         emails = await handler._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails) > 0
         assert any(e["id"].startswith("demo_") for e in emails)
 
     @pytest.mark.asyncio
     async def test_returns_empty_when_gmail_returns_nothing(
-        self, handler_with_services, gmail_connector,
+        self,
+        handler_with_services,
+        gmail_connector,
     ):
         """Returns empty list when Gmail has no messages."""
         gmail_connector.list_messages.return_value = []
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert emails == []
 
     @pytest.mark.asyncio
     async def test_prioritizes_emails_via_rank_inbox(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Fetches emails from Gmail and ranks them via prioritizer."""
         msg1 = _MockEmailMessage(id="e1", from_address="a@b.com", subject="Urgent")
@@ -244,7 +251,10 @@ class TestFetchPrioritizedEmails:
         prioritizer.rank_inbox.return_value = [result1, result2]
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
 
         assert len(emails) == 2
@@ -265,7 +275,10 @@ class TestFetchPrioritizedEmails:
 
     @pytest.mark.asyncio
     async def test_priority_filter_applied(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Filters by priority when priority_filter is set."""
         msg1 = _MockEmailMessage(id="e1")
@@ -273,26 +286,36 @@ class TestFetchPrioritizedEmails:
         gmail_connector.list_messages.return_value = [msg1, msg2]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.CRITICAL,
-            confidence=0.9, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.CRITICAL,
+            confidence=0.9,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Urgent",
         )
         result2 = _MockPriorityResult(
-            email_id="e2", priority=_MockEmailPriority.LOW,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e2",
+            priority=_MockEmailPriority.LOW,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Low priority",
         )
         prioritizer.rank_inbox.return_value = [result1, result2]
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter="critical", unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter="critical",
+            unread_only=False,
         )
         assert len(emails) == 1
         assert emails[0]["priority"] == "critical"
 
     @pytest.mark.asyncio
     async def test_unread_only_filter(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Filters out read emails when unread_only is True."""
         msg1 = _MockEmailMessage(id="e1", unread=True)
@@ -300,19 +323,26 @@ class TestFetchPrioritizedEmails:
         gmail_connector.list_messages.return_value = [msg1, msg2]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.HIGH,
-            confidence=0.8, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.HIGH,
+            confidence=0.8,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="High",
         )
         result2 = _MockPriorityResult(
-            email_id="e2", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.6, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e2",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.6,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Medium",
         )
         prioritizer.rank_inbox.return_value = [result1, result2]
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=True,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=True,
         )
         assert len(emails) == 1
         assert emails[0]["id"] == "e1"
@@ -320,7 +350,10 @@ class TestFetchPrioritizedEmails:
 
     @pytest.mark.asyncio
     async def test_pagination_with_offset_and_limit(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Applies offset and limit to paginate results."""
         messages = [_MockEmailMessage(id=f"e{i}") for i in range(5)]
@@ -328,8 +361,10 @@ class TestFetchPrioritizedEmails:
 
         results = [
             _MockPriorityResult(
-                email_id=f"e{i}", priority=_MockEmailPriority.MEDIUM,
-                confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+                email_id=f"e{i}",
+                priority=_MockEmailPriority.MEDIUM,
+                confidence=0.7,
+                tier_used=_MockScoringTier.TIER_1_RULES,
                 rationale=f"Result {i}",
             )
             for i in range(5)
@@ -337,7 +372,10 @@ class TestFetchPrioritizedEmails:
         prioritizer.rank_inbox.return_value = results
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=2, offset=1, priority_filter=None, unread_only=False,
+            limit=2,
+            offset=1,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails) == 2
         assert emails[0]["id"] == "e1"
@@ -345,7 +383,10 @@ class TestFetchPrioritizedEmails:
 
     @pytest.mark.asyncio
     async def test_populates_email_cache(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Caches prioritized results in _email_cache."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -354,14 +395,19 @@ class TestFetchPrioritizedEmails:
         gmail_connector.list_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="cached_e1", priority=_MockEmailPriority.HIGH,
-            confidence=0.85, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="cached_e1",
+            priority=_MockEmailPriority.HIGH,
+            confidence=0.85,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Cached",
         )
         prioritizer.rank_inbox.return_value = [result1]
 
         await handler_with_services._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         cached = _email_cache.get("cached_e1")
         assert cached is not None
@@ -369,7 +415,10 @@ class TestFetchPrioritizedEmails:
 
     @pytest.mark.asyncio
     async def test_snippet_truncated_to_200_chars(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Snippet is truncated to 200 characters."""
         long_snippet = "x" * 500
@@ -377,20 +426,28 @@ class TestFetchPrioritizedEmails:
         gmail_connector.list_messages.return_value = [msg]
 
         result = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Test",
         )
         prioritizer.rank_inbox.return_value = [result]
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails[0]["snippet"]) == 200
 
     @pytest.mark.asyncio
     async def test_email_not_found_in_messages(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Handles case where priority result ID does not match any message."""
         msg = _MockEmailMessage(id="e1")
@@ -398,14 +455,19 @@ class TestFetchPrioritizedEmails:
 
         # Priority result references a non-existent email ID
         result = _MockPriorityResult(
-            email_id="nonexistent", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="nonexistent",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Missing email",
         )
         prioritizer.rank_inbox.return_value = [result]
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         # Should still produce an entry with "unknown" from/subject
         assert len(emails) == 1
@@ -443,7 +505,10 @@ class TestFetchPrioritizedEmailsNoPrioritizer:
         gmail_connector.list_messages.return_value = [msg1, msg2]
 
         emails = await h._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails) == 2
         assert emails[0]["id"] == "e1"
@@ -461,7 +526,9 @@ class TestFetchPrioritizedEmailsNoPrioritizer:
             mock_reg.get.return_value = MagicMock(has=MagicMock(return_value=False))
 
             h = InboxCommandHandler(
-                gmail_connector=gmail_connector, prioritizer=None, sender_history=None,
+                gmail_connector=gmail_connector,
+                prioritizer=None,
+                sender_history=None,
             )
             h._initialized = True
             h.prioritizer = None
@@ -470,7 +537,10 @@ class TestFetchPrioritizedEmailsNoPrioritizer:
         gmail_connector.list_messages.return_value = messages
 
         emails = await h._fetch_prioritized_emails(
-            limit=2, offset=1, priority_filter=None, unread_only=False,
+            limit=2,
+            offset=1,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails) == 2
         assert emails[0]["id"] == "e1"
@@ -485,7 +555,9 @@ class TestFetchPrioritizedEmailsNoPrioritizer:
             mock_reg.get.return_value = MagicMock(has=MagicMock(return_value=False))
 
             h = InboxCommandHandler(
-                gmail_connector=gmail_connector, prioritizer=None, sender_history=None,
+                gmail_connector=gmail_connector,
+                prioritizer=None,
+                sender_history=None,
             )
             h._initialized = True
             h.prioritizer = None
@@ -494,7 +566,10 @@ class TestFetchPrioritizedEmailsNoPrioritizer:
         gmail_connector.list_messages.return_value = [msg]
 
         emails = await h._fetch_prioritized_emails(
-            limit=50, offset=0, priority_filter=None, unread_only=False,
+            limit=50,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails[0]["snippet"]) == 200
 
@@ -509,62 +584,87 @@ class TestFetchPrioritizedEmailsFallback:
 
     @pytest.mark.asyncio
     async def test_falls_back_on_os_error(
-        self, handler_with_services, gmail_connector,
+        self,
+        handler_with_services,
+        gmail_connector,
     ):
         """Falls back to demo data on OSError from Gmail."""
         gmail_connector.list_messages.side_effect = OSError("Connection refused")
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert len(emails) > 0
         assert any(e["id"].startswith("demo_") for e in emails)
 
     @pytest.mark.asyncio
     async def test_falls_back_on_connection_error(
-        self, handler_with_services, gmail_connector,
+        self,
+        handler_with_services,
+        gmail_connector,
     ):
         """Falls back to demo data on ConnectionError."""
         gmail_connector.list_messages.side_effect = ConnectionError("DNS failure")
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert any(e["id"].startswith("demo_") for e in emails)
 
     @pytest.mark.asyncio
     async def test_falls_back_on_runtime_error(
-        self, handler_with_services, gmail_connector,
+        self,
+        handler_with_services,
+        gmail_connector,
     ):
         """Falls back to demo data on RuntimeError."""
         gmail_connector.list_messages.side_effect = RuntimeError("Bad state")
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert any(e["id"].startswith("demo_") for e in emails)
 
     @pytest.mark.asyncio
     async def test_falls_back_on_value_error(
-        self, handler_with_services, gmail_connector,
+        self,
+        handler_with_services,
+        gmail_connector,
     ):
         """Falls back to demo data on ValueError."""
         gmail_connector.list_messages.side_effect = ValueError("Invalid token")
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert any(e["id"].startswith("demo_") for e in emails)
 
     @pytest.mark.asyncio
     async def test_falls_back_on_attribute_error(
-        self, handler_with_services, gmail_connector,
+        self,
+        handler_with_services,
+        gmail_connector,
     ):
         """Falls back to demo data on AttributeError."""
         gmail_connector.list_messages.side_effect = AttributeError("No method")
 
         emails = await handler_with_services._fetch_prioritized_emails(
-            limit=10, offset=0, priority_filter=None, unread_only=False,
+            limit=10,
+            offset=0,
+            priority_filter=None,
+            unread_only=False,
         )
         assert any(e["id"].startswith("demo_") for e in emails)
 
@@ -740,8 +840,7 @@ class TestCalculateInboxStats:
         # "unknown_level" is not a valid priority, so it is not counted
         # The sum of all known priorities should be 1
         known_sum = (
-            stats["critical"] + stats["high"] + stats["medium"]
-            + stats["low"] + stats["deferred"]
+            stats["critical"] + stats["high"] + stats["medium"] + stats["low"] + stats["deferred"]
         )
         assert known_sum == 1
 
@@ -827,7 +926,9 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_with_sender_history_no_response_time(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Handles None avg_response_time_minutes gracefully."""
         stats = _MockSenderStats(
@@ -842,7 +943,9 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_with_sender_history_no_last_date(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Handles None last_email_date gracefully."""
         stats = _MockSenderStats(
@@ -856,7 +959,9 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_sender_history_returns_none(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Falls back to basic profile when sender_history returns None."""
         sender_history.get_sender_stats.return_value = None
@@ -867,7 +972,9 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_sender_history_raises_error(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Falls back to basic profile on sender_history errors."""
         sender_history.get_sender_stats.side_effect = RuntimeError("DB down")
@@ -878,7 +985,9 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_sender_history_os_error(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Falls back gracefully on OSError from sender_history."""
         sender_history.get_sender_stats.side_effect = OSError("Network error")
@@ -889,7 +998,10 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_vip_from_prioritizer_address(
-        self, handler_with_services, prioritizer, sender_history,
+        self,
+        handler_with_services,
+        prioritizer,
+        sender_history,
     ):
         """Detects VIP from prioritizer config vip_addresses."""
         sender_history.get_sender_stats.return_value = None
@@ -901,7 +1013,10 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_vip_from_prioritizer_domain(
-        self, handler_with_services, prioritizer, sender_history,
+        self,
+        handler_with_services,
+        prioritizer,
+        sender_history,
     ):
         """Detects VIP from prioritizer config vip_domains."""
         sender_history.get_sender_stats.return_value = None
@@ -913,7 +1028,10 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_vip_case_insensitive(
-        self, handler_with_services, prioritizer, sender_history,
+        self,
+        handler_with_services,
+        prioritizer,
+        sender_history,
     ):
         """VIP matching is case-insensitive."""
         sender_history.get_sender_stats.return_value = None
@@ -925,7 +1043,10 @@ class TestGetSenderProfile:
 
     @pytest.mark.asyncio
     async def test_not_vip_when_no_match(
-        self, handler_with_services, prioritizer, sender_history,
+        self,
+        handler_with_services,
+        prioritizer,
+        sender_history,
     ):
         """isVip is False when sender is not in VIP lists."""
         sender_history.get_sender_stats.return_value = None
@@ -967,15 +1088,30 @@ class TestCalculateDailyDigest:
         """Digest reflects cached email data."""
         from aragora.server.handlers.inbox_command import _email_cache
 
-        _email_cache.set("e1", {
-            "priority": "critical", "from": "boss@co.com", "category": "Work",
-        })
-        _email_cache.set("e2", {
-            "priority": "high", "from": "boss@co.com", "category": "Work",
-        })
-        _email_cache.set("e3", {
-            "priority": "low", "from": "news@blog.com", "category": "Newsletter",
-        })
+        _email_cache.set(
+            "e1",
+            {
+                "priority": "critical",
+                "from": "boss@co.com",
+                "category": "Work",
+            },
+        )
+        _email_cache.set(
+            "e2",
+            {
+                "priority": "high",
+                "from": "boss@co.com",
+                "category": "Work",
+            },
+        )
+        _email_cache.set(
+            "e3",
+            {
+                "priority": "low",
+                "from": "news@blog.com",
+                "category": "Newsletter",
+            },
+        )
 
         digest = await handler._calculate_daily_digest()
         assert digest["emailsReceived"] == 3
@@ -1046,7 +1182,9 @@ class TestCalculateDailyDigest:
 
     @pytest.mark.asyncio
     async def test_uses_sender_history_daily_summary(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Uses sender_history.get_daily_summary when available."""
         daily_data = {
@@ -1065,12 +1203,12 @@ class TestCalculateDailyDigest:
 
     @pytest.mark.asyncio
     async def test_falls_back_when_daily_summary_fails(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Falls back to cache-based digest when get_daily_summary raises."""
-        sender_history.get_daily_summary = AsyncMock(
-            side_effect=RuntimeError("DB down")
-        )
+        sender_history.get_daily_summary = AsyncMock(side_effect=RuntimeError("DB down"))
 
         digest = await handler_with_services._calculate_daily_digest()
         # Should not raise; uses cache fallback
@@ -1078,7 +1216,9 @@ class TestCalculateDailyDigest:
 
     @pytest.mark.asyncio
     async def test_falls_back_when_daily_summary_returns_none(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Falls back when get_daily_summary returns None."""
         sender_history.get_daily_summary = AsyncMock(return_value=None)
@@ -1088,7 +1228,9 @@ class TestCalculateDailyDigest:
 
     @pytest.mark.asyncio
     async def test_no_get_daily_summary_method(
-        self, handler_with_services, sender_history,
+        self,
+        handler_with_services,
+        sender_history,
     ):
         """Falls back when sender_history has no get_daily_summary attribute."""
         # Remove the attribute so hasattr returns False
@@ -1117,29 +1259,36 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_empty_cache_returns_no_changes(
-        self, handler_with_services,
+        self,
+        handler_with_services,
     ):
         """Returns 0 count when cache is empty."""
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["count"] == 0
         assert result["changes"] == []
 
     @pytest.mark.asyncio
     async def test_specific_email_ids_not_in_cache(
-        self, handler_with_services,
+        self,
+        handler_with_services,
     ):
         """Returns 0 count when specified IDs are not in cache."""
         result = await handler_with_services._reprioritize_emails(
-            email_ids=["missing1", "missing2"], force_tier=None,
+            email_ids=["missing1", "missing2"],
+            force_tier=None,
         )
         assert result["count"] == 0
         assert result["changes"] == []
 
     @pytest.mark.asyncio
     async def test_reprioritize_with_gmail_batch_fetch(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Batch fetches from Gmail and scores emails."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1152,19 +1301,25 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1, msg2]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.CRITICAL,
-            confidence=0.95, tier_used=_MockScoringTier.TIER_1_RULES,
-            rationale="Urgent now", suggested_labels=["urgent"],
+            email_id="e1",
+            priority=_MockEmailPriority.CRITICAL,
+            confidence=0.95,
+            tier_used=_MockScoringTier.TIER_1_RULES,
+            rationale="Urgent now",
+            suggested_labels=["urgent"],
         )
         result2 = _MockPriorityResult(
-            email_id="e2", priority=_MockEmailPriority.LOW,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e2",
+            priority=_MockEmailPriority.LOW,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Still low",
         )
         prioritizer.score_emails.return_value = [result1, result2]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
 
         assert result["count"] == 2
@@ -1178,7 +1333,10 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_reprioritize_specific_ids(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Reprioritizes only specified email IDs."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1190,14 +1348,17 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.HIGH,
-            confidence=0.85, tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
+            email_id="e1",
+            priority=_MockEmailPriority.HIGH,
+            confidence=0.85,
+            tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
             rationale="Elevated",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=["e1"], force_tier=None,
+            email_ids=["e1"],
+            force_tier=None,
         )
 
         # Only e1 was processed
@@ -1207,7 +1368,10 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_reprioritize_with_force_tier(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Passes force_tier to score_emails as ScoringTier enum."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1219,14 +1383,17 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_3_DEBATE,
+            email_id="e1",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_3_DEBATE,
             rationale="Debate says medium",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier="tier_3_debate",
+            email_ids=None,
+            force_tier="tier_3_debate",
         )
 
         # Verify score_emails was called with the real ScoringTier enum
@@ -1235,7 +1402,10 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_reprioritize_no_change(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """No changes recorded when priority stays the same."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1246,21 +1416,27 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.8, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.8,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Same priority",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["count"] == 1
         assert result["changes"] == []
 
     @pytest.mark.asyncio
     async def test_reprioritize_updates_cache(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Cache is updated with new priority data after reprioritization."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1271,8 +1447,10 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.CRITICAL,
-            confidence=0.99, tier_used=_MockScoringTier.TIER_3_DEBATE,
+            email_id="e1",
+            priority=_MockEmailPriority.CRITICAL,
+            confidence=0.99,
+            tier_used=_MockScoringTier.TIER_3_DEBATE,
             rationale="Very urgent now",
             suggested_labels=["urgent", "action-required"],
             auto_archive=False,
@@ -1280,7 +1458,8 @@ class TestReprioritizeEmails:
         prioritizer.score_emails.return_value = [result1]
 
         await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
 
         cached = _email_cache.get("e1")
@@ -1291,7 +1470,10 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_batch_fetch_fallback_on_error(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Falls back to individual fetches when batch fetch fails."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1303,21 +1485,27 @@ class TestReprioritizeEmails:
         gmail_connector.get_message.return_value = msg1
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.HIGH,
-            confidence=0.85, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.HIGH,
+            confidence=0.85,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="High now",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["count"] == 1
         gmail_connector.get_message.assert_called_once_with("e1")
 
     @pytest.mark.asyncio
     async def test_individual_fetch_failure_skipped(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Individual fetch failures are skipped gracefully."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1328,7 +1516,8 @@ class TestReprioritizeEmails:
         gmail_connector.get_message.side_effect = OSError("Individual failed too")
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         # No messages were fetched so no scoring happens
         assert result["count"] == 1  # count of IDs attempted
@@ -1336,7 +1525,9 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_no_gmail_connector(
-        self, handler_with_services, prioritizer,
+        self,
+        handler_with_services,
+        prioritizer,
     ):
         """Returns count with no changes when no Gmail connector."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1345,14 +1536,18 @@ class TestReprioritizeEmails:
         _email_cache.set("e1", {"id": "e1", "priority": "medium", "confidence": 0.5})
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["count"] == 1
         assert result["changes"] == []
 
     @pytest.mark.asyncio
     async def test_scoring_failure_returns_error(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Returns error when batch scoring fails."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1365,14 +1560,18 @@ class TestReprioritizeEmails:
         prioritizer.score_emails.side_effect = RuntimeError("Scoring engine down")
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["count"] == 0
         assert "error" in result
 
     @pytest.mark.asyncio
     async def test_tier_used_in_result(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Result includes tier_used field."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1383,20 +1582,26 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Same",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier="tier_1_rules",
+            email_ids=None,
+            force_tier="tier_1_rules",
         )
         assert result["tier_used"] == "tier_1_rules"
 
     @pytest.mark.asyncio
     async def test_auto_tier_when_no_force(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """tier_used is 'auto' when no force_tier specified."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1407,20 +1612,26 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Same",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["tier_used"] == "auto"
 
     @pytest.mark.asyncio
     async def test_force_tier_invalid_string_ignored(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Unknown force_tier string results in None scoring_tier."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1431,14 +1642,17 @@ class TestReprioritizeEmails:
         gmail_connector.get_messages.return_value = [msg1]
 
         result1 = _MockPriorityResult(
-            email_id="e1", priority=_MockEmailPriority.MEDIUM,
-            confidence=0.7, tier_used=_MockScoringTier.TIER_1_RULES,
+            email_id="e1",
+            priority=_MockEmailPriority.MEDIUM,
+            confidence=0.7,
+            tier_used=_MockScoringTier.TIER_1_RULES,
             rationale="Same",
         )
         prioritizer.score_emails.return_value = [result1]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier="bogus_tier",
+            email_ids=None,
+            force_tier="bogus_tier",
         )
         # Should still work, just passes None for scoring_tier
         call_kwargs = prioritizer.score_emails.call_args
@@ -1446,7 +1660,10 @@ class TestReprioritizeEmails:
 
     @pytest.mark.asyncio
     async def test_multiple_changes_tracked(
-        self, handler_with_services, gmail_connector, prioritizer,
+        self,
+        handler_with_services,
+        gmail_connector,
+        prioritizer,
     ):
         """Multiple priority changes are all tracked."""
         from aragora.server.handlers.inbox_command import _email_cache
@@ -1462,24 +1679,31 @@ class TestReprioritizeEmails:
 
         prioritizer.score_emails.return_value = [
             _MockPriorityResult(
-                email_id="e1", priority=_MockEmailPriority.HIGH,
-                confidence=0.9, tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
+                email_id="e1",
+                priority=_MockEmailPriority.HIGH,
+                confidence=0.9,
+                tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
                 rationale="Elevated",
             ),
             _MockPriorityResult(
-                email_id="e2", priority=_MockEmailPriority.CRITICAL,
-                confidence=0.95, tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
+                email_id="e2",
+                priority=_MockEmailPriority.CRITICAL,
+                confidence=0.95,
+                tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
                 rationale="Very urgent",
             ),
             _MockPriorityResult(
-                email_id="e3", priority=_MockEmailPriority.HIGH,
-                confidence=0.85, tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
+                email_id="e3",
+                priority=_MockEmailPriority.HIGH,
+                confidence=0.85,
+                tier_used=_MockScoringTier.TIER_2_LIGHTWEIGHT,
                 rationale="Same high",
             ),
         ]
 
         result = await handler_with_services._reprioritize_emails(
-            email_ids=None, force_tier=None,
+            email_ids=None,
+            force_tier=None,
         )
         assert result["count"] == 3
         # e1: low -> high, e2: medium -> critical, e3: high -> high (no change)

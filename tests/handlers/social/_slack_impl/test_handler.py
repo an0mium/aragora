@@ -165,6 +165,7 @@ def _make_events_body(
 def handler_module():
     """Import the handler module lazily."""
     from aragora.server.handlers.social._slack_impl import handler as mod
+
     return mod
 
 
@@ -172,6 +173,7 @@ def handler_module():
 def config_module():
     """Import the config module lazily."""
     from aragora.server.handlers.social._slack_impl import config as mod
+
     return mod
 
 
@@ -199,6 +201,7 @@ def _disable_rate_limit_decorator(monkeypatch):
     """Disable the @rate_limit decorator so it does not interfere with tests."""
     try:
         from aragora.server.handlers.utils import rate_limit as rl_mod
+
         monkeypatch.setattr(rl_mod, "_RATE_LIMIT_DISABLED", True, raising=False)
     except (ImportError, AttributeError):
         pass
@@ -275,9 +278,7 @@ class TestHandleStatus:
             monkeypatch.setattr(config_module, "SLACK_WEBHOOK_URL", None)
 
             handler = _make_post_handler(method="GET")
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/status", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/status", {}, handler)
             assert _status(result) == 200
             body = _body(result)
             assert "enabled" in body
@@ -303,9 +304,7 @@ class TestHandleStatus:
             monkeypatch.setattr(config_module, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/x")
 
             handler = _make_post_handler(method="GET")
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/status", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/status", {}, handler)
             body = _body(result)
             assert body["enabled"] is True
             assert body["signing_secret_configured"] is True
@@ -326,12 +325,13 @@ class TestHandleStatus:
             mock_get_auth_context,
         ):
             handler = _make_post_handler(method="GET")
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/status", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/status", {}, handler)
             assert _status(result) == 401
             body = _body(result)
-            assert "authentication" in body.get("error", "").lower() or "authentication" in body.get("message", "").lower()
+            assert (
+                "authentication" in body.get("error", "").lower()
+                or "authentication" in body.get("message", "").lower()
+            )
 
     @pytest.mark.asyncio
     @pytest.mark.no_auto_auth
@@ -365,9 +365,7 @@ class TestHandleStatus:
             ),
         ):
             handler = _make_post_handler(method="GET")
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/status", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/status", {}, handler)
             assert _status(result) == 403
 
 
@@ -384,9 +382,7 @@ class TestHandleMethodEnforcement:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         handler = _make_post_handler(method="GET")
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -394,9 +390,7 @@ class TestHandleMethodEnforcement:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         handler = _make_post_handler(method="GET")
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/interactive", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/interactive", {}, handler)
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -404,9 +398,7 @@ class TestHandleMethodEnforcement:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         handler = _make_post_handler(method="PUT")
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/events", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/events", {}, handler)
         assert _status(result) == 405
 
     @pytest.mark.asyncio
@@ -414,9 +406,7 @@ class TestHandleMethodEnforcement:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         handler = _make_post_handler(method="DELETE")
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/events", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/events", {}, handler)
         assert _status(result) == 405
 
 
@@ -429,18 +419,23 @@ class TestContentLengthValidation:
     """Tests for Content-Length parsing and size limits."""
 
     @pytest.mark.asyncio
-    async def test_invalid_content_length_returns_400(self, slack_handler, config_module, monkeypatch):
+    async def test_invalid_content_length_returns_400(
+        self, slack_handler, config_module, monkeypatch
+    ):
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         handler = _make_post_handler(body_str="{}", headers={"Content-Length": "not-a-number"})
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 400
-        assert "content-length" in _body(result).get("error", "").lower() or "content-length" in _body(result).get("message", "").lower()
+        assert (
+            "content-length" in _body(result).get("error", "").lower()
+            or "content-length" in _body(result).get("message", "").lower()
+        )
 
     @pytest.mark.asyncio
-    async def test_missing_content_length_uses_zero(self, slack_handler, config_module, monkeypatch):
+    async def test_missing_content_length_uses_zero(
+        self, slack_handler, config_module, monkeypatch
+    ):
         """Missing Content-Length defaults to 0 (reads nothing)."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
@@ -450,9 +445,7 @@ class TestContentLengthValidation:
         # With Content-Length=0, body is empty, team_id is None, signature
         # verification is skipped, and we route to /commands
         # This should work since signing_secret is None and env is test
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         # Should proceed (not 400)
         assert _status(result) != 400
 
@@ -464,11 +457,12 @@ class TestContentLengthValidation:
         # Set a Content-Length that exceeds 10MB
         handler.headers["Content-Length"] = str(11 * 1024 * 1024)
         handler._headers["Content-Length"] = str(11 * 1024 * 1024)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 413
-        assert "too large" in _body(result).get("error", "").lower() or "too large" in _body(result).get("message", "").lower()
+        assert (
+            "too large" in _body(result).get("error", "").lower()
+            or "too large" in _body(result).get("message", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_exactly_10mb_is_allowed(self, slack_handler, config_module, monkeypatch):
@@ -478,9 +472,7 @@ class TestContentLengthValidation:
         handler = _make_post_handler(body_str="{}")
         handler.headers["Content-Length"] = str(10 * 1024 * 1024)
         handler._headers["Content-Length"] = str(10 * 1024 * 1024)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) != 413
 
 
@@ -501,9 +493,7 @@ class TestSignatureVerification:
         monkeypatch.setenv("ARAGORA_ENV", "production")
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -515,15 +505,14 @@ class TestSignatureVerification:
         monkeypatch.setenv("ARAGORA_ENV", "development")
         # Bypass rate limiters and audit for the command handler
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         # Should reach the commands handler (200)
         assert _status(result) == 200
         body = _body(result)
@@ -537,15 +526,14 @@ class TestSignatureVerification:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -555,21 +543,18 @@ class TestSignatureVerification:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "local")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_invalid_signature_returns_401(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_invalid_signature_returns_401(self, slack_handler, config_module, monkeypatch):
         """With signing secret but invalid signature, returns 401."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", "test-secret")
         monkeypatch.setattr(config_module, "_slack_audit", None)
@@ -590,9 +575,7 @@ class TestSignatureVerification:
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
             return_value=mock_verify_result,
         ):
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/commands", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
             assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -622,21 +605,21 @@ class TestSignatureVerification:
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
             return_value=mock_verify_result,
         ):
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/commands", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
             assert _status(result) == 401
             mock_audit.log_signature_failure.assert_called_once()
             call_kwargs = mock_audit.log_signature_failure.call_args
-            assert call_kwargs[1]["workspace_id"] == "T789" or call_kwargs.kwargs.get("workspace_id") == "T789"
+            assert (
+                call_kwargs[1]["workspace_id"] == "T789"
+                or call_kwargs.kwargs.get("workspace_id") == "T789"
+            )
 
     @pytest.mark.asyncio
-    async def test_valid_signature_proceeds(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_valid_signature_proceeds(self, slack_handler, config_module, monkeypatch):
         """With valid signature, request proceeds to the handler."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", "test-secret")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
@@ -658,9 +641,7 @@ class TestSignatureVerification:
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
             return_value=mock_verify_result,
         ):
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/commands", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
             assert _status(result) == 200
             body = _body(result)
             assert "Aragora Slash Commands" in body.get("text", "")
@@ -675,9 +656,7 @@ class TestWorkspaceResolution:
     """Tests for multi-workspace support in handle()."""
 
     @pytest.mark.asyncio
-    async def test_workspace_signing_secret_used(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_workspace_signing_secret_used(self, slack_handler, config_module, monkeypatch):
         """When workspace has signing secret, it's used instead of global."""
         mock_workspace = MagicMock()
         mock_workspace.signing_secret = "workspace-secret"
@@ -686,6 +665,7 @@ class TestWorkspaceResolution:
         monkeypatch.setattr(config_module, "resolve_workspace", lambda tid: mock_workspace)
 
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
@@ -707,13 +687,13 @@ class TestWorkspaceResolution:
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
             return_value=mock_verify_result,
         ) as mock_verify:
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/commands", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
             # Verify workspace-secret was used
             mock_verify.assert_called_once()
-            assert mock_verify.call_args.kwargs.get("signing_secret") == "workspace-secret" or \
-                mock_verify.call_args[1].get("signing_secret") == "workspace-secret"
+            assert (
+                mock_verify.call_args.kwargs.get("signing_secret") == "workspace-secret"
+                or mock_verify.call_args[1].get("signing_secret") == "workspace-secret"
+            )
 
     @pytest.mark.asyncio
     async def test_workspace_without_signing_secret_falls_back(
@@ -727,6 +707,7 @@ class TestWorkspaceResolution:
         monkeypatch.setattr(config_module, "resolve_workspace", lambda tid: mock_workspace)
 
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
@@ -748,12 +729,12 @@ class TestWorkspaceResolution:
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
             return_value=mock_verify_result,
         ) as mock_verify:
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/commands", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
             mock_verify.assert_called_once()
-            assert mock_verify.call_args.kwargs.get("signing_secret") == "global-secret" or \
-                mock_verify.call_args[1].get("signing_secret") == "global-secret"
+            assert (
+                mock_verify.call_args.kwargs.get("signing_secret") == "global-secret"
+                or mock_verify.call_args[1].get("signing_secret") == "global-secret"
+            )
 
     @pytest.mark.asyncio
     async def test_no_workspace_found_uses_global_secret(
@@ -764,6 +745,7 @@ class TestWorkspaceResolution:
         monkeypatch.setattr(config_module, "resolve_workspace", lambda tid: None)
 
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
@@ -785,12 +767,12 @@ class TestWorkspaceResolution:
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
             return_value=mock_verify_result,
         ) as mock_verify:
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/commands", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
             mock_verify.assert_called_once()
-            assert mock_verify.call_args.kwargs.get("signing_secret") == "global-secret" or \
-                mock_verify.call_args[1].get("signing_secret") == "global-secret"
+            assert (
+                mock_verify.call_args.kwargs.get("signing_secret") == "global-secret"
+                or mock_verify.call_args[1].get("signing_secret") == "global-secret"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -807,15 +789,14 @@ class TestHandleRouteDispatch:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         body = _body(result)
         # Help response means we hit the commands handler
         assert "Aragora Slash Commands" in body.get("text", "")
@@ -828,9 +809,7 @@ class TestHandleRouteDispatch:
 
         body_str = _make_interactive_body(action_type="block_actions", actions=[])
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/interactive", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/interactive", {}, handler)
         # Interactive handler returns json_response with some text
         assert _status(result) == 200
 
@@ -842,9 +821,7 @@ class TestHandleRouteDispatch:
 
         body_str = json.dumps({"type": "url_verification", "challenge": "abc123"})
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/events", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/events", {}, handler)
         assert _status(result) == 200
         body = _body(result)
         assert body.get("challenge") == "abc123"
@@ -865,9 +842,7 @@ class TestHandleRouteDispatch:
         original_routes = slack_handler.ROUTES[:]
         try:
             slack_handler.ROUTES.append("/api/v1/integrations/slack/fake")
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/fake", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/fake", {}, handler)
             assert _status(result) == 404
         finally:
             slack_handler.ROUTES[:] = original_routes
@@ -888,15 +863,14 @@ class TestHandlerAttributesSet:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help", team_id="T999")
         handler = _make_post_handler(body_str=body_str)
-        await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert hasattr(handler, "_slack_body")
         assert handler._slack_body == body_str
         assert handler._slack_team_id == "T999"
@@ -955,20 +929,24 @@ class TestExtractTeamId:
         assert result == "TEVT"
 
     def test_extract_from_events_path_inner_event_team(self, slack_handler):
-        body = json.dumps({
-            "type": "event_callback",
-            "event": {"team": "TINNER", "type": "app_mention"},
-        })
+        body = json.dumps(
+            {
+                "type": "event_callback",
+                "event": {"team": "TINNER", "type": "app_mention"},
+            }
+        )
         result = slack_handler._extract_team_id(body, "/api/v1/integrations/slack/events")
         assert result == "TINNER"
 
     def test_extract_from_events_root_takes_precedence(self, slack_handler):
         """Root team_id is checked before event.team."""
-        body = json.dumps({
-            "type": "event_callback",
-            "team_id": "TROOT",
-            "event": {"team": "TINNER"},
-        })
+        body = json.dumps(
+            {
+                "type": "event_callback",
+                "team_id": "TROOT",
+                "event": {"team": "TINNER"},
+            }
+        )
         result = slack_handler._extract_team_id(body, "/api/v1/integrations/slack/events")
         assert result == "TROOT"
 
@@ -1200,9 +1178,7 @@ class TestHandlePost:
         ):
             handler = _make_post_handler(body_str="{}", method="GET")
             handler.headers["Content-Length"] = "2"
-            awaitable = slack_handler.handle_post(
-                "/api/v1/integrations/slack/status", {}, handler
-            )
+            awaitable = slack_handler.handle_post("/api/v1/integrations/slack/status", {}, handler)
             result = await awaitable
             assert _status(result) == 200
 
@@ -1296,42 +1272,36 @@ class TestIntegrationCommandsFlow:
     """Integration tests that exercise the full handle() -> command flow."""
 
     @pytest.mark.asyncio
-    async def test_help_command_through_handle(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_help_command_through_handle(self, slack_handler, config_module, monkeypatch):
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 200
         body = _body(result)
         assert "Aragora Slash Commands" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_empty_command_shows_help(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_empty_command_shows_help(self, slack_handler, config_module, monkeypatch):
         """Empty text in /aragora shows help."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         body = _body(result)
         assert "Aragora Slash Commands" in body.get("text", "")
 
@@ -1345,17 +1315,13 @@ class TestIntegrationEventsFlow:
     """Integration tests for events through handle()."""
 
     @pytest.mark.asyncio
-    async def test_url_verification_through_handle(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_url_verification_through_handle(self, slack_handler, config_module, monkeypatch):
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
 
         body_str = json.dumps({"type": "url_verification", "challenge": "test-challenge-123"})
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/events", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/events", {}, handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["challenge"] == "test-challenge-123"
@@ -1369,9 +1335,7 @@ class TestIntegrationEventsFlow:
 
         body_str = json.dumps({"type": "unknown_event_type"})
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/events", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/events", {}, handler)
         assert _status(result) == 200
         body = _body(result)
         assert body.get("ok") is True
@@ -1386,9 +1350,7 @@ class TestIntegrationInteractiveFlow:
     """Integration tests for interactive components through handle()."""
 
     @pytest.mark.asyncio
-    async def test_block_action_through_handle(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_block_action_through_handle(self, slack_handler, config_module, monkeypatch):
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
 
@@ -1430,9 +1392,7 @@ class TestIntegrationInteractiveFlow:
 
         body_str = urlencode({"payload": "not-valid-json"})
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/interactive", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/interactive", {}, handler)
         assert _status(result) == 400
 
 
@@ -1464,9 +1424,7 @@ class TestEdgeCases:
             ),
         ):
             handler = _make_post_handler(method="POST")
-            result = await slack_handler.handle(
-                "/api/v1/integrations/slack/status", {}, handler
-            )
+            result = await slack_handler.handle("/api/v1/integrations/slack/status", {}, handler)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1479,24 +1437,18 @@ class TestEdgeCases:
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_empty_env_var_fails_closed(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_empty_env_var_fails_closed(self, slack_handler, config_module, monkeypatch):
         """Empty ARAGORA_ENV fails closed (treated as production)."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "")
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1507,21 +1459,22 @@ class TestEdgeCases:
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "test")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
-        body_str = urlencode({
-            "command": "/aragora",
-            "text": "help",
-            "user_id": "U123",
-            "channel_id": "C456",
-            "response_url": "https://hooks.slack.com/resp/123",
-        })
-        handler = _make_post_handler(body_str=body_str)
-        await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
+        body_str = urlencode(
+            {
+                "command": "/aragora",
+                "text": "help",
+                "user_id": "U123",
+                "channel_id": "C456",
+                "response_url": "https://hooks.slack.com/resp/123",
+            }
         )
+        handler = _make_post_handler(body_str=body_str)
+        await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         assert handler._slack_workspace is None
         assert handler._slack_team_id is None
 
@@ -1568,21 +1521,18 @@ class TestEdgeCases:
                 pass
 
     @pytest.mark.asyncio
-    async def test_dev_env_case_insensitive(
-        self, slack_handler, config_module, monkeypatch
-    ):
+    async def test_dev_env_case_insensitive(self, slack_handler, config_module, monkeypatch):
         """ARAGORA_ENV comparison is case-insensitive."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
         monkeypatch.setenv("ARAGORA_ENV", "DEVELOPMENT")
         from aragora.server.handlers.social._slack_impl import commands as cmd_mod
+
         monkeypatch.setattr(cmd_mod, "_get_workspace_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_user_rate_limiter", lambda: None)
         monkeypatch.setattr(cmd_mod, "_get_audit_logger", lambda: None)
 
         body_str = _make_command_body(text="help")
         handler = _make_post_handler(body_str=body_str)
-        result = await slack_handler.handle(
-            "/api/v1/integrations/slack/commands", {}, handler
-        )
+        result = await slack_handler.handle("/api/v1/integrations/slack/commands", {}, handler)
         # Should NOT return 503 since DEVELOPMENT.lower() == "development"
         assert _status(result) == 200

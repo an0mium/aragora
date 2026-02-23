@@ -22,6 +22,7 @@ def engine():
 
 # --- Mock helpers ---
 
+
 def _mock_scanner_assessment(findings=None):
     """Return a mock StrategicAssessment with given findings."""
     assessment = SimpleNamespace(
@@ -49,23 +50,33 @@ def _patch_all_sources_fail():
     return [
         patch(
             "aragora.nomic.assessment_engine.AutonomousAssessmentEngine._collect_scanner_signals",
-            return_value=SignalSource(name="scanner", weight=0.3, error="StrategicScanner not available"),
+            return_value=SignalSource(
+                name="scanner", weight=0.3, error="StrategicScanner not available"
+            ),
         ),
         patch(
             "aragora.nomic.assessment_engine.AutonomousAssessmentEngine._collect_metrics_signals",
-            return_value=SignalSource(name="metrics", weight=0.25, error="MetricsCollector not available"),
+            return_value=SignalSource(
+                name="metrics", weight=0.25, error="MetricsCollector not available"
+            ),
         ),
         patch(
             "aragora.nomic.assessment_engine.AutonomousAssessmentEngine._collect_regression_signals",
-            return_value=SignalSource(name="regressions", weight=0.2, error="OutcomeTracker not available"),
+            return_value=SignalSource(
+                name="regressions", weight=0.2, error="OutcomeTracker not available"
+            ),
         ),
         patch(
             "aragora.nomic.assessment_engine.AutonomousAssessmentEngine._collect_queue_signals",
-            return_value=SignalSource(name="queue", weight=0.15, error="ImprovementQueue not available"),
+            return_value=SignalSource(
+                name="queue", weight=0.15, error="ImprovementQueue not available"
+            ),
         ),
         patch(
             "aragora.nomic.assessment_engine.AutonomousAssessmentEngine._collect_feedback_signals",
-            return_value=SignalSource(name="feedback", weight=0.1, error="OutcomeFeedbackBridge not available"),
+            return_value=SignalSource(
+                name="feedback", weight=0.1, error="OutcomeFeedbackBridge not available"
+            ),
         ),
     ]
 
@@ -113,16 +124,40 @@ async def test_candidates_sorted_by_priority(engine):
         name="scanner",
         weight=0.3,
         findings=[
-            SimpleNamespace(description="low", severity="low", file_path="a.py", category="untested"),
-            SimpleNamespace(description="high", severity="high", file_path="b.py", category="complex"),
-            SimpleNamespace(description="critical", severity="critical", file_path="c.py", category="stale"),
+            SimpleNamespace(
+                description="low", severity="low", file_path="a.py", category="untested"
+            ),
+            SimpleNamespace(
+                description="high", severity="high", file_path="b.py", category="complex"
+            ),
+            SimpleNamespace(
+                description="critical", severity="critical", file_path="c.py", category="stale"
+            ),
         ],
     )
-    with patch.object(engine, "_collect_scanner_signals", return_value=scanner_source), \
-         patch.object(engine, "_collect_metrics_signals", return_value=SignalSource(name="metrics", weight=0.25, error="skip")), \
-         patch.object(engine, "_collect_regression_signals", return_value=SignalSource(name="regressions", weight=0.2, error="skip")), \
-         patch.object(engine, "_collect_queue_signals", return_value=SignalSource(name="queue", weight=0.15, error="skip")), \
-         patch.object(engine, "_collect_feedback_signals", return_value=SignalSource(name="feedback", weight=0.1, error="skip")):
+    with (
+        patch.object(engine, "_collect_scanner_signals", return_value=scanner_source),
+        patch.object(
+            engine,
+            "_collect_metrics_signals",
+            return_value=SignalSource(name="metrics", weight=0.25, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_regression_signals",
+            return_value=SignalSource(name="regressions", weight=0.2, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_queue_signals",
+            return_value=SignalSource(name="queue", weight=0.15, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_feedback_signals",
+            return_value=SignalSource(name="feedback", weight=0.1, error="skip"),
+        ),
+    ):
         report = await engine.assess()
         priorities = [c.priority for c in report.improvement_candidates]
         assert priorities == sorted(priorities, reverse=True)
@@ -145,11 +180,29 @@ async def test_scanner_signals_collected(engine):
 
     # Patch at the method level to control the source
     scanner_source = SignalSource(name="scanner", weight=0.3, findings=[finding])
-    with patch.object(engine, "_collect_scanner_signals", return_value=scanner_source), \
-         patch.object(engine, "_collect_metrics_signals", return_value=SignalSource(name="metrics", weight=0.25, error="skip")), \
-         patch.object(engine, "_collect_regression_signals", return_value=SignalSource(name="regressions", weight=0.2, error="skip")), \
-         patch.object(engine, "_collect_queue_signals", return_value=SignalSource(name="queue", weight=0.15, error="skip")), \
-         patch.object(engine, "_collect_feedback_signals", return_value=SignalSource(name="feedback", weight=0.1, error="skip")):
+    with (
+        patch.object(engine, "_collect_scanner_signals", return_value=scanner_source),
+        patch.object(
+            engine,
+            "_collect_metrics_signals",
+            return_value=SignalSource(name="metrics", weight=0.25, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_regression_signals",
+            return_value=SignalSource(name="regressions", weight=0.2, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_queue_signals",
+            return_value=SignalSource(name="queue", weight=0.15, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_feedback_signals",
+            return_value=SignalSource(name="feedback", weight=0.1, error="skip"),
+        ),
+    ):
         report = await engine.assess()
         assert len(report.signal_sources) == 5
         scanner = report.signal_sources[0]
@@ -163,11 +216,29 @@ async def test_metrics_signals_collected(engine):
     """Mock MetricsCollector, verify findings collected."""
     metrics_dict = {"tests_passed": 100, "tests_failed": 2, "lint_errors": 5}
     metrics_source = SignalSource(name="metrics", weight=0.25, findings=[metrics_dict])
-    with patch.object(engine, "_collect_scanner_signals", return_value=SignalSource(name="scanner", weight=0.3, error="skip")), \
-         patch.object(engine, "_collect_metrics_signals", return_value=metrics_source), \
-         patch.object(engine, "_collect_regression_signals", return_value=SignalSource(name="regressions", weight=0.2, error="skip")), \
-         patch.object(engine, "_collect_queue_signals", return_value=SignalSource(name="queue", weight=0.15, error="skip")), \
-         patch.object(engine, "_collect_feedback_signals", return_value=SignalSource(name="feedback", weight=0.1, error="skip")):
+    with (
+        patch.object(
+            engine,
+            "_collect_scanner_signals",
+            return_value=SignalSource(name="scanner", weight=0.3, error="skip"),
+        ),
+        patch.object(engine, "_collect_metrics_signals", return_value=metrics_source),
+        patch.object(
+            engine,
+            "_collect_regression_signals",
+            return_value=SignalSource(name="regressions", weight=0.2, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_queue_signals",
+            return_value=SignalSource(name="queue", weight=0.15, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_feedback_signals",
+            return_value=SignalSource(name="feedback", weight=0.1, error="skip"),
+        ),
+    ):
         report = await engine.assess()
         m_source = report.signal_sources[1]
         assert m_source.name == "metrics"
@@ -182,11 +253,29 @@ async def test_regression_signals_collected(engine):
         {"cycle_id": "c1", "regressed_metrics": ["consensus_rate"], "recommendation": "review"}
     ]
     regression_source = SignalSource(name="regressions", weight=0.2, findings=regression_data)
-    with patch.object(engine, "_collect_scanner_signals", return_value=SignalSource(name="scanner", weight=0.3, error="skip")), \
-         patch.object(engine, "_collect_metrics_signals", return_value=SignalSource(name="metrics", weight=0.25, error="skip")), \
-         patch.object(engine, "_collect_regression_signals", return_value=regression_source), \
-         patch.object(engine, "_collect_queue_signals", return_value=SignalSource(name="queue", weight=0.15, error="skip")), \
-         patch.object(engine, "_collect_feedback_signals", return_value=SignalSource(name="feedback", weight=0.1, error="skip")):
+    with (
+        patch.object(
+            engine,
+            "_collect_scanner_signals",
+            return_value=SignalSource(name="scanner", weight=0.3, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_metrics_signals",
+            return_value=SignalSource(name="metrics", weight=0.25, error="skip"),
+        ),
+        patch.object(engine, "_collect_regression_signals", return_value=regression_source),
+        patch.object(
+            engine,
+            "_collect_queue_signals",
+            return_value=SignalSource(name="queue", weight=0.15, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_feedback_signals",
+            return_value=SignalSource(name="feedback", weight=0.1, error="skip"),
+        ),
+    ):
         report = await engine.assess()
         r_source = report.signal_sources[2]
         assert r_source.name == "regressions"
@@ -197,14 +286,37 @@ async def test_regression_signals_collected(engine):
 async def test_queue_signals_collected(engine):
     """Mock ImprovementQueue, verify findings collected."""
     queue_data = [
-        {"goal": "Improve coverage", "description": "Add tests", "category": "test_coverage", "priority": 0.7}
+        {
+            "goal": "Improve coverage",
+            "description": "Add tests",
+            "category": "test_coverage",
+            "priority": 0.7,
+        }
     ]
     queue_source = SignalSource(name="queue", weight=0.15, findings=queue_data)
-    with patch.object(engine, "_collect_scanner_signals", return_value=SignalSource(name="scanner", weight=0.3, error="skip")), \
-         patch.object(engine, "_collect_metrics_signals", return_value=SignalSource(name="metrics", weight=0.25, error="skip")), \
-         patch.object(engine, "_collect_regression_signals", return_value=SignalSource(name="regressions", weight=0.2, error="skip")), \
-         patch.object(engine, "_collect_queue_signals", return_value=queue_source), \
-         patch.object(engine, "_collect_feedback_signals", return_value=SignalSource(name="feedback", weight=0.1, error="skip")):
+    with (
+        patch.object(
+            engine,
+            "_collect_scanner_signals",
+            return_value=SignalSource(name="scanner", weight=0.3, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_metrics_signals",
+            return_value=SignalSource(name="metrics", weight=0.25, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_regression_signals",
+            return_value=SignalSource(name="regressions", weight=0.2, error="skip"),
+        ),
+        patch.object(engine, "_collect_queue_signals", return_value=queue_source),
+        patch.object(
+            engine,
+            "_collect_feedback_signals",
+            return_value=SignalSource(name="feedback", weight=0.1, error="skip"),
+        ),
+    ):
         report = await engine.assess()
         q_source = report.signal_sources[3]
         assert q_source.name == "queue"
@@ -215,14 +327,37 @@ async def test_queue_signals_collected(engine):
 async def test_feedback_signals_collected(engine):
     """Mock OutcomeFeedbackBridge, verify findings collected."""
     feedback_data = [
-        {"description": "Agent X overconfident in security domain", "priority": 0.8, "files": [], "category": "feedback"}
+        {
+            "description": "Agent X overconfident in security domain",
+            "priority": 0.8,
+            "files": [],
+            "category": "feedback",
+        }
     ]
     feedback_source = SignalSource(name="feedback", weight=0.1, findings=feedback_data)
-    with patch.object(engine, "_collect_scanner_signals", return_value=SignalSource(name="scanner", weight=0.3, error="skip")), \
-         patch.object(engine, "_collect_metrics_signals", return_value=SignalSource(name="metrics", weight=0.25, error="skip")), \
-         patch.object(engine, "_collect_regression_signals", return_value=SignalSource(name="regressions", weight=0.2, error="skip")), \
-         patch.object(engine, "_collect_queue_signals", return_value=SignalSource(name="queue", weight=0.15, error="skip")), \
-         patch.object(engine, "_collect_feedback_signals", return_value=feedback_source):
+    with (
+        patch.object(
+            engine,
+            "_collect_scanner_signals",
+            return_value=SignalSource(name="scanner", weight=0.3, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_metrics_signals",
+            return_value=SignalSource(name="metrics", weight=0.25, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_regression_signals",
+            return_value=SignalSource(name="regressions", weight=0.2, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_queue_signals",
+            return_value=SignalSource(name="queue", weight=0.15, error="skip"),
+        ),
+        patch.object(engine, "_collect_feedback_signals", return_value=feedback_source),
+    ):
         report = await engine.assess()
         f_source = report.signal_sources[4]
         assert f_source.name == "feedback"
@@ -304,11 +439,13 @@ async def test_health_score_perfect_no_issues(engine):
         SignalSource(name="queue", weight=0.15, findings=[]),
         SignalSource(name="feedback", weight=0.1, findings=[]),
     ]
-    with patch.object(engine, "_collect_scanner_signals", return_value=empty_sources[0]), \
-         patch.object(engine, "_collect_metrics_signals", return_value=empty_sources[1]), \
-         patch.object(engine, "_collect_regression_signals", return_value=empty_sources[2]), \
-         patch.object(engine, "_collect_queue_signals", return_value=empty_sources[3]), \
-         patch.object(engine, "_collect_feedback_signals", return_value=empty_sources[4]):
+    with (
+        patch.object(engine, "_collect_scanner_signals", return_value=empty_sources[0]),
+        patch.object(engine, "_collect_metrics_signals", return_value=empty_sources[1]),
+        patch.object(engine, "_collect_regression_signals", return_value=empty_sources[2]),
+        patch.object(engine, "_collect_queue_signals", return_value=empty_sources[3]),
+        patch.object(engine, "_collect_feedback_signals", return_value=empty_sources[4]),
+    ):
         report = await engine.assess()
         assert report.health_score == 1.0
 
@@ -317,15 +454,35 @@ async def test_health_score_perfect_no_issues(engine):
 async def test_health_score_many_issues(engine):
     """Many high-priority candidates -> low health score."""
     findings = [
-        SimpleNamespace(description=f"Issue {i}", severity="critical", file_path=f"f{i}.py", category="complex")
+        SimpleNamespace(
+            description=f"Issue {i}", severity="critical", file_path=f"f{i}.py", category="complex"
+        )
         for i in range(20)
     ]
     scanner_source = SignalSource(name="scanner", weight=0.3, findings=findings)
-    with patch.object(engine, "_collect_scanner_signals", return_value=scanner_source), \
-         patch.object(engine, "_collect_metrics_signals", return_value=SignalSource(name="metrics", weight=0.25, error="skip")), \
-         patch.object(engine, "_collect_regression_signals", return_value=SignalSource(name="regressions", weight=0.2, error="skip")), \
-         patch.object(engine, "_collect_queue_signals", return_value=SignalSource(name="queue", weight=0.15, error="skip")), \
-         patch.object(engine, "_collect_feedback_signals", return_value=SignalSource(name="feedback", weight=0.1, error="skip")):
+    with (
+        patch.object(engine, "_collect_scanner_signals", return_value=scanner_source),
+        patch.object(
+            engine,
+            "_collect_metrics_signals",
+            return_value=SignalSource(name="metrics", weight=0.25, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_regression_signals",
+            return_value=SignalSource(name="regressions", weight=0.2, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_queue_signals",
+            return_value=SignalSource(name="queue", weight=0.15, error="skip"),
+        ),
+        patch.object(
+            engine,
+            "_collect_feedback_signals",
+            return_value=SignalSource(name="feedback", weight=0.1, error="skip"),
+        ),
+    ):
         report = await engine.assess()
         # 20 critical candidates (priority=0.95) * weight 0.3 * 0.05 = 0.285 total penalty
         assert report.health_score < 0.8

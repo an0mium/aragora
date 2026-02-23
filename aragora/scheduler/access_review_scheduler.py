@@ -748,7 +748,10 @@ class AccessReviewScheduler:
         self._storage.save_review(review)
 
         logger.info(
-            "Created access review %s: type=%s, items=%s", review.review_id, review_type.value, len(items)
+            "Created access review %s: type=%s, items=%s",
+            review.review_id,
+            review_type.value,
+            len(items),
         )
 
         return review
@@ -999,7 +1002,10 @@ class AccessReviewScheduler:
     async def _execute_revocation(self, item: AccessReviewItem) -> None:
         """Execute access revocation."""
         logger.info(
-            "Revoking access: user=%s, resource=%s/%s", item.user_id, item.resource_type, item.resource_id
+            "Revoking access: user=%s, resource=%s/%s",
+            item.user_id,
+            item.resource_type,
+            item.resource_id,
         )
 
         for handler in self._revocation_handlers:

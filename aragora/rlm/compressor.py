@@ -262,7 +262,9 @@ Conclusion:""",
         content_bytes = len(content.encode("utf-8"))
         if content_bytes > self.config.max_content_bytes:
             logger.warning(
-                "Content size %s bytes exceeds limit %s bytes", content_bytes, self.config.max_content_bytes
+                "Content size %s bytes exceeds limit %s bytes",
+                content_bytes,
+                self.config.max_content_bytes,
             )
             raise ValueError(
                 f"Content size ({content_bytes:,} bytes) exceeds maximum allowed "

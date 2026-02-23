@@ -798,7 +798,9 @@ class RedisClusterClient:
                         "Connection error while closing Redis client: %s: %s", type(e).__name__, e
                     )
                 except (RuntimeError, ValueError) as e:
-                    logger.error("Unexpected error closing Redis client: %s: %s", type(e).__name__, e)
+                    logger.error(
+                        "Unexpected error closing Redis client: %s: %s", type(e).__name__, e
+                    )
                 finally:
                     self._client = None
                     self._available = False

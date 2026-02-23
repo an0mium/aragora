@@ -23,6 +23,7 @@ from aragora.debate.context_gatherer.compression import (
 # Concrete test class
 # ---------------------------------------------------------------------------
 
+
 class ConcreteCompression(CompressionMixin):
     """Minimal concrete subclass that satisfies the mixin's type contract."""
 
@@ -46,6 +47,7 @@ class ConcreteCompression(CompressionMixin):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_rlm_result(answer: str, used_true_rlm: bool = False, confidence: float = 0.9):
     """Build a mock RLM result object."""
     return SimpleNamespace(answer=answer, used_true_rlm=used_true_rlm, confidence=confidence)
@@ -59,6 +61,7 @@ def _long_content(n: int = 5000) -> str:
 # ===========================================================================
 # _has_official_rlm()
 # ===========================================================================
+
 
 class TestHasOfficialRlm:
     """Tests for the module-level _has_official_rlm() helper."""
@@ -109,6 +112,7 @@ class TestHasOfficialRlm:
 # ===========================================================================
 # _compress_with_rlm
 # ===========================================================================
+
 
 class TestCompressWithRlm:
     """Tests for CompressionMixin._compress_with_rlm."""
@@ -180,9 +184,7 @@ class TestCompressWithRlm:
         obj._rlm_threshold = 100
         obj._aragora_rlm = MagicMock()
         big_answer = "z" * 5000
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            return_value=_make_rlm_result(big_answer)
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(return_value=_make_rlm_result(big_answer))
         content = _long_content(10000)
         result = await obj._compress_with_rlm(content, max_chars=3000)
         assert len(result) == 3000
@@ -194,9 +196,7 @@ class TestCompressWithRlm:
         obj._enable_rlm = True
         obj._rlm_threshold = 100
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            return_value=_make_rlm_result("")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(return_value=_make_rlm_result(""))
         obj._rlm_compressor = None
         content = _long_content(5000)
         result = await obj._compress_with_rlm(content, max_chars=3000)
@@ -212,9 +212,7 @@ class TestCompressWithRlm:
         obj._aragora_rlm = MagicMock()
         content = _long_content(5000)
         # Answer same length as content -- not shorter
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            return_value=_make_rlm_result(content)
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(return_value=_make_rlm_result(content))
         obj._rlm_compressor = None
         result = await obj._compress_with_rlm(content, max_chars=3000)
         assert result.endswith("... [truncated]")
@@ -226,9 +224,7 @@ class TestCompressWithRlm:
         obj._enable_rlm = True
         obj._rlm_threshold = 100
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=asyncio.TimeoutError
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=asyncio.TimeoutError)
         obj._rlm_compressor = None
         content = _long_content(5000)
         result = await obj._compress_with_rlm(content, max_chars=3000)
@@ -241,9 +237,7 @@ class TestCompressWithRlm:
         obj._enable_rlm = True
         obj._rlm_threshold = 100
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=ValueError("bad input")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=ValueError("bad input"))
         obj._rlm_compressor = None
         content = _long_content(5000)
         result = await obj._compress_with_rlm(content, max_chars=3000)
@@ -256,9 +250,7 @@ class TestCompressWithRlm:
         obj._enable_rlm = True
         obj._rlm_threshold = 100
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=TypeError("bad type")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=TypeError("bad type"))
         obj._rlm_compressor = None
         content = _long_content(5000)
         result = await obj._compress_with_rlm(content, max_chars=3000)
@@ -398,13 +390,9 @@ class TestCompressWithRlm:
         obj._enable_rlm = True
         obj._rlm_threshold = 100
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=RuntimeError("rlm fail")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=RuntimeError("rlm fail"))
         obj._rlm_compressor = MagicMock()
-        obj._rlm_compressor.compress = AsyncMock(
-            side_effect=RuntimeError("compressor fail")
-        )
+        obj._rlm_compressor.compress = AsyncMock(side_effect=RuntimeError("compressor fail"))
         content = _long_content(5000)
         max_chars = 3000
         result = await obj._compress_with_rlm(content, max_chars=max_chars)
@@ -417,6 +405,7 @@ class TestCompressWithRlm:
 # ===========================================================================
 # _query_with_true_rlm
 # ===========================================================================
+
 
 class TestQueryWithTrueRlm:
     """Tests for CompressionMixin._query_with_true_rlm."""
@@ -448,11 +437,12 @@ class TestQueryWithTrueRlm:
             return_value=_make_rlm_result("true rlm answer", used_true_rlm=True)
         )
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=True,
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=True,
+            ),
         ):
             result = await obj._query_with_true_rlm("query", "content")
 
@@ -472,11 +462,12 @@ class TestQueryWithTrueRlm:
             return_value=_make_rlm_result("fallback answer")
         )
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=True,
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=True,
+            ),
         ):
             result = await obj._query_with_true_rlm("query", "content")
 
@@ -493,9 +484,7 @@ class TestQueryWithTrueRlm:
             return_value=_make_rlm_result("compressed answer")
         )
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", False
-        ):
+        with patch("aragora.debate.context_gatherer.compression.HAS_RLM", False):
             result = await obj._query_with_true_rlm("query", "content")
 
         assert result == "compressed answer"
@@ -507,13 +496,9 @@ class TestQueryWithTrueRlm:
         obj = ConcreteCompression()
         obj._enable_rlm = True
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=asyncio.TimeoutError
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=asyncio.TimeoutError)
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", False
-        ):
+        with patch("aragora.debate.context_gatherer.compression.HAS_RLM", False):
             result = await obj._query_with_true_rlm("query", "content")
 
         assert result is None
@@ -524,13 +509,9 @@ class TestQueryWithTrueRlm:
         obj = ConcreteCompression()
         obj._enable_rlm = True
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=ValueError("bad"))
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", False
-        ):
+        with patch("aragora.debate.context_gatherer.compression.HAS_RLM", False):
             result = await obj._query_with_true_rlm("query", "content")
 
         assert result is None
@@ -541,13 +522,9 @@ class TestQueryWithTrueRlm:
         obj = ConcreteCompression()
         obj._enable_rlm = True
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            side_effect=AttributeError("missing")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(side_effect=AttributeError("missing"))
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", False
-        ):
+        with patch("aragora.debate.context_gatherer.compression.HAS_RLM", False):
             result = await obj._query_with_true_rlm("query", "content")
 
         assert result is None
@@ -558,13 +535,9 @@ class TestQueryWithTrueRlm:
         obj = ConcreteCompression()
         obj._enable_rlm = True
         obj._aragora_rlm = MagicMock()
-        obj._aragora_rlm.compress_and_query = AsyncMock(
-            return_value=_make_rlm_result("")
-        )
+        obj._aragora_rlm.compress_and_query = AsyncMock(return_value=_make_rlm_result(""))
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", False
-        ):
+        with patch("aragora.debate.context_gatherer.compression.HAS_RLM", False):
             result = await obj._query_with_true_rlm("query", "content")
 
         assert result is None
@@ -573,6 +546,7 @@ class TestQueryWithTrueRlm:
 # ===========================================================================
 # query_knowledge_with_true_rlm
 # ===========================================================================
+
 
 class TestQueryKnowledgeWithTrueRlm:
     """Tests for CompressionMixin.query_knowledge_with_true_rlm."""
@@ -602,9 +576,7 @@ class TestQueryKnowledgeWithTrueRlm:
         obj._knowledge_mound = MagicMock()
         obj.gather_knowledge_mound_context = AsyncMock(return_value="standard result")
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", False
-        ):
+        with patch("aragora.debate.context_gatherer.compression.HAS_RLM", False):
             result = await obj.query_knowledge_with_true_rlm("task")
 
         assert result == "standard result"
@@ -621,14 +593,16 @@ class TestQueryKnowledgeWithTrueRlm:
         mock_adapter.create_repl_for_knowledge.return_value = {"env": "ok"}
         mock_adapter.get_repl_prompt.return_value = "Use search_km() to query."
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=True,
-        ), patch(
-            "aragora.rlm.get_repl_adapter",
-            return_value=mock_adapter,
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=True,
+            ),
+            patch(
+                "aragora.rlm.get_repl_adapter",
+                return_value=mock_adapter,
+            ),
         ):
             result = await obj.query_knowledge_with_true_rlm("my task")
 
@@ -659,14 +633,16 @@ class TestQueryKnowledgeWithTrueRlm:
         mock_adapter = MagicMock()
         mock_adapter.create_repl_for_knowledge.return_value = None
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=True,
-        ), patch(
-            "aragora.rlm.get_repl_adapter",
-            return_value=mock_adapter,
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=True,
+            ),
+            patch(
+                "aragora.rlm.get_repl_adapter",
+                return_value=mock_adapter,
+            ),
         ):
             result = await obj.query_knowledge_with_true_rlm("task")
 
@@ -681,14 +657,16 @@ class TestQueryKnowledgeWithTrueRlm:
         obj._knowledge_mound = MagicMock()
         obj.gather_knowledge_mound_context = AsyncMock(return_value="import fallback")
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=True,
-        ), patch(
-            "builtins.__import__",
-            side_effect=_make_import_raiser("aragora.rlm"),
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=True,
+            ),
+            patch(
+                "builtins.__import__",
+                side_effect=_make_import_raiser("aragora.rlm"),
+            ),
         ):
             result = await obj.query_knowledge_with_true_rlm("task")
 
@@ -705,14 +683,16 @@ class TestQueryKnowledgeWithTrueRlm:
         mock_adapter = MagicMock()
         mock_adapter.create_repl_for_knowledge.side_effect = RuntimeError("boom")
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=True,
-        ), patch(
-            "aragora.rlm.get_repl_adapter",
-            return_value=mock_adapter,
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=True,
+            ),
+            patch(
+                "aragora.rlm.get_repl_adapter",
+                return_value=mock_adapter,
+            ),
         ):
             result = await obj.query_knowledge_with_true_rlm("task")
 
@@ -726,11 +706,12 @@ class TestQueryKnowledgeWithTrueRlm:
         obj._knowledge_mound = MagicMock()
         obj.gather_knowledge_mound_context = AsyncMock(return_value="no official")
 
-        with patch(
-            "aragora.debate.context_gatherer.compression.HAS_RLM", True
-        ), patch(
-            "aragora.debate.context_gatherer.compression._has_official_rlm",
-            return_value=False,
+        with (
+            patch("aragora.debate.context_gatherer.compression.HAS_RLM", True),
+            patch(
+                "aragora.debate.context_gatherer.compression._has_official_rlm",
+                return_value=False,
+            ),
         ):
             result = await obj.query_knowledge_with_true_rlm("task")
 
@@ -747,8 +728,10 @@ _real_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") el
 
 def _make_import_raiser(blocked_module: str):
     """Return an __import__ replacement that raises ImportError for a module."""
+
     def _import(name, *args, **kwargs):
         if name == blocked_module:
             raise ImportError(f"No module named '{name}'")
         return _real_import(name, *args, **kwargs)
+
     return _import

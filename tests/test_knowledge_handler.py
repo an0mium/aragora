@@ -385,8 +385,10 @@ class TestKnowledgeHandlerCreateFact:
         with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            with patch.object(handler, "_check_permission", return_value=None), \
-                 patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)):
+            with (
+                patch.object(handler, "_check_permission", return_value=None),
+                patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)),
+            ):
                 result = handler.handle(
                     "/api/v1/knowledge/facts",
                     {},
@@ -409,8 +411,10 @@ class TestKnowledgeHandlerCreateFact:
         with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            with patch.object(handler, "_check_permission", return_value=None), \
-                 patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)):
+            with (
+                patch.object(handler, "_check_permission", return_value=None),
+                patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)),
+            ):
                 result = handler.handle(
                     "/api/v1/knowledge/facts",
                     {},
@@ -461,8 +465,10 @@ class TestKnowledgeHandlerUpdateFact:
         with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            with patch.object(handler, "_check_permission", return_value=None), \
-                 patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)):
+            with (
+                patch.object(handler, "_check_permission", return_value=None),
+                patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)),
+            ):
                 result = handler.handle(
                     "/api/v1/knowledge/facts/nonexistent",
                     {},
@@ -510,8 +516,10 @@ class TestKnowledgeHandlerDeleteFact:
         with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            with patch.object(handler, "_check_permission", return_value=None), \
-                 patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)):
+            with (
+                patch.object(handler, "_check_permission", return_value=None),
+                patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)),
+            ):
                 mock_handler = MockHandler(command="DELETE")
                 result = handler.handle(
                     "/api/v1/knowledge/facts/fact-123",
@@ -1086,8 +1094,10 @@ class TestKnowledgeMoundHandlerNodes:
             mock_limiter.is_allowed.return_value = True
             mock_limiter.get_remaining.return_value = 99
 
-            with patch.object(handler, "_check_authentication", return_value=None), \
-                 patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)):
+            with (
+                patch.object(handler, "_check_authentication", return_value=None),
+                patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)),
+            ):
                 result = handler.handle(
                     "/api/v1/knowledge/mound/nodes",
                     {},
@@ -1169,8 +1179,10 @@ class TestKnowledgeMoundHandlerRelationships:
             mock_limiter.is_allowed.return_value = True
             mock_limiter.get_remaining.return_value = 99
 
-            with patch.object(handler, "_check_authentication", return_value=None), \
-                 patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)):
+            with (
+                patch.object(handler, "_check_authentication", return_value=None),
+                patch.object(handler, "require_auth_or_error", return_value=(_mock_user(), None)),
+            ):
                 result = handler.handle(
                     "/api/v1/knowledge/mound/relationships",
                     {},

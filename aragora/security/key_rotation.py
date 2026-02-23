@@ -342,7 +342,9 @@ class KeyRotationScheduler:
         self._stats.status = SchedulerStatus.RUNNING
 
         logger.info(
-            "Starting key rotation scheduler (interval=%sd, check_every=%sh)", self._config.rotation_interval_days, self._config.check_interval_hours
+            "Starting key rotation scheduler (interval=%sd, check_every=%sh)",
+            self._config.rotation_interval_days,
+            self._config.check_interval_hours,
         )
 
         # Start the rotation check loop
@@ -550,7 +552,10 @@ class KeyRotationScheduler:
 
             try:
                 logger.info(
-                    "Starting key rotation job %s (key=%s, provider=%s)", job.id, job.key_id, job.provider
+                    "Starting key rotation job %s (key=%s, provider=%s)",
+                    job.id,
+                    job.key_id,
+                    job.provider,
                 )
 
                 # Perform rotation based on provider
@@ -651,7 +656,9 @@ class KeyRotationScheduler:
         new_meta = await provider.rotate_key(job.key_id)
         job.new_version = int(new_meta.version) if new_meta.version else job.old_version + 1
 
-        logger.info("Vault key %s rotated: v%s -> v%s", job.key_id, job.old_version, job.new_version)
+        logger.info(
+            "Vault key %s rotated: v%s -> v%s", job.key_id, job.old_version, job.new_version
+        )
 
     async def _rotate_cloud_key(self, job: KeyRotationJob) -> None:
         """Rotate a key in cloud KMS (AWS/Azure/GCP)."""
@@ -688,7 +695,9 @@ class KeyRotationScheduler:
         new_key = service.rotate_key(job.key_id if job.key_id != "all" else None)
         job.new_version = new_key.version
 
-        logger.info("Local key %s rotated: v%s -> v%s", new_key.key_id, job.old_version, job.new_version)
+        logger.info(
+            "Local key %s rotated: v%s -> v%s", new_key.key_id, job.old_version, job.new_version
+        )
 
     def get_stats(self) -> SchedulerStats:
         """Get scheduler statistics."""

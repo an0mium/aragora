@@ -352,12 +352,8 @@ class TestSourceFiltering:
             return_value=[],
             create=True,
         ) as mock_collect:
-            handler.handle(
-                "/api/v1/approvals", {"source": "workflow,gateway"}, http_handler
-            )
-            mock_collect.assert_called_once_with(
-                limit=100, sources=["workflow", "gateway"]
-            )
+            handler.handle("/api/v1/approvals", {"source": "workflow,gateway"}, http_handler)
+            mock_collect.assert_called_once_with(limit=100, sources=["workflow", "gateway"])
 
     def test_sources_param_alternative_key(self, handler, http_handler):
         """The 'sources' key also works for source filtering."""
@@ -366,12 +362,8 @@ class TestSourceFiltering:
             return_value=[],
             create=True,
         ) as mock_collect:
-            handler.handle(
-                "/api/v1/approvals", {"sources": "decision_plan"}, http_handler
-            )
-            mock_collect.assert_called_once_with(
-                limit=100, sources=["decision_plan"]
-            )
+            handler.handle("/api/v1/approvals", {"sources": "decision_plan"}, http_handler)
+            mock_collect.assert_called_once_with(limit=100, sources=["decision_plan"])
 
     def test_sources_strips_whitespace(self, handler, http_handler):
         """Whitespace around source names is stripped."""
@@ -380,12 +372,8 @@ class TestSourceFiltering:
             return_value=[],
             create=True,
         ) as mock_collect:
-            handler.handle(
-                "/api/v1/approvals", {"source": " workflow , gateway "}, http_handler
-            )
-            mock_collect.assert_called_once_with(
-                limit=100, sources=["workflow", "gateway"]
-            )
+            handler.handle("/api/v1/approvals", {"source": " workflow , gateway "}, http_handler)
+            mock_collect.assert_called_once_with(limit=100, sources=["workflow", "gateway"])
 
     def test_empty_source_ignored(self, handler, http_handler):
         """Empty strings from splitting are filtered out."""
@@ -394,12 +382,8 @@ class TestSourceFiltering:
             return_value=[],
             create=True,
         ) as mock_collect:
-            handler.handle(
-                "/api/v1/approvals", {"source": "workflow,,gateway,"}, http_handler
-            )
-            mock_collect.assert_called_once_with(
-                limit=100, sources=["workflow", "gateway"]
-            )
+            handler.handle("/api/v1/approvals", {"source": "workflow,,gateway,"}, http_handler)
+            mock_collect.assert_called_once_with(limit=100, sources=["workflow", "gateway"])
 
     def test_source_takes_priority_over_sources(self, handler, http_handler):
         """When both 'source' and 'sources' are present, 'source' wins (or fallback)."""
@@ -483,9 +467,7 @@ class TestSuccessResponse:
             return_value=[],
             create=True,
         ):
-            result = handler.handle(
-                "/api/v1/approvals", {"source": "workflow"}, http_handler
-            )
+            result = handler.handle("/api/v1/approvals", {"source": "workflow"}, http_handler)
             body = _body(result)
             assert body["sources"] == ["workflow"]
 
@@ -522,7 +504,9 @@ class TestErrorHandling:
 
     def test_import_error_returns_500(self, handler, http_handler):
         """ImportError from missing module returns 500."""
-        with patch.dict("sys.modules", {"aragora.approvals": None, "aragora.approvals.inbox": None}):
+        with patch.dict(
+            "sys.modules", {"aragora.approvals": None, "aragora.approvals.inbox": None}
+        ):
             result = handler.handle("/api/v1/approvals", {}, http_handler)
             assert _status(result) == 500
             assert "Failed to collect approvals" in _body(result)["error"]

@@ -449,7 +449,9 @@ class DocumentHandler(BaseHandler):
             doc = parse_document(file_content, filename)
             doc_id = store.add(doc)
 
-            logger.info("Document uploaded: %s (%s bytes) -> %s", filename, len(file_content), doc_id)
+            logger.info(
+                "Document uploaded: %s (%s bytes) -> %s", filename, len(file_content), doc_id
+            )
 
             # Build response
             response_data: dict[str, Any] = {
@@ -488,7 +490,9 @@ class DocumentHandler(BaseHandler):
                     )
                     response_data.update(knowledge_result)
                     logger.info(
-                        "Knowledge processing queued for %s: %s", doc_id, knowledge_result.get('knowledge_processing', {}).get('job_id', 'N/A')
+                        "Knowledge processing queued for %s: %s",
+                        doc_id,
+                        knowledge_result.get("knowledge_processing", {}).get("job_id", "N/A"),
                     )
                 except ImportError:
                     logger.warning("Knowledge pipeline not available, skipping")
@@ -586,9 +590,7 @@ class DocumentHandler(BaseHandler):
             return (
                 None,
                 None,
-                UploadError(
-                    UploadErrorCode.CORRUPTED_UPLOAD, "Failed to read upload body"
-                ),
+                UploadError(UploadErrorCode.CORRUPTED_UPLOAD, "Failed to read upload body"),
             )
 
         boundary_bytes = f"--{boundary}".encode()
@@ -732,9 +734,7 @@ class DocumentHandler(BaseHandler):
             return (
                 None,
                 None,
-                UploadError(
-                    UploadErrorCode.CORRUPTED_UPLOAD, "Failed to read upload body"
-                ),
+                UploadError(UploadErrorCode.CORRUPTED_UPLOAD, "Failed to read upload body"),
             )
 
         return file_content, filename, None

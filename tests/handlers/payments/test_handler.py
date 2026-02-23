@@ -130,6 +130,7 @@ def create_mock_request(
         request.transport = transport
 
     if body is not None:
+
         async def json_func():
             return body
 
@@ -281,26 +282,50 @@ class TestPermissionConstants:
 
     def test_all_permissions_are_strings(self):
         perms = [
-            PERM_PAYMENTS_READ, PERM_PAYMENTS_CHARGE, PERM_PAYMENTS_AUTHORIZE,
-            PERM_PAYMENTS_CAPTURE, PERM_PAYMENTS_REFUND, PERM_PAYMENTS_VOID,
-            PERM_PAYMENTS_ADMIN, PERM_CUSTOMER_READ, PERM_CUSTOMER_CREATE,
-            PERM_CUSTOMER_UPDATE, PERM_CUSTOMER_DELETE, PERM_SUBSCRIPTION_READ,
-            PERM_SUBSCRIPTION_CREATE, PERM_SUBSCRIPTION_UPDATE,
-            PERM_SUBSCRIPTION_CANCEL, PERM_WEBHOOK_STRIPE, PERM_WEBHOOK_AUTHNET,
-            PERM_BILLING_DELETE, PERM_BILLING_CANCEL,
+            PERM_PAYMENTS_READ,
+            PERM_PAYMENTS_CHARGE,
+            PERM_PAYMENTS_AUTHORIZE,
+            PERM_PAYMENTS_CAPTURE,
+            PERM_PAYMENTS_REFUND,
+            PERM_PAYMENTS_VOID,
+            PERM_PAYMENTS_ADMIN,
+            PERM_CUSTOMER_READ,
+            PERM_CUSTOMER_CREATE,
+            PERM_CUSTOMER_UPDATE,
+            PERM_CUSTOMER_DELETE,
+            PERM_SUBSCRIPTION_READ,
+            PERM_SUBSCRIPTION_CREATE,
+            PERM_SUBSCRIPTION_UPDATE,
+            PERM_SUBSCRIPTION_CANCEL,
+            PERM_WEBHOOK_STRIPE,
+            PERM_WEBHOOK_AUTHNET,
+            PERM_BILLING_DELETE,
+            PERM_BILLING_CANCEL,
         ]
         for perm in perms:
             assert isinstance(perm, str)
 
     def test_all_permissions_use_colon_separator(self):
         perms = [
-            PERM_PAYMENTS_READ, PERM_PAYMENTS_CHARGE, PERM_PAYMENTS_AUTHORIZE,
-            PERM_PAYMENTS_CAPTURE, PERM_PAYMENTS_REFUND, PERM_PAYMENTS_VOID,
-            PERM_PAYMENTS_ADMIN, PERM_CUSTOMER_READ, PERM_CUSTOMER_CREATE,
-            PERM_CUSTOMER_UPDATE, PERM_CUSTOMER_DELETE, PERM_SUBSCRIPTION_READ,
-            PERM_SUBSCRIPTION_CREATE, PERM_SUBSCRIPTION_UPDATE,
-            PERM_SUBSCRIPTION_CANCEL, PERM_WEBHOOK_STRIPE, PERM_WEBHOOK_AUTHNET,
-            PERM_BILLING_DELETE, PERM_BILLING_CANCEL,
+            PERM_PAYMENTS_READ,
+            PERM_PAYMENTS_CHARGE,
+            PERM_PAYMENTS_AUTHORIZE,
+            PERM_PAYMENTS_CAPTURE,
+            PERM_PAYMENTS_REFUND,
+            PERM_PAYMENTS_VOID,
+            PERM_PAYMENTS_ADMIN,
+            PERM_CUSTOMER_READ,
+            PERM_CUSTOMER_CREATE,
+            PERM_CUSTOMER_UPDATE,
+            PERM_CUSTOMER_DELETE,
+            PERM_SUBSCRIPTION_READ,
+            PERM_SUBSCRIPTION_CREATE,
+            PERM_SUBSCRIPTION_UPDATE,
+            PERM_SUBSCRIPTION_CANCEL,
+            PERM_WEBHOOK_STRIPE,
+            PERM_WEBHOOK_AUTHNET,
+            PERM_BILLING_DELETE,
+            PERM_BILLING_CANCEL,
         ]
         for perm in perms:
             assert ":" in perm, f"Permission {perm!r} should use colon separator"
@@ -508,9 +533,17 @@ class TestPaymentResult:
         )
         d = result.to_dict()
         expected_keys = {
-            "transaction_id", "provider", "status", "amount", "currency",
-            "message", "auth_code", "avs_result", "cvv_result",
-            "created_at", "metadata",
+            "transaction_id",
+            "provider",
+            "status",
+            "amount",
+            "currency",
+            "message",
+            "auth_code",
+            "avs_result",
+            "cvv_result",
+            "created_at",
+            "metadata",
         }
         assert set(d.keys()) == expected_keys
 
@@ -569,12 +602,18 @@ class TestPaymentResult:
 
     def test_metadata_not_shared_between_instances(self):
         r1 = PaymentResult(
-            transaction_id="t1", provider=PaymentProvider.STRIPE,
-            status=PaymentStatus.APPROVED, amount=Decimal("1"), currency="USD",
+            transaction_id="t1",
+            provider=PaymentProvider.STRIPE,
+            status=PaymentStatus.APPROVED,
+            amount=Decimal("1"),
+            currency="USD",
         )
         r2 = PaymentResult(
-            transaction_id="t2", provider=PaymentProvider.STRIPE,
-            status=PaymentStatus.APPROVED, amount=Decimal("2"), currency="USD",
+            transaction_id="t2",
+            provider=PaymentProvider.STRIPE,
+            status=PaymentStatus.APPROVED,
+            amount=Decimal("2"),
+            currency="USD",
         )
         r1.metadata["key"] = "val"
         assert "key" not in r2.metadata
@@ -815,12 +854,16 @@ class TestGetStripeConnector:
     def reset_stripe_connector(self):
         """Reset global _stripe_connector before each test."""
         import aragora.server.handlers.payments.handler as handler_mod
+
         original = handler_mod._stripe_connector
         handler_mod._stripe_connector = None
         yield
         handler_mod._stripe_connector = original
 
-    @patch(f"{PKG}.os.environ", {"STRIPE_SECRET_KEY": "sk_test_123", "STRIPE_WEBHOOK_SECRET": "whsec_test"})
+    @patch(
+        f"{PKG}.os.environ",
+        {"STRIPE_SECRET_KEY": "sk_test_123", "STRIPE_WEBHOOK_SECRET": "whsec_test"},
+    )
     @patch(f"{PKG}.StripeConnector", create=True)
     @patch(f"{PKG}.StripeCredentials", create=True)
     async def test_creates_connector(self, mock_creds, mock_connector):
@@ -844,6 +887,7 @@ class TestGetStripeConnector:
     async def test_cached_connector_returned(self):
         """After first init, cached connector is returned without re-init."""
         import aragora.server.handlers.payments.handler as handler_mod
+
         mock_connector = MagicMock()
         handler_mod._stripe_connector = mock_connector
         request = create_mock_request()
@@ -858,6 +902,7 @@ class TestGetAuthnetConnector:
     def reset_authnet_connector(self):
         """Reset global _authnet_connector before each test."""
         import aragora.server.handlers.payments.handler as handler_mod
+
         original = handler_mod._authnet_connector
         handler_mod._authnet_connector = None
         yield
@@ -873,6 +918,7 @@ class TestGetAuthnetConnector:
     async def test_cached_connector_returned(self):
         """After first init, cached connector is returned without re-init."""
         import aragora.server.handlers.payments.handler as handler_mod
+
         mock_connector = MagicMock()
         handler_mod._authnet_connector = mock_connector
         request = create_mock_request()
@@ -883,7 +929,9 @@ class TestGetAuthnetConnector:
         """When create_authorize_net_connector returns None, stores None and returns None."""
         mock_authnet_module = MagicMock()
         mock_authnet_module.create_authorize_net_connector.return_value = None
-        with patch.dict("sys.modules", {"aragora.connectors.payments.authorize_net": mock_authnet_module}):
+        with patch.dict(
+            "sys.modules", {"aragora.connectors.payments.authorize_net": mock_authnet_module}
+        ):
             request = create_mock_request()
             result = await get_authnet_connector(request)
             assert result is None
@@ -893,7 +941,9 @@ class TestGetAuthnetConnector:
         mock_connector = MagicMock()
         mock_authnet_module = MagicMock()
         mock_authnet_module.create_authorize_net_connector.return_value = mock_connector
-        with patch.dict("sys.modules", {"aragora.connectors.payments.authorize_net": mock_authnet_module}):
+        with patch.dict(
+            "sys.modules", {"aragora.connectors.payments.authorize_net": mock_authnet_module}
+        ):
             request = create_mock_request()
             result = await get_authnet_connector(request)
             assert result is mock_connector
@@ -901,8 +951,12 @@ class TestGetAuthnetConnector:
     async def test_runtime_error_returns_none(self):
         """RuntimeError during init returns None."""
         mock_authnet_module = MagicMock()
-        mock_authnet_module.create_authorize_net_connector.side_effect = RuntimeError("config error")
-        with patch.dict("sys.modules", {"aragora.connectors.payments.authorize_net": mock_authnet_module}):
+        mock_authnet_module.create_authorize_net_connector.side_effect = RuntimeError(
+            "config error"
+        )
+        with patch.dict(
+            "sys.modules", {"aragora.connectors.payments.authorize_net": mock_authnet_module}
+        ):
             request = create_mock_request()
             result = await get_authnet_connector(request)
             assert result is None
@@ -975,18 +1029,22 @@ class TestResilientStripeCall:
     async def test_success(self):
         """Successful call returns result."""
         mock_func = AsyncMock(return_value={"id": "pi_123"})
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success"), \
-             patch.object(_stripe_cb, "record_failure"):
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success"),
+            patch.object(_stripe_cb, "record_failure"),
+        ):
             result = await _resilient_stripe_call("charge", mock_func)
             assert result == {"id": "pi_123"}
 
     async def test_success_records_success(self):
         """Successful call records success on circuit breaker."""
         mock_func = AsyncMock(return_value="ok")
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success") as mock_record, \
-             patch.object(_stripe_cb, "record_failure"):
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success") as mock_record,
+            patch.object(_stripe_cb, "record_failure"),
+        ):
             await _resilient_stripe_call("charge", mock_func)
             mock_record.assert_called_once()
 
@@ -1001,9 +1059,11 @@ class TestResilientStripeCall:
     async def test_func_failure_records_failure(self):
         """When func raises, records failure on circuit breaker."""
         mock_func = AsyncMock(side_effect=ConnectionError("timeout"))
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success"), \
-             patch.object(_stripe_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success"),
+            patch.object(_stripe_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(ConnectionError):
                 await _resilient_stripe_call("charge", mock_func)
             mock_failure.assert_called_once()
@@ -1011,18 +1071,22 @@ class TestResilientStripeCall:
     async def test_passes_args_to_func(self):
         """Arguments are forwarded to the wrapped function."""
         mock_func = AsyncMock(return_value="ok")
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success"), \
-             patch.object(_stripe_cb, "record_failure"):
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success"),
+            patch.object(_stripe_cb, "record_failure"),
+        ):
             await _resilient_stripe_call("charge", mock_func, "arg1", key="val")
             mock_func.assert_called_once_with("arg1", key="val")
 
     async def test_timeout_error_records_failure(self):
         """TimeoutError records failure."""
         mock_func = AsyncMock(side_effect=TimeoutError("timed out"))
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success"), \
-             patch.object(_stripe_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success"),
+            patch.object(_stripe_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(TimeoutError):
                 await _resilient_stripe_call("charge", mock_func)
             mock_failure.assert_called_once()
@@ -1030,9 +1094,11 @@ class TestResilientStripeCall:
     async def test_value_error_records_failure(self):
         """ValueError records failure."""
         mock_func = AsyncMock(side_effect=ValueError("bad data"))
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success"), \
-             patch.object(_stripe_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success"),
+            patch.object(_stripe_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(ValueError):
                 await _resilient_stripe_call("charge", mock_func)
             mock_failure.assert_called_once()
@@ -1040,9 +1106,11 @@ class TestResilientStripeCall:
     async def test_runtime_error_records_failure(self):
         """RuntimeError records failure."""
         mock_func = AsyncMock(side_effect=RuntimeError("internal"))
-        with patch.object(_stripe_cb, "can_execute", return_value=True), \
-             patch.object(_stripe_cb, "record_success"), \
-             patch.object(_stripe_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_stripe_cb, "can_execute", return_value=True),
+            patch.object(_stripe_cb, "record_success"),
+            patch.object(_stripe_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(RuntimeError):
                 await _resilient_stripe_call("charge", mock_func)
             mock_failure.assert_called_once()
@@ -1059,18 +1127,22 @@ class TestResilientAuthnetCall:
     async def test_success(self):
         """Successful call returns result."""
         mock_func = AsyncMock(return_value={"id": "txn_456"})
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success"), \
-             patch.object(_authnet_cb, "record_failure"):
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success"),
+            patch.object(_authnet_cb, "record_failure"),
+        ):
             result = await _resilient_authnet_call("charge", mock_func)
             assert result == {"id": "txn_456"}
 
     async def test_success_records_success(self):
         """Successful call records success on circuit breaker."""
         mock_func = AsyncMock(return_value="ok")
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success") as mock_record, \
-             patch.object(_authnet_cb, "record_failure"):
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success") as mock_record,
+            patch.object(_authnet_cb, "record_failure"),
+        ):
             await _resilient_authnet_call("authorize", mock_func)
             mock_record.assert_called_once()
 
@@ -1085,9 +1157,11 @@ class TestResilientAuthnetCall:
     async def test_func_failure_records_failure(self):
         """When func raises, records failure on circuit breaker."""
         mock_func = AsyncMock(side_effect=ConnectionError("timeout"))
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success"), \
-             patch.object(_authnet_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success"),
+            patch.object(_authnet_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(ConnectionError):
                 await _resilient_authnet_call("refund", mock_func)
             mock_failure.assert_called_once()
@@ -1095,18 +1169,22 @@ class TestResilientAuthnetCall:
     async def test_passes_args_to_func(self):
         """Arguments are forwarded to the wrapped function."""
         mock_func = AsyncMock(return_value="ok")
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success"), \
-             patch.object(_authnet_cb, "record_failure"):
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success"),
+            patch.object(_authnet_cb, "record_failure"),
+        ):
             await _resilient_authnet_call("void", mock_func, "a", b="c")
             mock_func.assert_called_once_with("a", b="c")
 
     async def test_timeout_error_records_failure(self):
         """TimeoutError records failure."""
         mock_func = AsyncMock(side_effect=TimeoutError("timed out"))
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success"), \
-             patch.object(_authnet_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success"),
+            patch.object(_authnet_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(TimeoutError):
                 await _resilient_authnet_call("capture", mock_func)
             mock_failure.assert_called_once()
@@ -1114,9 +1192,11 @@ class TestResilientAuthnetCall:
     async def test_value_error_records_failure(self):
         """ValueError records failure."""
         mock_func = AsyncMock(side_effect=ValueError("invalid amount"))
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success"), \
-             patch.object(_authnet_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success"),
+            patch.object(_authnet_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(ValueError):
                 await _resilient_authnet_call("charge", mock_func)
             mock_failure.assert_called_once()
@@ -1124,9 +1204,11 @@ class TestResilientAuthnetCall:
     async def test_runtime_error_records_failure(self):
         """RuntimeError records failure."""
         mock_func = AsyncMock(side_effect=RuntimeError("internal"))
-        with patch.object(_authnet_cb, "can_execute", return_value=True), \
-             patch.object(_authnet_cb, "record_success"), \
-             patch.object(_authnet_cb, "record_failure") as mock_failure:
+        with (
+            patch.object(_authnet_cb, "can_execute", return_value=True),
+            patch.object(_authnet_cb, "record_success"),
+            patch.object(_authnet_cb, "record_failure") as mock_failure,
+        ):
             with pytest.raises(RuntimeError):
                 await _resilient_authnet_call("charge", mock_func)
             mock_failure.assert_called_once()
@@ -1144,6 +1226,7 @@ class TestGetStripeConnectorErrors:
     def reset_stripe_connector(self):
         """Reset global _stripe_connector before each test."""
         import aragora.server.handlers.payments.handler as handler_mod
+
         original = handler_mod._stripe_connector
         handler_mod._stripe_connector = None
         yield

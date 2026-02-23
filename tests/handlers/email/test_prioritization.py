@@ -245,9 +245,7 @@ class TestHandlePrioritizeEmail:
         mock_result = _make_mock_result()
         patch_prioritizer.score_email.return_value = mock_result
 
-        result = await handle_prioritize_email(
-            _make_email_data(), user_id="user-42"
-        )
+        result = await handle_prioritize_email(_make_email_data(), user_id="user-42")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -257,9 +255,7 @@ class TestHandlePrioritizeEmail:
         mock_result = _make_mock_result()
         mock_p.score_email = AsyncMock(return_value=mock_result)
 
-        with patch.object(
-            prio_module, "get_prioritizer", return_value=mock_p
-        ) as mock_get:
+        with patch.object(prio_module, "get_prioritizer", return_value=mock_p) as mock_get:
             await handle_prioritize_email(_make_email_data(), user_id="user-99")
             mock_get.assert_called_with("user-99")
 
@@ -269,9 +265,7 @@ class TestHandlePrioritizeEmail:
         mock_result = _make_mock_result()
         patch_prioritizer.score_email.return_value = mock_result
 
-        result = await handle_prioritize_email(
-            _make_email_data(), workspace_id="ws-99"
-        )
+        result = await handle_prioritize_email(_make_email_data(), workspace_id="ws-99")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -284,9 +278,7 @@ class TestHandlePrioritizeEmail:
             "aragora.services.email_prioritization.ScoringTier",
             side_effect=lambda v: MagicMock(value=v),
         ) as mock_tier:
-            await handle_prioritize_email(
-                _make_email_data(), force_tier="tier_1_rules"
-            )
+            await handle_prioritize_email(_make_email_data(), force_tier="tier_1_rules")
             mock_tier.assert_called_once_with("tier_1_rules")
 
     @pytest.mark.asyncio
@@ -311,9 +303,7 @@ class TestHandlePrioritizeEmail:
             "aragora.services.email_prioritization.ScoringTier",
             return_value=mock_tier,
         ):
-            await handle_prioritize_email(
-                _make_email_data(), force_tier="tier_2_lightweight"
-            )
+            await handle_prioritize_email(_make_email_data(), force_tier="tier_2_lightweight")
 
         call_kwargs = patch_prioritizer.score_email.call_args
         assert call_kwargs.kwargs.get("force_tier") is mock_tier
@@ -325,9 +315,7 @@ class TestHandlePrioritizeEmail:
             "aragora.services.email_prioritization.ScoringTier",
             side_effect=ValueError("not a valid ScoringTier"),
         ):
-            result = await handle_prioritize_email(
-                _make_email_data(), force_tier="invalid_tier"
-            )
+            result = await handle_prioritize_email(_make_email_data(), force_tier="invalid_tier")
         assert result["success"] is False
         assert "error" in result
 
@@ -545,9 +533,7 @@ class TestHandleRankInbox:
         """user_id parameter is accepted."""
         patch_prioritizer.rank_inbox.return_value = []
 
-        result = await handle_rank_inbox(
-            [_make_email_data()], user_id="user-rank"
-        )
+        result = await handle_rank_inbox([_make_email_data()], user_id="user-rank")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -556,9 +542,7 @@ class TestHandleRankInbox:
         mock_p = MagicMock()
         mock_p.rank_inbox = AsyncMock(return_value=[])
 
-        with patch.object(
-            prio_module, "get_prioritizer", return_value=mock_p
-        ) as mock_get:
+        with patch.object(prio_module, "get_prioritizer", return_value=mock_p) as mock_get:
             await handle_rank_inbox([_make_email_data()], user_id="user-99")
             mock_get.assert_called_with("user-99")
 
@@ -567,9 +551,7 @@ class TestHandleRankInbox:
         """workspace_id parameter is accepted."""
         patch_prioritizer.rank_inbox.return_value = []
 
-        result = await handle_rank_inbox(
-            [_make_email_data()], workspace_id="ws-rank"
-        )
+        result = await handle_rank_inbox([_make_email_data()], workspace_id="ws-rank")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -697,9 +679,7 @@ class TestHandleEmailFeedback:
         """record_user_action is called with correct args."""
         await handle_email_feedback("msg_42", "starred")
 
-        patch_prioritizer.record_user_action.assert_awaited_once_with(
-            "msg_42", "starred", None
-        )
+        patch_prioritizer.record_user_action.assert_awaited_once_with("msg_42", "starred", None)
 
     @pytest.mark.asyncio
     async def test_feedback_with_email_data(self, patch_prioritizer):
@@ -808,9 +788,7 @@ class TestHandleEmailFeedback:
     @pytest.mark.asyncio
     async def test_feedback_user_id_forwarded(self, patch_prioritizer):
         """user_id parameter is accepted."""
-        result = await handle_email_feedback(
-            "msg_001", "archived", user_id="user-42"
-        )
+        result = await handle_email_feedback("msg_001", "archived", user_id="user-42")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -819,18 +797,14 @@ class TestHandleEmailFeedback:
         mock_p = MagicMock()
         mock_p.record_user_action = AsyncMock()
 
-        with patch.object(
-            prio_module, "get_prioritizer", return_value=mock_p
-        ) as mock_get:
+        with patch.object(prio_module, "get_prioritizer", return_value=mock_p) as mock_get:
             await handle_email_feedback("msg_001", "read", user_id="user-55")
             mock_get.assert_called_with("user-55")
 
     @pytest.mark.asyncio
     async def test_feedback_workspace_id_forwarded(self, patch_prioritizer):
         """workspace_id parameter is accepted."""
-        result = await handle_email_feedback(
-            "msg_001", "archived", workspace_id="ws-42"
-        )
+        result = await handle_email_feedback("msg_001", "archived", workspace_id="ws-42")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -896,9 +870,7 @@ class TestHandleEmailFeedback:
             "aragora.server.handlers.email.prioritization._check_email_permission",
             return_value=None,
         ) as mock_check:
-            await handle_email_feedback(
-                "msg_001", "archived", auth_context=mock_auth
-            )
+            await handle_email_feedback("msg_001", "archived", auth_context=mock_auth)
             mock_check.assert_called_once_with(mock_auth, PERM_EMAIL_UPDATE)
 
     @pytest.mark.asyncio
@@ -911,9 +883,7 @@ class TestHandleEmailFeedback:
             "aragora.server.handlers.email.prioritization._check_email_permission",
             return_value=perm_error,
         ):
-            result = await handle_email_feedback(
-                "msg_001", "archived", auth_context=mock_auth
-            )
+            result = await handle_email_feedback("msg_001", "archived", auth_context=mock_auth)
             assert result["success"] is False
             assert result["error"] == "Permission denied"
             patch_prioritizer.record_user_action.assert_not_awaited()
@@ -924,9 +894,7 @@ class TestHandleEmailFeedback:
         with patch(
             "aragora.server.handlers.email.prioritization._check_email_permission",
         ) as mock_check:
-            await handle_email_feedback(
-                "msg_001", "archived", auth_context=_AUTH_CONTEXT_UNSET
-            )
+            await handle_email_feedback("msg_001", "archived", auth_context=_AUTH_CONTEXT_UNSET)
             mock_check.assert_not_called()
 
     @pytest.mark.asyncio
@@ -937,9 +905,7 @@ class TestHandleEmailFeedback:
             "aragora.server.handlers.email.prioritization._check_email_permission",
             return_value=None,
         ) as mock_check:
-            await handle_email_feedback(
-                "msg_001", "archived", auth_context=None
-            )
+            await handle_email_feedback("msg_001", "archived", auth_context=None)
             mock_check.assert_called_once_with(None, PERM_EMAIL_UPDATE)
 
 
@@ -1027,18 +993,14 @@ class TestSecurityConcerns:
     @pytest.mark.asyncio
     async def test_feedback_injection_in_action(self, patch_prioritizer):
         """Injection attempt in action field is handled."""
-        result = await handle_email_feedback(
-            "msg_001", "<script>alert(1)</script>"
-        )
+        result = await handle_email_feedback("msg_001", "<script>alert(1)</script>")
         # Action is passed through to prioritizer; validation is downstream
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_feedback_injection_in_email_id(self, patch_prioritizer):
         """Injection attempt in email_id is handled."""
-        result = await handle_email_feedback(
-            "'; DROP TABLE feedback; --", "read"
-        )
+        result = await handle_email_feedback("'; DROP TABLE feedback; --", "read")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -1046,11 +1008,13 @@ class TestSecurityConcerns:
         """Injection attempt in batch email data is handled."""
         patch_prioritizer.rank_inbox.return_value = []
 
-        emails = [_make_email_data(
-            id="'; DROP TABLE --",
-            subject="<img onerror=alert(1)>",
-            from_address="attacker@evil.com'; --",
-        )]
+        emails = [
+            _make_email_data(
+                id="'; DROP TABLE --",
+                subject="<img onerror=alert(1)>",
+                from_address="attacker@evil.com'; --",
+            )
+        ]
         result = await handle_rank_inbox(emails)
         assert result["success"] is True
 
@@ -1255,6 +1219,7 @@ class TestModuleAttributes:
         from aragora.server.handlers.email.prioritization import (
             _AUTH_CONTEXT_UNSET as sentinel2,
         )
+
         assert _AUTH_CONTEXT_UNSET is sentinel2
 
     def test_module_has_logger(self):
@@ -1275,9 +1240,10 @@ class TestModuleAttributes:
         for fn in [handle_prioritize_email, handle_rank_inbox, handle_email_feedback]:
             # Walk the __wrapped__ chain to find the original async function
             inner = fn
-            while hasattr(inner, '__wrapped__'):
+            while hasattr(inner, "__wrapped__"):
                 inner = inner.__wrapped__
             import asyncio
+
             assert asyncio.iscoroutinefunction(inner), f"{fn.__name__} inner is not async"
 
 
@@ -1293,19 +1259,21 @@ class TestDecoratorIntegration:
     async def test_prioritize_has_require_permission(self):
         """handle_prioritize_email is wrapped by require_permission for email:read."""
         # The function name or docstring should survive through decorators
-        assert "prioritize" in handle_prioritize_email.__name__.lower() or \
-               "prioritize" in (handle_prioritize_email.__doc__ or "").lower() or \
-               hasattr(handle_prioritize_email, '__wrapped__')
+        assert (
+            "prioritize" in handle_prioritize_email.__name__.lower()
+            or "prioritize" in (handle_prioritize_email.__doc__ or "").lower()
+            or hasattr(handle_prioritize_email, "__wrapped__")
+        )
 
     @pytest.mark.asyncio
     async def test_rank_inbox_has_require_permission(self):
         """handle_rank_inbox is wrapped by require_permission for email:read."""
-        assert hasattr(handle_rank_inbox, '__wrapped__') or callable(handle_rank_inbox)
+        assert hasattr(handle_rank_inbox, "__wrapped__") or callable(handle_rank_inbox)
 
     @pytest.mark.asyncio
     async def test_feedback_has_require_permission(self):
         """handle_email_feedback is wrapped by require_permission for email:update."""
-        assert hasattr(handle_email_feedback, '__wrapped__') or callable(handle_email_feedback)
+        assert hasattr(handle_email_feedback, "__wrapped__") or callable(handle_email_feedback)
 
     @pytest.mark.asyncio
     async def test_prioritize_works_with_auth_context(self, patch_prioritizer):
@@ -1314,9 +1282,7 @@ class TestDecoratorIntegration:
         patch_prioritizer.score_email.return_value = mock_result
         mock_auth = MagicMock()
 
-        result = await handle_prioritize_email(
-            _make_email_data(), auth_context=mock_auth
-        )
+        result = await handle_prioritize_email(_make_email_data(), auth_context=mock_auth)
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -1325,9 +1291,7 @@ class TestDecoratorIntegration:
         patch_prioritizer.rank_inbox.return_value = []
         mock_auth = MagicMock()
 
-        result = await handle_rank_inbox(
-            [_make_email_data()], auth_context=mock_auth
-        )
+        result = await handle_rank_inbox([_make_email_data()], auth_context=mock_auth)
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -1399,10 +1363,12 @@ class TestMultiCallBehavior:
         ]
         patch_prioritizer.rank_inbox.return_value = results
 
-        rank_result = await handle_rank_inbox([
-            _make_email_data(id="msg_1"),
-            _make_email_data(id="msg_2"),
-        ])
+        rank_result = await handle_rank_inbox(
+            [
+                _make_email_data(id="msg_1"),
+                _make_email_data(id="msg_2"),
+            ]
+        )
         assert rank_result["success"] is True
 
         for email_id in ["msg_1", "msg_2"]:

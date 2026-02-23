@@ -511,7 +511,9 @@ class VotingPhase:
                 result.consensus_reached = True
                 result.consensus_strength = "unanimous"
                 result.consensus_variance = 0.0
-                logger.info("consensus_unanimous winner=%s votes=%s/%s", winner, count, total_voters)
+                logger.info(
+                    "consensus_unanimous winner=%s votes=%s/%s", winner, count, total_voters
+                )
             else:
                 result.consensus_reached = False
                 result.consensus_strength = "none"

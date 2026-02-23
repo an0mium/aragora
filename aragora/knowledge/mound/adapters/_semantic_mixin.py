@@ -138,7 +138,9 @@ class SemanticSearchMixin:
                     return storage[stripped_id]
 
         logger.debug(
-            "[%s] Record not found: %s. Override _get_record_by_id() for custom lookup logic.", self.adapter_name, record_id
+            "[%s] Record not found: %s. Override _get_record_by_id() for custom lookup logic.",
+            self.adapter_name,
+            record_id,
         )
         return None
 
@@ -302,7 +304,10 @@ class SemanticSearchMixin:
 
                 success = True
                 logger.debug(
-                    "[%s] Semantic search returned %s results for '%s'", self.adapter_name, len(enriched), query[:50]
+                    "[%s] Semantic search returned %s results for '%s'",
+                    self.adapter_name,
+                    len(enriched),
+                    query[:50],
                 )
 
                 # Emit event - _emit_event provided by KnowledgeMoundAdapter via inheritance
@@ -321,7 +326,8 @@ class SemanticSearchMixin:
 
             except ImportError:
                 logger.debug(
-                    "[%s] SemanticStore not available, falling back to keyword search", self.adapter_name
+                    "[%s] SemanticStore not available, falling back to keyword search",
+                    self.adapter_name,
                 )
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug("[%s] Semantic search failed, falling back: %s", self.adapter_name, e)

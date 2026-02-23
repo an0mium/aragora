@@ -3284,7 +3284,9 @@ class TestThreatAssessmentWithMultipleSources:
     async def test_assess_threat_handles_api_exceptions(self, service):
         """Test threat assessment handles API exceptions gracefully."""
         with (
-            patch.object(service, "_check_url_virustotal", side_effect=ConnectionError("API Error")),
+            patch.object(
+                service, "_check_url_virustotal", side_effect=ConnectionError("API Error")
+            ),
             patch.object(service, "_check_url_phishtank", return_value=None),
             patch.object(service, "_check_url_urlhaus", return_value=None),
         ):

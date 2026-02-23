@@ -192,7 +192,10 @@ class EmailCircuitBreaker:
                 if self._failure_count >= self.config.failure_threshold:
                     self._state = CircuitState.OPEN
                     logger.warning(
-                        "[CircuitBreaker:%s] Circuit OPEN after %s failures: %s", self.name, self._failure_count, error
+                        "[CircuitBreaker:%s] Circuit OPEN after %s failures: %s",
+                        self.name,
+                        self._failure_count,
+                        error,
                     )
 
     def get_stats(self) -> dict[str, Any]:
@@ -289,7 +292,10 @@ class RetryExecutor:
 
                 if attempt >= self.config.max_retries:
                     logger.error(
-                        "[Retry] All %s retries exhausted for %s: %s", self.config.max_retries, operation_name, e
+                        "[Retry] All %s retries exhausted for %s: %s",
+                        self.config.max_retries,
+                        operation_name,
+                        e,
                     )
                     raise
 

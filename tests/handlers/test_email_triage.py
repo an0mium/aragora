@@ -225,25 +225,26 @@ class TestEngineManagement:
         _set_engine(MockTriageRuleEngine())
         _set_engine(None)
         # Next call to _get_engine should lazy-init a real one
-        with patch(
-            "aragora.analysis.email_triage.TriageRuleEngine",
-            MockTriageRuleEngine,
-        ), patch(
-            "aragora.analysis.email_triage.TriageConfig",
-            MockTriageConfig,
+        with (
+            patch(
+                "aragora.analysis.email_triage.TriageRuleEngine",
+                MockTriageRuleEngine,
+            ),
+            patch(
+                "aragora.analysis.email_triage.TriageConfig",
+                MockTriageConfig,
+            ),
         ):
             engine = _get_engine()
             assert engine is not None
 
     def test_get_engine_lazy_init(self):
         """_get_engine should lazy-initialize from TriageConfig when None."""
-        with patch(
-            "aragora.server.handlers.email_triage._engine", None
-        ), patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_cls, patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg_cls:
+        with (
+            patch("aragora.server.handlers.email_triage._engine", None),
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_cls,
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg_cls,
+        ):
             mock_cfg_cls.return_value = MockTriageConfig()
             mock_cls.return_value = MockTriageRuleEngine()
             engine = _get_engine()
@@ -333,20 +334,17 @@ class TestUpdateRules:
                 {"label": "spam", "keywords": ["spam"], "priority": "low"},
             ]
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig(
                 rules=[MockTriageRule("critical"), MockTriageRule("spam")]
             )
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             resp = _body(result)
             assert _status(result) == 200
             assert resp["message"] == "Triage rules updated"
@@ -354,9 +352,7 @@ class TestUpdateRules:
 
     def test_update_rules_invalid_json(self, handler, mock_engine):
         _set_engine(mock_engine)
-        result = handler.handle_put(
-            "/api/v1/email/triage/rules", {}, InvalidJSONHandler()
-        )
+        result = handler.handle_put("/api/v1/email/triage/rules", {}, InvalidJSONHandler())
         assert _status(result) == 400
         assert "Invalid JSON" in _body(result)["error"]
 
@@ -367,26 +363,21 @@ class TestUpdateRules:
                 {"label": "test", "keywords": ["test"], "priority": "critical"},
             ]
         }
-        result = handler.handle_put(
-            "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
         assert _status(result) == 400
         assert "Invalid priority" in _body(result)["error"]
 
     def test_update_rules_empty_body(self, handler, mock_engine):
         _set_engine(mock_engine)
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig()
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler({})
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler({}))
             resp = _body(result)
             assert _status(result) == 200
             assert resp["rules_count"] == 0
@@ -397,66 +388,47 @@ class TestUpdateRules:
             "escalation_keywords": ["ceo", "board"],
             "auto_handle_threshold": 0.75,
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
-            mock_config_instance = MockTriageConfig(
-                escalation_keywords=["ceo", "board"]
-            )
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
+            mock_config_instance = MockTriageConfig(escalation_keywords=["ceo", "board"])
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
 
     def test_update_rules_config_error_valueerror(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"rules": [{"label": "ok", "keywords": ["ok"], "priority": "high"}]}
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg:
+        with patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg:
             mock_cfg.from_dict.side_effect = ValueError("bad config")
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 400
             assert "Invalid rules configuration" in _body(result)["error"]
 
     def test_update_rules_config_error_typeerror(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"rules": [{"label": "ok", "keywords": ["ok"], "priority": "high"}]}
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg:
+        with patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg:
             mock_cfg.from_dict.side_effect = TypeError("wrong type")
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 400
             assert "Invalid rules configuration" in _body(result)["error"]
 
     def test_update_rules_config_error_keyerror(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"rules": [{"label": "ok", "keywords": ["ok"], "priority": "high"}]}
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg:
+        with patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg:
             mock_cfg.from_dict.side_effect = KeyError("missing key")
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 400
             assert "Invalid rules configuration" in _body(result)["error"]
 
     def test_update_rules_unhandled_path_returns_none(self, handler, mock_engine):
         _set_engine(mock_engine)
-        result = handler.handle_put(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler({})
-        )
+        result = handler.handle_put("/api/v1/email/triage/test", {}, MockHTTPHandler({}))
         assert result is None
 
     def test_update_rules_default_priority_medium(self, handler, mock_engine):
@@ -467,20 +439,15 @@ class TestUpdateRules:
                 {"label": "general", "keywords": ["general"]},
             ]
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
-            mock_config_instance = MockTriageConfig(
-                rules=[MockTriageRule("general")]
-            )
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
+            mock_config_instance = MockTriageConfig(rules=[MockTriageRule("general")])
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
             # Verify from_dict was called with medium priority
             call_args = mock_cfg.from_dict.call_args[0][0]
@@ -494,18 +461,15 @@ class TestUpdateRules:
                 {"priority": "high"},
             ]
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig(rules=[MockTriageRule()])
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
             call_args = mock_cfg.from_dict.call_args[0][0]
             rule = call_args["priority_rules"]["high"][0]
@@ -514,25 +478,20 @@ class TestUpdateRules:
 
     def test_update_rules_escalation_uses_current_threshold(self, handler):
         """When auto_handle_threshold not in body, uses engine's current value."""
-        engine = MockTriageRuleEngine(
-            MockTriageConfig(auto_handle_threshold=0.99)
-        )
+        engine = MockTriageRuleEngine(MockTriageConfig(auto_handle_threshold=0.99))
         _set_engine(engine)
         body = {
             "escalation_keywords": ["urgent"],
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig()
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
             call_args = mock_cfg.from_dict.call_args[0][0]
             assert call_args["escalation"]["auto_handle_threshold"] == 0.99
@@ -546,20 +505,17 @@ class TestUpdateRules:
                 {"label": "c", "keywords": ["c"], "priority": "low"},
             ]
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig(
                 rules=[MockTriageRule("a"), MockTriageRule("b"), MockTriageRule("c")]
             )
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
             call_args = mock_cfg.from_dict.call_args[0][0]
             assert "high" in call_args["priority_rules"]
@@ -574,9 +530,7 @@ class TestUpdateRules:
                     {"label": "x", "keywords": ["x"], "priority": bad_priority},
                 ]
             }
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 400, f"Expected 400 for priority={bad_priority}"
 
     def test_update_rules_replaces_engine(self, handler, mock_engine):
@@ -585,16 +539,15 @@ class TestUpdateRules:
         body = {"rules": [{"label": "x", "keywords": ["x"], "priority": "high"}]}
 
         new_engine = MockTriageRuleEngine()
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine",
-            return_value=new_engine,
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch(
+                "aragora.analysis.email_triage.TriageRuleEngine",
+                return_value=new_engine,
+            ),
         ):
             mock_cfg.from_dict.return_value = MockTriageConfig()
-            handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
         assert _get_engine() is new_engine
 
 
@@ -609,9 +562,7 @@ class TestTestMessage:
     def test_test_message_basic(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"subject": "Urgent: server down", "snippet": "Help needed"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         resp = _body(result)
         assert _status(result) == 200
         assert "priority" in resp
@@ -629,9 +580,7 @@ class TestTestMessage:
         )
         _set_engine(engine)
         body = {"subject": "Urgent matter", "snippet": "CEO needs response"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         resp = _body(result)
         assert resp["priority"] == "high"
         assert resp["matched_rule"] == "urgent"
@@ -641,41 +590,34 @@ class TestTestMessage:
     def test_test_message_only_subject(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"subject": "Hello world"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 200
 
     def test_test_message_only_snippet(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"snippet": "Some email content"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 200
 
     def test_test_message_missing_subject_and_snippet(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"from_address": "user@example.com"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 400
-        assert "subject" in _body(result)["error"].lower() or "snippet" in _body(result)["error"].lower()
+        assert (
+            "subject" in _body(result)["error"].lower()
+            or "snippet" in _body(result)["error"].lower()
+        )
 
     def test_test_message_empty_subject_and_snippet(self, handler, mock_engine):
         _set_engine(mock_engine)
         body = {"subject": "", "snippet": ""}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 400
 
     def test_test_message_invalid_json(self, handler, mock_engine):
         _set_engine(mock_engine)
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, InvalidJSONHandler()
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, InvalidJSONHandler())
         assert _status(result) == 400
         assert "Invalid JSON" in _body(result)["error"]
 
@@ -687,9 +629,7 @@ class TestTestMessage:
             "from_address": "ceo@company.com",
             "snippet": "Important",
         }
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 200
 
     def test_test_message_with_labels(self, handler):
@@ -699,9 +639,7 @@ class TestTestMessage:
             "subject": "Test",
             "labels": ["INBOX", "IMPORTANT"],
         }
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 200
 
     def test_test_message_no_escalate(self, handler):
@@ -714,9 +652,7 @@ class TestTestMessage:
         )
         _set_engine(engine)
         body = {"subject": "Monthly newsletter"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         resp = _body(result)
         assert resp["should_escalate"] is False
         assert resp["priority"] == "low"
@@ -739,9 +675,7 @@ class TestTestMessage:
         )
         _set_engine(engine)
         body = {"subject": "Random email"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         resp = _body(result)
         assert resp["priority"] == "none"
         assert resp["matched_rule"] == ""
@@ -750,9 +684,7 @@ class TestTestMessage:
     def test_test_message_empty_body(self, handler, mock_engine):
         """Empty body {} means subject and snippet both default to empty string."""
         _set_engine(mock_engine)
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler({})
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler({}))
         assert _status(result) == 400
 
     def test_test_message_labels_none(self, handler):
@@ -760,9 +692,7 @@ class TestTestMessage:
         engine = MockTriageRuleEngine()
         _set_engine(engine)
         body = {"subject": "Hello"}
-        result = handler.handle_post(
-            "/api/v1/email/triage/test", {}, MockHTTPHandler(body)
-        )
+        result = handler.handle_post("/api/v1/email/triage/test", {}, MockHTTPHandler(body))
         assert _status(result) == 200
 
 
@@ -795,11 +725,10 @@ class TestEdgeCases:
             "escalation_keywords": ["ceo"],
             "auto_handle_threshold": 0.5,
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig(
                 rules=[MockTriageRule("vip")],
                 escalation_keywords=["ceo"],
@@ -807,9 +736,7 @@ class TestEdgeCases:
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
             call_args = mock_cfg.from_dict.call_args[0][0]
             assert call_args["escalation"]["always_flag"] == ["ceo"]
@@ -825,20 +752,17 @@ class TestEdgeCases:
                 {"label": "b", "keywords": ["b"], "priority": "high"},
             ]
         }
-        with patch(
-            "aragora.analysis.email_triage.TriageConfig"
-        ) as mock_cfg, patch(
-            "aragora.analysis.email_triage.TriageRuleEngine"
-        ) as mock_engine_cls:
+        with (
+            patch("aragora.analysis.email_triage.TriageConfig") as mock_cfg,
+            patch("aragora.analysis.email_triage.TriageRuleEngine") as mock_engine_cls,
+        ):
             mock_config_instance = MockTriageConfig(
                 rules=[MockTriageRule("a"), MockTriageRule("b")]
             )
             mock_cfg.from_dict.return_value = mock_config_instance
             mock_engine_cls.return_value = MockTriageRuleEngine(mock_config_instance)
 
-            result = handler.handle_put(
-                "/api/v1/email/triage/rules", {}, MockHTTPHandler(body)
-            )
+            result = handler.handle_put("/api/v1/email/triage/rules", {}, MockHTTPHandler(body))
             assert _status(result) == 200
             call_args = mock_cfg.from_dict.call_args[0][0]
             assert len(call_args["priority_rules"]["high"]) == 2

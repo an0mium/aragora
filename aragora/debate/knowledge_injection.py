@@ -130,7 +130,10 @@ class DebateKnowledgeInjector:
         knowledge_list: list[PastDebateKnowledge] = []
         for idx, item in enumerate(items):
             knowledge = self._extract_knowledge(item, idx, len(items), domain)
-            if knowledge is not None and knowledge.relevance_score >= self.config.min_relevance_score:
+            if (
+                knowledge is not None
+                and knowledge.relevance_score >= self.config.min_relevance_score
+            ):
                 knowledge_list.append(knowledge)
 
         # Sort by relevance descending
@@ -219,7 +222,7 @@ class DebateKnowledgeInjector:
             # Fall back: try to extract from content
             for line in content.split("\n"):
                 if line.startswith("Input:"):
-                    task = line[len("Input:"):].strip()[:200]
+                    task = line[len("Input:") :].strip()[:200]
                     break
 
         final_answer = metadata.get("final_answer", "")

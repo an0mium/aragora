@@ -207,9 +207,7 @@ class TestGetStats:
         assert body["total_debates"] == 42
         assert body["consensus_rate"] == 0.75
         MockAnalytics.assert_called_once_with(storage)
-        MockAnalytics.return_value.get_debate_stats.assert_called_once_with(
-            period="all"
-        )
+        MockAnalytics.return_value.get_debate_stats.assert_called_once_with(period="all")
 
     @pytest.mark.parametrize("period", ["all", "day", "week", "month"])
     def test_success_valid_periods(self, handler_with_storage, mock_http, period):
@@ -219,9 +217,7 @@ class TestGetStats:
         mock_stats.to_dict.return_value = {"period": period}
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_debate_stats.return_value = mock_stats
-            result = handler.handle(
-                "/api/v1/debates/stats", {"period": period}, http
-            )
+            result = handler.handle("/api/v1/debates/stats", {"period": period}, http)
 
         assert _status(result) == 200
         assert _body(result)["period"] == period
@@ -229,18 +225,14 @@ class TestGetStats:
     def test_invalid_period_returns_400(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage
         http = mock_http()
-        result = handler.handle(
-            "/api/v1/debates/stats", {"period": "year"}, http
-        )
+        result = handler.handle("/api/v1/debates/stats", {"period": "year"}, http)
         assert _status(result) == 400
         assert "period" in _body(result).get("error", "")
 
     def test_invalid_period_hour(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage
         http = mock_http()
-        result = handler.handle(
-            "/api/v1/debates/stats", {"period": "hour"}, http
-        )
+        result = handler.handle("/api/v1/debates/stats", {"period": "hour"}, http)
         assert _status(result) == 400
 
     def test_storage_none_returns_503(self, handler, mock_http):
@@ -254,7 +246,10 @@ class TestGetStats:
     def test_import_error_returns_500(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage
         http = mock_http()
-        with patch("builtins.__import__", side_effect=_make_import_raiser("aragora.analytics.debate_analytics")):
+        with patch(
+            "builtins.__import__",
+            side_effect=_make_import_raiser("aragora.analytics.debate_analytics"),
+        ):
             result = handler.handle("/api/v1/debates/stats", {}, http)
         assert _status(result) == 500
         assert "Failed to get debate stats" in _body(result).get("error", "")
@@ -263,9 +258,7 @@ class TestGetStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_debate_stats.side_effect = ValueError(
-                "bad value"
-            )
+            MockAnalytics.return_value.get_debate_stats.side_effect = ValueError("bad value")
             result = handler.handle("/api/v1/debates/stats", {}, http)
         assert _status(result) == 500
 
@@ -273,9 +266,7 @@ class TestGetStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_debate_stats.side_effect = TypeError(
-                "wrong type"
-            )
+            MockAnalytics.return_value.get_debate_stats.side_effect = TypeError("wrong type")
             result = handler.handle("/api/v1/debates/stats", {}, http)
         assert _status(result) == 500
 
@@ -291,9 +282,7 @@ class TestGetStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_debate_stats.side_effect = AttributeError(
-                "no attr"
-            )
+            MockAnalytics.return_value.get_debate_stats.side_effect = AttributeError("no attr")
             result = handler.handle("/api/v1/debates/stats", {}, http)
         assert _status(result) == 500
 
@@ -301,9 +290,7 @@ class TestGetStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_debate_stats.side_effect = OSError(
-                "disk error"
-            )
+            MockAnalytics.return_value.get_debate_stats.side_effect = OSError("disk error")
             result = handler.handle("/api/v1/debates/stats", {}, http)
         assert _status(result) == 500
 
@@ -349,9 +336,7 @@ class TestGetAgentStats:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "5"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "5"}, http)
 
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=5)
@@ -362,9 +347,7 @@ class TestGetAgentStats:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "999"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "999"}, http)
 
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=100)
@@ -375,9 +358,7 @@ class TestGetAgentStats:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "0"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "0"}, http)
 
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=1)
@@ -388,9 +369,7 @@ class TestGetAgentStats:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "abc"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "abc"}, http)
 
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=20)
@@ -417,7 +396,10 @@ class TestGetAgentStats:
     def test_import_error_returns_500(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage
         http = mock_http()
-        with patch("builtins.__import__", side_effect=_make_import_raiser("aragora.analytics.debate_analytics")):
+        with patch(
+            "builtins.__import__",
+            side_effect=_make_import_raiser("aragora.analytics.debate_analytics"),
+        ):
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         assert _status(result) == 500
         assert "Failed to get agent stats" in _body(result).get("error", "")
@@ -426,9 +408,7 @@ class TestGetAgentStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.side_effect = ValueError(
-                "bad"
-            )
+            MockAnalytics.return_value.get_agent_stats.side_effect = ValueError("bad")
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         assert _status(result) == 500
 
@@ -436,9 +416,7 @@ class TestGetAgentStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.side_effect = RuntimeError(
-                "broken"
-            )
+            MockAnalytics.return_value.get_agent_stats.side_effect = RuntimeError("broken")
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         assert _status(result) == 500
 
@@ -485,9 +463,7 @@ class TestEdgeCases:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "-5"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "-5"}, http)
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=1)
 
@@ -497,9 +473,7 @@ class TestEdgeCases:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "100"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "100"}, http)
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=100)
 
@@ -509,9 +483,7 @@ class TestEdgeCases:
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_stats.return_value = []
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "1"}, http
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {"limit": "1"}, http)
         assert _status(result) == 200
         MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=1)
 
@@ -519,18 +491,14 @@ class TestEdgeCases:
         """An empty period string should fail validation."""
         handler, _ = handler_with_storage
         http = mock_http()
-        result = handler.handle(
-            "/api/v1/debates/stats", {"period": ""}, http
-        )
+        result = handler.handle("/api/v1/debates/stats", {"period": ""}, http)
         assert _status(result) == 400
 
     def test_period_case_sensitive(self, handler_with_storage, mock_http):
         """Period values are case sensitive -- 'Day' should be rejected."""
         handler, _ = handler_with_storage
         http = mock_http()
-        result = handler.handle(
-            "/api/v1/debates/stats", {"period": "Day"}, http
-        )
+        result = handler.handle("/api/v1/debates/stats", {"period": "Day"}, http)
         assert _status(result) == 400
 
     def test_handler_instantiation_with_empty_ctx(self):

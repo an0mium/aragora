@@ -389,7 +389,9 @@ class TestMetaReasoningEngine:
         engine = MetaReasoningEngine()
         summary = self._make_summary(total_proposals=10, total_accepted=9)
         guidance = engine.generate_guidance(summary)
-        proposal_lines = [g for g in guidance if "acceptance rate" in g.lower() or "proposals" in g.lower()]
+        proposal_lines = [
+            g for g in guidance if "acceptance rate" in g.lower() or "proposals" in g.lower()
+        ]
         assert len(proposal_lines) >= 1
         assert "strong" in proposal_lines[0].lower()
 
@@ -398,7 +400,9 @@ class TestMetaReasoningEngine:
         engine = MetaReasoningEngine()
         summary = self._make_summary(total_proposals=10, total_accepted=2)
         guidance = engine.generate_guidance(summary)
-        proposal_lines = [g for g in guidance if "acceptance" in g.lower() or "proposals" in g.lower()]
+        proposal_lines = [
+            g for g in guidance if "acceptance" in g.lower() or "proposals" in g.lower()
+        ]
         assert len(proposal_lines) >= 1
         assert "low" in proposal_lines[0].lower()
 
@@ -407,7 +411,9 @@ class TestMetaReasoningEngine:
         engine = MetaReasoningEngine()
         summary = self._make_summary(total_proposals=5, total_accepted=0)
         guidance = engine.generate_guidance(summary)
-        proposal_lines = [g for g in guidance if "proposals" in g.lower() or "accepted" in g.lower()]
+        proposal_lines = [
+            g for g in guidance if "proposals" in g.lower() or "accepted" in g.lower()
+        ]
         assert len(proposal_lines) >= 1
         assert "none" in proposal_lines[0].lower() or "different" in proposal_lines[0].lower()
 
@@ -723,6 +729,7 @@ class TestImports:
             MetaReasoningEngine,
             RoundMetrics,
         )
+
         assert ActiveIntrospectionTracker is not None
         assert AgentPerformanceSummary is not None
         assert IntrospectionGoals is not None

@@ -127,7 +127,9 @@ def _determine_mode() -> ValidationMode:
             return ValidationMode(mode_str)
         except ValueError:
             logger.warning(
-                "Unknown validation mode '%s', defaulting to blocking. Valid modes: %s", mode_str, [m.value for m in ValidationMode]
+                "Unknown validation mode '%s', defaulting to blocking. Valid modes: %s",
+                mode_str,
+                [m.value for m in ValidationMode],
             )
             return ValidationMode.BLOCKING
 
@@ -191,7 +193,9 @@ def get_validation_config() -> ValidationConfig:
         )
     else:
         logger.info(
-            "Request validation enabled in BLOCKING mode. Max body: %sMB, max depth: %s", config.max_body_size // 1024 // 1024, config.max_json_depth
+            "Request validation enabled in BLOCKING mode. Max body: %sMB, max depth: %s",
+            config.max_body_size // 1024 // 1024,
+            config.max_json_depth,
         )
 
     return config

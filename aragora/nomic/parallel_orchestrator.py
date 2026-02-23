@@ -122,9 +122,7 @@ class ParallelOrchestrator:
                 )
                 logger.info("Convoy/bead tracking enabled")
             except ImportError:
-                logger.warning(
-                    "Convoy tracking requested but workspace module unavailable"
-                )
+                logger.warning("Convoy tracking requested but workspace module unavailable")
 
         # Compose the AutonomousOrchestrator with all wiring
         self._orchestrator = AutonomousOrchestrator(

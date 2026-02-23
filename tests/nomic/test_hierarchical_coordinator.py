@@ -34,9 +34,7 @@ def _no_api_keys():
     Without this, the judge phase tries to create real AnthropicAPIAgent
     instances when API keys are cached in SecretManager from other tests.
     """
-    with patch(
-        "aragora.config.secrets.get_secret", return_value=None
-    ):
+    with patch("aragora.config.secrets.get_secret", return_value=None):
         yield
 
 
@@ -521,8 +519,7 @@ class TestJudgePhase:
     async def test_heuristic_threshold_boundary(self, coordinator):
         # 3 of 5 succeed = 60%, threshold is 0.6
         reports = [
-            WorkerReport(f"a{i}", f"T{i}", success=(i < 3), duration_seconds=1.0)
-            for i in range(5)
+            WorkerReport(f"a{i}", f"T{i}", success=(i < 3), duration_seconds=1.0) for i in range(5)
         ]
         decomp = _make_decomposition()
         verdict = await coordinator._judge("goal", decomp, reports)
@@ -542,7 +539,9 @@ class TestJudgePhase:
     @pytest.mark.asyncio
     async def test_heuristic_revision_instructions(self, coordinator):
         reports = [
-            WorkerReport("assign_s1", "Task A", success=False, error="compile error", duration_seconds=1.0),
+            WorkerReport(
+                "assign_s1", "Task A", success=False, error="compile error", duration_seconds=1.0
+            ),
         ]
         decomp = _make_decomposition()
         verdict = await coordinator._judge("goal", decomp, reports)
@@ -658,9 +657,7 @@ class TestFullCycle:
     @pytest.mark.asyncio
     async def test_context_passed_through(self, coordinator, mock_decomposer, mock_engine):
         """Context dict is passed to coordinate."""
-        result = await coordinator.coordinate(
-            "test", context={"key": "value"}
-        )
+        result = await coordinator.coordinate("test", context={"key": "value"})
         assert result.success is True
 
     @pytest.mark.asyncio
@@ -864,8 +861,7 @@ class TestHeuristicJudge:
     def test_threshold_boundary_exact(self, coordinator):
         # 3/5 = 0.6 = threshold
         reports = [
-            WorkerReport(f"a{i}", f"T{i}", success=(i < 3), duration_seconds=1.0)
-            for i in range(5)
+            WorkerReport(f"a{i}", f"T{i}", success=(i < 3), duration_seconds=1.0) for i in range(5)
         ]
         verdict = coordinator._heuristic_judge("goal", reports)
         assert verdict.approved is True
@@ -873,8 +869,7 @@ class TestHeuristicJudge:
     def test_below_threshold(self, coordinator):
         # 1/5 = 0.2 < 0.6
         reports = [
-            WorkerReport(f"a{i}", f"T{i}", success=(i == 0), duration_seconds=1.0)
-            for i in range(5)
+            WorkerReport(f"a{i}", f"T{i}", success=(i == 0), duration_seconds=1.0) for i in range(5)
         ]
         verdict = coordinator._heuristic_judge("goal", reports)
         assert verdict.approved is False
@@ -955,9 +950,7 @@ class TestPhaseTracking:
     @pytest.mark.asyncio
     async def test_phase_on_failure(self, mock_decomposer):
         engine = MagicMock()
-        engine.execute = AsyncMock(
-            return_value=_make_workflow_result(success=False, error="fail")
-        )
+        engine.execute = AsyncMock(return_value=_make_workflow_result(success=False, error="fail"))
         config = CoordinatorConfig(max_cycles=1, quality_threshold=1.0)
         coord = HierarchicalCoordinator(
             config=config,

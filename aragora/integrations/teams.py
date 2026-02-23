@@ -230,7 +230,10 @@ class TeamsIntegration:
                         # Server error - retry with backoff
                         text = await response.text()
                         logger.warning(
-                            "Teams server error (attempt %s): %s - %s", attempt + 1, response.status, text
+                            "Teams server error (attempt %s): %s - %s",
+                            attempt + 1,
+                            response.status,
+                            text,
                         )
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()

@@ -100,6 +100,7 @@ class AltAuditEvent:
 
 class BareEvent:
     """Event with no standard attributes at all."""
+
     pass
 
 
@@ -141,6 +142,7 @@ def _reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -149,6 +151,7 @@ def _reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -202,10 +205,12 @@ def handler():
 
         def _run_async(self, coro):
             import asyncio
+
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         return pool.submit(asyncio.run, coro).result()
                 return loop.run_until_complete(coro)
@@ -244,12 +249,14 @@ def make_request():
 @pytest.fixture
 def describe_event():
     from aragora.server.handlers.workspace.activity import _describe_event
+
     return _describe_event
 
 
 @pytest.fixture
 def parse_query():
     from aragora.server.handlers.workspace.activity import _parse_query
+
     return _parse_query
 
 
@@ -346,7 +353,9 @@ class TestDescribeEvent:
 
     def test_unknown_type_with_description_attr(self, describe_event):
         """Unknown event types use the event's own description attribute."""
-        evt = MockAuditEvent(event_type="custom_action", actor="ivy", description="Custom thing happened")
+        evt = MockAuditEvent(
+            event_type="custom_action", actor="ivy", description="Custom thing happened"
+        )
         assert describe_event(evt) == "Custom thing happened"
 
     def test_unknown_type_without_description(self, describe_event):
@@ -731,11 +740,14 @@ class TestEdgeCases:
 
     def test_event_iteration_error_midway(self, handler, raw_fn, make_request):
         """If iteration raises an error midway, the exception is caught."""
+
         class BrokenIterator:
             def __init__(self):
                 self._count = 0
+
             def __iter__(self):
                 return self
+
             def __next__(self):
                 if self._count == 0:
                     self._count += 1

@@ -576,9 +576,7 @@ class TestGauntletDelete:
             mock_storage.return_value = mock_store
 
             result = run_async(
-                gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-20260111120000-abc123", {}, handler
-                )
+                gauntlet_handler.handle("/api/gauntlet/gauntlet-20260111120000-abc123", {}, handler)
             )
 
             assert result.status_code == 200
@@ -982,9 +980,7 @@ class TestStorageFallback:
             mock_storage.return_value = mock_store
 
             result = run_async(
-                gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-20260111120000-abc123", {}, handler
-                )
+                gauntlet_handler.handle("/api/gauntlet/gauntlet-20260111120000-abc123", {}, handler)
             )
 
             assert result.status_code == 200

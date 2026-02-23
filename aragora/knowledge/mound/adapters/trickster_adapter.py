@@ -611,7 +611,10 @@ class TricksterAdapter(KnowledgeMoundAdapter):
         )
 
         logger.info(
-            "Trickster KM sync complete: synced=%s, skipped=%s, failed=%s", result.records_synced, result.records_skipped, result.records_failed
+            "Trickster KM sync complete: synced=%s, skipped=%s, failed=%s",
+            result.records_synced,
+            result.records_skipped,
+            result.records_failed,
         )
 
         return result

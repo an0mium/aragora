@@ -236,15 +236,15 @@ class OutcomeHandler:
         if not decision_id:
             return error_response("Missing decision ID in path", 400)
 
-        outcomes = [
-            o for o in _outcome_store.values() if o["decision_id"] == decision_id
-        ]
+        outcomes = [o for o in _outcome_store.values() if o["decision_id"] == decision_id]
 
-        return json_response({
-            "decision_id": decision_id,
-            "outcomes": outcomes,
-            "count": len(outcomes),
-        })
+        return json_response(
+            {
+                "decision_id": decision_id,
+                "outcomes": outcomes,
+                "count": len(outcomes),
+            }
+        )
 
     @handle_errors("outcome search")
     @rate_limit(requests_per_minute=60)
@@ -297,11 +297,13 @@ class OutcomeHandler:
             if len(results) >= limit:
                 break
 
-        return json_response({
-            "outcomes": results,
-            "count": len(results),
-            "query": query,
-        })
+        return json_response(
+            {
+                "outcomes": results,
+                "count": len(results),
+                "query": query,
+            }
+        )
 
     @handle_errors("impact analytics")
     @rate_limit(requests_per_minute=30)
@@ -313,12 +315,14 @@ class OutcomeHandler:
         Returns aggregate statistics grouped by outcome type.
         """
         if not _outcome_store:
-            return json_response({
-                "total_outcomes": 0,
-                "by_type": {},
-                "avg_impact_score": 0.0,
-                "top_lessons": [],
-            })
+            return json_response(
+                {
+                    "total_outcomes": 0,
+                    "by_type": {},
+                    "avg_impact_score": 0.0,
+                    "top_lessons": [],
+                }
+            )
 
         by_type: dict[str, dict[str, Any]] = {}
         all_scores: list[float] = []
@@ -347,17 +351,16 @@ class OutcomeHandler:
 
         # Top lessons by impact score
         lessons.sort(key=lambda x: x[0], reverse=True)
-        top_lessons = [
-            {"impact_score": score, "lesson": lesson}
-            for score, lesson in lessons[:10]
-        ]
+        top_lessons = [{"impact_score": score, "lesson": lesson} for score, lesson in lessons[:10]]
 
-        return json_response({
-            "total_outcomes": len(_outcome_store),
-            "by_type": by_type,
-            "avg_impact_score": avg_impact,
-            "top_lessons": top_lessons,
-        })
+        return json_response(
+            {
+                "total_outcomes": len(_outcome_store),
+                "by_type": by_type,
+                "avg_impact_score": avg_impact,
+                "top_lessons": top_lessons,
+            }
+        )
 
 
 __all__ = ["OutcomeHandler"]

@@ -124,7 +124,9 @@ def stability_marker(
                 logger.info("Using preview feature: %s", func_name)
             elif stability == Stability.DEPRECATED:
                 logger.warning(
-                    "Using deprecated feature: %s. Use %s instead.", func_name, alternative or 'alternative'
+                    "Using deprecated feature: %s. Use %s instead.",
+                    func_name,
+                    alternative or "alternative",
                 )
             return func(*args, **kwargs)
 

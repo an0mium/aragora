@@ -417,9 +417,7 @@ class TestPartialMessageFetchFailures:
             return MockEmail(id=mid)
 
         connector.get_message = AsyncMock(side_effect=get_msg)
-        prioritizer = _make_prioritizer(
-            [MockPriorityResult("ok-1"), MockPriorityResult("ok-2")]
-        )
+        prioritizer = _make_prioritizer([MockPriorityResult("ok-1"), MockPriorityResult("ok-2")])
         with (
             patch(PATCH_CONNECTOR, return_value=connector),
             patch(PATCH_PRIORITIZER, return_value=prioritizer),
@@ -717,9 +715,7 @@ class TestLimitTruncation:
     async def test_message_ids_truncated_to_limit(self):
         """Only the first 'limit' message_ids are fetched."""
         connector = _make_connector(message_ids=["m1", "m2", "m3", "m4", "m5"])
-        prioritizer = _make_prioritizer(
-            [MockPriorityResult("m1"), MockPriorityResult("m2")]
-        )
+        prioritizer = _make_prioritizer([MockPriorityResult("m1"), MockPriorityResult("m2")])
         with (
             patch(PATCH_CONNECTOR, return_value=connector),
             patch(PATCH_PRIORITIZER, return_value=prioritizer),

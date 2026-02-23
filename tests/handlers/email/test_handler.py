@@ -261,9 +261,7 @@ class TestPostRankInbox:
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
-            result = await handler.handle_post_rank_inbox(
-                {"emails": [{"id": "1"}], "limit": 10}
-            )
+            result = await handler.handle_post_rank_inbox({"emails": [{"id": "1"}], "limit": 10})
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -345,9 +343,7 @@ class TestPostFeedback:
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
-            result = await handler.handle_post_feedback(
-                {"email_id": "msg1", "action": "read"}
-            )
+            result = await handler.handle_post_feedback({"email_id": "msg1", "action": "read"})
         assert _status(result) == 400
         body = _body(result)
         assert body["error"] == "Feedback store unavailable"
@@ -421,9 +417,7 @@ class TestPostCategorize:
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
-            result = await handler.handle_post_categorize(
-                {"email": {"subject": "Meeting notes"}}
-            )
+            result = await handler.handle_post_categorize({"email": {"subject": "Meeting notes"}})
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["category"] == "work"
@@ -496,9 +490,7 @@ class TestPostCategorizeBatch:
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
-            result = await handler.handle_post_categorize_batch(
-                {"emails": [{"id": "1"}]}
-            )
+            result = await handler.handle_post_categorize_batch({"emails": [{"id": "1"}]})
         assert _status(result) == 400
 
 
@@ -526,9 +518,7 @@ class TestPostCategorizeApplyLabel:
     @pytest.mark.asyncio
     async def test_apply_label_missing_email_id(self, handler):
         """Missing email_id returns 400."""
-        result = await handler.handle_post_categorize_apply_label(
-            {"category": "work"}
-        )
+        result = await handler.handle_post_categorize_apply_label({"category": "work"})
         assert _status(result) == 400
         body = _body(result)
         assert "email_id" in body["error"]
@@ -536,9 +526,7 @@ class TestPostCategorizeApplyLabel:
     @pytest.mark.asyncio
     async def test_apply_label_missing_category(self, handler):
         """Missing category returns 400."""
-        result = await handler.handle_post_categorize_apply_label(
-            {"email_id": "msg1"}
-        )
+        result = await handler.handle_post_categorize_apply_label({"email_id": "msg1"})
         assert _status(result) == 400
         body = _body(result)
         assert "category" in body["error"]
@@ -890,7 +878,11 @@ class TestPostGmailOauthUrl:
             return_value=mock_result,
         ):
             result = await handler.handle_post_gmail_oauth_url(
-                {"redirect_uri": "https://app.example.com/callback", "state": "s1", "scopes": "full"}
+                {
+                    "redirect_uri": "https://app.example.com/callback",
+                    "state": "s1",
+                    "scopes": "full",
+                }
             )
         assert _status(result) == 200
 
@@ -924,9 +916,7 @@ class TestPostGmailOauthUrl:
             new_callable=AsyncMock,
             return_value=mock_result,
         ) as mock_fn:
-            await handler.handle_post_gmail_oauth_url(
-                {"redirect_uri": "https://example.com/cb"}
-            )
+            await handler.handle_post_gmail_oauth_url({"redirect_uri": "https://example.com/cb"})
         assert mock_fn.call_args[0][1] == ""  # state default
         assert mock_fn.call_args[0][2] == "readonly"  # scopes default
 
@@ -965,9 +955,7 @@ class TestPostGmailOauthCallback:
     @pytest.mark.asyncio
     async def test_oauth_callback_missing_redirect_uri(self, handler):
         """Missing redirect_uri returns 400."""
-        result = await handler.handle_post_gmail_oauth_callback(
-            {"code": "abc"}
-        )
+        result = await handler.handle_post_gmail_oauth_callback({"code": "abc"})
         assert _status(result) == 400
         body = _body(result)
         assert "redirect_uri" in body["error"]
@@ -1159,9 +1147,7 @@ class TestUserIdForwarding:
             new_callable=AsyncMock,
             return_value=mock_result,
         ) as mock_fn:
-            await handler_with_auth.handle_post_feedback(
-                {"email_id": "1", "action": "read"}
-            )
+            await handler_with_auth.handle_post_feedback({"email_id": "1", "action": "read"})
         assert mock_fn.call_args[0][2] == "user-42"
 
     @pytest.mark.asyncio

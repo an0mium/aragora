@@ -338,9 +338,7 @@ class TestCreateDefaultDelegation:
         assert len(h.strategies) == 0
 
     def test_custom_weights(self):
-        h = create_default_delegation(
-            content_weight=0.6, load_weight=0.2, expertise_weight=0.2
-        )
+        h = create_default_delegation(content_weight=0.6, load_weight=0.2, expertise_weight=0.2)
         assert len(h.strategies) == 3
         # Weights are normalized, so check relative ordering
         total = sum(w for _, w in h.strategies)

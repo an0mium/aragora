@@ -102,7 +102,7 @@ class PowerSamplingMixin:
 
         # Generate samples concurrently
         logger.debug(
-            "[%s] Power sampling: generating %s samples", getattr(self, 'name', 'agent'), n_samples
+            "[%s] Power sampling: generating %s samples", getattr(self, "name", "agent"), n_samples
         )
 
         async def generate_one() -> str | None:
@@ -111,10 +111,12 @@ class PowerSamplingMixin:
                     return await asyncio.wait_for(generator(prompt, context), timeout=timeout)
                 return await asyncio.wait_for(self._base_generate(prompt, context), timeout=timeout)
             except asyncio.TimeoutError:
-                logger.warning("[%s] Sample generation timed out", getattr(self, 'name', 'agent'))
+                logger.warning("[%s] Sample generation timed out", getattr(self, "name", "agent"))
                 return None
             except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-                logger.warning("[%s] Sample generation failed: %s", getattr(self, 'name', 'agent'), e)
+                logger.warning(
+                    "[%s] Sample generation failed: %s", getattr(self, "name", "agent"), e
+                )
                 return None
 
         tasks = [generate_one() for _ in range(n_samples)]
@@ -125,7 +127,8 @@ class PowerSamplingMixin:
 
         if not samples:
             logger.warning(
-                "[%s] All power samples failed, falling back to single generation", getattr(self, 'name', 'agent')
+                "[%s] All power samples failed, falling back to single generation",
+                getattr(self, "name", "agent"),
             )
             if generator:
                 return await generator(prompt, context)

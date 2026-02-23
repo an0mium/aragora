@@ -354,7 +354,9 @@ class TestComprehensiveScan:
             _patch_scanner("run_secrets_scan", []),
             _patch_scanner("run_dependency_scan", []),
         ):
-            req = _make_request("POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]})
+            req = _make_request(
+                "POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]}
+            )
             result = await handler.handle(req, self.PATH, "POST")
 
         assert _status(result) == 200
@@ -411,7 +413,9 @@ class TestComprehensiveScan:
             _patch_scanner("run_secrets_scan", []),
             _patch_scanner("run_dependency_scan", []),
         ):
-            req = _make_request("POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]})
+            req = _make_request(
+                "POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]}
+            )
             await handler.handle(req, self.PATH, "POST")
 
         findings = _get_tenant_findings("test-tenant")
@@ -425,7 +429,9 @@ class TestComprehensiveScan:
             _patch_scanner("run_secrets_scan", []),
             _patch_scanner("run_dependency_scan", []),
         ):
-            req = _make_request("POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]})
+            req = _make_request(
+                "POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]}
+            )
             await handler.handle(req, self.PATH, "POST")
 
         scans = _get_tenant_scans("test-tenant")
@@ -435,14 +441,22 @@ class TestComprehensiveScan:
     async def test_scan_severity_counts(self, handler):
         findings = [
             Finding(
-                id="f1", scan_id="s", scan_type=ScanType.SAST,
-                severity=FindingSeverity.CRITICAL, title="crit",
-                description="d", file_path="f.py",
+                id="f1",
+                scan_id="s",
+                scan_type=ScanType.SAST,
+                severity=FindingSeverity.CRITICAL,
+                title="crit",
+                description="d",
+                file_path="f.py",
             ),
             Finding(
-                id="f2", scan_id="s", scan_type=ScanType.SAST,
-                severity=FindingSeverity.HIGH, title="high",
-                description="d", file_path="f.py",
+                id="f2",
+                scan_id="s",
+                scan_type=ScanType.SAST,
+                severity=FindingSeverity.HIGH,
+                title="high",
+                description="d",
+                file_path="f.py",
             ),
         ]
         with (
@@ -451,7 +465,9 @@ class TestComprehensiveScan:
             _patch_scanner("run_secrets_scan", []),
             _patch_scanner("run_dependency_scan", []),
         ):
-            req = _make_request("POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]})
+            req = _make_request(
+                "POST", self.PATH, body={"target_path": ".", "scan_types": ["sast"]}
+            )
             result = await handler.handle(req, self.PATH, "POST")
 
         body = _body(result)
@@ -484,7 +500,9 @@ class TestComprehensiveScan:
             _patch_scanner("run_dependency_scan", []),
         ):
             mock_sast.side_effect = RuntimeError("boom")
-            req = _make_request("POST", self.PATH, body={"target_path": ".", "scan_types": ["sast", "bugs"]})
+            req = _make_request(
+                "POST", self.PATH, body={"target_path": ".", "scan_types": ["sast", "bugs"]}
+            )
             result = await handler.handle(req, self.PATH, "POST")
 
         # Should still succeed -- exceptions are captured by gather
@@ -517,7 +535,9 @@ class TestComprehensiveScan:
 
     @pytest.mark.asyncio
     async def test_scan_invalid_scan_types(self, handler):
-        req = _make_request("POST", self.PATH, body={"target_path": ".", "scan_types": ["invalid_type"]})
+        req = _make_request(
+            "POST", self.PATH, body={"target_path": ".", "scan_types": ["invalid_type"]}
+        )
         result = await handler.handle(req, self.PATH, "POST")
         assert _status(result) == 400
         assert "Invalid scan_types" in _body(result).get("error", "")
@@ -608,9 +628,13 @@ class TestBugScan:
     async def test_bug_scan_success(self, handler):
         findings = [
             Finding(
-                id="bug1", scan_id="s", scan_type=ScanType.BUGS,
-                severity=FindingSeverity.MEDIUM, title="Bug",
-                description="d", file_path="f.py",
+                id="bug1",
+                scan_id="s",
+                scan_type=ScanType.BUGS,
+                severity=FindingSeverity.MEDIUM,
+                title="Bug",
+                description="d",
+                file_path="f.py",
             )
         ]
         with _patch_scanner("run_bug_scan", findings):
@@ -1025,7 +1049,9 @@ class TestDismissFinding:
     async def test_dismiss_as_false_positive(self, handler):
         _seed_finding(finding_id="find_002")
         path = "/api/v1/codebase/findings/find_002/dismiss"
-        req = _make_request("POST", path, body={"reason": "not applicable", "status": "false_positive"})
+        req = _make_request(
+            "POST", path, body={"reason": "not applicable", "status": "false_positive"}
+        )
         result = await handler.handle(req, path, "POST")
 
         assert _status(result) == 200
@@ -1129,7 +1155,9 @@ class TestCreateIssue:
 
     @pytest.mark.asyncio
     async def test_create_issue_title_includes_severity(self, handler):
-        _seed_finding(finding_id="find_issue2", severity=FindingSeverity.CRITICAL, title="Critical Bug")
+        _seed_finding(
+            finding_id="find_issue2", severity=FindingSeverity.CRITICAL, title="Critical Bug"
+        )
         path = "/api/v1/codebase/findings/find_issue2/create-issue"
         req = _make_request("POST", path, body={"repo": "org/project"})
         result = await handler.handle(req, path, "POST")
@@ -1347,6 +1375,7 @@ class TestTenantIsolation:
 
         class BareRequest:
             """Request object with no tenant_id attribute."""
+
             pass
 
         req = BareRequest()
@@ -1495,12 +1524,14 @@ class TestHandlerRegistration:
     def test_get_handler_returns_instance(self):
         # Reset singleton
         import aragora.server.handlers.features.codebase_audit.handler as hmod
+
         hmod._handler_instance = None
         h = get_codebase_audit_handler()
         assert isinstance(h, CodebaseAuditHandler)
 
     def test_get_handler_is_singleton(self):
         import aragora.server.handlers.features.codebase_audit.handler as hmod
+
         hmod._handler_instance = None
         h1 = get_codebase_audit_handler()
         h2 = get_codebase_audit_handler()
@@ -1509,6 +1540,7 @@ class TestHandlerRegistration:
     @pytest.mark.asyncio
     async def test_handle_codebase_audit_delegates(self):
         import aragora.server.handlers.features.codebase_audit.handler as hmod
+
         hmod._handler_instance = None
 
         req = _make_request("GET", "/api/v1/codebase/demo")
@@ -1544,7 +1576,9 @@ class TestCircuitBreaker:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_comprehensive_scan_also_blocked_by_circuit_breaker(self, handler, _open_circuit_breaker):
+    async def test_comprehensive_scan_also_blocked_by_circuit_breaker(
+        self, handler, _open_circuit_breaker
+    ):
         req = _make_request("POST", "/api/v1/codebase/scan", body={"target_path": "."})
         result = await handler.handle(req, "/api/v1/codebase/scan", "POST")
         assert _status(result) == 503
@@ -1562,7 +1596,9 @@ class TestCircuitBreaker:
         assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_dependencies_scan_blocked_by_circuit_breaker(self, handler, _open_circuit_breaker):
+    async def test_dependencies_scan_blocked_by_circuit_breaker(
+        self, handler, _open_circuit_breaker
+    ):
         req = _make_request("POST", "/api/v1/codebase/dependencies", body={"target_path": "."})
         result = await handler.handle(req, "/api/v1/codebase/dependencies", "POST")
         assert _status(result) == 503
@@ -1599,9 +1635,13 @@ class TestScanErrorHandling:
         """One scanner failing should not prevent others from succeeding."""
         good_findings = [
             Finding(
-                id="good1", scan_id="s", scan_type=ScanType.BUGS,
-                severity=FindingSeverity.LOW, title="OK",
-                description="d", file_path="f.py",
+                id="good1",
+                scan_id="s",
+                scan_type=ScanType.BUGS,
+                severity=FindingSeverity.LOW,
+                title="OK",
+                description="d",
+                file_path="f.py",
             )
         ]
         with (
@@ -1634,7 +1674,9 @@ class TestValidationEdgeCases:
 
     @pytest.mark.asyncio
     async def test_scan_path_pipe_injection(self, handler):
-        req = _make_request("POST", "/api/v1/codebase/sast", body={"target_path": "src | cat /etc/shadow"})
+        req = _make_request(
+            "POST", "/api/v1/codebase/sast", body={"target_path": "src | cat /etc/shadow"}
+        )
         result = await handler.handle(req, "/api/v1/codebase/sast", "POST")
         assert _status(result) == 400
 
@@ -1695,9 +1737,13 @@ class TestRiskScore:
     def test_risk_score_with_critical_finding(self, handler):
         findings = [
             Finding(
-                id="f1", scan_id="s", scan_type=ScanType.SAST,
-                severity=FindingSeverity.CRITICAL, title="crit",
-                description="d", file_path="f.py",
+                id="f1",
+                scan_id="s",
+                scan_type=ScanType.SAST,
+                severity=FindingSeverity.CRITICAL,
+                title="crit",
+                description="d",
+                file_path="f.py",
                 confidence=1.0,
             )
         ]
@@ -1707,9 +1753,13 @@ class TestRiskScore:
     def test_risk_score_capped_at_100(self, handler):
         findings = [
             Finding(
-                id=f"f{i}", scan_id="s", scan_type=ScanType.SAST,
-                severity=FindingSeverity.CRITICAL, title=f"crit{i}",
-                description="d", file_path="f.py",
+                id=f"f{i}",
+                scan_id="s",
+                scan_type=ScanType.SAST,
+                severity=FindingSeverity.CRITICAL,
+                title=f"crit{i}",
+                description="d",
+                file_path="f.py",
                 confidence=1.0,
             )
             for i in range(20)
@@ -1720,9 +1770,13 @@ class TestRiskScore:
     def test_risk_score_weighted_by_confidence(self, handler):
         findings = [
             Finding(
-                id="f1", scan_id="s", scan_type=ScanType.SAST,
-                severity=FindingSeverity.HIGH, title="high",
-                description="d", file_path="f.py",
+                id="f1",
+                scan_id="s",
+                scan_type=ScanType.SAST,
+                severity=FindingSeverity.HIGH,
+                title="high",
+                description="d",
+                file_path="f.py",
                 confidence=0.5,
             )
         ]
@@ -1824,9 +1878,13 @@ class TestScanResultIntegrity:
     async def test_comprehensive_scan_result_has_severity_counts(self, handler):
         findings = [
             Finding(
-                id="f1", scan_id="s", scan_type=ScanType.SAST,
-                severity=FindingSeverity.HIGH, title="h",
-                description="d", file_path="f.py",
+                id="f1",
+                scan_id="s",
+                scan_type=ScanType.SAST,
+                severity=FindingSeverity.HIGH,
+                title="h",
+                description="d",
+                file_path="f.py",
             ),
         ]
         with (
@@ -1836,7 +1894,8 @@ class TestScanResultIntegrity:
             _patch_scanner("run_dependency_scan", []),
         ):
             req = _make_request(
-                "POST", "/api/v1/codebase/scan",
+                "POST",
+                "/api/v1/codebase/scan",
                 body={"target_path": ".", "scan_types": ["sast"]},
             )
             result = await handler.handle(req, "/api/v1/codebase/scan", "POST")

@@ -115,9 +115,7 @@ class TestContentModerationBlocking:
             with pytest.raises(ContentModerationError, match="Debate content blocked: spam"):
                 await arena._run_inner()
 
-            mock_check.assert_awaited_once_with(
-                env.task, context=env.context
-            )
+            mock_check.assert_awaited_once_with(env.task, context=env.context)
 
     @pytest.mark.asyncio
     async def test_allows_clean_content(self, env, agents, protocol_moderation_enabled):
@@ -322,8 +320,7 @@ class TestContentModerationRuntimeErrors:
         ):
             await arena._run_inner()
             assert any(
-                "Content moderation check failed" in record.message
-                for record in caplog.records
+                "Content moderation check failed" in record.message for record in caplog.records
             )
 
     @pytest.mark.asyncio

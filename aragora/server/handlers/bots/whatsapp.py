@@ -258,7 +258,9 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         except (json.JSONDecodeError, KeyError, TypeError, ValueError, RuntimeError, OSError) as e:
             logger.exception("Unexpected WhatsApp webhook error: %s", e)
             # Return 200 to prevent retries
-            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
+            return json_response(
+                {"status": "error", "message": "An error occurred processing the webhook"}
+            )
 
     def _process_messages(self, value: dict[str, Any]) -> None:
         """Process incoming WhatsApp messages."""
@@ -281,7 +283,9 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                     contact_name = contact.get("profile", {}).get("name", from_number)
                     break
 
-            logger.info("WhatsApp message from %s (%s): type=%s", contact_name, from_number, msg_type)
+            logger.info(
+                "WhatsApp message from %s (%s): type=%s", contact_name, from_number, msg_type
+            )
 
             if msg_type == "text":
                 text = message.get("text", {}).get("body", "")
@@ -625,7 +629,9 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             f"Debate ID: {debate_id[:8]}...",
         )
 
-        logger.info("Debate requested from WhatsApp %s (%s): %s", contact_name, to_number, topic[:100])
+        logger.info(
+            "Debate requested from WhatsApp %s (%s): %s", contact_name, to_number, topic[:100]
+        )
 
     def _start_debate_async(
         self,
@@ -720,7 +726,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 task = asyncio.create_task(route_via_decision_router())
                 task.add_done_callback(
                     lambda t: logger.error("WhatsApp debate routing failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
                 return debate_id
             except RuntimeError:
@@ -774,7 +781,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 task = asyncio.create_task(enqueue_job())
                 task.add_done_callback(
                     lambda t: logger.error("WhatsApp job enqueue failed: %s", t.exception())
-                    if not t.cancelled() and t.exception() else None
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
             except RuntimeError:
                 # No event loop, create one
@@ -838,7 +846,9 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
             except (RuntimeError, ImportError, ValueError, AttributeError) as e:
                 logger.error("Direct debate execution failed: %s", e)
-                self._send_message(to_number, "Sorry, an error occurred while processing your request.")
+                self._send_message(
+                    to_number, "Sorry, an error occurred while processing your request."
+                )
 
         # Run in background thread to not block webhook response
         thread = threading.Thread(target=run_in_thread, daemon=True)

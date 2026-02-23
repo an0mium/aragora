@@ -265,7 +265,8 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     if finish_reason == "MAX_TOKENS" and text.strip():
                         # Got partial content - use it but log warning
                         logger.warning(
-                            "Gemini response truncated at %s chars, using partial content", len(text)
+                            "Gemini response truncated at %s chars, using partial content",
+                            len(text),
                         )
                         return text
 

@@ -172,9 +172,11 @@ class TestCrossPollinationStatsHandler:
     @pytest.mark.asyncio
     async def test_get_success_basic(self):
         h = self._make()
-        mgr = _mock_manager(stats={
-            "s1": {"events_processed": 5, "events_failed": 0, "enabled": True},
-        })
+        mgr = _mock_manager(
+            stats={
+                "s1": {"events_processed": 5, "events_failed": 0, "enabled": True},
+            }
+        )
         with patch(_PATCH_MGR, return_value=mgr):
             result = await h.get.__wrapped__(h)
         assert _status(result) == 200
@@ -184,11 +186,13 @@ class TestCrossPollinationStatsHandler:
     @pytest.mark.asyncio
     async def test_get_summary_totals(self):
         h = self._make()
-        mgr = _mock_manager(stats={
-            "s1": {"events_processed": 10, "events_failed": 1, "enabled": True},
-            "s2": {"events_processed": 20, "events_failed": 2, "enabled": False},
-            "s3": {"events_processed": 5, "events_failed": 0, "enabled": True},
-        })
+        mgr = _mock_manager(
+            stats={
+                "s1": {"events_processed": 10, "events_failed": 1, "enabled": True},
+                "s2": {"events_processed": 20, "events_failed": 2, "enabled": False},
+                "s3": {"events_processed": 5, "events_failed": 0, "enabled": True},
+            }
+        )
         with patch(_PATCH_MGR, return_value=mgr):
             result = await h.get.__wrapped__(h)
         body = _body(result)
@@ -210,9 +214,11 @@ class TestCrossPollinationStatsHandler:
     @pytest.mark.asyncio
     async def test_get_subscribers_without_enabled_key(self):
         h = self._make()
-        mgr = _mock_manager(stats={
-            "s1": {"events_processed": 1, "events_failed": 0},
-        })
+        mgr = _mock_manager(
+            stats={
+                "s1": {"events_processed": 1, "events_failed": 0},
+            }
+        )
         with patch(_PATCH_MGR, return_value=mgr):
             result = await h.get.__wrapped__(h)
         body = _body(result)
@@ -681,8 +687,14 @@ class TestCrossPollinationKMHandler:
             result = await h.get.__wrapped__(h)
         body = _body(result)
         expected_adapters = [
-            "ranking", "rlm", "continuum", "belief",
-            "insights", "evidence", "consensus", "critique",
+            "ranking",
+            "rlm",
+            "continuum",
+            "belief",
+            "insights",
+            "evidence",
+            "consensus",
+            "critique",
         ]
         for adapter in expected_adapters:
             assert adapter in body["adapters"]
@@ -738,10 +750,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 8}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
@@ -763,10 +777,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "empty"
@@ -780,10 +796,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.ranking_adapter": None}), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.ranking_adapter": None}),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "unavailable"
@@ -797,10 +815,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_ranking = MagicMock()
         mock_ranking.get_stats.return_value = {"total_expertise_records": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.rlm_adapter": None}), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.rlm_adapter": None}),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "unavailable"
@@ -816,10 +836,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "error"
@@ -835,10 +857,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.side_effect = OSError("disk")
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "error"
@@ -854,9 +878,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "synced"
@@ -873,9 +899,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_ranking = MagicMock()
         mock_ranking.get_stats.return_value = {"total_expertise_records": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "synced"
@@ -892,10 +920,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch.dict("sys.modules", {"aragora.server.prometheus_cross_pollination": None}):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch.dict("sys.modules", {"aragora.server.prometheus_cross_pollination": None}),
+        ):
             result = await h.post.__wrapped__(h)
         assert _status(result) == 200
 
@@ -922,10 +952,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert isinstance(body["duration_ms"], (int, float))
@@ -942,10 +974,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert "domains" in body["results"]["ranking"]
@@ -962,10 +996,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "error"
@@ -981,10 +1017,12 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.side_effect = KeyError("k")
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "error"
@@ -1010,14 +1048,14 @@ class TestCrossPollinationKMStalenessHandler:
         h = self._make()
         mock_mound = MagicMock()
         mock_detector = MagicMock()
-        mock_detector.get_stale_nodes = AsyncMock(
-            return_value=["node1", "node2", "node3"]
-        )
+        mock_detector.get_stale_nodes = AsyncMock(return_value=["node1", "node2", "node3"])
 
-        with patch(_PATCH_MOUND, return_value=mock_mound), \
-             patch(_PATCH_STALENESS, return_value=mock_detector), \
-             patch(_PATCH_STALENESS_CFG), \
-             patch(_PATCH_RECORD_STALE):
+        with (
+            patch(_PATCH_MOUND, return_value=mock_mound),
+            patch(_PATCH_STALENESS, return_value=mock_detector),
+            patch(_PATCH_STALENESS_CFG),
+            patch(_PATCH_RECORD_STALE),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
@@ -1033,10 +1071,12 @@ class TestCrossPollinationKMStalenessHandler:
         mock_detector = MagicMock()
         mock_detector.get_stale_nodes = AsyncMock(return_value=[])
 
-        with patch(_PATCH_MOUND, return_value=mock_mound), \
-             patch(_PATCH_STALENESS, return_value=mock_detector), \
-             patch(_PATCH_STALENESS_CFG), \
-             patch(_PATCH_RECORD_STALE):
+        with (
+            patch(_PATCH_MOUND, return_value=mock_mound),
+            patch(_PATCH_STALENESS, return_value=mock_detector),
+            patch(_PATCH_STALENESS_CFG),
+            patch(_PATCH_RECORD_STALE),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["stale_nodes"] == 0
@@ -1048,10 +1088,12 @@ class TestCrossPollinationKMStalenessHandler:
         mock_detector = MagicMock()
         mock_detector.get_stale_nodes = AsyncMock(return_value=None)
 
-        with patch(_PATCH_MOUND, return_value=mock_mound), \
-             patch(_PATCH_STALENESS, return_value=mock_detector), \
-             patch(_PATCH_STALENESS_CFG), \
-             patch(_PATCH_RECORD_STALE):
+        with (
+            patch(_PATCH_MOUND, return_value=mock_mound),
+            patch(_PATCH_STALENESS, return_value=mock_detector),
+            patch(_PATCH_STALENESS_CFG),
+            patch(_PATCH_RECORD_STALE),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["stale_nodes"] == 0
@@ -1059,9 +1101,11 @@ class TestCrossPollinationKMStalenessHandler:
     @pytest.mark.asyncio
     async def test_post_mound_not_available(self):
         h = self._make()
-        with patch(_PATCH_MOUND, return_value=None), \
-             patch(_PATCH_STALENESS), \
-             patch(_PATCH_STALENESS_CFG):
+        with (
+            patch(_PATCH_MOUND, return_value=None),
+            patch(_PATCH_STALENESS),
+            patch(_PATCH_STALENESS_CFG),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
@@ -1071,10 +1115,13 @@ class TestCrossPollinationKMStalenessHandler:
     @pytest.mark.asyncio
     async def test_post_import_error_staleness_module(self):
         h = self._make()
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound": None,
-            "aragora.knowledge.mound.staleness": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound": None,
+                "aragora.knowledge.mound.staleness": None,
+            },
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
@@ -1088,10 +1135,12 @@ class TestCrossPollinationKMStalenessHandler:
         mock_detector = MagicMock()
         mock_detector.get_stale_nodes = AsyncMock(return_value=[])
 
-        with patch(_PATCH_MOUND, return_value=mock_mound), \
-             patch(_PATCH_STALENESS, return_value=mock_detector), \
-             patch(_PATCH_STALENESS_CFG), \
-             patch.dict("sys.modules", {"aragora.server.prometheus_cross_pollination": None}):
+        with (
+            patch(_PATCH_MOUND, return_value=mock_mound),
+            patch(_PATCH_STALENESS, return_value=mock_detector),
+            patch(_PATCH_STALENESS_CFG),
+            patch.dict("sys.modules", {"aragora.server.prometheus_cross_pollination": None}),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
@@ -1100,27 +1149,33 @@ class TestCrossPollinationKMStalenessHandler:
     async def test_post_value_error(self):
         h = self._make()
         # The outer try catches ValueError
-        with patch(_PATCH_MOUND, side_effect=ValueError("bad")), \
-             patch(_PATCH_STALENESS), \
-             patch(_PATCH_STALENESS_CFG):
+        with (
+            patch(_PATCH_MOUND, side_effect=ValueError("bad")),
+            patch(_PATCH_STALENESS),
+            patch(_PATCH_STALENESS_CFG),
+        ):
             result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_post_os_error(self):
         h = self._make()
-        with patch(_PATCH_MOUND, side_effect=OSError("disk")), \
-             patch(_PATCH_STALENESS), \
-             patch(_PATCH_STALENESS_CFG):
+        with (
+            patch(_PATCH_MOUND, side_effect=OSError("disk")),
+            patch(_PATCH_STALENESS),
+            patch(_PATCH_STALENESS_CFG),
+        ):
             result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_post_key_error(self):
         h = self._make()
-        with patch(_PATCH_MOUND, side_effect=KeyError("k")), \
-             patch(_PATCH_STALENESS), \
-             patch(_PATCH_STALENESS_CFG):
+        with (
+            patch(_PATCH_MOUND, side_effect=KeyError("k")),
+            patch(_PATCH_STALENESS),
+            patch(_PATCH_STALENESS_CFG),
+        ):
             result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
@@ -1494,10 +1549,12 @@ class TestEdgeCases:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(_PATCH_MGR, return_value=mgr), \
-             patch(_PATCH_RANKING, return_value=mock_ranking), \
-             patch(_PATCH_RLM, return_value=mock_rlm), \
-             patch(_PATCH_RECORD_SYNC):
+        with (
+            patch(_PATCH_MGR, return_value=mgr),
+            patch(_PATCH_RANKING, return_value=mock_ranking),
+            patch(_PATCH_RLM, return_value=mock_rlm),
+            patch(_PATCH_RECORD_SYNC),
+        ):
             result = await h.post.__wrapped__(h)
         assert _status(result) == 200
 
@@ -1525,14 +1582,14 @@ class TestEdgeCases:
         h = CrossPollinationKMStalenessHandler(server_context={})
         mock_mound = MagicMock()
         mock_detector = MagicMock()
-        mock_detector.get_stale_nodes = AsyncMock(
-            return_value=["a", "b"]
-        )
+        mock_detector.get_stale_nodes = AsyncMock(return_value=["a", "b"])
 
-        with patch(_PATCH_MOUND, return_value=mock_mound), \
-             patch(_PATCH_STALENESS, return_value=mock_detector), \
-             patch(_PATCH_STALENESS_CFG), \
-             patch(_PATCH_RECORD_STALE):
+        with (
+            patch(_PATCH_MOUND, return_value=mock_mound),
+            patch(_PATCH_STALENESS, return_value=mock_detector),
+            patch(_PATCH_STALENESS_CFG),
+            patch(_PATCH_RECORD_STALE),
+        ):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert "2" in body["message"]

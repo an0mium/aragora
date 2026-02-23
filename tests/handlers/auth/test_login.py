@@ -288,16 +288,12 @@ class TestRegisterPasswordValidation:
         assert _status(result) == 400
 
     def test_no_uppercase_returns_400(self, handler):
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "securep@ssw0rd1"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "securep@ssw0rd1"})
         result = handler._handle_register(http)
         assert _status(result) == 400
 
     def test_no_special_char_returns_400(self, handler):
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "SecurePassw0rd1"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "SecurePassw0rd1"})
         result = handler._handle_register(http)
         assert _status(result) == 400
 
@@ -372,9 +368,7 @@ class TestRegisterSuccess:
         get_mock = MagicMock(side_effect=original_get)
         store.get_user_by_email = get_mock
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": " USER@Example.COM ", "password": VALID_PASSWORD}
-        )
+        http = MockHTTPHandler(body={"email": " USER@Example.COM ", "password": VALID_PASSWORD})
         result = h._handle_register(http)
         assert _status(result) == 201
         get_mock.assert_called_with("user@example.com")
@@ -386,9 +380,7 @@ class TestRegisterSuccess:
         user = MockUser(email="alice@example.com", name="alice")
         store = SimpleUserStore(user=user, existing_email=False)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "alice@example.com", "password": VALID_PASSWORD}
-        )
+        http = MockHTTPHandler(body={"email": "alice@example.com", "password": VALID_PASSWORD})
         result = h._handle_register(http)
         assert _status(result) == 201
         assert len(store._created_users) == 1
@@ -445,9 +437,7 @@ class TestRegisterWithOrganization:
         user = MockUser(email="bob@example.com")
         store = SimpleUserStore(user=user, existing_email=False)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "bob@example.com", "password": VALID_PASSWORD}
-        )
+        http = MockHTTPHandler(body={"email": "bob@example.com", "password": VALID_PASSWORD})
         result = h._handle_register(http)
         assert _status(result) == 201
         body = _body(result)
@@ -571,12 +561,8 @@ class TestLoginLockout:
         store = SimpleUserStore(user=user, existing_email=True)
         store.is_account_locked = lambda email: (False, None, 2)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
-        with patch(
-            "aragora.billing.jwt_auth.create_token_pair", return_value=MockTokenPair()
-        ):
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
+        with patch("aragora.billing.jwt_auth.create_token_pair", return_value=MockTokenPair()):
             result = h._handle_login(http)
         assert _status(result) == 200
 
@@ -683,9 +669,7 @@ class TestLoginSuccess:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         assert _status(result) == 200
         body = _body(result)
@@ -698,9 +682,7 @@ class TestLoginSuccess:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         h._handle_login(http)
         assert len(_patch_lockout._resets) == 1
 
@@ -709,9 +691,7 @@ class TestLoginSuccess:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         h._handle_login(http)
         assert "user-001" in store._updated
         assert "last_login_at" in store._updated["user-001"]
@@ -723,9 +703,7 @@ class TestLoginSuccess:
         reset_mock = MagicMock(return_value=None)
         store.reset_failed_login_attempts = reset_mock
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         h._handle_login(http)
         reset_mock.assert_called_once()
 
@@ -753,9 +731,7 @@ class TestLoginWithOrganization:
         user = MockUser(email="alice@acme.com", org_id="org-001")
         store = SimpleUserStore(user=user, org=org, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "alice@acme.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "alice@acme.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         assert _status(result) == 200
         body = _body(result)
@@ -769,9 +745,7 @@ class TestLoginWithOrganization:
         user = MockUser(email="bob@example.com", org_id=None)
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "bob@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "bob@example.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         assert _status(result) == 200
         body = _body(result)
@@ -794,9 +768,7 @@ class TestLoginMFA:
         )
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "mfa@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "mfa@example.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         assert _status(result) == 200
         body = _body(result)
@@ -833,9 +805,7 @@ class TestLoginAudit:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         h._handle_login(http)
         mock_emit.assert_called_once()
         call_args = mock_emit.call_args[0]
@@ -848,9 +818,7 @@ class TestLoginAudit:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         h._handle_login(http)
         mock_audit.assert_called_once()
         assert mock_audit.call_args[1]["success"] is True
@@ -861,9 +829,7 @@ class TestLoginAudit:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "wrong"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "wrong"})
         h._handle_login(http)
         mock_audit.assert_called_once()
         assert mock_audit.call_args[1]["success"] is False
@@ -883,9 +849,7 @@ class TestLoginAudit:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "wrong"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "wrong"})
         h._handle_login(http)
         mock_sec.assert_called_once()
         assert "locked" in mock_sec.call_args[1]["reason"]
@@ -905,9 +869,7 @@ class TestLoginHandlerTracker:
         user = MockUser()
         store = SimpleUserStore(user=user, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "user@example.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "user@example.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         assert _status(result) == 200
         assert len(tracker._resets) == 1
@@ -923,9 +885,7 @@ class TestLoginOrgMembershipJoinedAt:
         org = MockOrg(id="org-001", name="Co")
         store = SimpleUserStore(user=user, org=org, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "alice@co.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "alice@co.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         body = _body(result)
         assert body["organizations"][0]["joined_at"] == ts.isoformat()
@@ -938,9 +898,7 @@ class TestLoginOrgMembershipJoinedAt:
         org = MockOrg(id="org-001", name="Co")
         store = SimpleUserStore(user=user, org=org, existing_email=True)
         h = AuthHandler(server_context={"user_store": store})
-        http = MockHTTPHandler(
-            body={"email": "bob@co.com", "password": "Correct-Password1!"}
-        )
+        http = MockHTTPHandler(body={"email": "bob@co.com", "password": "Correct-Password1!"})
         result = h._handle_login(http)
         body = _body(result)
         assert body["organizations"][0]["joined_at"] is None

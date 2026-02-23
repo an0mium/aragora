@@ -30,14 +30,16 @@ def _make_canvas(ideas: list[str], edges: list[dict] | None = None) -> dict:
     """Build a minimal idea canvas from a list of idea strings."""
     nodes = []
     for i, idea in enumerate(ideas):
-        nodes.append({
-            "id": f"idea-{i}",
-            "label": idea[:80],
-            "data": {
-                "idea_type": "concept",
-                "full_content": idea,
-            },
-        })
+        nodes.append(
+            {
+                "id": f"idea-{i}",
+                "label": idea[:80],
+                "data": {
+                    "idea_type": "concept",
+                    "full_content": idea,
+                },
+            }
+        )
     return {"nodes": nodes, "edges": edges or []}
 
 
@@ -188,11 +190,13 @@ class TestClusterNaming:
 
 class TestAgglomerativeClustering:
     def test_similar_ideas_form_cluster(self, extractor):
-        canvas = _make_canvas([
-            "optimize database query performance",
-            "improve database query speed",
-            "frontend react component design",
-        ])
+        canvas = _make_canvas(
+            [
+                "optimize database query performance",
+                "improve database query speed",
+                "frontend react component design",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.2)
         cluster_nodes = [
             n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
@@ -201,28 +205,30 @@ class TestAgglomerativeClustering:
         assert len(cluster_nodes) >= 1
 
     def test_all_similar_one_big_cluster(self, extractor):
-        canvas = _make_canvas([
-            "optimize database query performance tuning",
-            "improve database query performance speed",
-            "enhance database query performance optimization",
-        ])
+        canvas = _make_canvas(
+            [
+                "optimize database query performance tuning",
+                "improve database query performance speed",
+                "enhance database query performance optimization",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.1)
         cluster_nodes = [
             n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         assert len(cluster_nodes) == 1
         # Should have all 3 members
-        member_edges = [
-            e for e in result["edges"] if e["type"] == "member_of"
-        ]
+        member_edges = [e for e in result["edges"] if e["type"] == "member_of"]
         assert len(member_edges) == 3
 
     def test_all_different_no_clusters(self, extractor):
-        canvas = _make_canvas([
-            "optimize database queries",
-            "design frontend components",
-            "configure network security",
-        ])
+        canvas = _make_canvas(
+            [
+                "optimize database queries",
+                "design frontend components",
+                "configure network security",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.8)
         cluster_nodes = [
             n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
@@ -232,41 +238,38 @@ class TestAgglomerativeClustering:
 
     def test_threshold_behavior(self, extractor):
         """Higher threshold means fewer/smaller clusters."""
-        canvas = _make_canvas([
-            "database query optimization for performance",
-            "database index optimization for speed",
-            "frontend design patterns for react",
-            "frontend component architecture for react",
-        ])
-        low_thresh = extractor.cluster_ideas_semantically(
-            canvas, similarity_threshold=0.1
+        canvas = _make_canvas(
+            [
+                "database query optimization for performance",
+                "database index optimization for speed",
+                "frontend design patterns for react",
+                "frontend component architecture for react",
+            ]
         )
-        high_thresh = extractor.cluster_ideas_semantically(
-            canvas, similarity_threshold=0.5
-        )
+        low_thresh = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.1)
+        high_thresh = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.5)
         low_clusters = [
-            n for n in low_thresh["nodes"]
-            if n.get("data", {}).get("idea_type") == "cluster"
+            n for n in low_thresh["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         high_clusters = [
-            n for n in high_thresh["nodes"]
-            if n.get("data", {}).get("idea_type") == "cluster"
+            n for n in high_thresh["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         assert len(low_clusters) >= len(high_clusters)
 
     def test_min_cluster_size(self, extractor):
         """min_cluster_size=3 should require at least 3 members."""
-        canvas = _make_canvas([
-            "database query performance optimization",
-            "database query speed improvement",
-            "frontend react design",
-        ])
+        canvas = _make_canvas(
+            [
+                "database query performance optimization",
+                "database query speed improvement",
+                "frontend react design",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(
             canvas, similarity_threshold=0.2, min_cluster_size=3
         )
         cluster_nodes = [
-            n for n in result["nodes"]
-            if n.get("data", {}).get("idea_type") == "cluster"
+            n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         # Only 2 DB ideas, so no cluster with min_cluster_size=3
         assert len(cluster_nodes) == 0
@@ -295,14 +298,15 @@ class TestClusterIdeasSemantically:
         assert len(result["nodes"]) >= original_node_count
 
     def test_cluster_nodes_have_correct_data(self, extractor):
-        canvas = _make_canvas([
-            "optimize database query performance",
-            "improve database query speed",
-        ])
+        canvas = _make_canvas(
+            [
+                "optimize database query performance",
+                "improve database query speed",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.1)
         cluster_nodes = [
-            n for n in result["nodes"]
-            if n.get("data", {}).get("idea_type") == "cluster"
+            n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         if cluster_nodes:
             cn = cluster_nodes[0]
@@ -311,18 +315,18 @@ class TestClusterIdeasSemantically:
             assert cn["id"].startswith("cluster-")
 
     def test_membership_edges_created(self, extractor):
-        canvas = _make_canvas([
-            "optimize database query performance",
-            "improve database query speed",
-        ])
+        canvas = _make_canvas(
+            [
+                "optimize database query performance",
+                "improve database query speed",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.1)
         member_edges = [e for e in result["edges"] if e["type"] == "member_of"]
         if member_edges:
             # All membership edges should point to a cluster node
             cluster_ids = {
-                n["id"]
-                for n in result["nodes"]
-                if n.get("data", {}).get("idea_type") == "cluster"
+                n["id"] for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
             }
             for edge in member_edges:
                 assert edge["target"] in cluster_ids
@@ -351,20 +355,20 @@ class TestClusteringEdgeCases:
         canvas = _make_canvas(["single idea about databases"])
         result = extractor.cluster_ideas_semantically(canvas)
         cluster_nodes = [
-            n for n in result["nodes"]
-            if n.get("data", {}).get("idea_type") == "cluster"
+            n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         assert len(cluster_nodes) == 0  # Can't cluster a single idea
 
     def test_two_identical_ideas(self, extractor):
-        canvas = _make_canvas([
-            "optimize database performance",
-            "optimize database performance",
-        ])
+        canvas = _make_canvas(
+            [
+                "optimize database performance",
+                "optimize database performance",
+            ]
+        )
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.1)
         cluster_nodes = [
-            n for n in result["nodes"]
-            if n.get("data", {}).get("idea_type") == "cluster"
+            n for n in result["nodes"] if n.get("data", {}).get("idea_type") == "cluster"
         ]
         assert len(cluster_nodes) == 1
 
@@ -374,10 +378,13 @@ class TestClusteringEdgeCases:
 
     def test_nodes_without_label(self, extractor):
         """Nodes missing labels should still work (empty tokens)."""
-        canvas = {"nodes": [
-            {"id": "n1", "data": {"full_content": "database performance"}},
-            {"id": "n2", "data": {"full_content": "database optimization"}},
-        ], "edges": []}
+        canvas = {
+            "nodes": [
+                {"id": "n1", "data": {"full_content": "database performance"}},
+                {"id": "n2", "data": {"full_content": "database optimization"}},
+            ],
+            "edges": [],
+        }
         result = extractor.cluster_ideas_semantically(canvas, similarity_threshold=0.1)
         # Should not crash
         assert len(result["nodes"]) >= 2

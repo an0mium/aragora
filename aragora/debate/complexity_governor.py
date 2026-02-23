@@ -353,7 +353,10 @@ class AdaptiveComplexityGovernor:
 
         self._evaluate_stress_level()
         logger.warning(
-            "governor_timeout agent=%s timeout_s=%s consecutive=%s", agent_name, timeout_seconds, self.consecutive_failures
+            "governor_timeout agent=%s timeout_s=%s consecutive=%s",
+            agent_name,
+            timeout_seconds,
+            self.consecutive_failures,
         )
 
     def record_round_complete(

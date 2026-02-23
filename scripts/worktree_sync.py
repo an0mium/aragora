@@ -88,10 +88,10 @@ def parse_worktree_list() -> list[tuple[str, str]]:
     for line in result.stdout.split("\n"):
         line = line.strip()
         if line.startswith("worktree "):
-            current_path = line[len("worktree "):]
+            current_path = line[len("worktree ") :]
             current_branch = None
         elif line.startswith("branch refs/heads/"):
-            current_branch = line[len("branch refs/heads/"):]
+            current_branch = line[len("branch refs/heads/") :]
         elif line == "" and current_path and current_branch:
             # Skip the main worktree (the repo root itself)
             if current_branch not in ("main", "master"):
@@ -106,15 +106,13 @@ def parse_worktree_list() -> list[tuple[str, str]]:
     return worktrees
 
 
-def get_worktree_status(
-    path: str, branch: str, base_branch: str
-) -> WorktreeStatus:
+def get_worktree_status(path: str, branch: str, base_branch: str) -> WorktreeStatus:
     """Get detailed status for a worktree."""
     # Extract track name from branch
     track = branch
     for prefix in ("dev/", "work/", "sprint/"):
         if track.startswith(prefix):
-            track = track[len(prefix):]
+            track = track[len(prefix) :]
             break
     # Strip timestamp suffixes
     parts = track.rsplit("-", 1)
@@ -129,7 +127,9 @@ def get_worktree_status(
 
     # Get ahead/behind counts
     result = run_git(
-        "rev-list", "--left-right", "--count",
+        "rev-list",
+        "--left-right",
+        "--count",
         f"{base_branch}...{branch}",
     )
     if result.returncode == 0:
@@ -145,7 +145,10 @@ def get_worktree_status(
 
     # Get last commit info
     result = run_git(
-        "log", "-1", "--format=%aI|%s", branch,
+        "log",
+        "-1",
+        "--format=%aI|%s",
+        branch,
     )
     if result.returncode == 0 and "|" in result.stdout:
         parts = result.stdout.strip().split("|", 1)
@@ -184,11 +187,13 @@ def detect_file_overlaps(worktrees: list[WorktreeStatus]) -> list[FileOverlap]:
             else:
                 severity = "low"
 
-            overlaps.append(FileOverlap(
-                file_path=file_path,
-                branches=branches,
-                severity=severity,
-            ))
+            overlaps.append(
+                FileOverlap(
+                    file_path=file_path,
+                    branches=branches,
+                    severity=severity,
+                )
+            )
 
     # Sort by severity (high first)
     severity_order = {"high": 0, "medium": 1, "low": 2}
@@ -207,10 +212,7 @@ def generate_recommendations(
     behind_branches = [wt for wt in worktrees if wt.behind > 5]
     if behind_branches:
         names = ", ".join(wt.branch for wt in behind_branches)
-        recs.append(
-            f"Rebase stale worktrees: {names} "
-            f"(5+ commits behind main)"
-        )
+        recs.append(f"Rebase stale worktrees: {names} (5+ commits behind main)")
 
     # Check for high-severity overlaps
     high_overlaps = [o for o in overlaps if o.severity == "high"]
@@ -225,9 +227,7 @@ def generate_recommendations(
     diverged = [wt for wt in worktrees if wt.status == "diverged"]
     if diverged:
         names = ", ".join(wt.branch for wt in diverged)
-        recs.append(
-            f"Diverged branches need rebase: {names}"
-        )
+        recs.append(f"Diverged branches need rebase: {names}")
 
     # Suggest merge order (least risky first)
     ready = [wt for wt in worktrees if wt.ahead > 0 and wt.status == "ok"]
@@ -283,9 +283,7 @@ def build_report(base_branch: str = "main") -> SyncReport:
     report.overlaps = detect_file_overlaps(report.worktrees)
 
     # Generate recommendations
-    report.recommendations = generate_recommendations(
-        report.worktrees, report.overlaps
-    )
+    report.recommendations = generate_recommendations(report.worktrees, report.overlaps)
 
     return report
 
@@ -306,8 +304,8 @@ def print_report(report: SyncReport) -> None:
     print("  " + "-" * 72)
     for wt in report.worktrees:
         status_color = {
-            "ok": "\033[32m",        # green
-            "behind": "\033[33m",    # yellow
+            "ok": "\033[32m",  # green
+            "behind": "\033[33m",  # yellow
             "diverged": "\033[31m",  # red
         }.get(wt.status, "")
         reset = "\033[0m"
@@ -352,19 +350,23 @@ def main() -> int:
         description="Worktree sync coordinator — keeps parallel worktrees in sync"
     )
     parser.add_argument(
-        "--rebase", action="store_true",
+        "--rebase",
+        action="store_true",
         help="Rebase all behind/diverged worktrees onto main",
     )
     parser.add_argument(
-        "--conflicts", action="store_true",
+        "--conflicts",
+        action="store_true",
         help="Only check for file overlap conflicts",
     )
     parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Output machine-readable JSON",
     )
     parser.add_argument(
-        "--base-branch", default="main",
+        "--base-branch",
+        default="main",
         help="Base branch to compare against (default: main)",
     )
     args = parser.parse_args()

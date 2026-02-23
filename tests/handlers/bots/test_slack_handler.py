@@ -227,24 +227,18 @@ class TestMethodEnforcement:
     """Tests for POST-only webhook endpoints."""
 
     def test_get_commands_returns_405(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/commands", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/commands", command="GET")
         result = handler.handle("/api/v1/bots/slack/commands", {}, mock_handler)
         assert _status(result) == 405
         assert "Method not allowed" in _body(result).get("error", "")
 
     def test_get_events_returns_405(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/events", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/events", command="GET")
         result = handler.handle("/api/v1/bots/slack/events", {}, mock_handler)
         assert _status(result) == 405
 
     def test_get_interactions_returns_405(self, handler):
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/interactions", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/interactions", command="GET")
         result = handler.handle("/api/v1/bots/slack/interactions", {}, mock_handler)
         assert _status(result) == 405
 
@@ -334,9 +328,7 @@ class TestWebhookWithoutSecret:
 
     def test_commands_without_secret_returns_503(self, handler_no_secret, monkeypatch):
         monkeypatch.delenv("SLACK_SIGNING_SECRET", raising=False)
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/commands", command="POST"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/commands", command="POST")
         result = handler_no_secret.handle("/api/v1/bots/slack/commands", {}, mock_handler)
         assert _status(result) == 503
         assert "not configured" in _body(result).get("error", "").lower()
@@ -352,9 +344,7 @@ class TestPathNormalization:
 
     def test_integrations_path_normalizes(self, handler):
         """The /api/integrations/slack/ path should normalize to /api/v1/bots/slack/."""
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/status", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/status", command="GET")
         result = handler.handle("/api/integrations/slack/status", {}, mock_handler)
         # Normalized to /api/v1/bots/slack/status so should return status
         assert result is not None
@@ -362,9 +352,7 @@ class TestPathNormalization:
 
     def test_v1_integrations_path_normalizes(self, handler):
         """The /api/v1/integrations/slack/ path should also normalize."""
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/status", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/status", command="GET")
         result = handler.handle("/api/v1/integrations/slack/status", {}, mock_handler)
         assert result is not None
         assert _status(result) == 200
@@ -380,9 +368,7 @@ class TestUnhandledPaths:
 
     def test_unknown_slack_subpath_returns_none(self, handler):
         """An unknown subpath under /api/v1/bots/slack/ should return None."""
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/unknown", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/unknown", command="GET")
         result = handler.handle("/api/v1/bots/slack/unknown", {}, mock_handler)
         assert result is None
 
@@ -683,8 +669,6 @@ class TestInteractivePath:
 
     def test_interactive_alias_requires_post(self, handler):
         """The /interactive alias should also require POST."""
-        mock_handler = MockHTTPHandler(
-            path="/api/v1/bots/slack/interactive", command="GET"
-        )
+        mock_handler = MockHTTPHandler(path="/api/v1/bots/slack/interactive", command="GET")
         result = handler.handle("/api/v1/bots/slack/interactive", {}, mock_handler)
         assert _status(result) == 405

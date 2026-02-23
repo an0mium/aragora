@@ -101,7 +101,9 @@ def _detect_features() -> dict[str, bool]:
     features["knowledge_mound"] = importlib.util.find_spec("aragora.knowledge.mound") is not None
     features["memory"] = importlib.util.find_spec("aragora.memory.continuum") is not None
     features["pulse"] = importlib.util.find_spec("aragora.pulse.ingestor") is not None
-    features["explainability"] = importlib.util.find_spec("aragora.explainability.builder") is not None
+    features["explainability"] = (
+        importlib.util.find_spec("aragora.explainability.builder") is not None
+    )
     features["workflows"] = importlib.util.find_spec("aragora.workflow.engine") is not None
     features["rbac"] = importlib.util.find_spec("aragora.rbac.checker") is not None
     features["compliance"] = importlib.util.find_spec("aragora.compliance.framework") is not None
@@ -138,9 +140,7 @@ class ReadinessCheckHandler(BaseHandler):
 
     @handle_errors("readiness check")
     @log_request("readiness check")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET /api/v1/readiness."""
         if not self.can_handle(path):
             return None
@@ -164,9 +164,7 @@ class ReadinessCheckHandler(BaseHandler):
                 missing_optional.append(env_var)
 
         # ready_to_debate = at least one required provider is configured
-        any_required_available = any(
-            providers[name]["available"] for name in _REQUIRED_PROVIDERS
-        )
+        any_required_available = any(providers[name]["available"] for name in _REQUIRED_PROVIDERS)
         ready_to_debate = any_required_available
 
         # -- Storage --

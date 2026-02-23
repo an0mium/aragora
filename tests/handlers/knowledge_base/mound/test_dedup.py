@@ -77,9 +77,7 @@ class MockDuplicateCluster:
 
     cluster_id: str = "cluster-001"
     primary_node_id: str = "primary-001"
-    duplicates: list[MockDuplicate] = field(
-        default_factory=lambda: [MockDuplicate()]
-    )
+    duplicates: list[MockDuplicate] = field(default_factory=lambda: [MockDuplicate()])
     avg_similarity: float = 0.92
     recommended_action: str = "merge"
 
@@ -103,9 +101,7 @@ class MockMergeResult:
     """Mock merge result returned by mound.merge_duplicates."""
 
     kept_node_id: str = "primary-001"
-    merged_node_ids: list[str] = field(
-        default_factory=lambda: ["dup-001", "dup-002"]
-    )
+    merged_node_ids: list[str] = field(default_factory=lambda: ["dup-001", "dup-002"])
     archived_count: int = 2
     updated_relationships: int = 5
 
@@ -304,7 +300,10 @@ class TestGetDuplicateClusters:
         """Multiple clusters are correctly serialized."""
         clusters = [
             MockDuplicateCluster(cluster_id="c1", duplicates=[MockDuplicate(node_id="d1")]),
-            MockDuplicateCluster(cluster_id="c2", duplicates=[MockDuplicate(node_id="d2"), MockDuplicate(node_id="d3")]),
+            MockDuplicateCluster(
+                cluster_id="c2",
+                duplicates=[MockDuplicate(node_id="d2"), MockDuplicate(node_id="d3")],
+            ),
             MockDuplicateCluster(cluster_id="c3", duplicates=[]),
         ]
         mock_mound.find_duplicates = AsyncMock(return_value=clusters)
@@ -528,8 +527,11 @@ class TestGetDedupReport:
         body = _body(result)
 
         expected_fields = [
-            "workspace_id", "generated_at", "total_nodes_analyzed",
-            "duplicate_clusters_found", "estimated_reduction_percent",
+            "workspace_id",
+            "generated_at",
+            "total_nodes_analyzed",
+            "duplicate_clusters_found",
+            "estimated_reduction_percent",
             "cluster_count",
         ]
         for f in expected_fields:
@@ -762,8 +764,11 @@ class TestMergeDuplicateCluster:
         body = _body(result)
 
         expected_fields = [
-            "success", "kept_node_id", "merged_node_ids",
-            "archived_count", "updated_relationships",
+            "success",
+            "kept_node_id",
+            "merged_node_ids",
+            "archived_count",
+            "updated_relationships",
         ]
         for f in expected_fields:
             assert f in body, f"Missing field: {f}"
@@ -889,7 +894,12 @@ class TestAutoMergeExactDuplicates:
     async def test_default_dry_run_true(self, handler, mock_mound):
         """Default dry_run is True."""
         mock_mound.auto_merge_exact_duplicates = AsyncMock(
-            return_value={"dry_run": True, "duplicates_found": 0, "merges_performed": 0, "details": []}
+            return_value={
+                "dry_run": True,
+                "duplicates_found": 0,
+                "merges_performed": 0,
+                "details": [],
+            }
         )
         await handler.auto_merge_exact_duplicates(workspace_id="ws-1")
         mock_mound.auto_merge_exact_duplicates.assert_awaited_once_with(
@@ -962,14 +972,22 @@ class TestAutoMergeExactDuplicates:
     async def test_response_fields_present(self, handler, mock_mound):
         """All expected response fields are present."""
         mock_mound.auto_merge_exact_duplicates = AsyncMock(
-            return_value={"dry_run": True, "duplicates_found": 5, "merges_performed": 0, "details": []}
+            return_value={
+                "dry_run": True,
+                "duplicates_found": 5,
+                "merges_performed": 0,
+                "details": [],
+            }
         )
         result = await handler.auto_merge_exact_duplicates(workspace_id="ws-1")
         body = _body(result)
 
         expected_fields = [
-            "workspace_id", "dry_run", "duplicates_found",
-            "merges_performed", "details",
+            "workspace_id",
+            "dry_run",
+            "duplicates_found",
+            "merges_performed",
+            "details",
         ]
         for f in expected_fields:
             assert f in body, f"Missing field: {f}"
@@ -977,9 +995,7 @@ class TestAutoMergeExactDuplicates:
     @pytest.mark.asyncio
     async def test_workspace_id_in_response(self, handler, mock_mound):
         """Response includes the requested workspace_id."""
-        mock_mound.auto_merge_exact_duplicates = AsyncMock(
-            return_value={"dry_run": True}
-        )
+        mock_mound.auto_merge_exact_duplicates = AsyncMock(return_value={"dry_run": True})
         result = await handler.auto_merge_exact_duplicates(workspace_id="my-ws")
         body = _body(result)
         assert body["workspace_id"] == "my-ws"
@@ -987,9 +1003,7 @@ class TestAutoMergeExactDuplicates:
     @pytest.mark.asyncio
     async def test_result_missing_keys_use_defaults(self, handler, mock_mound):
         """Result dict missing keys uses defaults from .get()."""
-        mock_mound.auto_merge_exact_duplicates = AsyncMock(
-            return_value={}
-        )
+        mock_mound.auto_merge_exact_duplicates = AsyncMock(return_value={})
         result = await handler.auto_merge_exact_duplicates(workspace_id="ws-1")
         body = _body(result)
         assert _status(result) == 200
@@ -1002,7 +1016,12 @@ class TestAutoMergeExactDuplicates:
     async def test_dry_run_from_result_dict(self, handler, mock_mound):
         """dry_run value comes from the result dict if present."""
         mock_mound.auto_merge_exact_duplicates = AsyncMock(
-            return_value={"dry_run": False, "duplicates_found": 3, "merges_performed": 3, "details": []}
+            return_value={
+                "dry_run": False,
+                "duplicates_found": 3,
+                "merges_performed": 3,
+                "details": [],
+            }
         )
         result = await handler.auto_merge_exact_duplicates(
             workspace_id="ws-1",
@@ -1047,10 +1066,7 @@ class TestAutoMergeExactDuplicates:
     @pytest.mark.asyncio
     async def test_details_with_multiple_entries(self, handler, mock_mound):
         """Multiple detail entries are serialized correctly."""
-        details = [
-            {"cluster_id": f"c-{i}", "nodes": [f"n-{i}a", f"n-{i}b"]}
-            for i in range(5)
-        ]
+        details = [{"cluster_id": f"c-{i}", "nodes": [f"n-{i}a", f"n-{i}b"]} for i in range(5)]
         mock_mound.auto_merge_exact_duplicates = AsyncMock(
             return_value={
                 "dry_run": False,

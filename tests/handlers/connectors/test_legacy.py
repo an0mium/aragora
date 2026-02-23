@@ -507,9 +507,7 @@ class TestCreateConnectorFactory:
         with patch.object(legacy_mod, "GitHubEnterpriseConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("github", {})
-        mock_cls.assert_called_once_with(
-            repo="", token=None, include_prs=True, include_issues=True
-        )
+        mock_cls.assert_called_once_with(repo="", token=None, include_prs=True, include_issues=True)
 
     def test_create_s3_connector(self):
         with patch.object(legacy_mod, "S3Connector") as mock_cls:
@@ -540,9 +538,7 @@ class TestCreateConnectorFactory:
     def test_create_postgres_connector(self):
         with patch.object(legacy_mod, "PostgreSQLConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
-            _create_connector(
-                "postgres", {"database": "mydb", "host": "db.local", "port": 5433}
-            )
+            _create_connector("postgres", {"database": "mydb", "host": "db.local", "port": 5433})
         mock_cls.assert_called_once_with(
             host="db.local",
             port=5433,
@@ -793,9 +789,7 @@ class TestHandleListConnectors:
 
     @pytest.mark.asyncio
     async def test_list_resolves_tenant_from_auth(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(
-            legacy_mod, "_resolve_tenant_id", return_value="org-001"
-        ) as mock_resolve:
+        with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001") as mock_resolve:
             await handle_list_connectors(tenant_id="default", auth_context=mock_auth_ctx)
         mock_resolve.assert_called_once_with(mock_auth_ctx, "default")
         mock_scheduler.list_jobs.assert_called_once_with(tenant_id="org-001")
@@ -972,9 +966,7 @@ class TestHandleCreateConnector:
             mock_conn.connector_id = "s3_bucket"
             mock_factory.return_value = mock_conn
 
-            result = await handle_create_connector(
-                "s3", {"bucket": "test"}, schedule=schedule_dict
-            )
+            result = await handle_create_connector("s3", {"bucket": "test"}, schedule=schedule_dict)
 
         assert result["status"] == "registered"
         mock_scheduler.register_connector.assert_called_once()
@@ -1070,9 +1062,7 @@ class TestHandleCreateConnector:
             mock_conn.connector_id = "test"
             mock_factory.return_value = mock_conn
 
-            await handle_create_connector(
-                "s3", {"bucket": "b"}, auth_context=mock_auth_ctx
-            )
+            await handle_create_connector("s3", {"bucket": "b"}, auth_context=mock_auth_ctx)
 
         assert mock_audit.call_args.kwargs["tenant_id"] == "org-001"
 
@@ -1123,9 +1113,7 @@ class TestHandleUpdateConnector:
         mock_scheduler.get_job.side_effect = lambda jid: job
 
         with patch.object(legacy_mod, "audit_data") as mock_audit:
-            await handle_update_connector(
-                "test-conn", {"schedule": {}}, auth_context=mock_auth_ctx
-            )
+            await handle_update_connector("test-conn", {"schedule": {}}, auth_context=mock_auth_ctx)
 
         mock_audit.assert_called_once()
         assert mock_audit.call_args.kwargs["action"] == "update"
@@ -1209,14 +1197,10 @@ class TestHandleDeleteConnector:
             patch.object(legacy_mod, "_resolve_tenant_id", return_value="default"),
             patch.object(legacy_mod, "audit_data") as mock_audit,
         ):
-            result = await handle_delete_connector(
-                "test-conn", auth_context=mock_auth_ctx
-            )
+            result = await handle_delete_connector("test-conn", auth_context=mock_auth_ctx)
 
         assert result is True
-        mock_scheduler.unregister_connector.assert_called_once_with(
-            "test-conn", "default"
-        )
+        mock_scheduler.unregister_connector.assert_called_once_with("test-conn", "default")
         mock_audit.assert_called_once()
         assert mock_audit.call_args.kwargs["action"] == "delete"
 
@@ -1228,9 +1212,7 @@ class TestHandleDeleteConnector:
         ):
             await handle_delete_connector("test-conn", auth_context=mock_auth_ctx)
 
-        mock_scheduler.unregister_connector.assert_called_once_with(
-            "test-conn", "org-001"
-        )
+        mock_scheduler.unregister_connector.assert_called_once_with("test-conn", "org-001")
 
     @pytest.mark.asyncio
     async def test_delete_system_user_when_no_auth(self, mock_scheduler):
@@ -1337,9 +1319,7 @@ class TestHandleTriggerSync:
     @pytest.mark.asyncio
     async def test_trigger_sync_with_tenant(self, mock_scheduler, mock_auth_ctx):
         with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001"):
-            await handle_trigger_sync(
-                "test-conn", tenant_id="default", auth_context=mock_auth_ctx
-            )
+            await handle_trigger_sync("test-conn", tenant_id="default", auth_context=mock_auth_ctx)
 
         mock_scheduler.trigger_sync.assert_awaited_once_with(
             "test-conn", tenant_id="org-001", full_sync=False
@@ -1499,9 +1479,7 @@ class TestHandleGetSyncHistory:
 
     @pytest.mark.asyncio
     async def test_get_history_multiple_entries(self, mock_scheduler):
-        entries = [
-            _make_history(history_id=f"h{i}", items_synced=i * 10) for i in range(5)
-        ]
+        entries = [_make_history(history_id=f"h{i}", items_synced=i * 10) for i in range(5)]
         mock_scheduler.get_history.return_value = entries
 
         result = await handle_get_sync_history()
@@ -1535,9 +1513,7 @@ class TestHandleWebhook:
         with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001"):
             await handle_webhook("test-conn", {}, auth_context=mock_auth_ctx)
 
-        mock_scheduler.handle_webhook.assert_awaited_once_with(
-            "test-conn", {}, tenant_id="org-001"
-        )
+        mock_scheduler.handle_webhook.assert_awaited_once_with("test-conn", {}, tenant_id="org-001")
 
     @pytest.mark.asyncio
     async def test_webhook_permission_denied(self, mock_scheduler):
@@ -1718,9 +1694,7 @@ class TestHandleListWorkflowTemplates:
             {"id": "t2", "category": "legal", "name": "Due Diligence"},
             {"id": "t3", "category": "finance", "name": "Budget Approval"},
         ]
-        with patch(
-            "aragora.workflow.templates.list_templates", return_value=templates
-        ):
+        with patch("aragora.workflow.templates.list_templates", return_value=templates):
             result = await handle_list_workflow_templates()
 
         assert result["total"] == 3
@@ -1730,18 +1704,14 @@ class TestHandleListWorkflowTemplates:
     @pytest.mark.asyncio
     async def test_list_templates_with_category_filter(self):
         templates = [{"id": "t1", "category": "legal", "name": "Contract"}]
-        with patch(
-            "aragora.workflow.templates.list_templates", return_value=templates
-        ):
+        with patch("aragora.workflow.templates.list_templates", return_value=templates):
             result = await handle_list_workflow_templates(category="legal")
 
         assert result["total"] == 1
 
     @pytest.mark.asyncio
     async def test_list_templates_empty(self):
-        with patch(
-            "aragora.workflow.templates.list_templates", return_value=[]
-        ):
+        with patch("aragora.workflow.templates.list_templates", return_value=[]):
             result = await handle_list_workflow_templates()
 
         assert result["total"] == 0
@@ -1765,9 +1735,7 @@ class TestHandleListWorkflowTemplates:
             {"id": "t2", "category": "legal", "name": "B"},
             {"id": "t3", "category": "legal", "name": "C"},
         ]
-        with patch(
-            "aragora.workflow.templates.list_templates", return_value=templates
-        ):
+        with patch("aragora.workflow.templates.list_templates", return_value=templates):
             result = await handle_list_workflow_templates()
 
         assert result["categories"] == ["legal"]
@@ -1784,9 +1752,7 @@ class TestHandleGetWorkflowTemplate:
     @pytest.mark.asyncio
     async def test_get_template_found(self):
         template_data = {"name": "Contract Review", "steps": []}
-        with patch(
-            "aragora.workflow.templates.get_template", return_value=template_data
-        ):
+        with patch("aragora.workflow.templates.get_template", return_value=template_data):
             result = await handle_get_workflow_template("legal_contract_review")
 
         assert result is not None
@@ -1795,9 +1761,7 @@ class TestHandleGetWorkflowTemplate:
 
     @pytest.mark.asyncio
     async def test_get_template_not_found(self):
-        with patch(
-            "aragora.workflow.templates.get_template", return_value=None
-        ):
+        with patch("aragora.workflow.templates.get_template", return_value=None):
             result = await handle_get_workflow_template("nonexistent")
 
         assert result is None
@@ -1833,9 +1797,7 @@ class TestHandleMongoDBAggregate:
     @pytest.mark.asyncio
     async def test_aggregate_success(self, mock_scheduler):
         mock_connector = MagicMock(spec=MongoDBConnector)
-        mock_connector.aggregate = AsyncMock(
-            return_value=[{"_id": "dept-1", "count": 5}]
-        )
+        mock_connector.aggregate = AsyncMock(return_value=[{"_id": "dept-1", "count": 5}])
 
         with _patch_registry(get_connector_return=mock_connector):
             result = await handle_mongodb_aggregate(
@@ -2131,9 +2093,7 @@ class TestHandleConnectorHealth:
         assert "running_syncs" not in result
 
     @pytest.mark.asyncio
-    async def test_health_authenticated_with_permission(
-        self, mock_scheduler, mock_auth_ctx
-    ):
+    async def test_health_authenticated_with_permission(self, mock_scheduler, mock_auth_ctx):
         """Authenticated users with permission get detailed stats."""
         mock_scheduler.get_stats.return_value = {
             "total_jobs": 5,
@@ -2148,9 +2108,7 @@ class TestHandleConnectorHealth:
         assert result["success_rate"] == 0.95
 
     @pytest.mark.asyncio
-    async def test_health_authenticated_no_permission(
-        self, mock_scheduler, mock_auth_ctx
-    ):
+    async def test_health_authenticated_no_permission(self, mock_scheduler, mock_auth_ctx):
         """Authenticated users without permission still get basic health."""
         mock_scheduler.get_stats.return_value = {
             "total_jobs": 5,
@@ -2180,9 +2138,7 @@ class TestHandleConnectorHealth:
         assert result["scheduler_running"] is False
 
     @pytest.mark.asyncio
-    async def test_health_rbac_unavailable_production(
-        self, mock_scheduler, mock_auth_ctx
-    ):
+    async def test_health_rbac_unavailable_production(self, mock_scheduler, mock_auth_ctx):
         """In production without RBAC, health returns error status."""
         with (
             patch.object(legacy_mod, "RBAC_AVAILABLE", False),
@@ -2205,9 +2161,7 @@ class TestHandleConnectorHealth:
         assert result["status"] == "healthy"
 
     @pytest.mark.asyncio
-    async def test_health_detailed_includes_total_connectors(
-        self, mock_scheduler, mock_auth_ctx
-    ):
+    async def test_health_detailed_includes_total_connectors(self, mock_scheduler, mock_auth_ctx):
         mock_scheduler.get_stats.return_value = {
             "total_jobs": 10,
             "running_syncs": 2,
@@ -2263,35 +2217,23 @@ class TestCrossCuttingConcerns:
                 assert result["status"] == "registered"
 
     @pytest.mark.asyncio
-    async def test_permission_check_uses_connectors_execute_for_sync(
-        self, mock_scheduler
-    ):
+    async def test_permission_check_uses_connectors_execute_for_sync(self, mock_scheduler):
         """Triggering sync checks connectors:execute permission."""
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             await handle_trigger_sync("test-conn")
-        mock_perm.assert_called_once_with(
-            None, "connectors:execute", "test-conn"
-        )
+        mock_perm.assert_called_once_with(None, "connectors:execute", "test-conn")
 
     @pytest.mark.asyncio
-    async def test_permission_check_uses_connectors_read_for_list(
-        self, mock_scheduler
-    ):
+    async def test_permission_check_uses_connectors_read_for_list(self, mock_scheduler):
         """Listing connectors checks connectors:read permission."""
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             await handle_list_connectors()
         mock_perm.assert_called_once_with(None, "connectors:read")
 
     @pytest.mark.asyncio
     async def test_permission_check_uses_connectors_create(self, mock_scheduler):
         """Creating connectors checks connectors:create permission."""
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             with patch.object(legacy_mod, "_create_connector") as mock_factory:
                 mock_conn = MagicMock()
                 mock_conn.connector_id = "test"
@@ -2304,41 +2246,29 @@ class TestCrossCuttingConcerns:
         """Updating connectors checks connectors:update permission."""
         job = _make_sync_job()
         mock_scheduler.get_job.side_effect = lambda jid: job
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             await handle_update_connector("test-conn", {})
         mock_perm.assert_called_once_with(None, "connectors:update", "test-conn")
 
     @pytest.mark.asyncio
     async def test_permission_check_uses_connectors_delete(self, mock_scheduler):
         """Deleting connectors checks connectors:delete permission."""
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             await handle_delete_connector("test-conn")
         mock_perm.assert_called_once_with(None, "connectors:delete", "test-conn")
 
     @pytest.mark.asyncio
     async def test_permission_check_uses_workflows_read(self):
         """Listing workflow templates checks workflows:read."""
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
-            with patch(
-                "aragora.workflow.templates.list_templates", return_value=[]
-            ):
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
+            with patch("aragora.workflow.templates.list_templates", return_value=[]):
                 await handle_list_workflow_templates()
         mock_perm.assert_called_once_with(None, "workflows:read")
 
     @pytest.mark.asyncio
-    async def test_permission_check_uses_connectors_execute_for_webhook(
-        self, mock_scheduler
-    ):
+    async def test_permission_check_uses_connectors_execute_for_webhook(self, mock_scheduler):
         """Webhook checks connectors:execute permission."""
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             await handle_webhook("test-conn", {})
         mock_perm.assert_called_once_with(None, "connectors:execute", "test-conn")
 
@@ -2346,9 +2276,7 @@ class TestCrossCuttingConcerns:
     async def test_permission_check_uses_connectors_execute_for_scheduler_start(
         self, mock_scheduler
     ):
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             with patch.object(legacy_mod, "audit_admin"):
                 await handle_start_scheduler()
         mock_perm.assert_called_once_with(None, "connectors:execute")
@@ -2357,9 +2285,7 @@ class TestCrossCuttingConcerns:
     async def test_permission_check_uses_connectors_execute_for_scheduler_stop(
         self, mock_scheduler
     ):
-        with patch.object(
-            legacy_mod, "_check_permission", return_value=None
-        ) as mock_perm:
+        with patch.object(legacy_mod, "_check_permission", return_value=None) as mock_perm:
             with patch.object(legacy_mod, "audit_admin"):
                 await handle_stop_scheduler()
         mock_perm.assert_called_once_with(None, "connectors:execute")

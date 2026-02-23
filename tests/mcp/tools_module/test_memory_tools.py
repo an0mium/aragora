@@ -11,7 +11,6 @@ from aragora.mcp.tools_module.memory import (
 )
 
 
-
 class TestQueryMemoryTool:
     """Tests for query_memory_tool."""
 

@@ -329,7 +329,10 @@ class FederationScheduler:
 
         self._schedules[schedule_id] = schedule
         logger.info(
-            "Added federation schedule '%s' for region %s, next run: %s", config.name, config.region_id, next_run
+            "Added federation schedule '%s' for region %s, next run: %s",
+            config.name,
+            config.region_id,
+            next_run,
         )
 
         return schedule
@@ -487,7 +490,9 @@ class FederationScheduler:
 
         try:
             logger.info(
-                "Starting federation sync: %s (%s)", schedule.config.name, schedule.config.sync_mode.value
+                "Starting federation sync: %s (%s)",
+                schedule.config.name,
+                schedule.config.sync_mode.value,
             )
 
             if self._sync_callback:
@@ -519,7 +524,9 @@ class FederationScheduler:
             schedule.last_result = {"status": "success", **result}
 
             logger.info(
-                "Federation sync completed: %s pushed, %s pulled", run.items_pushed, run.items_pulled
+                "Federation sync completed: %s pushed, %s pulled",
+                run.items_pushed,
+                run.items_pulled,
             )
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
@@ -538,7 +545,9 @@ class FederationScheduler:
             if schedule.consecutive_errors >= schedule.config.max_retries:
                 schedule.status = ScheduleStatus.ERROR
                 logger.warning(
-                    "Schedule %s disabled after %s consecutive errors", schedule.config.name, schedule.consecutive_errors
+                    "Schedule %s disabled after %s consecutive errors",
+                    schedule.config.name,
+                    schedule.consecutive_errors,
                 )
         finally:
             if schedule.status == ScheduleStatus.RUNNING:

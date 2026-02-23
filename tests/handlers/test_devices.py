@@ -276,10 +276,12 @@ class TestHealth:
     @pytest.mark.asyncio
     async def test_health_success(self, handler):
         mock_registry = MagicMock()
-        mock_registry.get_health = AsyncMock(return_value={
-            "status": "healthy",
-            "connectors": {"fcm": "ok"},
-        })
+        mock_registry.get_health = AsyncMock(
+            return_value={
+                "status": "healthy",
+                "connectors": {"fcm": "ok"},
+            }
+        )
 
         with patch(
             "aragora.connectors.devices.registry.get_registry",
@@ -328,9 +330,7 @@ class TestHealth:
     async def test_health_via_route(self, handler):
         """Test health through the _route_request path."""
         mock_handler = MockHTTPHandler()
-        result = await handler._route_request(
-            "/api/devices/health", "GET", {}, mock_handler, None
-        )
+        result = await handler._route_request("/api/devices/health", "GET", {}, mock_handler, None)
         # Will hit the _get_health path, which may raise ImportError
         # (device connectors not installed), but should still return a result
         assert result is not None
@@ -347,9 +347,7 @@ class TestRegisterDevice:
 
     @pytest.mark.asyncio
     async def test_register_missing_device_type(self, handler):
-        result = await handler._register_device(
-            {"push_token": "abc"}, _mock_auth_context(), None
-        )
+        result = await handler._register_device({"push_token": "abc"}, _mock_auth_context(), None)
         assert _status(result) == 400
         assert "Missing required" in _body(result)["error"]
 
@@ -452,10 +450,13 @@ class TestRegisterDevice:
         mock_module.DeviceRegistration = MagicMock()
         mock_module.get_registry = MagicMock()
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.devices": mock_module,
-            "aragora.connectors.devices.registry": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.devices": mock_module,
+                "aragora.connectors.devices.registry": MagicMock(),
+            },
+        ):
             with patch(
                 "aragora.server.handlers.devices.DeviceType",
                 mock_device_type,
@@ -496,18 +497,22 @@ class TestRegisterDevice:
 
         platform_map = {mock_android: "fcm"}
 
-        with patch(
-            "aragora.server.handlers.devices.DeviceRegistration",
-            MagicMock(),
-            create=True,
-        ), patch(
-            "aragora.server.handlers.devices.DeviceType",
-            mock_device_type_enum,
-            create=True,
-        ), patch(
-            "aragora.connectors.devices.registry.get_registry",
-            return_value=mock_registry,
-            create=True,
+        with (
+            patch(
+                "aragora.server.handlers.devices.DeviceRegistration",
+                MagicMock(),
+                create=True,
+            ),
+            patch(
+                "aragora.server.handlers.devices.DeviceType",
+                mock_device_type_enum,
+                create=True,
+            ),
+            patch(
+                "aragora.connectors.devices.registry.get_registry",
+                return_value=mock_registry,
+                create=True,
+            ),
         ):
             # Mock the platform_map lookup
             with patch.object(
@@ -585,20 +590,28 @@ class TestRegisterDevice:
     @pytest.mark.asyncio
     async def test_register_rate_limit(self, handler):
         """Rate limiting blocks excess registration requests."""
-        mock_handler = MockHTTPHandler(body={
-            "device_type": "android",
-            "push_token": "abc",
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "device_type": "android",
+                "push_token": "abc",
+            }
+        )
         path = "/api/devices/register"
 
         # Exhaust rate limit (10 per minute for registration)
         for _ in range(10):
             _registration_limiter.is_allowed("127.0.0.1")
 
-        result = await handler._route_request(path, "POST", {}, mock_handler, {
-            "device_type": "android",
-            "push_token": "abc",
-        })
+        result = await handler._route_request(
+            path,
+            "POST",
+            {},
+            mock_handler,
+            {
+                "device_type": "android",
+                "push_token": "abc",
+            },
+        )
         assert _status(result) == 429
         assert "Rate limit" in _body(result)["error"]
 
@@ -1019,10 +1032,13 @@ class TestNotifyDevice:
         mock_store = MagicMock()
         mock_store.get_device_session.return_value = None
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports():
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(),
+        ):
             result = await handler._notify_device(
                 "nonexistent",
                 {"title": "Hi", "body": "Hello"},
@@ -1039,10 +1055,13 @@ class TestNotifyDevice:
 
         auth_ctx = _mock_auth_context(user_id="different-user", roles={"member"})
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports():
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(),
+        ):
             result = await handler._notify_device(
                 "dev-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1066,10 +1085,13 @@ class TestNotifyDevice:
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_device(
                 "dev-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1098,10 +1120,13 @@ class TestNotifyDevice:
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             await handler._notify_device(
                 "dev-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1129,10 +1154,13 @@ class TestNotifyDevice:
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             await handler._notify_device(
                 "dev-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1157,10 +1185,13 @@ class TestNotifyDevice:
 
         mock_registry = MagicMock()
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_device(
                 "dev-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1180,17 +1211,18 @@ class TestNotifyDevice:
         mock_store.get_device_session.return_value = mock_device
 
         mock_connector = AsyncMock()
-        mock_connector.send_notification = AsyncMock(
-            side_effect=ConnectionError("timeout")
-        )
+        mock_connector.send_notification = AsyncMock(side_effect=ConnectionError("timeout"))
 
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_device(
                 "dev-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1226,7 +1258,10 @@ class TestNotifyDevice:
             _notification_limiter.is_allowed("127.0.0.1")
 
         result = await handler._route_request(
-            path, "POST", {}, mock_handler,
+            path,
+            "POST",
+            {},
+            mock_handler,
             {"title": "Hi", "body": "Hello"},
         )
         assert _status(result) == 429
@@ -1287,10 +1322,13 @@ class TestNotifyUser:
 
         auth_ctx = _mock_auth_context(user_id="admin-user", roles={"admin"})
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports():
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(),
+        ):
             result = await handler._notify_user(
                 "other-user",
                 {"title": "Hi", "body": "Hello"},
@@ -1305,10 +1343,13 @@ class TestNotifyUser:
         mock_store = MagicMock()
         mock_store.find_devices_by_user.return_value = []
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports():
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(),
+        ):
             result = await handler._notify_user(
                 "test-user-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1336,10 +1377,13 @@ class TestNotifyUser:
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_user(
                 "test-user-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1365,17 +1409,18 @@ class TestNotifyUser:
         fail_result = MockNotificationResult(success=False, error="delivery failed")
 
         mock_connector = AsyncMock()
-        mock_connector.send_notification = AsyncMock(
-            side_effect=[success_result, fail_result]
-        )
+        mock_connector.send_notification = AsyncMock(side_effect=[success_result, fail_result])
 
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_user(
                 "test-user-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1404,10 +1449,13 @@ class TestNotifyUser:
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_user(
                 "test-user-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1433,10 +1481,13 @@ class TestNotifyUser:
 
         mock_registry = MagicMock()
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_user(
                 "test-user-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1458,17 +1509,18 @@ class TestNotifyUser:
         mock_store.find_devices_by_user.return_value = devices
 
         mock_connector = AsyncMock()
-        mock_connector.send_notification = AsyncMock(
-            side_effect=ConnectionError("failed")
-        )
+        mock_connector.send_notification = AsyncMock(side_effect=ConnectionError("failed"))
 
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_connector
 
-        with patch(
-            "aragora.server.session_store.get_session_store",
-            return_value=mock_store,
-        ), _patch_device_connector_imports(registry=mock_registry):
+        with (
+            patch(
+                "aragora.server.session_store.get_session_store",
+                return_value=mock_store,
+            ),
+            _patch_device_connector_imports(registry=mock_registry),
+        ):
             result = await handler._notify_user(
                 "test-user-001",
                 {"title": "Hi", "body": "Hello"},
@@ -1504,7 +1556,10 @@ class TestNotifyUser:
             _notification_limiter.is_allowed("127.0.0.1")
 
         result = await handler._route_request(
-            path, "POST", {}, mock_handler,
+            path,
+            "POST",
+            {},
+            mock_handler,
             {"title": "Hi", "body": "Hello"},
         )
         assert _status(result) == 429
@@ -1607,9 +1662,14 @@ class TestAlexaWebhook:
         # Route through _route_request - should not try to get auth context
         # (Alexa webhook is checked before auth)
         with patch.object(handler, "_handle_alexa_webhook", new_callable=AsyncMock) as mock_method:
-            mock_method.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_method.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
-                "/api/devices/alexa/webhook", "POST", {}, mock_handler,
+                "/api/devices/alexa/webhook",
+                "POST",
+                {},
+                mock_handler,
                 {"request": {"type": "LaunchRequest"}},
             )
             mock_method.assert_called_once()
@@ -1683,10 +1743,12 @@ class TestGoogleWebhook:
 
         body = {
             "requestId": "req-2",
-            "inputs": [{
-                "intent": "action.devices.QUERY",
-                "payload": {"devices": [{"id": "d1"}]},
-            }],
+            "inputs": [
+                {
+                    "intent": "action.devices.QUERY",
+                    "payload": {"devices": [{"id": "d1"}]},
+                }
+            ],
         }
 
         with _patch_google_imports(registry=mock_registry, connector=mock_connector):
@@ -1705,10 +1767,12 @@ class TestGoogleWebhook:
 
         body = {
             "requestId": "req-3",
-            "inputs": [{
-                "intent": "action.devices.EXECUTE",
-                "payload": {"commands": [{"devices": [{"id": "d1"}]}]},
-            }],
+            "inputs": [
+                {
+                    "intent": "action.devices.EXECUTE",
+                    "payload": {"commands": [{"devices": [{"id": "d1"}]}]},
+                }
+            ],
         }
 
         with _patch_google_imports(registry=mock_registry, connector=mock_connector):
@@ -1772,9 +1836,7 @@ class TestGoogleWebhook:
         mock_registry.get.return_value = mock_connector
 
         with _patch_google_imports(registry=mock_registry, connector=mock_connector):
-            result = await handler._handle_google_webhook(
-                {"inputs": []}, MockHTTPHandler()
-            )
+            result = await handler._handle_google_webhook({"inputs": []}, MockHTTPHandler())
 
         assert _status(result) == 200
         mock_connector.parse_google_request.assert_called_once()
@@ -1796,9 +1858,14 @@ class TestGoogleWebhook:
     async def test_google_no_auth_required(self, handler):
         """Google webhook path does not require auth context."""
         with patch.object(handler, "_handle_google_webhook", new_callable=AsyncMock) as mock_method:
-            mock_method.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_method.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
-                "/api/devices/google/webhook", "POST", {}, MockHTTPHandler(),
+                "/api/devices/google/webhook",
+                "POST",
+                {},
+                MockHTTPHandler(),
                 {},
             )
             mock_method.assert_called_once()
@@ -1874,9 +1941,7 @@ class TestRouteRequest:
 
     @pytest.mark.asyncio
     async def test_unmatched_segments_returns_none(self, handler):
-        result = await handler._route_request(
-            "/api/devices", "GET", {}, MockHTTPHandler(), None
-        )
+        result = await handler._route_request("/api/devices", "GET", {}, MockHTTPHandler(), None)
         # Only 2 segments: ["api", "devices"] - no device_id
         # The segment check on line 225-226 extracts segments[2] if len>=3
         # With exactly ["api", "devices"], device_id is None -> returns None
@@ -1885,7 +1950,9 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_health(self, handler):
         with patch.object(handler, "_get_health", new_callable=AsyncMock) as mock_health:
-            mock_health.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_health.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
                 "/api/devices/health", "GET", {}, MockHTTPHandler(), None
             )
@@ -1894,9 +1961,14 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_register(self, handler):
         with patch.object(handler, "_register_device", new_callable=AsyncMock) as mock_reg:
-            mock_reg.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_reg.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
-                "/api/devices/register", "POST", {}, MockHTTPHandler(),
+                "/api/devices/register",
+                "POST",
+                {},
+                MockHTTPHandler(),
                 {"device_type": "android", "push_token": "abc"},
             )
             mock_reg.assert_called_once()
@@ -1904,7 +1976,9 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_get_device(self, handler):
         with patch.object(handler, "_get_device", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_get.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
                 "/api/devices/dev-001", "GET", {}, MockHTTPHandler(), None
             )
@@ -1914,7 +1988,9 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_delete_device(self, handler):
         with patch.object(handler, "_unregister_device", new_callable=AsyncMock) as mock_del:
-            mock_del.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_del.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
                 "/api/devices/dev-001", "DELETE", {}, MockHTTPHandler(), None
             )
@@ -1923,9 +1999,14 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_notify_device(self, handler):
         with patch.object(handler, "_notify_device", new_callable=AsyncMock) as mock_notify:
-            mock_notify.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_notify.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
-                "/api/devices/dev-001/notify", "POST", {}, MockHTTPHandler(),
+                "/api/devices/dev-001/notify",
+                "POST",
+                {},
+                MockHTTPHandler(),
                 {"title": "Hi", "body": "Hello"},
             )
             mock_notify.assert_called_once()
@@ -1933,7 +2014,9 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_list_user_devices(self, handler):
         with patch.object(handler, "_list_user_devices", new_callable=AsyncMock) as mock_list:
-            mock_list.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_list.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
                 "/api/devices/user/user-001", "GET", {}, MockHTTPHandler(), None
             )
@@ -1942,9 +2025,14 @@ class TestRouteRequest:
     @pytest.mark.asyncio
     async def test_route_to_notify_user(self, handler):
         with patch.object(handler, "_notify_user", new_callable=AsyncMock) as mock_notify:
-            mock_notify.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_notify.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
-                "/api/devices/user/user-001/notify", "POST", {}, MockHTTPHandler(),
+                "/api/devices/user/user-001/notify",
+                "POST",
+                {},
+                MockHTTPHandler(),
                 {"title": "Hi", "body": "Hello"},
             )
             mock_notify.assert_called_once()
@@ -1953,7 +2041,10 @@ class TestRouteRequest:
     async def test_route_user_wrong_method(self, handler):
         """POST to /api/devices/user/{user_id} without /notify returns None."""
         result = await handler._route_request(
-            "/api/devices/user/user-001", "POST", {}, MockHTTPHandler(),
+            "/api/devices/user/user-001",
+            "POST",
+            {},
+            MockHTTPHandler(),
             {},
         )
         assert result is None
@@ -1962,7 +2053,10 @@ class TestRouteRequest:
     async def test_route_user_invalid_suffix(self, handler):
         """Invalid suffix after user/{user_id}/ returns None."""
         result = await handler._route_request(
-            "/api/devices/user/user-001/invalid", "POST", {}, MockHTTPHandler(),
+            "/api/devices/user/user-001/invalid",
+            "POST",
+            {},
+            MockHTTPHandler(),
             {},
         )
         assert result is None
@@ -1971,7 +2065,9 @@ class TestRouteRequest:
     async def test_versioned_path_strips_prefix(self, handler):
         """Versioned paths like /api/v1/devices/health should work."""
         with patch.object(handler, "_get_health", new_callable=AsyncMock) as mock_health:
-            mock_health.return_value = MagicMock(status_code=200, body=b'{}', content_type="application/json", headers={})
+            mock_health.return_value = MagicMock(
+                status_code=200, body=b"{}", content_type="application/json", headers={}
+            )
             result = await handler._route_request(
                 "/api/v1/devices/health", "GET", {}, MockHTTPHandler(), None
             )
@@ -2095,10 +2191,13 @@ async def _register_with_mocks(
     mock_registry_module = MagicMock()
     mock_registry_module.get_registry = mock_get_registry
 
-    with patch.dict("sys.modules", {
-        "aragora.connectors.devices": mock_devices_module,
-        "aragora.connectors.devices.registry": mock_registry_module,
-    }):
+    with patch.dict(
+        "sys.modules",
+        {
+            "aragora.connectors.devices": mock_devices_module,
+            "aragora.connectors.devices.registry": mock_registry_module,
+        },
+    ):
         result = await handler._register_device(body, _mock_auth_context(), None)
 
     return result
@@ -2142,10 +2241,13 @@ def _patch_device_connector_imports(registry=None):
     class _PatchCtx:
         def __enter__(self_ctx):
             self_ctx._patches = [
-                patch.dict("sys.modules", {
-                    "aragora.connectors.devices": mock_devices_module,
-                    "aragora.connectors.devices.registry": mock_registry_module,
-                }),
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.connectors.devices": mock_devices_module,
+                        "aragora.connectors.devices.registry": mock_registry_module,
+                    },
+                ),
             ]
             for p in self_ctx._patches:
                 p.__enter__()
@@ -2173,20 +2275,33 @@ def _patch_alexa_imports(registry=None, connector=None, isinstance_returns=True)
     class _PatchCtx:
         def __enter__(self_ctx):
             self_ctx._patches = [
-                patch.dict("sys.modules", {
-                    "aragora.connectors.devices.alexa": mock_alexa_module,
-                    "aragora.connectors.devices.registry": mock_registry_module,
-                }),
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.connectors.devices.alexa": mock_alexa_module,
+                        "aragora.connectors.devices.registry": mock_registry_module,
+                    },
+                ),
             ]
             if not isinstance_returns:
                 # Patch isinstance to return False for the connector type check
                 self_ctx._patches.append(
-                    patch("aragora.server.handlers.devices.isinstance", side_effect=lambda obj, cls: False if cls is mock_alexa_connector_class else builtins_isinstance(obj, cls))
+                    patch(
+                        "aragora.server.handlers.devices.isinstance",
+                        side_effect=lambda obj, cls: False
+                        if cls is mock_alexa_connector_class
+                        else builtins_isinstance(obj, cls),
+                    )
                 )
             elif connector is not None:
                 # Make isinstance return True for the connector
                 self_ctx._patches.append(
-                    patch("aragora.server.handlers.devices.isinstance", side_effect=lambda obj, cls: True if obj is connector else builtins_isinstance(obj, cls))
+                    patch(
+                        "aragora.server.handlers.devices.isinstance",
+                        side_effect=lambda obj, cls: True
+                        if obj is connector
+                        else builtins_isinstance(obj, cls),
+                    )
                 )
 
             for p in self_ctx._patches:
@@ -2215,18 +2330,31 @@ def _patch_google_imports(registry=None, connector=None, isinstance_returns=True
     class _PatchCtx:
         def __enter__(self_ctx):
             self_ctx._patches = [
-                patch.dict("sys.modules", {
-                    "aragora.connectors.devices.google_home": mock_google_module,
-                    "aragora.connectors.devices.registry": mock_registry_module,
-                }),
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.connectors.devices.google_home": mock_google_module,
+                        "aragora.connectors.devices.registry": mock_registry_module,
+                    },
+                ),
             ]
             if not isinstance_returns:
                 self_ctx._patches.append(
-                    patch("aragora.server.handlers.devices.isinstance", side_effect=lambda obj, cls: False if cls is mock_google_connector_class else builtins_isinstance(obj, cls))
+                    patch(
+                        "aragora.server.handlers.devices.isinstance",
+                        side_effect=lambda obj, cls: False
+                        if cls is mock_google_connector_class
+                        else builtins_isinstance(obj, cls),
+                    )
                 )
             elif connector is not None:
                 self_ctx._patches.append(
-                    patch("aragora.server.handlers.devices.isinstance", side_effect=lambda obj, cls: True if obj is connector else builtins_isinstance(obj, cls))
+                    patch(
+                        "aragora.server.handlers.devices.isinstance",
+                        side_effect=lambda obj, cls: True
+                        if obj is connector
+                        else builtins_isinstance(obj, cls),
+                    )
                 )
 
             for p in self_ctx._patches:

@@ -235,7 +235,9 @@ class EloStorageMixin:
             The relationship ID if stored, None if below threshold
         """
         if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:
-            logger.debug("Relationship %s-%s below debate threshold", metrics.agent_a, metrics.agent_b)
+            logger.debug(
+                "Relationship %s-%s below debate threshold", metrics.agent_a, metrics.agent_b
+            )
             return None
 
         rel_id = f"{self.ELO_PREFIX}rel_{metrics.agent_a}_{metrics.agent_b}"

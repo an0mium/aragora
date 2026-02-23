@@ -154,8 +154,10 @@ class TestEmitMatchRecordedEvent:
         ef = EloFeedback(elo_system=elo, event_emitter=emitter, loop_id="loop-1")
         ctx = _make_ctx()
 
-        with patch("aragora.events.types.StreamEvent") as MockSE, \
-             patch("aragora.events.types.StreamEventType") as MockSET:
+        with (
+            patch("aragora.events.types.StreamEvent") as MockSE,
+            patch("aragora.events.types.StreamEventType") as MockSET,
+        ):
             ef._emit_match_recorded_event(ctx, ["alice", "bob"])
 
         # 1 MATCH_RECORDED + 2 AGENT_ELO_UPDATED = 3 emit calls
@@ -168,8 +170,10 @@ class TestEmitMatchRecordedEvent:
         ef = EloFeedback(elo_system=elo, event_emitter=emitter)
         ctx = _make_ctx()
 
-        with patch("aragora.events.types.StreamEvent"), \
-             patch("aragora.events.types.StreamEventType"):
+        with (
+            patch("aragora.events.types.StreamEvent"),
+            patch("aragora.events.types.StreamEventType"),
+        ):
             ef._emit_match_recorded_event(ctx, ["alice"])
 
         # Only 1 MATCH_RECORDED (no per-agent since rating not in batch)

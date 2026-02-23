@@ -390,7 +390,9 @@ class FHIRAuditLogger:
             query_params=query_params,
         )
         self._events.append(event)
-        logger.info("[AUDIT] READ %s/%s by %s reason=%s", resource_type, resource_id, self.user_id, reason)
+        logger.info(
+            "[AUDIT] READ %s/%s by %s reason=%s", resource_type, resource_id, self.user_id, reason
+        )
         return event
 
     def log_search(
@@ -416,7 +418,11 @@ class FHIRAuditLogger:
         )
         self._events.append(event)
         logger.info(
-            "[AUDIT] SEARCH %s by %s results=%s reason=%s", resource_type, self.user_id, results_count, reason
+            "[AUDIT] SEARCH %s by %s results=%s reason=%s",
+            resource_type,
+            self.user_id,
+            results_count,
+            reason,
         )
         return event
 
@@ -442,7 +448,11 @@ class FHIRAuditLogger:
         )
         self._events.append(event)
         logger.info(
-            "[AUDIT] EXPORT %s by %s records=%s reason=%s", resource_types, self.user_id, record_count, reason
+            "[AUDIT] EXPORT %s by %s records=%s reason=%s",
+            resource_types,
+            self.user_id,
+            record_count,
+            reason,
         )
         return event
 
@@ -647,7 +657,9 @@ class FHIRConnector(EnterpriseConnector):
                         # Fallback to metadata
                         token_url = f"{self.base_url}/oauth2/token"
                 except httpx.RequestError as e:
-                    logger.debug("[%s] SMART config discovery failed, using default: %s", self.name, e)
+                    logger.debug(
+                        "[%s] SMART config discovery failed, using default: %s", self.name, e
+                    )
                     token_url = f"{self.base_url}/oauth2/token"
 
                 # Request token (client credentials flow)
@@ -670,7 +682,9 @@ class FHIRConnector(EnterpriseConnector):
                     )
                     logger.info("[%s] Authenticated successfully", self.name)
                 else:
-                    logger.warning("[%s] Authentication failed: %s", self.name, response.status_code)
+                    logger.warning(
+                        "[%s] Authentication failed: %s", self.name, response.status_code
+                    )
 
         except httpx.RequestError as e:
             logger.warning("[%s] Authentication error: %s", self.name, e)
@@ -840,7 +854,10 @@ class FHIRConnector(EnterpriseConnector):
                         )
                     if response.status_code != 200:
                         logger.warning(
-                            "[%s] Failed to fetch %s: %s", self.name, resource_name, response.status_code
+                            "[%s] Failed to fetch %s: %s",
+                            self.name,
+                            resource_name,
+                            response.status_code,
                         )
                         break
 

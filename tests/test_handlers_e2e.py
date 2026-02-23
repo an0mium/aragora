@@ -322,9 +322,7 @@ class TestAgentsHandlerE2E:
             ("2026-01-05T10:00:00", 1500),
             ("2026-01-04T10:00:00", 1490),
         ]
-        result = agents_handler._handle_agent_endpoint(
-            "/api/agent/claude/history", {"limit": 50}
-        )
+        result = agents_handler._handle_agent_endpoint("/api/agent/claude/history", {"limit": 50})
         mock_elo_system.get_elo_history.assert_called_with("claude", limit=50)
         assert result.status_code == 200
 
@@ -340,9 +338,7 @@ class TestAgentsHandlerE2E:
 
     def test_head_to_head_stats(self, agents_handler):
         """Test head-to-head returns stats."""
-        result = agents_handler._handle_agent_endpoint(
-            "/api/agent/claude/head-to-head/gemini", {}
-        )
+        result = agents_handler._handle_agent_endpoint("/api/agent/claude/head-to-head/gemini", {})
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -353,9 +349,7 @@ class TestAgentsHandlerE2E:
 
     def test_agent_network_structure(self, agents_handler):
         """Test agent network returns rivals and allies."""
-        result = agents_handler._handle_agent_endpoint(
-            "/api/agent/claude/network", {}
-        )
+        result = agents_handler._handle_agent_endpoint("/api/agent/claude/network", {})
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -493,9 +487,7 @@ class TestPulseHandlerE2E:
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm.return_value = mock_manager
 
-                        result = pulse_handler.handle(
-                            "/api/v1/pulse/trending", {}, None
-                        )
+                        result = pulse_handler.handle("/api/v1/pulse/trending", {}, None)
 
                         # Will return 503 if import fails or 200/500 otherwise
                         assert result.status_code in (200, 500, 503)
@@ -515,9 +507,7 @@ class TestPulseHandlerE2E:
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm.return_value = mock_manager
 
-                        result = pulse_handler.handle(
-                            "/api/v1/pulse/trending", {"limit": 5}, None
-                        )
+                        result = pulse_handler.handle("/api/v1/pulse/trending", {"limit": 5}, None)
 
                         # Should always return valid JSON regardless of status
                         data = json.loads(result.body)
@@ -702,9 +692,7 @@ class TestAnalyticsHandlerE2E:
             elo: int
             debates_count: int
 
-        mock_elo_system.get_leaderboard.return_value = [
-            MockRanking("claude", 1500, 10)
-        ]
+        mock_elo_system.get_leaderboard.return_value = [MockRanking("claude", 1500, 10)]
 
         result = analytics_handler._get_ranking_stats()
 

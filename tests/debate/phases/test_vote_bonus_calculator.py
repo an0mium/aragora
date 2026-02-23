@@ -85,12 +85,8 @@ def _make_protocol(
 # Patch targets
 # ---------------------------------------------------------------------------
 
-PATCH_EVIDENCE_METRIC = (
-    "aragora.debate.phases.vote_bonus_calculator.record_evidence_citation_bonus"
-)
-PATCH_PROCESS_METRIC = (
-    "aragora.debate.phases.vote_bonus_calculator.record_process_evaluation_bonus"
-)
+PATCH_EVIDENCE_METRIC = "aragora.debate.phases.vote_bonus_calculator.record_evidence_citation_bonus"
+PATCH_PROCESS_METRIC = "aragora.debate.phases.vote_bonus_calculator.record_process_evaluation_bonus"
 
 
 # ===========================================================================
@@ -403,9 +399,7 @@ class TestEvidenceBonusQualityScoring:
     @patch(PATCH_EVIDENCE_METRIC)
     def test_quality_weighting_uses_weighted_dimensions(self, mock_metric):
         """Quality score = 0.4*sr + 0.3*auth + 0.2*fresh + 0.1*comp."""
-        proto = _make_protocol(
-            evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True
-        )
+        proto = _make_protocol(evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True)
         calc = VoteBonusCalculator(protocol=proto)
         quality_scores = {
             "semantic_relevance": 0.8,
@@ -432,9 +426,7 @@ class TestEvidenceBonusQualityScoring:
     @patch(PATCH_EVIDENCE_METRIC)
     def test_no_quality_scores_uses_default_0_5(self, mock_metric):
         """When snippet has no quality_scores, quality defaults to 0.5."""
-        proto = _make_protocol(
-            evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True
-        )
+        proto = _make_protocol(evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True)
         calc = VoteBonusCalculator(protocol=proto)
         snippet = MockSnippet(id="NQ1", quality_scores={})  # empty → default 0.5
         ctx = _make_ctx(evidence_pack=_make_evidence_pack([snippet]))
@@ -453,13 +445,27 @@ class TestEvidenceBonusQualityScoring:
     @patch(PATCH_EVIDENCE_METRIC)
     def test_diminishing_returns_with_multiple_citations(self, mock_metric):
         """Two citations give less than double the single-citation bonus."""
-        proto = _make_protocol(
-            evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True
-        )
+        proto = _make_protocol(evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True)
         calc = VoteBonusCalculator(protocol=proto)
         snippets = [
-            MockSnippet(id="D1", quality_scores={"semantic_relevance": 1.0, "authority": 1.0, "freshness": 1.0, "completeness": 1.0}),
-            MockSnippet(id="D2", quality_scores={"semantic_relevance": 1.0, "authority": 1.0, "freshness": 1.0, "completeness": 1.0}),
+            MockSnippet(
+                id="D1",
+                quality_scores={
+                    "semantic_relevance": 1.0,
+                    "authority": 1.0,
+                    "freshness": 1.0,
+                    "completeness": 1.0,
+                },
+            ),
+            MockSnippet(
+                id="D2",
+                quality_scores={
+                    "semantic_relevance": 1.0,
+                    "authority": 1.0,
+                    "freshness": 1.0,
+                    "completeness": 1.0,
+                },
+            ),
         ]
         ctx = _make_ctx(evidence_pack=_make_evidence_pack(snippets))
         vote_counts = {"agent_a": 0.0}
@@ -478,9 +484,7 @@ class TestEvidenceBonusQualityScoring:
     @patch(PATCH_EVIDENCE_METRIC)
     def test_diminishing_returns_with_mixed_quality(self, mock_metric):
         """Mixed quality scores trigger genuine diminishing returns."""
-        proto = _make_protocol(
-            evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True
-        )
+        proto = _make_protocol(evidence_citation_bonus=1.0, enable_evidence_quality_weighting=True)
         calc = VoteBonusCalculator(protocol=proto)
         # Both snippets have no quality scores → default 0.5 each
         snippets = [MockSnippet(id="M1"), MockSnippet(id="M2")]
@@ -547,9 +551,7 @@ class TestEvidenceBonusVerificationAndSkipping:
     @patch(PATCH_EVIDENCE_METRIC)
     def test_verification_results_quality_stored(self, mock_metric):
         """Quality total stored as evidence_quality_<agent>."""
-        proto = _make_protocol(
-            evidence_citation_bonus=0.10, enable_evidence_quality_weighting=True
-        )
+        proto = _make_protocol(evidence_citation_bonus=0.10, enable_evidence_quality_weighting=True)
         calc = VoteBonusCalculator(protocol=proto)
         snippet = MockSnippet(
             id="VRQ1",
@@ -837,9 +839,7 @@ class TestProcessEvaluationBonuses:
         calc = VoteBonusCalculator(protocol=proto)
 
         mock_evaluator = MagicMock()
-        mock_evaluator.evaluate_proposal = AsyncMock(
-            side_effect=ValueError("evaluation failed")
-        )
+        mock_evaluator.evaluate_proposal = AsyncMock(side_effect=ValueError("evaluation failed"))
 
         ctx = _make_ctx(proposals={"agent_a": "proposal"})
         vote_counts = {"agent_a": 3.0}
@@ -866,9 +866,7 @@ class TestProcessEvaluationBonuses:
         calc = VoteBonusCalculator(protocol=proto)
 
         mock_evaluator = MagicMock()
-        mock_evaluator.evaluate_proposal = AsyncMock(
-            side_effect=KeyError("missing_key")
-        )
+        mock_evaluator.evaluate_proposal = AsyncMock(side_effect=KeyError("missing_key"))
 
         ctx = _make_ctx(proposals={"agent_b": "prop"})
         vote_counts = {"agent_b": 2.0}

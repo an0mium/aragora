@@ -244,7 +244,10 @@ def filter_available_agents(
             filtered.append((spec.provider, reason))
             if log_filtered:
                 logger.warning(
-                    "Agent '%s' unavailable: %s. Set one of: %s", spec.provider, reason, ', '.join(status.required_vars)
+                    "Agent '%s' unavailable: %s. Set one of: %s",
+                    spec.provider,
+                    reason,
+                    ", ".join(status.required_vars),
                 )
 
     if len(available) < min_agents:
@@ -310,6 +313,6 @@ def log_credential_status() -> None:
             missing.append(f"{agent_type} (needs: {', '.join(status.required_vars)})")
 
     if available:
-        logger.info("Available agents (%s): %s", len(available), ', '.join(available))
+        logger.info("Available agents (%s): %s", len(available), ", ".join(available))
     if missing:
-        logger.warning("Unavailable agents (%s): %s", len(missing), ', '.join(missing))
+        logger.warning("Unavailable agents (%s): %s", len(missing), ", ".join(missing))

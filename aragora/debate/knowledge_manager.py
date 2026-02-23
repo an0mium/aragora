@@ -376,7 +376,9 @@ class ArenaKnowledgeManager:
             manager = get_cross_subscriber_manager()
             hints = manager.get_debate_culture_hints(debate_id)
             if hints:
-                logger.debug("[arena] Retrieved %s culture hints for debate %s", len(hints), debate_id)
+                logger.debug(
+                    "[arena] Retrieved %s culture hints for debate %s", len(hints), debate_id
+                )
             return hints
 
         except ImportError:

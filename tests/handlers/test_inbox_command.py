@@ -121,9 +121,7 @@ def _patch_inbox_auth(request, monkeypatch):
 @pytest.fixture
 def handler():
     """Create an InboxCommandHandler with mocked services."""
-    with patch(
-        "aragora.server.handlers.inbox_command.ServiceRegistry"
-    ) as mock_registry_cls:
+    with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_registry_cls:
         mock_registry = MagicMock()
         mock_registry.has.return_value = False
         mock_registry_cls.get.return_value = mock_registry
@@ -451,7 +449,9 @@ class TestGetInbox:
     @pytest.mark.asyncio
     async def test_get_inbox_internal_error(self, handler):
         """Test error handling when fetching fails."""
-        with patch.object(handler, "_fetch_prioritized_emails", side_effect=RuntimeError("DB down")):
+        with patch.object(
+            handler, "_fetch_prioritized_emails", side_effect=RuntimeError("DB down")
+        ):
             request = _make_request("GET", "/api/inbox/command")
             response = await handler.handle_get_inbox(request)
 
@@ -1225,18 +1225,24 @@ class TestDailyDigest:
         """Test digest reflects cached email data."""
         from aragora.server.handlers.inbox_command import _email_cache
 
-        _email_cache.set("email-1", {
-            "id": "email-1",
-            "priority": "critical",
-            "from": "boss@company.com",
-            "category": "Work",
-        })
-        _email_cache.set("email-2", {
-            "id": "email-2",
-            "priority": "low",
-            "from": "news@example.com",
-            "category": "Newsletter",
-        })
+        _email_cache.set(
+            "email-1",
+            {
+                "id": "email-1",
+                "priority": "critical",
+                "from": "boss@company.com",
+                "category": "Work",
+            },
+        )
+        _email_cache.set(
+            "email-2",
+            {
+                "id": "email-2",
+                "priority": "low",
+                "from": "news@example.com",
+                "category": "Newsletter",
+            },
+        )
 
         request = _make_request("GET", "/api/inbox/daily-digest")
         response = await handler.handle_get_daily_digest(request)
@@ -1603,10 +1609,12 @@ class TestIterableTTLCache:
         cache.set("k1", {"a": 1})
         # Simulate expiry by making get return None for k1
         original_get = cache._cache.get
+
         def mock_get(key):
             if key == "k1":
                 return None
             return original_get(key)
+
         cache._cache.get = mock_get
 
         items = cache.items()
@@ -1626,9 +1634,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_inbox_requires_authentication(self):
         """Test that inbox endpoints require authentication."""
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1646,9 +1652,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_quick_action_requires_authentication(self):
         """Test that quick action requires authentication."""
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1669,9 +1673,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_bulk_action_requires_authentication(self):
         """Test that bulk action requires authentication."""
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1692,9 +1694,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_sender_profile_requires_authentication(self):
         """Test that sender profile requires authentication."""
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1715,9 +1715,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_daily_digest_requires_authentication(self):
         """Test that daily digest requires authentication."""
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1734,9 +1732,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_reprioritize_requires_authentication(self):
         """Test that reprioritize requires authentication."""
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1766,9 +1762,7 @@ class TestRegisterRoutes:
         """Test that register_routes adds all expected routes."""
         app = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.inbox_command.ServiceRegistry"
-        ) as mock_reg_cls:
+        with patch("aragora.server.handlers.inbox_command.ServiceRegistry") as mock_reg_cls:
             mock_reg = MagicMock()
             mock_reg.has.return_value = False
             mock_reg_cls.get.return_value = mock_reg
@@ -1810,7 +1804,17 @@ class TestAllowedConstants:
     """Tests that allowlist constants have expected values."""
 
     def test_allowed_actions_contains_expected(self):
-        expected = {"archive", "snooze", "reply", "forward", "spam", "mark_important", "mark_vip", "block", "delete"}
+        expected = {
+            "archive",
+            "snooze",
+            "reply",
+            "forward",
+            "spam",
+            "mark_important",
+            "mark_vip",
+            "block",
+            "delete",
+        }
         assert ALLOWED_ACTIONS == expected
 
     def test_allowed_bulk_filters_contains_expected(self):
@@ -1912,7 +1916,11 @@ class TestDemoMode:
         request = _make_request(
             "POST",
             "/api/inbox/actions",
-            body={"action": "forward", "emailIds": ["demo_1"], "params": {"to": "user@example.com"}},
+            body={
+                "action": "forward",
+                "emailIds": ["demo_1"],
+                "params": {"to": "user@example.com"},
+            },
         )
         response = await handler.handle_quick_action(request)
 

@@ -542,7 +542,9 @@ class DecisionRouter:
         self._request_counter = 0
 
         logger.info(
-            "DecisionRouter initialized with default=%s, financial_threshold=%s", default_destination.value, self._criteria.financial_threshold
+            "DecisionRouter initialized with default=%s, financial_threshold=%s",
+            default_destination.value,
+            self._criteria.financial_threshold,
         )
 
     # =========================================================================
@@ -1155,7 +1157,10 @@ class DecisionRouter:
                         logger.error("Event handler error: %s", e)
 
         logger.debug(
-            "Routed %s to %s (reason: %s...)", decision.request_id, decision.destination.value, decision.reason[:50]
+            "Routed %s to %s (reason: %s...)",
+            decision.request_id,
+            decision.destination.value,
+            decision.reason[:50],
         )
 
     def _update_destination_count(
@@ -1369,7 +1374,9 @@ class DecisionRouter:
             criteria: New routing criteria.
         """
         self._criteria = criteria
-        logger.info("Updated routing criteria: financial_threshold=%s", criteria.financial_threshold)
+        logger.info(
+            "Updated routing criteria: financial_threshold=%s", criteria.financial_threshold
+        )
 
     def update_category_config(
         self,

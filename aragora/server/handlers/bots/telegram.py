@@ -515,7 +515,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             # Acknowledge the callback
             self._answer_callback_query(callback_id, f"Vote recorded: {vote_option}")
 
-            logger.info("Vote recorded from Telegram user %s on %s: %s", user_id, debate_id, vote_option)
+            logger.info(
+                "Vote recorded from Telegram user %s on %s: %s", user_id, debate_id, vote_option
+            )
             audit_data(
                 user_id=f"telegram:{user_id}",
                 resource_type="debate_vote",
@@ -755,7 +757,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             task = asyncio.create_task(route_debate())
             task.add_done_callback(
                 lambda t: logger.error("Telegram debate routing failed: %s", t.exception())
-                if not t.cancelled() and t.exception() else None
+                if not t.cancelled() and t.exception()
+                else None
             )
             return debate_id
         except RuntimeError:
@@ -855,7 +858,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
             except (RuntimeError, ImportError, ValueError, AttributeError) as e:
                 logger.error("Direct debate execution failed: %s", e)
-                self._send_message(chat_id, "Sorry, an error occurred while processing your request.")
+                self._send_message(
+                    chat_id, "Sorry, an error occurred while processing your request."
+                )
 
         # Run in background thread to not block webhook response
         thread = threading.Thread(target=run_in_thread, daemon=True)

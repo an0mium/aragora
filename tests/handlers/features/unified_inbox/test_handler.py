@@ -611,9 +611,7 @@ class TestDisconnectAccount:
             new_callable=AsyncMock,
         ):
             req = _req(method="DELETE", path="/api/v1/inbox/accounts/acct-1")
-            result = await handler.handle_request(
-                req, "/api/v1/inbox/accounts/acct-1", "DELETE"
-            )
+            result = await handler.handle_request(req, "/api/v1/inbox/accounts/acct-1", "DELETE")
             assert _status(result) == 200
             body = _body(result)
             assert body["success"] is True
@@ -624,9 +622,7 @@ class TestDisconnectAccount:
     async def test_disconnect_not_found(self, handler, mock_store):
         mock_store.get_account.return_value = None
         req = _req(method="DELETE", path="/api/v1/inbox/accounts/nonexistent")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/accounts/nonexistent", "DELETE"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/accounts/nonexistent", "DELETE")
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body.get("error", "").lower()
@@ -768,9 +764,7 @@ class TestGetMessage:
         mock_store.get_message.return_value = _message_record("msg-1")
         mock_store.get_triage_result.return_value = None
         req = _req(path="/api/v1/inbox/messages/msg-1")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/messages/msg-1", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/messages/msg-1", "GET")
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -782,9 +776,7 @@ class TestGetMessage:
         mock_store.get_message.return_value = _message_record("msg-1")
         mock_store.get_triage_result.return_value = _triage_record("msg-1")
         req = _req(path="/api/v1/inbox/messages/msg-1")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/messages/msg-1", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/messages/msg-1", "GET")
         assert _status(result) == 200
         body = _body(result)
         assert body["data"]["triage"] is not None
@@ -794,9 +786,7 @@ class TestGetMessage:
     async def test_get_message_not_found(self, handler, mock_store):
         mock_store.get_message.return_value = None
         req = _req(path="/api/v1/inbox/messages/nonexistent")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/messages/nonexistent", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/messages/nonexistent", "GET")
         assert _status(result) == 404
         body = _body(result)
         assert "not found" in body.get("error", "").lower()
@@ -917,9 +907,7 @@ class TestBulkAction:
                     "action": "mark_read",
                 },
             )
-            result = await handler.handle_request(
-                req, "/api/v1/inbox/bulk-action", "POST"
-            )
+            result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
             assert _status(result) == 200
             body = _body(result)
             assert body["success"] is True
@@ -943,9 +931,7 @@ class TestBulkAction:
                 path="/api/v1/inbox/bulk-action",
                 body={"message_ids": ["msg-1"], "action": "archive"},
             )
-            result = await handler.handle_request(
-                req, "/api/v1/inbox/bulk-action", "POST"
-            )
+            result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -955,9 +941,7 @@ class TestBulkAction:
             path="/api/v1/inbox/bulk-action",
             body={"message_ids": [], "action": "mark_read"},
         )
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/bulk-action", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
         assert _status(result) == 400
         body = _body(result)
         assert "No message IDs" in body.get("error", "")
@@ -969,9 +953,7 @@ class TestBulkAction:
             path="/api/v1/inbox/bulk-action",
             body={"message_ids": ["msg-1"], "action": "explode"},
         )
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/bulk-action", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
         assert _status(result) == 400
         body = _body(result)
         assert "Invalid action" in body.get("error", "")
@@ -983,9 +965,7 @@ class TestBulkAction:
             path="/api/v1/inbox/bulk-action",
             body={"message_ids": ["msg-1"]},
         )
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/bulk-action", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1000,9 +980,7 @@ class TestBulkAction:
                 path="/api/v1/inbox/bulk-action",
                 body={"message_ids": ["msg-1"], "action": "mark_read"},
             )
-            result = await handler.handle_request(
-                req, "/api/v1/inbox/bulk-action", "POST"
-            )
+            result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
             assert _status(result) == 500
 
 
@@ -1157,49 +1135,37 @@ class TestNotFoundRoute:
     @pytest.mark.asyncio
     async def test_unknown_inbox_path(self, handler):
         req = _req(path="/api/v1/inbox/nonexistent")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/nonexistent", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/nonexistent", "GET")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_accounts(self, handler):
         req = _req(method="POST", path="/api/v1/inbox/accounts")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/accounts", "POST"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/accounts", "POST")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_messages(self, handler):
         req = _req(method="DELETE", path="/api/v1/inbox/messages")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/messages", "DELETE"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/messages", "DELETE")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_connect(self, handler):
         req = _req(method="GET", path="/api/v1/inbox/connect")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/connect", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/connect", "GET")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_triage(self, handler):
         req = _req(method="GET", path="/api/v1/inbox/triage")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/triage", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/triage", "GET")
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_bulk_action(self, handler):
         req = _req(method="GET", path="/api/v1/inbox/bulk-action")
-        result = await handler.handle_request(
-            req, "/api/v1/inbox/bulk-action", "GET"
-        )
+        result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "GET")
         assert _status(result) == 404
 
 
@@ -1403,9 +1369,7 @@ class TestBulkActionAllTypes:
                 path="/api/v1/inbox/bulk-action",
                 body={"message_ids": ["msg-1"], "action": action},
             )
-            result = await handler.handle_request(
-                req, "/api/v1/inbox/bulk-action", "POST"
-            )
+            result = await handler.handle_request(req, "/api/v1/inbox/bulk-action", "POST")
             assert _status(result) == 200
             body = _body(result)
             assert body["data"]["action"] == action

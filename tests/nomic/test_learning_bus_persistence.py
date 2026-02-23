@@ -30,6 +30,7 @@ from aragora.nomic.learning_bus import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_bus():
     """Ensure each test gets a fresh singleton."""
@@ -63,6 +64,7 @@ def _make_km_search_result(finding: Finding) -> SimpleNamespace:
 # ---------------------------------------------------------------------------
 # Finding serialization
 # ---------------------------------------------------------------------------
+
 
 class TestFindingSerialization:
     def test_to_dict_round_trip(self):
@@ -104,6 +106,7 @@ class TestFindingSerialization:
 # Publish persists to KM
 # ---------------------------------------------------------------------------
 
+
 class TestPublishPersistence:
     def test_publish_calls_persist_when_enabled(self):
         bus = LearningBus(config=LearningBusConfig(persist=True))
@@ -130,9 +133,9 @@ class TestPublishPersistence:
     @pytest.mark.asyncio
     async def test_persist_finding_async_stores_to_mound(self):
         mock_mound = AsyncMock()
-        mock_mound.store = AsyncMock(return_value=SimpleNamespace(
-            item_id="item_1", deduplicated=False
-        ))
+        mock_mound.store = AsyncMock(
+            return_value=SimpleNamespace(item_id="item_1", deduplicated=False)
+        )
 
         bus = LearningBus(config=LearningBusConfig(persist=True))
         bus._historical_loaded = True
@@ -174,6 +177,7 @@ class TestPublishPersistence:
 # Historical loading
 # ---------------------------------------------------------------------------
 
+
 class TestHistoricalLoading:
     @pytest.mark.asyncio
     async def test_load_historical_returns_findings_from_km(self):
@@ -182,9 +186,11 @@ class TestHistoricalLoading:
             timestamp=datetime.now(timezone.utc) - timedelta(days=1),
         )
         mock_mound = AsyncMock()
-        mock_mound.search = AsyncMock(return_value=[
-            _make_km_search_result(old_finding),
-        ])
+        mock_mound.search = AsyncMock(
+            return_value=[
+                _make_km_search_result(old_finding),
+            ]
+        )
 
         bus = LearningBus(config=LearningBusConfig(persist=True, max_historical=50))
         bus._get_km_mound = MagicMock(return_value=mock_mound)
@@ -204,14 +210,20 @@ class TestHistoricalLoading:
             timestamp=datetime.now(timezone.utc) - timedelta(days=30),
         )
         mock_mound = AsyncMock()
-        mock_mound.search = AsyncMock(return_value=[
-            _make_km_search_result(recent),
-            _make_km_search_result(stale),
-        ])
+        mock_mound.search = AsyncMock(
+            return_value=[
+                _make_km_search_result(recent),
+                _make_km_search_result(stale),
+            ]
+        )
 
-        bus = LearningBus(config=LearningBusConfig(
-            persist=True, historical_days=7, max_historical=50,
-        ))
+        bus = LearningBus(
+            config=LearningBusConfig(
+                persist=True,
+                historical_days=7,
+                max_historical=50,
+            )
+        )
         bus._get_km_mound = MagicMock(return_value=mock_mound)
 
         loaded = await bus._load_historical_findings_async()
@@ -228,13 +240,14 @@ class TestHistoricalLoading:
             for i in range(10)
         ]
         mock_mound = AsyncMock()
-        mock_mound.search = AsyncMock(
-            return_value=[_make_km_search_result(f) for f in findings]
-        )
+        mock_mound.search = AsyncMock(return_value=[_make_km_search_result(f) for f in findings])
 
-        bus = LearningBus(config=LearningBusConfig(
-            persist=True, max_historical=3,
-        ))
+        bus = LearningBus(
+            config=LearningBusConfig(
+                persist=True,
+                max_historical=3,
+            )
+        )
         bus._get_km_mound = MagicMock(return_value=mock_mound)
 
         loaded = await bus._load_historical_findings_async()
@@ -279,10 +292,12 @@ class TestHistoricalLoading:
             score=0.5,
         )
         mock_mound = AsyncMock()
-        mock_mound.search = AsyncMock(return_value=[
-            _make_km_search_result(good),
-            bad_result,
-        ])
+        mock_mound.search = AsyncMock(
+            return_value=[
+                _make_km_search_result(good),
+                bad_result,
+            ]
+        )
 
         bus = LearningBus(config=LearningBusConfig(persist=True))
         bus._get_km_mound = MagicMock(return_value=mock_mound)
@@ -295,6 +310,7 @@ class TestHistoricalLoading:
 # ---------------------------------------------------------------------------
 # Cycle summary persistence
 # ---------------------------------------------------------------------------
+
 
 class TestCycleSummary:
     def test_save_cycle_summary_calls_cycle_store(self):
@@ -362,13 +378,15 @@ class TestCycleSummary:
             bus.save_cycle_summary(
                 cycle_id="cycle-003",
                 objective="Refactor",
-                surprise_events=[{
-                    "phase": "implement",
-                    "description": "unexpected import cycle",
-                    "expected": "clean import",
-                    "actual": "circular dependency",
-                    "impact": "high",
-                }],
+                surprise_events=[
+                    {
+                        "phase": "implement",
+                        "description": "unexpected import cycle",
+                        "expected": "clean import",
+                        "actual": "circular dependency",
+                        "impact": "high",
+                    }
+                ],
             )
 
         saved = mock_store.save_cycle.call_args[0][0]
@@ -390,9 +408,7 @@ class TestCycleSummary:
             "aragora.nomic.cycle_store.get_cycle_store",
             side_effect=RuntimeError("db locked"),
         ):
-            result = bus.save_cycle_summary(
-                cycle_id="cycle-fail", objective="oops"
-            )
+            result = bus.save_cycle_summary(cycle_id="cycle-fail", objective="oops")
 
         assert result is False
 
@@ -400,6 +416,7 @@ class TestCycleSummary:
 # ---------------------------------------------------------------------------
 # Config / helpers
 # ---------------------------------------------------------------------------
+
 
 class TestConfig:
     def test_default_config(self):
@@ -444,6 +461,7 @@ class TestSeverityConfidence:
 # ---------------------------------------------------------------------------
 # Backward compatibility: existing tests still work
 # ---------------------------------------------------------------------------
+
 
 class TestBackwardCompatibility:
     """Verify the original LearningBus API contract is preserved."""

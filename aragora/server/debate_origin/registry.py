@@ -295,7 +295,11 @@ def register_debate_origin(
             logger.debug("Redis origin storage not available: %s", e)
 
     logger.info(
-        "Registered debate origin: %s from %s:%s (redis=%s)", debate_id, platform, channel_id, redis_success
+        "Registered debate origin: %s from %s:%s (redis=%s)",
+        debate_id,
+        platform,
+        channel_id,
+        redis_success,
     )
     return origin
 

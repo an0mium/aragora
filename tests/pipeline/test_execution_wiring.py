@@ -207,11 +207,14 @@ class TestExecuteTask:
         mock_loop = AsyncMock()
         mock_loop.execute_with_retry.return_value = mock_result
 
-        with patch(
-            "aragora.nomic.debug_loop.DebugLoop",
-            return_value=mock_loop,
-        ), patch(
-            "aragora.nomic.debug_loop.DebugLoopConfig",
+        with (
+            patch(
+                "aragora.nomic.debug_loop.DebugLoop",
+                return_value=mock_loop,
+            ),
+            patch(
+                "aragora.nomic.debug_loop.DebugLoopConfig",
+            ),
         ):
             task = {"id": "t1", "name": "Test task", "description": "desc", "test_scope": []}
             cfg = PipelineConfig()
@@ -231,11 +234,14 @@ class TestExecuteTask:
         mock_loop = AsyncMock()
         mock_loop.execute_with_retry.return_value = mock_result
 
-        with patch(
-            "aragora.nomic.debug_loop.DebugLoop",
-            return_value=mock_loop,
-        ), patch(
-            "aragora.nomic.debug_loop.DebugLoopConfig",
+        with (
+            patch(
+                "aragora.nomic.debug_loop.DebugLoop",
+                return_value=mock_loop,
+            ),
+            patch(
+                "aragora.nomic.debug_loop.DebugLoopConfig",
+            ),
         ):
             task = {"id": "t2", "name": "Failing task", "description": "", "test_scope": []}
             cfg = PipelineConfig()
@@ -260,11 +266,14 @@ class TestExecuteTask:
         mock_loop = AsyncMock()
         mock_loop.execute_with_retry.side_effect = RuntimeError("process crashed")
 
-        with patch(
-            "aragora.nomic.debug_loop.DebugLoop",
-            return_value=mock_loop,
-        ), patch(
-            "aragora.nomic.debug_loop.DebugLoopConfig",
+        with (
+            patch(
+                "aragora.nomic.debug_loop.DebugLoop",
+                return_value=mock_loop,
+            ),
+            patch(
+                "aragora.nomic.debug_loop.DebugLoopConfig",
+            ),
         ):
             task = {"id": "t4", "name": "Crashing task", "description": "", "test_scope": []}
             cfg = PipelineConfig()
@@ -283,19 +292,34 @@ class TestExecuteTask:
         mock_loop = AsyncMock()
         mock_loop.execute_with_retry.return_value = mock_result
 
-        with patch(
-            "aragora.nomic.debug_loop.DebugLoop",
-            return_value=mock_loop,
-        ), patch(
-            "aragora.nomic.debug_loop.DebugLoopConfig",
+        with (
+            patch(
+                "aragora.nomic.debug_loop.DebugLoop",
+                return_value=mock_loop,
+            ),
+            patch(
+                "aragora.nomic.debug_loop.DebugLoopConfig",
+            ),
         ):
-            task = {"id": "t5", "name": "With worktree", "description": "", "test_scope": ["tests/"]}
+            task = {
+                "id": "t5",
+                "name": "With worktree",
+                "description": "",
+                "test_scope": ["tests/"],
+            }
             cfg = PipelineConfig(worktree_path="/custom/worktree")
             await pipeline._execute_task(task, cfg)
 
         call_kwargs = mock_loop.execute_with_retry.call_args
-        assert call_kwargs.kwargs.get("worktree_path") == "/custom/worktree" or \
-               (call_kwargs.args[1] if len(call_kwargs.args) > 1 else call_kwargs.kwargs.get("worktree_path")) == "/custom/worktree"
+        assert (
+            call_kwargs.kwargs.get("worktree_path") == "/custom/worktree"
+            or (
+                call_kwargs.args[1]
+                if len(call_kwargs.args) > 1
+                else call_kwargs.kwargs.get("worktree_path")
+            )
+            == "/custom/worktree"
+        )
 
 
 # =============================================================================
@@ -313,7 +337,12 @@ class TestRunOrchestration:
 
         # Mock _execute_task to return completed
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -339,12 +368,19 @@ class TestRunOrchestration:
         assert orch["reason"] == "no tasks"
 
     @pytest.mark.asyncio
-    async def test_orchestration_with_goal_graph(self, pipeline, sample_goal_graph, event_collector):
+    async def test_orchestration_with_goal_graph(
+        self, pipeline, sample_goal_graph, event_collector
+    ):
         events, callback = event_collector
         cfg = PipelineConfig(event_callback=callback)
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -355,7 +391,9 @@ class TestRunOrchestration:
         assert orch["tasks_completed"] == 2
 
     @pytest.mark.asyncio
-    async def test_orchestration_handles_exception(self, pipeline, sample_workflow, event_collector):
+    async def test_orchestration_handles_exception(
+        self, pipeline, sample_workflow, event_collector
+    ):
         events, callback = event_collector
         cfg = PipelineConfig(event_callback=callback)
 
@@ -389,7 +427,9 @@ class TestRunOrchestration:
         assert "stage_started" in event_types
 
     @pytest.mark.asyncio
-    async def test_orchestration_results_include_all_tasks(self, pipeline, sample_workflow, event_collector):
+    async def test_orchestration_results_include_all_tasks(
+        self, pipeline, sample_workflow, event_collector
+    ):
         events, callback = event_collector
         cfg = PipelineConfig(event_callback=callback)
 
@@ -418,7 +458,12 @@ class TestNodeLevelEvents:
         cfg = PipelineConfig(event_callback=callback)
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -434,7 +479,12 @@ class TestNodeLevelEvents:
         cfg = PipelineConfig(event_callback=callback)
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -444,12 +494,19 @@ class TestNodeLevelEvents:
         assert len(agent_completed) == 3
 
     @pytest.mark.asyncio
-    async def test_node_added_events_for_all_tasks(self, pipeline, sample_workflow, event_collector):
+    async def test_node_added_events_for_all_tasks(
+        self, pipeline, sample_workflow, event_collector
+    ):
         events, callback = event_collector
         cfg = PipelineConfig(event_callback=callback)
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -459,12 +516,19 @@ class TestNodeLevelEvents:
         assert len(node_added) == 4  # All tasks including human_gate
 
     @pytest.mark.asyncio
-    async def test_human_gate_node_has_correct_type(self, pipeline, sample_workflow, event_collector):
+    async def test_human_gate_node_has_correct_type(
+        self, pipeline, sample_workflow, event_collector
+    ):
         events, callback = event_collector
         cfg = PipelineConfig(event_callback=callback)
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -523,7 +587,9 @@ class TestNodeLevelEvents:
     def test_no_events_when_no_callback(self, pipeline):
         """Pipeline runs without errors when no callback provided."""
         result = pipeline.from_ideas(
-            ["Test idea"], auto_advance=True, event_callback=None,
+            ["Test idea"],
+            auto_advance=True,
+            event_callback=None,
         )
         assert result.ideas_canvas is not None
 
@@ -543,7 +609,12 @@ class TestHumanGates:
 
         workflow = {
             "steps": [
-                {"id": "gate-1", "name": "Approve deploy", "step_type": "human_checkpoint", "config": {}},
+                {
+                    "id": "gate-1",
+                    "name": "Approve deploy",
+                    "step_type": "human_checkpoint",
+                    "config": {},
+                },
             ],
         }
 
@@ -559,7 +630,12 @@ class TestHumanGates:
 
         workflow = {
             "steps": [
-                {"id": "gate-1", "name": "Approve deploy", "step_type": "human_checkpoint", "config": {}},
+                {
+                    "id": "gate-1",
+                    "name": "Approve deploy",
+                    "step_type": "human_checkpoint",
+                    "config": {},
+                },
             ],
         }
 
@@ -587,7 +663,12 @@ class TestHumanGates:
 
         workflow = {
             "steps": [
-                {"id": "gate-1", "name": "Human gate", "step_type": "human_checkpoint", "config": {}},
+                {
+                    "id": "gate-1",
+                    "name": "Human gate",
+                    "step_type": "human_checkpoint",
+                    "config": {},
+                },
             ],
         }
 
@@ -600,7 +681,12 @@ class TestHumanGates:
         cfg = PipelineConfig(event_callback=callback)
 
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 
@@ -656,7 +742,12 @@ class TestDryRunMode:
 
         # Mock _execute_task
         async def mock_execute(task, _cfg):
-            return {"task_id": task["id"], "name": task["name"], "status": "completed", "output": {}}
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
 
         pipeline._execute_task = mock_execute
 

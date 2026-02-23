@@ -271,7 +271,9 @@ class SlackThreadManager:
             cursor = next_cursor
         else:
             logger.warning(
-                "Pagination safety cap reached for thread stats (thread_ts=%s), stopping with %s messages", thread_ts, len(all_messages)
+                "Pagination safety cap reached for thread stats (thread_ts=%s), stopping with %s messages",
+                thread_ts,
+                len(all_messages),
             )
 
         if not all_messages:
@@ -309,7 +311,9 @@ class SlackThreadManager:
             cursor = next_cursor
         else:
             logger.warning(
-                "Pagination safety cap reached for thread participants (thread_ts=%s), stopping with %s messages", thread_ts, len(all_messages)
+                "Pagination safety cap reached for thread participants (thread_ts=%s), stopping with %s messages",
+                thread_ts,
+                len(all_messages),
             )
 
         participant_data: dict[str, dict[str, Any]] = {}

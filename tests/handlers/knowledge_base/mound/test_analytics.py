@@ -279,9 +279,7 @@ class TestAnalyzeCoverage:
     @pytest.mark.asyncio
     async def test_success_with_custom_stale_threshold(self, handler, mock_mound):
         """Custom stale_threshold_days is forwarded to mound."""
-        await handler.analyze_coverage(
-            workspace_id="ws-001", stale_threshold_days=30
-        )
+        await handler.analyze_coverage(workspace_id="ws-001", stale_threshold_days=30)
         mock_mound.analyze_coverage.assert_awaited_once_with(
             workspace_id="ws-001",
             stale_threshold_days=30,
@@ -324,54 +322,42 @@ class TestAnalyzeCoverage:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=KeyError("missing key")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=KeyError("missing key"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=ValueError("bad value")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=ValueError("bad value"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=OSError("disk failure")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=OSError("disk failure"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=TypeError("wrong type"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=AttributeError("no such attr")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=AttributeError("no such attr"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_error_body_contains_sanitized_message(self, handler, mock_mound):
         """Error response contains a sanitized error message, not raw exception text."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=ValueError("internal secret details")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=ValueError("internal secret details"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         body = _body(result)
         assert "error" in body
@@ -381,9 +367,7 @@ class TestAnalyzeCoverage:
     @pytest.mark.asyncio
     async def test_custom_stale_threshold_zero(self, handler, mock_mound):
         """stale_threshold_days=0 is forwarded."""
-        await handler.analyze_coverage(
-            workspace_id="ws-001", stale_threshold_days=0
-        )
+        await handler.analyze_coverage(workspace_id="ws-001", stale_threshold_days=0)
         mock_mound.analyze_coverage.assert_awaited_once_with(
             workspace_id="ws-001",
             stale_threshold_days=0,
@@ -392,9 +376,7 @@ class TestAnalyzeCoverage:
     @pytest.mark.asyncio
     async def test_large_stale_threshold(self, handler, mock_mound):
         """Large stale_threshold_days is forwarded."""
-        await handler.analyze_coverage(
-            workspace_id="ws-001", stale_threshold_days=365
-        )
+        await handler.analyze_coverage(workspace_id="ws-001", stale_threshold_days=365)
         mock_mound.analyze_coverage.assert_awaited_once_with(
             workspace_id="ws-001",
             stale_threshold_days=365,
@@ -498,45 +480,35 @@ class TestAnalyzeUsage:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.analyze_usage = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.analyze_usage = AsyncMock(side_effect=KeyError("missing"))
         result = await handler.analyze_usage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.analyze_usage = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.analyze_usage = AsyncMock(side_effect=ValueError("bad"))
         result = await handler.analyze_usage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.analyze_usage = AsyncMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.analyze_usage = AsyncMock(side_effect=OSError("disk"))
         result = await handler.analyze_usage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.analyze_usage = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.analyze_usage = AsyncMock(side_effect=TypeError("wrong"))
         result = await handler.analyze_usage(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.analyze_usage = AsyncMock(
-            side_effect=AttributeError("missing attr")
-        )
+        mock_mound.analyze_usage = AsyncMock(side_effect=AttributeError("missing attr"))
         result = await handler.analyze_usage(workspace_id="ws-001")
         assert _status(result) == 500
 
@@ -545,7 +517,8 @@ class TestAnalyzeUsage:
         """days=0 is forwarded to mound."""
         await handler.analyze_usage(workspace_id="ws-001", days=0)
         mock_mound.analyze_usage.assert_awaited_once_with(
-            workspace_id="ws-001", days=0,
+            workspace_id="ws-001",
+            days=0,
         )
 
     @pytest.mark.asyncio
@@ -553,7 +526,8 @@ class TestAnalyzeUsage:
         """Large days value is forwarded."""
         await handler.analyze_usage(workspace_id="ws-001", days=365)
         mock_mound.analyze_usage.assert_awaited_once_with(
-            workspace_id="ws-001", days=365,
+            workspace_id="ws-001",
+            days=365,
         )
 
     @pytest.mark.asyncio
@@ -715,54 +689,42 @@ class TestRecordUsageEvent:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.record_usage_event = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.record_usage_event = AsyncMock(side_effect=KeyError("missing"))
         result = await handler.record_usage_event(event_type="query")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.record_usage_event = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.record_usage_event = AsyncMock(side_effect=ValueError("bad"))
         result = await handler.record_usage_event(event_type="query")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.record_usage_event = AsyncMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.record_usage_event = AsyncMock(side_effect=OSError("disk"))
         result = await handler.record_usage_event(event_type="query")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.record_usage_event = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.record_usage_event = AsyncMock(side_effect=TypeError("wrong"))
         result = await handler.record_usage_event(event_type="query")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.record_usage_event = AsyncMock(
-            side_effect=AttributeError("no attr")
-        )
+        mock_mound.record_usage_event = AsyncMock(side_effect=AttributeError("no attr"))
         result = await handler.record_usage_event(event_type="query")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_with_only_item_id(self, handler, mock_mound):
         """item_id alone is accepted."""
-        await handler.record_usage_event(
-            event_type="view", item_id="item-only"
-        )
+        await handler.record_usage_event(event_type="view", item_id="item-only")
         call_kwargs = mock_mound.record_usage_event.call_args.kwargs
         assert call_kwargs["item_id"] == "item-only"
         assert call_kwargs["user_id"] is None
@@ -770,9 +732,7 @@ class TestRecordUsageEvent:
     @pytest.mark.asyncio
     async def test_with_only_user_id(self, handler, mock_mound):
         """user_id alone is accepted."""
-        await handler.record_usage_event(
-            event_type="query", user_id="user-only"
-        )
+        await handler.record_usage_event(event_type="query", user_id="user-only")
         call_kwargs = mock_mound.record_usage_event.call_args.kwargs
         assert call_kwargs["user_id"] == "user-only"
         assert call_kwargs["item_id"] is None
@@ -780,9 +740,7 @@ class TestRecordUsageEvent:
     @pytest.mark.asyncio
     async def test_with_query_string(self, handler, mock_mound):
         """query string is forwarded."""
-        await handler.record_usage_event(
-            event_type="query", query="how to deploy"
-        )
+        await handler.record_usage_event(event_type="query", query="how to deploy")
         call_kwargs = mock_mound.record_usage_event.call_args.kwargs
         assert call_kwargs["query"] == "how to deploy"
 
@@ -839,9 +797,7 @@ class TestCaptureQualitySnapshot:
     @pytest.mark.asyncio
     async def test_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = await handler_no_mound.capture_quality_snapshot(
-            workspace_id="ws-001"
-        )
+        result = await handler_no_mound.capture_quality_snapshot(workspace_id="ws-001")
         assert _status(result) == 503
         body = _body(result)
         assert "not available" in body["error"].lower()
@@ -857,45 +813,35 @@ class TestCaptureQualitySnapshot:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.capture_quality_snapshot = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=KeyError("missing"))
         result = await handler.capture_quality_snapshot(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.capture_quality_snapshot = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=ValueError("bad"))
         result = await handler.capture_quality_snapshot(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.capture_quality_snapshot = AsyncMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=OSError("disk"))
         result = await handler.capture_quality_snapshot(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.capture_quality_snapshot = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=TypeError("wrong"))
         result = await handler.capture_quality_snapshot(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.capture_quality_snapshot = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=AttributeError("attr"))
         result = await handler.capture_quality_snapshot(workspace_id="ws-001")
         assert _status(result) == 500
 
@@ -990,45 +936,35 @@ class TestGetQualityTrend:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.get_quality_trend = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_quality_trend = AsyncMock(side_effect=KeyError("missing"))
         result = await handler.get_quality_trend(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.get_quality_trend = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_quality_trend = AsyncMock(side_effect=ValueError("bad"))
         result = await handler.get_quality_trend(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.get_quality_trend = AsyncMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.get_quality_trend = AsyncMock(side_effect=OSError("disk"))
         result = await handler.get_quality_trend(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.get_quality_trend = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.get_quality_trend = AsyncMock(side_effect=TypeError("wrong"))
         result = await handler.get_quality_trend(workspace_id="ws-001")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.get_quality_trend = AsyncMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.get_quality_trend = AsyncMock(side_effect=AttributeError("attr"))
         result = await handler.get_quality_trend(workspace_id="ws-001")
         assert _status(result) == 500
 
@@ -1037,7 +973,8 @@ class TestGetQualityTrend:
         """days=0 is forwarded to mound."""
         await handler.get_quality_trend(workspace_id="ws-001", days=0)
         mock_mound.get_quality_trend.assert_awaited_once_with(
-            workspace_id="ws-001", days=0,
+            workspace_id="ws-001",
+            days=0,
         )
 
     @pytest.mark.asyncio
@@ -1045,7 +982,8 @@ class TestGetQualityTrend:
         """Large days value is forwarded."""
         await handler.get_quality_trend(workspace_id="ws-001", days=365)
         mock_mound.get_quality_trend.assert_awaited_once_with(
-            workspace_id="ws-001", days=365,
+            workspace_id="ws-001",
+            days=365,
         )
 
     @pytest.mark.asyncio
@@ -1111,45 +1049,35 @@ class TestGetAnalyticsStats:
     @pytest.mark.asyncio
     async def test_mound_raises_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.get_analytics_stats = MagicMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_analytics_stats = MagicMock(side_effect=KeyError("missing"))
         result = await handler.get_analytics_stats()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.get_analytics_stats = MagicMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_analytics_stats = MagicMock(side_effect=ValueError("bad"))
         result = await handler.get_analytics_stats()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.get_analytics_stats = MagicMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.get_analytics_stats = MagicMock(side_effect=OSError("disk"))
         result = await handler.get_analytics_stats()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.get_analytics_stats = MagicMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.get_analytics_stats = MagicMock(side_effect=TypeError("wrong"))
         result = await handler.get_analytics_stats()
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_mound_raises_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
-        mock_mound.get_analytics_stats = MagicMock(
-            side_effect=AttributeError("attr")
-        )
+        mock_mound.get_analytics_stats = MagicMock(side_effect=AttributeError("attr"))
         result = await handler.get_analytics_stats()
         assert _status(result) == 500
 
@@ -1233,12 +1161,14 @@ class TestCrossCutting:
         """Each endpoint correctly passes through different workspace IDs."""
         await handler.analyze_coverage(workspace_id="ws-alpha")
         mock_mound.analyze_coverage.assert_awaited_once_with(
-            workspace_id="ws-alpha", stale_threshold_days=90,
+            workspace_id="ws-alpha",
+            stale_threshold_days=90,
         )
 
         await handler.analyze_usage(workspace_id="ws-beta")
         mock_mound.analyze_usage.assert_awaited_once_with(
-            workspace_id="ws-beta", days=30,
+            workspace_id="ws-beta",
+            days=30,
         )
 
         await handler.capture_quality_snapshot(workspace_id="ws-gamma")
@@ -1248,15 +1178,14 @@ class TestCrossCutting:
 
         await handler.get_quality_trend(workspace_id="ws-delta")
         mock_mound.get_quality_trend.assert_awaited_once_with(
-            workspace_id="ws-delta", days=30,
+            workspace_id="ws-delta",
+            days=30,
         )
 
     @pytest.mark.asyncio
     async def test_os_error_gives_sanitized_message(self, handler, mock_mound):
         """OSError returns 'Resource not found' (sanitized), not raw message."""
-        mock_mound.analyze_coverage = AsyncMock(
-            side_effect=OSError("/etc/secret/path not found")
-        )
+        mock_mound.analyze_coverage = AsyncMock(side_effect=OSError("/etc/secret/path not found"))
         result = await handler.analyze_coverage(workspace_id="ws-001")
         body = _body(result)
         assert "/etc/secret/path" not in body["error"]
@@ -1264,9 +1193,7 @@ class TestCrossCutting:
     @pytest.mark.asyncio
     async def test_value_error_gives_sanitized_message(self, handler, mock_mound):
         """ValueError returns sanitized message."""
-        mock_mound.analyze_usage = AsyncMock(
-            side_effect=ValueError("password=hunter2")
-        )
+        mock_mound.analyze_usage = AsyncMock(side_effect=ValueError("password=hunter2"))
         result = await handler.analyze_usage(workspace_id="ws-001")
         body = _body(result)
         assert "hunter2" not in body["error"]

@@ -73,6 +73,7 @@ def _body_text(result) -> str:
 def handler_module():
     """Import the handler module lazily (after conftest patches)."""
     import aragora.server.handlers.bots.whatsapp as mod
+
     return mod
 
 
@@ -147,23 +148,13 @@ def _webhook_payload(
     if contacts is not None:
         value["contacts"] = contacts
     else:
-        value["contacts"] = [
-            {"wa_id": "15551234567", "profile": {"name": "Test User"}}
-        ]
+        value["contacts"] = [{"wa_id": "15551234567", "profile": {"name": "Test User"}}]
     if messages is not None:
         value["messages"] = messages
     else:
         value["messages"] = []
 
-    return {
-        "entry": [
-            {
-                "changes": [
-                    {"field": "messages", "value": value}
-                ]
-            }
-        ]
-    }
+    return {"entry": [{"changes": [{"field": "messages", "value": value}]}]}
 
 
 def _text_message(
@@ -316,30 +307,40 @@ class TestBotConfig:
         assert handler.bot_platform == "whatsapp"
 
     def test_is_bot_enabled_true(self, handler, handler_module):
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"),
+        ):
             assert handler._is_bot_enabled() is True
 
     def test_is_bot_enabled_false_no_token(self, handler, handler_module):
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_is_bot_enabled_false_no_phone(self, handler, handler_module):
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_is_bot_enabled_false_both_none(self, handler, handler_module):
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_platform_config_status_all_configured(self, handler, handler_module):
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"), \
-             patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", "vt"), \
-             patch.object(handler_module, "WHATSAPP_APP_SECRET", "sec"):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"),
+            patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", "vt"),
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", "sec"),
+        ):
             status = handler._get_platform_config_status()
             assert status["access_token_configured"] is True
             assert status["phone_number_configured"] is True
@@ -347,10 +348,12 @@ class TestBotConfig:
             assert status["app_secret_configured"] is True
 
     def test_platform_config_status_none_configured(self, handler, handler_module):
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None), \
-             patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_APP_SECRET", None):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None),
+            patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", None),
+        ):
             status = handler._get_platform_config_status()
             assert status["access_token_configured"] is False
             assert status["phone_number_configured"] is False
@@ -369,10 +372,12 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_returns_200(self, handler, handler_module):
         mock_http = MockHTTPHandler(path="/api/v1/bots/whatsapp/status", method="GET")
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"), \
-             patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", "vt"), \
-             patch.object(handler_module, "WHATSAPP_APP_SECRET", "sec"):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "tok"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "pid"),
+            patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", "vt"),
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", "sec"),
+        ):
             result = await handler.handle("/api/v1/bots/whatsapp/status", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -382,10 +387,12 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_disabled_when_not_configured(self, handler, handler_module):
         mock_http = MockHTTPHandler(path="/api/v1/bots/whatsapp/status", method="GET")
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None), \
-             patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_APP_SECRET", None):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None),
+            patch.object(handler_module, "WHATSAPP_VERIFY_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", None),
+        ):
             result = await handler.handle("/api/v1/bots/whatsapp/status", {}, mock_http)
             assert _status(result) == 200
             body = _body(result)
@@ -540,9 +547,11 @@ class TestWebhookPost:
         msg = _text_message("Should we adopt microservices?")
         payload = _webhook_payload(messages=[msg])
 
-        with patch.object(handler, "_start_debate") as mock_debate, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_start_debate") as mock_debate,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             result = self._signed_post(handler, handler_module, payload)
             assert _status(result) == 200
             mock_debate.assert_called_once()
@@ -556,9 +565,11 @@ class TestWebhookPost:
         for greeting in ("hi", "hello", "hey", "start"):
             msg = _text_message(greeting)
             payload = _webhook_payload(messages=[msg])
-            with patch.object(handler, "_send_welcome") as mock_welcome, \
-                 patch.object(handler, "_extract_attachments", return_value=[]), \
-                 patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+            with (
+                patch.object(handler, "_send_welcome") as mock_welcome,
+                patch.object(handler, "_extract_attachments", return_value=[]),
+                patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+            ):
                 self._signed_post(handler, handler_module, payload)
                 mock_welcome.assert_called_once_with("15551234567")
 
@@ -566,9 +577,11 @@ class TestWebhookPost:
         """The /help command sends help message."""
         msg = _text_message("/help")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_send_help") as mock_help, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_help") as mock_help,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_help.assert_called_once_with("15551234567")
 
@@ -576,9 +589,11 @@ class TestWebhookPost:
         """The /status command sends status message."""
         msg = _text_message("/status")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_send_status") as mock_status, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_status") as mock_status,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_status.assert_called_once_with("15551234567")
 
@@ -586,9 +601,11 @@ class TestWebhookPost:
         """The /debate command starts a debate with no decision_integrity."""
         msg = _text_message("/debate Should we use Rust?")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_start_debate") as mock_debate, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_start_debate") as mock_debate,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_debate.assert_called_once()
             args, kwargs = mock_debate.call_args
@@ -599,9 +616,11 @@ class TestWebhookPost:
         """The /plan command includes decision_integrity with plan fields."""
         msg = _text_message("/plan Migrate to cloud")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_start_debate") as mock_debate, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_start_debate") as mock_debate,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_debate.assert_called_once()
             _, kwargs = mock_debate.call_args
@@ -615,9 +634,11 @@ class TestWebhookPost:
         """The /implement command adds execution_mode and include_context."""
         msg = _text_message("/implement Build API gateway")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_start_debate") as mock_debate, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_start_debate") as mock_debate,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             _, kwargs = mock_debate.call_args
             di = kwargs["decision_integrity"]
@@ -629,9 +650,11 @@ class TestWebhookPost:
         """Unknown /command sends error message."""
         msg = _text_message("/foobar")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_send.assert_called_once()
             text = mock_send.call_args[0][1]
@@ -642,9 +665,13 @@ class TestWebhookPost:
         """Document message with caption starts debate."""
         msg = _media_message("document", caption="Analyze this report")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_start_debate") as mock_debate, \
-             patch.object(handler, "_extract_attachments", return_value=[{"type": "document"}]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[{"type": "document"}]):
+        with (
+            patch.object(handler, "_start_debate") as mock_debate,
+            patch.object(handler, "_extract_attachments", return_value=[{"type": "document"}]),
+            patch.object(
+                handler, "_hydrate_whatsapp_attachments", return_value=[{"type": "document"}]
+            ),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_debate.assert_called_once()
             assert mock_debate.call_args[0][2] == "Analyze this report"
@@ -653,9 +680,13 @@ class TestWebhookPost:
         """Document message without caption asks for a question."""
         msg = _media_message("document", caption="")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_extract_attachments", return_value=[{"type": "document"}]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[{"type": "document"}]):
+        with (
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_extract_attachments", return_value=[{"type": "document"}]),
+            patch.object(
+                handler, "_hydrate_whatsapp_attachments", return_value=[{"type": "document"}]
+            ),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_send.assert_called_once()
             text = mock_send.call_args[0][1]
@@ -665,9 +696,11 @@ class TestWebhookPost:
         """Image message with caption starts debate."""
         msg = _media_message("image", caption="What is this?", mime_type="image/jpeg")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_start_debate") as mock_debate, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_start_debate") as mock_debate,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_debate.assert_called_once()
 
@@ -675,9 +708,11 @@ class TestWebhookPost:
         """Video without caption prompts user."""
         msg = _media_message("video", caption="", mime_type="video/mp4")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_send.assert_called_once()
 
@@ -685,9 +720,11 @@ class TestWebhookPost:
         """Audio without caption prompts user."""
         msg = _media_message("audio", caption="", mime_type="audio/ogg")
         payload = _webhook_payload(messages=[msg])
-        with patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_send.assert_called_once()
 
@@ -755,9 +792,11 @@ class TestWebhookPost:
             _text_message("hello", msg_id="m2"),
         ]
         payload = _webhook_payload(messages=msgs)
-        with patch.object(handler, "_send_welcome") as mock_welcome, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_welcome") as mock_welcome,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             assert mock_welcome.call_count == 2
 
@@ -769,9 +808,7 @@ class TestWebhookPost:
 
     def test_non_messages_field_ignored(self, handler, handler_module):
         """Changes with field != 'messages' are ignored."""
-        payload = {
-            "entry": [{"changes": [{"field": "statuses", "value": {}}]}]
-        }
+        payload = {"entry": [{"changes": [{"field": "statuses", "value": {}}]}]}
         result = self._signed_post(handler, handler_module, payload)
         assert _status(result) == 200
 
@@ -780,9 +817,11 @@ class TestWebhookPost:
         contacts = [{"wa_id": "15559999999", "profile": {"name": "Alice"}}]
         msg = _text_message("hi", from_number="15559999999")
         payload = _webhook_payload(messages=[msg], contacts=contacts)
-        with patch.object(handler, "_send_welcome") as mock_welcome, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_welcome") as mock_welcome,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_welcome.assert_called_once_with("15559999999")
 
@@ -791,9 +830,11 @@ class TestWebhookPost:
         contacts = [{"wa_id": "different_number", "profile": {"name": "Bob"}}]
         msg = _text_message("/help", from_number="15551234567")
         payload = _webhook_payload(messages=[msg], contacts=contacts)
-        with patch.object(handler, "_send_help") as mock_help, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler, "_send_help") as mock_help,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             self._signed_post(handler, handler_module, payload)
             mock_help.assert_called_once()
 
@@ -1004,8 +1045,10 @@ class TestSendMessage:
 
     def test_no_credentials_logs_warning(self, handler, handler_module):
         """Without credentials, message is not sent."""
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", None),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", None),
+        ):
             # Should not raise
             handler._send_message("15551234567", "Test message")
 
@@ -1021,9 +1064,11 @@ class TestSendMessage:
         mock_httpx = MagicMock()
         mock_httpx.Client.return_value = mock_client
 
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "token123"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "phone123"), \
-             patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "token123"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "phone123"),
+            patch.dict("sys.modules", {"httpx": mock_httpx}),
+        ):
             handler._send_message("15551234567", "Hello!")
             mock_client.post.assert_called_once()
             call_kwargs = mock_client.post.call_args
@@ -1033,8 +1078,10 @@ class TestSendMessage:
 
     def test_httpx_import_error(self, handler, handler_module):
         """When httpx is not available, logs warning."""
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "token"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "phone"):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "token"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "phone"),
+        ):
             with patch.dict("sys.modules", {"httpx": None}):
                 # Force re-import to trigger ImportError path
                 # Just test that it doesn't raise
@@ -1054,9 +1101,11 @@ class TestSendMessage:
         mock_httpx = MagicMock()
         mock_httpx.Client.return_value = mock_client
 
-        with patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "token"), \
-             patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "phone"), \
-             patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with (
+            patch.object(handler_module, "WHATSAPP_ACCESS_TOKEN", "token"),
+            patch.object(handler_module, "WHATSAPP_PHONE_NUMBER_ID", "phone"),
+            patch.dict("sys.modules", {"httpx": mock_httpx}),
+        ):
             handler._send_message("15551234567", "Hello!")
 
 
@@ -1113,9 +1162,13 @@ class TestStartDebate:
 
     def test_debate_started_sends_confirmation(self, handler):
         """Valid topic starts debate and sends confirmation."""
-        with patch.object(handler, "_start_debate_async", return_value="abcdef12-3456-7890") as mock_async, \
-             patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(
+                handler, "_start_debate_async", return_value="abcdef12-3456-7890"
+            ) as mock_async,
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_check_bot_permission"),
+        ):
             handler._start_debate("15551234567", "Test User", "Should we use Rust?", [])
             mock_async.assert_called_once()
             mock_send.assert_called_once()
@@ -1125,8 +1178,10 @@ class TestStartDebate:
 
     def test_rbac_denied_sends_permission_error(self, handler):
         """RBAC denial sends permission denied message."""
-        with patch.object(handler, "_check_bot_permission", side_effect=PermissionError("denied")), \
-             patch.object(handler, "_send_message") as mock_send:
+        with (
+            patch.object(handler, "_check_bot_permission", side_effect=PermissionError("denied")),
+            patch.object(handler, "_send_message") as mock_send,
+        ):
             handler._start_debate("15551234567", "Test User", "Topic", [])
             mock_send.assert_called_once()
             text = mock_send.call_args[0][1]
@@ -1135,9 +1190,11 @@ class TestStartDebate:
     def test_debate_with_decision_integrity(self, handler):
         """decision_integrity parameter is forwarded to _start_debate_async."""
         di = {"include_receipt": True, "plan_strategy": "multi_task"}
-        with patch.object(handler, "_start_debate_async", return_value="id-123") as mock_async, \
-             patch.object(handler, "_send_message"), \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(handler, "_start_debate_async", return_value="id-123") as mock_async,
+            patch.object(handler, "_send_message"),
+            patch.object(handler, "_check_bot_permission"),
+        ):
             handler._start_debate("15551234567", "Test", "Topic", [], decision_integrity=di)
             _, kwargs = mock_async.call_args
             assert kwargs["decision_integrity"] == di
@@ -1145,9 +1202,11 @@ class TestStartDebate:
     def test_debate_with_attachments(self, handler):
         """Attachments are forwarded to _start_debate_async."""
         atts = [{"type": "document", "file_id": "d1"}]
-        with patch.object(handler, "_start_debate_async", return_value="id-123") as mock_async, \
-             patch.object(handler, "_send_message"), \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(handler, "_start_debate_async", return_value="id-123") as mock_async,
+            patch.object(handler, "_send_message"),
+            patch.object(handler, "_check_bot_permission"),
+        ):
             handler._start_debate("15551234567", "Test", "Topic", atts)
             call_args = mock_async.call_args
             assert call_args[0][3] == atts
@@ -1167,18 +1226,26 @@ class TestStartDebateAsync:
         mock_origin_module = MagicMock()
         mock_origin_module.register_debate_origin = mock_reg
 
-        with patch.dict("sys.modules", {
-            "aragora.server.debate_origin": mock_origin_module,
-            "aragora.core.decision": None,  # Force fallback
-        }), patch.object(handler, "_start_debate_via_queue", return_value="queue-id"):
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.debate_origin": mock_origin_module,
+                    "aragora.core.decision": None,  # Force fallback
+                },
+            ),
+            patch.object(handler, "_start_debate_via_queue", return_value="queue-id"),
+        ):
             result = handler._start_debate_async("15551234567", "Test", "Topic")
             assert isinstance(result, str)
             mock_reg.assert_called_once()
 
     def test_fallback_to_queue_on_import_error(self, handler):
         """Falls back to queue system when DecisionRouter is unavailable."""
-        with patch.dict("sys.modules", {"aragora.core.decision": None}), \
-             patch.object(handler, "_start_debate_via_queue", return_value="queue-id") as mock_queue:
+        with (
+            patch.dict("sys.modules", {"aragora.core.decision": None}),
+            patch.object(handler, "_start_debate_via_queue", return_value="queue-id") as mock_queue,
+        ):
             result = handler._start_debate_async("15551234567", "Test", "Topic")
             assert isinstance(result, str)
 
@@ -1187,10 +1254,16 @@ class TestStartDebateAsync:
         mock_origin_module = MagicMock()
         mock_origin_module.register_debate_origin.side_effect = RuntimeError("fail")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.debate_origin": mock_origin_module,
-            "aragora.core.decision": None,
-        }), patch.object(handler, "_start_debate_via_queue", return_value="q-id"):
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.debate_origin": mock_origin_module,
+                    "aragora.core.decision": None,
+                },
+            ),
+            patch.object(handler, "_start_debate_via_queue", return_value="q-id"),
+        ):
             result = handler._start_debate_async("15551234567", "Test", "Topic")
             assert isinstance(result, str)
 
@@ -1205,8 +1278,10 @@ class TestStartDebateViaQueue:
 
     def test_queue_import_error_falls_to_direct(self, handler):
         """ImportError from queue falls back to direct execution."""
-        with patch.dict("sys.modules", {"aragora.queue": None}), \
-             patch.object(handler, "_run_debate_direct", return_value="direct-id") as mock_direct:
+        with (
+            patch.dict("sys.modules", {"aragora.queue": None}),
+            patch.object(handler, "_run_debate_direct", return_value="direct-id") as mock_direct,
+        ):
             result = handler._start_debate_via_queue("15551234567", "Test", "Topic", "id-1")
             mock_direct.assert_called_once()
 
@@ -1253,28 +1328,36 @@ class TestCheckBotPermission:
 
     def test_rbac_not_available_no_fail_closed(self, handler, handler_module):
         """When RBAC is unavailable and not fail-closed, permission passes."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.whatsapp.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.whatsapp.rbac_fail_closed", return_value=False),
+        ):
             handler._check_bot_permission("debates:create", user_id="whatsapp:123")
 
     def test_rbac_not_available_fail_closed(self, handler, handler_module):
         """When RBAC is unavailable and fail-closed, raises PermissionError."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.whatsapp.rbac_fail_closed", return_value=True):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.whatsapp.rbac_fail_closed", return_value=True),
+        ):
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="whatsapp:123")
 
     def test_rbac_available_no_context(self, handler, handler_module):
         """When RBAC available but no context and no user_id, no check is performed."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission("debates:create")
             mock_check.assert_not_called()
 
     def test_rbac_available_with_user_id(self, handler, handler_module):
         """When RBAC available with user_id, creates AuthorizationContext and checks."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission("debates:create", user_id="whatsapp:123")
             mock_check.assert_called_once()
             auth_ctx = mock_check.call_args[0][0]
@@ -1284,8 +1367,10 @@ class TestCheckBotPermission:
     def test_rbac_available_with_auth_context_in_context(self, handler, handler_module):
         """When auth_context is in the context dict, it is used directly."""
         mock_auth_ctx = MagicMock()
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission(
                 "bots.read",
                 context={"auth_context": mock_auth_ctx},
@@ -1294,8 +1379,10 @@ class TestCheckBotPermission:
 
     def test_rbac_check_failure_raises(self, handler, handler_module):
         """When check_permission raises, exception propagates."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission", side_effect=PermissionError("denied")):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission", side_effect=PermissionError("denied")),
+        ):
             with pytest.raises(PermissionError, match="denied"):
                 handler._check_bot_permission("debates:create", user_id="whatsapp:123")
 
@@ -1337,10 +1424,12 @@ class TestEdgeCases:
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_welcome") as mock_welcome, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_welcome") as mock_welcome,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             mock_welcome.assert_called_once()
 
@@ -1352,10 +1441,12 @@ class TestEdgeCases:
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_help") as mock_help, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_help") as mock_help,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             mock_help.assert_called_once()
 
@@ -1367,19 +1458,23 @@ class TestEdgeCases:
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_welcome") as mock_welcome, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_welcome") as mock_welcome,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             mock_welcome.assert_called_once()
 
     def test_debate_topic_truncated_in_confirmation(self, handler):
         """Long topics are truncated in the confirmation message."""
         long_topic = "x" * 300
-        with patch.object(handler, "_start_debate_async", return_value="id-12345678") as mock_async, \
-             patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(handler, "_start_debate_async", return_value="id-12345678") as mock_async,
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_check_bot_permission"),
+        ):
             handler._start_debate("15551234567", "Test", long_topic, [])
             text = mock_send.call_args[0][1]
             # topic should be truncated to 200 chars
@@ -1388,9 +1483,13 @@ class TestEdgeCases:
 
     def test_debate_id_truncated_in_confirmation(self, handler):
         """Debate ID is shown truncated (first 8 chars)."""
-        with patch.object(handler, "_start_debate_async", return_value="abcdefgh-1234-rest") as mock_async, \
-             patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(
+                handler, "_start_debate_async", return_value="abcdefgh-1234-rest"
+            ) as mock_async,
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_check_bot_permission"),
+        ):
             handler._start_debate("15551234567", "Test", "Topic", [])
             text = mock_send.call_args[0][1]
             assert "abcdefgh" in text
@@ -1408,9 +1507,7 @@ class TestEdgeCases:
 
     def test_value_without_messages_key(self, handler, handler_module):
         """Change value without 'messages' key processes without error."""
-        payload = {
-            "entry": [{"changes": [{"field": "messages", "value": {"metadata": {}}}]}]
-        }
+        payload = {"entry": [{"changes": [{"field": "messages", "value": {"metadata": {}}}]}]}
         secret = "secret"
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
@@ -1428,8 +1525,10 @@ class TestEdgeCases:
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_welcome"):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_welcome"),
+        ):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             assert _status(result) == 200
 
@@ -1441,11 +1540,13 @@ class TestEdgeCases:
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]), \
-             patch.object(handler, "_check_bot_permission"):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+            patch.object(handler, "_check_bot_permission"),
+        ):
             handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             text = mock_send.call_args[0][1]
             assert "topic" in text.lower()
@@ -1464,18 +1565,42 @@ class TestEdgeCases:
         msg2 = _text_message("hello", msg_id="m2")
         payload = {
             "entry": [
-                {"changes": [{"field": "messages", "value": {"metadata": {}, "contacts": [{"wa_id": "15551234567", "profile": {"name": "A"}}], "messages": [msg1]}}]},
-                {"changes": [{"field": "messages", "value": {"metadata": {}, "contacts": [{"wa_id": "15551234567", "profile": {"name": "B"}}], "messages": [msg2]}}]},
+                {
+                    "changes": [
+                        {
+                            "field": "messages",
+                            "value": {
+                                "metadata": {},
+                                "contacts": [{"wa_id": "15551234567", "profile": {"name": "A"}}],
+                                "messages": [msg1],
+                            },
+                        }
+                    ]
+                },
+                {
+                    "changes": [
+                        {
+                            "field": "messages",
+                            "value": {
+                                "metadata": {},
+                                "contacts": [{"wa_id": "15551234567", "profile": {"name": "B"}}],
+                                "messages": [msg2],
+                            },
+                        }
+                    ]
+                },
             ]
         }
         secret = "secret"
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_welcome") as mock_welcome, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_welcome") as mock_welcome,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             assert mock_welcome.call_count == 2
 
@@ -1555,10 +1680,12 @@ class TestMediaMessageProcessing:
         body_bytes = json.dumps(payload).encode()
         sig = _compute_signature(body_bytes, secret)
         mock_http = _make_webhook_handler(body=None, signature=sig, raw_body=body_bytes)
-        with patch.object(handler_module, "WHATSAPP_APP_SECRET", secret), \
-             patch.object(handler, "_send_message") as mock_send, \
-             patch.object(handler, "_extract_attachments", return_value=[]), \
-             patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]):
+        with (
+            patch.object(handler_module, "WHATSAPP_APP_SECRET", secret),
+            patch.object(handler, "_send_message") as mock_send,
+            patch.object(handler, "_extract_attachments", return_value=[]),
+            patch.object(handler, "_hydrate_whatsapp_attachments", return_value=[]),
+        ):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_http)
             assert _status(result) == 200
             # Without a caption, should prompt user

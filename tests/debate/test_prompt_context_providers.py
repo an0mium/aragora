@@ -19,6 +19,7 @@ from aragora.debate.prompt_context_providers import PromptContextMixin
 # Concrete test harness: inherits the mixin and provides all required attrs
 # ---------------------------------------------------------------------------
 
+
 class ConcreteContextProvider(PromptContextMixin):
     """Concrete class that wires up all attributes the mixin expects."""
 
@@ -68,6 +69,7 @@ class ConcreteContextProvider(PromptContextMixin):
 # ---------------------------------------------------------------------------
 # Helper mock classes
 # ---------------------------------------------------------------------------
+
 
 class MockAgent:
     def __init__(self, name: str = "claude_proposer", stance: str | None = None):
@@ -126,6 +128,7 @@ class MockRating:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def provider():
     return ConcreteContextProvider()
@@ -139,6 +142,7 @@ def agent():
 # ===================================================================
 # 1. get_deliberation_template_context
 # ===================================================================
+
 
 class TestGetDeliberationTemplateContext:
     def test_no_template_configured(self, provider):
@@ -196,13 +200,21 @@ class TestGetDeliberationTemplateContext:
 # 2. format_patterns_for_prompt
 # ===================================================================
 
+
 class TestFormatPatternsForPrompt:
     def test_empty_patterns(self, provider):
         assert provider.format_patterns_for_prompt([]) == ""
 
     def test_cached_result(self, provider):
         """Second call returns cached result without recomputing."""
-        patterns = [{"category": "logic", "pattern": "Circular reasoning", "occurrences": 3, "avg_severity": 0.8}]
+        patterns = [
+            {
+                "category": "logic",
+                "pattern": "Circular reasoning",
+                "occurrences": 3,
+                "avg_severity": 0.8,
+            }
+        ]
         result1 = provider.format_patterns_for_prompt(patterns)
         result2 = provider.format_patterns_for_prompt(patterns)
         assert result1 == result2
@@ -225,8 +237,7 @@ class TestFormatPatternsForPrompt:
     def test_limits_to_five_patterns(self, provider):
         """Only first 5 patterns are included."""
         patterns = [
-            {"category": f"cat{i}", "pattern": f"Pattern {i}", "occurrences": i}
-            for i in range(10)
+            {"category": f"cat{i}", "pattern": f"Pattern {i}", "occurrences": i} for i in range(10)
         ]
         result = provider.format_patterns_for_prompt(patterns)
         assert "Pattern 4" in result
@@ -236,6 +247,7 @@ class TestFormatPatternsForPrompt:
 # ===================================================================
 # 3. get_stance_guidance
 # ===================================================================
+
 
 class TestGetStanceGuidance:
     def test_no_stance(self, provider, agent):
@@ -257,6 +269,7 @@ class TestGetStanceGuidance:
 # 4. get_agreement_intensity_guidance
 # ===================================================================
 
+
 class TestGetAgreementIntensityGuidance:
     def test_none_intensity(self, provider):
         provider.protocol.agreement_intensity = None
@@ -276,6 +289,7 @@ class TestGetAgreementIntensityGuidance:
 # ===================================================================
 # 5. format_successful_patterns
 # ===================================================================
+
 
 class TestFormatSuccessfulPatterns:
     def test_no_memory(self, provider):
@@ -311,6 +325,7 @@ class TestFormatSuccessfulPatterns:
 # 6. get_role_context
 # ===================================================================
 
+
 class TestGetRoleContext:
     def test_no_rotator(self, provider, agent):
         provider.role_rotator = None
@@ -337,6 +352,7 @@ class TestGetRoleContext:
 # 7. get_round_phase_context
 # ===================================================================
 
+
 class TestGetRoundPhaseContext:
     def test_no_phase(self, provider):
         provider.protocol.get_round_phase.return_value = None
@@ -361,6 +377,7 @@ class TestGetRoundPhaseContext:
 # ===================================================================
 # 8. classify_question_async
 # ===================================================================
+
 
 class TestClassifyQuestionAsync:
     @pytest.mark.asyncio
@@ -433,6 +450,7 @@ class TestClassifyQuestionAsync:
 # 9. _detect_question_domain
 # ===================================================================
 
+
 class TestDetectQuestionDomain:
     def test_from_classification_ethical(self, provider):
         provider._classification = MagicMock()
@@ -459,23 +477,37 @@ class TestDetectQuestionDomain:
 # 10. _detect_question_domain_keywords
 # ===================================================================
 
+
 class TestDetectQuestionDomainKeywords:
     def test_philosophical(self, provider):
-        assert provider._detect_question_domain_keywords("What is the meaning of life?") == "philosophical"
+        assert (
+            provider._detect_question_domain_keywords("What is the meaning of life?")
+            == "philosophical"
+        )
 
     def test_ethics(self, provider):
-        assert provider._detect_question_domain_keywords("Is it ethical to use AI for hiring?") == "ethics"
+        assert (
+            provider._detect_question_domain_keywords("Is it ethical to use AI for hiring?")
+            == "ethics"
+        )
 
     def test_technical(self, provider):
-        assert provider._detect_question_domain_keywords("How to refactor the API architecture?") == "technical"
+        assert (
+            provider._detect_question_domain_keywords("How to refactor the API architecture?")
+            == "technical"
+        )
 
     def test_general(self, provider):
-        assert provider._detect_question_domain_keywords("What color paint for the office?") == "general"
+        assert (
+            provider._detect_question_domain_keywords("What color paint for the office?")
+            == "general"
+        )
 
 
 # ===================================================================
 # 11. get_persona_context
 # ===================================================================
+
 
 class TestGetPersonaContext:
     def test_philosophical_domain(self, provider, agent):
@@ -525,6 +557,7 @@ class TestGetPersonaContext:
 # 12. get_flip_context
 # ===================================================================
 
+
 class TestGetFlipContext:
     def test_no_detector(self, provider, agent):
         provider.flip_detector = None
@@ -555,8 +588,7 @@ class TestGetFlipContext:
     def test_low_consistency_score(self, provider, agent):
         provider.flip_detector = MagicMock()
         provider.flip_detector.get_agent_consistency.return_value = MockConsistency(
-            contradictions=0, retractions=1, consistency_score=0.5,
-            domains_with_flips=["security"]
+            contradictions=0, retractions=1, consistency_score=0.5, domains_with_flips=["security"]
         )
         result = provider.get_flip_context(agent)
         assert "50%" in result
@@ -572,6 +604,7 @@ class TestGetFlipContext:
 # 13. get_continuum_context
 # ===================================================================
 
+
 class TestGetContinuumContext:
     def test_returns_cached_value(self, provider):
         provider._continuum_context_cache = "cached continuum data"
@@ -584,6 +617,7 @@ class TestGetContinuumContext:
 # ===================================================================
 # 14. inject_supermemory_context
 # ===================================================================
+
 
 class TestInjectSupermemoryContext:
     @pytest.mark.asyncio
@@ -641,6 +675,7 @@ class TestInjectSupermemoryContext:
 # 15. get_supermemory_context
 # ===================================================================
 
+
 class TestGetSupermemoryContext:
     def test_returns_cached(self, provider):
         provider._supermemory_context_cache = "cached supermemory"
@@ -653,6 +688,7 @@ class TestGetSupermemoryContext:
 # ===================================================================
 # 16. get_knowledge_mound_context / set_knowledge_context
 # ===================================================================
+
 
 class TestKnowledgeMoundContext:
     def test_getter_empty(self, provider):
@@ -677,6 +713,7 @@ class TestKnowledgeMoundContext:
 # 17. get_codebase_context / set_codebase_context
 # ===================================================================
 
+
 class TestCodebaseContext:
     def test_getter_empty(self, provider):
         assert provider.get_codebase_context() == ""
@@ -693,6 +730,7 @@ class TestCodebaseContext:
 # ===================================================================
 # 18. get_prior_claims_context
 # ===================================================================
+
 
 class TestGetPriorClaimsContext:
     def test_disabled(self, provider):
@@ -734,6 +772,7 @@ class TestGetPriorClaimsContext:
 # ===================================================================
 # 19. set_rlm_context / get_rlm_context_hint / get_rlm_abstract
 # ===================================================================
+
 
 class TestRLMContext:
     def test_set_rlm_context(self, provider):
@@ -803,6 +842,7 @@ class TestRLMContext:
 # 20. get_language_constraint
 # ===================================================================
 
+
 class TestGetLanguageConstraint:
     def test_enforcement_enabled(self, provider):
         provider.protocol.language = "French"
@@ -812,6 +852,7 @@ class TestGetLanguageConstraint:
             with patch("aragora.config.DEFAULT_DEBATE_LANGUAGE", "English"):
                 # Clear the lru_cache so our patched values take effect
                 from aragora.debate.prompt_builder import _get_language_constraint_impl
+
                 _get_language_constraint_impl.cache_clear()
                 result = provider.get_language_constraint()
         assert "French" in result
@@ -822,6 +863,7 @@ class TestGetLanguageConstraint:
         with patch("aragora.config.ENFORCE_RESPONSE_LANGUAGE", False):
             with patch("aragora.config.DEFAULT_DEBATE_LANGUAGE", "English"):
                 from aragora.debate.prompt_builder import _get_language_constraint_impl
+
                 _get_language_constraint_impl.cache_clear()
                 result = provider.get_language_constraint()
         assert result == ""
@@ -830,6 +872,7 @@ class TestGetLanguageConstraint:
 # ===================================================================
 # 21. _inject_belief_context
 # ===================================================================
+
 
 class TestInjectBeliefContext:
     def test_no_continuum_memory(self, provider):
@@ -864,6 +907,7 @@ class TestInjectBeliefContext:
 # ===================================================================
 # 22. _inject_calibration_context
 # ===================================================================
+
 
 class TestInjectCalibrationContext:
     def test_no_tracker(self, provider, agent):
@@ -906,6 +950,7 @@ class TestInjectCalibrationContext:
 # ===================================================================
 # 23. get_elo_context
 # ===================================================================
+
 
 class TestGetEloContext:
     def test_no_elo_system(self, provider, agent):
@@ -962,6 +1007,7 @@ class TestGetEloContext:
 # 24. format_evidence_for_prompt
 # ===================================================================
 
+
 class TestFormatEvidenceForPrompt:
     def test_no_evidence_pack(self, provider):
         provider.evidence_pack = None
@@ -1013,6 +1059,7 @@ class TestFormatEvidenceForPrompt:
 # ===================================================================
 # 25. format_trending_for_prompt
 # ===================================================================
+
 
 class TestFormatTrendingForPrompt:
     def test_trending_disabled(self, provider):
@@ -1072,6 +1119,7 @@ class TestFormatTrendingForPrompt:
 # 26. format_pulse_context
 # ===================================================================
 
+
 class TestFormatPulseContext:
     def test_empty_topics(self, provider):
         provider._pulse_topics = []
@@ -1079,9 +1127,27 @@ class TestFormatPulseContext:
 
     def test_velocity_labels(self, provider):
         provider._pulse_topics = [
-            {"topic": "AI Safety", "platform": "hackernews", "volume": 15000, "category": "tech", "hours_ago": 1.5},
-            {"topic": "New Framework", "platform": "reddit", "volume": 2000, "category": "dev", "hours_ago": 3.0},
-            {"topic": "Minor Update", "platform": "twitter", "volume": 50, "category": "misc", "hours_ago": 0.5},
+            {
+                "topic": "AI Safety",
+                "platform": "hackernews",
+                "volume": 15000,
+                "category": "tech",
+                "hours_ago": 1.5,
+            },
+            {
+                "topic": "New Framework",
+                "platform": "reddit",
+                "volume": 2000,
+                "category": "dev",
+                "hours_ago": 3.0,
+            },
+            {
+                "topic": "Minor Update",
+                "platform": "twitter",
+                "volume": 50,
+                "category": "misc",
+                "hours_ago": 0.5,
+            },
         ]
         result = provider.format_pulse_context()
 
@@ -1102,7 +1168,13 @@ class TestFormatPulseContext:
 
     def test_max_topics_limit(self, provider):
         provider._pulse_topics = [
-            {"topic": f"Topic {i}", "platform": "test", "volume": 100, "category": "", "hours_ago": 0}
+            {
+                "topic": f"Topic {i}",
+                "platform": "test",
+                "volume": 100,
+                "category": "",
+                "hours_ago": 0,
+            }
             for i in range(10)
         ]
         result = provider.format_pulse_context(max_topics=3)
@@ -1114,6 +1186,7 @@ class TestFormatPulseContext:
 # ===================================================================
 # Setter helper methods
 # ===================================================================
+
 
 class TestSetterMethods:
     def test_set_evidence_pack(self, provider):

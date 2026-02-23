@@ -14,8 +14,10 @@ from aragora.implement.executor import HybridExecutor, TASK_PROMPT_TEMPLATE
 @pytest.fixture
 def executor(tmp_path):
     """Create a HybridExecutor with defaults."""
-    with patch("aragora.implement.executor.ClaudeAgent"), \
-         patch("aragora.implement.executor.CodexAgent"):
+    with (
+        patch("aragora.implement.executor.ClaudeAgent"),
+        patch("aragora.implement.executor.CodexAgent"),
+    ):
         return HybridExecutor(
             repo_path=tmp_path,
             use_harness=False,
@@ -133,7 +135,9 @@ class TestMemoryContextInPrompt:
 
         # Create a CLAUDE.md with patterns
         claude_md = tmp_path / "CLAUDE.md"
-        claude_md.write_text("# Guide\n## Common Patterns\n### Running a Debate\nUse Arena class\n## Other\n")
+        claude_md.write_text(
+            "# Guide\n## Common Patterns\n### Running a Debate\nUse Arena class\n## Other\n"
+        )
 
         result = await executor._fetch_memory_context("query")
 

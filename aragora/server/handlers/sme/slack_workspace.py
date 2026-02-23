@@ -730,7 +730,10 @@ class SlackWorkspaceHandler(SecureHandler):
         try:
             created = sub_store.create(subscription)
             logger.info(
-                "Created Slack subscription %s for channel %s in org %s", created.id, channel_id, org.id
+                "Created Slack subscription %s for channel %s in org %s",
+                created.id,
+                channel_id,
+                org.id,
             )
             return json_response({"subscription": created.to_dict()}, status=201)
         except ValueError as e:

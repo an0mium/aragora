@@ -815,7 +815,10 @@ class PostgresInsightStore(PostgresStore):
             )
 
         logger.debug(
-            "[insight] Recorded usage: insight=%s debate=%s success=%s", insight_id, debate_id, was_successful
+            "[insight] Recorded usage: insight=%s debate=%s success=%s",
+            insight_id,
+            debate_id,
+            was_successful,
         )
 
     async def get_insight_usage_stats(self, insight_id: str) -> dict:
@@ -851,7 +854,7 @@ class PostgresInsightStore(PostgresStore):
         try:
             insight_type = InsightType(row["type"])
         except ValueError:
-            logger.warning("Invalid insight type '%s', defaulting to PATTERN", row['type'])
+            logger.warning("Invalid insight type '%s', defaulting to PATTERN", row["type"])
             insight_type = InsightType.PATTERN
 
         # Handle JSONB columns

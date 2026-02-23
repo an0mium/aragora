@@ -248,7 +248,12 @@ class CommitPhase:
             phase_duration = (datetime.now() - phase_start).total_seconds()
             error_desc = f"Commit failed: {type(e).__name__}"
             self._stream_emit(
-                "on_phase_end", "commit", self.cycle_count, False, phase_duration, {"error": error_desc}
+                "on_phase_end",
+                "commit",
+                self.cycle_count,
+                False,
+                phase_duration,
+                {"error": error_desc},
             )
             self._stream_emit("on_error", "commit", error_desc, True)
             return CommitResult(

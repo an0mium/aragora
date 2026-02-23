@@ -135,12 +135,15 @@ class TestCodebaseContextProvider:
         mock_adapter = AsyncMock()
         mock_adapter.crawl_and_sync = AsyncMock(return_value=5)
 
-        with patch(
-            "aragora.nomic.context_builder.NomicContextBuilder",
-            return_value=mock_builder,
-        ), patch(
-            "aragora.knowledge.mound.adapters.codebase_adapter.CodebaseAdapter",
-            return_value=mock_adapter,
+        with (
+            patch(
+                "aragora.nomic.context_builder.NomicContextBuilder",
+                return_value=mock_builder,
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.codebase_adapter.CodebaseAdapter",
+                return_value=mock_adapter,
+            ),
         ):
             await provider.build_context("task")
             mock_adapter.crawl_and_sync.assert_called_once()

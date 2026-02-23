@@ -286,10 +286,13 @@ class ImplementPhase:
             "files": backed_up,
             "files_created": [],
         }
-        self._emit_rollback_event("ROLLBACK_POINT_CREATED", {
-            "timestamp": timestamp,
-            "files_backed_up": len(backed_up),
-        })
+        self._emit_rollback_event(
+            "ROLLBACK_POINT_CREATED",
+            {
+                "timestamp": timestamp,
+                "files_backed_up": len(backed_up),
+            },
+        )
         return manifest
 
     async def write_files(self, code_changes: dict) -> dict:
@@ -355,10 +358,13 @@ class ImplementPhase:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dst)
 
-        self._emit_rollback_event("ROLLBACK_EXECUTED", {
-            "files_restored": len(backup_manifest.get("files", [])),
-            "files_removed": len(backup_manifest.get("files_created", [])),
-        })
+        self._emit_rollback_event(
+            "ROLLBACK_EXECUTED",
+            {
+                "files_restored": len(backup_manifest.get("files", [])),
+                "files_removed": len(backup_manifest.get("files_created", [])),
+            },
+        )
 
     # =========================================================================
     # Original execute method

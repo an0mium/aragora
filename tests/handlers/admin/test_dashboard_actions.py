@@ -79,9 +79,7 @@ class InMemoryStorage:
             )"""
         )
         if rows:
-            cur.executemany(
-                "INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows
-            )
+            cur.executemany("INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows)
         self._conn.commit()
 
     @contextmanager
@@ -195,7 +193,14 @@ class TestGetQuickActions:
     def test_action_ids(self, handler):
         body = _body(handler._get_quick_actions())
         ids = {a["id"] for a in body["actions"]}
-        expected = {"archive_read", "snooze_low", "mark_spam", "complete_actions", "ai_respond", "sync_inbox"}
+        expected = {
+            "archive_read",
+            "snooze_low",
+            "mark_spam",
+            "complete_actions",
+            "ai_respond",
+            "sync_inbox",
+        }
         assert ids == expected
 
     def test_each_action_has_required_fields(self, handler):
@@ -250,7 +255,10 @@ class TestExecuteQuickAction:
         result = handler._execute_quick_action("")
         assert _status(result) == 400
         body = _body(result)
-        assert "action_id" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        assert (
+            "action_id" in body.get("error", "").lower()
+            or "required" in body.get("error", "").lower()
+        )
 
     def test_arbitrary_action_id(self, handler):
         result = handler._execute_quick_action("custom_action_123")
@@ -377,7 +385,10 @@ class TestDismissUrgentItem:
         result = handler._dismiss_urgent_item("")
         assert _status(result) == 400
         body = _body(result)
-        assert "item_id" in body.get("error", "").lower() or "required" in body.get("error", "").lower()
+        assert (
+            "item_id" in body.get("error", "").lower()
+            or "required" in body.get("error", "").lower()
+        )
 
     def test_dismiss_existing_item(self):
         rows = [("u1", "finance", "in_progress", 0, 0.1, "2026-02-23T10:00:00")]
@@ -659,10 +670,7 @@ class TestSearchDashboard:
 
     def test_search_limit_20(self):
         """Search is limited to 20 results."""
-        rows = [
-            (f"d{i}", "finance", "completed", 1, 0.5, "2026-01-01T00:00:00")
-            for i in range(30)
-        ]
+        rows = [(f"d{i}", "finance", "completed", 1, 0.5, "2026-01-01T00:00:00") for i in range(30)]
         storage = InMemoryStorage(rows)
         h = TestableHandler(storage=storage)
         result = h._search_dashboard("finance")
@@ -864,7 +872,9 @@ class TestCalibrationMetrics:
         assert brier_scores == sorted(brier_scores)
 
     def test_top_by_brier_limited_to_5(self):
-        agents = {f"agent{i}": {"calibration_bias": 0.0, "brier_score": i * 0.05} for i in range(10)}
+        agents = {
+            f"agent{i}": {"calibration_bias": 0.0, "brier_score": i * 0.05} for i in range(10)
+        }
         tracker = MagicMock()
         tracker.get_calibration_summary.return_value = {
             "agents": agents,
@@ -1261,7 +1271,14 @@ class TestIntegration:
     def test_large_dataset_search(self):
         """Search handles many rows without error."""
         rows = [
-            (f"d{i}", f"dom{i % 5}", "completed", i % 2, i / 100, f"2026-01-{1 + i % 28:02d}T00:00:00")
+            (
+                f"d{i}",
+                f"dom{i % 5}",
+                "completed",
+                i % 2,
+                i / 100,
+                f"2026-01-{1 + i % 28:02d}T00:00:00",
+            )
             for i in range(200)
         ]
         storage = InMemoryStorage(rows)

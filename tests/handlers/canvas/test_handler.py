@@ -265,8 +265,9 @@ class TestListCanvases:
         h = MockHTTPHandler(method="GET")
         handler.handle("/api/v1/canvas", {"owner_id": "user-99"}, h)
         call_kwargs = mock_manager.list_canvases.call_args
-        assert call_kwargs.kwargs.get("owner_id") == "user-99" or \
-            (call_kwargs.args and call_kwargs.args[0] == "user-99")
+        assert call_kwargs.kwargs.get("owner_id") == "user-99" or (
+            call_kwargs.args and call_kwargs.args[0] == "user-99"
+        )
 
     def test_list_passes_workspace_id_from_query(self, handler, mock_manager):
         mock_manager.list_canvases = AsyncMock(return_value=[])

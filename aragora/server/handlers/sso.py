@@ -121,7 +121,8 @@ class SSOHandler(SecureHandler):
                 if self._provider:
                     cb_url = getattr(
                         getattr(self._provider, "config", None),
-                        "callback_url", "",
+                        "callback_url",
+                        "",
                     )
                     if not cb_url:
                         logger.warning(
@@ -193,9 +194,7 @@ class SSOHandler(SecureHandler):
             return legacy
 
         if not isinstance(result, HandlerResult):
-            raise TypeError(
-                f"Expected HandlerResult, got {type(result).__name__}"
-            )
+            raise TypeError(f"Expected HandlerResult, got {type(result).__name__}")
         result_body: Any = result.body
         if result.content_type and result.content_type.startswith("application/json"):
             try:
@@ -365,7 +364,12 @@ class SSOHandler(SecureHandler):
                 handler,
                 error_response(safe_error_message(e, "SSO login"), 400, code="SSO_INVALID_REQUEST"),
             )
-        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Unexpected SSO login error: %s", e)
             return self._format_response(
                 handler,
@@ -542,9 +546,7 @@ class SSOHandler(SecureHandler):
                 )
             return self._format_response(
                 handler,
-                error_response(
-                    "Authentication failed", 401, code="SSO_AUTH_FAILED"
-                ),
+                error_response("Authentication failed", 401, code="SSO_AUTH_FAILED"),
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Invalid SSO callback data: %s", e)
@@ -554,7 +556,14 @@ class SSOHandler(SecureHandler):
                     safe_error_message(e, "authentication"), 400, code="SSO_INVALID_DATA"
                 ),
             )
-        except (ConnectionError, TimeoutError, OSError, RuntimeError, ImportError, AttributeError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            ImportError,
+            AttributeError,
+        ) as e:
             logger.exception("Unexpected SSO callback error: %s", e)
             return self._format_response(
                 handler,
@@ -647,7 +656,13 @@ class SSOHandler(SecureHandler):
                     }
                 ),
             )
-        except (ConnectionError, TimeoutError, OSError, RuntimeError, AttributeError) as e:  # broad catch: last-resort handler
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            AttributeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Unexpected SSO logout error: %s", e)
             return self._format_response(
                 handler,
@@ -724,7 +739,13 @@ class SSOHandler(SecureHandler):
                     f"Invalid metadata configuration: {e}", 400, code="METADATA_CONFIG_ERROR"
                 ),
             )
-        except (ConnectionError, TimeoutError, OSError, RuntimeError, AttributeError) as e:  # broad catch: last-resort handler
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            AttributeError,
+        ) as e:  # broad catch: last-resort handler
             logger.exception("Unexpected metadata generation error: %s", e)
             return self._format_response(
                 handler,

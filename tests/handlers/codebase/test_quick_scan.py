@@ -127,6 +127,7 @@ def _bypass_rbac(monkeypatch):
     Tests that specifically test RBAC use the @pytest.mark.no_auto_auth marker
     and mock _check_permission themselves.
     """
+
     async def _allow(*args, **kwargs):
         return None  # None means permission granted
 
@@ -335,12 +336,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             result = await run_quick_scan(str(tmp_path))
 
@@ -374,12 +378,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             result = await run_quick_scan(str(test_file))
 
@@ -399,12 +406,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             result = await run_quick_scan(str(tmp_path / "nonexistent"))
 
@@ -425,12 +435,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             result = await run_quick_scan(str(tmp_path))
 
@@ -470,12 +483,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             result = await run_quick_scan(str(tmp_path))
 
@@ -514,12 +530,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             result = await run_quick_scan(str(tmp_path))
 
@@ -546,12 +565,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             await run_quick_scan(str(tmp_path), severity_threshold="low")
 
@@ -580,12 +602,15 @@ class TestRunQuickScan:
         mock_severity.HIGH = "high"
         mock_severity.CRITICAL = "critical"
 
-        with patch(
-            "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
-            mock_scanner_cls,
-        ), patch(
-            "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
-            mock_severity,
+        with (
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
+                mock_scanner_cls,
+            ),
+            patch(
+                "aragora.server.handlers.codebase.quick_scan.SecuritySeverity",
+                mock_severity,
+            ),
         ):
             await run_quick_scan(str(tmp_path), severity_threshold="high")
 
@@ -828,10 +853,12 @@ class TestHandlePostQuickScan:
             "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
             None,
         ):
-            req = _make_request(body={
-                "repo_path": str(tmp_path),
-                "severity_threshold": "critical",
-            })
+            req = _make_request(
+                body={
+                    "repo_path": str(tmp_path),
+                    "severity_threshold": "critical",
+                }
+            )
             resp = await handler.handle_post_quick_scan(req)
 
         assert resp.status == 200
@@ -844,10 +871,12 @@ class TestHandlePostQuickScan:
             "aragora.server.handlers.codebase.quick_scan.SecurityScanner",
             None,
         ):
-            req = _make_request(body={
-                "repo_path": str(tmp_path),
-                "include_secrets": False,
-            })
+            req = _make_request(
+                body={
+                    "repo_path": str(tmp_path),
+                    "include_secrets": False,
+                }
+            )
             resp = await handler.handle_post_quick_scan(req)
 
         assert resp.status == 200
@@ -1068,8 +1097,9 @@ class TestRegisterRoutes:
         app = web.Application()
         register_routes(app)
 
-        routes = [r.get_info().get("path", r.get_info().get("formatter", ""))
-                  for r in app.router.routes()]
+        routes = [
+            r.get_info().get("path", r.get_info().get("formatter", "")) for r in app.router.routes()
+        ]
 
         assert "/api/v1/codebase/quick-scan" in routes
         assert "/api/v1/codebase/quick-scan/{scan_id}" in routes

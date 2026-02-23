@@ -229,8 +229,10 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_body_has_enabled_field(self, handler, handler_module):
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "client-123"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "secret-456"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "client-123"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "secret-456"),
+        ):
             result = await handler.handle("/api/v1/bots/zoom/status", {}, http_handler)
         body = _body(result)
         assert "enabled" in body
@@ -239,8 +241,10 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_has_client_id_configured(self, handler, handler_module):
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "client-123"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "client-123"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             result = await handler.handle("/api/v1/bots/zoom/status", {}, http_handler)
         body = _body(result)
         assert body["client_id_configured"] is True
@@ -248,8 +252,10 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_has_client_secret_configured(self, handler, handler_module):
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        with patch.object(handler_module, "ZOOM_CLIENT_SECRET", "secret-456"), \
-             patch.object(handler_module, "ZOOM_CLIENT_ID", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "secret-456"),
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+        ):
             result = await handler.handle("/api/v1/bots/zoom/status", {}, http_handler)
         body = _body(result)
         assert body["client_secret_configured"] is True
@@ -273,8 +279,10 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_disabled_when_not_configured(self, handler, handler_module):
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             result = await handler.handle("/api/v1/bots/zoom/status", {}, http_handler)
         body = _body(result)
         assert body["enabled"] is False
@@ -283,8 +291,10 @@ class TestStatusEndpoint:
     async def test_status_disabled_partial_config(self, handler, handler_module):
         """Enabled requires both client_id AND client_secret."""
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "client-123"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "client-123"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             result = await handler.handle("/api/v1/bots/zoom/status", {}, http_handler)
         body = _body(result)
         assert body["enabled"] is False
@@ -305,10 +315,12 @@ class TestStatusEndpoint:
     async def test_status_all_unconfigured(self, handler, handler_module):
         """All config fields False when nothing is set."""
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None), \
-             patch.object(handler_module, "ZOOM_BOT_JID", None), \
-             patch.object(handler_module, "ZOOM_SECRET_TOKEN", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+            patch.object(handler_module, "ZOOM_BOT_JID", None),
+            patch.object(handler_module, "ZOOM_SECRET_TOKEN", None),
+        ):
             result = await handler.handle("/api/v1/bots/zoom/status", {}, http_handler)
         body = _body(result)
         assert body["client_id_configured"] is False
@@ -353,9 +365,7 @@ class TestURLValidation:
 
         secret = "test-secret-key"
         plain_token = "test-plain-token"
-        expected = hmac.new(
-            secret.encode(), plain_token.encode(), hashlib.sha256
-        ).hexdigest()
+        expected = hmac.new(secret.encode(), plain_token.encode(), hashlib.sha256).hexdigest()
 
         event = _url_validation_event(plain_token=plain_token)
         http_handler = _make_event_handler(event)
@@ -401,8 +411,10 @@ class TestSignatureVerification:
         # Remove signature header
         http_handler.headers.pop("x-zm-signature", None)
         http_handler.headers["x-zm-signature"] = ""
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = False
             handler._bot = None
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -418,8 +430,10 @@ class TestSignatureVerification:
         mock_bot = MagicMock()
         mock_bot.verify_webhook.return_value = False
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -436,10 +450,12 @@ class TestSignatureVerification:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"ok": True})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -451,8 +467,10 @@ class TestSignatureVerification:
         event = _bot_notification_event()
         http_handler = _make_event_handler(event, signature="some-sig", timestamp="123")
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             handler._bot_initialized = False
             handler._bot = None
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -478,10 +496,12 @@ class TestBotNotification:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"text": "Hello!"})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -497,9 +517,11 @@ class TestBotNotification:
         mock_bot = MagicMock()
         mock_bot.verify_webhook.return_value = True
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.object(handler, "_check_bot_permission", side_effect=PermissionError("denied")):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.object(handler, "_check_bot_permission", side_effect=PermissionError("denied")),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -515,10 +537,12 @@ class TestBotNotification:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"ok": True})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -541,8 +565,10 @@ class TestOtherEventTypes:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"acknowledged": True})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -558,8 +584,10 @@ class TestOtherEventTypes:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"installed": True})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -574,8 +602,10 @@ class TestOtherEventTypes:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"ok": True})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -597,8 +627,10 @@ class TestOtherEventTypes:
         http_handler = _make_event_handler(event, signature="sig", timestamp="123")
         # Bot is None but signature passes because bot not available for verification
         # Actually, if signature is present and bot is None, returns 503 from sig check
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             handler._bot_initialized = False
             handler._bot = None
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -616,25 +648,31 @@ class TestEnsureBot:
     def test_returns_none_when_not_configured(self, handler, handler_module):
         """Returns None when ZOOM_CLIENT_ID or ZOOM_CLIENT_SECRET is missing."""
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             result = handler._ensure_bot()
         assert result is None
         assert handler._bot_initialized is True
 
     def test_returns_none_when_partial_config(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
     def test_returns_bot_on_success(self, handler, handler_module):
         handler._bot_initialized = False
         mock_bot = MagicMock()
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot),
+        ):
             result = handler._ensure_bot()
         assert result is mock_bot
         assert handler._bot is mock_bot
@@ -649,76 +687,90 @@ class TestEnsureBot:
 
     def test_import_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.dict("sys.modules", {"aragora.bots.zoom_bot": None}):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.dict("sys.modules", {"aragora.bots.zoom_bot": None}),
+        ):
             result = handler._ensure_bot()
         assert result is None
         assert handler._bot_initialized is True
 
     def test_value_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch(
-                 "aragora.bots.zoom_bot.create_zoom_bot",
-                 side_effect=ValueError("bad config"),
-             ):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch(
+                "aragora.bots.zoom_bot.create_zoom_bot",
+                side_effect=ValueError("bad config"),
+            ),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
     def test_key_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch(
-                 "aragora.bots.zoom_bot.create_zoom_bot",
-                 side_effect=KeyError("missing key"),
-             ):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch(
+                "aragora.bots.zoom_bot.create_zoom_bot",
+                side_effect=KeyError("missing key"),
+            ),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
     def test_type_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch(
-                 "aragora.bots.zoom_bot.create_zoom_bot",
-                 side_effect=TypeError("wrong type"),
-             ):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch(
+                "aragora.bots.zoom_bot.create_zoom_bot",
+                side_effect=TypeError("wrong type"),
+            ),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
     def test_runtime_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch(
-                 "aragora.bots.zoom_bot.create_zoom_bot",
-                 side_effect=RuntimeError("failed"),
-             ):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch(
+                "aragora.bots.zoom_bot.create_zoom_bot",
+                side_effect=RuntimeError("failed"),
+            ),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
     def test_os_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch(
-                 "aragora.bots.zoom_bot.create_zoom_bot",
-                 side_effect=OSError("network error"),
-             ):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch(
+                "aragora.bots.zoom_bot.create_zoom_bot",
+                side_effect=OSError("network error"),
+            ),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
     def test_attribute_error_returns_none(self, handler, handler_module):
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch(
-                 "aragora.bots.zoom_bot.create_zoom_bot",
-                 side_effect=AttributeError("missing attr"),
-             ):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch(
+                "aragora.bots.zoom_bot.create_zoom_bot",
+                side_effect=AttributeError("missing attr"),
+            ),
+        ):
             result = handler._ensure_bot()
         assert result is None
 
@@ -732,28 +784,38 @@ class TestIsBotEnabled:
     """Tests for _is_bot_enabled."""
 
     def test_enabled_when_both_set(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             assert handler._is_bot_enabled() is True
 
     def test_disabled_when_client_id_not_set(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_disabled_when_client_secret_not_set(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_disabled_when_neither_set(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_disabled_when_empty_string(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", ""), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", ""):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", ""),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", ""),
+        ):
             assert handler._is_bot_enabled() is False
 
 
@@ -766,10 +828,12 @@ class TestPlatformConfigStatus:
     """Tests for _get_platform_config_status."""
 
     def test_all_configured(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.object(handler_module, "ZOOM_BOT_JID", "jid"), \
-             patch.object(handler_module, "ZOOM_SECRET_TOKEN", "token"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.object(handler_module, "ZOOM_BOT_JID", "jid"),
+            patch.object(handler_module, "ZOOM_SECRET_TOKEN", "token"),
+        ):
             status = handler._get_platform_config_status()
         assert status["client_id_configured"] is True
         assert status["client_secret_configured"] is True
@@ -777,10 +841,12 @@ class TestPlatformConfigStatus:
         assert status["secret_token_configured"] is True
 
     def test_none_configured(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", None), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None), \
-             patch.object(handler_module, "ZOOM_BOT_JID", None), \
-             patch.object(handler_module, "ZOOM_SECRET_TOKEN", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", None),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+            patch.object(handler_module, "ZOOM_BOT_JID", None),
+            patch.object(handler_module, "ZOOM_SECRET_TOKEN", None),
+        ):
             status = handler._get_platform_config_status()
         assert status["client_id_configured"] is False
         assert status["client_secret_configured"] is False
@@ -788,10 +854,12 @@ class TestPlatformConfigStatus:
         assert status["secret_token_configured"] is False
 
     def test_partial_configured(self, handler, handler_module):
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", None), \
-             patch.object(handler_module, "ZOOM_BOT_JID", "jid"), \
-             patch.object(handler_module, "ZOOM_SECRET_TOKEN", None):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", None),
+            patch.object(handler_module, "ZOOM_BOT_JID", "jid"),
+            patch.object(handler_module, "ZOOM_SECRET_TOKEN", None),
+        ):
             status = handler._get_platform_config_status()
         assert status["client_id_configured"] is True
         assert status["client_secret_configured"] is False
@@ -809,26 +877,34 @@ class TestRBACPermissions:
 
     def test_rbac_not_available_non_production(self, handler, handler_module):
         """When RBAC is unavailable and not production, should pass."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False),
+        ):
             handler._check_bot_permission("debates:create", user_id="zoom:123")
 
     def test_rbac_not_available_production(self, handler, handler_module):
         """When RBAC is unavailable in production, should raise."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=True):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=True),
+        ):
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="zoom:123")
 
     def test_rbac_available_permission_granted(self, handler, handler_module):
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             mock_check.return_value = None
             handler._check_bot_permission("debates:create", user_id="zoom:123")
 
     def test_rbac_available_permission_denied(self, handler, handler_module):
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             mock_check.side_effect = PermissionError("Denied")
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="zoom:123")
@@ -836,8 +912,10 @@ class TestRBACPermissions:
     def test_rbac_with_auth_context_in_context(self, handler, handler_module):
         """When auth_context is provided in context dict, it should be used."""
         mock_auth_ctx = MagicMock()
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission(
                 "debates:create",
                 context={"auth_context": mock_auth_ctx},
@@ -846,16 +924,20 @@ class TestRBACPermissions:
 
     def test_rbac_no_user_id_no_context(self, handler, handler_module):
         """When no user_id and no auth_context, check_permission not called."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission("debates:create")
             mock_check.assert_not_called()
 
     def test_rbac_constructs_auth_context_with_user_id(self, handler, handler_module):
         """When user_id provided and no auth_context, builds AuthorizationContext."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check, \
-             patch.object(handler_module, "AuthorizationContext") as mock_ctx_cls:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+            patch.object(handler_module, "AuthorizationContext") as mock_ctx_cls,
+        ):
             mock_ctx_instance = MagicMock()
             mock_ctx_cls.return_value = mock_ctx_instance
             handler._check_bot_permission("bots.read", user_id="zoom:user-abc")
@@ -905,8 +987,10 @@ class TestEventErrorHandling:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(side_effect=ValueError("bad value"))
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -922,8 +1006,10 @@ class TestEventErrorHandling:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(side_effect=KeyError("missing"))
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -938,8 +1024,10 @@ class TestEventErrorHandling:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(side_effect=TypeError("wrong type"))
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -954,8 +1042,10 @@ class TestEventErrorHandling:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -970,8 +1060,10 @@ class TestEventErrorHandling:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(side_effect=OSError("io error"))
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -984,12 +1076,12 @@ class TestEventErrorHandling:
         http_handler = _make_event_handler(event, signature="sig", timestamp="123")
         mock_bot = MagicMock()
         mock_bot.verify_webhook.return_value = True
-        mock_bot.handle_event = AsyncMock(
-            side_effect=json.JSONDecodeError("bad", "doc", 0)
-        )
+        mock_bot.handle_event = AsyncMock(side_effect=json.JSONDecodeError("bad", "doc", 0))
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -1167,9 +1259,7 @@ class TestEdgeCases:
     async def test_handle_with_query_params(self, handler):
         """handle() works with populated query params."""
         http_handler = MockHTTPHandler(path="/api/v1/bots/zoom/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/zoom/status", {"format": "json"}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/zoom/status", {"format": "json"}, http_handler)
         assert result is not None
 
     @pytest.mark.asyncio
@@ -1201,10 +1291,12 @@ class TestEdgeCases:
         mock_bot.verify_webhook.return_value = True
         mock_bot.handle_event = AsyncMock(return_value={"ok": True})
 
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.zoom.rbac_fail_closed", return_value=False),
+        ):
             handler._bot_initialized = True
             handler._bot = mock_bot
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
@@ -1223,11 +1315,11 @@ class TestEdgeCases:
         for event_fn in [_meeting_ended_event, _bot_installed_event]:
             event = event_fn()
             http_handler = _make_event_handler(event, signature="sig", timestamp="123")
-            with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-                 patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"):
-                result = await handler.handle_post(
-                    "/api/v1/bots/zoom/events", {}, http_handler
-                )
+            with (
+                patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+                patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            ):
+                result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
             assert _status(result) == 200
 
     def test_ensure_bot_called_only_once(self, handler, handler_module):
@@ -1241,9 +1333,11 @@ class TestEdgeCases:
             return original_bot
 
         handler._bot_initialized = False
-        with patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"), \
-             patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"), \
-             patch("aragora.bots.zoom_bot.create_zoom_bot", side_effect=mock_create):
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+            patch("aragora.bots.zoom_bot.create_zoom_bot", side_effect=mock_create),
+        ):
             handler._ensure_bot()
             handler._ensure_bot()
             handler._ensure_bot()

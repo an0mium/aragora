@@ -77,6 +77,7 @@ def _get_api_key(name: str) -> str | None:
     """Get an API key from secrets manager or env."""
     try:
         from aragora.config.secrets import get_secret
+
         return get_secret(name)
     except ImportError:
         return os.environ.get(name)
@@ -90,6 +91,7 @@ def _get_oracle_models() -> tuple[str, str, str]:
             _ORACLE_MODEL_ANTHROPIC,
             _ORACLE_MODEL_OPENAI,
         )
+
         return _ORACLE_MODEL_OPENROUTER, _ORACLE_MODEL_ANTHROPIC, _ORACLE_MODEL_OPENAI
     except ImportError:
         return "anthropic/claude-opus-4.6", "claude-sonnet-4-6", "gpt-5.2"
@@ -99,6 +101,7 @@ def _get_tentacle_models() -> list[dict[str, str]]:
     """Return available tentacle model configs."""
     try:
         from aragora.server.handlers.playground import _get_available_tentacle_models
+
         return _get_available_tentacle_models()
     except ImportError:
         return []
@@ -108,6 +111,7 @@ def _build_oracle_prompt(mode: str, question: str) -> str:
     """Build the full Oracle prompt with essay context."""
     try:
         from aragora.server.handlers.playground import _build_oracle_prompt as _build
+
         return _build(mode, question)
     except ImportError:
         return question
@@ -176,7 +180,7 @@ async def _stream_openrouter(
                     text = line.decode("utf-8", errors="replace").strip()
                     if not text.startswith(_SSE_DATA_PREFIX):
                         continue
-                    data_str = text[len(_SSE_DATA_PREFIX):]
+                    data_str = text[len(_SSE_DATA_PREFIX) :]
                     if data_str == "[DONE]":
                         return
                     try:
@@ -229,7 +233,7 @@ async def _stream_anthropic(
                     text = line.decode("utf-8", errors="replace").strip()
                     if not text.startswith(_SSE_DATA_PREFIX):
                         continue
-                    data_str = text[len(_SSE_DATA_PREFIX):]
+                    data_str = text[len(_SSE_DATA_PREFIX) :]
                     try:
                         data = json.loads(data_str)
                         if data.get("type") == "content_block_delta":
@@ -278,7 +282,7 @@ async def _stream_openai_compat(
                     text = line.decode("utf-8", errors="replace").strip()
                     if not text.startswith(_SSE_DATA_PREFIX):
                         continue
-                    data_str = text[len(_SSE_DATA_PREFIX):]
+                    data_str = text[len(_SSE_DATA_PREFIX) :]
                     if data_str == "[DONE]":
                         return
                     try:
@@ -325,7 +329,10 @@ async def _call_provider_llm_stream(
         # Google doesn't support standard SSE — fall back to non-streaming
         try:
             from aragora.server.handlers.playground import _call_provider_llm
-            result = await asyncio.to_thread(_call_provider_llm, provider, model, prompt, max_tokens, timeout)
+
+            result = await asyncio.to_thread(
+                _call_provider_llm, provider, model, prompt, max_tokens, timeout
+            )
             if result:
                 yield result
         except ImportError:
@@ -465,21 +472,25 @@ async def _stream_phase(
             break
 
         # Send token event
-        await ws.send_json({
-            "type": "token",
-            "text": token,
-            "phase": phase,
-            "sentence_complete": False,
-        })
+        await ws.send_json(
+            {
+                "type": "token",
+                "text": token,
+                "phase": phase,
+                "sentence_complete": False,
+            }
+        )
 
         # Check for complete sentence
         sentence = accumulator.add(token)
         if sentence:
-            await ws.send_json({
-                "type": "sentence_ready",
-                "text": sentence,
-                "phase": phase,
-            })
+            await ws.send_json(
+                {
+                    "type": "sentence_ready",
+                    "text": sentence,
+                    "phase": phase,
+                }
+            )
             # Stream TTS for this sentence (fire and forget, bounded)
             task = asyncio.create_task(_stream_tts(ws, sentence, phase_tag))
             tts_tasks.append(task)
@@ -487,11 +498,13 @@ async def _stream_phase(
     # Flush remaining text
     remainder = accumulator.flush()
     if remainder and not session.cancelled and not ws.closed:
-        await ws.send_json({
-            "type": "sentence_ready",
-            "text": remainder,
-            "phase": phase,
-        })
+        await ws.send_json(
+            {
+                "type": "sentence_ready",
+                "text": remainder,
+                "phase": phase,
+            }
+        )
         task = asyncio.create_task(_stream_tts(ws, remainder, phase_tag))
         tts_tasks.append(task)
 
@@ -502,11 +515,13 @@ async def _stream_phase(
     full_text = accumulator.full_text
 
     if not session.cancelled and not ws.closed:
-        await ws.send_json({
-            "type": "phase_done",
-            "phase": phase,
-            "full_text": full_text,
-        })
+        await ws.send_json(
+            {
+                "type": "phase_done",
+                "phase": phase,
+                "full_text": full_text,
+            }
+        )
 
     return full_text
 
@@ -525,15 +540,27 @@ async def _stream_reflex(
     key_or = _get_api_key("OPENROUTER_API_KEY")
     if key_or:
         return await _stream_phase(
-            ws, prompt, "reflex", _PHASE_TAG_REFLEX, session,
-            provider="openrouter", model=_REFLEX_MODEL_OPENROUTER, max_tokens=300,
+            ws,
+            prompt,
+            "reflex",
+            _PHASE_TAG_REFLEX,
+            session,
+            provider="openrouter",
+            model=_REFLEX_MODEL_OPENROUTER,
+            max_tokens=300,
         )
 
     key_oai = _get_api_key("OPENAI_API_KEY")
     if key_oai:
         return await _stream_phase(
-            ws, prompt, "reflex", _PHASE_TAG_REFLEX, session,
-            provider="openai", model=_REFLEX_MODEL_OPENAI, max_tokens=300,
+            ws,
+            prompt,
+            "reflex",
+            _PHASE_TAG_REFLEX,
+            session,
+            provider="openai",
+            model=_REFLEX_MODEL_OPENAI,
+            max_tokens=300,
         )
 
     return ""
@@ -550,24 +577,42 @@ async def _stream_deep(
     # Try OpenRouter → Anthropic → OpenAI
     if _get_api_key("OPENROUTER_API_KEY"):
         result = await _stream_phase(
-            ws, prompt, "deep", _PHASE_TAG_DEEP, session,
-            provider="openrouter", model=or_model, max_tokens=2000,
+            ws,
+            prompt,
+            "deep",
+            _PHASE_TAG_DEEP,
+            session,
+            provider="openrouter",
+            model=or_model,
+            max_tokens=2000,
         )
         if result:
             return result
 
     if _get_api_key("ANTHROPIC_API_KEY"):
         result = await _stream_phase(
-            ws, prompt, "deep", _PHASE_TAG_DEEP, session,
-            provider="anthropic", model=anth_model, max_tokens=2000,
+            ws,
+            prompt,
+            "deep",
+            _PHASE_TAG_DEEP,
+            session,
+            provider="anthropic",
+            model=anth_model,
+            max_tokens=2000,
         )
         if result:
             return result
 
     if _get_api_key("OPENAI_API_KEY"):
         return await _stream_phase(
-            ws, prompt, "deep", _PHASE_TAG_DEEP, session,
-            provider="openai", model=oai_model, max_tokens=2000,
+            ws,
+            prompt,
+            "deep",
+            _PHASE_TAG_DEEP,
+            session,
+            provider="openai",
+            model=oai_model,
+            max_tokens=2000,
         )
 
     return ""
@@ -596,25 +641,42 @@ async def _stream_tentacles(
         full_text = ""
         try:
             async for token in _call_provider_llm_stream(
-                m["provider"], m["model"], prompt, max_tokens=1000, timeout=30.0,
+                m["provider"],
+                m["model"],
+                prompt,
+                max_tokens=1000,
+                timeout=30.0,
             ):
                 if session.cancelled or ws.closed:
                     return
                 full_text += token
-                await ws.send_json({
-                    "type": "tentacle_token",
-                    "agent": name,
-                    "text": token,
-                })
-        except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError, ConnectionError, TimeoutError):
+                await ws.send_json(
+                    {
+                        "type": "tentacle_token",
+                        "agent": name,
+                        "text": token,
+                    }
+                )
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            ConnectionError,
+            TimeoutError,
+        ):
             logger.warning("Tentacle %s failed", name, exc_info=True)
 
         if full_text and not session.cancelled and not ws.closed:
-            await ws.send_json({
-                "type": "tentacle_done",
-                "agent": name,
-                "full_text": full_text,
-            })
+            await ws.send_json(
+                {
+                    "type": "tentacle_done",
+                    "agent": name,
+                    "full_text": full_text,
+                }
+            )
 
     # Run tentacles concurrently (max 5)
     tasks = [asyncio.create_task(run_tentacle(m)) for m in models[:5]]
@@ -710,10 +772,12 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         question = str(data.get("question", "")).strip()
                         mode = str(data.get("mode", "consult"))
                         if not question:
-                            await ws.send_json({
-                                "type": "error",
-                                "message": "Missing question",
-                            })
+                            await ws.send_json(
+                                {
+                                    "type": "error",
+                                    "message": "Missing question",
+                                }
+                            )
                             continue
 
                         # Cancel any running task
@@ -745,10 +809,12 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                                 pass
 
                 except json.JSONDecodeError:
-                    await ws.send_json({
-                        "type": "error",
-                        "message": "Invalid JSON",
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "error",
+                            "message": "Invalid JSON",
+                        }
+                    )
 
             elif msg.type == WSMsgType.ERROR:
                 logger.error("Oracle WebSocket error: %s", ws.exception())

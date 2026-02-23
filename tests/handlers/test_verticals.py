@@ -674,9 +674,7 @@ class TestSuggestVertical:
         mock_reg = _make_mock_registry()
         mock_reg.get_for_task.return_value = None
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/suggest", {"task": "Random task"}, None
-            )
+            result = await handler.handle("/api/verticals/suggest", {"task": "Random task"}, None)
         assert _status(result) == 200
         body = _body(result)
         assert body["suggestion"] is None
@@ -708,9 +706,7 @@ class TestSuggestVertical:
     async def test_suggest_task_too_long(self, handler):
         mock_reg = _make_mock_registry()
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/suggest", {"task": "x" * 100_001}, None
-            )
+            result = await handler.handle("/api/verticals/suggest", {"task": "x" * 100_001}, None)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -785,9 +781,7 @@ class TestCreateDebate:
         with patch.object(handler, "_get_registry", return_value=mock_reg):
             with patch("aragora.debate.orchestrator.Arena") as MockArena:
                 MockArena.return_value.run = AsyncMock(return_value=mock_result)
-                result = await handler.handle(
-                    "/api/verticals/healthcare/debate", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == "debate-123"
@@ -798,9 +792,7 @@ class TestCreateDebate:
     async def test_create_debate_no_registry(self, handler):
         mock_handler = _MockHTTPHandler(body={"topic": "Test"}, method="POST")
         with patch.object(handler, "_get_registry", return_value=None):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -809,9 +801,7 @@ class TestCreateDebate:
         mock_reg.is_registered.return_value = False
         mock_handler = _MockHTTPHandler(body={"topic": "Test"}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/nonexistent/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/nonexistent/debate", {}, mock_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -819,9 +809,7 @@ class TestCreateDebate:
         mock_reg = _make_mock_registry()
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
         assert "required" in _body(result).get("error", "").lower()
 
@@ -830,34 +818,24 @@ class TestCreateDebate:
         mock_reg = _make_mock_registry()
         mock_handler = _MockHTTPHandler(body={"topic": ""}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_create_debate_invalid_rounds_zero(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"topic": "Test", "rounds": 0}, method="POST"
-        )
+        mock_handler = _MockHTTPHandler(body={"topic": "Test", "rounds": 0}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
         assert "rounds" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_create_debate_invalid_rounds_over_20(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"topic": "Test", "rounds": 21}, method="POST"
-        )
+        mock_handler = _MockHTTPHandler(body={"topic": "Test", "rounds": 21}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -867,9 +845,7 @@ class TestCreateDebate:
             body={"topic": "Test", "rounds": "not_a_number"}, method="POST"
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -879,9 +855,7 @@ class TestCreateDebate:
             body={"topic": "Test", "agent_name": "agent with spaces"}, method="POST"
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -891,9 +865,7 @@ class TestCreateDebate:
             body={"topic": "Test", "additional_agents": ["a"] * 11}, method="POST"
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -902,9 +874,7 @@ class TestCreateDebate:
         mock_handler = _MockHTTPHandler(method="POST")
         mock_handler.headers["Content-Length"] = "99999999999"
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
         assert "body" in _body(result).get("error", "").lower()
 
@@ -915,17 +885,13 @@ class TestCreateDebate:
         mock_handler = _MockHTTPHandler(body={"topic": "Test topic"}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
             with patch.dict(sys.modules, {"aragora.core": None}):
-                result = await handler.handle(
-                    "/api/verticals/healthcare/debate", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) in (400, 500, 503)
 
     @pytest.mark.asyncio
     async def test_create_debate_invalid_id(self, handler):
         mock_handler = _MockHTTPHandler(body={"topic": "Test"}, method="POST")
-        result = await handler.handle(
-            "/api/verticals/bad id!!/debate", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/bad id!!/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -989,9 +955,7 @@ class TestCreateDebate:
         mock_reg.create_specialist.side_effect = ValueError("bad config")
         mock_handler = _MockHTTPHandler(body={"topic": "Test topic"}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1000,21 +964,15 @@ class TestCreateDebate:
         mock_reg.create_specialist.side_effect = RuntimeError("crash")
         mock_handler = _MockHTTPHandler(body={"topic": "Test topic"}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_create_debate_negative_rounds(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"topic": "Test", "rounds": -1}, method="POST"
-        )
+        mock_handler = _MockHTTPHandler(body={"topic": "Test", "rounds": -1}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1024,9 +982,7 @@ class TestCreateDebate:
             body={"topic": "Test", "additional_agents": "not-a-list"}, method="POST"
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/debate", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 400
 
 
@@ -1044,9 +1000,7 @@ class TestCreateAgent:
             method="POST",
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["vertical_id"] == "healthcare"
@@ -1058,9 +1012,7 @@ class TestCreateAgent:
         mock_reg = _make_mock_registry()
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 200
         call_kwargs = mock_reg.create_specialist.call_args
         assert call_kwargs.kwargs.get("name") == "healthcare-agent"
@@ -1069,9 +1021,7 @@ class TestCreateAgent:
     async def test_create_agent_no_registry(self, handler):
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=None):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1080,21 +1030,15 @@ class TestCreateAgent:
         mock_reg.is_registered.return_value = False
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/nonexistent/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/nonexistent/agent", {}, mock_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_create_agent_invalid_name(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"name": "bad name with spaces"}, method="POST"
-        )
+        mock_handler = _MockHTTPHandler(body={"name": "bad name with spaces"}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1102,9 +1046,7 @@ class TestCreateAgent:
         mock_reg = _make_mock_registry()
         mock_handler = _MockHTTPHandler(body={"name": "x" * 101}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1113,9 +1055,7 @@ class TestCreateAgent:
         mock_handler = _MockHTTPHandler(method="POST")
         mock_handler.headers["Content-Length"] = "99999999999"
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1124,9 +1064,7 @@ class TestCreateAgent:
         mock_reg.create_specialist.side_effect = ValueError("bad")
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1135,17 +1073,13 @@ class TestCreateAgent:
         mock_reg.create_specialist.side_effect = RuntimeError("crash")
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_create_agent_invalid_vertical_id(self, handler):
         mock_handler = _MockHTTPHandler(body={}, method="POST")
-        result = await handler.handle(
-            "/api/verticals/bad id!!/agent", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/bad id!!/agent", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1154,9 +1088,7 @@ class TestCreateAgent:
         mock_reg.create_specialist.side_effect = TypeError("bad type")
         mock_handler = _MockHTTPHandler(body={}, method="POST")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/agent", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/agent", {}, mock_handler)
         assert _status(result) == 400
 
 
@@ -1184,9 +1116,7 @@ class TestUpdateConfig:
                 "aragora.verticals.config.ToolConfig",
                 side_effect=lambda **kw: _MockToolConfig(kw.get("name", "tool")),
             ):
-                result = await handler.handle(
-                    "/api/verticals/healthcare/config", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert "tools" in body["updated_fields"]
@@ -1203,9 +1133,7 @@ class TestUpdateConfig:
                 "aragora.verticals.config.ModelConfig",
                 return_value=_MockModelConfig(),
             ):
-                result = await handler.handle(
-                    "/api/verticals/healthcare/config", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert "model_config" in body["updated_fields"]
@@ -1222,9 +1150,7 @@ class TestUpdateConfig:
                 "aragora.verticals.config.ComplianceConfig",
                 return_value=_MockComplianceConfig(),
             ):
-                result = await handler.handle(
-                    "/api/verticals/healthcare/config", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert "compliance_frameworks" in body["updated_fields"]
@@ -1233,9 +1159,7 @@ class TestUpdateConfig:
     async def test_update_no_registry(self, handler):
         mock_handler = _MockHTTPHandler(body={"tools": []}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=None):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1244,9 +1168,7 @@ class TestUpdateConfig:
         mock_reg.is_registered.return_value = False
         mock_handler = _MockHTTPHandler(body={"tools": []}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/nonexistent/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/nonexistent/config", {}, mock_handler)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1255,9 +1177,7 @@ class TestUpdateConfig:
         mock_handler = _MockHTTPHandler(method="PUT")
         mock_handler.headers["Content-Length"] = "99999999999"
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1265,9 +1185,7 @@ class TestUpdateConfig:
         mock_reg = _make_mock_registry()
         mock_handler = _MockHTTPHandler(body={"invalid_field": "value"}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
@@ -1275,9 +1193,7 @@ class TestUpdateConfig:
         mock_reg = _make_mock_registry()
         mock_handler = _MockHTTPHandler(body={"tools": "not-a-list"}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
@@ -1286,127 +1202,87 @@ class TestUpdateConfig:
         many_tools = [{"name": f"tool-{i}"} for i in range(51)]
         mock_handler = _MockHTTPHandler(body={"tools": many_tools}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_tool_name_too_long(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"tools": [{"name": "x" * 101}]}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"tools": [{"name": "x" * 101}]}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_compliance_not_a_list(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"compliance_frameworks": "not-a-list"}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"compliance_frameworks": "not-a-list"}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_compliance_too_many(self, handler):
         mock_reg = _make_mock_registry()
         many_fw = [{"framework": f"fw-{i}"} for i in range(21)]
-        mock_handler = _MockHTTPHandler(
-            body={"compliance_frameworks": many_fw}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"compliance_frameworks": many_fw}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_model_config_not_dict(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"model_config": "not-a-dict"}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"model_config": "not-a-dict"}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_invalid_temperature(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"model_config": {"temperature": 3.0}}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"model_config": {"temperature": 3.0}}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_invalid_max_tokens(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"model_config": {"max_tokens": 0}}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"model_config": {"max_tokens": 0}}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_max_tokens_too_large(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"model_config": {"max_tokens": 200001}}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"model_config": {"max_tokens": 200001}}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
     @pytest.mark.asyncio
     async def test_update_invalid_vertical_id(self, handler):
         mock_handler = _MockHTTPHandler(body={"tools": []}, method="PUT")
-        result = await handler.handle(
-            "/api/verticals/bad id!!/config", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/bad id!!/config", {}, mock_handler)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_update_spec_not_found(self, handler):
         mock_reg = _make_mock_registry()
         mock_reg.get.return_value = None
-        mock_handler = _MockHTTPHandler(
-            body={"tools": [{"name": "t1"}]}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"tools": [{"name": "t1"}]}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (404, 503)
 
     @pytest.mark.asyncio
     async def test_update_negative_temperature(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"model_config": {"temperature": -0.5}}, method="PUT"
-        )
+        mock_handler = _MockHTTPHandler(body={"model_config": {"temperature": -0.5}}, method="PUT")
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/healthcare/config", {}, mock_handler
-            )
+            result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) in (400, 503)
 
 
@@ -1420,18 +1296,14 @@ class TestRBACEnforcement:
     @pytest.mark.no_auto_auth
     async def test_post_requires_auth(self, handler):
         mock_handler = _MockHTTPHandler(body={"topic": "Test"}, method="POST")
-        result = await handler.handle(
-            "/api/verticals/healthcare/debate", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 401
 
     @pytest.mark.asyncio
     @pytest.mark.no_auto_auth
     async def test_put_requires_auth(self, handler):
         mock_handler = _MockHTTPHandler(body={"tools": []}, method="PUT")
-        result = await handler.handle(
-            "/api/verticals/healthcare/config", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -1497,25 +1369,19 @@ class TestRouteHandling:
     @pytest.mark.asyncio
     async def test_get_on_debate_path_returns_none(self, handler):
         mock_handler = _MockHTTPHandler(method="GET")
-        result = await handler.handle(
-            "/api/verticals/healthcare/debate", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_delete_method_not_matched(self, handler):
         mock_handler = _MockHTTPHandler(method="DELETE")
-        result = await handler.handle(
-            "/api/verticals/healthcare/tools", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/healthcare/tools", {}, mock_handler)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_post_on_tools_returns_none(self, handler):
         mock_handler = _MockHTTPHandler(method="POST")
-        result = await handler.handle(
-            "/api/verticals/healthcare/tools", {}, mock_handler
-        )
+        result = await handler.handle("/api/verticals/healthcare/tools", {}, mock_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1566,9 +1432,7 @@ class TestRegistryHelper:
 class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_path_with_extra_segments(self, handler):
-        result = await handler.handle(
-            "/api/verticals/healthcare/tools/extra", {}, None
-        )
+        result = await handler.handle("/api/verticals/healthcare/tools/extra", {}, None)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1579,9 +1443,7 @@ class TestEdgeCases:
         spec_no_config.description = "test"
         mock_reg.get.return_value = spec_no_config
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            result = await handler.handle(
-                "/api/verticals/suggest", {"task": "test task"}, None
-            )
+            result = await handler.handle("/api/verticals/suggest", {"task": "test task"}, None)
         assert _status(result) == 200
         body = _body(result)
         assert body["suggestion"]["vertical_id"] == "healthcare"
@@ -1599,9 +1461,7 @@ class TestEdgeCases:
         with patch.object(handler, "_get_registry", return_value=mock_reg):
             with patch("aragora.debate.orchestrator.Arena") as MockArena:
                 MockArena.return_value.run = AsyncMock(return_value=mock_result)
-                result = await handler.handle(
-                    "/api/verticals/healthcare/debate", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 200
         call_kwargs = mock_reg.create_specialist.call_args
         assert call_kwargs.kwargs.get("name") == "healthcare-specialist"
@@ -1656,9 +1516,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_rounds_boundary_1(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"topic": "Test", "rounds": 1}, method="POST"
-        )
+        mock_handler = _MockHTTPHandler(body={"topic": "Test", "rounds": 1}, method="POST")
         mock_result = MagicMock()
         mock_result.debate_id = "d-5"
         mock_result.consensus_reached = False
@@ -1668,17 +1526,13 @@ class TestEdgeCases:
         with patch.object(handler, "_get_registry", return_value=mock_reg):
             with patch("aragora.debate.orchestrator.Arena") as MockArena:
                 MockArena.return_value.run = AsyncMock(return_value=mock_result)
-                result = await handler.handle(
-                    "/api/verticals/healthcare/debate", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_rounds_boundary_20(self, handler):
         mock_reg = _make_mock_registry()
-        mock_handler = _MockHTTPHandler(
-            body={"topic": "Test", "rounds": 20}, method="POST"
-        )
+        mock_handler = _MockHTTPHandler(body={"topic": "Test", "rounds": 20}, method="POST")
         mock_result = MagicMock()
         mock_result.debate_id = "d-6"
         mock_result.consensus_reached = False
@@ -1688,9 +1542,7 @@ class TestEdgeCases:
         with patch.object(handler, "_get_registry", return_value=mock_reg):
             with patch("aragora.debate.orchestrator.Arena") as MockArena:
                 MockArena.return_value.run = AsyncMock(return_value=mock_result)
-                result = await handler.handle(
-                    "/api/verticals/healthcare/debate", {}, mock_handler
-                )
+                result = await handler.handle("/api/verticals/healthcare/debate", {}, mock_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1701,12 +1553,8 @@ class TestEdgeCases:
             method="PUT",
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            with patch(
-                "aragora.verticals.config.ModelConfig", return_value=_MockModelConfig()
-            ):
-                result = await handler.handle(
-                    "/api/verticals/healthcare/config", {}, mock_handler
-                )
+            with patch("aragora.verticals.config.ModelConfig", return_value=_MockModelConfig()):
+                result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1717,10 +1565,6 @@ class TestEdgeCases:
             method="PUT",
         )
         with patch.object(handler, "_get_registry", return_value=mock_reg):
-            with patch(
-                "aragora.verticals.config.ModelConfig", return_value=_MockModelConfig()
-            ):
-                result = await handler.handle(
-                    "/api/verticals/healthcare/config", {}, mock_handler
-                )
+            with patch("aragora.verticals.config.ModelConfig", return_value=_MockModelConfig()):
+                result = await handler.handle("/api/verticals/healthcare/config", {}, mock_handler)
         assert _status(result) == 200

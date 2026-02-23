@@ -241,7 +241,9 @@ class TestPersistentStoreInit:
 
         with patch.object(mod, "is_distributed_state_required", return_value=True):
             # Force ImportError by patching the import
-            original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+            original_import = (
+                __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+            )
 
             def mock_import(name, *args, **kwargs):
                 if name == "aragora.storage.marketplace_store":
@@ -389,9 +391,7 @@ class TestPathParsingEdgeCases:
         """Template IDs with multiple segments should be joined correctly."""
         _insert_template("templates/deep/nested/id")
         mock_get = make_mock_handler(method="GET")
-        result = handler.handle(
-            "/api/v1/marketplace/templates/deep/nested/id", {}, mock_get
-        )
+        result = handler.handle("/api/v1/marketplace/templates/deep/nested/id", {}, mock_get)
         body = parse_body(result)
         assert result.status_code == 200
         assert body["name"] == "Test Template"
@@ -401,9 +401,7 @@ class TestPathParsingEdgeCases:
         _insert_template("templates/cat/sub/tpl")
         data = {"rating": 4, "user_id": "user-1"}
         mock_post = make_mock_handler(method="POST", body=json_body(data))
-        result = handler.handle(
-            "/api/v1/marketplace/templates/cat/sub/tpl/rate", {}, mock_post
-        )
+        result = handler.handle("/api/v1/marketplace/templates/cat/sub/tpl/rate", {}, mock_post)
         body = parse_body(result)
         assert result.status_code == 200
         assert body["status"] == "rated"
@@ -423,9 +421,7 @@ class TestPathParsingEdgeCases:
         """Import endpoint works with multi-segment template IDs."""
         _insert_template("templates/cat/sub/tpl", download_count=50)
         mock_post = make_mock_handler(method="POST", body=json_body({}))
-        result = handler.handle(
-            "/api/v1/marketplace/templates/cat/sub/tpl/import", {}, mock_post
-        )
+        result = handler.handle("/api/v1/marketplace/templates/cat/sub/tpl/import", {}, mock_post)
         body = parse_body(result)
         assert result.status_code == 200
         assert body["download_count"] == 51
@@ -435,9 +431,7 @@ class TestPathParsingEdgeCases:
         _insert_template("templates/cat/tpl")
         data = {"rating": 5, "content": "Routed review."}
         mock_post = make_mock_handler(method="POST", body=json_body(data))
-        result = handler.handle(
-            "/api/v1/marketplace/templates/cat/tpl/reviews", {}, mock_post
-        )
+        result = handler.handle("/api/v1/marketplace/templates/cat/tpl/reviews", {}, mock_post)
         body = parse_body(result)
         assert result.status_code == 201
         assert body["status"] == "submitted"
@@ -637,8 +631,13 @@ class TestTemplateSummaryBoundary:
         """Description of exactly 200 chars should not be truncated."""
         desc = "x" * 200
         t = MarketplaceTemplate(
-            id="t", name="N", description=desc, category="security",
-            pattern="debate", author_id="a", author_name="A",
+            id="t",
+            name="N",
+            description=desc,
+            category="security",
+            pattern="debate",
+            author_id="a",
+            author_name="A",
         )
         s = t.to_summary()
         assert s["description"] == desc
@@ -648,8 +647,13 @@ class TestTemplateSummaryBoundary:
         """Description of 201 chars should be truncated with ellipsis."""
         desc = "x" * 201
         t = MarketplaceTemplate(
-            id="t", name="N", description=desc, category="security",
-            pattern="debate", author_id="a", author_name="A",
+            id="t",
+            name="N",
+            description=desc,
+            category="security",
+            pattern="debate",
+            author_id="a",
+            author_name="A",
         )
         s = t.to_summary()
         assert s["description"].endswith("...")
@@ -658,8 +662,13 @@ class TestTemplateSummaryBoundary:
     def test_description_exactly_5_tags(self):
         """Summary with exactly 5 tags should show all 5."""
         t = MarketplaceTemplate(
-            id="t", name="N", description="D", category="security",
-            pattern="debate", author_id="a", author_name="A",
+            id="t",
+            name="N",
+            description="D",
+            category="security",
+            pattern="debate",
+            author_id="a",
+            author_name="A",
             tags=["a", "b", "c", "d", "e"],
         )
         s = t.to_summary()
@@ -668,8 +677,13 @@ class TestTemplateSummaryBoundary:
     def test_description_6_tags_truncated_to_5(self):
         """Summary with 6 tags should only show first 5."""
         t = MarketplaceTemplate(
-            id="t", name="N", description="D", category="security",
-            pattern="debate", author_id="a", author_name="A",
+            id="t",
+            name="N",
+            description="D",
+            category="security",
+            pattern="debate",
+            author_id="a",
+            author_name="A",
             tags=["a", "b", "c", "d", "e", "f"],
         )
         s = t.to_summary()
@@ -816,9 +830,13 @@ class TestReviewEdgeCases:
         """GET reviews should return reviews sorted by helpful_count descending."""
         reviews = [
             TemplateReview(
-                id=f"r{i}", template_id="security/code-audit",
-                user_id=f"u{i}", user_name=f"U{i}",
-                rating=4, title=f"T{i}", content=f"C{i}",
+                id=f"r{i}",
+                template_id="security/code-audit",
+                user_id=f"u{i}",
+                user_name=f"U{i}",
+                rating=4,
+                title=f"T{i}",
+                content=f"C{i}",
                 helpful_count=i * 10,
             )
             for i in range(4)
@@ -1163,8 +1181,14 @@ class TestCircuitBreakerModuleFunctions:
     def test_get_marketplace_circuit_breaker_status_structure(self):
         """Status should have expected keys."""
         status = get_marketplace_circuit_breaker_status()
-        expected_keys = {"state", "failure_count", "success_count",
-                         "failure_threshold", "cooldown_seconds", "last_failure_time"}
+        expected_keys = {
+            "state",
+            "failure_count",
+            "success_count",
+            "failure_threshold",
+            "cooldown_seconds",
+            "last_failure_time",
+        }
         assert expected_keys.issubset(set(status.keys()))
 
     def test_marketplace_circuit_breaker_is_correct_type(self):
@@ -1250,13 +1274,15 @@ class TestListCombinedFilters:
             pattern="debate",
             is_verified=True,
         )
-        result = handler._list_templates({
-            "category": "security",
-            "pattern": "debate",
-            "verified_only": "true",
-            "search": "Precise",
-            "tags": "audit",
-        })
+        result = handler._list_templates(
+            {
+                "category": "security",
+                "pattern": "debate",
+                "verified_only": "true",
+                "search": "Precise",
+                "tags": "audit",
+            }
+        )
         body = parse_body(result)
         assert body["total"] == 1
         assert body["templates"][0]["name"] == "Precise Match Template"

@@ -113,7 +113,9 @@ class MockPruneResult:
 @dataclass
 class MockPruneHistory:
     history_id: str = "hist-001"
-    executed_at: datetime = field(default_factory=lambda: datetime(2026, 1, 15, tzinfo=timezone.utc))
+    executed_at: datetime = field(
+        default_factory=lambda: datetime(2026, 1, 15, tzinfo=timezone.utc)
+    )
     policy_id: str = "policy-001"
     action: MockPruningAction = MockPruningAction.ARCHIVE
     items_pruned: int = 7
@@ -319,9 +321,16 @@ class TestGetPrunableItems:
         item_dict = body["items"][0]
 
         expected_fields = [
-            "node_id", "content_preview", "staleness_score", "confidence",
-            "retrieval_count", "last_retrieved_at", "tier", "created_at",
-            "prune_reason", "recommended_action",
+            "node_id",
+            "content_preview",
+            "staleness_score",
+            "confidence",
+            "retrieval_count",
+            "last_retrieved_at",
+            "tier",
+            "created_at",
+            "prune_reason",
+            "recommended_action",
         ]
         for f in expected_fields:
             assert f in item_dict, f"Missing field: {f}"
@@ -390,9 +399,7 @@ class TestExecutePrune:
     @pytest.mark.asyncio
     async def test_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = await handler_no_mound.execute_prune(
-            workspace_id="ws-1", item_ids=["a"]
-        )
+        result = await handler_no_mound.execute_prune(workspace_id="ws-1", item_ids=["a"])
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -476,9 +483,7 @@ class TestExecutePrune:
             "aragora.knowledge.mound.ops.pruning.PruningAction",
             MockPruningAction,
         ):
-            result = await handler.execute_prune(
-                workspace_id="ws-1", item_ids=["a"]
-            )
+            result = await handler.execute_prune(workspace_id="ws-1", item_ids=["a"])
         body = _body(result)
         assert body["errors"] == ["partial failure on node-3"]
 
@@ -493,9 +498,7 @@ class TestExecutePrune:
             "aragora.knowledge.mound.ops.pruning.PruningAction",
             MockPruningAction,
         ):
-            result = await handler.execute_prune(
-                workspace_id="ws-1", item_ids=["a"]
-            )
+            result = await handler.execute_prune(workspace_id="ws-1", item_ids=["a"])
         body = _body(result)
         assert body["errors"] == []
 
@@ -522,12 +525,15 @@ class TestAutoPrune:
         )
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(
                 workspace_id="ws-1",
@@ -548,12 +554,15 @@ class TestAutoPrune:
         result_obj = MockPruneResult(workspace_id="ws-1")
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(
                 workspace_id="ws-1",
@@ -597,12 +606,15 @@ class TestAutoPrune:
         result_obj = MockPruneResult()
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(
                 workspace_id="ws-custom",
@@ -624,12 +636,15 @@ class TestAutoPrune:
         del result_obj.policy_id
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(
                 workspace_id="ws-1",
@@ -646,12 +661,15 @@ class TestAutoPrune:
         result_obj = MockPruneResult(policy_id="from-result")
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(workspace_id="ws-1")
 
@@ -663,12 +681,15 @@ class TestAutoPrune:
         """Error from mound.auto_prune returns 500."""
         mock_mound.auto_prune = AsyncMock(side_effect=OSError("storage failure"))
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(workspace_id="ws-1")
 
@@ -681,12 +702,15 @@ class TestAutoPrune:
         del result_obj.errors
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(workspace_id="ws-1")
 
@@ -699,12 +723,15 @@ class TestAutoPrune:
         result_obj = MockPruneResult()
         mock_mound.auto_prune = AsyncMock(return_value=result_obj)
 
-        with patch(
-            "aragora.knowledge.mound.ops.pruning.PruningAction",
-            MockPruningAction,
-        ), patch(
-            "aragora.knowledge.mound.ops.pruning.PruningPolicy",
-            MockPruningPolicy,
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningAction",
+                MockPruningAction,
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.pruning.PruningPolicy",
+                MockPruningPolicy,
+            ),
         ):
             result = await handler.auto_prune(workspace_id="ws-1")
 
@@ -837,8 +864,14 @@ class TestGetPruneHistory:
         body = _body(result)
         e = body["entries"][0]
         expected = [
-            "history_id", "executed_at", "policy_id", "action",
-            "items_pruned", "pruned_item_ids", "reason", "executed_by",
+            "history_id",
+            "executed_at",
+            "policy_id",
+            "action",
+            "items_pruned",
+            "pruned_item_ids",
+            "reason",
+            "executed_by",
         ]
         for f in expected:
             assert f in e, f"Missing field: {f}"
@@ -867,9 +900,7 @@ class TestRestorePrunedItem:
     async def test_success(self, handler, mock_mound):
         """Successful restore returns success message."""
         mock_mound.restore_pruned_item = AsyncMock(return_value=True)
-        result = await handler.restore_pruned_item(
-            workspace_id="ws-1", node_id="n-42"
-        )
+        result = await handler.restore_pruned_item(workspace_id="ws-1", node_id="n-42")
         body = _body(result)
         assert _status(result) == 200
         assert body["success"] is True
@@ -881,9 +912,7 @@ class TestRestorePrunedItem:
     async def test_not_found_returns_404(self, handler, mock_mound):
         """When mound returns False, 404 is returned."""
         mock_mound.restore_pruned_item = AsyncMock(return_value=False)
-        result = await handler.restore_pruned_item(
-            workspace_id="ws-1", node_id="n-gone"
-        )
+        result = await handler.restore_pruned_item(workspace_id="ws-1", node_id="n-gone")
         assert _status(result) == 404
         body = _body(result)
         assert "n-gone" in body["error"]
@@ -891,9 +920,7 @@ class TestRestorePrunedItem:
     @pytest.mark.asyncio
     async def test_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        result = await handler_no_mound.restore_pruned_item(
-            workspace_id="ws-1", node_id="n-1"
-        )
+        result = await handler_no_mound.restore_pruned_item(workspace_id="ws-1", node_id="n-1")
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -912,12 +939,8 @@ class TestRestorePrunedItem:
     @pytest.mark.asyncio
     async def test_mound_raises_error_returns_500(self, handler, mock_mound):
         """Error from mound.restore_pruned_item returns 500."""
-        mock_mound.restore_pruned_item = AsyncMock(
-            side_effect=KeyError("bad node")
-        )
-        result = await handler.restore_pruned_item(
-            workspace_id="ws-1", node_id="n-1"
-        )
+        mock_mound.restore_pruned_item = AsyncMock(side_effect=KeyError("bad node"))
+        result = await handler.restore_pruned_item(workspace_id="ws-1", node_id="n-1")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -987,77 +1010,59 @@ class TestApplyConfidenceDecay:
     @pytest.mark.asyncio
     async def test_decay_rate_zero_returns_400(self, handler):
         """decay_rate=0 returns 400 (must be between 0 and 1 exclusive)."""
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", decay_rate=0.0
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", decay_rate=0.0)
         assert _status(result) == 400
         assert "decay_rate" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
     async def test_decay_rate_one_returns_400(self, handler):
         """decay_rate=1.0 returns 400."""
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", decay_rate=1.0
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", decay_rate=1.0)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_decay_rate_negative_returns_400(self, handler):
         """Negative decay_rate returns 400."""
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", decay_rate=-0.1
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", decay_rate=-0.1)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_min_confidence_zero_returns_400(self, handler):
         """min_confidence=0 returns 400."""
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", min_confidence=0.0
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", min_confidence=0.0)
         assert _status(result) == 400
         assert "min_confidence" in _body(result)["error"].lower()
 
     @pytest.mark.asyncio
     async def test_min_confidence_one_returns_400(self, handler):
         """min_confidence=1.0 returns 400."""
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", min_confidence=1.0
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", min_confidence=1.0)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_min_confidence_negative_returns_400(self, handler):
         """Negative min_confidence returns 400."""
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", min_confidence=-0.5
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", min_confidence=-0.5)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_valid_boundary_decay_rate(self, handler, mock_mound):
         """decay_rate just above 0 is accepted."""
         mock_mound.apply_confidence_decay = AsyncMock(return_value=1)
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", decay_rate=0.001
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", decay_rate=0.001)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_valid_boundary_min_confidence(self, handler, mock_mound):
         """min_confidence just above 0 is accepted."""
         mock_mound.apply_confidence_decay = AsyncMock(return_value=1)
-        result = await handler.apply_confidence_decay(
-            workspace_id="ws-1", min_confidence=0.001
-        )
+        result = await handler.apply_confidence_decay(workspace_id="ws-1", min_confidence=0.001)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_mound_raises_error_returns_500(self, handler, mock_mound):
         """Error from mound.apply_confidence_decay returns 500."""
-        mock_mound.apply_confidence_decay = AsyncMock(
-            side_effect=AttributeError("missing method")
-        )
+        mock_mound.apply_confidence_decay = AsyncMock(side_effect=AttributeError("missing method"))
         result = await handler.apply_confidence_decay(workspace_id="ws-1")
         assert _status(result) == 500
 

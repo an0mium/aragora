@@ -21,19 +21,22 @@ _ADAPTER_MODULE = "aragora.knowledge.mound.adapters.outcome_adapter"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeKnowledgeItem:
     """Minimal KnowledgeItem stand-in for tests."""
 
     id: str = "outc_abc123"
     content: str = "[Outcome:success] Vendor selection went well"
-    metadata: dict = field(default_factory=lambda: {
-        "outcome_type": "success",
-        "impact_score": 0.85,
-        "lessons_learned": "Always compare at least 3 vendors",
-        "kpi_deltas": {"cost_reduction": -0.15, "satisfaction": 0.2},
-        "tags": ["decision_outcome", "type:success"],
-    })
+    metadata: dict = field(
+        default_factory=lambda: {
+            "outcome_type": "success",
+            "impact_score": 0.85,
+            "lessons_learned": "Always compare at least 3 vendors",
+            "kpi_deltas": {"cost_reduction": -0.15, "satisfaction": 0.2},
+            "tags": ["decision_outcome", "type:success"],
+        }
+    )
 
 
 @dataclass
@@ -71,6 +74,7 @@ def _make_mock_adapter(outcomes=None):
 # ---------------------------------------------------------------------------
 # PromptBuilder outcome context tests
 # ---------------------------------------------------------------------------
+
 
 class TestPromptBuilderOutcomeContext:
     """Tests for get/set_outcome_context on PromptBuilder/PromptContextMixin."""
@@ -113,6 +117,7 @@ class TestPromptBuilderOutcomeContext:
 # ---------------------------------------------------------------------------
 # ContextInitializer outcome injection tests
 # ---------------------------------------------------------------------------
+
 
 class TestContextInitializerOutcomeInjection:
     """Tests for _inject_outcome_context in ContextInitializer."""
@@ -216,9 +221,12 @@ class TestContextInitializerOutcomeInjection:
         init = self._make_initializer(knowledge_mound=mound)
         ctx = FakeDebateContext()
 
-        with patch.dict("sys.modules", {
-            _ADAPTER_MODULE: None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                _ADAPTER_MODULE: None,
+            },
+        ):
             # Should not raise
             _run(init._inject_outcome_context(ctx))
             assert "PAST DECISION OUTCOMES" not in ctx.env.context
@@ -228,9 +236,7 @@ class TestContextInitializerOutcomeInjection:
         mound = MagicMock()
         mock_cls = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.find_similar_outcomes = AsyncMock(
-            side_effect=asyncio.TimeoutError()
-        )
+        mock_instance.find_similar_outcomes = AsyncMock(side_effect=asyncio.TimeoutError())
         mock_cls.return_value = mock_instance
 
         with patch(f"{_ADAPTER_MODULE}.OutcomeAdapter", mock_cls):
@@ -271,6 +277,7 @@ class TestContextInitializerOutcomeInjection:
 # Config wiring tests
 # ---------------------------------------------------------------------------
 
+
 class TestOutcomeContextConfig:
     """Tests for enable_outcome_context config flag wiring."""
 
@@ -296,6 +303,7 @@ class TestOutcomeContextConfig:
 # ---------------------------------------------------------------------------
 # Prompt assembler integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestPromptAssemblerOutcomeSection:
     """Tests verifying outcome context appears in assembled prompts."""

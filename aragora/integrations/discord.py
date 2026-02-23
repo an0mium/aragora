@@ -173,7 +173,10 @@ class DiscordIntegration:
                         # Server error - retry with backoff
                         text = await response.text()
                         logger.warning(
-                            "Discord server error (attempt %s): %s - %s", attempt + 1, response.status, text
+                            "Discord server error (attempt %s): %s - %s",
+                            attempt + 1,
+                            response.status,
+                            text,
                         )
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()
@@ -426,12 +429,18 @@ class DiscordWebhookManager:
                     results[name] = await handler(*args, **kwargs)
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     logger.error(
-                        "Discord broadcast to %s connection error: %s: %s", name, type(e).__name__, e
+                        "Discord broadcast to %s connection error: %s: %s",
+                        name,
+                        type(e).__name__,
+                        e,
                     )
                     results[name] = False
                 except (RuntimeError, ValueError, TypeError) as e:
                     logger.error(
-                        "Discord broadcast to %s unexpected error: %s: %s", name, type(e).__name__, e
+                        "Discord broadcast to %s unexpected error: %s: %s",
+                        name,
+                        type(e).__name__,
+                        e,
                     )
                     results[name] = False
 

@@ -1124,7 +1124,7 @@ class TestEdgeCases:
 
     def test_many_expertise_domains(self, persona_manager):
         """Test persona with many expertise domains."""
-        expertise = {domain: 0.5 for domain in EXPERTISE_DOMAINS[:15]}
+        expertise = dict.fromkeys(EXPERTISE_DOMAINS[:15], 0.5)
         persona = persona_manager.create_persona(
             agent_name="multi_expert",
             expertise=expertise,

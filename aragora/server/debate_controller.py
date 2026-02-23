@@ -374,7 +374,11 @@ class DebateController:
             # OSError: credential file/network access issues
             logger.warning("Agent credential validation failed: %s", e)
             # Check if ALL agents are missing credentials (no API keys configured at all)
-            if filtered_count := len(specs) if "0 agents have valid credentials" in str(e) or "none" in str(e).lower() else 0:
+            if (
+                filtered_count := len(specs)
+                if "0 agents have valid credentials" in str(e) or "none" in str(e).lower()
+                else 0
+            ):
                 return (
                     f"No AI model API keys are configured on this server. "
                     f"None of the {filtered_count} requested agents have valid credentials. "
@@ -502,12 +506,9 @@ Return JSON with these exact fields:
 
                 _global_registry._ensure_initialized()
                 domain = classification.get("domain")
-                recommended = _global_registry.recommend(
-                    question=question, domain=domain, limit=3
-                )
+                recommended = _global_registry.recommend(question=question, domain=domain, limit=3)
                 suggested_templates = [
-                    {"name": t.name, "description": t.description}
-                    for t in recommended
+                    {"name": t.name, "description": t.description} for t in recommended
                 ]
             except (ImportError, RuntimeError, AttributeError) as e:
                 logger.debug("Template recommendation failed (non-fatal): %s", e)
@@ -746,9 +747,7 @@ Return JSON with these exact fields:
                     explanation_text = str(explanation_obj)
 
             # Collect calibration snapshots for participating agents
-            agent_calibration = self._collect_agent_calibration(
-                result.participants or []
-            )
+            agent_calibration = self._collect_agent_calibration(result.participants or [])
 
             # Update status with result
             update_debate_status(
@@ -834,7 +833,8 @@ Return JSON with these exact fields:
 
         except ValueError as e:
             # Validation errors (not enough agents, etc.)
-            safe_msg = str(e)
+            logger.warning("[debate] Validation error in %s: %s", debate_id, e)
+            safe_msg = "Debate validation failed. Check agent configuration and parameters."
             update_debate_status(debate_id, "error", error=safe_msg)
             self.emitter.emit(
                 StreamEvent(
@@ -855,7 +855,6 @@ Return JSON with these exact fields:
                     loop_id=debate_id,
                 )
             )
-            logger.error("[debate] Validation error in %s: %s", debate_id, e)
 
         except Exception as e:  # noqa: BLE001 - Intentional catch-all: debate execution must handle any error to emit proper error events and cleanup
             import traceback
@@ -884,9 +883,7 @@ Return JSON with these exact fields:
                 )
             )
 
-    def _collect_agent_calibration(
-        self, participants: list[str]
-    ) -> dict[str, dict[str, Any]]:
+    def _collect_agent_calibration(self, participants: list[str]) -> dict[str, dict[str, Any]]:
         """Collect calibration snapshots for participating agents.
 
         Args:
@@ -1074,9 +1071,7 @@ Return JSON with these exact fields:
                     result.consensus_reached if hasattr(result, "consensus_reached") else False
                 ),
                 "is_onboarding": is_onboarding,
-                "agent_calibration": self._collect_agent_calibration(
-                    agents_list
-                ),
+                "agent_calibration": self._collect_agent_calibration(agents_list),
             }
 
             # Calculate checksum

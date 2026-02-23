@@ -64,7 +64,11 @@ class TestSelectAgentsByIntrospection:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.introspection.api": MagicMock(get_agent_introspection=lambda name: snapshots[name])},
+            {
+                "aragora.introspection.api": MagicMock(
+                    get_agent_introspection=lambda name: snapshots[name]
+                )
+            },
         ):
             result = planner._select_agents_by_introspection("security hardening")
 
@@ -136,11 +140,15 @@ class TestSelectAgentsByIntrospection:
 
         snapshots = {
             "claude": self._make_snapshot(
-                "claude", reputation=0.5, calibration=0.5,
+                "claude",
+                reputation=0.5,
+                calibration=0.5,
                 expertise=["coding", "testing", "security"],
             ),
             "gemini": self._make_snapshot(
-                "gemini", reputation=0.5, calibration=0.5,
+                "gemini",
+                reputation=0.5,
+                calibration=0.5,
                 expertise=["writing"],
             ),
         }

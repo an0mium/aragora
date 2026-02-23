@@ -104,20 +104,19 @@ class EvolutionFeedback:
                 )
 
                 # Apply direct win/loss fitness delta for breeding selection
-                outcome_delta = (
-                    self.WIN_FITNESS_DELTA if consensus_win
-                    else self.LOSS_FITNESS_DELTA
-                )
+                outcome_delta = self.WIN_FITNESS_DELTA if consensus_win else self.LOSS_FITNESS_DELTA
                 if winner_agent is not None and outcome_delta != 0.0:
                     self.population_manager.update_fitness(
-                        genome_id, fitness_delta=outcome_delta,
+                        genome_id,
+                        fitness_delta=outcome_delta,
                     )
 
                 # Factor ELO performance into genome fitness
                 elo_adj = self._compute_elo_fitness_adjustment(agent.name, ctx.domain)
                 if elo_adj != 0.0:
                     self.population_manager.update_fitness(
-                        genome_id, fitness_delta=elo_adj,
+                        genome_id,
+                        fitness_delta=elo_adj,
                     )
 
                 logger.debug(

@@ -101,8 +101,10 @@ def mock_store():
 def mock_audit():
     """Patch audit_data to a mock for verifying audit calls."""
     audit_mock = MagicMock()
-    with patch(f"{PATCH_MODULE}.audit_data", audit_mock), \
-         patch(f"{PATCH_MODULE}._get_audit_fn", return_value=audit_mock):
+    with (
+        patch(f"{PATCH_MODULE}.audit_data", audit_mock),
+        patch(f"{PATCH_MODULE}._get_audit_fn", return_value=audit_mock),
+    ):
         yield audit_mock
 
 
@@ -110,8 +112,10 @@ def mock_audit():
 def mock_wf_cls():
     """Patch WorkflowDefinition to a controllable mock class."""
     cls_mock = MagicMock()
-    with patch(f"{PATCH_MODULE}.WorkflowDefinition", cls_mock), \
-         patch(f"{PATCH_MODULE}._get_workflow_definition_cls", return_value=cls_mock):
+    with (
+        patch(f"{PATCH_MODULE}.WorkflowDefinition", cls_mock),
+        patch(f"{PATCH_MODULE}._get_workflow_definition_cls", return_value=cls_mock),
+    ):
         yield cls_mock
 
 
@@ -450,9 +454,7 @@ class TestUpdateWorkflow:
     @pytest.mark.asyncio
     async def test_preserves_metadata(self, mock_store, mock_audit, mock_wf_cls):
         """Preserves id, tenant_id, created_by, created_at from existing workflow."""
-        existing = _make_mock_workflow(
-            "wf_1", "Original", version="1.0.0", created_by="alice"
-        )
+        existing = _make_mock_workflow("wf_1", "Original", version="1.0.0", created_by="alice")
         existing.created_at = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         mock_store.get_workflow.return_value = existing
 
@@ -686,6 +688,7 @@ class TestGetWorkflowDefinitionCls:
     def test_returns_default_when_no_override(self):
         """Returns the default WorkflowDefinition when no override exists."""
         from aragora.workflow.types import WorkflowDefinition as RealCls
+
         result = _get_workflow_definition_cls()
         assert result is RealCls
 
@@ -710,6 +713,7 @@ class TestGetAuditFn:
     def test_returns_default_when_no_override(self):
         """Returns the default audit_data function."""
         from aragora.audit.unified import audit_data as real_audit
+
         result = _get_audit_fn()
         assert result is real_audit
 

@@ -330,7 +330,7 @@ class TestRegister:
 
     @patch("aragora.server.handlers.auth.handler.handle_register")
     def test_register_versioned(self, mock_register, handler):
-        mock_register.return_value = MagicMock(status_code=201, body=b'{}')
+        mock_register.return_value = MagicMock(status_code=201, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/v1/auth/register", {}, http, "POST"))
         mock_register.assert_called_once()
@@ -346,7 +346,7 @@ class TestLogin:
 
     @patch("aragora.server.handlers.auth.handler.handle_login")
     def test_login_delegates(self, mock_login, handler):
-        mock_login.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_login.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/login", {}, http, "POST"))
         mock_login.assert_called_once_with(handler, http)
@@ -377,6 +377,7 @@ class TestLogout:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._check_permission")
     def test_logout_permission_denied(self, mock_perm, handler):
         from aragora.server.handlers.base import error_response
+
         mock_perm.return_value = error_response("Permission denied", 403)
         http = MockHTTPHandler(method="POST")
         result = _run(handler.handle("/api/auth/logout", {}, http, "POST"))
@@ -550,6 +551,7 @@ class TestGetMe:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._check_permission")
     def test_get_me_permission_denied(self, mock_perm):
         from aragora.server.handlers.base import error_response
+
         mock_perm.return_value = error_response("Authentication required", 401)
         h = AuthHandler(server_context={})
         http = MockHTTPHandler(method="GET")
@@ -723,14 +725,14 @@ class TestChangePassword:
 
     @patch("aragora.server.handlers.auth.handler.handle_change_password")
     def test_password_delegates(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/password", {}, http, "POST"))
         mock_fn.assert_called_once_with(handler, http)
 
     @patch("aragora.server.handlers.auth.handler.handle_change_password")
     def test_password_change_alias(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/password/change", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -746,28 +748,28 @@ class TestForgotResetPassword:
 
     @patch("aragora.server.handlers.auth.handler.handle_forgot_password")
     def test_forgot_password(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/password/forgot", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_reset_password")
     def test_reset_password(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/password/reset", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_forgot_password")
     def test_legacy_forgot_password(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/forgot-password", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_reset_password")
     def test_legacy_reset_password(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/reset-password", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -880,42 +882,42 @@ class TestApiKeys:
 
     @patch("aragora.server.handlers.auth.handler.handle_generate_api_key")
     def test_generate_api_key(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/api-key", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_revoke_api_key")
     def test_revoke_api_key(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/auth/api-key", {}, http, "DELETE"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_list_api_keys")
     def test_list_api_keys(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="GET")
         _run(handler.handle("/api/auth/api-keys", {}, http, "GET"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_generate_api_key")
     def test_api_keys_post(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/api-keys", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_revoke_api_key")
     def test_api_keys_delete(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/auth/api-keys", {}, http, "DELETE"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_revoke_api_key_prefix")
     def test_revoke_api_key_by_prefix(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/auth/api-keys/ak_prefix123", {}, http, "DELETE"))
         mock_fn.assert_called_once_with(handler, http, "ak_prefix123")
@@ -931,21 +933,21 @@ class TestSDKAlias:
 
     @patch("aragora.server.handlers.auth.handler.handle_list_api_keys")
     def test_sdk_keys_list(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="GET")
         _run(handler.handle("/api/keys", {}, http, "GET"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_generate_api_key")
     def test_sdk_keys_post(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/keys", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_revoke_api_key_prefix")
     def test_sdk_keys_delete_prefix(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/keys/prefix123", {}, http, "DELETE"))
         mock_fn.assert_called_once_with(handler, http, "prefix123")
@@ -961,42 +963,42 @@ class TestMFA:
 
     @patch("aragora.server.handlers.auth.handler.handle_mfa_setup")
     def test_mfa_setup(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/mfa/setup", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_mfa_enable")
     def test_mfa_enable(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/mfa/enable", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_mfa_disable")
     def test_mfa_disable_post(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/mfa/disable", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_mfa_disable")
     def test_mfa_disable_delete(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/auth/mfa", {}, http, "DELETE"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_mfa_verify")
     def test_mfa_verify(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/mfa/verify", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_mfa_backup_codes")
     def test_mfa_backup_codes(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/mfa/backup-codes", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -1012,21 +1014,21 @@ class TestSessions:
 
     @patch("aragora.server.handlers.auth.handler.handle_list_sessions")
     def test_list_sessions(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="GET")
         _run(handler.handle("/api/auth/sessions", {}, http, "GET"))
         mock_fn.assert_called_once_with(handler, http)
 
     @patch("aragora.server.handlers.auth.handler.handle_revoke_session")
     def test_revoke_session(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/auth/sessions/sess-id-123", {}, http, "DELETE"))
         mock_fn.assert_called_once_with(handler, http, "sess-id-123")
 
     @patch("aragora.server.handlers.auth.handler.handle_revoke_session")
     def test_revoke_session_versioned(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="DELETE")
         _run(handler.handle("/api/v1/auth/sessions/abc", {}, http, "DELETE"))
         mock_fn.assert_called_once_with(handler, http, "abc")
@@ -1042,21 +1044,25 @@ class TestSignupDelegation:
 
     @patch("aragora.server.handlers.auth.handler.handle_verify_email", new_callable=AsyncMock)
     def test_verify_email(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(body={"token": "t"}, method="POST")
         _run(handler.handle("/api/auth/verify-email", {}, http, "POST"))
         mock_fn.assert_called_once()
 
-    @patch("aragora.server.handlers.auth.handler.handle_resend_verification", new_callable=AsyncMock)
+    @patch(
+        "aragora.server.handlers.auth.handler.handle_resend_verification", new_callable=AsyncMock
+    )
     def test_resend_verification(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(body={"email": "a@b.com"}, method="POST")
         _run(handler.handle("/api/auth/resend-verification", {}, http, "POST"))
         mock_fn.assert_called_once()
 
-    @patch("aragora.server.handlers.auth.handler.handle_resend_verification", new_callable=AsyncMock)
+    @patch(
+        "aragora.server.handlers.auth.handler.handle_resend_verification", new_callable=AsyncMock
+    )
     def test_verify_email_resend_alias(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(body={"email": "a@b.com"}, method="POST")
         _run(handler.handle("/api/auth/verify-email/resend", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -1065,7 +1071,7 @@ class TestSignupDelegation:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._require_user_id")
     def test_setup_organization(self, mock_req, mock_fn, handler):
         mock_req.return_value = ("user-001", None)
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(body={"name": "Org"}, method="POST")
         _run(handler.handle("/api/auth/setup-organization", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -1074,6 +1080,7 @@ class TestSignupDelegation:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._require_user_id")
     def test_setup_organization_unauthenticated(self, mock_req, mock_fn, handler):
         from aragora.server.handlers.base import error_response
+
         mock_req.return_value = (None, error_response("Authentication required", 401))
         http = MockHTTPHandler(body={"name": "Org"}, method="POST")
         result = _run(handler.handle("/api/auth/setup-organization", {}, http, "POST"))
@@ -1084,14 +1091,14 @@ class TestSignupDelegation:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._require_user_id")
     def test_invite(self, mock_req, mock_fn, handler):
         mock_req.return_value = ("user-001", None)
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(body={"email": "x@y.com"}, method="POST")
         _run(handler.handle("/api/auth/invite", {}, http, "POST"))
         mock_fn.assert_called_once()
 
     @patch("aragora.server.handlers.auth.handler.handle_check_invite", new_callable=AsyncMock)
     def test_check_invite(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="GET")
         _run(handler.handle("/api/auth/check-invite", {"token": "abc"}, http, "GET"))
         mock_fn.assert_called_once_with({"token": "abc"})
@@ -1100,7 +1107,7 @@ class TestSignupDelegation:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._require_user_id")
     def test_accept_invite(self, mock_req, mock_fn, handler):
         mock_req.return_value = ("user-001", None)
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(body={"token": "t"}, method="POST")
         _run(handler.handle("/api/auth/accept-invite", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -1109,6 +1116,7 @@ class TestSignupDelegation:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._require_user_id")
     def test_accept_invite_unauthenticated(self, mock_req, mock_fn, handler):
         from aragora.server.handlers.base import error_response
+
         mock_req.return_value = (None, error_response("Authentication required", 401))
         http = MockHTTPHandler(body={"token": "t"}, method="POST")
         result = _run(handler.handle("/api/auth/accept-invite", {}, http, "POST"))
@@ -1118,6 +1126,7 @@ class TestSignupDelegation:
     @patch("aragora.server.handlers.auth.handler.AuthHandler._require_user_id")
     def test_invite_unauthenticated(self, mock_req, mock_fn, handler):
         from aragora.server.handlers.base import error_response
+
         mock_req.return_value = (None, error_response("Authentication required", 401))
         http = MockHTTPHandler(body={"email": "x@y.com"}, method="POST")
         result = _run(handler.handle("/api/auth/invite", {}, http, "POST"))
@@ -1157,11 +1166,16 @@ class TestHealth:
         assert body["jwt"]["user_id"] == "u1"
 
     def test_health_has_no_cache_headers(self, handler):
-        with patch("aragora.server.middleware.auth.extract_token", return_value=None), \
-             patch("aragora.storage.pool_manager.is_pool_initialized", return_value=False):
+        with (
+            patch("aragora.server.middleware.auth.extract_token", return_value=None),
+            patch("aragora.storage.pool_manager.is_pool_initialized", return_value=False),
+        ):
             http = MockHTTPHandler(method="GET")
             result = _run(handler.handle("/api/auth/health", {}, http, "GET"))
-            assert result.headers.get("Cache-Control") == "no-store, no-cache, must-revalidate, private"
+            assert (
+                result.headers.get("Cache-Control")
+                == "no-store, no-cache, must-revalidate, private"
+            )
 
     @patch("aragora.server.middleware.auth.extract_token", return_value=None)
     def test_health_pool_import_error(self, mock_ext, handler):
@@ -1319,7 +1333,7 @@ class TestPathNormalization:
 
     @patch("aragora.server.handlers.auth.handler.handle_login")
     def test_v1_prefix_stripped(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/v1/auth/login", {}, http, "POST"))
         mock_fn.assert_called_once()
@@ -1327,7 +1341,7 @@ class TestPathNormalization:
     @patch("aragora.server.handlers.auth.handler.handle_register")
     def test_v2_prefix_stripped(self, mock_fn, handler):
         """If a v2 is passed, strip_version_prefix should still handle it."""
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="POST")
         # strip_version_prefix handles /api/v<N>/ patterns
         _run(handler.handle("/api/v2/auth/register", {}, http, "POST"))
@@ -1344,7 +1358,7 @@ class TestMethodDetermination:
 
     @patch("aragora.server.handlers.auth.handler.handle_login")
     def test_method_from_argument(self, mock_fn, handler):
-        mock_fn.return_value = MagicMock(status_code=200, body=b'{}')
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
         http = MockHTTPHandler(method="GET")  # handler says GET
         _run(handler.handle("/api/auth/login", {}, http, "POST"))  # but method arg says POST
         mock_fn.assert_called_once()
@@ -1391,7 +1405,9 @@ class TestEdgeCases:
     @patch("aragora.server.middleware.auth.extract_token", return_value="tok")
     @patch("aragora.billing.jwt_auth.revoke_token_persistent", return_value=True)
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    def test_logout_persistent_success_memory_fail(self, mock_bl, mock_rev, mock_ext, mock_perm, handler):
+    def test_logout_persistent_success_memory_fail(
+        self, mock_bl, mock_rev, mock_ext, mock_perm, handler
+    ):
         """Test logout when persistent succeeds but in-memory fails."""
         bl = MagicMock()
         bl.revoke_token.return_value = False  # in-memory fails
@@ -1405,7 +1421,9 @@ class TestEdgeCases:
     @patch("aragora.server.middleware.auth.extract_token", return_value="tok")
     @patch("aragora.billing.jwt_auth.revoke_token_persistent", return_value=False)
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    def test_logout_persistent_fail_memory_ok(self, mock_bl, mock_rev, mock_ext, mock_perm, handler):
+    def test_logout_persistent_fail_memory_ok(
+        self, mock_bl, mock_rev, mock_ext, mock_perm, handler
+    ):
         """Test logout when persistent fails but in-memory succeeds."""
         bl = MagicMock()
         bl.revoke_token.return_value = True

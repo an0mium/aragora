@@ -857,10 +857,10 @@ def validate_configuration(strict: bool = False) -> dict:
     if is_valid:
         logger.info("Configuration validated successfully")
         logger.info("  Data directory: %s", DATA_DIR)
-        logger.info("  API providers: %s", ', '.join(api_keys_found) if api_keys_found else 'none')
+        logger.info("  API providers: %s", ", ".join(api_keys_found) if api_keys_found else "none")
         logger.info("  Rate limit: %s req/min", DEFAULT_RATE_LIMIT)
         logger.info("  Debate timeout: %ss", DEBATE_TIMEOUT_SECONDS)
-        logger.info("  SSL: %s", 'enabled' if SSL_ENABLED else 'disabled')
+        logger.info("  SSL: %s", "enabled" if SSL_ENABLED else "disabled")
     else:
         for error in errors:
             logger.error("Configuration error: %s", error)

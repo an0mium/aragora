@@ -85,9 +85,7 @@ class MockOrg:
     billing_cycle_start: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc) - timedelta(days=10)
     )
-    limits: TierLimits = field(
-        default_factory=lambda: TIER_LIMITS[SubscriptionTier.PROFESSIONAL]
-    )
+    limits: TierLimits = field(default_factory=lambda: TIER_LIMITS[SubscriptionTier.PROFESSIONAL])
 
     @property
     def debates_remaining(self) -> int:
@@ -484,7 +482,9 @@ class TestGetSubscription:
         assert sub["is_active"] is False
 
     @patch("aragora.server.handlers.admin.billing.get_stripe_client")
-    def test_stripe_error_graceful_degradation(self, mock_stripe_fn, http_handler, reset_rate_limiter):
+    def test_stripe_error_graceful_degradation(
+        self, mock_stripe_fn, http_handler, reset_rate_limiter
+    ):
         mock_stripe_fn.side_effect = StripeError("connection failed")
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
@@ -1169,9 +1169,7 @@ class TestGetInvoices:
         result = h.handle("/api/v1/billing/invoices", {}, http, "GET")
         assert _status(result) == 200
         # Verify the clamped limit was passed to Stripe
-        mock_client.list_invoices.assert_called_once_with(
-            customer_id="cus_test123", limit=100
-        )
+        mock_client.list_invoices.assert_called_once_with(customer_id="cus_test123", limit=100)
 
 
 # ===========================================================================
@@ -1259,7 +1257,7 @@ class TestStripeWebhook:
 
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
-        http = self._make_webhook_handler(b'{}')
+        http = self._make_webhook_handler(b"{}")
         result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
         assert _status(result) == 200
 
@@ -1285,7 +1283,7 @@ class TestStripeWebhook:
 
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
-        http = self._make_webhook_handler(b'{}')
+        http = self._make_webhook_handler(b"{}")
         result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
         assert _status(result) == 200
 
@@ -1302,7 +1300,7 @@ class TestStripeWebhook:
 
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
-        http = self._make_webhook_handler(b'{}')
+        http = self._make_webhook_handler(b"{}")
         result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
         assert _status(result) == 200
         # Check org was downgraded to free
@@ -1326,14 +1324,12 @@ class TestStripeWebhook:
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
 
-        with patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ) as mock_get_recovery:
+        with patch("aragora.billing.payment_recovery.get_recovery_store") as mock_get_recovery:
             mock_recovery = MagicMock()
             mock_recovery.mark_recovered.return_value = True
             mock_get_recovery.return_value = mock_recovery
 
-            http = self._make_webhook_handler(b'{}')
+            http = self._make_webhook_handler(b"{}")
             result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
             assert _status(result) == 200
             # Usage should have been reset
@@ -1366,11 +1362,10 @@ class TestStripeWebhook:
         store = MockUserStore(owner=owner)
         h = BillingHandler(ctx={"user_store": store})
 
-        with patch(
-            "aragora.billing.payment_recovery.get_recovery_store"
-        ) as mock_get_recovery, patch(
-            "aragora.billing.notifications.get_billing_notifier"
-        ) as mock_get_notifier:
+        with (
+            patch("aragora.billing.payment_recovery.get_recovery_store") as mock_get_recovery,
+            patch("aragora.billing.notifications.get_billing_notifier") as mock_get_notifier,
+        ):
             mock_recovery = MagicMock()
             mock_recovery.record_failure.return_value = mock_failure
             mock_get_recovery.return_value = mock_recovery
@@ -1382,7 +1377,7 @@ class TestStripeWebhook:
             mock_notifier.notify_payment_failed.return_value = mock_notifier_result
             mock_get_notifier.return_value = mock_notifier
 
-            http = self._make_webhook_handler(b'{}')
+            http = self._make_webhook_handler(b"{}")
             result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
             assert _status(result) == 200
             body = _body(result)
@@ -1405,14 +1400,12 @@ class TestStripeWebhook:
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
 
-        with patch(
-            "aragora.billing.usage_sync.get_usage_sync_service"
-        ) as mock_get_sync:
+        with patch("aragora.billing.usage_sync.get_usage_sync_service") as mock_get_sync:
             mock_sync = MagicMock()
             mock_sync.flush_period.return_value = ["record1", "record2"]
             mock_get_sync.return_value = mock_sync
 
-            http = self._make_webhook_handler(b'{}')
+            http = self._make_webhook_handler(b"{}")
             result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
             assert _status(result) == 200
             body = _body(result)
@@ -1430,7 +1423,7 @@ class TestStripeWebhook:
 
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
-        http = self._make_webhook_handler(b'{}')
+        http = self._make_webhook_handler(b"{}")
         result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
         assert _status(result) == 200
         assert _body(result)["received"] is True
@@ -1457,7 +1450,7 @@ class TestStripeWebhook:
 
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
-        http = self._make_webhook_handler(b'{}')
+        http = self._make_webhook_handler(b"{}")
         result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
         assert _status(result) == 200
         # Should not check for duplicates or mark processed
@@ -1482,12 +1475,10 @@ class TestStripeWebhook:
         store = MockUserStore()
         h = BillingHandler(ctx={"user_store": store})
 
-        with patch(
-            "aragora.billing.usage_sync.get_usage_sync_service"
-        ) as mock_get_sync:
+        with patch("aragora.billing.usage_sync.get_usage_sync_service") as mock_get_sync:
             mock_get_sync.side_effect = RuntimeError("sync unavailable")
 
-            http = self._make_webhook_handler(b'{}')
+            http = self._make_webhook_handler(b"{}")
             result = h.handle("/api/v1/webhooks/stripe", {}, http, "POST")
             assert _status(result) == 200
             body = _body(result)
@@ -1517,7 +1508,9 @@ class TestRateLimiting:
 
     @patch("aragora.server.handlers.admin.billing._is_duplicate_webhook")
     @patch("aragora.billing.stripe_client.parse_webhook_event")
-    def test_rate_limit_skipped_for_webhooks(self, mock_parse, mock_is_dup, handler, reset_rate_limiter):
+    def test_rate_limit_skipped_for_webhooks(
+        self, mock_parse, mock_is_dup, handler, reset_rate_limiter
+    ):
         """Webhooks should bypass rate limiting."""
         from aragora.server.handlers.admin.billing import _billing_limiter
 

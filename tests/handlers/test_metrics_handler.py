@@ -293,7 +293,9 @@ class TestPrometheusMetrics:
         assert result is not None
         assert result.status_code == 401
 
-    def test_prometheus_with_token_auth_missing_header(self, handler, mock_http_handler, monkeypatch):
+    def test_prometheus_with_token_auth_missing_header(
+        self, handler, mock_http_handler, monkeypatch
+    ):
         """When ARAGORA_METRICS_TOKEN is set but no Authorization header, reject."""
         monkeypatch.setenv("ARAGORA_METRICS_TOKEN", "secret-token-123")
         # No Authorization header set
@@ -610,7 +612,10 @@ class TestSystemInfo:
         assert "rss_mb" in mem or "available" in mem
 
     def test_system_info_error_returns_500(self, handler, mock_http_handler):
-        with patch("aragora.server.handlers.metrics.handler.platform.platform", side_effect=OSError("os error")):
+        with patch(
+            "aragora.server.handlers.metrics.handler.platform.platform",
+            side_effect=OSError("os error"),
+        ):
             result = handler.handle("/api/metrics/system", {}, mock_http_handler)
             assert result is not None
             assert result.status_code == 500
@@ -683,7 +688,9 @@ class TestDebatePerfStats:
 
     def test_with_debate_id(self, handler, mock_http_handler):
         """Passing debate_id dispatches correctly."""
-        result = handler.handle("/api/metrics/debate", {"debate_id": ["test-debate-1"]}, mock_http_handler)
+        result = handler.handle(
+            "/api/metrics/debate", {"debate_id": ["test-debate-1"]}, mock_http_handler
+        )
         assert result is not None
         assert result.status_code == 200
 
@@ -805,7 +812,10 @@ class TestDatabaseSizes:
         sizes = h._get_database_sizes()
         assert "debate_storage.db" in sizes
         assert sizes["debate_storage.db"]["bytes"] == 1024
-        assert "KB" in sizes["debate_storage.db"]["human"] or "B" in sizes["debate_storage.db"]["human"]
+        assert (
+            "KB" in sizes["debate_storage.db"]["human"]
+            or "B" in sizes["debate_storage.db"]["human"]
+        )
 
     def test_ignores_missing_db_files(self, tmp_path):
         """Only includes database files that actually exist."""

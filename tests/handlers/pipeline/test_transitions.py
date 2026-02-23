@@ -559,9 +559,7 @@ class TestMetaPlannerPath:
 
     def test_meta_planner_fallback_on_runtime_error(self):
         """When MetaPlanner raises RuntimeError, falls back to heuristic."""
-        with patch(
-            "aragora.nomic.meta_planner.MetaPlanner"
-        ) as MockPlanner:
+        with patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner:
             MockPlanner.side_effect = RuntimeError("LLM unavailable")
             ideas = [{"id": "idea-1", "label": "Optimize search"}]
             result = _ideas_to_goals_logic(ideas)
@@ -645,8 +643,7 @@ class TestTaskDecomposerPath:
         from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
         mock_subtasks = [
-            SubTask(id=f"sub-{i}", title=f"Task {i}", description=f"Desc {i}")
-            for i in range(5)
+            SubTask(id=f"sub-{i}", title=f"Task {i}", description=f"Desc {i}") for i in range(5)
         ]
         mock_decomposition = TaskDecomposition(
             original_task="Big goal",
@@ -796,9 +793,7 @@ class TestIdeasToGoalsModeParam:
 
     def test_quick_mode_sets_quick_flag_on_planner(self):
         """mode=quick should instantiate MetaPlanner with quick_mode=True."""
-        with patch(
-            "aragora.nomic.meta_planner.MetaPlanner"
-        ) as MockPlanner:
+        with patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner:
             # Make MetaPlanner instantiation raise so we can inspect the config
             MockPlanner.side_effect = RuntimeError("test intercept")
             ideas = [{"id": "idea-1", "label": "Test"}]
@@ -812,9 +807,7 @@ class TestIdeasToGoalsModeParam:
 
     def test_debate_mode_sets_quick_flag_false(self):
         """mode=debate should instantiate MetaPlanner with quick_mode=False."""
-        with patch(
-            "aragora.nomic.meta_planner.MetaPlanner"
-        ) as MockPlanner:
+        with patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner:
             MockPlanner.side_effect = RuntimeError("test intercept")
             ideas = [{"id": "idea-1", "label": "Test"}]
             result = _ideas_to_goals_logic(ideas, mode="debate")
@@ -925,11 +918,7 @@ class TestGoalsToTasksModeParam:
     def test_handler_passes_mode_query_param(self):
         """The handler should forward ?mode= to the goals-to-tasks logic."""
         h = PipelineTransitionsHandler(ctx=_make_handler_ctx())
-        body = {
-            "goals": [
-                {"id": "g1", "label": "Goal", "metadata": {"key_results": ["kr1"]}}
-            ]
-        }
+        body = {"goals": [{"id": "g1", "label": "Goal", "metadata": {"key_results": ["kr1"]}}]}
         http_handler = _make_http_handler(body)
         resp = h.handle_post(
             "/api/v1/pipeline/transitions/goals-to-tasks",

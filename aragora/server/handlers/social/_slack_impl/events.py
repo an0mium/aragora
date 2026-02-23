@@ -91,11 +91,15 @@ class EventsMixin(MessagingMixin):
             return json_response({"ok": True})  # Always 200 for events
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Invalid event data: %s", e)
-            self._audit_event_error(team_id, event_type or inner_type or "unknown", "Invalid event data")
+            self._audit_event_error(
+                team_id, event_type or inner_type or "unknown", "Invalid event data"
+            )
             return json_response({"ok": True})  # Always 200 for events
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception("Unexpected events handler error: %s", e)
-            self._audit_event_error(team_id, event_type or inner_type or "unknown", "Internal error")
+            self._audit_event_error(
+                team_id, event_type or inner_type or "unknown", "Internal error"
+            )
             return json_response({"ok": True})  # Always 200 for events
 
     def _audit_event_error(self, workspace_id: str, event_type: str, error: str) -> None:
@@ -297,7 +301,11 @@ class EventsMixin(MessagingMixin):
             await self._post_message_async(channel, "Debate service temporarily unavailable")
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Invalid debate request data: %s", e)
-            await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")
+            await self._post_message_async(
+                channel, "Sorry, an error occurred while processing your request."
+            )
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception("Unexpected DM debate creation error: %s", e)
-            await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")
+            await self._post_message_async(
+                channel, "Sorry, an error occurred while processing your request."
+            )

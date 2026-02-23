@@ -416,7 +416,10 @@ class AuthHandler(SecureHandler):
         decision = check_permission(rbac_context, permission_key, resource_id)
         if not decision.allowed:
             logger.warning(
-                "Permission denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission_key, decision.reason
+                "Permission denied: user=%s permission=%s reason=%s",
+                auth_ctx.user_id,
+                permission_key,
+                decision.reason,
             )
             return error_response("Permission denied", 403)
 
@@ -538,7 +541,8 @@ class AuthHandler(SecureHandler):
 
             if persistent_ok and in_memory_ok:
                 logger.info(
-                    "User logged out and token revoked (persistent + in-memory): %s", auth_ctx.user_id
+                    "User logged out and token revoked (persistent + in-memory): %s",
+                    auth_ctx.user_id,
                 )
             elif persistent_ok:
                 logger.warning(

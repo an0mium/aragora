@@ -100,7 +100,9 @@ class SpamClassifier:
         if os.path.exists(self.config.model_path):
             if self.model.load(self.config.model_path):
                 logger.info(
-                    "Loaded spam model with %s spam and %s ham samples", self.model.spam_count, self.model.ham_count
+                    "Loaded spam model with %s spam and %s ham samples",
+                    self.model.spam_count,
+                    self.model.ham_count,
                 )
 
         # Initialize feedback database

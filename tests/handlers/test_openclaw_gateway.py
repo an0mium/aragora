@@ -297,7 +297,10 @@ class TestNormalizePath:
     """Path normalisation collapses all variants to /api/gateway/openclaw/..."""
 
     def test_v1_gateway(self, handler):
-        assert handler._normalize_path("/api/v1/gateway/openclaw/sessions") == "/api/gateway/openclaw/sessions"
+        assert (
+            handler._normalize_path("/api/v1/gateway/openclaw/sessions")
+            == "/api/gateway/openclaw/sessions"
+        )
 
     def test_v1_shorthand(self, handler):
         assert handler._normalize_path("/api/v1/openclaw/health") == "/api/gateway/openclaw/health"
@@ -306,7 +309,10 @@ class TestNormalizePath:
         assert handler._normalize_path("/api/openclaw/metrics") == "/api/gateway/openclaw/metrics"
 
     def test_already_normalised(self, handler):
-        assert handler._normalize_path("/api/gateway/openclaw/sessions") == "/api/gateway/openclaw/sessions"
+        assert (
+            handler._normalize_path("/api/gateway/openclaw/sessions")
+            == "/api/gateway/openclaw/sessions"
+        )
 
 
 # ===========================================================================
@@ -359,17 +365,13 @@ class TestGetSessions:
 
     def test_get_session_by_id(self, handler, store):
         session = store.create_session(user_id="test-user-001", tenant_id="test-org-001")
-        result = handler.handle(
-            f"/api/v1/openclaw/sessions/{session.id}", {}, _mock_handler()
-        )
+        result = handler.handle(f"/api/v1/openclaw/sessions/{session.id}", {}, _mock_handler())
         assert _status(result) == 200
         body = _body(result)
         assert body["id"] == session.id
 
     def test_get_session_not_found(self, handler, store):
-        result = handler.handle(
-            "/api/v1/openclaw/sessions/nonexistent", {}, _mock_handler()
-        )
+        result = handler.handle("/api/v1/openclaw/sessions/nonexistent", {}, _mock_handler())
         assert _status(result) == 404
 
 
@@ -381,17 +383,13 @@ class TestGetActions:
             action_type="test.action",
             input_data={"key": "value"},
         )
-        result = handler.handle(
-            f"/api/v1/openclaw/actions/{action.id}", {}, _mock_handler()
-        )
+        result = handler.handle(f"/api/v1/openclaw/actions/{action.id}", {}, _mock_handler())
         assert _status(result) == 200
         body = _body(result)
         assert body["id"] == action.id
 
     def test_get_action_not_found(self, handler, store):
-        result = handler.handle(
-            "/api/v1/openclaw/actions/nonexistent", {}, _mock_handler()
-        )
+        result = handler.handle("/api/v1/openclaw/actions/nonexistent", {}, _mock_handler())
         assert _status(result) == 404
 
 
@@ -432,9 +430,7 @@ class TestGetAudit:
         assert body["total"] == 0
 
     def test_audit_with_entries(self, handler, store):
-        store.add_audit_entry(
-            action="test", actor_id="user1", resource_type="session"
-        )
+        store.add_audit_entry(action="test", actor_id="user1", resource_type="session")
         result = handler.handle("/api/v1/openclaw/audit", {}, _mock_handler())
         assert _status(result) == 200
         body = _body(result)
@@ -497,11 +493,13 @@ class TestPostCreateSession:
 class TestPostExecuteAction:
     def test_execute_action_success(self, handler, store):
         session = store.create_session(user_id="test-user-001", tenant_id="test-org-001")
-        http = _mock_handler({
-            "session_id": session.id,
-            "action_type": "run.test",
-            "input": {"cmd": "echo hello"},
-        })
+        http = _mock_handler(
+            {
+                "session_id": session.id,
+                "action_type": "run.test",
+                "input": {"cmd": "echo hello"},
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
         assert _status(result) == 202
         body = _body(result)
@@ -519,20 +517,24 @@ class TestPostExecuteAction:
         assert _status(result) == 400
 
     def test_execute_action_session_not_found(self, handler, store):
-        http = _mock_handler({
-            "session_id": "nonexistent",
-            "action_type": "run.test",
-        })
+        http = _mock_handler(
+            {
+                "session_id": "nonexistent",
+                "action_type": "run.test",
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
         assert _status(result) == 404
 
     def test_execute_action_session_not_active(self, handler, store):
         session = store.create_session(user_id="test-user-001", tenant_id="test-org-001")
         store.update_session_status(session.id, SessionStatus.CLOSED)
-        http = _mock_handler({
-            "session_id": session.id,
-            "action_type": "run.test",
-        })
+        http = _mock_handler(
+            {
+                "session_id": session.id,
+                "action_type": "run.test",
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
         assert _status(result) == 400
 
@@ -540,9 +542,7 @@ class TestPostExecuteAction:
 class TestPostCancelAction:
     def test_cancel_action_success(self, handler, store):
         session = store.create_session(user_id="test-user-001", tenant_id="test-org-001")
-        action = store.create_action(
-            session_id=session.id, action_type="run.test", input_data={}
-        )
+        action = store.create_action(session_id=session.id, action_type="run.test", input_data={})
         store.update_action(action.id, status=ActionStatus.RUNNING)
         result = handler.handle_post(
             f"/api/v1/openclaw/actions/{action.id}/cancel", {}, _mock_handler()
@@ -559,9 +559,7 @@ class TestPostCancelAction:
 
     def test_cancel_completed_action(self, handler, store):
         session = store.create_session(user_id="test-user-001", tenant_id="test-org-001")
-        action = store.create_action(
-            session_id=session.id, action_type="run.test", input_data={}
-        )
+        action = store.create_action(session_id=session.id, action_type="run.test", input_data={})
         store.update_action(action.id, status=ActionStatus.COMPLETED)
         result = handler.handle_post(
             f"/api/v1/openclaw/actions/{action.id}/cancel", {}, _mock_handler()
@@ -588,11 +586,13 @@ class TestPostEndSession:
 
 class TestPostPolicyRule:
     def test_add_policy_rule(self, handler, store):
-        http = _mock_handler({
-            "name": "block_dangerous",
-            "action_types": ["shell.exec"],
-            "decision": "deny",
-        })
+        http = _mock_handler(
+            {
+                "name": "block_dangerous",
+                "action_types": ["shell.exec"],
+                "decision": "deny",
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/policy/rules", {}, http)
         assert _status(result) == 201
         body = _body(result)
@@ -607,9 +607,7 @@ class TestPostPolicyRule:
 class TestPostApprovalActions:
     def test_approve_action(self, handler, store):
         http = _mock_handler({"reason": "looks good"})
-        result = handler.handle_post(
-            "/api/v1/openclaw/approvals/abc123/approve", {}, http
-        )
+        result = handler.handle_post("/api/v1/openclaw/approvals/abc123/approve", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -617,9 +615,7 @@ class TestPostApprovalActions:
 
     def test_deny_action(self, handler, store):
         http = _mock_handler({"reason": "too risky"})
-        result = handler.handle_post(
-            "/api/v1/openclaw/approvals/abc123/deny", {}, http
-        )
+        result = handler.handle_post("/api/v1/openclaw/approvals/abc123/deny", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -627,11 +623,13 @@ class TestPostApprovalActions:
 
 class TestPostStoreCredential:
     def test_store_credential(self, handler, store):
-        http = _mock_handler({
-            "name": "MyApiKey",
-            "type": "api_key",
-            "secret": "sk-test-very-long-secret-key-1234",
-        })
+        http = _mock_handler(
+            {
+                "name": "MyApiKey",
+                "type": "api_key",
+                "secret": "sk-test-very-long-secret-key-1234",
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/credentials", {}, http)
         assert _status(result) == 201
         body = _body(result)
@@ -649,20 +647,24 @@ class TestPostStoreCredential:
         assert _status(result) == 400
 
     def test_store_credential_invalid_type(self, handler, store):
-        http = _mock_handler({
-            "name": "MyKey",
-            "type": "invalid_type",
-            "secret": "sk-1234567890",
-        })
+        http = _mock_handler(
+            {
+                "name": "MyKey",
+                "type": "invalid_type",
+                "secret": "sk-1234567890",
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/credentials", {}, http)
         assert _status(result) == 400
 
     def test_store_credential_secret_too_short(self, handler, store):
-        http = _mock_handler({
-            "name": "MyKey",
-            "type": "api_key",
-            "secret": "abc",
-        })
+        http = _mock_handler(
+            {
+                "name": "MyKey",
+                "type": "api_key",
+                "secret": "abc",
+            }
+        )
         result = handler.handle_post("/api/v1/openclaw/credentials", {}, http)
         assert _status(result) == 400
 
@@ -676,18 +678,14 @@ class TestPostRotateCredential:
             user_id="test-user-001",
         )
         http = _mock_handler({"secret": "new-secret-value-12345678"})
-        result = handler.handle_post(
-            f"/api/v1/openclaw/credentials/{cred.id}/rotate", {}, http
-        )
+        result = handler.handle_post(f"/api/v1/openclaw/credentials/{cred.id}/rotate", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["rotated"] is True
 
     def test_rotate_credential_not_found(self, handler, store):
         http = _mock_handler({"secret": "new-secret-value-12345678"})
-        result = handler.handle_post(
-            "/api/v1/openclaw/credentials/nonexistent/rotate", {}, http
-        )
+        result = handler.handle_post("/api/v1/openclaw/credentials/nonexistent/rotate", {}, http)
         assert _status(result) == 404
 
     def test_rotate_credential_invalid_secret(self, handler, store):
@@ -698,9 +696,7 @@ class TestPostRotateCredential:
             user_id="test-user-001",
         )
         http = _mock_handler({"secret": "ab"})
-        result = handler.handle_post(
-            f"/api/v1/openclaw/credentials/{cred.id}/rotate", {}, http
-        )
+        result = handler.handle_post(f"/api/v1/openclaw/credentials/{cred.id}/rotate", {}, http)
         assert _status(result) == 400
 
 
@@ -726,9 +722,7 @@ class TestDeleteSession:
         assert body["closed"] is True
 
     def test_close_session_not_found(self, handler, store):
-        result = handler.handle_delete(
-            "/api/v1/openclaw/sessions/nonexistent", {}, _mock_handler()
-        )
+        result = handler.handle_delete("/api/v1/openclaw/sessions/nonexistent", {}, _mock_handler())
         assert _status(result) == 404
 
 

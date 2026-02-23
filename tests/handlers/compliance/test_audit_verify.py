@@ -833,10 +833,7 @@ class TestAuditVerifyEndpoint:
         """Date range errors are limited to 10 in the response."""
         now = datetime.now(timezone.utc)
         # Create 15 events all missing action field
-        events = [
-            {"id": f"evt-{i}", "timestamp": now.isoformat()}
-            for i in range(15)
-        ]
+        events = [{"id": f"evt-{i}", "timestamp": now.isoformat()} for i in range(15)]
         _patch_stores["audit_store"].get_log.return_value = events
 
         body_data = {
@@ -912,9 +909,7 @@ class TestAuditEventsEndpoint:
         _patch_stores["audit_store"].get_log.return_value = events
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"format": "json"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"format": "json"}, mock_h)
         body = _body(result)
         assert body["count"] == 1
         assert body["events"][0]["id"] == "evt-1"
@@ -1045,9 +1040,7 @@ class TestAuditEventsEndpoint:
 
         mock_h = _MockHTTPHandler("GET")
         await handler.handle("/api/v2/compliance/audit-events", {}, mock_h)
-        _patch_stores["audit_store"].get_log.assert_called_once_with(
-            action=None, limit=1000
-        )
+        _patch_stores["audit_store"].get_log.assert_called_once_with(action=None, limit=1000)
 
     @pytest.mark.asyncio
     async def test_limit_param_custom(self, handler, _patch_stores):
@@ -1055,12 +1048,8 @@ class TestAuditEventsEndpoint:
         _patch_stores["audit_store"].get_log.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        await handler.handle(
-            "/api/v2/compliance/audit-events", {"limit": "500"}, mock_h
-        )
-        _patch_stores["audit_store"].get_log.assert_called_once_with(
-            action=None, limit=500
-        )
+        await handler.handle("/api/v2/compliance/audit-events", {"limit": "500"}, mock_h)
+        _patch_stores["audit_store"].get_log.assert_called_once_with(action=None, limit=500)
 
     @pytest.mark.asyncio
     async def test_limit_param_capped_at_10000(self, handler, _patch_stores):
@@ -1068,12 +1057,8 @@ class TestAuditEventsEndpoint:
         _patch_stores["audit_store"].get_log.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        await handler.handle(
-            "/api/v2/compliance/audit-events", {"limit": "99999"}, mock_h
-        )
-        _patch_stores["audit_store"].get_log.assert_called_once_with(
-            action=None, limit=10000
-        )
+        await handler.handle("/api/v2/compliance/audit-events", {"limit": "99999"}, mock_h)
+        _patch_stores["audit_store"].get_log.assert_called_once_with(action=None, limit=10000)
 
     @pytest.mark.asyncio
     async def test_event_type_filter(self, handler, _patch_stores):
@@ -1081,12 +1066,8 @@ class TestAuditEventsEndpoint:
         _patch_stores["audit_store"].get_log.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        await handler.handle(
-            "/api/v2/compliance/audit-events", {"event_type": "login"}, mock_h
-        )
-        _patch_stores["audit_store"].get_log.assert_called_once_with(
-            action="login", limit=1000
-        )
+        await handler.handle("/api/v2/compliance/audit-events", {"event_type": "login"}, mock_h)
+        _patch_stores["audit_store"].get_log.assert_called_once_with(action="login", limit=1000)
 
     @pytest.mark.asyncio
     async def test_from_timestamp_filter(self, handler, _patch_stores):
@@ -1235,9 +1216,7 @@ class TestAuditEventsEndpoint:
         _patch_stores["audit_store"].get_log.return_value = events
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"format": "json"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"format": "json"}, mock_h)
         body = _body(result)
         assert body["count"] == 1
 
@@ -1250,9 +1229,7 @@ class TestAuditEventsEndpoint:
         _patch_stores["audit_store"].get_log.return_value = events
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"format": "json"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"format": "json"}, mock_h)
         body = _body(result)
         assert body["count"] == 1
 
@@ -1353,9 +1330,7 @@ class TestSecurityEdgeCases:
         _patch_stores["receipt_store"].get.return_value = None
         _patch_stores["receipt_store"].get_by_gauntlet.return_value = None
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"trail_id": "'; DROP TABLE receipts; --"}
-        )
+        mock_h = _MockHTTPHandler("POST", body={"trail_id": "'; DROP TABLE receipts; --"})
         result = await handler.handle("/api/v2/compliance/audit-verify", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
@@ -1368,9 +1343,7 @@ class TestSecurityEdgeCases:
         summary = {"total": 1, "valid": 1}
         _patch_stores["receipt_store"].verify_batch.return_value = (results, summary)
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"receipt_ids": ["r<script>"]}
-        )
+        mock_h = _MockHTTPHandler("POST", body={"receipt_ids": ["r<script>"]})
         result = await handler.handle("/api/v2/compliance/audit-verify", {}, mock_h)
         assert _status(result) == 200
 
@@ -1418,9 +1391,7 @@ class TestSecurityEdgeCases:
         _patch_stores["audit_store"].get_log.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"format": "xml"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"format": "xml"}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert "events" in body  # JSON format
@@ -1431,9 +1402,7 @@ class TestSecurityEdgeCases:
         _patch_stores["audit_store"].get_log.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"limit": "-5"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"limit": "-5"}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1442,9 +1411,7 @@ class TestSecurityEdgeCases:
         _patch_stores["audit_store"].get_log.return_value = []
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/audit-events", {"limit": "0"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/audit-events", {"limit": "0"}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1560,9 +1527,7 @@ class TestFetchAuditEventsDirect:
     @pytest.mark.asyncio
     async def test_fetch_with_no_filters(self, mixin_instance, _patch_stores):
         """Fetch events with no date or type filters."""
-        _patch_stores["audit_store"].get_log.return_value = [
-            {"id": "e1", "action": "test"}
-        ]
+        _patch_stores["audit_store"].get_log.return_value = [{"id": "e1", "action": "test"}]
         events = await mixin_instance._fetch_audit_events(
             from_ts=None, to_ts=None, limit=1000, event_type=None
         )
@@ -1798,9 +1763,7 @@ class TestGetReceiptStoreFallback:
         from aragora.server.handlers.compliance import audit_verify
 
         fallback_store = MagicMock()
-        monkeypatch.setattr(
-            audit_verify, "_base_get_receipt_store", lambda: fallback_store
-        )
+        monkeypatch.setattr(audit_verify, "_base_get_receipt_store", lambda: fallback_store)
         # Force the compat import to fail within the function
         # (We test the fallback path by calling the function with the compat path failing)
         original_fn = audit_verify.get_receipt_store

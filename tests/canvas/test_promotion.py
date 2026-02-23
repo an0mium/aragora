@@ -56,6 +56,7 @@ class TestIdeaToGoalMapping:
 
     def test_all_idea_types_covered(self):
         from aragora.canvas.stages import IdeaNodeType
+
         for t in IdeaNodeType:
             assert t.value in IDEA_TO_GOAL_TYPE, f"{t.value} not in mapping"
 

@@ -13,7 +13,8 @@ def _mock_health_report(health_score: float = 0.7, candidates: list | None = Non
     """Build a mock CodebaseHealthReport."""
     return types.SimpleNamespace(
         health_score=health_score,
-        improvement_candidates=candidates or [
+        improvement_candidates=candidates
+        or [
             types.SimpleNamespace(
                 description="Fix 3 failing tests",
                 priority=0.9,
@@ -148,7 +149,9 @@ class TestTriggerCycle:
     async def test_trigger_cycle_executes_when_unhealthy(self):
         from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
 
-        config = DaemonConfig(health_threshold=0.9, dry_run=False, require_approval=False, autonomous=True)
+        config = DaemonConfig(
+            health_threshold=0.9, dry_run=False, require_approval=False, autonomous=True
+        )
         daemon = SelfImprovementDaemon(config)
 
         report = _mock_health_report(health_score=0.6)
@@ -157,7 +160,9 @@ class TestTriggerCycle:
         goals = [_mock_goal()]
 
         with (
-            patch.object(daemon, "_assess", new_callable=AsyncMock, side_effect=[report, after_report]),
+            patch.object(
+                daemon, "_assess", new_callable=AsyncMock, side_effect=[report, after_report]
+            ),
             patch.object(daemon, "_generate_goals", return_value=goals),
             patch.object(daemon, "_execute", new_callable=AsyncMock, return_value=pipeline_result),
             patch.object(daemon, "_record_outcome"),
@@ -213,7 +218,9 @@ class TestTriggerCycle:
         config = DaemonConfig()
         daemon = SelfImprovementDaemon(config)
 
-        with patch.object(daemon, "_assess", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
+        with patch.object(
+            daemon, "_assess", new_callable=AsyncMock, side_effect=RuntimeError("boom")
+        ):
             result = await daemon.trigger_cycle()
 
         assert result.error is not None
@@ -226,9 +233,14 @@ class TestTriggerCycle:
         config = DaemonConfig(min_candidates=5)
         daemon = SelfImprovementDaemon(config)
 
-        report = _mock_health_report(health_score=0.6, candidates=[
-            types.SimpleNamespace(description="One issue", priority=0.8, source="s", files=[], category="test"),
-        ])
+        report = _mock_health_report(
+            health_score=0.6,
+            candidates=[
+                types.SimpleNamespace(
+                    description="One issue", priority=0.8, source="s", files=[], category="test"
+                ),
+            ],
+        )
 
         with patch.object(daemon, "_assess", new_callable=AsyncMock, return_value=report):
             result = await daemon.trigger_cycle()
@@ -293,7 +305,9 @@ class TestDaemonLoop:
         )
         daemon = SelfImprovementDaemon(config)
 
-        with patch.object(daemon, "_assess", new_callable=AsyncMock, side_effect=RuntimeError("fail")):
+        with patch.object(
+            daemon, "_assess", new_callable=AsyncMock, side_effect=RuntimeError("fail")
+        ):
             await daemon.start()
             await asyncio.sleep(0.2)
 

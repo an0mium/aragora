@@ -735,7 +735,9 @@ class NomicAdminMixin:
                 logger.debug("Best effort metrics update failed: %s", type(e).__name__)
 
             logger.info(
-                "Admin %s reset circuit breakers. Previously open: %s", auth_ctx.user_id, open_before
+                "Admin %s reset circuit breakers. Previously open: %s",
+                auth_ctx.user_id,
+                open_before,
             )
             audit_admin(
                 admin_id=auth_ctx.user_id,

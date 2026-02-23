@@ -54,7 +54,9 @@ class BoundedDebateDict(OrderedDict):
         # Evict oldest if at capacity
         while len(self) >= self.maxsize:
             oldest_key, oldest_val = self.popitem(last=False)
-            logger.debug("Evicted oldest debate %s to maintain maxsize=%s", oldest_key, self.maxsize)
+            logger.debug(
+                "Evicted oldest debate %s to maintain maxsize=%s", oldest_key, self.maxsize
+            )
         super().__setitem__(key, value)
 
 

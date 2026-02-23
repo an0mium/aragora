@@ -229,7 +229,15 @@ class KMOutcomeBridge:
                     self._validations_applied.append(validation)
                     self._total_validations += 1
 
-            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                KeyError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.error("Error validating KM item %s: %s", item_id, e)
 
         # Auto-propagate if enabled
@@ -241,11 +249,22 @@ class KMOutcomeBridge:
                         validation=validation,
                         depth=self._config.max_propagation_depth,
                     )
-                except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+                except (
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                    ConnectionError,
+                ) as e:
                     logger.error("Error propagating validation: %s", e)
 
         logger.info(
-            "Validated %s KM items for debate %s (success=%s)", len(validations), outcome.debate_id, was_successful
+            "Validated %s KM items for debate %s (success=%s)",
+            len(validations),
+            outcome.debate_id,
+            was_successful,
         )
 
         return validations
@@ -398,13 +417,24 @@ class KMOutcomeBridge:
                 result.items_updated += 1
                 result.depth_reached = max(result.depth_reached, relationship_depth)
 
-            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                KeyError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 error_msg = f"Error propagating to {related_id}: {e}"
                 logger.error(error_msg)
                 result.errors.append(error_msg)
 
         logger.info(
-            "Propagated validation from %s: updated=%s, skipped=%s", km_item_id, result.items_updated, result.items_skipped
+            "Propagated validation from %s: updated=%s, skipped=%s",
+            km_item_id,
+            result.items_updated,
+            result.items_skipped,
         )
 
         return result
@@ -432,7 +462,15 @@ class KMOutcomeBridge:
             else:
                 # Mock/fallback for testing
                 return {"id": item_id, "confidence": 0.7}
-        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+            OSError,
+            ConnectionError,
+        ) as e:
             logger.error("Error getting KM item %s: %s", item_id, e)
             return None
 
@@ -461,7 +499,15 @@ class KMOutcomeBridge:
                 # Log success for testing even without real KM
                 logger.debug("Would update %s confidence to %s", item_id, new_confidence)
                 return True
-        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+            OSError,
+            ConnectionError,
+        ) as e:
             logger.error("Error updating KM item %s: %s", item_id, e)
             return False
 
@@ -496,7 +542,15 @@ class KMOutcomeBridge:
                     target_id = rel.get("target_id") or rel.get("to_id")
                     if target_id and target_id != item_id:
                         related.append((target_id, 1))
-        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+            OSError,
+            ConnectionError,
+        ) as e:
             logger.error("Error getting related items for %s: %s", item_id, e)
 
         return related

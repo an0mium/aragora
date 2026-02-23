@@ -90,6 +90,7 @@ def create_mock_request(
     request.transport = transport
 
     if body is not None:
+
         async def json_func():
             return body
 
@@ -102,6 +103,7 @@ def create_mock_request(
 
         request.read = read_func
     elif raw_payload is not None:
+
         async def json_error():
             raise json.JSONDecodeError("Invalid JSON", "", 0)
 
@@ -113,6 +115,7 @@ def create_mock_request(
 
         request.read = read_func
     else:
+
         async def json_error():
             raise json.JSONDecodeError("Invalid JSON", "", 0)
 
@@ -193,13 +196,9 @@ def mock_stripe_connector():
     """Create a mock Stripe connector."""
     connector = AsyncMock()
     connector.create_payment_intent = AsyncMock(return_value=MockStripeIntent())
-    connector.capture_payment_intent = AsyncMock(
-        return_value=MockStripeIntent(status="succeeded")
-    )
+    connector.capture_payment_intent = AsyncMock(return_value=MockStripeIntent(status="succeeded"))
     connector.retrieve_payment_intent = AsyncMock(return_value=MockStripeIntent())
-    connector.cancel_payment_intent = AsyncMock(
-        return_value=MockStripeIntent(status="canceled")
-    )
+    connector.cancel_payment_intent = AsyncMock(return_value=MockStripeIntent(status="canceled"))
     connector.create_refund = AsyncMock(return_value=MockStripeRefund())
     connector.construct_webhook_event = AsyncMock(return_value=MockStripeEvent())
     return connector
@@ -488,9 +487,7 @@ class TestHandleCharge:
         assert _status(resp) == 200
 
     @pytest.mark.asyncio
-    async def test_charge_stripe_connection_error_in_internal(
-        self, mock_stripe_connector
-    ):
+    async def test_charge_stripe_connection_error_in_internal(self, mock_stripe_connector):
         """ConnectionError inside _charge_stripe is caught internally and returns error PaymentResult."""
         request = create_mock_request(body={"amount": 100.00})
         with (
@@ -614,9 +611,7 @@ class TestHandleAuthorize:
 
     @pytest.mark.asyncio
     async def test_authorize_authnet_connector_unavailable(self):
-        request = create_mock_request(
-            body={"provider": "authorize_net", "amount": 200.00}
-        )
+        request = create_mock_request(body={"provider": "authorize_net", "amount": 200.00})
         with (
             patch(f"{PKG}.get_authnet_connector", return_value=None),
             patch(
@@ -676,9 +671,7 @@ class TestHandleCapture:
 
     @pytest.mark.asyncio
     async def test_capture_stripe_success(self, mock_stripe_connector):
-        request = create_mock_request(
-            body={"transaction_id": "pi_test_123"}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_test_123"})
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=mock_stripe_connector),
             patch(
@@ -694,9 +687,7 @@ class TestHandleCapture:
 
     @pytest.mark.asyncio
     async def test_capture_stripe_partial(self, mock_stripe_connector):
-        request = create_mock_request(
-            body={"transaction_id": "pi_test_123", "amount": 50.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_test_123", "amount": 50.00})
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=mock_stripe_connector),
             patch(
@@ -800,9 +791,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_stripe_success(self, mock_stripe_connector):
-        request = create_mock_request(
-            body={"transaction_id": "pi_test_123", "amount": 50.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_test_123", "amount": 50.00})
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=mock_stripe_connector),
             patch(
@@ -818,9 +807,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_stripe_connector_unavailable(self):
-        request = create_mock_request(
-            body={"transaction_id": "pi_test_123", "amount": 50.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_test_123", "amount": 50.00})
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=None),
             patch(
@@ -843,9 +830,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_amount_zero_returns_400(self):
-        request = create_mock_request(
-            body={"transaction_id": "pi_123", "amount": 0}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_123", "amount": 0})
         with patch(
             f"{PKG}._get_provider_from_request",
             return_value=PaymentProvider.STRIPE,
@@ -855,9 +840,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_negative_amount_returns_400(self):
-        request = create_mock_request(
-            body={"transaction_id": "pi_123", "amount": -10.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_123", "amount": -10.00})
         with patch(
             f"{PKG}._get_provider_from_request",
             return_value=PaymentProvider.STRIPE,
@@ -935,9 +918,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_connection_error_returns_503(self):
-        request = create_mock_request(
-            body={"transaction_id": "pi_123", "amount": 50.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_123", "amount": 50.00})
         with patch(
             f"{PKG}._get_provider_from_request",
             side_effect=ConnectionError("down"),
@@ -947,9 +928,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_runtime_error_returns_500_and_audits(self):
-        request = create_mock_request(
-            body={"transaction_id": "pi_123", "amount": 50.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_123", "amount": 50.00})
         with (
             patch(
                 f"{PKG}._get_provider_from_request",
@@ -963,9 +942,7 @@ class TestHandleRefund:
 
     @pytest.mark.asyncio
     async def test_refund_stripe_audits_on_success(self, mock_stripe_connector):
-        request = create_mock_request(
-            body={"transaction_id": "pi_test_123", "amount": 50.00}
-        )
+        request = create_mock_request(body={"transaction_id": "pi_test_123", "amount": 50.00})
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=mock_stripe_connector),
             patch(
@@ -1145,9 +1122,7 @@ class TestHandleGetTransaction:
             match_info={"transaction_id": "txn_123"},
             query={"provider": "authorize_net"},
         )
-        with patch(
-            f"{PKG}.get_authnet_connector", return_value=mock_authnet_connector
-        ):
+        with patch(f"{PKG}.get_authnet_connector", return_value=mock_authnet_connector):
             resp = await handle_get_transaction(request)
         assert _status(resp) == 200
         data = _body(resp)
@@ -1160,9 +1135,7 @@ class TestHandleGetTransaction:
             match_info={"transaction_id": "txn_123"},
             query={"provider": "authnet"},
         )
-        with patch(
-            f"{PKG}.get_authnet_connector", return_value=mock_authnet_connector
-        ):
+        with patch(f"{PKG}.get_authnet_connector", return_value=mock_authnet_connector):
             resp = await handle_get_transaction(request)
         assert _status(resp) == 200
 
@@ -1173,9 +1146,7 @@ class TestHandleGetTransaction:
             match_info={"transaction_id": "txn_nonexistent"},
             query={"provider": "authorize_net"},
         )
-        with patch(
-            f"{PKG}.get_authnet_connector", return_value=mock_authnet_connector
-        ):
+        with patch(f"{PKG}.get_authnet_connector", return_value=mock_authnet_connector):
             resp = await handle_get_transaction(request)
         assert _status(resp) == 404
 
@@ -1289,9 +1260,7 @@ class TestHandleStripeWebhook:
 
     @pytest.mark.asyncio
     async def test_webhook_invalid_payload_returns_400(self, mock_stripe_connector):
-        mock_stripe_connector.construct_webhook_event = AsyncMock(
-            side_effect=ValueError("invalid")
-        )
+        mock_stripe_connector.construct_webhook_event = AsyncMock(side_effect=ValueError("invalid"))
         request = create_mock_request(
             raw_payload=b"bad-data",
             headers={"Stripe-Signature": "t=123,v1=abc"},
@@ -1303,9 +1272,7 @@ class TestHandleStripeWebhook:
 
     @pytest.mark.asyncio
     async def test_webhook_signature_verification_failed(self, mock_stripe_connector):
-        mock_stripe_connector.construct_webhook_event = AsyncMock(
-            side_effect=KeyError("sig")
-        )
+        mock_stripe_connector.construct_webhook_event = AsyncMock(side_effect=KeyError("sig"))
         request = create_mock_request(
             raw_payload=b'{"type":"test"}',
             headers={"Stripe-Signature": "t=123,v1=bad"},
@@ -1316,9 +1283,7 @@ class TestHandleStripeWebhook:
         assert "verification failed" in _body(resp)["error"]
 
     @pytest.mark.asyncio
-    async def test_webhook_duplicate_returns_200_with_flag(
-        self, mock_stripe_connector
-    ):
+    async def test_webhook_duplicate_returns_200_with_flag(self, mock_stripe_connector):
         event = MockStripeEvent()
         mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
 
@@ -1357,9 +1322,7 @@ class TestHandleStripeWebhook:
         assert "processing_error" not in data
 
     @pytest.mark.asyncio
-    async def test_webhook_handler_failure_records_dead_letter(
-        self, mock_stripe_connector
-    ):
+    async def test_webhook_handler_failure_records_dead_letter(self, mock_stripe_connector):
         event = MockStripeEvent(type="checkout.session.completed")
         mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
 
@@ -1387,9 +1350,7 @@ class TestHandleStripeWebhook:
         assert data["processing_error"] is True
 
     @pytest.mark.asyncio
-    async def test_webhook_idempotency_check_failure_continues(
-        self, mock_stripe_connector
-    ):
+    async def test_webhook_idempotency_check_failure_continues(self, mock_stripe_connector):
         event = MockStripeEvent(type="payment_intent.succeeded")
         mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
 
@@ -1410,9 +1371,7 @@ class TestHandleStripeWebhook:
         assert _status(resp) == 200
 
     @pytest.mark.asyncio
-    async def test_webhook_mark_processed_failure_still_returns_200(
-        self, mock_stripe_connector
-    ):
+    async def test_webhook_mark_processed_failure_still_returns_200(self, mock_stripe_connector):
         event = MockStripeEvent(type="payment_intent.succeeded")
         mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
 
@@ -1550,9 +1509,7 @@ class TestHandleAuthnetWebhook:
         assert _body(resp)["duplicate"] is True
 
     @pytest.mark.asyncio
-    async def test_authnet_webhook_generates_deterministic_id(
-        self, mock_authnet_connector
-    ):
+    async def test_authnet_webhook_generates_deterministic_id(self, mock_authnet_connector):
         """When notificationId and payload.id are both missing, a deterministic hash-based ID is generated."""
         request = create_mock_request(
             body={"eventType": "test", "payload": {"data": "some_data"}},
@@ -1576,9 +1533,7 @@ class TestHandleAuthnetWebhook:
         assert _status(resp) == 400
 
     @pytest.mark.asyncio
-    async def test_authnet_webhook_runtime_error_returns_500(
-        self, mock_authnet_connector
-    ):
+    async def test_authnet_webhook_runtime_error_returns_500(self, mock_authnet_connector):
         request = create_mock_request(
             body={"eventType": "test", "notificationId": "n_1"},
             headers={"X-ANET-Signature": "sha512=abc123"},
@@ -1619,15 +1574,11 @@ class TestStripeEventHandlerDispatch:
 
     def test_subscription_created_uses_updated_handler(self):
         assert (
-            _STRIPE_EVENT_HANDLERS["customer.subscription.created"]
-            is _handle_subscription_updated
+            _STRIPE_EVENT_HANDLERS["customer.subscription.created"] is _handle_subscription_updated
         )
 
     def test_invoice_payment_succeeded_uses_paid_handler(self):
-        assert (
-            _STRIPE_EVENT_HANDLERS["invoice.payment_succeeded"]
-            is _handle_invoice_paid
-        )
+        assert _STRIPE_EVENT_HANDLERS["invoice.payment_succeeded"] is _handle_invoice_paid
 
 
 class TestHandleCheckoutSessionCompleted:
@@ -1931,9 +1882,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_charge_rate_limited(self):
         """When rate limit returns a response, handler returns 429."""
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(body={"amount": 100.00})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_charge(request)
@@ -1941,9 +1890,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_authorize_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(body={"amount": 100.00})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_authorize(request)
@@ -1951,9 +1898,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_capture_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(body={"transaction_id": "pi_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_capture(request)
@@ -1961,9 +1906,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_refund_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(body={"transaction_id": "pi_123", "amount": 50})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_refund(request)
@@ -1971,9 +1914,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_void_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(body={"transaction_id": "pi_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_void(request)
@@ -1981,9 +1922,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_get_transaction_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(match_info={"transaction_id": "pi_123"})
         with patch(f"{PKG}._check_rate_limit", return_value=rate_resp):
             resp = await handle_get_transaction(request)
@@ -1991,9 +1930,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_stripe_webhook_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(
             raw_payload=b'{"type":"test"}',
             headers={"Stripe-Signature": "t=123,v1=abc"},
@@ -2004,9 +1941,7 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_authnet_webhook_rate_limited(self):
-        rate_resp = web.json_response(
-            {"error": "Rate limit exceeded"}, status=429
-        )
+        rate_resp = web.json_response({"error": "Rate limit exceeded"}, status=429)
         request = create_mock_request(
             body={"eventType": "test"},
             headers={"X-ANET-Signature": "sha512=abc"},

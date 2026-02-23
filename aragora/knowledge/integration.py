@@ -329,7 +329,10 @@ def queue_text_processing(
             job.completed_at = datetime.now(timezone.utc)
 
             logger.info(
-                "Knowledge processing completed: %s chunks=%s facts=%s", job_id, result.chunk_count, result.fact_count
+                "Knowledge processing completed: %s chunks=%s facts=%s",
+                job_id,
+                result.chunk_count,
+                result.fact_count,
             )
 
         except (OSError, RuntimeError, ValueError, ConnectionError, KeyError) as e:  # noqa: BLE001 - adapter isolation
@@ -400,7 +403,10 @@ def queue_document_processing(
             job.completed_at = datetime.now(timezone.utc)
 
             logger.info(
-                "Knowledge processing completed: %s chunks=%s facts=%s", job_id, result.chunk_count, result.fact_count
+                "Knowledge processing completed: %s chunks=%s facts=%s",
+                job_id,
+                result.chunk_count,
+                result.fact_count,
             )
 
         except (OSError, RuntimeError, ValueError, ConnectionError, KeyError) as e:  # noqa: BLE001 - adapter isolation
@@ -488,9 +494,13 @@ async def shutdown_pipeline() -> None:
             for workspace_id, pipeline in list(_pipelines.items()):
                 try:
                     await pipeline.stop()
-                    logger.info("Knowledge pipeline shutdown complete for workspace %s", workspace_id)
+                    logger.info(
+                        "Knowledge pipeline shutdown complete for workspace %s", workspace_id
+                    )
                 except (OSError, RuntimeError) as e:
-                    logger.warning("Failed to shutdown pipeline for workspace %s: %s", workspace_id, e)
+                    logger.warning(
+                        "Failed to shutdown pipeline for workspace %s: %s", workspace_id, e
+                    )
             _pipelines.clear()
 
     _executor.shutdown(wait=True)

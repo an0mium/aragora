@@ -296,7 +296,9 @@ class PluginRevenueTracker:
             )
             conn.commit()
 
-        logger.info("Plugin install recorded: %s v%s by org %s", plugin_name, plugin_version, org_id)
+        logger.info(
+            "Plugin install recorded: %s v%s by org %s", plugin_name, plugin_version, org_id
+        )
         return install
 
     def record_revenue(

@@ -40,7 +40,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-
 class MockHandler:
     """Mock handler for testing detailed health functions."""
 

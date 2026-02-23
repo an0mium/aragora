@@ -68,10 +68,12 @@ def _block_import(*module_names: str):
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def config():
     """Import the config module lazily."""
     from aragora.server.handlers.social._slack_impl import config as mod
+
     return mod
 
 
@@ -89,6 +91,7 @@ def _reset_singletons(config, monkeypatch):
 # ===========================================================================
 # _get_audit_logger
 # ===========================================================================
+
 
 class TestGetAuditLogger:
     """Tests for _get_audit_logger lazy singleton."""
@@ -147,6 +150,7 @@ class TestGetAuditLogger:
 # _get_user_rate_limiter
 # ===========================================================================
 
+
 class TestGetUserRateLimiter:
     """Tests for _get_user_rate_limiter lazy singleton."""
 
@@ -194,6 +198,7 @@ class TestGetUserRateLimiter:
 # _get_workspace_rate_limiter
 # ===========================================================================
 
+
 class TestGetWorkspaceRateLimiter:
     """Tests for _get_workspace_rate_limiter lazy singleton."""
 
@@ -207,7 +212,10 @@ class TestGetWorkspaceRateLimiter:
         ):
             result = config._get_workspace_rate_limiter()
         assert result is mock_limiter
-        assert mock_limiter.action_limits["slack_workspace_command"] == config.SLACK_WORKSPACE_RATE_LIMIT_RPM
+        assert (
+            mock_limiter.action_limits["slack_workspace_command"]
+            == config.SLACK_WORKSPACE_RATE_LIMIT_RPM
+        )
 
     def test_cached_returns_same_instance(self, config, monkeypatch):
         sentinel = MagicMock()
@@ -266,6 +274,7 @@ class TestGetWorkspaceRateLimiter:
 # ===========================================================================
 # _validate_slack_url
 # ===========================================================================
+
 
 class TestValidateSlackUrl:
     """Tests for _validate_slack_url SSRF protection."""
@@ -328,6 +337,7 @@ class TestValidateSlackUrl:
 # _handle_task_exception
 # ===========================================================================
 
+
 class TestHandleTaskException:
     """Tests for _handle_task_exception callback."""
 
@@ -375,12 +385,14 @@ class TestHandleTaskException:
 # create_tracked_task
 # ===========================================================================
 
+
 class TestCreateTrackedTask:
     """Tests for create_tracked_task (both loop and thread paths)."""
 
     @pytest.mark.asyncio
     async def test_with_running_loop_creates_task(self, config):
         """When an event loop is running, creates a real asyncio.Task."""
+
         async def dummy():
             return 42
 
@@ -392,6 +404,7 @@ class TestCreateTrackedTask:
     @pytest.mark.asyncio
     async def test_task_has_done_callback(self, config):
         """Task created in loop has a done callback attached."""
+
         async def dummy():
             return "ok"
 
@@ -416,6 +429,7 @@ class TestCreateTrackedTask:
 
     def test_background_task_add_done_callback_returns_none(self, config):
         """_BackgroundTask.add_done_callback is a no-op returning None."""
+
         async def dummy():
             pass
 
@@ -425,6 +439,7 @@ class TestCreateTrackedTask:
     @pytest.mark.asyncio
     async def test_task_name_set(self, config):
         """Task name is passed to create_task."""
+
         async def dummy():
             return 1
 
@@ -451,6 +466,7 @@ class TestCreateTrackedTask:
 # ===========================================================================
 # Constants
 # ===========================================================================
+
 
 class TestConstants:
     """Tests for module-level constants."""
@@ -484,6 +500,7 @@ class TestConstants:
 # ===========================================================================
 # COMMAND_PATTERN & TOPIC_PATTERN
 # ===========================================================================
+
 
 class TestCommandPattern:
     """Tests for the COMMAND_PATTERN regex."""
@@ -606,6 +623,7 @@ class TestTopicPattern:
 # get_workspace_store
 # ===========================================================================
 
+
 class TestGetWorkspaceStore:
     """Tests for get_workspace_store lazy singleton."""
 
@@ -644,6 +662,7 @@ class TestGetWorkspaceStore:
 # ===========================================================================
 # resolve_workspace
 # ===========================================================================
+
 
 class TestResolveWorkspace:
     """Tests for resolve_workspace."""
@@ -699,6 +718,7 @@ class TestResolveWorkspace:
 # get_slack_integration
 # ===========================================================================
 
+
 class TestGetSlackIntegration:
     """Tests for get_slack_integration lazy singleton."""
 
@@ -716,15 +736,18 @@ class TestGetSlackIntegration:
         monkeypatch.setattr(config, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
         mock_integration = MagicMock()
         mock_config = MagicMock()
-        with patch(
-            "aragora.integrations.slack.SlackConfig",
-            return_value=mock_config,
-            create=True,
-        ) as mock_config_cls, patch(
-            "aragora.integrations.slack.SlackIntegration",
-            return_value=mock_integration,
-            create=True,
-        ) as mock_int_cls:
+        with (
+            patch(
+                "aragora.integrations.slack.SlackConfig",
+                return_value=mock_config,
+                create=True,
+            ) as mock_config_cls,
+            patch(
+                "aragora.integrations.slack.SlackIntegration",
+                return_value=mock_integration,
+                create=True,
+            ) as mock_int_cls,
+        ):
             result = config.get_slack_integration()
         assert result is mock_integration
         mock_config_cls.assert_called_once_with(webhook_url="https://hooks.slack.com/test")
@@ -775,14 +798,17 @@ class TestGetSlackIntegration:
     def test_runtime_error_returns_none(self, config, monkeypatch):
         monkeypatch.setattr(config, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
         mock_config = MagicMock()
-        with patch(
-            "aragora.integrations.slack.SlackConfig",
-            return_value=mock_config,
-            create=True,
-        ), patch(
-            "aragora.integrations.slack.SlackIntegration",
-            side_effect=RuntimeError("init fail"),
-            create=True,
+        with (
+            patch(
+                "aragora.integrations.slack.SlackConfig",
+                return_value=mock_config,
+                create=True,
+            ),
+            patch(
+                "aragora.integrations.slack.SlackIntegration",
+                side_effect=RuntimeError("init fail"),
+                create=True,
+            ),
         ):
             result = config.get_slack_integration()
         assert result is None
@@ -790,14 +816,17 @@ class TestGetSlackIntegration:
     def test_os_error_returns_none(self, config, monkeypatch):
         monkeypatch.setattr(config, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
         mock_config = MagicMock()
-        with patch(
-            "aragora.integrations.slack.SlackConfig",
-            return_value=mock_config,
-            create=True,
-        ), patch(
-            "aragora.integrations.slack.SlackIntegration",
-            side_effect=OSError("network"),
-            create=True,
+        with (
+            patch(
+                "aragora.integrations.slack.SlackConfig",
+                return_value=mock_config,
+                create=True,
+            ),
+            patch(
+                "aragora.integrations.slack.SlackIntegration",
+                side_effect=OSError("network"),
+                create=True,
+            ),
         ):
             result = config.get_slack_integration()
         assert result is None
@@ -805,14 +834,17 @@ class TestGetSlackIntegration:
     def test_attribute_error_returns_none(self, config, monkeypatch):
         monkeypatch.setattr(config, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
         mock_config = MagicMock()
-        with patch(
-            "aragora.integrations.slack.SlackConfig",
-            return_value=mock_config,
-            create=True,
-        ), patch(
-            "aragora.integrations.slack.SlackIntegration",
-            side_effect=AttributeError("missing attr"),
-            create=True,
+        with (
+            patch(
+                "aragora.integrations.slack.SlackConfig",
+                return_value=mock_config,
+                create=True,
+            ),
+            patch(
+                "aragora.integrations.slack.SlackIntegration",
+                side_effect=AttributeError("missing attr"),
+                create=True,
+            ),
         ):
             result = config.get_slack_integration()
         assert result is None
@@ -834,6 +866,7 @@ class TestGetSlackIntegration:
 # ===========================================================================
 # Re-exported handler utilities
 # ===========================================================================
+
 
 class TestHandlerUtilityReexports:
     """Tests that handler utilities are properly re-exported."""
@@ -878,6 +911,7 @@ class TestHandlerUtilityReexports:
 # Environment variable constants
 # ===========================================================================
 
+
 class TestEnvVarConstants:
     """Tests for environment-variable-based constants."""
 
@@ -895,12 +929,15 @@ class TestEnvVarConstants:
 
     def test_aragora_api_base_url_default(self, config):
         """Without env var, default is localhost:8080."""
-        assert "localhost" in config.ARAGORA_API_BASE_URL or isinstance(config.ARAGORA_API_BASE_URL, str)
+        assert "localhost" in config.ARAGORA_API_BASE_URL or isinstance(
+            config.ARAGORA_API_BASE_URL, str
+        )
 
 
 # ===========================================================================
 # Logging (debug messages for unconfigured integrations)
 # ===========================================================================
+
 
 class TestLoggingMessages:
     """Tests for debug/warning log messages."""
@@ -964,14 +1001,17 @@ class TestLoggingMessages:
         monkeypatch.setattr(config, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
         mock_config = MagicMock()
         with caplog.at_level(logging.WARNING):
-            with patch(
-                "aragora.integrations.slack.SlackConfig",
-                return_value=mock_config,
-                create=True,
-            ), patch(
-                "aragora.integrations.slack.SlackIntegration",
-                side_effect=RuntimeError("boom"),
-                create=True,
+            with (
+                patch(
+                    "aragora.integrations.slack.SlackConfig",
+                    return_value=mock_config,
+                    create=True,
+                ),
+                patch(
+                    "aragora.integrations.slack.SlackIntegration",
+                    side_effect=RuntimeError("boom"),
+                    create=True,
+                ),
             ):
                 config.get_slack_integration()
         assert "Unexpected error" in caplog.text
@@ -1007,6 +1047,7 @@ class TestLoggingMessages:
 # Edge cases and integration
 # ===========================================================================
 
+
 class TestEdgeCases:
     """Edge cases and cross-cutting concerns."""
 
@@ -1037,6 +1078,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_create_tracked_task_exception_in_coro(self, config):
         """Task that raises is still created; exception is handled by callback."""
+
         async def bad():
             raise ValueError("kaboom")
 
@@ -1138,15 +1180,18 @@ class TestEdgeCases:
     def test_get_slack_integration_double_call_uses_cache(self, config, monkeypatch):
         monkeypatch.setattr(config, "SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
         mock_integration = MagicMock()
-        with patch(
-            "aragora.integrations.slack.SlackConfig",
-            return_value=MagicMock(),
-            create=True,
-        ), patch(
-            "aragora.integrations.slack.SlackIntegration",
-            return_value=mock_integration,
-            create=True,
-        ) as mock_factory:
+        with (
+            patch(
+                "aragora.integrations.slack.SlackConfig",
+                return_value=MagicMock(),
+                create=True,
+            ),
+            patch(
+                "aragora.integrations.slack.SlackIntegration",
+                return_value=mock_integration,
+                create=True,
+            ) as mock_factory,
+        ):
             first = config.get_slack_integration()
             second = config.get_slack_integration()
         assert first is second

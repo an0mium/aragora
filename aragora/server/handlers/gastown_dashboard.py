@@ -75,7 +75,8 @@ def _get_gastown_state() -> Any | None:
     except (RuntimeError, AttributeError) as e:
         # Extension state not initialized or misconfigured
         logger.debug(
-            "Could not get Gas Town extension state: %s", e,
+            "Could not get Gas Town extension state: %s",
+            e,
         )
         return None
 
@@ -225,11 +226,13 @@ class GasTownDashboardHandler(SecureHandler):
             logger.debug("Convoy module not available")
         except (AttributeError, TypeError, ValueError) as e:
             logger.debug(
-                "Could not get convoy stats due to data error: %s", e,
+                "Could not get convoy stats due to data error: %s",
+                e,
             )
         except (RuntimeError, OSError) as e:
             logger.warning(
-                "Could not get convoy stats due to runtime error: %s", e,
+                "Could not get convoy stats due to runtime error: %s",
+                e,
             )
 
         # Get bead stats
@@ -248,11 +251,13 @@ class GasTownDashboardHandler(SecureHandler):
             logger.debug("Bead module not available")
         except (AttributeError, TypeError, ValueError) as e:
             logger.debug(
-                "Could not get bead stats due to data error: %s", e,
+                "Could not get bead stats due to data error: %s",
+                e,
             )
         except (RuntimeError, OSError) as e:
             logger.warning(
-                "Could not get bead stats due to runtime error: %s", e,
+                "Could not get bead stats due to runtime error: %s",
+                e,
             )
 
         # Get agent stats
@@ -269,11 +274,13 @@ class GasTownDashboardHandler(SecureHandler):
             logger.debug("Agent roles module not available")
         except (AttributeError, TypeError, ValueError) as e:
             logger.debug(
-                "Could not get agent stats due to data error: %s", e,
+                "Could not get agent stats due to data error: %s",
+                e,
             )
         except (RuntimeError, OSError) as e:
             logger.warning(
-                "Could not get agent stats due to runtime error: %s", e,
+                "Could not get agent stats due to runtime error: %s",
+                e,
             )
 
         # Get witness patrol status
@@ -288,11 +295,13 @@ class GasTownDashboardHandler(SecureHandler):
         except AttributeError as e:
             # Witness behavior object not fully initialized
             logger.debug(
-                "Could not get witness status: attribute missing: %s", e,
+                "Could not get witness status: attribute missing: %s",
+                e,
             )
         except (RuntimeError, OSError) as e:
             logger.warning(
-                "Could not get witness status due to runtime error: %s", e,
+                "Could not get witness status due to runtime error: %s",
+                e,
             )
 
         # Get mayor status
@@ -308,11 +317,13 @@ class GasTownDashboardHandler(SecureHandler):
         except AttributeError as e:
             # Mayor coordinator object not fully initialized
             logger.debug(
-                "Could not get mayor status: attribute missing: %s", e,
+                "Could not get mayor status: attribute missing: %s",
+                e,
             )
         except (RuntimeError, OSError) as e:
             logger.warning(
-                "Could not get mayor status due to runtime error: %s", e,
+                "Could not get mayor status due to runtime error: %s",
+                e,
             )
 
         _set_cached_data("overview", overview)
@@ -436,13 +447,15 @@ class GasTownDashboardHandler(SecureHandler):
         except (AttributeError, TypeError, KeyError) as e:
             # Data structure issues - return empty but log warning
             logger.warning(
-                "Error getting convoys due to data error: %s", e,
+                "Error getting convoys due to data error: %s",
+                e,
             )
             return json_response({"convoys": [], "total": 0, "showing": 0, "error": "data_error"})
         except (RuntimeError, OSError) as e:
             # Runtime errors - return 500 with context
             logger.error(
-                "Error getting convoys due to runtime error: %s", e,
+                "Error getting convoys due to runtime error: %s",
+                e,
             )
             return error_response("Internal server error", 500)
 
@@ -499,7 +512,8 @@ class GasTownDashboardHandler(SecureHandler):
         except (AttributeError, TypeError, KeyError) as e:
             # Data structure issues
             logger.warning(
-                "Error getting agents due to data error: %s", e,
+                "Error getting agents due to data error: %s",
+                e,
             )
             return json_response(
                 {
@@ -511,7 +525,8 @@ class GasTownDashboardHandler(SecureHandler):
         except (RuntimeError, OSError) as e:
             # Runtime errors
             logger.error(
-                "Error getting agents due to runtime error: %s", e,
+                "Error getting agents due to runtime error: %s",
+                e,
             )
             return error_response("Internal server error", 500)
 
@@ -578,7 +593,8 @@ class GasTownDashboardHandler(SecureHandler):
         except (AttributeError, TypeError, KeyError) as e:
             # Data structure issues
             logger.warning(
-                "Error getting beads due to data error: %s", e,
+                "Error getting beads due to data error: %s",
+                e,
             )
             return json_response(
                 {
@@ -592,7 +608,8 @@ class GasTownDashboardHandler(SecureHandler):
         except (RuntimeError, OSError) as e:
             # Runtime errors
             logger.error(
-                "Error getting beads due to runtime error: %s", e,
+                "Error getting beads due to runtime error: %s",
+                e,
             )
             return error_response("Internal server error", 500)
 
@@ -653,15 +670,18 @@ class GasTownDashboardHandler(SecureHandler):
                             metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
             except (ImportError, AttributeError, TypeError, RuntimeError, OSError) as e:
                 logger.debug(
-                    "Could not get convoy metrics: %s", e,
+                    "Could not get convoy metrics: %s",
+                    e,
                 )
         except (AttributeError, TypeError, ValueError) as e:
             logger.debug(
-                "Could not get detailed metrics due to data error: %s", e,
+                "Could not get detailed metrics due to data error: %s",
+                e,
             )
         except (RuntimeError, OSError) as e:
             logger.warning(
-                "Could not get detailed metrics due to runtime error: %s", e,
+                "Could not get detailed metrics due to runtime error: %s",
+                e,
             )
 
         return json_response(metrics)

@@ -116,7 +116,10 @@ class WebhookManager:
         """Register a webhook endpoint."""
         self._configs[name] = config
         logger.info(
-            "Registered webhook '%s' -> %s for events: %s", name, config.url, [e.value for e in config.events]
+            "Registered webhook '%s' -> %s for events: %s",
+            name,
+            config.url,
+            [e.value for e in config.events],
         )
 
     def unregister(self, name: str) -> bool:

@@ -99,19 +99,21 @@ class AnalyticsHandler(SecureHandler):
 
         # Root analytics endpoint is public (dashboard index)
         if path == "/api/analytics":
-            return json_response({
-                "endpoints": [
-                    "/api/analytics/disagreements",
-                    "/api/analytics/role-rotation",
-                    "/api/analytics/early-stops",
-                    "/api/analytics/consensus-quality",
-                    "/api/analytics/cross-pollination",
-                    "/api/analytics/learning-efficiency",
-                    "/api/analytics/voting-accuracy",
-                    "/api/analytics/calibration",
-                ],
-                "description": "Analytics and metrics endpoints (authentication required for data access)",
-            })
+            return json_response(
+                {
+                    "endpoints": [
+                        "/api/analytics/disagreements",
+                        "/api/analytics/role-rotation",
+                        "/api/analytics/early-stops",
+                        "/api/analytics/consensus-quality",
+                        "/api/analytics/cross-pollination",
+                        "/api/analytics/learning-efficiency",
+                        "/api/analytics/voting-accuracy",
+                        "/api/analytics/calibration",
+                    ],
+                    "description": "Analytics and metrics endpoints (authentication required for data access)",
+                }
+            )
 
         # RBAC: Require authentication and analytics:read permission
         try:
@@ -189,7 +191,9 @@ class AnalyticsHandler(SecureHandler):
                 stats["disagreement_types"][dtype] = stats["disagreement_types"].get(dtype, 0) + 1
 
         logger.info(
-            "Disagreement stats: %s debates, %s with disagreements", stats['total_debates'], stats['with_disagreements']
+            "Disagreement stats: %s debates, %s with disagreements",
+            stats["total_debates"],
+            stats["with_disagreements"],
         )
         return json_response({"stats": stats})
 
@@ -217,7 +221,9 @@ class AnalyticsHandler(SecureHandler):
                 stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
 
         logger.info(
-            "Role rotation stats: %s roles across %s debates", len(stats['role_assignments']), stats['total_debates']
+            "Role rotation stats: %s roles across %s debates",
+            len(stats["role_assignments"]),
+            stats["total_debates"],
         )
         return json_response({"stats": stats})
 
@@ -254,7 +260,7 @@ class AnalyticsHandler(SecureHandler):
             stats["average_rounds"] = total_rounds / len(debates)
 
         logger.info(
-            "Early stop stats: %s/%s early stopped", stats['early_stopped'], stats['total_debates']
+            "Early stop stats: %s/%s early stopped", stats["early_stopped"], stats["total_debates"]
         )
         return json_response({"stats": stats})
 

@@ -642,7 +642,11 @@ class ConsensusMemory(SQLiteStore):
             conn.commit()
 
         logger.debug(
-            "Stored verified proof %s for debate %s status=%s verified=%s", proof_id, debate_id, proof_result.get('status'), proof_result.get('is_verified')
+            "Stored verified proof %s for debate %s status=%s verified=%s",
+            proof_id,
+            debate_id,
+            proof_result.get("status"),
+            proof_result.get("is_verified"),
         )
 
         # Invalidate related caches

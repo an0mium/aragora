@@ -29,18 +29,24 @@ def tmp_project(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     # Create an initial commit so branches work
     (repo / "README.md").write_text("init")
     subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     return repo
 
@@ -153,7 +159,9 @@ class TestCmdPlan:
         assert data["subtasks"][0]["id"] == "subtask_1"
         assert data["subtasks"][0]["title"] == "Core Implementation"
 
-    def test_plan_dry_run_does_not_save(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_plan_dry_run_does_not_save(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """--dry-run should print but not save a manifest."""
         _patch_project_root(monkeypatch, tmp_path)
 
@@ -198,7 +206,9 @@ class TestCmdPlan:
             mock_arun.assert_called_once()
 
     def test_plan_manifest_has_required_keys(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Manifest should contain goal, created_at, complexity_score, subtasks, worktrees."""
         _patch_project_root(monkeypatch, tmp_path)
@@ -214,7 +224,14 @@ class TestCmdPlan:
         data = json.loads(
             (tmp_path / ".aragora_beads" / "sprint" / "sprint-manifest.json").read_text()
         )
-        for key in ("goal", "created_at", "complexity_score", "complexity_level", "subtasks", "worktrees"):
+        for key in (
+            "goal",
+            "created_at",
+            "complexity_score",
+            "complexity_level",
+            "subtasks",
+            "worktrees",
+        ):
             assert key in data, f"Missing key: {key}"
 
 
@@ -227,7 +244,10 @@ class TestCmdSetup:
     """Tests for the setup subcommand."""
 
     def test_setup_creates_worktrees(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """setup should create git worktrees for each subtask."""
         _patch_project_root(monkeypatch, tmp_project)
@@ -248,7 +268,9 @@ class TestCmdSetup:
         assert updated["worktrees"]["subtask_1"]["branch"] == "sprint/testing-changes"
 
     def test_setup_no_manifest_exits(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """setup without a manifest should exit with an error."""
         _patch_project_root(monkeypatch, tmp_path)
@@ -258,7 +280,10 @@ class TestCmdSetup:
         assert exc_info.value.code == 1
 
     def test_setup_idempotent(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Running setup twice should not fail (idempotent)."""
         _patch_project_root(monkeypatch, tmp_project)
@@ -281,7 +306,10 @@ class TestCmdStatus:
     """Tests for the status subcommand."""
 
     def test_status_shows_idle_worktrees(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """status on fresh worktrees should show idle (no commits)."""
@@ -298,7 +326,10 @@ class TestCmdStatus:
         assert "0" in captured.out
 
     def test_status_shows_active_after_commit(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """status should report commits after work in a worktree."""
@@ -312,7 +343,9 @@ class TestCmdStatus:
         subprocess.run(["git", "add", "."], cwd=wt1, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "add test file"],
-            cwd=wt1, capture_output=True, check=True,
+            cwd=wt1,
+            capture_output=True,
+            check=True,
         )
 
         sc.cmd_status(argparse.Namespace())
@@ -321,7 +354,9 @@ class TestCmdStatus:
         assert "1" in captured.out
 
     def test_status_no_worktrees(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """status with empty worktrees dict should print a message."""
@@ -349,7 +384,10 @@ class TestCmdMerge:
     """Tests for the merge subcommand."""
 
     def test_merge_no_commits_skips(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """merge with no commits should report nothing to merge."""
@@ -362,7 +400,10 @@ class TestCmdMerge:
         assert "No branches with new commits" in captured.out
 
     def test_merge_with_commit_runs_tests(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """merge should attempt pre-merge tests for branches with commits."""
         _patch_project_root(monkeypatch, tmp_project)
@@ -375,7 +416,9 @@ class TestCmdMerge:
         subprocess.run(["git", "add", "."], cwd=wt1, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "add test file"],
-            cwd=wt1, capture_output=True, check=True,
+            cwd=wt1,
+            capture_output=True,
+            check=True,
         )
 
         # Mock subprocess.run to control test execution
@@ -395,7 +438,10 @@ class TestCmdMerge:
             sc.cmd_merge(argparse.Namespace(all=True))
 
     def test_merge_reverts_on_post_test_failure(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """merge should revert if post-merge tests fail."""
@@ -409,7 +455,9 @@ class TestCmdMerge:
         subprocess.run(["git", "add", "."], cwd=wt1, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "add test file"],
-            cwd=wt1, capture_output=True, check=True,
+            cwd=wt1,
+            capture_output=True,
+            check=True,
         )
 
         call_count = {"pytest": 0}
@@ -447,7 +495,10 @@ class TestCmdCleanup:
     """Tests for the cleanup subcommand."""
 
     def test_cleanup_removes_merged_worktrees(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """cleanup should remove worktrees whose branches are merged."""
@@ -462,13 +513,17 @@ class TestCmdCleanup:
         subprocess.run(["git", "add", "."], cwd=wt1, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "add test file"],
-            cwd=wt1, capture_output=True, check=True,
+            cwd=wt1,
+            capture_output=True,
+            check=True,
         )
 
         # Merge from main repo
         subprocess.run(
             ["git", "merge", "--no-ff", "sprint/testing-changes", "-m", "merge"],
-            cwd=tmp_project, capture_output=True, check=True,
+            cwd=tmp_project,
+            capture_output=True,
+            check=True,
         )
 
         sc.cmd_cleanup(argparse.Namespace())
@@ -480,7 +535,10 @@ class TestCmdCleanup:
         assert not wt1.exists()
 
     def test_cleanup_keeps_unmerged_branches(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """cleanup should not remove worktrees for unmerged branches."""
@@ -494,7 +552,9 @@ class TestCmdCleanup:
         subprocess.run(["git", "add", "."], cwd=wt1, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "add test file"],
-            cwd=wt1, capture_output=True, check=True,
+            cwd=wt1,
+            capture_output=True,
+            check=True,
         )
 
         sc.cmd_cleanup(argparse.Namespace())
@@ -505,7 +565,9 @@ class TestCmdCleanup:
         assert wt1.exists()
 
     def test_cleanup_no_worktrees(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """cleanup with no worktrees should print a message."""
@@ -561,7 +623,9 @@ class TestHelpers:
         assert "sprint-testing-changes" in str(path)
 
     def test_load_manifest_missing_file(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """_load_manifest should exit 1 when no manifest exists."""
         _patch_project_root(monkeypatch, tmp_path)
@@ -570,7 +634,9 @@ class TestHelpers:
         assert exc_info.value.code == 1
 
     def test_save_and_load_manifest(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Round-trip save/load should preserve data."""
         _patch_project_root(monkeypatch, tmp_path)
@@ -580,7 +646,9 @@ class TestHelpers:
         assert loaded["goal"] == "test"
 
     def test_save_creates_directory(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """_save_manifest should create the sprint directory if needed."""
         _patch_project_root(monkeypatch, tmp_path)
@@ -605,7 +673,9 @@ class TestCmdExecute:
     """Tests for the execute subcommand."""
 
     def test_execute_no_worktrees(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """execute with no worktrees should report nothing to do."""
@@ -624,7 +694,10 @@ class TestCmdExecute:
         assert "No worktrees" in captured.out
 
     def test_execute_no_claude_binary(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """execute should exit with error if claude is not in PATH."""
         _patch_project_root(monkeypatch, tmp_project)
@@ -648,7 +721,10 @@ class TestCmdExecute:
             assert exc_info.value.code == 1
 
     def test_execute_writes_task_files(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """execute should write .sprint-task.md in each worktree."""
         _patch_project_root(monkeypatch, tmp_project)
@@ -673,7 +749,10 @@ class TestCmdExecute:
         assert "tests/" in content
 
     def test_execute_respects_max_parallel(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """execute should not launch more than max_parallel agents at once."""
         _patch_project_root(monkeypatch, tmp_project)
@@ -712,7 +791,10 @@ class TestCmdExecute:
         assert max_concurrent <= 1
 
     def test_execute_updates_manifest(
-        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_project: Path,
+        manifest: dict,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """execute should save execution results to the manifest."""
         _patch_project_root(monkeypatch, tmp_project)

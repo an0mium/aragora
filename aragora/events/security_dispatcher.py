@@ -240,7 +240,9 @@ class SecurityDispatcher:
         # Check concurrent debate limit
         if len(self._pending_debates) >= self.config.max_concurrent_debates:
             logger.warning(
-                "Max concurrent debates (%s) reached, skipping event %s", self.config.max_concurrent_debates, event.id
+                "Max concurrent debates (%s) reached, skipping event %s",
+                self.config.max_concurrent_debates,
+                event.id,
             )
             self._stats.events_filtered += 1
             return
@@ -335,7 +337,11 @@ class SecurityDispatcher:
         task.add_done_callback(lambda t: self._pending_debates.pop(event.id, None))
 
         logger.info(
-            "[security_dispatcher] Triggered debate for event %s (type=%s, severity=%s, findings=%s)", event.id, event.event_type.value, event.severity.value, len(event.findings)
+            "[security_dispatcher] Triggered debate for event %s (type=%s, severity=%s, findings=%s)",
+            event.id,
+            event.event_type.value,
+            event.severity.value,
+            len(event.findings),
         )
 
     async def _run_debate(self, event: SecurityEvent) -> str | None:

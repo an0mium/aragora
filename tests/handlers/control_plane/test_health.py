@@ -146,17 +146,19 @@ def mock_coordinator():
     coord._scheduler = scheduler
 
     # Stats
-    coord.get_stats = AsyncMock(return_value={
-        "scheduler": {
-            "by_status": {"running": 3, "pending": 5, "completed": 100},
-            "by_type": {"document_processing": 42, "audit": 7},
-        },
-        "registry": {
-            "total_agents": 10,
-            "available_agents": 8,
-            "by_status": {"busy": 2},
-        },
-    })
+    coord.get_stats = AsyncMock(
+        return_value={
+            "scheduler": {
+                "by_status": {"running": 3, "pending": 5, "completed": 100},
+                "by_type": {"document_processing": 42, "audit": 7},
+            },
+            "registry": {
+                "total_agents": 10,
+                "available_agents": 8,
+                "by_status": {"busy": 2},
+            },
+        }
+    )
 
     return coord
 
@@ -641,8 +643,9 @@ class TestCircuitBreakers:
 
     def test_circuit_breakers_state_as_string(self, handler):
         """Breaker state that is a plain string (no .value attribute)."""
-        mock_breaker = MagicMock(spec=["state", "failure_count", "success_count",
-                                       "last_failure_time", "reset_timeout"])
+        mock_breaker = MagicMock(
+            spec=["state", "failure_count", "success_count", "last_failure_time", "reset_timeout"]
+        )
         mock_breaker.state = "half-open"
         mock_breaker.failure_count = 1
         mock_breaker.success_count = 10
@@ -697,10 +700,12 @@ class TestStats:
     """Tests for _handle_stats."""
 
     def test_stats_success(self, handler, mock_coordinator):
-        mock_coordinator.get_stats = AsyncMock(return_value={
-            "agents": {"total": 5},
-            "tasks": {"pending": 3},
-        })
+        mock_coordinator.get_stats = AsyncMock(
+            return_value={
+                "agents": {"total": 5},
+                "tasks": {"pending": 3},
+            }
+        )
         result = handler._handle_stats()
         assert _status(result) == 200
         body = _body(result)
@@ -778,9 +783,11 @@ class TestDashboardMetrics:
         assert body["total_agents"] == 0
 
     def test_metrics_partial_stats(self, handler, mock_coordinator):
-        mock_coordinator.get_stats = AsyncMock(return_value={
-            "scheduler": {"by_status": {"running": 7}},
-        })
+        mock_coordinator.get_stats = AsyncMock(
+            return_value={
+                "scheduler": {"by_status": {"running": 7}},
+            }
+        )
         result = handler._handle_get_metrics()
         assert _status(result) == 200
         body = _body(result)
@@ -1207,9 +1214,7 @@ class TestVerifyAuditIntegrity:
             "aragora.server.handlers.control_plane.health._run_async",
             return_value=True,
         ):
-            result = handler._handle_verify_audit_integrity(
-                query_params, mock_http_handler
-            )
+            result = handler._handle_verify_audit_integrity(query_params, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["start_seq"] == 10
@@ -1225,9 +1230,7 @@ class TestVerifyAuditIntegrity:
             "aragora.server.handlers.control_plane.health._run_async",
             return_value=True,
         ):
-            result = handler._handle_verify_audit_integrity(
-                query_params, mock_http_handler
-            )
+            result = handler._handle_verify_audit_integrity(query_params, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["start_seq"] == 5
@@ -1250,9 +1253,7 @@ class TestVerifyAuditIntegrity:
             "aragora.server.handlers.control_plane.health._run_async",
             side_effect=RuntimeError("db failure"),
         ):
-            result = handler._handle_verify_audit_integrity(
-                {}, mock_http_handler
-            )
+            result = handler._handle_verify_audit_integrity({}, mock_http_handler)
         assert _status(result) == 500
 
     def test_verify_integrity_os_error(self, handler, mock_http_handler):
@@ -1263,9 +1264,7 @@ class TestVerifyAuditIntegrity:
             "aragora.server.handlers.control_plane.health._run_async",
             side_effect=OSError("io fail"),
         ):
-            result = handler._handle_verify_audit_integrity(
-                {}, mock_http_handler
-            )
+            result = handler._handle_verify_audit_integrity({}, mock_http_handler)
         assert _status(result) == 500
 
 
@@ -1289,18 +1288,14 @@ class TestRouting:
     def test_route_agent_health(self, handler, mock_coordinator, mock_http_handler):
         hc = MockHealthCheck("agent-1", "healthy")
         mock_coordinator.get_agent_health.return_value = hc
-        result = handler.handle(
-            "/api/control-plane/health/agent-1", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/health/agent-1", {}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["agent_id"] == "agent-1"
 
     def test_route_agent_health_v1(self, handler, mock_coordinator, mock_http_handler):
         hc = MockHealthCheck("agent-X", "degraded")
         mock_coordinator.get_agent_health.return_value = hc
-        result = handler.handle(
-            "/api/v1/control-plane/health/agent-X", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/control-plane/health/agent-X", {}, mock_http_handler)
         assert _status(result) == 200
         assert _body(result)["agent_id"] == "agent-X"
 
@@ -1309,9 +1304,7 @@ class TestRouting:
             "aragora.control_plane.shared_state.get_shared_state_sync",
             side_effect=ImportError("no redis"),
         ):
-            result = handler.handle(
-                "/api/control-plane/health/detailed", {}, mock_http_handler
-            )
+            result = handler.handle("/api/control-plane/health/detailed", {}, mock_http_handler)
         assert _status(result) == 200
         assert "version" in _body(result)
 
@@ -1320,9 +1313,7 @@ class TestRouting:
             "aragora.resilience.get_circuit_breakers",
             return_value={},
         ):
-            result = handler.handle(
-                "/api/control-plane/breakers", {}, mock_http_handler
-            )
+            result = handler.handle("/api/control-plane/breakers", {}, mock_http_handler)
         assert _status(result) == 200
 
     def test_route_stats(self, handler, mock_coordinator, mock_http_handler):
@@ -1334,35 +1325,25 @@ class TestRouting:
         assert _status(result) == 200
 
     def test_route_notifications(self, handler, mock_coordinator, mock_http_handler):
-        result = handler.handle(
-            "/api/control-plane/notifications", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/notifications", {}, mock_http_handler)
         assert _status(result) == 200
 
     def test_route_notification_stats(self, handler, mock_coordinator, mock_http_handler):
-        result = handler.handle(
-            "/api/control-plane/notifications/stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/notifications/stats", {}, mock_http_handler)
         assert _status(result) == 200
 
     def test_route_audit_stats(self, handler, mock_coordinator, mock_http_handler):
-        result = handler.handle(
-            "/api/control-plane/audit/stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/audit/stats", {}, mock_http_handler)
         assert _status(result) == 200
 
     def test_route_audit(self, handler, mock_coordinator, mock_http_handler):
-        result = handler.handle(
-            "/api/control-plane/audit", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/audit", {}, mock_http_handler)
         # Has audit permission check via _get_has_permission;
         # conftest grants all permissions
         assert _status(result) == 200
 
     def test_route_audit_verify(self, handler, mock_coordinator, mock_http_handler):
-        result = handler.handle(
-            "/api/control-plane/audit/verify", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/audit/verify", {}, mock_http_handler)
         # No audit_log configured -> 503 after permission check passes
         assert _status(result) == 503
 

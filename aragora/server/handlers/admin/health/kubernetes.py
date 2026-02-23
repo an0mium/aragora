@@ -315,7 +315,12 @@ def readiness_dependencies(handler: Any) -> HandlerResult:
                 ready = False
         except (ImportError, RuntimeError):
             pass
-    except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # broad catch: last-resort handler
+    except (
+        RuntimeError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    ) as e:  # broad catch: last-resort handler
         logger.warning("Redis readiness check failed: %s: %s", type(e).__name__, e)
         checks["redis"] = {"error": "Redis check failed"}
         # Don't fail readiness for Redis errors unless distributed required
@@ -363,7 +368,10 @@ def readiness_dependencies(handler: Any) -> HandlerResult:
         checks["postgresql"] = {"status": "check_skipped"}
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.warning("PostgreSQL connectivity failed: %s: %s", type(e).__name__, e)
-        checks["postgresql"] = {"error": "PostgreSQL connectivity failed", "error_type": "connectivity"}
+        checks["postgresql"] = {
+            "error": "PostgreSQL connectivity failed",
+            "error_type": "connectivity",
+        }
         if require_database:
             ready = False
     except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
@@ -371,7 +379,12 @@ def readiness_dependencies(handler: Any) -> HandlerResult:
         checks["postgresql"] = {"error": "timeout", "error_type": "timeout"}
         if require_database:
             ready = False
-    except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # broad catch: last-resort handler
+    except (
+        RuntimeError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    ) as e:  # broad catch: last-resort handler
         logger.warning("PostgreSQL readiness check failed: %s: %s", type(e).__name__, e)
         checks["postgresql"] = {"error": "PostgreSQL check failed"}
 

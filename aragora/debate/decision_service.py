@@ -472,7 +472,9 @@ class AsyncDecisionService:
         # Start background execution
         task = asyncio.create_task(self._run_debate(debate_id, request))
         task.add_done_callback(
-            lambda t: logger.error("[decision_service] Debate %s failed: %s", debate_id, t.exception())
+            lambda t: logger.error(
+                "[decision_service] Debate %s failed: %s", debate_id, t.exception()
+            )
             if not t.cancelled() and t.exception()
             else None
         )
@@ -672,7 +674,9 @@ class AsyncDecisionService:
                     )
                 )
             ).add_done_callback(
-                lambda t: logger.warning("[decision_service] Event publish failed: %s", t.exception())
+                lambda t: logger.warning(
+                    "[decision_service] Event publish failed: %s", t.exception()
+                )
                 if not t.cancelled() and t.exception()
                 else None
             )
@@ -692,7 +696,9 @@ class AsyncDecisionService:
                     )
                 )
             ).add_done_callback(
-                lambda t: logger.warning("[decision_service] Consensus publish failed: %s", t.exception())
+                lambda t: logger.warning(
+                    "[decision_service] Consensus publish failed: %s", t.exception()
+                )
                 if not t.cancelled() and t.exception()
                 else None
             )

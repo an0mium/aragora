@@ -114,7 +114,9 @@ class MockSCIMServer:
         self.list_groups = AsyncMock(return_value={"totalResults": 0, "Resources": []})
         self.get_group = AsyncMock(return_value=({"id": "grp-1", "displayName": "admins"}, 200))
         self.create_group = AsyncMock(return_value=({"id": "grp-new", "displayName": "devs"}, 201))
-        self.replace_group = AsyncMock(return_value=({"id": "grp-1", "displayName": "updated"}, 200))
+        self.replace_group = AsyncMock(
+            return_value=({"id": "grp-1", "displayName": "updated"}, 200)
+        )
         self.patch_group = AsyncMock(return_value=({"id": "grp-1", "displayName": "patched"}, 200))
         self.delete_group = AsyncMock(return_value=(None, 204))
 
@@ -153,8 +155,10 @@ def patch_scim_available():
 @pytest.fixture(autouse=True)
 def patch_run_async():
     """Patch run_async to directly call the coroutine."""
+
     def fake_run_async(coro, timeout=30.0):
         import asyncio
+
         loop = asyncio.new_event_loop()
         try:
             return loop.run_until_complete(coro)
@@ -549,7 +553,11 @@ class TestGetUser:
 
     def test_get_user_not_found(self, handler, mock_scim):
         mock_scim.get_user.return_value = (
-            {"schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "detail": "Not found", "status": "404"},
+            {
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "detail": "Not found",
+                "status": "404",
+            },
             404,
         )
         mock_http = _make_http_handler()
@@ -756,7 +764,9 @@ class TestListGroups:
     def test_list_groups_with_pagination(self, handler, mock_scim):
         mock_http = _make_http_handler()
         with patch.object(handler, "_get_scim_server", return_value=mock_scim):
-            result = handler.handle("/scim/v2/Groups", {"startIndex": "1", "count": "50"}, mock_http)
+            result = handler.handle(
+                "/scim/v2/Groups", {"startIndex": "1", "count": "50"}, mock_http
+            )
         assert _status(result) == 200
 
     def test_list_groups_with_filter(self, handler, mock_scim):
@@ -1034,8 +1044,10 @@ class TestSCIMServerInit:
     """Tests for _get_scim_server lazy initialization."""
 
     def test_creates_server_on_first_call(self, handler):
-        with patch("aragora.server.handlers.scim_handler.SCIMServer") as mock_cls, \
-             patch("aragora.server.handlers.scim_handler.SCIMConfig") as mock_config_cls:
+        with (
+            patch("aragora.server.handlers.scim_handler.SCIMServer") as mock_cls,
+            patch("aragora.server.handlers.scim_handler.SCIMConfig") as mock_config_cls,
+        ):
             mock_cls.return_value = MagicMock()
             mock_config_cls.return_value = MagicMock()
             result = handler._get_scim_server()
@@ -1044,8 +1056,10 @@ class TestSCIMServerInit:
             mock_cls.assert_called_once()
 
     def test_caches_server_on_subsequent_calls(self, handler):
-        with patch("aragora.server.handlers.scim_handler.SCIMServer") as mock_cls, \
-             patch("aragora.server.handlers.scim_handler.SCIMConfig") as mock_config_cls:
+        with (
+            patch("aragora.server.handlers.scim_handler.SCIMServer") as mock_cls,
+            patch("aragora.server.handlers.scim_handler.SCIMConfig") as mock_config_cls,
+        ):
             mock_cls.return_value = MagicMock()
             mock_config_cls.return_value = MagicMock()
             first = handler._get_scim_server()
@@ -1060,13 +1074,18 @@ class TestSCIMServerInit:
             assert result is None
 
     def test_reads_env_vars_for_config(self, handler):
-        with patch("aragora.server.handlers.scim_handler.SCIMServer") as mock_cls, \
-             patch("aragora.server.handlers.scim_handler.SCIMConfig") as mock_config_cls, \
-             patch.dict("os.environ", {
-                 "SCIM_BEARER_TOKEN": "my-token",
-                 "SCIM_TENANT_ID": "tenant-1",
-                 "SCIM_BASE_URL": "https://scim.example.com",
-             }):
+        with (
+            patch("aragora.server.handlers.scim_handler.SCIMServer") as mock_cls,
+            patch("aragora.server.handlers.scim_handler.SCIMConfig") as mock_config_cls,
+            patch.dict(
+                "os.environ",
+                {
+                    "SCIM_BEARER_TOKEN": "my-token",
+                    "SCIM_TENANT_ID": "tenant-1",
+                    "SCIM_BASE_URL": "https://scim.example.com",
+                },
+            ),
+        ):
             mock_cls.return_value = MagicMock()
             mock_config_cls.return_value = MagicMock()
             handler._get_scim_server()
@@ -1121,7 +1140,10 @@ class TestSecurity:
 
     def test_large_request_body_is_handled(self, handler, mock_scim):
         """Test with a very large request body."""
-        large_body = {"userName": "x" * 10000, "emails": [{"value": f"user{i}@example.com"} for i in range(100)]}
+        large_body = {
+            "userName": "x" * 10000,
+            "emails": [{"value": f"user{i}@example.com"} for i in range(100)],
+        }
         mock_http = _make_http_handler(body=large_body)
         with patch.object(handler, "_get_scim_server", return_value=mock_scim):
             with patch.object(handler, "_read_json_body", return_value=large_body):
@@ -1134,7 +1156,7 @@ class TestSecurity:
         with patch.object(handler, "_get_scim_server", return_value=mock_scim):
             result = handler.handle(
                 "/scim/v2/Users",
-                {"filter": "userName eq \"'; DROP TABLE users;--\""},
+                {"filter": 'userName eq "\'; DROP TABLE users;--"'},
                 mock_http,
             )
         assert _status(result) == 200

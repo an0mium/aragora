@@ -176,7 +176,9 @@ class GatewayHealthHandler(BaseHandler):
                     "error": type(e).__name__,
                 }
                 logger.debug(
-                    "Agent %s health check failed due to configuration error: %s", name, e,
+                    "Agent %s health check failed due to configuration error: %s",
+                    name,
+                    e,
                 )
             except (RuntimeError, TimeoutError, OSError) as e:
                 # Network or runtime issues - agent may be temporarily unavailable
@@ -188,7 +190,9 @@ class GatewayHealthHandler(BaseHandler):
                     "error": type(e).__name__,
                 }
                 logger.warning(
-                    "Agent %s health check failed due to runtime error: %s", name, e,
+                    "Agent %s health check failed due to runtime error: %s",
+                    name,
+                    e,
                 )
 
         # Determine overall status
@@ -244,14 +248,18 @@ class GatewayHealthHandler(BaseHandler):
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             agent_status = "unknown"
             logger.debug(
-                "Agent %s health check failed due to configuration error: %s", agent_name, e,
+                "Agent %s health check failed due to configuration error: %s",
+                agent_name,
+                e,
             )
         except (RuntimeError, TimeoutError, OSError) as e:
             # Network or runtime issues
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             agent_status = "unavailable"
             logger.warning(
-                "Agent %s health check failed due to runtime error: %s", agent_name, e,
+                "Agent %s health check failed due to runtime error: %s",
+                agent_name,
+                e,
             )
 
         framework = getattr(agent, "agent_type", "unknown")

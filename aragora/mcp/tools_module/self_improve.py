@@ -24,6 +24,7 @@ def _get_daemon() -> Any:
     global _daemon_instance
     if _daemon_instance is None:
         from aragora.nomic.daemon import SelfImprovementDaemon
+
         _daemon_instance = SelfImprovementDaemon()
     return _daemon_instance
 
@@ -46,6 +47,7 @@ async def assess_codebase_tool(
         weight_dict = None
         if weights:
             import json
+
             try:
                 weight_dict = json.loads(weights)
             except (json.JSONDecodeError, TypeError):

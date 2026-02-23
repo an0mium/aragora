@@ -181,9 +181,7 @@ class TestAdvancePipelineStageTool:
 
     @pytest.mark.asyncio
     async def test_pipeline_not_found(self):
-        result = await advance_pipeline_stage_tool(
-            pipeline_id="nonexistent", target_stage="goals"
-        )
+        result = await advance_pipeline_stage_tool(pipeline_id="nonexistent", target_stage="goals")
         assert "error" in result
         assert "not found" in result["error"]
 
@@ -203,11 +201,12 @@ class TestAdvancePipelineStageTool:
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self):
-        with patch.dict("sys.modules", {
-            "aragora.canvas.stages": None,
-            "aragora.pipeline.idea_to_execution": None,
-        }):
-            result = await advance_pipeline_stage_tool(
-                pipeline_id="pipe-1", target_stage="goals"
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.canvas.stages": None,
+                "aragora.pipeline.idea_to_execution": None,
+            },
+        ):
+            result = await advance_pipeline_stage_tool(pipeline_id="pipe-1", target_stage="goals")
         assert "error" in result

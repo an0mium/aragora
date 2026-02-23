@@ -474,7 +474,9 @@ class RlmAdapter(KnowledgeMoundAdapter):
                 result["errors"].append(f"Pattern {pattern_id}: {e}")
 
         logger.info(
-            "RLM sync to KM: patterns=%s, errors=%s", result['patterns_synced'], len(result['errors'])
+            "RLM sync to KM: patterns=%s, errors=%s",
+            result["patterns_synced"],
+            len(result["errors"]),
         )
         return result
 
@@ -544,7 +546,9 @@ class RlmAdapter(KnowledgeMoundAdapter):
             logger.error("Failed to load patterns from KM: %s", e)
 
         logger.info(
-            "RLM load from KM: loaded=%s, errors=%s", result['patterns_loaded'], len(result['errors'])
+            "RLM load from KM: loaded=%s, errors=%s",
+            result["patterns_loaded"],
+            len(result["errors"]),
         )
         return result
 

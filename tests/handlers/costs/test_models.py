@@ -325,8 +325,12 @@ class TestCostSummary:
         assert summary.alerts == []
 
     def test_default_factory_lists_are_independent(self):
-        s1 = CostSummary(total_cost=0.0, budget=0.0, tokens_used=0, api_calls=0, last_updated=_now())
-        s2 = CostSummary(total_cost=0.0, budget=0.0, tokens_used=0, api_calls=0, last_updated=_now())
+        s1 = CostSummary(
+            total_cost=0.0, budget=0.0, tokens_used=0, api_calls=0, last_updated=_now()
+        )
+        s2 = CostSummary(
+            total_cost=0.0, budget=0.0, tokens_used=0, api_calls=0, last_updated=_now()
+        )
         s1.cost_by_provider.append({"name": "test"})
         assert len(s2.cost_by_provider) == 0
 
@@ -535,18 +539,23 @@ class TestRecordCost:
 
         mock_token_usage_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            mock_token_usage_cls,
-        ), patch(
-            "asyncio.get_running_loop",
-            side_effect=RuntimeError("no running loop"),
-        ), patch(
-            "asyncio.run",
-        ) as mock_run:
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                mock_token_usage_cls,
+            ),
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=RuntimeError("no running loop"),
+            ),
+            patch(
+                "asyncio.run",
+            ) as mock_run,
+        ):
             record_cost(
                 provider="openai",
                 feature="code_review",
@@ -578,19 +587,24 @@ class TestRecordCost:
         mock_loop = MagicMock()
         mock_task = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            mock_token_usage_cls,
-        ), patch(
-            "asyncio.get_running_loop",
-            return_value=mock_loop,
-        ), patch(
-            "asyncio.create_task",
-            return_value=mock_task,
-        ) as mock_create_task:
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                mock_token_usage_cls,
+            ),
+            patch(
+                "asyncio.get_running_loop",
+                return_value=mock_loop,
+            ),
+            patch(
+                "asyncio.create_task",
+                return_value=mock_task,
+            ) as mock_create_task,
+        ):
             record_cost(
                 provider="anthropic",
                 feature="debate",
@@ -609,17 +623,22 @@ class TestRecordCost:
 
         mock_token_usage_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            mock_token_usage_cls,
-        ), patch(
-            "asyncio.get_running_loop",
-            side_effect=RuntimeError("no loop"),
-        ), patch(
-            "asyncio.run",
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                mock_token_usage_cls,
+            ),
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=RuntimeError("no loop"),
+            ),
+            patch(
+                "asyncio.run",
+            ),
         ):
             record_cost(
                 provider="mistral",
@@ -639,17 +658,22 @@ class TestRecordCost:
 
         mock_token_usage_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            mock_token_usage_cls,
-        ), patch(
-            "asyncio.get_running_loop",
-            side_effect=RuntimeError("no loop"),
-        ), patch(
-            "asyncio.run",
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                mock_token_usage_cls,
+            ),
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=RuntimeError("no loop"),
+            ),
+            patch(
+                "asyncio.run",
+            ),
         ):
             record_cost(
                 provider="openai",
@@ -666,12 +690,15 @@ class TestRecordCost:
         """record_cost gracefully handles ImportError from TokenUsage import."""
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            side_effect=ImportError("no TokenUsage"),
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                side_effect=ImportError("no TokenUsage"),
+            ),
         ):
             # Should not raise
             record_cost(
@@ -688,18 +715,23 @@ class TestRecordCost:
         mock_tracker = MagicMock()
         mock_token_usage_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            mock_token_usage_cls,
-        ), patch(
-            "asyncio.get_running_loop",
-            side_effect=RuntimeError("no loop"),
-        ), patch(
-            "asyncio.run",
-            side_effect=RuntimeError("async failed"),
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                mock_token_usage_cls,
+            ),
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=RuntimeError("no loop"),
+            ),
+            patch(
+                "asyncio.run",
+                side_effect=RuntimeError("async failed"),
+            ),
         ):
             # Should not raise
             record_cost(
@@ -715,12 +747,15 @@ class TestRecordCost:
         """record_cost gracefully handles ValueError from Decimal conversion."""
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            side_effect=ValueError("invalid decimal"),
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                side_effect=ValueError("invalid decimal"),
+            ),
         ):
             record_cost(
                 provider="test",
@@ -735,12 +770,15 @@ class TestRecordCost:
         """record_cost gracefully handles TypeError."""
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            side_effect=TypeError("bad type"),
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                side_effect=TypeError("bad type"),
+            ),
         ):
             record_cost(
                 provider="test",
@@ -755,12 +793,15 @@ class TestRecordCost:
         """record_cost gracefully handles OSError."""
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            side_effect=OSError("disk failure"),
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                side_effect=OSError("disk failure"),
+            ),
         ):
             record_cost(
                 provider="test",
@@ -777,17 +818,22 @@ class TestRecordCost:
         mock_tracker.record = AsyncMock()
         mock_token_usage_cls = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.billing.cost_tracker.TokenUsage",
-            mock_token_usage_cls,
-        ), patch(
-            "asyncio.get_running_loop",
-            side_effect=RuntimeError("no loop"),
-        ), patch(
-            "asyncio.run",
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=mock_tracker,
+            ),
+            patch(
+                "aragora.billing.cost_tracker.TokenUsage",
+                mock_token_usage_cls,
+            ),
+            patch(
+                "asyncio.get_running_loop",
+                side_effect=RuntimeError("no loop"),
+            ),
+            patch(
+                "asyncio.run",
+            ),
         ):
             record_cost(
                 provider="anthropic",
@@ -1100,12 +1146,15 @@ class TestGetCostSummary:
     @pytest.mark.asyncio
     async def test_no_tracker_demo_mode_returns_mock(self):
         """When no tracker and demo mode, returns mock summary."""
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=True,
+            ),
         ):
             result = await get_cost_summary()
             assert isinstance(result, CostSummary)
@@ -1115,12 +1164,15 @@ class TestGetCostSummary:
     @pytest.mark.asyncio
     async def test_no_tracker_no_demo_returns_empty(self):
         """When no tracker and no demo mode, returns empty summary."""
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert isinstance(result, CostSummary)
@@ -1137,15 +1189,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=budget_obj)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert isinstance(result, CostSummary)
@@ -1170,15 +1226,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             providers = [p["name"] for p in result.cost_by_provider]
@@ -1198,15 +1258,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             features = [f["name"] for f in result.cost_by_feature]
@@ -1224,15 +1288,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.cost_by_provider[0]["percentage"] == 75.0
@@ -1253,15 +1321,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             # Zero cost with cost_over_time present - should not go to empty/mock path
             result = await get_cost_summary()
@@ -1275,15 +1347,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.budget == 500.0
@@ -1297,15 +1373,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=budget_obj)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.budget == 1000.0
@@ -1319,15 +1399,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=budget_obj)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.budget == 500.0
@@ -1340,15 +1424,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary(time_range="24h")
             call_args = tracker.generate_report.call_args
@@ -1365,15 +1453,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary(time_range="7d")
             call_args = tracker.generate_report.call_args
@@ -1390,15 +1482,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary(time_range="30d")
             call_args = tracker.generate_report.call_args
@@ -1415,15 +1511,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary(time_range="90d")
             call_args = tracker.generate_report.call_args
@@ -1440,15 +1540,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary(time_range="unknown")
             call_args = tracker.generate_report.call_args
@@ -1470,12 +1574,15 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=True,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost > 0  # Mock data has positive costs
@@ -1493,12 +1600,15 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost == 0.0
@@ -1510,12 +1620,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=RuntimeError("db down"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=True,
+            ),
         ):
             result = await get_cost_summary()
             assert isinstance(result, CostSummary)
@@ -1527,12 +1640,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=ValueError("bad input"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost == 0.0
@@ -1543,12 +1659,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=ImportError("no granularity"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=True,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=True,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost > 0
@@ -1559,12 +1678,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=OSError("disk failure"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost == 0.0
@@ -1575,12 +1697,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=TypeError("bad arg"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost == 0.0
@@ -1591,12 +1716,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=KeyError("missing"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost == 0.0
@@ -1607,12 +1735,15 @@ class TestGetCostSummary:
         tracker = _make_tracker()
         tracker.generate_report = AsyncMock(side_effect=AttributeError("no attr"))
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
         ):
             result = await get_cost_summary()
             assert result.total_cost == 0.0
@@ -1625,15 +1756,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary()
             call_args = tracker.generate_report.call_args
@@ -1647,15 +1782,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             await get_cost_summary(workspace_id="ws-enterprise")
             call_args = tracker.generate_report.call_args
@@ -1672,15 +1811,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.cost_by_provider == []
@@ -1697,15 +1840,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.cost_by_provider == []
@@ -1724,15 +1871,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.daily_costs == timeline
@@ -1745,15 +1896,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.daily_costs == []
@@ -1768,15 +1923,19 @@ class TestGetCostSummary:
 
         mock_alerts = [{"id": "alert-1", "type": "budget_warning", "severity": "warning"}]
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=mock_alerts,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=mock_alerts,
+            ),
         ):
             result = await get_cost_summary()
             assert result.alerts == mock_alerts
@@ -1792,18 +1951,23 @@ class TestGetCostSummary:
         mock_granularity = MagicMock()
         mock_granularity.DAILY = "daily"
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
-        ), patch(
-            "aragora.billing.cost_tracker.CostGranularity",
-            mock_granularity,
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
+            patch(
+                "aragora.billing.cost_tracker.CostGranularity",
+                mock_granularity,
+            ),
         ):
             await get_cost_summary()
             call_args = tracker.generate_report.call_args
@@ -1819,15 +1983,19 @@ class TestGetCostSummary:
         tracker.generate_report = AsyncMock(return_value=report)
         tracker.get_budget = MagicMock(return_value=budget_obj)
 
-        with patch(
-            "aragora.server.handlers.costs.models._get_cost_tracker",
-            return_value=tracker,
-        ), patch(
-            "aragora.server.handlers.costs.models._is_demo_mode",
-            return_value=False,
-        ), patch(
-            "aragora.server.handlers.costs.models._get_active_alerts",
-            return_value=[],
+        with (
+            patch(
+                "aragora.server.handlers.costs.models._get_cost_tracker",
+                return_value=tracker,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._is_demo_mode",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             result = await get_cost_summary()
             assert result.budget == 500.0

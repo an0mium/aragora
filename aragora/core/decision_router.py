@@ -277,7 +277,10 @@ class DecisionRouter:
         _import_audit()
 
         logger.info(
-            "Routing decision request %s (type=%s, source=%s)", request.request_id, request.decision_type.value, request.source.value
+            "Routing decision request %s (type=%s, source=%s)",
+            request.request_id,
+            request.decision_type.value,
+            request.source.value,
         )
 
         # RBAC authorization check
@@ -309,7 +312,9 @@ class DecisionRouter:
                     isolation_ctx,
                 )
                 logger.debug(
-                    "RBAC check passed for user %s on %s", request.context.user_id, resource_type.value
+                    "RBAC check passed for user %s on %s",
+                    request.context.user_id,
+                    resource_type.value,
                 )
             except ImportError:
                 logger.debug("RBAC module not available, skipping authorization")

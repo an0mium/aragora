@@ -300,7 +300,9 @@ class OwnershipManager:
         self._store_record(record)
         self._invalidate_cache(resource_type, resource_id)
 
-        logger.info("Set owner %s for %s/%s in org %s", owner_id, resource_type.value, resource_id, org_id)
+        logger.info(
+            "Set owner %s for %s/%s in org %s", owner_id, resource_type.value, resource_id, org_id
+        )
 
         return record
 
@@ -411,7 +413,9 @@ class OwnershipManager:
         record = self.get_ownership_record(resource_type, resource_id)
         if not record:
             logger.warning(
-                "Cannot transfer ownership: resource %s/%s not found", resource_type.value, resource_id
+                "Cannot transfer ownership: resource %s/%s not found",
+                resource_type.value,
+                resource_id,
             )
             return None
 
@@ -447,7 +451,11 @@ class OwnershipManager:
         self._invalidate_cache(resource_type, resource_id)
 
         logger.info(
-            "Transferred ownership of %s/%s from %s to %s", resource_type.value, resource_id, old_owner_id, new_owner_id
+            "Transferred ownership of %s/%s from %s to %s",
+            resource_type.value,
+            resource_id,
+            old_owner_id,
+            new_owner_id,
         )
 
         return record

@@ -438,7 +438,9 @@ def safe_query_string(
 
         # Truncate to max length
         if len(val) > max_length:
-            logger.debug("Query param '%s' truncated from %s to %s chars", key, len(val), max_length)
+            logger.debug(
+                "Query param '%s' truncated from %s to %s chars", key, len(val), max_length
+            )
             val = val[:max_length]
 
         # Validate against pattern if provided

@@ -100,9 +100,7 @@ class TestComputeDomainExpertise:
 
     def test_multiple_domains(self):
         bridge = AnalyticsSelectionBridge()
-        m = FakeAgentMetrics(
-            finding_distribution={"security": 6, "performance": 4}
-        )
+        m = FakeAgentMetrics(finding_distribution={"security": 6, "performance": 4})
         bridge._compute_domain_expertise(m)
         exp = bridge._domain_expertise_cache["claude"]
         assert exp.primary_domain == "security"
@@ -168,9 +166,7 @@ class TestComputeSelectionBoost:
         assert boost.response_time_component > 0
 
     def test_precision_component(self):
-        bridge = _make_bridge_with_metrics(
-            FakeAgentMetrics(precision=1.0, total_findings=50)
-        )
+        bridge = _make_bridge_with_metrics(FakeAgentMetrics(precision=1.0, total_findings=50))
         boost = bridge.compute_selection_boost("claude")
         assert boost.precision_component == pytest.approx(1.0 * 0.35)
 
@@ -342,18 +338,14 @@ class TestAccessors:
         assert bridge.get_metrics("unknown") is None
 
     def test_get_domain_expertise(self):
-        bridge = _make_bridge_with_metrics(
-            FakeAgentMetrics(finding_distribution={"security": 10})
-        )
+        bridge = _make_bridge_with_metrics(FakeAgentMetrics(finding_distribution={"security": 10}))
         exp = bridge.get_domain_expertise("claude")
         assert exp is not None
         assert exp.primary_domain == "security"
         assert bridge.get_domain_expertise("unknown") is None
 
     def test_get_stats(self):
-        bridge = _make_bridge_with_metrics(
-            FakeAgentMetrics(finding_distribution={"security": 10})
-        )
+        bridge = _make_bridge_with_metrics(FakeAgentMetrics(finding_distribution={"security": 10}))
         stats = bridge.get_stats()
         assert stats["agents_tracked"] == 1
         assert stats["cache_valid"] is True

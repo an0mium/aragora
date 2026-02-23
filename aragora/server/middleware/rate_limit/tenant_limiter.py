@@ -142,7 +142,11 @@ class TenantRateLimiter:
         )
 
         # Consult QuotaManager for tenant-specific limits when available
-        if self.config.use_quota_manager and self._quota_manager is not None and tenant_id != "default":
+        if (
+            self.config.use_quota_manager
+            and self._quota_manager is not None
+            and tenant_id != "default"
+        ):
             try:
                 tenant_limits = self._quota_manager._get_limits_for_tenant(tenant_id)
                 if tenant_limits and "api_requests" in tenant_limits:
@@ -154,7 +158,9 @@ class TenantRateLimiter:
                     else:
                         burst = int(limit * BURST_MULTIPLIER)
             except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as e:
-                logger.debug("QuotaManager lookup failed for tenant %s, using defaults: %s", tenant_id, e)
+                logger.debug(
+                    "QuotaManager lookup failed for tenant %s, using defaults: %s", tenant_id, e
+                )
 
         with self._lock:
             self._total_requests += 1

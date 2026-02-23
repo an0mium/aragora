@@ -80,7 +80,9 @@ class InboxSyncEmitter:
                 self._subscriptions[user_id] = set()
             self._subscriptions[user_id].add(websocket)
             logger.debug(
-                "[InboxSync] User %s subscribed, total: %s", user_id, len(self._subscriptions[user_id])
+                "[InboxSync] User %s subscribed, total: %s",
+                user_id,
+                len(self._subscriptions[user_id]),
             )
 
     async def unsubscribe(self, user_id: str, websocket: Any) -> None:

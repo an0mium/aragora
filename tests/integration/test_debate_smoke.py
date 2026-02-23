@@ -249,13 +249,15 @@ class TestDebateStorageSmoke:
         ids = []
         for i in range(3):
             debate_id = f"order-test-{i}"
-            tmp_db.save_dict({
-                "id": debate_id,
-                "task": f"Order test debate {i}",
-                "agents": ["a", "b"],
-                "consensus_reached": False,
-                "confidence": 0.0,
-            })
+            tmp_db.save_dict(
+                {
+                    "id": debate_id,
+                    "task": f"Order test debate {i}",
+                    "agents": ["a", "b"],
+                    "consensus_reached": False,
+                    "confidence": 0.0,
+                }
+            )
             ids.append(debate_id)
 
         debates = tmp_db.list_debates(limit=10)
@@ -293,9 +295,7 @@ class TestDiagnosticsSmoke:
         assert isinstance(data["agents"], list)
         assert len(data["agents"]) >= 2
 
-    def test_diagnostics_for_failed_debate(
-        self, diagnostics_handler, tmp_db, failed_debate_record
-    ):
+    def test_diagnostics_for_failed_debate(self, diagnostics_handler, tmp_db, failed_debate_record):
         """Diagnostics for a failed debate should report failures and give suggestions."""
         tmp_db.save_dict(failed_debate_record)
         debate_id = failed_debate_record["id"]
@@ -334,9 +334,7 @@ class TestDiagnosticsSmoke:
         result = handler._get_diagnostics("any-id")
         assert result.status_code == 503
 
-    def test_diagnostics_agent_provider_inference(
-        self, diagnostics_handler, tmp_db
-    ):
+    def test_diagnostics_agent_provider_inference(self, diagnostics_handler, tmp_db):
         """Diagnostics should correctly infer providers from agent names."""
         debate = {
             "id": "provider-test",
@@ -439,9 +437,7 @@ class TestProbesSmoke:
 class TestFullJourneySmoke:
     """End-to-end journey through the critical path."""
 
-    def test_full_debate_lifecycle(
-        self, diagnostics_handler, tmp_db, sample_debate_record
-    ):
+    def test_full_debate_lifecycle(self, diagnostics_handler, tmp_db, sample_debate_record):
         """Full journey: store debate -> list -> retrieve -> diagnostics."""
         # Step 1: Store the debate
         slug = tmp_db.save_dict(sample_debate_record)
@@ -468,9 +464,7 @@ class TestFullJourneySmoke:
         assert data["consensus"]["reached"] is True
         assert data["receipt_generated"] is True
 
-    def test_failed_debate_lifecycle(
-        self, diagnostics_handler, tmp_db, failed_debate_record
-    ):
+    def test_failed_debate_lifecycle(self, diagnostics_handler, tmp_db, failed_debate_record):
         """Full journey for a failed debate with suggestions."""
         # Store
         tmp_db.save_dict(failed_debate_record)
@@ -490,16 +484,16 @@ class TestFullJourneySmoke:
         # Verify specific suggestion categories
         suggestions_text = " ".join(data["suggestions"]).lower()
         # Should mention API key issues
-        assert "api" in suggestions_text or "key" in suggestions_text or "failed" in suggestions_text
+        assert (
+            "api" in suggestions_text or "key" in suggestions_text or "failed" in suggestions_text
+        )
 
     def test_debate_handler_instantiation_with_storage(self, tmp_db, debates_handler_cls):
         """DebatesHandler should initialize with storage context."""
         handler = debates_handler_cls(ctx={"storage": tmp_db})
         assert handler.get_storage() is tmp_db
 
-    def test_diagnostics_suggestions_for_rate_limited_agent(
-        self, diagnostics_handler, tmp_db
-    ):
+    def test_diagnostics_suggestions_for_rate_limited_agent(self, diagnostics_handler, tmp_db):
         """Diagnostics should suggest fallback providers for rate-limited agents."""
         debate = {
             "id": "rate-limited-test",
@@ -526,9 +520,7 @@ class TestFullJourneySmoke:
         combined = " ".join(suggestions).lower()
         assert "rate" in combined or "openrouter" in combined or "fallback" in combined
 
-    def test_diagnostics_consensus_no_consensus_suggestion(
-        self, diagnostics_handler, tmp_db
-    ):
+    def test_diagnostics_consensus_no_consensus_suggestion(self, diagnostics_handler, tmp_db):
         """When consensus not reached, diagnostics should suggest more rounds."""
         debate = {
             "id": "no-consensus-test",

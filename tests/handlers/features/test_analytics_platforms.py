@@ -96,6 +96,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -104,6 +105,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -332,9 +334,7 @@ class TestConnectPlatform:
             },
         }
         with patch.object(handler, "_get_json_body", return_value=body_data):
-            with patch.object(
-                handler, "_get_connector", new_callable=AsyncMock, return_value=None
-            ):
+            with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
                 result = await handler.handle_request(req)
         assert _status(result) == 200
         assert "connected_at" in _body(result)
@@ -351,9 +351,7 @@ class TestConnectPlatform:
             },
         }
         with patch.object(handler, "_get_json_body", return_value=body_data):
-            with patch.object(
-                handler, "_get_connector", new_callable=AsyncMock, return_value=None
-            ):
+            with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
                 result = await handler.handle_request(req)
         assert _status(result) == 200
         assert _body(result)["platform"] == "google_analytics"
@@ -369,9 +367,7 @@ class TestConnectPlatform:
             },
         }
         with patch.object(handler, "_get_json_body", return_value=body_data):
-            with patch.object(
-                handler, "_get_connector", new_callable=AsyncMock, return_value=None
-            ):
+            with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
                 result = await handler.handle_request(req)
         assert _status(result) == 200
         assert _body(result)["platform"] == "mixpanel"
@@ -432,9 +428,7 @@ class TestConnectPlatform:
             },
         }
         with patch.object(handler, "_get_json_body", return_value=body_data):
-            with patch.object(
-                handler, "_get_connector", new_callable=AsyncMock, return_value=None
-            ):
+            with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
                 await handler.handle_request(req)
         assert "metabase" in _platform_credentials
 
@@ -473,18 +467,14 @@ class TestDisconnectPlatform:
 
     @pytest.mark.asyncio
     async def test_disconnect_metabase_success(self, handler, connected_metabase):
-        req = MockRequest(
-            path="/api/v1/analytics/metabase", method="DELETE"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase", method="DELETE")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         assert "metabase" not in _platform_credentials
 
     @pytest.mark.asyncio
     async def test_disconnect_not_connected(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/metabase", method="DELETE"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase", method="DELETE")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
@@ -494,9 +484,7 @@ class TestDisconnectPlatform:
         mock_conn.close = AsyncMock()
         _platform_connectors["metabase"] = mock_conn
 
-        req = MockRequest(
-            path="/api/v1/analytics/metabase", method="DELETE"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase", method="DELETE")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         mock_conn.close.assert_awaited_once()
@@ -504,18 +492,14 @@ class TestDisconnectPlatform:
 
     @pytest.mark.asyncio
     async def test_disconnect_google_analytics(self, handler, connected_ga):
-        req = MockRequest(
-            path="/api/v1/analytics/google_analytics", method="DELETE"
-        )
+        req = MockRequest(path="/api/v1/analytics/google_analytics", method="DELETE")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         assert "google_analytics" not in _platform_credentials
 
     @pytest.mark.asyncio
     async def test_disconnect_mixpanel(self, handler, connected_mixpanel):
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel", method="DELETE"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel", method="DELETE")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         assert "mixpanel" not in _platform_credentials
@@ -572,9 +556,7 @@ class TestListAllDashboards:
         assert body["dashboards"] == []
 
     @pytest.mark.asyncio
-    async def test_list_all_dashboards_error_platform_skipped(
-        self, handler, connected_metabase
-    ):
+    async def test_list_all_dashboards_error_platform_skipped(self, handler, connected_metabase):
         """If a platform raises an error, it is skipped gracefully."""
         with patch.object(
             handler,
@@ -603,9 +585,7 @@ class TestListPlatformDashboards:
         mock_metabase_connector.get_dashboards.return_value = []
         _platform_connectors["metabase"] = mock_metabase_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/metabase/dashboards", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase/dashboards", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         body = _body(result)
@@ -614,9 +594,7 @@ class TestListPlatformDashboards:
 
     @pytest.mark.asyncio
     async def test_list_dashboards_platform_not_connected(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/metabase/dashboards", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase/dashboards", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
@@ -651,9 +629,7 @@ class TestGetDashboard:
         mock_metabase_connector.get_dashboard_cards.return_value = [card_mock]
         _platform_connectors["metabase"] = mock_metabase_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/metabase/dashboards/42", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase/dashboards/42", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         body = _body(result)
@@ -663,22 +639,14 @@ class TestGetDashboard:
 
     @pytest.mark.asyncio
     async def test_get_dashboard_platform_not_connected(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/metabase/dashboards/42", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase/dashboards/42", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_get_dashboard_connector_unavailable(
-        self, handler, connected_metabase
-    ):
-        with patch.object(
-            handler, "_get_connector", new_callable=AsyncMock, return_value=None
-        ):
-            req = MockRequest(
-                path="/api/v1/analytics/metabase/dashboards/42", method="GET"
-            )
+    async def test_get_dashboard_connector_unavailable(self, handler, connected_metabase):
+        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
+            req = MockRequest(path="/api/v1/analytics/metabase/dashboards/42", method="GET")
             result = await handler.handle_request(req)
         assert _status(result) == 500
 
@@ -689,9 +657,7 @@ class TestGetDashboard:
         mock_metabase_connector.get_dashboard.side_effect = ValueError("not found")
         _platform_connectors["metabase"] = mock_metabase_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/metabase/dashboards/999", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase/dashboards/999", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
@@ -701,9 +667,7 @@ class TestGetDashboard:
     ):
         """GA doesn't support individual dashboard fetching."""
         _platform_connectors["google_analytics"] = mock_ga_connector
-        req = MockRequest(
-            path="/api/v1/analytics/google_analytics/dashboards/1", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/google_analytics/dashboards/1", method="GET")
         result = await handler.handle_request(req)
         # GA path falls through to "Unsupported platform" since only metabase is handled
         assert _status(result) == 400
@@ -766,9 +730,7 @@ class TestExecuteQuery:
         )
 
     @pytest.mark.asyncio
-    async def test_query_google_analytics(
-        self, handler, connected_ga, mock_ga_connector
-    ):
+    async def test_query_google_analytics(self, handler, connected_ga, mock_ga_connector):
         report_mock = MagicMock()
         report_mock.dimension_headers = []
         report_mock.metric_headers = []
@@ -843,9 +805,7 @@ class TestExecuteQuery:
         req = MockRequest(path="/api/v1/analytics/query", method="POST")
         body_data = {"platform": "metabase", "query": "SELECT 1"}
         with patch.object(handler, "_get_json_body", return_value=body_data):
-            with patch.object(
-                handler, "_get_connector", new_callable=AsyncMock, return_value=None
-            ):
+            with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
                 result = await handler.handle_request(req)
         assert _status(result) == 500
 
@@ -976,9 +936,7 @@ class TestGenerateReport:
         report_mock.rows = []
         report_mock.row_count = 0
 
-        req = MockRequest(
-            path="/api/v1/analytics/reports/generate", method="POST"
-        )
+        req = MockRequest(path="/api/v1/analytics/reports/generate", method="POST")
         body_data = {
             "type": "traffic_overview",
             "platforms": ["google_analytics"],
@@ -1000,9 +958,7 @@ class TestGenerateReport:
 
     @pytest.mark.asyncio
     async def test_generate_report_default_type(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/reports/generate", method="POST"
-        )
+        req = MockRequest(path="/api/v1/analytics/reports/generate", method="POST")
         with patch.object(handler, "_get_json_body", return_value={}):
             result = await handler.handle_request(req)
         assert _status(result) == 200
@@ -1011,9 +967,7 @@ class TestGenerateReport:
 
     @pytest.mark.asyncio
     async def test_generate_report_fetch_error(self, handler, connected_ga):
-        req = MockRequest(
-            path="/api/v1/analytics/reports/generate", method="POST"
-        )
+        req = MockRequest(path="/api/v1/analytics/reports/generate", method="POST")
         body_data = {"platforms": ["google_analytics"]}
         with patch.object(handler, "_get_json_body", return_value=body_data):
             with patch.object(
@@ -1029,18 +983,14 @@ class TestGenerateReport:
 
     @pytest.mark.asyncio
     async def test_generate_report_invalid_body(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/reports/generate", method="POST"
-        )
+        req = MockRequest(path="/api/v1/analytics/reports/generate", method="POST")
         with patch.object(handler, "_get_json_body", side_effect=ValueError("bad")):
             result = await handler.handle_request(req)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_generate_report_skips_disconnected_platforms(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/reports/generate", method="POST"
-        )
+        req = MockRequest(path="/api/v1/analytics/reports/generate", method="POST")
         body_data = {"platforms": ["metabase"]}  # not connected
         with patch.object(handler, "_get_json_body", return_value=body_data):
             result = await handler.handle_request(req)
@@ -1175,17 +1125,13 @@ class TestRealtimeMetrics:
 
     @pytest.mark.asyncio
     async def test_realtime_connector_unavailable(self, handler, connected_ga):
-        with patch.object(
-            handler, "_get_connector", new_callable=AsyncMock, return_value=None
-        ):
+        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
             req = MockRequest(path="/api/v1/analytics/realtime", method="GET")
             result = await handler.handle_request(req)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_realtime_api_error(
-        self, handler, connected_ga, mock_ga_connector
-    ):
+    async def test_realtime_api_error(self, handler, connected_ga, mock_ga_connector):
         mock_ga_connector.get_realtime_report.side_effect = ConnectionError("fail")
         _platform_connectors["google_analytics"] = mock_ga_connector
 
@@ -1194,9 +1140,7 @@ class TestRealtimeMetrics:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_realtime_with_rows(
-        self, handler, connected_ga, mock_ga_connector
-    ):
+    async def test_realtime_with_rows(self, handler, connected_ga, mock_ga_connector):
         row_mock = MagicMock()
         dim_val = MagicMock()
         dim_val.value = "US"
@@ -1240,9 +1184,7 @@ class TestGetEvents:
         mock_mixpanel_connector.get_events.return_value = [event_mock]
         _platform_connectors["mixpanel"] = mock_mixpanel_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel/events", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel/events", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         body = _body(result)
@@ -1251,9 +1193,7 @@ class TestGetEvents:
         assert body["events"][0]["event_name"] == "signup"
 
     @pytest.mark.asyncio
-    async def test_events_ga_success(
-        self, handler, connected_ga, mock_ga_connector
-    ):
+    async def test_events_ga_success(self, handler, connected_ga, mock_ga_connector):
         report_mock = MagicMock()
         report_mock.dimension_headers = []
         report_mock.metric_headers = []
@@ -1262,44 +1202,30 @@ class TestGetEvents:
         mock_ga_connector.get_report.return_value = report_mock
         _platform_connectors["google_analytics"] = mock_ga_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/google_analytics/events", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/google_analytics/events", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         assert _body(result)["platform"] == "google_analytics"
 
     @pytest.mark.asyncio
     async def test_events_platform_not_connected(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel/events", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel/events", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_events_connector_unavailable(
-        self, handler, connected_mixpanel
-    ):
-        with patch.object(
-            handler, "_get_connector", new_callable=AsyncMock, return_value=None
-        ):
-            req = MockRequest(
-                path="/api/v1/analytics/mixpanel/events", method="GET"
-            )
+    async def test_events_connector_unavailable(self, handler, connected_mixpanel):
+        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
+            req = MockRequest(path="/api/v1/analytics/mixpanel/events", method="GET")
             result = await handler.handle_request(req)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_events_api_error(
-        self, handler, connected_mixpanel, mock_mixpanel_connector
-    ):
+    async def test_events_api_error(self, handler, connected_mixpanel, mock_mixpanel_connector):
         mock_mixpanel_connector.get_events.side_effect = ConnectionError("fail")
         _platform_connectors["mixpanel"] = mock_mixpanel_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel/events", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel/events", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 500
 
@@ -1308,9 +1234,7 @@ class TestGetEvents:
         self, handler, connected_metabase, mock_metabase_connector
     ):
         _platform_connectors["metabase"] = mock_metabase_connector
-        req = MockRequest(
-            path="/api/v1/analytics/metabase/events", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/metabase/events", method="GET")
         result = await handler.handle_request(req)
         # metabase doesn't support events; falls through
         assert _status(result) == 400
@@ -1376,9 +1300,7 @@ class TestGetFunnels:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_funnels_non_mixpanel_platform(
-        self, handler, connected_ga
-    ):
+    async def test_funnels_non_mixpanel_platform(self, handler, connected_ga):
         req = MockRequest(
             path="/api/v1/analytics/google_analytics/funnels",
             method="GET",
@@ -1389,9 +1311,7 @@ class TestGetFunnels:
         assert "only available for Mixpanel" in _error(result)
 
     @pytest.mark.asyncio
-    async def test_funnels_missing_funnel_id(
-        self, handler, connected_mixpanel
-    ):
+    async def test_funnels_missing_funnel_id(self, handler, connected_mixpanel):
         req = MockRequest(
             path="/api/v1/analytics/mixpanel/funnels",
             method="GET",
@@ -1402,12 +1322,8 @@ class TestGetFunnels:
         assert "funnel_id" in _error(result)
 
     @pytest.mark.asyncio
-    async def test_funnels_connector_unavailable(
-        self, handler, connected_mixpanel
-    ):
-        with patch.object(
-            handler, "_get_connector", new_callable=AsyncMock, return_value=None
-        ):
+    async def test_funnels_connector_unavailable(self, handler, connected_mixpanel):
+        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
             req = MockRequest(
                 path="/api/v1/analytics/mixpanel/funnels",
                 method="GET",
@@ -1417,9 +1333,7 @@ class TestGetFunnels:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_funnels_api_error(
-        self, handler, connected_mixpanel, mock_mixpanel_connector
-    ):
+    async def test_funnels_api_error(self, handler, connected_mixpanel, mock_mixpanel_connector):
         mock_mixpanel_connector.get_funnel.side_effect = ConnectionError("fail")
         _platform_connectors["mixpanel"] = mock_mixpanel_connector
 
@@ -1450,9 +1364,7 @@ class TestGetRetention:
         mock_mixpanel_connector.get_retention.return_value = retention_mock
         _platform_connectors["mixpanel"] = mock_mixpanel_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel/retention", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel/retention", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 200
         body = _body(result)
@@ -1462,46 +1374,30 @@ class TestGetRetention:
 
     @pytest.mark.asyncio
     async def test_retention_platform_not_connected(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel/retention", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel/retention", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_retention_non_mixpanel_platform(
-        self, handler, connected_ga
-    ):
-        req = MockRequest(
-            path="/api/v1/analytics/google_analytics/retention", method="GET"
-        )
+    async def test_retention_non_mixpanel_platform(self, handler, connected_ga):
+        req = MockRequest(path="/api/v1/analytics/google_analytics/retention", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 400
         assert "only available for Mixpanel" in _error(result)
 
     @pytest.mark.asyncio
-    async def test_retention_connector_unavailable(
-        self, handler, connected_mixpanel
-    ):
-        with patch.object(
-            handler, "_get_connector", new_callable=AsyncMock, return_value=None
-        ):
-            req = MockRequest(
-                path="/api/v1/analytics/mixpanel/retention", method="GET"
-            )
+    async def test_retention_connector_unavailable(self, handler, connected_mixpanel):
+        with patch.object(handler, "_get_connector", new_callable=AsyncMock, return_value=None):
+            req = MockRequest(path="/api/v1/analytics/mixpanel/retention", method="GET")
             result = await handler.handle_request(req)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
-    async def test_retention_api_error(
-        self, handler, connected_mixpanel, mock_mixpanel_connector
-    ):
+    async def test_retention_api_error(self, handler, connected_mixpanel, mock_mixpanel_connector):
         mock_mixpanel_connector.get_retention.side_effect = ConnectionError("fail")
         _platform_connectors["mixpanel"] = mock_mixpanel_connector
 
-        req = MockRequest(
-            path="/api/v1/analytics/mixpanel/retention", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/mixpanel/retention", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 500
 
@@ -1516,33 +1412,25 @@ class TestUnknownRoutes:
 
     @pytest.mark.asyncio
     async def test_unknown_endpoint(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/nonexistent", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/nonexistent", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_platforms(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/platforms", method="POST"
-        )
+        req = MockRequest(path="/api/v1/analytics/platforms", method="POST")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_connect(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/connect", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/connect", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_query(self, handler):
-        req = MockRequest(
-            path="/api/v1/analytics/query", method="GET"
-        )
+        req = MockRequest(path="/api/v1/analytics/query", method="GET")
         result = await handler.handle_request(req)
         assert _status(result) == 404
 

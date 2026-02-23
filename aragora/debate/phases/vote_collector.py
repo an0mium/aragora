@@ -191,7 +191,12 @@ class VoteCollector:
 
         if lead >= min_lead:
             logger.info(
-                "rlm_early_termination_majority leader=%s votes=%s/%s lead=%s total_agents=%s", leader, leader_count, votes_collected, lead, total_agents
+                "rlm_early_termination_majority leader=%s votes=%s/%s lead=%s total_agents=%s",
+                leader,
+                leader_count,
+                votes_collected,
+                lead,
+                total_agents,
             )
             return True, leader
 
@@ -234,7 +239,11 @@ class VoteCollector:
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
-                    "vote_exception_permutation agent=%s perm=%s error=%s: %s", agent.name, permutation_idx, type(e).__name__, e
+                    "vote_exception_permutation agent=%s perm=%s error=%s: %s",
+                    agent.name,
+                    permutation_idx,
+                    type(e).__name__,
+                    e,
                 )
                 return (agent, e)
 
@@ -253,7 +262,9 @@ class VoteCollector:
 
             if vote_result is None or isinstance(vote_result, Exception):
                 if isinstance(vote_result, Exception):
-                    logger.error("vote_error_permutation agent=%s error=%s", agent.name, vote_result)
+                    logger.error(
+                        "vote_error_permutation agent=%s error=%s", agent.name, vote_result
+                    )
             else:
                 votes.append(vote_result)
 
@@ -279,7 +290,10 @@ class VoteCollector:
         seed = self.config.position_shuffling_seed
 
         logger.info(
-            "position_shuffling_start permutations=%s proposals=%s seed=%s", num_permutations, len(ctx.proposals), seed
+            "position_shuffling_start permutations=%s proposals=%s seed=%s",
+            num_permutations,
+            len(ctx.proposals),
+            seed,
         )
 
         # Generate permutations
@@ -311,7 +325,10 @@ class VoteCollector:
         averaged_votes = average_permutation_votes(votes_by_agent, ctx.proposals)
 
         logger.info(
-            "position_shuffling_complete permutations=%s agents_voted=%s averaged_votes=%s", num_permutations, len(votes_by_agent), len(averaged_votes)
+            "position_shuffling_complete permutations=%s agents_voted=%s averaged_votes=%s",
+            num_permutations,
+            len(votes_by_agent),
+            len(averaged_votes),
         )
 
         # Handle success callbacks for averaged votes
@@ -354,7 +371,8 @@ class VoteCollector:
                 )
             except asyncio.TimeoutError:
                 logger.warning(
-                    "position_shuffling_timeout timeout=%ss", self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations
+                    "position_shuffling_timeout timeout=%ss",
+                    self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations,
                 )
                 return []
 
@@ -378,7 +396,9 @@ class VoteCollector:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-                logger.warning("vote_exception agent=%s error=%s: %s", agent.name, type(e).__name__, e)
+                logger.warning(
+                    "vote_exception agent=%s error=%s: %s", agent.name, type(e).__name__, e
+                )
                 return (agent, e)
 
         async def collect_all_votes() -> None:
@@ -435,7 +455,9 @@ class VoteCollector:
 
             if early_terminated:
                 logger.info(
-                    "vote_collection_early_terminated collected=%s total_agents=%s", len(votes), total_agents
+                    "vote_collection_early_terminated collected=%s total_agents=%s",
+                    len(votes),
+                    total_agents,
                 )
 
         # Apply outer timeout to prevent N*agent_timeout runaway
@@ -443,7 +465,10 @@ class VoteCollector:
             await asyncio.wait_for(collect_all_votes(), timeout=self.VOTE_COLLECTION_TIMEOUT)
         except asyncio.TimeoutError:
             logger.warning(
-                "vote_collection_timeout collected=%s expected=%s timeout=%ss", len(votes), len(ctx.agents), self.VOTE_COLLECTION_TIMEOUT
+                "vote_collection_timeout collected=%s expected=%s timeout=%ss",
+                len(votes),
+                len(ctx.agents),
+                self.VOTE_COLLECTION_TIMEOUT,
             )
             # Return partial votes - better than nothing
 
@@ -486,7 +511,10 @@ class VoteCollector:
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
-                    "vote_exception_unanimous agent=%s error=%s: %s", agent.name, type(e).__name__, e
+                    "vote_exception_unanimous agent=%s error=%s: %s",
+                    agent.name,
+                    type(e).__name__,
+                    e,
                 )
                 return (agent, e)
 
@@ -507,7 +535,9 @@ class VoteCollector:
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
-                        logger.error("vote_error_unanimous agent=%s error=%s", agent.name, vote_result)
+                        logger.error(
+                            "vote_error_unanimous agent=%s error=%s", agent.name, vote_result
+                        )
                     else:
                         logger.error(
                             "vote_error_unanimous agent=%s error=vote returned None", agent.name
@@ -525,7 +555,11 @@ class VoteCollector:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
             logger.warning(
-                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss", len(votes), voting_errors, len(ctx.agents), self.VOTE_COLLECTION_TIMEOUT
+                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss",
+                len(votes),
+                voting_errors,
+                len(ctx.agents),
+                self.VOTE_COLLECTION_TIMEOUT,
             )
 
         return votes, voting_errors

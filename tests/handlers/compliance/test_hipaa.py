@@ -270,18 +270,14 @@ class TestHIPAAStatus:
     @pytest.mark.asyncio
     async def test_full_scope_includes_safeguard_details(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/status", {"scope": "full"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/status", {"scope": "full"}, mock_h)
         body = _body(result)
         assert "safeguard_details" in body
 
     @pytest.mark.asyncio
     async def test_full_scope_includes_phi_controls(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/status", {"scope": "full"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/status", {"scope": "full"}, mock_h)
         body = _body(result)
         assert "phi_controls" in body
 
@@ -349,17 +345,13 @@ class TestHIPAAPHIAccessLog:
     @pytest.mark.asyncio
     async def test_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_returns_access_log_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         assert "phi_access_log" in body
         assert "count" in body
@@ -369,18 +361,14 @@ class TestHIPAAPHIAccessLog:
     @pytest.mark.asyncio
     async def test_hipaa_reference_is_correct(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         assert "164.312(b)" in body["hipaa_reference"]
 
     @pytest.mark.asyncio
     async def test_empty_log_returns_zero_count(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         assert body["count"] == 0
         assert body["phi_access_log"] == []
@@ -521,9 +509,7 @@ class TestHIPAAPHIAccessLog:
             },
         ]
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         assert body["count"] == 1
         assert body["phi_access_log"][0]["action"] == "phi_access"
@@ -544,9 +530,7 @@ class TestHIPAAPHIAccessLog:
     async def test_store_error_returns_500(self, handler, _patch_stores):
         _patch_stores["audit_store"].get_log.side_effect = RuntimeError("db down")
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -566,9 +550,7 @@ class TestHIPAAPHIAccessLog:
             }
         ]
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         entry = body["phi_access_log"][0]
         assert entry["timestamp"] == "2025-06-01T10:00:00+00:00"
@@ -593,9 +575,7 @@ class TestHIPAAPHIAccessLog:
             }
         ]
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         body = _body(result)
         assert body["count"] == 1
 
@@ -611,25 +591,19 @@ class TestHIPAABreachAssessment:
     @pytest.mark.asyncio
     async def test_missing_incident_id_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"incident_type": "data_leak"})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_missing_incident_type_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={"incident_id": "inc-1"})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_empty_body_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -642,9 +616,7 @@ class TestHIPAABreachAssessment:
                 "phi_involved": False,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert body["breach_determination"] == "not_applicable"
@@ -658,9 +630,7 @@ class TestHIPAABreachAssessment:
             "POST",
             body={"incident_id": "inc-1", "incident_type": "lost_laptop"},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert body["breach_determination"] == "not_applicable"
 
@@ -677,9 +647,7 @@ class TestHIPAABreachAssessment:
                 "affected_individuals": 1000,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert body["breach_determination"] == "presumed_breach"
         assert body["notification_required"] is True
@@ -697,9 +665,7 @@ class TestHIPAABreachAssessment:
                 "affected_individuals": 600,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         deadlines = body["notification_deadlines"]
         assert "individual_notification" in deadlines
@@ -720,9 +686,7 @@ class TestHIPAABreachAssessment:
                 "affected_individuals": 500,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         deadlines = body["notification_deadlines"]
         # For 500+ individuals, media notification has a date, not "Not required"
@@ -742,9 +706,7 @@ class TestHIPAABreachAssessment:
                 "affected_individuals": 100,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         deadlines = body["notification_deadlines"]
         assert deadlines["media_notification"] == "Not required"
@@ -763,9 +725,7 @@ class TestHIPAABreachAssessment:
                 "affected_individuals": 50,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         deadlines = body["notification_deadlines"]
         assert deadlines["hhs_notification"] == "Annual"
@@ -784,9 +744,7 @@ class TestHIPAABreachAssessment:
                 "mitigation_actions": ["recall", "confirm_delete", "retrain"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert body["breach_determination"] == "low_probability"
         assert body["notification_required"] is False
@@ -803,9 +761,7 @@ class TestHIPAABreachAssessment:
                 "phi_types": ["Email addresses"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert len(body["risk_factors"]) == 4
         factor_names = [f["factor"] for f in body["risk_factors"]]
@@ -824,9 +780,7 @@ class TestHIPAABreachAssessment:
                 "phi_involved": False,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
         assert body["assessment_id"].startswith("hipaa-breach-inc-9-")
 
@@ -858,9 +812,7 @@ class TestHIPAABreachAssessment:
                 "phi_involved": False,
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -875,11 +827,11 @@ class TestHIPAABreachAssessment:
                 "unauthorized_access": {"known_recipient": True},
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        person_factor = next(f for f in body["risk_factors"] if f["factor"] == "Unauthorized person")
+        person_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "Unauthorized person"
+        )
         assert person_factor["risk"] == "moderate"
 
     @pytest.mark.asyncio
@@ -894,11 +846,11 @@ class TestHIPAABreachAssessment:
                 "unauthorized_access": {},
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        person_factor = next(f for f in body["risk_factors"] if f["factor"] == "Unauthorized person")
+        person_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "Unauthorized person"
+        )
         assert person_factor["risk"] == "high"
 
     @pytest.mark.asyncio
@@ -913,11 +865,11 @@ class TestHIPAABreachAssessment:
                 "unauthorized_access": {"confirmed_access": True},
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        access_factor = next(f for f in body["risk_factors"] if f["factor"] == "PHI acquisition/viewing")
+        access_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "PHI acquisition/viewing"
+        )
         assert access_factor["risk"] == "high"
 
     @pytest.mark.asyncio
@@ -932,11 +884,11 @@ class TestHIPAABreachAssessment:
                 "unauthorized_access": {},
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        access_factor = next(f for f in body["risk_factors"] if f["factor"] == "PHI acquisition/viewing")
+        access_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "PHI acquisition/viewing"
+        )
         assert access_factor["risk"] == "low"
 
     @pytest.mark.asyncio
@@ -951,11 +903,11 @@ class TestHIPAABreachAssessment:
                 "mitigation_actions": ["recall", "confirm_delete", "retrain"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        mitigation_factor = next(f for f in body["risk_factors"] if f["factor"] == "Risk mitigation")
+        mitigation_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "Risk mitigation"
+        )
         assert mitigation_factor["risk"] == "low"
 
     @pytest.mark.asyncio
@@ -970,11 +922,11 @@ class TestHIPAABreachAssessment:
                 "mitigation_actions": ["recall"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        mitigation_factor = next(f for f in body["risk_factors"] if f["factor"] == "Risk mitigation")
+        mitigation_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "Risk mitigation"
+        )
         assert mitigation_factor["risk"] == "moderate"
 
     @pytest.mark.asyncio
@@ -988,11 +940,11 @@ class TestHIPAABreachAssessment:
                 "phi_types": ["SSN"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        nature_factor = next(f for f in body["risk_factors"] if f["factor"] == "Nature and extent of PHI")
+        nature_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "Nature and extent of PHI"
+        )
         assert nature_factor["risk"] == "high"
 
     @pytest.mark.asyncio
@@ -1006,11 +958,11 @@ class TestHIPAABreachAssessment:
                 "phi_types": ["Names"],
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         body = _body(result)
-        nature_factor = next(f for f in body["risk_factors"] if f["factor"] == "Nature and extent of PHI")
+        nature_factor = next(
+            f for f in body["risk_factors"] if f["factor"] == "Nature and extent of PHI"
+        )
         assert nature_factor["risk"] == "moderate"
 
 
@@ -1285,17 +1237,13 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_json_report_returns_200(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_json_report_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert body["report_type"] == "HIPAA Security Rule Compliance"
         assert "report_id" in body
@@ -1307,18 +1255,14 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_report_id_format(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert body["report_id"].startswith("hipaa-sec-")
 
     @pytest.mark.asyncio
     async def test_assessment_period_has_start_end(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert "start" in body["assessment_period"]
         assert "end" in body["assessment_period"]
@@ -1326,9 +1270,7 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_safeguard_categories(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert "administrative" in body["safeguards"]
         assert "physical" in body["safeguards"]
@@ -1337,9 +1279,7 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_safeguard_category_structure(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         admin = body["safeguards"]["administrative"]
         assert "category" in admin
@@ -1350,9 +1290,7 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_summary_has_counts(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         summary = body["summary"]
         assert "total_standards_assessed" in summary
@@ -1404,9 +1342,7 @@ class TestHIPAASecurityReport:
     @pytest.mark.asyncio
     async def test_exclude_evidence_by_default(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert "evidence_references" not in body
 
@@ -1414,9 +1350,7 @@ class TestHIPAASecurityReport:
     async def test_all_compliant_status(self, handler):
         """Default safeguards are all compliant, so overall should be Compliant."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         body = _body(result)
         assert body["summary"]["overall_status"] == "Compliant"
         assert body["summary"]["compliance_percentage"] == 100
@@ -1433,9 +1367,7 @@ class TestHIPAADeidentify:
     @pytest.mark.asyncio
     async def test_missing_content_and_data_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1461,9 +1393,7 @@ class TestHIPAADeidentify:
                 "POST",
                 body={"content": "John Doe visited the clinic", "method": "redact"},
             )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
             body = _body(result)
             assert _status(result) == 200
             assert "anonymized_content" in body
@@ -1491,9 +1421,7 @@ class TestHIPAADeidentify:
                 "POST",
                 body={"data": {"name": "John Doe", "diagnosis": "flu"}},
             )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
             body = _body(result)
             assert _status(result) == 200
             mock_anonymizer_cls.return_value.anonymize_structured.assert_called_once()
@@ -1503,15 +1431,15 @@ class TestHIPAADeidentify:
         from aragora.privacy.anonymization import AnonymizationMethod
 
         with patch.object(
-            AnonymizationMethod, "__new__", side_effect=ValueError("invalid"),
+            AnonymizationMethod,
+            "__new__",
+            side_effect=ValueError("invalid"),
         ):
             mock_h = _MockHTTPHandler(
                 "POST",
                 body={"content": "test", "method": "invalid_method"},
             )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
             assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1523,12 +1451,8 @@ class TestHIPAADeidentify:
         saved = sys.modules.get("aragora.privacy.anonymization")
         sys.modules["aragora.privacy.anonymization"] = None  # type: ignore
         try:
-            mock_h = _MockHTTPHandler(
-                "POST", body={"content": "test"}
-            )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-            )
+            mock_h = _MockHTTPHandler("POST", body={"content": "test"})
+            result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
             assert _status(result) == 501
         finally:
             if saved is not None:
@@ -1563,7 +1487,9 @@ class TestHIPAADeidentify:
         from aragora.privacy.anonymization import IdentifierType
 
         with patch.object(
-            IdentifierType, "__new__", side_effect=ValueError("bad type"),
+            IdentifierType,
+            "__new__",
+            side_effect=ValueError("bad type"),
         ):
             mock_h = _MockHTTPHandler(
                 "POST",
@@ -1572,9 +1498,7 @@ class TestHIPAADeidentify:
                     "identifier_types": ["not_a_real_type"],
                 },
             )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
             assert _status(result) == 400
 
 
@@ -1589,9 +1513,7 @@ class TestHIPAASafeHarborVerify:
     @pytest.mark.asyncio
     async def test_missing_content_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1609,12 +1531,8 @@ class TestHIPAASafeHarborVerify:
             "aragora.privacy.anonymization.HIPAAAnonymizer",
             mock_anonymizer_cls,
         ):
-            mock_h = _MockHTTPHandler(
-                "POST", body={"content": "Patient treated at facility"}
-            )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-            )
+            mock_h = _MockHTTPHandler("POST", body={"content": "Patient treated at facility"})
+            result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
             body = _body(result)
             assert _status(result) == 200
             assert body["compliant"] is True
@@ -1643,12 +1561,8 @@ class TestHIPAASafeHarborVerify:
             "aragora.privacy.anonymization.HIPAAAnonymizer",
             mock_anonymizer_cls,
         ):
-            mock_h = _MockHTTPHandler(
-                "POST", body={"content": "John Doe visited clinic"}
-            )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-            )
+            mock_h = _MockHTTPHandler("POST", body={"content": "John Doe visited clinic"})
+            result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
             body = _body(result)
             assert _status(result) == 200
             assert body["compliant"] is False
@@ -1682,9 +1596,7 @@ class TestHIPAASafeHarborVerify:
             mock_anonymizer_cls,
         ):
             mock_h = _MockHTTPHandler("POST", body={"content": "John Doe test"})
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
             body = _body(result)
             assert body["identifiers_remaining"][0]["value_preview"] == "Joh..."
 
@@ -1712,9 +1624,7 @@ class TestHIPAASafeHarborVerify:
             mock_anonymizer_cls,
         ):
             mock_h = _MockHTTPHandler("POST", body={"content": "123"})
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
             body = _body(result)
             assert body["identifiers_remaining"][0]["value_preview"] == "***"
 
@@ -1726,9 +1636,7 @@ class TestHIPAASafeHarborVerify:
         sys.modules["aragora.privacy.anonymization"] = None  # type: ignore
         try:
             mock_h = _MockHTTPHandler("POST", body={"content": "test"})
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
             assert _status(result) == 501
         finally:
             if saved is not None:
@@ -1748,9 +1656,7 @@ class TestHIPAADetectPHI:
     @pytest.mark.asyncio
     async def test_missing_content_returns_400(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1773,9 +1679,7 @@ class TestHIPAADetectPHI:
                 "POST",
                 body={"content": "Contact: user@example.com for info"},
             )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             body = _body(result)
             assert _status(result) == 200
             assert body["count"] == 1
@@ -1809,9 +1713,7 @@ class TestHIPAADetectPHI:
                 "POST",
                 body={"content": "test text", "min_confidence": 0.5},
             )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             body = _body(result)
             assert body["count"] == 1
             assert body["identifiers"][0]["type"] == "email"
@@ -1826,9 +1728,7 @@ class TestHIPAADetectPHI:
             mock_anonymizer_cls,
         ):
             mock_h = _MockHTTPHandler("POST", body={"content": "test"})
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             body = _body(result)
             assert body["min_confidence"] == 0.5
 
@@ -1842,9 +1742,7 @@ class TestHIPAADetectPHI:
             mock_anonymizer_cls,
         ):
             mock_h = _MockHTTPHandler("POST", body={"content": "test"})
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             body = _body(result)
             assert "164.514" in body["hipaa_reference"]
 
@@ -1857,12 +1755,8 @@ class TestHIPAADetectPHI:
             "aragora.privacy.anonymization.HIPAAAnonymizer",
             mock_anonymizer_cls,
         ):
-            mock_h = _MockHTTPHandler(
-                "POST", body={"content": "no PHI here"}
-            )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            mock_h = _MockHTTPHandler("POST", body={"content": "no PHI here"})
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             body = _body(result)
             assert body["count"] == 0
             assert body["identifiers"] == []
@@ -1875,9 +1769,7 @@ class TestHIPAADetectPHI:
         sys.modules["aragora.privacy.anonymization"] = None  # type: ignore
         try:
             mock_h = _MockHTTPHandler("POST", body={"content": "test"})
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             assert _status(result) == 501
         finally:
             if saved is not None:
@@ -1901,12 +1793,8 @@ class TestHIPAADetectPHI:
             "aragora.privacy.anonymization.HIPAAAnonymizer",
             mock_anonymizer_cls,
         ):
-            mock_h = _MockHTTPHandler(
-                "POST", body={"content": "SSN: 123-45-6789"}
-            )
-            result = await handler.handle(
-                "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-            )
+            mock_h = _MockHTTPHandler("POST", body={"content": "SSN: 123-45-6789"})
+            result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
             body = _body(result)
             ident = body["identifiers"][0]
             assert "type" in ident
@@ -2009,7 +1897,11 @@ class TestHIPAAHelperMethods:
                 "administrative": {
                     "category": "Administrative",
                     "standards": [
-                        {"id": "164.308(a)(1)", "name": "Security Management", "status": "compliant"},
+                        {
+                            "id": "164.308(a)(1)",
+                            "name": "Security Management",
+                            "status": "compliant",
+                        },
                     ],
                     "compliant_count": 1,
                     "total_count": 1,
@@ -2040,33 +1932,25 @@ class TestHIPAARouteDispatch:
     @pytest.mark.asyncio
     async def test_hipaa_status_wrong_method_returns_404(self, handler):
         mock_h = _MockHTTPHandler("POST")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/status", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/status", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_hipaa_phi_access_wrong_method_returns_404(self, handler):
         mock_h = _MockHTTPHandler("POST")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/phi-access", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/phi-access", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_hipaa_breach_assessment_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/breach-assessment", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/breach-assessment", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_hipaa_baa_get_dispatches(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -2079,49 +1963,37 @@ class TestHIPAARouteDispatch:
                 "services_provided": "Test",
             },
         )
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/baa", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/baa", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
     async def test_hipaa_security_report_dispatches(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/security-report", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/security-report", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_hipaa_deidentify_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/deidentify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/deidentify", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_hipaa_safe_harbor_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/safe-harbor/verify", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_hipaa_detect_phi_get_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/detect-phi", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/detect-phi", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_hipaa_unknown_subpath_returns_404(self, handler):
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/hipaa/nonexistent", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/hipaa/nonexistent", {}, mock_h)
         assert _status(result) == 404
 
 

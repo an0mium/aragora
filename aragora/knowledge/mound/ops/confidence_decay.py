@@ -242,13 +242,8 @@ class ConfidenceDecayManager:
         half_life = self.config.domain_half_lives.get(domain or "", self.config.half_life_days)
 
         # Apply surprise modulation if enabled and score provided
-        if (
-            self.config.enable_surprise_modulated_decay
-            and surprise_score is not None
-        ):
-            half_life = self.calculate_dynamic_half_life(
-                half_life, surprise_score, tier_pressure
-            )
+        if self.config.enable_surprise_modulated_decay and surprise_score is not None:
+            half_life = self.calculate_dynamic_half_life(half_life, surprise_score, tier_pressure)
 
         if self.config.model == DecayModel.EXPONENTIAL:
             # Exponential decay: C(t) = C0 * (0.5)^(t/half_life)
@@ -398,7 +393,9 @@ class ConfidenceDecayManager:
 
             # Calculate new confidence
             new_confidence = self.calculate_decay(
-                old_confidence, age_days, domain,
+                old_confidence,
+                age_days,
+                domain,
                 surprise_score=item_surprise,
             )
 
@@ -411,7 +408,11 @@ class ConfidenceDecayManager:
                     old_confidence=old_confidence,
                     new_confidence=new_confidence,
                     reason=f"Time-based decay after {age_days:.1f} days",
-                    metadata={"age_days": age_days, "domain": domain, "surprise_score": item_surprise},
+                    metadata={
+                        "age_days": age_days,
+                        "domain": domain,
+                        "surprise_score": item_surprise,
+                    },
                 )
                 adjustments.append(adjustment)
 
@@ -665,7 +666,9 @@ class ConfidenceDecayManager:
             items_processed=len(retention_decisions),
             items_decayed=items_decayed,
             items_boosted=items_boosted,
-            average_confidence_change=total_change / len(retention_decisions) if retention_decisions else 0.0,
+            average_confidence_change=total_change / len(retention_decisions)
+            if retention_decisions
+            else 0.0,
             adjustments=adjustments,
             duration_ms=duration_ms,
         )

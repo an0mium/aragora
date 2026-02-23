@@ -190,7 +190,8 @@ class TestListAgents:
             MockReputation("bob", score=0.7),
         ]
         mock_store.get_agent_reputation.side_effect = lambda name: (
-            MockReputation("alice", score=0.9) if name == "alice"
+            MockReputation("alice", score=0.9)
+            if name == "alice"
             else MockReputation("bob", score=0.7)
         )
 
@@ -301,11 +302,11 @@ class TestAgentIntrospection:
         """Test successful agent introspection retrieval."""
         mock_get_intro.return_value = MockSnapshot("claude", 0.85)
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/agents/claude", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/agents/claude", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = parse_body(result)
@@ -318,20 +319,18 @@ class TestAgentIntrospection:
         """Test agent introspection for non-existent agent."""
         mock_get_intro.return_value = None
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/agents/nonexistent", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/agents/nonexistent", {}, mock_http_handler)
 
         assert result.status_code == 404
 
     @patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False)
     def test_get_agent_module_not_available(self, handler, mock_http_handler):
         """Test returns 503 when introspection module is not available."""
-        result = handler.handle(
-            "/api/introspection/agents/claude", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/agents/claude", {}, mock_http_handler)
 
         assert result.status_code == 503
         body = parse_body(result)
@@ -343,11 +342,11 @@ class TestAgentIntrospection:
         """Test error handling during introspection retrieval."""
         mock_get_intro.side_effect = ValueError("introspection error")
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/agents/claude", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/agents/claude", {}, mock_http_handler)
 
         assert result.status_code == 500
 
@@ -357,11 +356,11 @@ class TestAgentIntrospection:
         """Test AttributeError handling in agent introspection."""
         mock_get_intro.side_effect = AttributeError("missing attr")
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/agents/claude", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/agents/claude", {}, mock_http_handler)
 
         assert result.status_code == 500
 
@@ -373,11 +372,11 @@ class TestAgentIntrospection:
         mock_store = MagicMock()
         mock_persona = MagicMock()
 
-        with patch.object(handler, "_get_critique_store", return_value=mock_store), \
-             patch.object(handler, "_get_persona_manager", return_value=mock_persona):
-            handler.handle(
-                "/api/introspection/agents/claude", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=mock_store),
+            patch.object(handler, "_get_persona_manager", return_value=mock_persona),
+        ):
+            handler.handle("/api/introspection/agents/claude", {}, mock_http_handler)
 
         mock_get_intro.assert_called_once_with(
             "claude", memory=mock_store, persona_manager=mock_persona
@@ -385,17 +384,13 @@ class TestAgentIntrospection:
 
     def test_get_agent_invalid_name_rejected(self, handler, mock_http_handler):
         """Test that invalid agent names are rejected by path param validation."""
-        result = handler.handle(
-            "/api/introspection/agents/../../etc/passwd", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/agents/../../etc/passwd", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 400
 
     def test_get_agent_name_with_spaces_rejected(self, handler, mock_http_handler):
         """Test that agent names with spaces are rejected."""
-        result = handler.handle(
-            "/api/introspection/agents/bad agent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/agents/bad agent", {}, mock_http_handler)
         # The path wouldn't match as a valid route or would fail validation
         assert result is None or result.status_code == 400
 
@@ -410,34 +405,36 @@ class TestAgentIntrospection:
     def test_get_agent_name_too_long_rejected(self, handler, mock_http_handler):
         """Test that excessively long agent names are rejected."""
         long_name = "a" * 100  # exceeds 32 char limit
-        result = handler.handle(
-            f"/api/introspection/agents/{long_name}", {}, mock_http_handler
-        )
+        result = handler.handle(f"/api/introspection/agents/{long_name}", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 400
 
     def test_get_agent_hyphenated_name(self, handler, mock_http_handler):
         """Test that hyphenated agent names are accepted."""
-        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True), \
-             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro:
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
+        ):
             mock_intro.return_value = MockSnapshot("gpt-4")
-            with patch.object(handler, "_get_critique_store", return_value=None), \
-                 patch.object(handler, "_get_persona_manager", return_value=None):
-                result = handler.handle(
-                    "/api/introspection/agents/gpt-4", {}, mock_http_handler
-                )
+            with (
+                patch.object(handler, "_get_critique_store", return_value=None),
+                patch.object(handler, "_get_persona_manager", return_value=None),
+            ):
+                result = handler.handle("/api/introspection/agents/gpt-4", {}, mock_http_handler)
             assert result.status_code == 200
 
     def test_get_agent_underscore_name(self, handler, mock_http_handler):
         """Test that underscore agent names are accepted."""
-        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True), \
-             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro:
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
+        ):
             mock_intro.return_value = MockSnapshot("my_agent")
-            with patch.object(handler, "_get_critique_store", return_value=None), \
-                 patch.object(handler, "_get_persona_manager", return_value=None):
-                result = handler.handle(
-                    "/api/introspection/agents/my_agent", {}, mock_http_handler
-                )
+            with (
+                patch.object(handler, "_get_critique_store", return_value=None),
+                patch.object(handler, "_get_persona_manager", return_value=None),
+            ):
+                result = handler.handle("/api/introspection/agents/my_agent", {}, mock_http_handler)
             assert result.status_code == 200
 
 
@@ -455,8 +452,10 @@ class TestAllIntrospection:
         """Test successful retrieval of all agents' introspection."""
         mock_get_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle("/api/introspection/all", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -469,6 +468,7 @@ class TestAllIntrospection:
     @patch("aragora.server.handlers.introspection.get_agent_introspection")
     def test_get_all_partial_failures(self, mock_get_intro, handler, mock_http_handler):
         """Test that individual agent failures are handled gracefully."""
+
         def side_effect(name, **kw):
             if name == "gemini":
                 raise ValueError("introspection error")
@@ -476,8 +476,10 @@ class TestAllIntrospection:
 
         mock_get_intro.side_effect = side_effect
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle("/api/introspection/all", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -504,8 +506,10 @@ class TestAllIntrospection:
         ]
         mock_get_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-        with patch.object(handler, "_get_critique_store", return_value=mock_store), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=mock_store),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle("/api/introspection/all", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -520,8 +524,10 @@ class TestAllIntrospection:
         """Test all introspection when every agent fails."""
         mock_get_intro.side_effect = TypeError("total failure")
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle("/api/introspection/all", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -536,8 +542,10 @@ class TestAllIntrospection:
             name, data={"agent_name": name, "reputation_score": 0.8}
         )
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle("/api/introspection/all", {}, mock_http_handler)
 
         body = parse_body(result)
@@ -562,11 +570,11 @@ class TestLeaderboard:
             name, data={"agent_name": name, "reputation_score": scores.get(name, 0.5)}
         )
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/leaderboard", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/leaderboard", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = parse_body(result)
@@ -583,11 +591,11 @@ class TestLeaderboard:
             name, data={"agent_name": name, "reputation_score": scores.get(name, 0.5)}
         )
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/leaderboard", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/leaderboard", {}, mock_http_handler)
 
         body = parse_body(result)
         lb_scores = [entry["reputation_score"] for entry in body["leaderboard"]]
@@ -599,11 +607,11 @@ class TestLeaderboard:
         """Test leaderboard uses default limit of 10."""
         mock_get_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/leaderboard", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/leaderboard", {}, mock_http_handler)
 
         body = parse_body(result)
         # Default agents is 5, which is less than limit of 10
@@ -615,8 +623,10 @@ class TestLeaderboard:
         """Test leaderboard respects custom limit param."""
         mock_get_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle(
                 "/api/introspection/leaderboard",
                 {"limit": ["3"]},
@@ -632,8 +642,10 @@ class TestLeaderboard:
         """Test leaderboard limit is capped at 50."""
         mock_get_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle(
                 "/api/introspection/leaderboard",
                 {"limit": ["999"]},
@@ -648,9 +660,7 @@ class TestLeaderboard:
     @patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False)
     def test_leaderboard_module_not_available(self, handler, mock_http_handler):
         """Test leaderboard returns 503 when module unavailable."""
-        result = handler.handle(
-            "/api/introspection/leaderboard", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/leaderboard", {}, mock_http_handler)
 
         assert result.status_code == 503
 
@@ -669,11 +679,11 @@ class TestLeaderboard:
 
         mock_get_intro.side_effect = side_effect
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
-            result = handler.handle(
-                "/api/introspection/leaderboard", {}, mock_http_handler
-            )
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
+            result = handler.handle("/api/introspection/leaderboard", {}, mock_http_handler)
 
         assert result.status_code == 200
         body = parse_body(result)
@@ -693,22 +703,34 @@ class TestAgentAvailability:
         """Test successful availability check."""
         from aragora.server.handlers.utils.responses import json_response
 
-        mock_avail.return_value = json_response({
-            "available": ["claude", "gemini"],
-            "missing": ["grok"],
-            "details": {
-                "claude": {"available": True, "required_vars": ["ANTHROPIC_API_KEY"],
-                           "missing_vars": [], "available_via": "env"},
-                "gemini": {"available": True, "required_vars": ["GEMINI_API_KEY"],
-                           "missing_vars": [], "available_via": "env"},
-                "grok": {"available": False, "required_vars": ["GROK_API_KEY"],
-                         "missing_vars": ["GROK_API_KEY"], "available_via": ""},
-            },
-        })
-
-        result = handler.handle(
-            "/api/introspection/agents/availability", {}, mock_http_handler
+        mock_avail.return_value = json_response(
+            {
+                "available": ["claude", "gemini"],
+                "missing": ["grok"],
+                "details": {
+                    "claude": {
+                        "available": True,
+                        "required_vars": ["ANTHROPIC_API_KEY"],
+                        "missing_vars": [],
+                        "available_via": "env",
+                    },
+                    "gemini": {
+                        "available": True,
+                        "required_vars": ["GEMINI_API_KEY"],
+                        "missing_vars": [],
+                        "available_via": "env",
+                    },
+                    "grok": {
+                        "available": False,
+                        "required_vars": ["GROK_API_KEY"],
+                        "missing_vars": ["GROK_API_KEY"],
+                        "available_via": "",
+                    },
+                },
+            }
         )
+
+        result = handler.handle("/api/introspection/agents/availability", {}, mock_http_handler)
 
         assert result.status_code == 200
 
@@ -719,12 +741,8 @@ class TestAgentAvailability:
         ) as mock_method:
             from aragora.server.handlers.utils.responses import error_response
 
-            mock_method.return_value = error_response(
-                "Credential validator not available", 503
-            )
-            result = handler.handle(
-                "/api/introspection/agents/availability", {}, mock_http_handler
-            )
+            mock_method.return_value = error_response("Credential validator not available", 503)
+            result = handler.handle("/api/introspection/agents/availability", {}, mock_http_handler)
 
         assert result.status_code == 503
 
@@ -830,9 +848,7 @@ class TestVersionPrefix:
     def test_handle_with_v1_prefix(self, handler, mock_http_handler):
         """Test handle strips /api/v1/ prefix."""
         with patch.object(handler, "_get_critique_store", return_value=None):
-            result = handler.handle(
-                "/api/v1/introspection/agents", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/introspection/agents", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -840,9 +856,7 @@ class TestVersionPrefix:
     def test_handle_with_v2_prefix(self, handler, mock_http_handler):
         """Test handle strips /api/v2/ prefix."""
         with patch.object(handler, "_get_critique_store", return_value=None):
-            result = handler.handle(
-                "/api/v2/introspection/agents", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v2/introspection/agents", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -858,25 +872,25 @@ class TestCritiqueStore:
 
     def test_returns_none_when_module_unavailable(self, handler):
         """Test returns None when CritiqueStore not importable."""
-        with patch(
-            "aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", False):
             result = handler._get_critique_store()
         assert result is None
 
     def test_returns_none_when_no_nomic_dir(self, handler):
         """Test returns None when nomic_dir not configured."""
-        with patch(
-            "aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", True
-        ), patch.object(handler, "get_nomic_dir", return_value=None):
+        with (
+            patch("aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", True),
+            patch.object(handler, "get_nomic_dir", return_value=None),
+        ):
             result = handler._get_critique_store()
         assert result is None
 
     def test_returns_none_when_db_missing(self, handler, tmp_path):
         """Test returns None when debates.db doesn't exist."""
-        with patch(
-            "aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", True
-        ), patch.object(handler, "get_nomic_dir", return_value=tmp_path):
+        with (
+            patch("aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", True),
+            patch.object(handler, "get_nomic_dir", return_value=tmp_path),
+        ):
             result = handler._get_critique_store()
         assert result is None
 
@@ -886,11 +900,11 @@ class TestCritiqueStore:
         db_path.touch()
 
         mock_store = MagicMock()
-        with patch(
-            "aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.CritiqueStore", return_value=mock_store
-        ), patch.object(handler, "get_nomic_dir", return_value=tmp_path):
+        with (
+            patch("aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", True),
+            patch("aragora.server.handlers.introspection.CritiqueStore", return_value=mock_store),
+            patch.object(handler, "get_nomic_dir", return_value=tmp_path),
+        ):
             result = handler._get_critique_store()
 
         assert result is mock_store
@@ -906,29 +920,29 @@ class TestPersonaManager:
 
     def test_returns_none_when_module_unavailable(self, handler):
         """Test returns None when PersonaManager not importable."""
-        with patch(
-            "aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", False):
             result = handler._get_persona_manager()
         assert result is None
 
     def test_returns_none_when_no_nomic_dir(self, handler):
         """Test returns None when nomic_dir not configured."""
-        with patch(
-            "aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", True
-        ), patch.object(handler, "get_nomic_dir", return_value=None):
+        with (
+            patch("aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", True),
+            patch.object(handler, "get_nomic_dir", return_value=None),
+        ):
             result = handler._get_persona_manager()
         assert result is None
 
     def test_returns_none_when_persona_db_missing(self, handler, tmp_path):
         """Test returns None when persona DB doesn't exist."""
-        with patch(
-            "aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", True
-        ), patch.object(handler, "get_nomic_dir", return_value=tmp_path), \
-             patch(
-                 "aragora.server.handlers.introspection.get_db_path",
-                 return_value=tmp_path / "personas.db",
-             ):
+        with (
+            patch("aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", True),
+            patch.object(handler, "get_nomic_dir", return_value=tmp_path),
+            patch(
+                "aragora.server.handlers.introspection.get_db_path",
+                return_value=tmp_path / "personas.db",
+            ),
+        ):
             result = handler._get_persona_manager()
         assert result is None
 
@@ -938,15 +952,17 @@ class TestPersonaManager:
         persona_db.touch()
 
         mock_manager = MagicMock()
-        with patch(
-            "aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.PersonaManager", return_value=mock_manager
-        ), patch.object(handler, "get_nomic_dir", return_value=tmp_path), \
-             patch(
-                 "aragora.server.handlers.introspection.get_db_path",
-                 return_value=persona_db,
-             ):
+        with (
+            patch("aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.PersonaManager", return_value=mock_manager
+            ),
+            patch.object(handler, "get_nomic_dir", return_value=tmp_path),
+            patch(
+                "aragora.server.handlers.introspection.get_db_path",
+                return_value=persona_db,
+            ),
+        ):
             result = handler._get_persona_manager()
 
         assert result is mock_manager
@@ -1014,9 +1030,7 @@ class TestSecurityValidation:
 
     def test_path_traversal_in_agent_name(self, handler, mock_http_handler):
         """Test path traversal attempt in agent name."""
-        result = handler.handle(
-            "/api/introspection/agents/../../etc", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/agents/../../etc", {}, mock_http_handler)
         # Should be rejected
         if result is not None:
             assert result.status_code == 400
@@ -1024,25 +1038,19 @@ class TestSecurityValidation:
     def test_special_chars_in_agent_name(self, handler, mock_http_handler):
         """Test special characters in agent name are rejected."""
         for bad_name in ["<script>", "agent;rm", "agent&cmd", "agent|pipe"]:
-            result = handler.handle(
-                f"/api/introspection/agents/{bad_name}", {}, mock_http_handler
-            )
+            result = handler.handle(f"/api/introspection/agents/{bad_name}", {}, mock_http_handler)
             if result is not None:
                 assert result.status_code == 400, f"Should reject agent name: {bad_name}"
 
     def test_sql_injection_in_agent_name(self, handler, mock_http_handler):
         """Test SQL injection attempt in agent name."""
-        result = handler.handle(
-            "/api/introspection/agents/'; DROP TABLE--", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/agents/'; DROP TABLE--", {}, mock_http_handler)
         if result is not None:
             assert result.status_code == 400
 
     def test_null_bytes_in_agent_name(self, handler, mock_http_handler):
         """Test null byte injection in agent name."""
-        result = handler.handle(
-            "/api/introspection/agents/agent%00evil", {}, mock_http_handler
-        )
+        result = handler.handle("/api/introspection/agents/agent%00evil", {}, mock_http_handler)
         # URL-decoded %00 would be null byte - path matching may reject this
         if result is not None:
             assert result.status_code in (400, 404)
@@ -1108,12 +1116,16 @@ class TestEdgeCases:
 
     def test_leaderboard_limit_zero(self, handler, mock_http_handler):
         """Test leaderboard with limit=0."""
-        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True), \
-             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro:
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
+        ):
             mock_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-            with patch.object(handler, "_get_critique_store", return_value=None), \
-                 patch.object(handler, "_get_persona_manager", return_value=None):
+            with (
+                patch.object(handler, "_get_critique_store", return_value=None),
+                patch.object(handler, "_get_persona_manager", return_value=None),
+            ):
                 result = handler.handle(
                     "/api/introspection/leaderboard",
                     {"limit": ["0"]},
@@ -1126,12 +1138,16 @@ class TestEdgeCases:
 
     def test_leaderboard_negative_limit(self, handler, mock_http_handler):
         """Test leaderboard with negative limit defaults gracefully."""
-        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True), \
-             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro:
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
+        ):
             mock_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-            with patch.object(handler, "_get_critique_store", return_value=None), \
-                 patch.object(handler, "_get_persona_manager", return_value=None):
+            with (
+                patch.object(handler, "_get_critique_store", return_value=None),
+                patch.object(handler, "_get_persona_manager", return_value=None),
+            ):
                 result = handler.handle(
                     "/api/introspection/leaderboard",
                     {"limit": ["-5"]},
@@ -1143,12 +1159,16 @@ class TestEdgeCases:
 
     def test_leaderboard_non_numeric_limit(self, handler, mock_http_handler):
         """Test leaderboard with non-numeric limit uses default."""
-        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True), \
-             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro:
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
+        ):
             mock_intro.side_effect = lambda name, **kw: MockSnapshot(name)
 
-            with patch.object(handler, "_get_critique_store", return_value=None), \
-                 patch.object(handler, "_get_persona_manager", return_value=None):
+            with (
+                patch.object(handler, "_get_critique_store", return_value=None),
+                patch.object(handler, "_get_persona_manager", return_value=None),
+            ):
                 result = handler.handle(
                     "/api/introspection/leaderboard",
                     {"limit": ["abc"]},
@@ -1172,11 +1192,10 @@ class TestEdgeCases:
         # as an agent named "availability"
         with patch.object(handler, "_get_agent_availability") as mock_avail:
             from aragora.server.handlers.utils.responses import json_response
+
             mock_avail.return_value = json_response({"available": [], "missing": [], "details": {}})
 
-            result = handler.handle(
-                "/api/introspection/agents/availability", {}, mock_http_handler
-            )
+            result = handler.handle("/api/introspection/agents/availability", {}, mock_http_handler)
 
         mock_avail.assert_called_once()
 
@@ -1184,6 +1203,7 @@ class TestEdgeCases:
     @patch("aragora.server.handlers.introspection.get_agent_introspection")
     def test_all_introspection_oserror(self, mock_get_intro, handler, mock_http_handler):
         """Test _get_all_introspection handles individual OSError per agent."""
+
         def side_effect(name, **kw):
             if name == "claude":
                 raise OSError("file not found")
@@ -1191,8 +1211,10 @@ class TestEdgeCases:
 
         mock_get_intro.side_effect = side_effect
 
-        with patch.object(handler, "_get_critique_store", return_value=None), \
-             patch.object(handler, "_get_persona_manager", return_value=None):
+        with (
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
+        ):
             result = handler.handle("/api/introspection/all", {}, mock_http_handler)
 
         assert result.status_code == 200
@@ -1202,9 +1224,11 @@ class TestEdgeCases:
     def test_list_agents_store_no_get_agent_reputation(self, handler, mock_http_handler):
         """Test list agents when store lacks get_agent_reputation method."""
         mock_store = MagicMock(spec=[])  # No methods at all
-        mock_store.get_all_reputations = MagicMock(return_value=[
-            MockReputation("test_agent"),
-        ])
+        mock_store.get_all_reputations = MagicMock(
+            return_value=[
+                MockReputation("test_agent"),
+            ]
+        )
 
         with patch.object(handler, "_get_critique_store", return_value=mock_store):
             result = handler.handle("/api/introspection/agents", {}, mock_http_handler)

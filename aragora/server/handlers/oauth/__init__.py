@@ -79,10 +79,12 @@ def __getattr__(name: str):
     """Lazy imports to break circular dependency with _oauth/base.py."""
     if name == "_OAUTH_STATES":
         from .._oauth_impl import _OAUTH_STATES
+
         return _OAUTH_STATES
 
     if name in __all__:
         from . import handler as _handler
+
         val = getattr(_handler, name, None)
         if val is not None:
             return val

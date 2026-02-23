@@ -536,9 +536,7 @@ class TestStructuralConformance:
         """GitHubConnectorProtocol defines exactly 2 protocol methods."""
         methods = [
             name
-            for name, _ in inspect.getmembers(
-                GitHubConnectorProtocol, predicate=inspect.isfunction
-            )
+            for name, _ in inspect.getmembers(GitHubConnectorProtocol, predicate=inspect.isfunction)
             if not name.startswith("_")
         ]
         assert set(methods) == {"get_pr_content", "get_issue_content"}
@@ -556,9 +554,7 @@ class TestStructuralConformance:
     def test_jira_protocol_has_one_public_method(self):
         methods = [
             name
-            for name, _ in inspect.getmembers(
-                JiraConnectorProtocol, predicate=inspect.isfunction
-            )
+            for name, _ in inspect.getmembers(JiraConnectorProtocol, predicate=inspect.isfunction)
             if not name.startswith("_")
         ]
         assert set(methods) == {"get_issue"}
@@ -566,9 +562,7 @@ class TestStructuralConformance:
     def test_knowledge_mound_protocol_has_one_public_method(self):
         methods = [
             name
-            for name, _ in inspect.getmembers(
-                KnowledgeMoundProtocol, predicate=inspect.isfunction
-            )
+            for name, _ in inspect.getmembers(KnowledgeMoundProtocol, predicate=inspect.isfunction)
             if not name.startswith("_")
         ]
         assert set(methods) == {"search"}

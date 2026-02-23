@@ -439,7 +439,10 @@ class BindingsHandler(BaseHandler):
         router.add_binding(binding)
 
         logger.info(
-            "Created binding: %s for %s/%s", binding.name or binding.peer_pattern, binding.provider, binding.account_id
+            "Created binding: %s for %s/%s",
+            binding.name or binding.peer_pattern,
+            binding.provider,
+            binding.account_id,
         )
 
         return json_response(

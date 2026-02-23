@@ -181,9 +181,7 @@ class TestListDebates:
             "started_at": "2026-01-02T00:00:00Z",
         }
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/debates/hybrid", {"status": "completed"}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid", {"status": "completed"}, mock_handler)
         body = _body(result)
         assert body["total"] == 1
         assert body["debates"][0]["debate_id"] == "d1"
@@ -200,9 +198,7 @@ class TestListDebates:
                 "started_at": "2026-01-01T00:00:00Z",
             }
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "2"}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid", {"limit": "2"}, mock_handler)
         body = _body(result)
         assert body["total"] == 2
 
@@ -210,9 +206,7 @@ class TestListDebates:
     def test_limit_clamped_to_max_100(self, handler):
         mock_handler = _make_mock_handler()
         # Should not crash with limit=999; clamped to 100
-        result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "999"}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid", {"limit": "999"}, mock_handler)
         body = _body(result)
         assert "debates" in body
 
@@ -220,9 +214,7 @@ class TestListDebates:
     def test_limit_invalid_string(self, handler):
         mock_handler = _make_mock_handler()
         # Invalid limit should fall back to default 20
-        result = handler.handle(
-            "/api/v1/debates/hybrid", {"limit": "not_a_number"}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid", {"limit": "not_a_number"}, mock_handler)
         body = _body(result)
         assert "debates" in body
 
@@ -260,9 +252,7 @@ class TestGetDebate:
     @patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True)
     def test_not_found(self, handler):
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/debates/hybrid/nonexistent", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid/nonexistent", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert result.status_code == 404
@@ -277,9 +267,7 @@ class TestGetDebate:
             "confidence": 0.85,
         }
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/debates/hybrid/hybrid_abc123", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid/hybrid_abc123", {}, mock_handler)
         body = _body(result)
         assert body["debate_id"] == "hybrid_abc123"
         assert body["task"] == "Evaluate architecture"
@@ -315,9 +303,7 @@ class TestGetHybridUnavailable:
     @patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", False)
     def test_get_by_id_returns_503(self, handler):
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/debates/hybrid/some_id", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/debates/hybrid/some_id", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert result.status_code == 503
@@ -354,9 +340,7 @@ class TestCreateDebate:
             "config": {"verbose": True},
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert result.status_code == 201
         assert body["debate_id"].startswith("hybrid_")
@@ -380,9 +364,7 @@ class TestCreateDebate:
             "external_agent": "crewai-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert result.status_code == 201
         assert body["consensus_threshold"] == 0.7  # default
@@ -399,9 +381,7 @@ class TestCreateDebate:
             "external_agent": "crewai-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         debate_id = body["debate_id"]
         # Verify it's stored in the handler's internal dict
@@ -419,9 +399,7 @@ class TestCreateDebateValidation:
     def test_missing_task(self, handler):
         body_data = {"external_agent": "crewai-agent"}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "task" in body["error"].lower()
@@ -430,9 +408,7 @@ class TestCreateDebateValidation:
     def test_empty_task(self, handler):
         body_data = {"task": "   ", "external_agent": "crewai-agent"}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "task" in body["error"].lower()
@@ -441,9 +417,7 @@ class TestCreateDebateValidation:
     def test_task_not_string(self, handler):
         body_data = {"task": 12345, "external_agent": "crewai-agent"}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
 
@@ -451,9 +425,7 @@ class TestCreateDebateValidation:
     def test_task_too_long(self, handler):
         body_data = {"task": "x" * 5001, "external_agent": "crewai-agent"}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "5000" in body["error"]
@@ -462,9 +434,7 @@ class TestCreateDebateValidation:
     def test_missing_external_agent(self, handler):
         body_data = {"task": "My task"}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "external_agent" in body["error"].lower()
@@ -473,9 +443,7 @@ class TestCreateDebateValidation:
     def test_empty_external_agent(self, handler):
         body_data = {"task": "My task", "external_agent": "  "}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
 
@@ -483,9 +451,7 @@ class TestCreateDebateValidation:
     def test_unregistered_external_agent(self, handler):
         body_data = {"task": "My task", "external_agent": "unknown-agent"}
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "not found" in body["error"].lower()
@@ -498,9 +464,7 @@ class TestCreateDebateValidation:
             "consensus_threshold": "not_a_number",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "consensus_threshold" in body["error"]
@@ -513,9 +477,7 @@ class TestCreateDebateValidation:
             "consensus_threshold": 1.5,
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "consensus_threshold" in body["error"]
@@ -528,9 +490,7 @@ class TestCreateDebateValidation:
             "consensus_threshold": -0.1,
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
 
@@ -542,9 +502,7 @@ class TestCreateDebateValidation:
             "max_rounds": "abc",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "max_rounds" in body["error"]
@@ -557,9 +515,7 @@ class TestCreateDebateValidation:
             "max_rounds": 11,
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "max_rounds" in body["error"]
@@ -572,9 +528,7 @@ class TestCreateDebateValidation:
             "max_rounds": 0,
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
 
@@ -586,9 +540,7 @@ class TestCreateDebateValidation:
             "verification_agents": "single-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert "verification_agents" in body["error"]
@@ -598,9 +550,7 @@ class TestCreateDebateValidation:
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "5"}
         mock_handler.rfile.read.return_value = b"notjson"
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
 
@@ -612,9 +562,7 @@ class TestCreateDebateValidation:
             "domain": 12345,
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert result.status_code == 201
         assert body["domain"] == "general"
@@ -627,9 +575,7 @@ class TestCreateDebateValidation:
             "config": "not a dict",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert result.status_code == 201
         assert body["config"] == {}
@@ -648,9 +594,7 @@ class TestPostHybridUnavailable:
             "external_agent": "crewai-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert result.status_code == 503
@@ -672,9 +616,7 @@ class TestPostReturnsNone:
     def test_get_path_on_post(self, handler):
         """POST to a sub-path should return None (only exact match creates)."""
         mock_handler = _make_mock_handler({"task": "test"})
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid/some-id", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid/some-id", {}, mock_handler)
         assert result is None
 
 
@@ -696,9 +638,7 @@ class TestCircuitBreaker:
             "external_agent": "crewai-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         body = _body(result)
         assert "error" in body
         assert result.status_code == 503
@@ -712,9 +652,7 @@ class TestCircuitBreaker:
             "external_agent": "crewai-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         assert result.status_code == 201
         # Circuit breaker should still be closed
         assert cb.can_proceed()
@@ -723,17 +661,13 @@ class TestCircuitBreaker:
     def test_debate_failure_records_circuit_breaker_failure(self, handler):
         cb = get_hybrid_debate_circuit_breaker()
 
-        with patch.object(
-            handler, "_run_debate", side_effect=RuntimeError("debate failed")
-        ):
+        with patch.object(handler, "_run_debate", side_effect=RuntimeError("debate failed")):
             body_data = {
                 "task": "My task",
                 "external_agent": "crewai-agent",
             }
             mock_handler = _make_mock_handler(body_data)
-            result = handler.handle_post(
-                "/api/v1/debates/hybrid", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
             body = _body(result)
             # @handle_errors catches the RuntimeError
             assert "error" in body
@@ -827,9 +761,7 @@ class TestE2E:
             "external_agent": "crewai-agent",
         }
         mock_handler = _make_mock_handler(body_data)
-        create_result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        create_result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         create_body = _body(create_result)
         assert create_result.status_code == 201
         debate_id = create_body["debate_id"]
@@ -850,17 +782,13 @@ class TestE2E:
             "domain": "code-review",
         }
         mock_handler = _make_mock_handler(body_data)
-        create_result = handler.handle_post(
-            "/api/v1/debates/hybrid", {}, mock_handler
-        )
+        create_result = handler.handle_post("/api/v1/debates/hybrid", {}, mock_handler)
         create_body = _body(create_result)
         debate_id = create_body["debate_id"]
 
         # Get by ID
         get_handler = _make_mock_handler()
-        get_result = handler.handle(
-            f"/api/v1/debates/hybrid/{debate_id}", {}, get_handler
-        )
+        get_result = handler.handle(f"/api/v1/debates/hybrid/{debate_id}", {}, get_handler)
         get_body = _body(get_result)
         assert get_body["debate_id"] == debate_id
         assert get_body["task"] == "Review PR strategy"

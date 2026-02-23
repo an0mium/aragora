@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 # Circuit Breaker for Subsystem Access
 # =============================================================================
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as WorkspaceCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as WorkspaceCircuitBreaker,
+)
 
 # Per-subsystem circuit breakers for workspace handler
 _workspace_circuit_breakers: dict[str, WorkspaceCircuitBreaker] = {}
@@ -34,7 +36,9 @@ def _get_workspace_circuit_breaker(subsystem: str) -> WorkspaceCircuitBreaker:
     """Get or create a circuit breaker for a workspace subsystem."""
     with _workspace_circuit_breaker_lock:
         if subsystem not in _workspace_circuit_breakers:
-            _workspace_circuit_breakers[subsystem] = WorkspaceCircuitBreaker("workspace", failure_threshold=3, half_open_max_calls=2)
+            _workspace_circuit_breakers[subsystem] = WorkspaceCircuitBreaker(
+                "workspace", failure_threshold=3, half_open_max_calls=2
+            )
         return _workspace_circuit_breakers[subsystem]
 
 

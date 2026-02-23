@@ -258,9 +258,7 @@ class TestGetDashboardSuccess:
         )
 
         assert _status(result) == 200
-        mock_tracker.get_dashboard_summary.assert_called_once_with(
-            workspace_id=None, org_id=None
-        )
+        mock_tracker.get_dashboard_summary.assert_called_once_with(workspace_id=None, org_id=None)
 
     @patch("aragora.server.handlers.billing.cost_dashboard.get_client_ip", return_value="10.0.0.1")
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
@@ -272,9 +270,7 @@ class TestGetDashboardSuccess:
         result = handler.handle(DASHBOARD_PATH, {}, MockHTTPHandler(), method="GET")
 
         assert _status(result) == 200
-        mock_tracker.get_dashboard_summary.assert_called_once_with(
-            workspace_id=None, org_id=None
-        )
+        mock_tracker.get_dashboard_summary.assert_called_once_with(workspace_id=None, org_id=None)
 
     @patch("aragora.server.handlers.billing.cost_dashboard.get_client_ip", return_value="10.0.0.1")
     @patch("aragora.billing.cost_tracker.get_cost_tracker")

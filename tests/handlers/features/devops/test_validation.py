@@ -43,6 +43,7 @@ from aragora.server.handlers.features.devops.validation import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _body(result: object) -> dict:
     """Extract JSON body dict from a HandlerResult."""
     if result is None:

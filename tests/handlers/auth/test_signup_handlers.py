@@ -255,11 +255,13 @@ class TestHandleSignup:
 
     @pytest.mark.asyncio
     async def test_successful_signup(self):
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         assert _status(result) == 200
         body = _data(result)
         assert body["email"] == VALID_EMAIL
@@ -269,21 +271,25 @@ class TestHandleSignup:
 
     @pytest.mark.asyncio
     async def test_signup_with_company_name(self):
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-            "company_name": "Acme Corp",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+                "company_name": "Acme Corp",
+            }
+        )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_signup_stores_pending(self):
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         body = _data(result)
         token = body["verification_token"]
         with _pending_signups_lock:
@@ -295,90 +301,110 @@ class TestHandleSignup:
 
     @pytest.mark.asyncio
     async def test_signup_invalid_email_empty(self):
-        result = await handle_signup({
-            "email": "",
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": "",
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         assert _status(result) == 400
         assert "email" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_signup_invalid_email_format(self):
-        result = await handle_signup({
-            "email": "not-an-email",
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": "not-an-email",
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_signup_weak_password(self):
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": "weak",
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": "weak",
+                "name": VALID_NAME,
+            }
+        )
         assert _status(result) == 400
         assert "password" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_signup_short_name(self):
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": "A",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": "A",
+            }
+        )
         assert _status(result) == 400
         assert "name" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_signup_empty_name(self):
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": "",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": "",
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_signup_duplicate_email(self):
         # Register first
-        await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         # Try to register again
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": "Another Name",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": "Another Name",
+            }
+        )
         assert _status(result) == 409
         assert "pending" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_signup_email_case_insensitive(self):
-        await handle_signup({
-            "email": "USER@Example.COM",
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
-        result = await handle_signup({
-            "email": "user@example.com",
-            "password": VALID_PASSWORD,
-            "name": "Another",
-        })
+        await handle_signup(
+            {
+                "email": "USER@Example.COM",
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
+        result = await handle_signup(
+            {
+                "email": "user@example.com",
+                "password": VALID_PASSWORD,
+                "name": "Another",
+            }
+        )
         assert _status(result) == 409
 
     @pytest.mark.asyncio
     async def test_signup_email_stripped(self):
-        result = await handle_signup({
-            "email": "  test@example.com  ",
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": "  test@example.com  ",
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         assert _status(result) == 200
         body = _data(result)
         assert body["email"] == "test@example.com"
@@ -394,12 +420,14 @@ class TestHandleSignup:
                 "created_at": time.time(),
             }
 
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-            "invite_token": "invite123",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+                "invite_token": "invite123",
+            }
+        )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -412,12 +440,14 @@ class TestHandleSignup:
                 "created_at": time.time(),
             }
 
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-            "invite_token": "invite123",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+                "invite_token": "invite123",
+            }
+        )
         assert _status(result) == 400
         assert "match" in _body(result).get("error", "").lower()
 
@@ -431,24 +461,28 @@ class TestHandleSignup:
                 "created_at": time.time() - INVITE_TTL - 100,
             }
 
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-            "invite_token": "invite123",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+                "invite_token": "invite123",
+            }
+        )
         assert _status(result) == 400
         assert "expired" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_signup_nonexistent_invite_proceeds(self):
         """When invite_token is given but not found, signup still proceeds."""
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-            "invite_token": "nonexistent",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+                "invite_token": "nonexistent",
+            }
+        )
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -464,11 +498,13 @@ class TestHandleSignup:
             "aragora.server.handlers.auth.signup_handlers._hash_password",
             MagicMock(side_effect=ValueError("hash failed")),
         )
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         assert _status(result) == 500
 
 
@@ -482,11 +518,13 @@ class TestHandleVerifyEmail:
 
     async def _create_pending_signup(self) -> str:
         """Create a pending signup and return the verification token."""
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         return _data(result)["verification_token"]
 
     @pytest.mark.asyncio
@@ -558,12 +596,14 @@ class TestHandleVerifyEmail:
                 "created_at": time.time(),
             }
         # Create signup with invite
-        result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-            "invite_token": "inv_tok",
-        })
+        result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+                "invite_token": "inv_tok",
+            }
+        )
         token = _data(result)["verification_token"]
 
         with patch(
@@ -600,11 +640,13 @@ class TestHandleResendVerification:
 
     @pytest.mark.asyncio
     async def test_resend_found(self):
-        await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         result = await handle_resend_verification({"email": VALID_EMAIL})
         assert _status(result) == 200
         body = _data(result)
@@ -633,11 +675,13 @@ class TestHandleResendVerification:
 
     @pytest.mark.asyncio
     async def test_resend_case_insensitive(self):
-        await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         result = await handle_resend_verification({"email": "TEST@Example.COM"})
         assert _status(result) == 200
         body = _data(result)
@@ -646,11 +690,13 @@ class TestHandleResendVerification:
     @pytest.mark.asyncio
     async def test_resend_already_verified_not_found(self):
         """Already verified signup should not be resent."""
-        result_signup = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        result_signup = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         token = _data(result_signup)["verification_token"]
         # Mark as verified
         with _pending_signups_lock:
@@ -660,7 +706,11 @@ class TestHandleResendVerification:
         assert _status(result) == 200
         body = _data(result)
         # Should return generic message (not found since verified=True)
-        assert "email" not in body or body.get("email") is None or "if" in body.get("message", "").lower()
+        assert (
+            "email" not in body
+            or body.get("email") is None
+            or "if" in body.get("message", "").lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1305,13 +1355,22 @@ class TestCheckPermission:
         # Need to call the real _check_permission
         from aragora.server.handlers.auth import signup_handlers
 
-        original = signup_handlers._check_permission.__wrapped__ if hasattr(signup_handlers._check_permission, "__wrapped__") else None
+        original = (
+            signup_handlers._check_permission.__wrapped__
+            if hasattr(signup_handlers._check_permission, "__wrapped__")
+            else None
+        )
         # Re-import to get original
         import importlib
+
         mod = importlib.import_module("aragora.server.handlers.auth.signup_handlers")
         # The function is defined at module level; monkeypatch on the module
         # restored the mock; call the original directly
-        result = _check_permission.__wrapped__("user_1", "org:create") if hasattr(_check_permission, "__wrapped__") else None
+        result = (
+            _check_permission.__wrapped__("user_1", "org:create")
+            if hasattr(_check_permission, "__wrapped__")
+            else None
+        )
         # Since _mock_rbac patches _check_permission, we test indirectly
         # Let's just verify the mock checker was set up correctly
         assert mock_checker.check_permission.return_value.allowed is True
@@ -1333,6 +1392,7 @@ class TestCheckPermission:
         from aragora.server.handlers.auth.signup_handlers import (
             _check_permission as real_check,
         )
+
         result = real_check("user_1", "org:create")
         assert result is not None
         assert _status(result) == 403
@@ -1350,6 +1410,7 @@ class TestCheckPermission:
         from aragora.server.handlers.auth.signup_handlers import (
             _check_permission as real_check,
         )
+
         result = real_check("user_1", "org:create")
         assert result is not None
         assert _status(result) == 500
@@ -1364,6 +1425,7 @@ class TestCheckPermission:
 
         def capture_context(*args, **kwargs):
             from aragora.rbac.models import AuthorizationContext
+
             ctx = AuthorizationContext(*args, **kwargs)
             captured["ctx"] = ctx
             return ctx
@@ -1383,6 +1445,7 @@ class TestCheckPermission:
         from aragora.server.handlers.auth.signup_handlers import (
             _check_permission as real_check,
         )
+
         real_check("user_1", "org:admin", org_id="org_x", roles={"admin"})
         ctx = captured.get("ctx")
         assert ctx is not None
@@ -1501,11 +1564,13 @@ class TestSignupFlow:
     async def test_full_signup_verify_flow(self):
         """Signup -> verify email -> setup org -> onboarding complete."""
         # 1. Signup
-        signup_result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        signup_result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         assert _status(signup_result) == 200
         token = _data(signup_result)["verification_token"]
 
@@ -1558,12 +1623,14 @@ class TestSignupFlow:
         invite_token = _data(invite_result)["invite_token"]
 
         # 2. Signup with invite token
-        signup_result = await handle_signup({
-            "email": "joiner@example.com",
-            "password": VALID_PASSWORD,
-            "name": "Joiner",
-            "invite_token": invite_token,
-        })
+        signup_result = await handle_signup(
+            {
+                "email": "joiner@example.com",
+                "password": VALID_PASSWORD,
+                "name": "Joiner",
+                "invite_token": invite_token,
+            }
+        )
         assert _status(signup_result) == 200
         verify_token = _data(signup_result)["verification_token"]
 
@@ -1612,11 +1679,13 @@ class TestSignupFlow:
     @pytest.mark.asyncio
     async def test_double_verify_fails(self):
         """Cannot verify the same token twice."""
-        signup_result = await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        signup_result = await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         token = _data(signup_result)["verification_token"]
 
         with patch(
@@ -1632,18 +1701,18 @@ class TestSignupFlow:
     @pytest.mark.asyncio
     async def test_signup_after_resend(self):
         """Resend verification does not create a duplicate."""
-        await handle_signup({
-            "email": VALID_EMAIL,
-            "password": VALID_PASSWORD,
-            "name": VALID_NAME,
-        })
+        await handle_signup(
+            {
+                "email": VALID_EMAIL,
+                "password": VALID_PASSWORD,
+                "name": VALID_NAME,
+            }
+        )
         # Resend
         resend_result = await handle_resend_verification({"email": VALID_EMAIL})
         assert _status(resend_result) == 200
 
         # Still only one pending signup for this email
         with _pending_signups_lock:
-            matching = [
-                v for v in _pending_signups.values() if v["email"] == VALID_EMAIL
-            ]
+            matching = [v for v in _pending_signups.values() if v["email"] == VALID_EMAIL]
             assert len(matching) == 1

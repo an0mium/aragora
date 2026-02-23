@@ -188,6 +188,7 @@ def _patch_service(monkeypatch, mock_service):
 @pytest.fixture(autouse=True)
 def _patch_send_email_request(monkeypatch):
     """Patch SendEmailRequest import inside handle_send_email to avoid real import."""
+
     # The handler does `from aragora.services.email_actions import SendEmailRequest`
     # at call time. We mock the module-level import target so it finds our mock.
     @dataclass
@@ -330,7 +331,10 @@ class TestSendEmail:
         result = await handle_send_email(data, user_id="test-user-001")
         assert _status(result) == 200
         call_kwargs = mock_service.send.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
     @pytest.mark.asyncio
     async def test_send_outlook_provider(self, mock_service):
@@ -589,14 +593,20 @@ class TestSnoozeMessage:
         data = {"provider": "gmail"}
         result = await handle_snooze_message(data, message_id="msg-123", user_id="test-user-001")
         assert _status(result) == 400
-        assert "snooze_until" in _body(result).get("error", "").lower() or "snooze" in _body(result).get("error", "").lower()
+        assert (
+            "snooze_until" in _body(result).get("error", "").lower()
+            or "snooze" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_snooze_invalid_datetime_format(self):
         data = {"snooze_until": "not-a-date"}
         result = await handle_snooze_message(data, message_id="msg-123", user_id="test-user-001")
         assert _status(result) == 400
-        assert "iso" in _body(result).get("error", "").lower() or "format" in _body(result).get("error", "").lower()
+        assert (
+            "iso" in _body(result).get("error", "").lower()
+            or "format" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_snooze_past_datetime(self):
@@ -1123,7 +1133,10 @@ class TestBatchModify:
         data = {"message_ids": ["m1"]}
         result = await handle_batch_modify(data, user_id="test-user-001")
         assert _status(result) == 400
-        assert "add_labels" in _body(result).get("error", "").lower() or "remove_labels" in _body(result).get("error", "").lower()
+        assert (
+            "add_labels" in _body(result).get("error", "").lower()
+            or "remove_labels" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_batch_modify_fallback_on_batch_failure(self, mock_service):
@@ -1292,7 +1305,10 @@ class TestExportActionLogs:
         data = {"end_date": "2025-01-31T00:00:00Z"}
         result = await handle_export_action_logs(data, user_id="test-user-001")
         assert _status(result) == 400
-        assert "start_date" in _body(result).get("error", "").lower() or "end_date" in _body(result).get("error", "").lower()
+        assert (
+            "start_date" in _body(result).get("error", "").lower()
+            or "end_date" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_export_missing_end_date(self):
@@ -1311,7 +1327,10 @@ class TestExportActionLogs:
         data = {"start_date": "not-a-date", "end_date": "2025-01-31T00:00:00Z"}
         result = await handle_export_action_logs(data, user_id="test-user-001")
         assert _status(result) == 400
-        assert "iso" in _body(result).get("error", "").lower() or "format" in _body(result).get("error", "").lower()
+        assert (
+            "iso" in _body(result).get("error", "").lower()
+            or "format" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_export_end_before_start(self):
@@ -1404,7 +1423,10 @@ class TestDefaultProvider:
         result = await handle_archive_message(data, user_id="test-user-001")
         assert _status(result) == 200
         call_kwargs = mock_service.archive.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
     @pytest.mark.asyncio
     async def test_trash_default_provider(self, mock_service):
@@ -1412,7 +1434,10 @@ class TestDefaultProvider:
         result = await handle_trash_message(data, user_id="test-user-001")
         assert _status(result) == 200
         call_kwargs = mock_service.trash.call_args
-        assert call_kwargs.kwargs.get("provider") == "gmail" or call_kwargs[1].get("provider") == "gmail"
+        assert (
+            call_kwargs.kwargs.get("provider") == "gmail"
+            or call_kwargs[1].get("provider") == "gmail"
+        )
 
 
 # ============================================================================
@@ -1426,19 +1451,21 @@ class TestMessageIdPrecedence:
     @pytest.mark.asyncio
     async def test_param_takes_precedence_over_body(self, mock_service):
         data = {"message_id": "body-id", "body": "reply"}
-        result = await handle_reply_email(
-            data, message_id="param-id", user_id="test-user-001"
-        )
+        result = await handle_reply_email(data, message_id="param-id", user_id="test-user-001")
         assert _status(result) == 200
         call_kwargs = mock_service.reply.call_args
-        assert call_kwargs.kwargs.get("message_id") == "param-id" or call_kwargs[1].get("message_id") == "param-id"
+        assert (
+            call_kwargs.kwargs.get("message_id") == "param-id"
+            or call_kwargs[1].get("message_id") == "param-id"
+        )
 
     @pytest.mark.asyncio
     async def test_falls_back_to_body_when_param_empty(self, mock_service):
         data = {"message_id": "body-id", "body": "reply"}
-        result = await handle_reply_email(
-            data, message_id="", user_id="test-user-001"
-        )
+        result = await handle_reply_email(data, message_id="", user_id="test-user-001")
         assert _status(result) == 200
         call_kwargs = mock_service.reply.call_args
-        assert call_kwargs.kwargs.get("message_id") == "body-id" or call_kwargs[1].get("message_id") == "body-id"
+        assert (
+            call_kwargs.kwargs.get("message_id") == "body-id"
+            or call_kwargs[1].get("message_id") == "body-id"
+        )

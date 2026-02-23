@@ -361,7 +361,9 @@ class DatabaseRepository:
 
         if count > 0:
             self._notify_change("delete")
-            logger.debug("Batch deleted %s/%s records from %s", count, len(id_values), self.TABLE_NAME)
+            logger.debug(
+                "Batch deleted %s/%s records from %s", count, len(id_values), self.TABLE_NAME
+            )
 
         return count
 
@@ -493,7 +495,9 @@ class DatabaseRepository:
 
         if count > 0:
             self._notify_change("update")
-            logger.debug("Batch updated %s/%s records in %s", count, len(id_values), self.TABLE_NAME)
+            logger.debug(
+                "Batch updated %s/%s records in %s", count, len(id_values), self.TABLE_NAME
+            )
 
         return count
 

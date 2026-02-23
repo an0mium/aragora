@@ -61,8 +61,12 @@ class TestListing:
         assert len(results) == 2
 
     def test_list_by_tags(self, registry):
-        registry.register(Playbook(id="a", name="A", description="", category="general", tags=["hipaa"]))
-        registry.register(Playbook(id="b", name="B", description="", category="general", tags=["sox"]))
+        registry.register(
+            Playbook(id="a", name="A", description="", category="general", tags=["hipaa"])
+        )
+        registry.register(
+            Playbook(id="b", name="B", description="", category="general", tags=["sox"])
+        )
         results = registry.list(tags=["hipaa"])
         assert len(results) == 1
         assert results[0].id == "a"

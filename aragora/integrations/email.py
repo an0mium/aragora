@@ -507,7 +507,8 @@ class EmailIntegration:
             status = cb.get_status()
             if status == "open":
                 logger.warning(
-                    "Email circuit breaker OPENED for %s after repeated failures", self.config.provider
+                    "Email circuit breaker OPENED for %s after repeated failures",
+                    self.config.provider,
                 )
 
     def get_health_status(self) -> dict[str, Any]:

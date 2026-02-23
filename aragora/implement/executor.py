@@ -823,9 +823,7 @@ Follow existing code style and tests.""",
         from aragora.implement.error_analyzer import ErrorAnalyzer
 
         analyzer = ErrorAnalyzer()
-        analysis = analyzer.analyze(
-            result.error or "", getattr(result, "stderr", "")
-        )
+        analysis = analyzer.analyze(result.error or "", getattr(result, "stderr", ""))
 
         # Non-retryable errors: return immediately
         if not analysis.retryable:
@@ -836,11 +834,12 @@ Follow existing code style and tests.""",
 
         if self.max_retries >= 2:
             # Attempt 2: retry with error context injected as feedback
-            logger.info(
-                f"    Retrying {task.id} ({analysis.category} error)..."
-            )
+            logger.info(f"    Retrying {task.id} ({analysis.category} error)...")
             result = await self.execute_task(
-                task, attempt=2, use_fallback=False, feedback=retry_hint,
+                task,
+                attempt=2,
+                use_fallback=False,
+                feedback=retry_hint,
             )
             if result.success:
                 if self._should_review():
@@ -1163,12 +1162,13 @@ Follow existing code style and tests.""",
         files outside the designated working directory.
         """
         docker_args = self._get_sandbox_docker_args()
-        cmd = ["docker", "run", *docker_args, "bash", "-c",
-               f"echo {repr(prompt)} | claude --print"]
+        cmd = ["docker", "run", *docker_args, "bash", "-c", f"echo {repr(prompt)} | claude --print"]
 
         logger.info(
             "  Executing [%s] %s in sandbox (timeout %ds)...",
-            task.complexity, task.id, timeout,
+            task.complexity,
+            task.id,
+            timeout,
         )
 
         start_time = time.time()

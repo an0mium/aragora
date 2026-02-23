@@ -25,14 +25,65 @@ from aragora.workflow.types import (
 logger = logging.getLogger(__name__)
 
 # Stopwords for tokenization
-_STOPWORDS = frozenset({
-    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-    "being", "have", "has", "had", "do", "does", "did", "will", "would",
-    "could", "should", "may", "might", "shall", "can", "need", "it", "its",
-    "this", "that", "these", "those", "i", "me", "my", "we", "our", "you",
-    "your", "he", "she", "they", "them", "their",
-})
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "need",
+        "it",
+        "its",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "me",
+        "my",
+        "we",
+        "our",
+        "you",
+        "your",
+        "he",
+        "she",
+        "they",
+        "them",
+        "their",
+    }
+)
 
 # Keyword groups for pattern matching
 _PATTERN_KEYWORDS: dict[str, list[str]] = {
@@ -184,7 +235,9 @@ class NLWorkflowBuilder:
         best_template: dict[str, Any] | None = None
 
         for template_id, template in WORKFLOW_TEMPLATES.items():
-            template_text = f"{template_id} {template.get('name', '')} {template.get('description', '')}"
+            template_text = (
+                f"{template_id} {template.get('name', '')} {template.get('description', '')}"
+            )
             template_tokens = _tokenize(template_text)
             score = _jaccard_similarity(desc_tokens, template_tokens)
             if score > best_score:
@@ -215,9 +268,7 @@ class NLWorkflowBuilder:
     # Pattern matching
     # -----------------------------------------------------------------
 
-    def _match_pattern(
-        self, description: str, agents: list[str] | None = None
-    ) -> NLBuildResult:
+    def _match_pattern(self, description: str, agents: list[str] | None = None) -> NLBuildResult:
         """Match description against workflow pattern keywords."""
         desc_lower = description.lower()
 

@@ -217,18 +217,14 @@ class TestGetInstance:
         mock_mod.ServiceRegistry.get.return_value = mock_registry
         with patch.dict("sys.modules", {"aragora.services": mock_mod}):
             result = TelemetryConfig.get_instance()
-            mock_registry.register.assert_called_once_with(
-                TelemetryConfig, result
-            )
+            mock_registry.register.assert_called_once_with(TelemetryConfig, result)
 
 
 class TestResetInstance:
     """reset_instance clears singleton."""
 
     def test_clears_class_singleton(self):
-        TelemetryConfig._instance = TelemetryConfig(
-            level=TelemetryLevel.SILENT
-        )
+        TelemetryConfig._instance = TelemetryConfig(level=TelemetryLevel.SILENT)
         TelemetryConfig.reset_instance()
         assert TelemetryConfig._instance is None
 

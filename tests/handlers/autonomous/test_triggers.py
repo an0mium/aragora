@@ -258,9 +258,7 @@ class TestListTriggers:
 
     @pytest.mark.asyncio
     async def test_list_trigger_metadata(self, install_trigger, install_cb):
-        config = _make_trigger_config(
-            metadata={"topic": "security review", "agents": 5}
-        )
+        config = _make_trigger_config(metadata={"topic": "security review", "agents": 5})
         install_trigger.list_triggers.return_value = [config]
 
         req = _make_request()
@@ -412,9 +410,16 @@ class TestListTriggers:
         data = await _parse(resp)
         trigger = data["triggers"][0]
         expected_keys = {
-            "id", "name", "interval_seconds", "cron_expression",
-            "enabled", "last_run", "next_run", "run_count",
-            "max_runs", "metadata",
+            "id",
+            "name",
+            "interval_seconds",
+            "cron_expression",
+            "enabled",
+            "last_run",
+            "next_run",
+            "run_count",
+            "max_runs",
+            "metadata",
         }
         assert expected_keys == set(trigger.keys())
 
@@ -1330,11 +1335,7 @@ class TestRegisterRoutes:
         app = web.Application()
         TriggerHandler.register_routes(app)
 
-        route_count = sum(
-            1
-            for r in app.router.routes()
-            if hasattr(r, "resource") and r.resource
-        )
+        route_count = sum(1 for r in app.router.routes() if hasattr(r, "resource") and r.resource)
         # 7 registered + aiohttp auto-adds HEAD for GET routes = 8
         assert route_count == 8
 

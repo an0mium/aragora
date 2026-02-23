@@ -165,7 +165,9 @@ class TestDetectStance:
         assert analyzer.detect_stance("I disagree and oppose this proposal strongly") == "oppose"
 
     def test_neutral(self, analyzer):
-        assert analyzer.detect_stance("The weather is nice today and birds are singing") == "neutral"
+        assert (
+            analyzer.detect_stance("The weather is nice today and birds are singing") == "neutral"
+        )
 
     def test_mixed(self, analyzer):
         stance = analyzer.detect_stance(
@@ -254,9 +256,7 @@ class TestComputeEvidenceConvergence:
         assert result.shared_citations == 0
 
     def test_single_agent(self, analyzer):
-        result = analyzer.compute_evidence_convergence(
-            {"claude": "See https://example.com."}
-        )
+        result = analyzer.compute_evidence_convergence({"claude": "See https://example.com."})
         assert result.overlap_score == 0.0
 
 

@@ -119,9 +119,7 @@ class TestCrossProposalAnalysis:
             shared_evidence=[],
             evidence_corroboration_score=0.0,
             contradictory_evidence=[],
-            evidence_gaps=[
-                EvidenceGap(claim="claim", agents_making_claim=["a"], gap_severity=0.5)
-            ],
+            evidence_gaps=[EvidenceGap(claim="claim", agents_making_claim=["a"], gap_severity=0.5)],
             redundancy_score=0.0,
             unique_evidence_sources=0,
             total_evidence_sources=0,
@@ -136,8 +134,12 @@ class TestCrossProposalAnalysis:
             evidence_corroboration_score=0.0,
             contradictory_evidence=[
                 Contradiction(
-                    agent1="a", agent2="b", topic="t",
-                    evidence1="e1", evidence2="e2", description="d",
+                    agent1="a",
+                    agent2="b",
+                    topic="t",
+                    evidence1="e1",
+                    evidence2="e2",
+                    description="d",
                 )
             ],
             evidence_gaps=[],
@@ -183,7 +185,9 @@ class TestCrossProposalAnalysis:
             evidence_corroboration_score=0.0,
             contradictory_evidence=[],
             evidence_gaps=[
-                EvidenceGap(claim="missing evidence for cache", agents_making_claim=["a"], gap_severity=0.5)
+                EvidenceGap(
+                    claim="missing evidence for cache", agents_making_claim=["a"], gap_severity=0.5
+                )
             ],
             redundancy_score=0.0,
             unique_evidence_sources=0,
@@ -199,8 +203,12 @@ class TestCrossProposalAnalysis:
             evidence_corroboration_score=0.0,
             contradictory_evidence=[
                 Contradiction(
-                    agent1="claude", agent2="gpt", topic="caching",
-                    evidence1="e1", evidence2="e2", description="d",
+                    agent1="claude",
+                    agent2="gpt",
+                    topic="caching",
+                    evidence1="e1",
+                    evidence2="e2",
+                    description="d",
                 )
             ],
             evidence_gaps=[],
@@ -286,9 +294,7 @@ class TestAnalyzerWithLinker:
         cov_claude = make_coverage(links=[shared_link], coverage=0.8)
         cov_gpt = make_coverage(links=[shared_link], coverage=0.7)
 
-        self.linker.compute_evidence_coverage = MagicMock(
-            side_effect=[cov_claude, cov_gpt]
-        )
+        self.linker.compute_evidence_coverage = MagicMock(side_effect=[cov_claude, cov_gpt])
 
         analyzer = CrossProposalAnalyzer(linker=self.linker)
         analysis = analyzer.analyze({"claude": "text", "gpt": "text"})
@@ -303,9 +309,7 @@ class TestAnalyzerWithLinker:
         cov1 = make_coverage(links=[link1], coverage=0.5)
         cov2 = make_coverage(links=[link2], coverage=0.5)
 
-        self.linker.compute_evidence_coverage = MagicMock(
-            side_effect=[cov1, cov2]
-        )
+        self.linker.compute_evidence_coverage = MagicMock(side_effect=[cov1, cov2])
 
         analyzer = CrossProposalAnalyzer(linker=self.linker)
         analysis = analyzer.analyze({"claude": "text", "gpt": "text"})
@@ -325,9 +329,7 @@ class TestAnalyzerWithLinker:
             coverage=0.2,
         )
 
-        self.linker.compute_evidence_coverage = MagicMock(
-            side_effect=[cov1, cov2]
-        )
+        self.linker.compute_evidence_coverage = MagicMock(side_effect=[cov1, cov2])
 
         analyzer = CrossProposalAnalyzer(linker=self.linker)
         analysis = analyzer.analyze({"claude": "text", "gpt": "text"})
@@ -339,9 +341,7 @@ class TestAnalyzerWithLinker:
         cov1 = make_coverage(links=[], coverage=0.2)
         cov2 = make_coverage(links=[], coverage=0.9)
 
-        self.linker.compute_evidence_coverage = MagicMock(
-            side_effect=[cov1, cov2]
-        )
+        self.linker.compute_evidence_coverage = MagicMock(side_effect=[cov1, cov2])
 
         analyzer = CrossProposalAnalyzer(linker=self.linker)
         analysis = analyzer.analyze({"weak": "text", "strong": "text"})
@@ -350,21 +350,15 @@ class TestAnalyzerWithLinker:
 
     def test_redundancy_calculation(self):
         # All agents cite same evidence → high redundancy
-        shared = make_evidence_link(
-            claim="claim", evidence="identical evidence source"
-        )
+        shared = make_evidence_link(claim="claim", evidence="identical evidence source")
         cov1 = make_coverage(links=[shared], coverage=0.5)
         cov2 = make_coverage(links=[shared], coverage=0.5)
         cov3 = make_coverage(links=[shared], coverage=0.5)
 
-        self.linker.compute_evidence_coverage = MagicMock(
-            side_effect=[cov1, cov2, cov3]
-        )
+        self.linker.compute_evidence_coverage = MagicMock(side_effect=[cov1, cov2, cov3])
 
         analyzer = CrossProposalAnalyzer(linker=self.linker)
-        analysis = analyzer.analyze({
-            "claude": "text", "gpt": "text", "gemini": "text"
-        })
+        analysis = analyzer.analyze({"claude": "text", "gpt": "text", "gemini": "text"})
 
         # 3 citations, 1 unique → redundancy = 1 - 1/3 = 0.667
         assert analysis.redundancy_score > 0.5

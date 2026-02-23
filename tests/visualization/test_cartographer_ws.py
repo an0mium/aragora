@@ -33,8 +33,12 @@ def cartographer():
     """A cartographer with some pre-populated data."""
     c = ArgumentCartographer()
     c.set_debate_context(debate_id="d-001", topic="Rate limiter design")
-    c.update_from_message(agent="claude", content="I propose a token bucket", role="proposer", round_num=1)
-    c.update_from_message(agent="gpt4", content="I disagree, sliding window is better", role="critic", round_num=1)
+    c.update_from_message(
+        agent="claude", content="I propose a token bucket", role="proposer", round_num=1
+    )
+    c.update_from_message(
+        agent="gpt4", content="I disagree, sliding window is better", role="critic", round_num=1
+    )
     return c
 
 
@@ -146,8 +150,7 @@ class TestBridgeGraphUpdateEmission:
         # plus once for the graph_update)
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) >= 1
 
@@ -156,12 +159,13 @@ class TestBridgeGraphUpdateEmission:
         bridge.notify("proposal", agent="claude", details="I propose X", round_number=1)
         bridge.event_emitter.emit.reset_mock()
 
-        bridge.notify("critique", agent="gpt4", details="Critiqued claude: weak", round_number=1, metric=0.8)
+        bridge.notify(
+            "critique", agent="gpt4", details="Critiqued claude: weak", round_number=1, metric=0.8
+        )
 
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) >= 1
 
@@ -173,8 +177,7 @@ class TestBridgeGraphUpdateEmission:
 
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) >= 1
 
@@ -186,8 +189,7 @@ class TestBridgeGraphUpdateEmission:
 
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) >= 1
 
@@ -196,8 +198,7 @@ class TestBridgeGraphUpdateEmission:
 
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) >= 1
 
@@ -239,8 +240,7 @@ class TestBridgeGraphUpdateEmission:
 
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) >= 1
 
@@ -255,7 +255,6 @@ class TestBridgeGraphUpdateEmission:
         # No graph_update should be emitted for unknown events
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [
-            c for c in calls
-            if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
+            c for c in calls if hasattr(c[0][0], "type") and c[0][0].type.value == "graph_update"
         ]
         assert len(graph_events) == 0

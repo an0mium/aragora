@@ -437,7 +437,8 @@ async def setup_debate_infrastructure(
             if event_bus is not None:
                 _subscribe_live_explainability(event_bus, stream)
                 logger.info(
-                    "live_explainability_initialized debate_id=%s", state.debate_id,
+                    "live_explainability_initialized debate_id=%s",
+                    state.debate_id,
                 )
         except (ImportError, RuntimeError, ValueError, TypeError) as e:
             logger.debug("LiveExplainabilityStream init failed (non-critical): %s", e)
@@ -456,7 +457,8 @@ async def setup_debate_infrastructure(
             if event_bus is not None:
                 _subscribe_active_introspection(event_bus, tracker)
                 logger.info(
-                    "active_introspection_initialized debate_id=%s", state.debate_id,
+                    "active_introspection_initialized debate_id=%s",
+                    state.debate_id,
                 )
         except (ImportError, RuntimeError, ValueError, TypeError) as e:
             logger.debug("ActiveIntrospectionTracker init failed (non-critical): %s", e)
@@ -540,8 +542,11 @@ def _subscribe_live_explainability(event_bus: Any, stream: Any) -> None:
         round_num = event.data.get("round_num", 0)
         reasoning = event.data.get("reasoning", "")
         stream.on_vote(
-            agent, choice, confidence=confidence,
-            round_num=round_num, reasoning=reasoning,
+            agent,
+            choice,
+            confidence=confidence,
+            round_num=round_num,
+            reasoning=reasoning,
         )
 
     def _on_consensus(event: DebateEvent) -> None:
@@ -714,7 +719,9 @@ async def handle_debate_completion(
                     await asyncio.sleep(2**_attempt)  # 1s, 2s backoff
         if not _ingestion_succeeded and _last_error is not None:
             logger.warning(
-                "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s", state.debate_id, _last_error
+                "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s",
+                state.debate_id,
+                _last_error,
             )
             try:
                 from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
@@ -745,13 +752,13 @@ async def handle_debate_completion(
             risk_levels = {"minimal": 0, "limited": 1, "high": 2, "unacceptable": 3}
             if risk_levels.get(risk.risk_level.value, 0) >= 1:
                 generator = ComplianceArtifactGenerator()
-                receipt_dict = (
-                    ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
-                )
+                receipt_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
                 bundle = generator.generate(receipt_dict)
                 ctx.result.compliance_artifacts = bundle.to_dict()
                 logger.info(
-                    "Attached compliance artifacts for debate %s (risk=%s)", state.debate_id, risk.risk_level.value
+                    "Attached compliance artifacts for debate %s (risk=%s)",
+                    state.debate_id,
+                    risk.risk_level.value,
                 )
         except ImportError:
             logger.debug("Compliance module not available for auto-attach")
@@ -798,7 +805,13 @@ async def handle_debate_completion(
                 async def _run_fallback_workflow() -> None:
                     try:
                         await workflow.execute({"debate_result": ctx.result})
-                    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as wf_err:
+                    except (
+                        RuntimeError,
+                        ValueError,
+                        TypeError,
+                        OSError,
+                        ConnectionError,
+                    ) as wf_err:
                         logger.debug("Post-debate workflow fallback failed: %s", wf_err)
 
                 _fallback_task = _asyncio.create_task(_run_fallback_workflow())
@@ -810,20 +823,26 @@ async def handle_debate_completion(
                     else None
                 )
                 logger.info(
-                    "[workflow-fallback] Triggered post-debate workflow for debate %s", state.debate_id
+                    "[workflow-fallback] Triggered post-debate workflow for debate %s",
+                    state.debate_id,
                 )
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug("Post-debate workflow fallback setup failed: %s", e)
 
     # Run post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
     from aragora.debate.post_debate_coordinator import DEFAULT_POST_DEBATE_CONFIG, PostDebateConfig
+
     post_debate_config = getattr(arena, "post_debate_config", None)
-    effective_config = post_debate_config if post_debate_config is not None else DEFAULT_POST_DEBATE_CONFIG
+    effective_config = (
+        post_debate_config if post_debate_config is not None else DEFAULT_POST_DEBATE_CONFIG
+    )
 
     # Bridge AutoExecutionConfig → PostDebateConfig: when enable_auto_execution
     # is set on the Arena, propagate it to the PostDebateConfig so that the
     # coordinator can actually execute plans and create PRs.
-    if getattr(arena, "enable_auto_execution", False) and isinstance(effective_config, PostDebateConfig):
+    if getattr(arena, "enable_auto_execution", False) and isinstance(
+        effective_config, PostDebateConfig
+    ):
         auto_mode = getattr(arena, "auto_approval_mode", "risk_based")
         getattr(arena, "auto_max_risk", "low")
         effective_config = PostDebateConfig(
@@ -879,11 +898,12 @@ async def handle_debate_completion(
             all_summaries = introspection_tracker.get_all_summaries()
             if all_summaries:
                 ctx.result.metadata["introspection"] = {
-                    agent_name: summary.to_dict()
-                    for agent_name, summary in all_summaries.items()
+                    agent_name: summary.to_dict() for agent_name, summary in all_summaries.items()
                 }
                 logger.info(
-                    "introspection_attached debate_id=%s agents=%s", state.debate_id, len(all_summaries),
+                    "introspection_attached debate_id=%s agents=%s",
+                    state.debate_id,
+                    len(all_summaries),
                 )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.debug("Introspection summary failed (non-critical): %s", e)
@@ -907,7 +927,9 @@ async def handle_debate_completion(
                     "belief_shifts": snapshot.belief_shifts,
                 }
                 logger.info(
-                    "live_explainability_attached debate_id=%s factors=%s", state.debate_id, len(snapshot.top_factors),
+                    "live_explainability_attached debate_id=%s factors=%s",
+                    state.debate_id,
+                    len(snapshot.top_factors),
                 )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.debug("Live explainability snapshot failed (non-critical): %s", e)
@@ -1047,7 +1069,12 @@ async def _auto_execute_plan(
                 "tasks_total": outcome.tasks_total,
             }
 
-        logger.info("auto_execution plan_id=%s status=%s debate_id=%s", plan.id, plan.status, result.debate_id)
+        logger.info(
+            "auto_execution plan_id=%s status=%s debate_id=%s",
+            plan.id,
+            plan.status,
+            result.debate_id,
+        )
 
     except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
         logger.warning("auto_execution_failed error=%s: %s", type(e).__name__, e)

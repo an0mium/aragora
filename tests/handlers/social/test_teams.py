@@ -287,9 +287,7 @@ class TestDebateCommand:
                 "aragora.server.handlers.social.teams.get_teams_connector",
                 return_value=mock_connector,
             ):
-                with patch(
-                    "aragora.server.handlers.social.teams.create_tracked_task"
-                ):
+                with patch("aragora.server.handlers.social.teams.create_tracked_task"):
                     result = await handler._handle_command(h)
                     data = _body(result)
                     assert data["success"] is True
@@ -392,9 +390,7 @@ class TestPlanCommand:
         h = MockHTTPHandler(method="POST", body=body)
         with patch.object(handler, "_read_json_body", return_value=body):
             with patch.object(handler, "_start_debate") as mock_start:
-                mock_start.return_value = MagicMock(
-                    body=b'{"success": true}', status_code=200
-                )
+                mock_start.return_value = MagicMock(body=b'{"success": true}', status_code=200)
                 await handler._handle_command(h)
                 _, kwargs = mock_start.call_args
                 di = kwargs["decision_integrity"]
@@ -422,9 +418,7 @@ class TestImplementCommand:
         h = MockHTTPHandler(method="POST", body=body)
         with patch.object(handler, "_read_json_body", return_value=body):
             with patch.object(handler, "_start_debate") as mock_start:
-                mock_start.return_value = MagicMock(
-                    body=b'{"success": true}', status_code=200
-                )
+                mock_start.return_value = MagicMock(body=b'{"success": true}', status_code=200)
                 await handler._handle_command(h)
                 _, kwargs = mock_start.call_args
                 di = kwargs["decision_integrity"]
@@ -607,9 +601,7 @@ class TestLeaderboardCommand:
             }
             h = MockHTTPHandler(method="POST", body=body)
             with patch.object(handler, "_read_json_body", return_value=body):
-                with patch(
-                    "aragora.ranking.elo.get_elo_store"
-                ) as mock_store_fn:
+                with patch("aragora.ranking.elo.get_elo_store") as mock_store_fn:
                     mock_store = MagicMock()
                     mock_store.get_leaderboard.return_value = [mock_ranking]
                     mock_store_fn.return_value = mock_store
@@ -633,9 +625,7 @@ class TestLeaderboardCommand:
             }
             h = MockHTTPHandler(method="POST", body=body)
             with patch.object(handler, "_read_json_body", return_value=body):
-                with patch(
-                    "aragora.ranking.elo.get_elo_store"
-                ) as mock_store_fn:
+                with patch("aragora.ranking.elo.get_elo_store") as mock_store_fn:
                     mock_store = MagicMock()
                     mock_store.get_leaderboard.return_value = []
                     mock_store_fn.return_value = mock_store
@@ -762,9 +752,7 @@ class TestRecentCommand:
             }
             h = MockHTTPHandler(method="POST", body=body)
             with patch.object(handler, "_read_json_body", return_value=body):
-                with patch(
-                    "aragora.server.storage.get_debates_db"
-                ) as mock_db_fn:
+                with patch("aragora.server.storage.get_debates_db") as mock_db_fn:
                     mock_db = MagicMock()
                     mock_db.list_recent.return_value = [mock_debate]
                     mock_db_fn.return_value = mock_db
@@ -788,9 +776,7 @@ class TestRecentCommand:
             }
             h = MockHTTPHandler(method="POST", body=body)
             with patch.object(handler, "_read_json_body", return_value=body):
-                with patch(
-                    "aragora.server.storage.get_debates_db"
-                ) as mock_db_fn:
+                with patch("aragora.server.storage.get_debates_db") as mock_db_fn:
                     mock_db = MagicMock()
                     mock_db.list_recent.return_value = []
                     mock_db_fn.return_value = mock_db
@@ -823,9 +809,7 @@ class TestSearchCommand:
             }
             h = MockHTTPHandler(method="POST", body=body)
             with patch.object(handler, "_read_json_body", return_value=body):
-                with patch(
-                    "aragora.server.storage.get_debates_db"
-                ) as mock_db_fn:
+                with patch("aragora.server.storage.get_debates_db") as mock_db_fn:
                     mock_db = MagicMock()
                     mock_db.search.return_value = [mock_result]
                     mock_db_fn.return_value = mock_db
@@ -868,9 +852,7 @@ class TestSearchCommand:
             }
             h = MockHTTPHandler(method="POST", body=body)
             with patch.object(handler, "_read_json_body", return_value=body):
-                with patch(
-                    "aragora.server.storage.get_debates_db"
-                ) as mock_db_fn:
+                with patch("aragora.server.storage.get_debates_db") as mock_db_fn:
                     mock_db = MagicMock()
                     mock_db.search.return_value = []
                     mock_db_fn.return_value = mock_db
@@ -927,9 +909,7 @@ class TestBotMentionStripping:
         h = MockHTTPHandler(method="POST", body=body)
         with patch.object(handler, "_read_json_body", return_value=body):
             with patch.object(handler, "_get_debate_status") as mock_status:
-                mock_status.return_value = MagicMock(
-                    body=b'{"active": false}', status_code=200
-                )
+                mock_status.return_value = MagicMock(body=b'{"active": false}', status_code=200)
                 await handler._handle_command(h)
                 mock_status.assert_called_once()
 
@@ -1309,44 +1289,30 @@ class TestHandlePostDispatch:
     async def test_dispatch_to_commands(self, handler):
         h = MockHTTPHandler(method="POST")
         with patch.object(handler, "_handle_command", new_callable=AsyncMock) as mock_cmd:
-            mock_cmd.return_value = MagicMock(
-                body=b'{"ok": true}', status_code=200
-            )
-            result = await handler.handle_post(
-                "/api/v1/integrations/teams/commands", {}, h
-            )
+            mock_cmd.return_value = MagicMock(body=b'{"ok": true}', status_code=200)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, h)
             mock_cmd.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_dispatch_to_interactive(self, handler):
         h = MockHTTPHandler(method="POST")
         with patch.object(handler, "_handle_interactive") as mock_int:
-            mock_int.return_value = MagicMock(
-                body=b'{"ok": true}', status_code=200
-            )
-            result = await handler.handle_post(
-                "/api/v1/integrations/teams/interactive", {}, h
-            )
+            mock_int.return_value = MagicMock(body=b'{"ok": true}', status_code=200)
+            result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, h)
             mock_int.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_dispatch_to_notify(self, handler):
         h = MockHTTPHandler(method="POST")
         with patch.object(handler, "_handle_notify", new_callable=AsyncMock) as mock_n:
-            mock_n.return_value = MagicMock(
-                body=b'{"ok": true}', status_code=200
-            )
-            result = await handler.handle_post(
-                "/api/v1/integrations/teams/notify", {}, h
-            )
+            mock_n.return_value = MagicMock(body=b'{"ok": true}', status_code=200)
+            result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, h)
             mock_n.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_dispatch_unknown_path_returns_404(self, handler):
         h = MockHTTPHandler(method="POST")
-        result = await handler.handle_post(
-            "/api/v1/integrations/teams/unknown", {}, h
-        )
+        result = await handler.handle_post("/api/v1/integrations/teams/unknown", {}, h)
         assert _status(result) == 404
 
 

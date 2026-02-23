@@ -190,7 +190,8 @@ class OpenClawAgent(ExternalFrameworkAgent):
 
         if self.openclaw_config.audit_all_requests:
             logger.info(
-                "[%s] OpenClaw request", self.name,
+                "[%s] OpenClaw request",
+                self.name,
                 extra={
                     "prompt_length": len(prompt),
                     "capabilities": self._get_enabled_capabilities(),
@@ -281,7 +282,10 @@ class OpenClawAgent(ExternalFrameworkAgent):
         if self.openclaw_config.allowed_channels:
             if channel.lower() not in [c.lower() for c in self.openclaw_config.allowed_channels]:
                 logger.warning(
-                    "[%s] Channel '%s' not in allowed list: %s", self.name, channel, self.openclaw_config.allowed_channels
+                    "[%s] Channel '%s' not in allowed list: %s",
+                    self.name,
+                    channel,
+                    self.openclaw_config.allowed_channels,
                 )
                 return {
                     "success": False,
@@ -327,7 +331,10 @@ class OpenClawAgent(ExternalFrameworkAgent):
         available = await super().is_available()
         if available:
             logger.debug(
-                "[%s] OpenClaw available at %s (mode=%s)", self.name, self.base_url, self.openclaw_config.gateway_mode
+                "[%s] OpenClaw available at %s (mode=%s)",
+                self.name,
+                self.base_url,
+                self.openclaw_config.gateway_mode,
             )
         return available
 

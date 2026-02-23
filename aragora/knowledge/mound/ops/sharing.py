@@ -45,9 +45,7 @@ class SharingProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
 
-    async def get(
-        self, node_id: str, workspace_id: str | None = None
-    ) -> KnowledgeItem | None: ...
+    async def get(self, node_id: str, workspace_id: str | None = None) -> KnowledgeItem | None: ...
 
     async def get_share_grants(
         self,
@@ -136,7 +134,11 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             )
 
         logger.info(
-            "Shared item %s from %s to workspace %s by %s", item_id, from_workspace_id, to_workspace_id, shared_by
+            "Shared item %s from %s to workspace %s by %s",
+            item_id,
+            from_workspace_id,
+            to_workspace_id,
+            shared_by,
         )
 
         # Send notification asynchronously (best effort)
@@ -204,7 +206,11 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             logger.warning("Store does not support access grants, grant not persisted")
 
         logger.info(
-            "Shared item %s from %s to user %s by %s", item_id, from_workspace_id, user_id, shared_by
+            "Shared item %s from %s to user %s by %s",
+            item_id,
+            from_workspace_id,
+            user_id,
+            shared_by,
         )
 
         # Send notification asynchronously (best effort)
@@ -297,7 +303,9 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         if hasattr(self._meta_store, "delete_access_grant_async"):
             result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
-                logger.info("Revoked share for item %s from %s by %s", item_id, grantee_id, revoked_by)
+                logger.info(
+                    "Revoked share for item %s from %s by %s", item_id, grantee_id, revoked_by
+                )
             return result
 
         logger.warning("Store does not support access grants")
@@ -397,7 +405,10 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             await self._meta_store.save_access_grant_async(updated_grant)
 
         logger.info(
-            "Updated permissions for item %s grantee %s: %s", item_id, grantee_id, perms or existing.permissions
+            "Updated permissions for item %s grantee %s: %s",
+            item_id,
+            grantee_id,
+            perms or existing.permissions,
         )
 
         return updated_grant
@@ -601,7 +612,12 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         if hasattr(self._meta_store, "save_access_grant_async"):
             await self._meta_store.save_access_grant_async(grant)
             logger.info(
-                "Granted %s access on item %s to %s:%s by %s", permissions or ['read'], item_id, grantee_type, grantee_id, granted_by
+                "Granted %s access on item %s to %s:%s by %s",
+                permissions or ["read"],
+                item_id,
+                grantee_type,
+                grantee_id,
+                granted_by,
             )
         else:
             logger.warning("Store does not support access grants, grant not persisted")
@@ -630,7 +646,9 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         if hasattr(self._meta_store, "delete_access_grant_async"):
             result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
-                logger.info("Revoked access on item %s from %s by %s", item_id, grantee_id, revoked_by)
+                logger.info(
+                    "Revoked access on item %s from %s by %s", item_id, grantee_id, revoked_by
+                )
             return result
 
         logger.warning("Store does not support access grants")

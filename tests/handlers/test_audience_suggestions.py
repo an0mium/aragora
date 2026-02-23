@@ -422,7 +422,9 @@ class TestListSuggestions:
     def test_multiple_clusters_returned(self, mock_cluster, handler_with_storage):
         h, storage = handler_with_storage
         storage.get_audience_suggestions.return_value = [
-            {"text": "a"}, {"text": "b"}, {"text": "c"},
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "c"},
         ]
         mock_cluster.return_value = [
             MockCluster(representative="a", count=1, user_ids=["u1"]),
@@ -763,7 +765,9 @@ class TestEdgeCases:
         assert kwargs["max_clusters"] == 5
 
     @patch("aragora.audience.suggestions.sanitize_suggestion", return_value="ok")
-    def test_suggestion_key_missing_from_body_uses_empty_default(self, mock_sanitize, handler_with_storage):
+    def test_suggestion_key_missing_from_body_uses_empty_default(
+        self, mock_sanitize, handler_with_storage
+    ):
         """When 'suggestion' key is absent, body.get('suggestion', '') returns ''."""
         h, _ = handler_with_storage
         http = MockHTTPHandler(

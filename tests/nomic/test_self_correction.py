@@ -264,9 +264,7 @@ class TestStrategyChangeAgentRotation:
 class TestStrategyChangeScopeReduction:
     """recommend_strategy_change should suggest scope reduction on streak failures."""
 
-    def test_consecutive_failures_trigger_scope_decrease(
-        self, engine: SelfCorrectionEngine
-    ):
+    def test_consecutive_failures_trigger_scope_decrease(self, engine: SelfCorrectionEngine):
         outcomes = [
             _make_outcome("core", True),
             _make_outcome("core", False),
@@ -300,9 +298,7 @@ class TestStrategyChangeScopeReduction:
         assert scope_short and scope_long
         assert scope_long[0].confidence >= scope_short[0].confidence
 
-    def test_deprioritize_recommendation_on_extreme_failure(
-        self, engine: SelfCorrectionEngine
-    ):
+    def test_deprioritize_recommendation_on_extreme_failure(self, engine: SelfCorrectionEngine):
         """Tracks with very low rate and long streak should get deprioritize rec."""
         outcomes = [_make_outcome("core", False) for _ in range(5)]
         report = engine.analyze_patterns(outcomes)
@@ -321,9 +317,7 @@ class TestMaxPatternAge:
     """Outcomes older than max_pattern_age_days should be excluded."""
 
     def test_old_outcomes_filtered_out(self):
-        engine = SelfCorrectionEngine(
-            config=SelfCorrectionConfig(max_pattern_age_days=7)
-        )
+        engine = SelfCorrectionEngine(config=SelfCorrectionConfig(max_pattern_age_days=7))
         old_ts = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
         recent_ts = datetime.now(timezone.utc).isoformat()
 
@@ -338,9 +332,7 @@ class TestMaxPatternAge:
         assert report.track_success_rates["qa"] == 1.0
 
     def test_outcomes_without_timestamp_are_included(self):
-        engine = SelfCorrectionEngine(
-            config=SelfCorrectionConfig(max_pattern_age_days=7)
-        )
+        engine = SelfCorrectionEngine(config=SelfCorrectionConfig(max_pattern_age_days=7))
         outcomes = [
             _make_outcome("qa", True),  # No timestamp -> included
             _make_outcome("qa", True),
@@ -349,9 +341,7 @@ class TestMaxPatternAge:
         assert report.total_cycles == 2
 
     def test_invalid_timestamp_treated_as_recent(self):
-        engine = SelfCorrectionEngine(
-            config=SelfCorrectionConfig(max_pattern_age_days=7)
-        )
+        engine = SelfCorrectionEngine(config=SelfCorrectionConfig(max_pattern_age_days=7))
         outcomes = [
             _make_outcome("qa", True, timestamp="not-a-date"),
         ]
@@ -390,9 +380,7 @@ class TestInsufficientData:
 
     def test_exact_threshold_produces_results(self):
         """When cycles == min_cycles_for_pattern, results should be non-neutral."""
-        engine = SelfCorrectionEngine(
-            config=SelfCorrectionConfig(min_cycles_for_pattern=3)
-        )
+        engine = SelfCorrectionEngine(config=SelfCorrectionConfig(min_cycles_for_pattern=3))
         outcomes = [
             _make_outcome("qa", True),
             _make_outcome("qa", True),
@@ -473,9 +461,7 @@ class TestEdgeCases:
         assert engine.config.min_cycles_for_pattern == 5
         assert engine.config.failure_penalty == 0.25
 
-    def test_outcomes_without_agent_skip_agent_correlation(
-        self, engine: SelfCorrectionEngine
-    ):
+    def test_outcomes_without_agent_skip_agent_correlation(self, engine: SelfCorrectionEngine):
         outcomes = [
             _make_outcome("qa", True),
             _make_outcome("qa", False),

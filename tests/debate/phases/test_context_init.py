@@ -845,7 +845,9 @@ class TestInjectHistoricalDissents:
         init = ContextInitializer(dissent_retriever=dissent_retriever)
 
         # Should not raise
-        with patch("aragora.debate.phases.context_init.ContextInitializer._inject_epistemic_priors"):
+        with patch(
+            "aragora.debate.phases.context_init.ContextInitializer._inject_epistemic_priors"
+        ):
             init._inject_historical_dissents(ctx)
         assert ctx.env.context == ""
 
@@ -1548,9 +1550,7 @@ class TestStructuredDissentInjection:
             "similar_debates": [],
             "relevant_dissents": [],
             "dissent_by_type": {
-                "minor_quibble": [
-                    {"content": "Small issue", "confidence": 0.3, "agent_id": "a"}
-                ],
+                "minor_quibble": [{"content": "Small issue", "confidence": 0.3, "agent_id": "a"}],
             },
             "unacknowledged_dissents": [],
             "total_similar": 0,
@@ -1620,11 +1620,14 @@ class TestCodebaseGrounding:
         mock_provider.build_context = AsyncMock(return_value="codebase summary")
         mock_provider.get_summary = MagicMock(return_value="truncated summary")
 
-        with patch(
-            "aragora.debate.codebase_context.CodebaseContextProvider",
-            return_value=mock_provider,
-        ), patch(
-            "aragora.debate.codebase_context.CodebaseContextConfig",
+        with (
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextProvider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextConfig",
+            ),
         ):
             await init._inject_codebase_context(ctx)
 
@@ -1652,14 +1655,18 @@ class TestCodebaseGrounding:
         mock_provider.build_context = slow_build
         mock_provider.get_summary = MagicMock(return_value="")
 
-        with patch(
-            "aragora.debate.codebase_context.CodebaseContextProvider",
-            return_value=mock_provider,
-        ), patch(
-            "aragora.debate.codebase_context.CodebaseContextConfig",
-        ), patch(
-            "aragora.debate.phases.context_init.asyncio.wait_for",
-            side_effect=asyncio.TimeoutError,
+        with (
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextProvider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextConfig",
+            ),
+            patch(
+                "aragora.debate.phases.context_init.asyncio.wait_for",
+                side_effect=asyncio.TimeoutError,
+            ),
         ):
             # Should not raise
             await init._inject_codebase_context(ctx)
@@ -1678,12 +1685,15 @@ class TestCodebaseGrounding:
         ctx.env.task = "test"
         ctx._prompt_builder = MagicMock()
 
-        with patch(
-            "aragora.debate.codebase_context.CodebaseContextProvider",
-            side_effect=ImportError("not available"),
-        ), patch(
-            "aragora.debate.codebase_context.CodebaseContextConfig",
-            side_effect=ImportError("not available"),
+        with (
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextProvider",
+                side_effect=ImportError("not available"),
+            ),
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextConfig",
+                side_effect=ImportError("not available"),
+            ),
         ):
             # Should not raise
             await init._inject_codebase_context(ctx)
@@ -1704,11 +1714,14 @@ class TestCodebaseGrounding:
         mock_provider.build_context = AsyncMock(return_value="context")
         mock_provider.get_summary = MagicMock(return_value="summary")
 
-        with patch(
-            "aragora.debate.codebase_context.CodebaseContextProvider",
-            return_value=mock_provider,
-        ), patch(
-            "aragora.debate.codebase_context.CodebaseContextConfig",
+        with (
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextProvider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "aragora.debate.codebase_context.CodebaseContextConfig",
+            ),
         ):
             # Should not raise even though prompt_builder is None
             await init._inject_codebase_context(ctx)

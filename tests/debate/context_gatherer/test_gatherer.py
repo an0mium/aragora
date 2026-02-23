@@ -296,39 +296,26 @@ class TestInit:
 
     def test_init_belief_guidance_import_error(self):
         """Belief analyzer import failure disables guidance."""
-        with patch(
-            f"{_GATHERER}.HAS_RLM", False
-        ), patch(
-            f"{_GATHERER}.HAS_OFFICIAL_RLM", False
-        ), patch(
-            f"{_GATHERER}.HAS_KNOWLEDGE_MOUND", False
-        ), patch(
-            f"{_GATHERER}.HAS_THREAT_INTEL", False
-        ), patch(
-            f"{_GATHERER}.THREAT_INTEL_ENABLED", False
-        ), patch(
-            f"{_GATHERER}.KnowledgeMound", None
-        ), patch(
-            f"{_GATHERER}.ThreatIntelEnrichment", None
-        ), patch(
-            f"{_GATHERER}.get_rlm", None
-        ), patch(
-            f"{_GATHERER}.get_compressor", None
-        ), patch(
-            f"{_GATHERER}.is_trending_disabled", return_value=False
-        ), patch(
-            f"{_GATHERER}.CONTEXT_GATHER_TIMEOUT", 5.0
-        ), patch(
-            f"{_GATHERER}.MAX_CONTEXT_CACHE_SIZE", 100
-        ), patch(
-            f"{_GATHERER}.CODEBASE_CONTEXT_TIMEOUT", 5.0
-        ), patch(
-            f"{_GATHERER}.ARAGORA_KEYWORDS", ["aragora"]
-        ), patch(
-            f"{_GATHERER}.get_use_codebase", return_value=False
-        ), patch(
-            "aragora.debate.phases.belief_analysis.DebateBeliefAnalyzer",
-            side_effect=ImportError("no belief"),
+        with (
+            patch(f"{_GATHERER}.HAS_RLM", False),
+            patch(f"{_GATHERER}.HAS_OFFICIAL_RLM", False),
+            patch(f"{_GATHERER}.HAS_KNOWLEDGE_MOUND", False),
+            patch(f"{_GATHERER}.HAS_THREAT_INTEL", False),
+            patch(f"{_GATHERER}.THREAT_INTEL_ENABLED", False),
+            patch(f"{_GATHERER}.KnowledgeMound", None),
+            patch(f"{_GATHERER}.ThreatIntelEnrichment", None),
+            patch(f"{_GATHERER}.get_rlm", None),
+            patch(f"{_GATHERER}.get_compressor", None),
+            patch(f"{_GATHERER}.is_trending_disabled", return_value=False),
+            patch(f"{_GATHERER}.CONTEXT_GATHER_TIMEOUT", 5.0),
+            patch(f"{_GATHERER}.MAX_CONTEXT_CACHE_SIZE", 100),
+            patch(f"{_GATHERER}.CODEBASE_CONTEXT_TIMEOUT", 5.0),
+            patch(f"{_GATHERER}.ARAGORA_KEYWORDS", ["aragora"]),
+            patch(f"{_GATHERER}.get_use_codebase", return_value=False),
+            patch(
+                "aragora.debate.phases.belief_analysis.DebateBeliefAnalyzer",
+                side_effect=ImportError("no belief"),
+            ),
         ):
             from aragora.debate.context_gatherer.gatherer import ContextGatherer
 
@@ -598,9 +585,7 @@ class TestGatherAll:
         gatherer._gather_claude_web_search = AsyncMock(return_value="main_ctx")
         gatherer.gather_aragora_context = AsyncMock(return_value=None)
         gatherer._gather_trending_with_timeout = AsyncMock(return_value=None)
-        gatherer._gather_knowledge_mound_with_timeout = AsyncMock(
-            side_effect=RuntimeError("boom")
-        )
+        gatherer._gather_knowledge_mound_with_timeout = AsyncMock(side_effect=RuntimeError("boom"))
         gatherer._gather_belief_with_timeout = AsyncMock(return_value=None)
         gatherer._gather_culture_with_timeout = AsyncMock(return_value=None)
         gatherer._gather_threat_intel_with_timeout = AsyncMock(return_value=None)
@@ -779,11 +764,12 @@ class TestGatherCodebaseContext:
     @pytest.mark.asyncio
     async def test_returns_none_when_import_fails(self, gatherer):
         """When CodebaseContextBuilder can't be imported, returns None."""
-        with patch(
-            f"{_GATHERER}.get_use_codebase", return_value=True
-        ), patch(
-            "builtins.__import__",
-            side_effect=ImportError("no codebase module"),
+        with (
+            patch(f"{_GATHERER}.get_use_codebase", return_value=True),
+            patch(
+                "builtins.__import__",
+                side_effect=ImportError("no codebase module"),
+            ),
         ):
             # Import patching is tricky; just test the disabled path
             result = await gatherer._gather_codebase_context()
@@ -796,14 +782,16 @@ class TestGatherCodebaseContext:
         mock_builder = MagicMock()
         mock_builder.build_debate_context = AsyncMock(return_value="codebase summary")
 
-        with patch(
-            f"{_GATHERER}.get_use_codebase", return_value=True
-        ), patch(
-            f"{_GATHERER}._package_override",
-            side_effect=lambda name, default: default,
-        ), patch(
-            "aragora.rlm.codebase_context.CodebaseContextBuilder",
-            return_value=mock_builder,
+        with (
+            patch(f"{_GATHERER}.get_use_codebase", return_value=True),
+            patch(
+                f"{_GATHERER}._package_override",
+                side_effect=lambda name, default: default,
+            ),
+            patch(
+                "aragora.rlm.codebase_context.CodebaseContextBuilder",
+                return_value=mock_builder,
+            ),
         ):
             gatherer._codebase_context_builder = mock_builder
             result = await gatherer._gather_codebase_context()
@@ -818,11 +806,12 @@ class TestGatherCodebaseContext:
         mock_builder = MagicMock()
         mock_builder.build_debate_context = AsyncMock(side_effect=asyncio.TimeoutError)
 
-        with patch(
-            f"{_GATHERER}.get_use_codebase", return_value=True
-        ), patch(
-            f"{_GATHERER}._package_override",
-            side_effect=lambda name, default: default,
+        with (
+            patch(f"{_GATHERER}.get_use_codebase", return_value=True),
+            patch(
+                f"{_GATHERER}._package_override",
+                side_effect=lambda name, default: default,
+            ),
         ):
             gatherer._codebase_context_builder = mock_builder
             result = await gatherer._gather_codebase_context()
@@ -835,11 +824,12 @@ class TestGatherCodebaseContext:
         mock_builder = MagicMock()
         mock_builder.build_debate_context = AsyncMock(return_value="")
 
-        with patch(
-            f"{_GATHERER}.get_use_codebase", return_value=True
-        ), patch(
-            f"{_GATHERER}._package_override",
-            side_effect=lambda name, default: default,
+        with (
+            patch(f"{_GATHERER}.get_use_codebase", return_value=True),
+            patch(
+                f"{_GATHERER}._package_override",
+                side_effect=lambda name, default: default,
+            ),
         ):
             gatherer._codebase_context_builder = mock_builder
             result = await gatherer._gather_codebase_context()

@@ -78,9 +78,7 @@ class MockHTTPHandler:
     """Lightweight mock HTTP handler for visibility tests."""
 
     command: str = "GET"
-    headers: dict[str, str] = field(
-        default_factory=lambda: {"Content-Length": "0"}
-    )
+    headers: dict[str, str] = field(default_factory=lambda: {"Content-Length": "0"})
     rfile: Any = field(default_factory=lambda: io.BytesIO(b""))
 
     @classmethod
@@ -310,30 +308,36 @@ class TestSetVisibility:
 
     def test_set_visibility_discoverable_false(self, handler, mock_mound):
         """is_discoverable=false is reflected in response."""
-        http = MockHTTPHandler.with_body({
-            "visibility": "private",
-            "is_discoverable": False,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "visibility": "private",
+                "is_discoverable": False,
+            }
+        )
         result = handler._handle_set_visibility("node-001", http)
         body = _body(result)
         assert body["is_discoverable"] is False
 
     def test_set_visibility_discoverable_true_explicit(self, handler, mock_mound):
         """Explicit is_discoverable=true is reflected in response."""
-        http = MockHTTPHandler.with_body({
-            "visibility": "public",
-            "is_discoverable": True,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "visibility": "public",
+                "is_discoverable": True,
+            }
+        )
         result = handler._handle_set_visibility("node-001", http)
         body = _body(result)
         assert body["is_discoverable"] is True
 
     def test_set_visibility_calls_mound_with_correct_args(self, handler, mock_mound):
         """set_visibility is called with correct keyword args."""
-        http = MockHTTPHandler.with_body({
-            "visibility": "organization",
-            "is_discoverable": False,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "visibility": "organization",
+                "is_discoverable": False,
+            }
+        )
         handler._handle_set_visibility("node-xyz", http)
         call_args = mock_mound.set_visibility.call_args
         assert call_args.kwargs["item_id"] == "node-xyz"
@@ -401,9 +405,7 @@ class TestSetVisibility:
 
     def test_set_visibility_value_error_returns_404(self, handler, mock_mound):
         """ValueError from set_visibility returns 404."""
-        mock_mound.set_visibility = AsyncMock(
-            side_effect=ValueError("Node not found")
-        )
+        mock_mound.set_visibility = AsyncMock(side_effect=ValueError("Node not found"))
         http = MockHTTPHandler.with_body({"visibility": "private"})
         result = handler._handle_set_visibility("missing-node", http)
         assert _status(result) == 404
@@ -540,9 +542,7 @@ class TestGetVisibility:
 
     def test_get_visibility_default_values(self, handler, mock_mound):
         """Node with no visibility metadata returns defaults."""
-        mock_mound.get_node = AsyncMock(
-            return_value=MockNode(id="node-bare", metadata={})
-        )
+        mock_mound.get_node = AsyncMock(return_value=MockNode(id="node-bare", metadata={}))
         result = handler._handle_get_visibility("node-bare")
         body = _body(result)
         assert body["visibility"] == "workspace"
@@ -778,9 +778,7 @@ class TestGrantAccess:
 
     def test_grant_access_missing_grantee_type_returns_400(self, handler):
         """Missing grantee_type returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="POST"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="POST")
         result = handler._handle_grant_access("node-001", http)
         assert _status(result) == 400
         body = _body(result)
@@ -788,9 +786,7 @@ class TestGrantAccess:
 
     def test_grant_access_missing_grantee_id_returns_400(self, handler):
         """Missing grantee_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_type": "user"}, method="POST"
-        )
+        http = MockHTTPHandler.with_body({"grantee_type": "user"}, method="POST")
         result = handler._handle_grant_access("node-001", http)
         assert _status(result) == 400
         body = _body(result)
@@ -812,9 +808,7 @@ class TestGrantAccess:
 
     def test_grant_access_empty_grantee_id_returns_400(self, handler):
         """Empty grantee_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_type": "user", "grantee_id": ""}, method="POST"
-        )
+        http = MockHTTPHandler.with_body({"grantee_type": "user", "grantee_id": ""}, method="POST")
         result = handler._handle_grant_access("node-001", http)
         assert _status(result) == 400
 
@@ -866,9 +860,7 @@ class TestGrantAccess:
 
     def test_grant_access_value_error_returns_404(self, handler, mock_mound):
         """ValueError from grant_access returns 404."""
-        mock_mound.grant_access = AsyncMock(
-            side_effect=ValueError("Node not found")
-        )
+        mock_mound.grant_access = AsyncMock(side_effect=ValueError("Node not found"))
         http = MockHTTPHandler.with_body(
             {"grantee_type": "user", "grantee_id": "user-target"},
             method="POST",
@@ -1047,9 +1039,7 @@ class TestRevokeAccess:
 
     def test_revoke_access_success(self, handler, mock_mound):
         """Successfully revoking access returns 200."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 200
         body = _body(result)
@@ -1060,9 +1050,7 @@ class TestRevokeAccess:
 
     def test_revoke_access_calls_mound_with_correct_args(self, handler, mock_mound):
         """revoke_access is called with correct keyword args."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-xyz"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-xyz"}, method="DELETE")
         handler._handle_revoke_access("node-abc", http)
         call_kwargs = mock_mound.revoke_access.call_args.kwargs
         assert call_kwargs["item_id"] == "node-abc"
@@ -1079,9 +1067,7 @@ class TestRevokeAccess:
 
     def test_revoke_access_empty_grantee_id_returns_400(self, handler):
         """Empty grantee_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": ""}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": ""}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 400
 
@@ -1099,28 +1085,20 @@ class TestRevokeAccess:
 
     def test_revoke_access_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler_no_mound._handle_revoke_access("node-001", http)
         assert _status(result) == 503
 
     def test_revoke_access_auth_failure_returns_401(self, handler_no_auth):
         """Auth failure returns 401."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler_no_auth._handle_revoke_access("node-001", http)
         assert _status(result) == 401
 
     def test_revoke_access_value_error_returns_404(self, handler, mock_mound):
         """ValueError from revoke_access returns 404."""
-        mock_mound.revoke_access = AsyncMock(
-            side_effect=ValueError("Grant not found")
-        )
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        mock_mound.revoke_access = AsyncMock(side_effect=ValueError("Grant not found"))
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("missing", http)
         assert _status(result) == 404
         body = _body(result)
@@ -1129,54 +1107,42 @@ class TestRevokeAccess:
     def test_revoke_access_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
         mock_mound.revoke_access = AsyncMock(side_effect=KeyError("missing"))
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 500
 
     def test_revoke_access_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
         mock_mound.revoke_access = AsyncMock(side_effect=OSError("disk fail"))
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 500
 
     def test_revoke_access_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
         mock_mound.revoke_access = AsyncMock(side_effect=TypeError("wrong"))
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 500
 
     def test_revoke_access_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
         mock_mound.revoke_access = AsyncMock(side_effect=RuntimeError("runtime"))
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 500
 
     def test_revoke_access_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
         mock_mound.revoke_access = AsyncMock(side_effect=AttributeError("attr"))
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 500
 
     @patch("aragora.server.handlers.knowledge_base.mound.visibility.track_access_grant")
     def test_revoke_access_tracks_metrics(self, mock_track, handler, mock_mound):
         """track_access_grant is called with action='revoke'."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         handler._handle_revoke_access("node-001", http)
         mock_track.assert_called_once_with(
             action="revoke",
@@ -1189,9 +1155,7 @@ class TestRevokeAccess:
         user = MagicMock(spec=[])
         user.user_id = "fallback-user"
         h = VisibilityTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = h._handle_revoke_access("node-001", http)
         body = _body(result)
         assert body["revoked_by"] == "fallback-user"
@@ -1200,9 +1164,7 @@ class TestRevokeAccess:
         """User without id or user_id falls back to 'unknown'."""
         user = MagicMock(spec=[])
         h = VisibilityTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         result = h._handle_revoke_access("node-001", http)
         body = _body(result)
         assert body["revoked_by"] == "unknown"
@@ -1274,9 +1236,7 @@ class TestListAccessGrants:
 
     def test_list_grants_value_error_returns_404(self, handler, mock_mound):
         """ValueError from get_access_grants returns 404."""
-        mock_mound.get_access_grants = AsyncMock(
-            side_effect=ValueError("Node not found")
-        )
+        mock_mound.get_access_grants = AsyncMock(side_effect=ValueError("Node not found"))
         result = handler._handle_list_access_grants("missing", {})
         assert _status(result) == 404
         body = _body(result)
@@ -1347,9 +1307,7 @@ class TestVisibilityRouting:
 
         http = MockHTTPHandler.with_body({"visibility": "private"})
         http.command = "PUT"
-        result = RoutingMixin._route_node_visibility(
-            handler, "node-001", {}, http
-        )
+        result = RoutingMixin._route_node_visibility(handler, "node-001", {}, http)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -1361,9 +1319,7 @@ class TestVisibilityRouting:
 
         http = MockHTTPHandler()
         http.command = "GET"
-        result = RoutingMixin._route_node_visibility(
-            handler, "node-001", {}, http
-        )
+        result = RoutingMixin._route_node_visibility(handler, "node-001", {}, http)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -1379,9 +1335,7 @@ class TestVisibilityRouting:
             method="POST",
         )
         http.command = "POST"
-        result = RoutingMixin._route_node_access(
-            handler, "node-001", {}, http
-        )
+        result = RoutingMixin._route_node_access(handler, "node-001", {}, http)
         assert result is not None
         assert _status(result) == 201
 
@@ -1389,13 +1343,9 @@ class TestVisibilityRouting:
         """DELETE /nodes/:id/access dispatches to _handle_revoke_access."""
         from aragora.server.handlers.knowledge_base.mound.routing import RoutingMixin
 
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": "user-target"}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": "user-target"}, method="DELETE")
         http.command = "DELETE"
-        result = RoutingMixin._route_node_access(
-            handler, "node-001", {}, http
-        )
+        result = RoutingMixin._route_node_access(handler, "node-001", {}, http)
         assert result is not None
         assert _status(result) == 200
 
@@ -1405,9 +1355,7 @@ class TestVisibilityRouting:
 
         http = MockHTTPHandler()
         http.command = "GET"
-        result = RoutingMixin._route_node_access(
-            handler, "node-001", {}, http
-        )
+        result = RoutingMixin._route_node_access(handler, "node-001", {}, http)
         assert result is not None
         assert _status(result) == 200
         body = _body(result)
@@ -1549,28 +1497,26 @@ class TestVisibilityEdgeCases:
 
     def test_revoke_access_null_grantee_id_returns_400(self, handler):
         """Null grantee_id returns 400."""
-        http = MockHTTPHandler.with_body(
-            {"grantee_id": None}, method="DELETE"
-        )
+        http = MockHTTPHandler.with_body({"grantee_id": None}, method="DELETE")
         result = handler._handle_revoke_access("node-001", http)
         assert _status(result) == 400
 
     def test_get_visibility_mound_returns_node_with_empty_metadata(self, handler, mock_mound):
         """Node with empty dict metadata uses defaults."""
-        mock_mound.get_node = AsyncMock(
-            return_value=MockNode(id="node-empty-meta", metadata={})
-        )
+        mock_mound.get_node = AsyncMock(return_value=MockNode(id="node-empty-meta", metadata={}))
         result = handler._handle_get_visibility("node-empty-meta")
         body = _body(result)
         assert body["visibility"] == "workspace"
 
     def test_set_visibility_with_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in body are ignored."""
-        http = MockHTTPHandler.with_body({
-            "visibility": "private",
-            "extra_field": "ignored",
-            "another": 123,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "visibility": "private",
+                "extra_field": "ignored",
+                "another": 123,
+            }
+        )
         result = handler._handle_set_visibility("node-001", http)
         assert _status(result) == 200
 
@@ -1612,9 +1558,7 @@ class TestVisibilityEdgeCases:
         assert _status(result4) == 200
 
         # Revoke access
-        http5 = MockHTTPHandler.with_body(
-            {"grantee_id": "user-a"}, method="DELETE"
-        )
+        http5 = MockHTTPHandler.with_body({"grantee_id": "user-a"}, method="DELETE")
         result5 = handler._handle_revoke_access("node-001", http5)
         assert _status(result5) == 200
 

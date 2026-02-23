@@ -290,10 +290,21 @@ class TestAdaptiveConsensusInConsensusPhase:
         )
 
         # Create minimal callbacks that return empty votes
-        vote_callback = AsyncMock(return_value=MagicMock(choice="agent-0", agent="agent-1", reasoning="good", confidence=0.8, continue_debate=False))
+        vote_callback = AsyncMock(
+            return_value=MagicMock(
+                choice="agent-0",
+                agent="agent-1",
+                reasoning="good",
+                confidence=0.8,
+                continue_debate=False,
+            )
+        )
         callbacks = ConsensusCallbacks(
             vote_with_agent=vote_callback,
-            group_similar_votes=lambda votes: ({}, {v.choice: v.choice for v in votes} if votes else {}),
+            group_similar_votes=lambda votes: (
+                {},
+                {v.choice: v.choice for v in votes} if votes else {},
+            ),
         )
 
         phase = ConsensusPhase(deps=deps, callbacks=callbacks)
@@ -309,7 +320,9 @@ class TestAdaptiveConsensusInConsensusPhase:
         )
         # Brier=0.10, base=0.6 -> 0.6 + 0.3*(0.10-0.25) = 0.555
         assert 0.50 < threshold < 0.60
-        assert "adaptive_threshold_explanation" not in explanation or explanation  # just check it runs
+        assert (
+            "adaptive_threshold_explanation" not in explanation or explanation
+        )  # just check it runs
 
 
 # ===========================================================================
@@ -346,16 +359,10 @@ class TestKnowledgeInjectionInContextInitializer:
         mock_knowledge.confidence = 0.9
         mock_knowledge.relevance_score = 0.8
 
-        with patch(
-            "aragora.debate.knowledge_injection.DebateKnowledgeInjector"
-        ) as MockInjector:
+        with patch("aragora.debate.knowledge_injection.DebateKnowledgeInjector") as MockInjector:
             injector_instance = MockInjector.return_value
-            injector_instance.query_relevant_knowledge = AsyncMock(
-                return_value=[mock_knowledge]
-            )
-            injector_instance.format_for_injection.return_value = (
-                "## Relevant Past Decisions\n**Past task** (confidence: 0.90)\n- Decision: Past answer\n"
-            )
+            injector_instance.query_relevant_knowledge = AsyncMock(return_value=[mock_knowledge])
+            injector_instance.format_for_injection.return_value = "## Relevant Past Decisions\n**Past task** (confidence: 0.90)\n- Decision: Past answer\n"
 
             await initializer._inject_debate_knowledge(ctx)
 
@@ -420,9 +427,7 @@ class TestKnowledgeInjectionInContextInitializer:
 
         ctx = _make_ctx(context="Original context")
 
-        with patch(
-            "aragora.debate.knowledge_injection.DebateKnowledgeInjector"
-        ) as MockInjector:
+        with patch("aragora.debate.knowledge_injection.DebateKnowledgeInjector") as MockInjector:
             injector_instance = MockInjector.return_value
             injector_instance.query_relevant_knowledge = AsyncMock(return_value=[])
 
@@ -451,16 +456,10 @@ class TestKnowledgeInjectionInContextInitializer:
         mock_knowledge = MagicMock()
         mock_knowledge.relevance_score = 0.9
 
-        with patch(
-            "aragora.debate.knowledge_injection.DebateKnowledgeInjector"
-        ) as MockInjector:
+        with patch("aragora.debate.knowledge_injection.DebateKnowledgeInjector") as MockInjector:
             injector_instance = MockInjector.return_value
-            injector_instance.query_relevant_knowledge = AsyncMock(
-                return_value=[mock_knowledge]
-            )
-            injector_instance.format_for_injection.return_value = (
-                "## Past decisions here"
-            )
+            injector_instance.query_relevant_knowledge = AsyncMock(return_value=[mock_knowledge])
+            injector_instance.format_for_injection.return_value = "## Past decisions here"
 
             await initializer._inject_debate_knowledge(ctx)
 
@@ -486,7 +485,9 @@ class TestKnowledgeInjectionInContextInitializer:
 
         # Temporarily remove the module from sys.modules to simulate ImportError
         saved = sys.modules.pop("aragora.debate.knowledge_injection", None)
-        _orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        _orig_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def _failing_import(name, *args, **kwargs):
             if name == "aragora.debate.knowledge_injection":
@@ -873,12 +874,10 @@ class TestImprovementQueueToMetaPlanner:
         planner2 = MetaPlanner(config=config2)
 
         # Patch Arena import at the source (local import in prioritize_work)
-        with patch(
-            "aragora.debate.orchestrator.Arena"
-        ) as MockArena, patch(
-            "aragora.core.Environment"
-        ), patch(
-            "aragora.debate.protocol.DebateProtocol"
+        with (
+            patch("aragora.debate.orchestrator.Arena") as MockArena,
+            patch("aragora.core.Environment"),
+            patch("aragora.debate.protocol.DebateProtocol"),
         ):
             mock_arena_instance = MockArena.return_value
             mock_result = MagicMock()
@@ -920,12 +919,10 @@ class TestImprovementQueueToMetaPlanner:
         )
         planner = MetaPlanner(config=config)
 
-        with patch(
-            "aragora.debate.orchestrator.Arena"
-        ) as MockArena, patch(
-            "aragora.core.Environment"
-        ), patch(
-            "aragora.debate.protocol.DebateProtocol"
+        with (
+            patch("aragora.debate.orchestrator.Arena") as MockArena,
+            patch("aragora.core.Environment"),
+            patch("aragora.debate.protocol.DebateProtocol"),
         ):
             mock_arena_instance = MockArena.return_value
             mock_result = MagicMock()
@@ -1067,9 +1064,7 @@ class TestDebateKnowledgeInjector:
 
         injector = DebateKnowledgeInjector()
 
-        with patch.object(
-            injector, "query_relevant_knowledge", new=AsyncMock(return_value=[])
-        ):
+        with patch.object(injector, "query_relevant_knowledge", new=AsyncMock(return_value=[])):
             result = await injector.inject_into_prompt(
                 base_prompt="You are debating...",
                 task="Design a system",

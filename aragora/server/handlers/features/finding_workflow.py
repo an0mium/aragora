@@ -224,11 +224,16 @@ class FindingWorkflowHandler(BaseHandler):
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    "Permission denied: %s for user %s: %s", permission_key, context.user_id, decision.reason
+                    "Permission denied: %s for user %s: %s",
+                    permission_key,
+                    context.user_id,
+                    decision.reason,
                 )
                 return self._error_response(403, "Permission denied")
         except PermissionDeniedError as e:
-            logger.warning("Permission denied: %s for user %s: %s", permission_key, context.user_id, e)
+            logger.warning(
+                "Permission denied: %s for user %s: %s", permission_key, context.user_id, e
+            )
             return self._error_response(403, "Permission denied")
         return None
 

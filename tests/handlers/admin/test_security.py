@@ -80,6 +80,7 @@ def _make_http_handler(body: dict | None = None, ip: str = "127.0.0.1") -> Magic
 @dataclass
 class MockEncryptionKey:
     """Mock encryption key."""
+
     key_id: str = "key-001"
     version: int = 1
     created_at: datetime = field(
@@ -90,6 +91,7 @@ class MockEncryptionKey:
 @dataclass
 class MockRotationResult:
     """Mock key rotation result."""
+
     success: bool = True
     old_key_version: int = 1
     new_key_version: int = 2
@@ -103,6 +105,7 @@ class MockRotationResult:
 @dataclass
 class MockPermissionDecision:
     """Mock RBAC permission decision."""
+
     allowed: bool = True
     reason: str = "Allowed by test"
 
@@ -116,6 +119,7 @@ class MockPermissionDecision:
 def _reset_rate_limiter():
     """Reset the rate limiter before each test to prevent cross-test pollution."""
     from aragora.server.handlers.admin.security import _security_limiter
+
     _security_limiter._buckets.clear()
     yield
     _security_limiter._buckets.clear()
@@ -192,42 +196,42 @@ class TestHandleRouting:
 
     def test_status_route_dispatches(self, handler, mock_http):
         """Status endpoint should dispatch to _get_status."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_get_status", mock_fn):
             handler.handle("/api/v1/admin/security/status", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
 
     def test_health_route_dispatches(self, handler, mock_http):
         """Health endpoint should dispatch to _get_health."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_get_health", mock_fn):
             handler.handle("/api/v1/admin/security/health", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
 
     def test_keys_route_dispatches(self, handler, mock_http):
         """Keys endpoint should dispatch to _list_keys."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_list_keys", mock_fn):
             handler.handle("/api/v1/admin/security/keys", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
 
     def test_legacy_status_route_dispatches(self, handler, mock_http):
         """Legacy status route should also dispatch to _get_status."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_get_status", mock_fn):
             handler.handle("/api/admin/security/status", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
 
     def test_legacy_health_route_dispatches(self, handler, mock_http):
         """Legacy health route should also dispatch to _get_health."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_get_health", mock_fn):
             handler.handle("/api/admin/security/health", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
 
     def test_legacy_keys_route_dispatches(self, handler, mock_http):
         """Legacy keys route should also dispatch to _list_keys."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_list_keys", mock_fn):
             handler.handle("/api/admin/security/keys", {}, mock_http)
             mock_fn.assert_called_once_with(mock_http)
@@ -254,9 +258,7 @@ class TestHandleRateLimit:
     def test_rate_limit_exceeded_returns_429(self, handler):
         """When rate limit is exceeded, handle() returns 429."""
         mock_http = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.admin.security._security_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.admin.security._security_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = handler.handle("/api/v1/admin/security/status", {}, mock_http)
             assert _status(result) == 429
@@ -264,7 +266,7 @@ class TestHandleRateLimit:
 
     def test_rate_limit_allowed_proceeds(self, handler, mock_http):
         """When rate limit is allowed, handle() proceeds to dispatch."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_get_status", mock_fn):
             handler.handle("/api/v1/admin/security/status", {}, mock_http)
             mock_fn.assert_called_once()
@@ -282,11 +284,12 @@ class TestHandleRBAC:
         """When RBAC check denies, handle() returns 403."""
         mock_http.auth_context = MagicMock()
         denied = MockPermissionDecision(allowed=False, reason="No access")
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.admin.security.check_permission",
-            return_value=denied,
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.admin.security.check_permission",
+                return_value=denied,
+            ),
         ):
             result = handler.handle("/api/v1/admin/security/status", {}, mock_http)
             assert _status(result) == 403
@@ -302,35 +305,40 @@ class TestHandleRBAC:
         """When RBAC check allows, dispatch continues."""
         mock_http.auth_context = MagicMock()
         allowed = MockPermissionDecision(allowed=True)
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.admin.security.check_permission",
-            return_value=allowed,
-        ), patch.object(handler, "_get_status", mock_fn):
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.admin.security.check_permission",
+                return_value=allowed,
+            ),
+            patch.object(handler, "_get_status", mock_fn),
+        ):
             handler.handle("/api/v1/admin/security/status", {}, mock_http)
             mock_fn.assert_called_once()
 
     def test_rbac_unavailable_non_production_proceeds(self, handler, mock_http):
         """When RBAC is unavailable in non-production, handle() proceeds."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.admin.security.rbac_fail_closed",
-            return_value=False,
-        ), patch.object(handler, "_get_status", mock_fn):
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.admin.security.rbac_fail_closed",
+                return_value=False,
+            ),
+            patch.object(handler, "_get_status", mock_fn),
+        ):
             handler.handle("/api/v1/admin/security/status", {}, mock_http)
             mock_fn.assert_called_once()
 
     def test_rbac_unavailable_production_returns_503(self, handler, mock_http):
         """When RBAC is unavailable in production, handle() returns 503."""
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.admin.security.rbac_fail_closed",
-            return_value=True,
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.admin.security.rbac_fail_closed",
+                return_value=True,
+            ),
         ):
             result = handler.handle("/api/v1/admin/security/status", {}, mock_http)
             assert _status(result) == 503
@@ -341,12 +349,14 @@ class TestHandleRBAC:
         # mock_http doesn't have auth_context attribute by default unless set
         del_spec = MagicMock(spec=[])  # No attributes
         del_spec.client_address = ("127.0.0.1", 12345)
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.admin.security.check_permission",
-        ) as mock_check, patch.object(handler, "_get_status", mock_fn):
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.admin.security.check_permission",
+            ) as mock_check,
+            patch.object(handler, "_get_status", mock_fn),
+        ):
             # handler without auth_context attr => hasattr check fails
             handler.handle("/api/v1/admin/security/status", {}, del_spec)
             mock_check.assert_not_called()
@@ -362,7 +372,7 @@ class TestHandlePostRouting:
 
     def test_rotate_key_versioned_route(self, handler, mock_http):
         """Versioned rotate-key path dispatches to _rotate_key."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_rotate_key", mock_fn):
             data = {"dry_run": True}
             handler.handle_post("/api/v1/admin/security/rotate-key", data, mock_http)
@@ -370,7 +380,7 @@ class TestHandlePostRouting:
 
     def test_rotate_key_legacy_route(self, handler, mock_http):
         """Legacy rotate-key path dispatches to _rotate_key."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_rotate_key", mock_fn):
             data = {"force": True}
             handler.handle_post("/api/admin/security/rotate-key", data, mock_http)
@@ -385,22 +395,24 @@ class TestHandlePostRouting:
         """When RBAC denies POST, returns 403."""
         mock_http.auth_context = MagicMock()
         denied = MockPermissionDecision(allowed=False, reason="No write access")
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.admin.security.check_permission",
-            return_value=denied,
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.admin.security.check_permission",
+                return_value=denied,
+            ),
         ):
             result = handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
             assert _status(result) == 403
 
     def test_post_rbac_unavailable_production_returns_503(self, handler, mock_http):
         """When RBAC is unavailable in production, handle_post() returns 503."""
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.admin.security.rbac_fail_closed",
-            return_value=True,
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.admin.security.rbac_fail_closed",
+                return_value=True,
+            ),
         ):
             result = handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
             assert _status(result) == 503
@@ -440,13 +452,15 @@ class TestGetStatus:
 
         if active_key:
             age_days = (datetime.now(timezone.utc) - active_key.created_at).days
-            result.update({
-                "key_version": active_key.version,
-                "key_age_days": age_days,
-                "key_created_at": active_key.created_at.isoformat(),
-                "rotation_recommended": age_days > 60,
-                "rotation_required": age_days > 90,
-            })
+            result.update(
+                {
+                    "key_version": active_key.version,
+                    "key_age_days": age_days,
+                    "key_created_at": active_key.created_at.isoformat(),
+                    "rotation_recommended": age_days > 60,
+                    "rotation_required": age_days > 90,
+                }
+            )
         else:
             result["warning"] = "No active encryption key found"
 
@@ -457,7 +471,9 @@ class TestGetStatus:
 
     def test_crypto_available_with_active_key(self, handler, mock_http):
         """Returns status with key info when crypto and active key exist."""
-        key = MockEncryptionKey(key_id="key-002", version=2, created_at=datetime.now(timezone.utc) - timedelta(days=45))
+        key = MockEncryptionKey(
+            key_id="key-002", version=2, created_at=datetime.now(timezone.utc) - timedelta(days=45)
+        )
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
         mock_service.get_active_key_id.return_value = "key-002"
@@ -470,10 +486,14 @@ class TestGetStatus:
             pass
 
         # Test the logic directly
-        result = self._call_get_status(handler, mock_http, {
-            "service": mock_service,
-            "crypto_available": True,
-        })
+        result = self._call_get_status(
+            handler,
+            mock_http,
+            {
+                "service": mock_service,
+                "crypto_available": True,
+            },
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["crypto_available"] is True
@@ -486,9 +506,13 @@ class TestGetStatus:
 
     def test_crypto_not_available(self, handler, mock_http):
         """Returns crypto_available=False when crypto is not installed."""
-        result = self._call_get_status(handler, mock_http, {
-            "crypto_available": False,
-        })
+        result = self._call_get_status(
+            handler,
+            mock_http,
+            {
+                "crypto_available": False,
+            },
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["crypto_available"] is False
@@ -501,10 +525,14 @@ class TestGetStatus:
         mock_service.get_active_key_id.return_value = None
         mock_service.list_keys.return_value = []
 
-        result = self._call_get_status(handler, mock_http, {
-            "service": mock_service,
-            "crypto_available": True,
-        })
+        result = self._call_get_status(
+            handler,
+            mock_http,
+            {
+                "service": mock_service,
+                "crypto_available": True,
+            },
+        )
         body = _body(result)
         assert _status(result) == 200
         assert "warning" in body
@@ -514,18 +542,21 @@ class TestGetStatus:
     def test_key_age_recommends_rotation_over_60_days(self, handler, mock_http):
         """Key older than 60 days should have rotation_recommended=True."""
         key = MockEncryptionKey(
-            key_id="key-old", version=1,
-            created_at=datetime.now(timezone.utc) - timedelta(days=65)
+            key_id="key-old", version=1, created_at=datetime.now(timezone.utc) - timedelta(days=65)
         )
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
         mock_service.get_active_key_id.return_value = "key-old"
         mock_service.list_keys.return_value = [{"key_id": "key-old"}]
 
-        result = self._call_get_status(handler, mock_http, {
-            "service": mock_service,
-            "crypto_available": True,
-        })
+        result = self._call_get_status(
+            handler,
+            mock_http,
+            {
+                "service": mock_service,
+                "crypto_available": True,
+            },
+        )
         body = _body(result)
         assert body["rotation_recommended"] is True
         assert body["rotation_required"] is False
@@ -533,18 +564,23 @@ class TestGetStatus:
     def test_key_age_requires_rotation_over_90_days(self, handler, mock_http):
         """Key older than 90 days should have rotation_required=True."""
         key = MockEncryptionKey(
-            key_id="key-very-old", version=1,
-            created_at=datetime.now(timezone.utc) - timedelta(days=95)
+            key_id="key-very-old",
+            version=1,
+            created_at=datetime.now(timezone.utc) - timedelta(days=95),
         )
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
         mock_service.get_active_key_id.return_value = "key-very-old"
         mock_service.list_keys.return_value = [{"key_id": "key-very-old"}]
 
-        result = self._call_get_status(handler, mock_http, {
-            "service": mock_service,
-            "crypto_available": True,
-        })
+        result = self._call_get_status(
+            handler,
+            mock_http,
+            {
+                "service": mock_service,
+                "crypto_available": True,
+            },
+        )
         body = _body(result)
         assert body["rotation_recommended"] is True
         assert body["rotation_required"] is True
@@ -552,6 +588,7 @@ class TestGetStatus:
     def test_status_import_error_returns_500(self, handler, mock_http):
         """ImportError when importing encryption module returns 500."""
         from aragora.server.handlers.base import error_response
+
         # Test that the handler catches ImportError
         result = error_response("Internal server error", 500)
         assert _status(result) == 500
@@ -559,18 +596,23 @@ class TestGetStatus:
     def test_key_age_fresh_under_60_days(self, handler, mock_http):
         """Key under 60 days should have both rotation flags False."""
         key = MockEncryptionKey(
-            key_id="key-fresh", version=3,
-            created_at=datetime.now(timezone.utc) - timedelta(days=10)
+            key_id="key-fresh",
+            version=3,
+            created_at=datetime.now(timezone.utc) - timedelta(days=10),
         )
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
         mock_service.get_active_key_id.return_value = "key-fresh"
         mock_service.list_keys.return_value = [{"key_id": "key-fresh"}]
 
-        result = self._call_get_status(handler, mock_http, {
-            "service": mock_service,
-            "crypto_available": True,
-        })
+        result = self._call_get_status(
+            handler,
+            mock_http,
+            {
+                "service": mock_service,
+                "crypto_available": True,
+            },
+        )
         body = _body(result)
         assert body["key_age_days"] == 10
         assert body["rotation_recommended"] is False
@@ -596,22 +638,26 @@ class TestGetHealth:
         checks["crypto_available"] = crypto_available
         if not crypto_available:
             issues.append("Cryptography library not installed")
-            return json_response({
-                "status": "unhealthy",
-                "checks": checks,
-                "issues": issues,
-                "warnings": warnings,
-            })
+            return json_response(
+                {
+                    "status": "unhealthy",
+                    "checks": checks,
+                    "issues": issues,
+                    "warnings": warnings,
+                }
+            )
 
         if service is None:
             checks["service_initialized"] = False
             issues.append("Encryption service error: Service unavailable")
-            return json_response({
-                "status": "unhealthy",
-                "checks": checks,
-                "issues": issues,
-                "warnings": warnings,
-            })
+            return json_response(
+                {
+                    "status": "unhealthy",
+                    "checks": checks,
+                    "issues": issues,
+                    "warnings": warnings,
+                }
+            )
 
         checks["service_initialized"] = True
 
@@ -651,18 +697,18 @@ class TestGetHealth:
         else:
             status = "healthy"
 
-        return json_response({
-            "status": status,
-            "checks": checks,
-            "issues": issues,
-            "warnings": warnings,
-        })
+        return json_response(
+            {
+                "status": status,
+                "checks": checks,
+                "issues": issues,
+                "warnings": warnings,
+            }
+        )
 
     def test_healthy_status(self, handler, mock_http):
         """All checks pass: status is healthy."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=10)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=10))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -712,9 +758,7 @@ class TestGetHealth:
 
     def test_key_age_over_90_degraded(self):
         """Key over 90 days produces warning and degraded status."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=95)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=95))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -730,9 +774,7 @@ class TestGetHealth:
 
     def test_key_age_over_60_degraded(self):
         """Key over 60 days but under 90 produces rotation recommendation."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=70)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=70))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -748,9 +790,7 @@ class TestGetHealth:
 
     def test_round_trip_failure_unhealthy(self):
         """When encrypt/decrypt round-trip fails, status is unhealthy."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=5)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=5))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -766,9 +806,7 @@ class TestGetHealth:
 
     def test_encrypt_decrypt_error_unhealthy(self):
         """When encrypt/decrypt raises, status is unhealthy."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=5)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=5))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -810,19 +848,23 @@ class TestListKeys:
             created_at_str = key["created_at"]
             created_at = datetime.fromisoformat(created_at_str)
             age_days = (datetime.now(timezone.utc) - created_at).days
-            keys_info.append({
-                "key_id": key["key_id"],
-                "version": key["version"],
-                "is_active": key["key_id"] == active_key_id,
-                "created_at": created_at_str,
-                "age_days": age_days,
-            })
+            keys_info.append(
+                {
+                    "key_id": key["key_id"],
+                    "version": key["version"],
+                    "is_active": key["key_id"] == active_key_id,
+                    "created_at": created_at_str,
+                    "age_days": age_days,
+                }
+            )
 
-        return json_response({
-            "keys": keys_info,
-            "active_key_id": active_key_id,
-            "total_keys": len(keys_info),
-        })
+        return json_response(
+            {
+                "keys": keys_info,
+                "active_key_id": active_key_id,
+                "total_keys": len(keys_info),
+            }
+        )
 
     def test_list_keys_success(self, handler, mock_http):
         """Returns list of keys with active indicator."""
@@ -891,8 +933,9 @@ class TestListKeys:
 class TestRotateKey:
     """Tests for the _rotate_key endpoint logic."""
 
-    def _call_rotate_key(self, data, crypto_available=True, service=None,
-                         rotation_result=None, import_error=False):
+    def _call_rotate_key(
+        self, data, crypto_available=True, service=None, rotation_result=None, import_error=False
+    ):
         """Helper to exercise _rotate_key logic."""
         from aragora.server.handlers.base import json_response, error_response
 
@@ -918,17 +961,19 @@ class TestRotateKey:
                         )
 
         result = rotation_result or MockRotationResult()
-        return json_response({
-            "success": result.success,
-            "dry_run": dry_run,
-            "old_key_version": result.old_key_version,
-            "new_key_version": result.new_key_version,
-            "stores_processed": result.stores_processed,
-            "records_reencrypted": result.records_reencrypted,
-            "failed_records": result.failed_records,
-            "duration_seconds": result.duration_seconds,
-            "errors": result.errors[:10] if result.errors else [],
-        })
+        return json_response(
+            {
+                "success": result.success,
+                "dry_run": dry_run,
+                "old_key_version": result.old_key_version,
+                "new_key_version": result.new_key_version,
+                "stores_processed": result.stores_processed,
+                "records_reencrypted": result.records_reencrypted,
+                "failed_records": result.failed_records,
+                "duration_seconds": result.duration_seconds,
+                "errors": result.errors[:10] if result.errors else [],
+            }
+        )
 
     def test_rotate_key_success(self, handler, mock_http):
         """Successful key rotation returns expected fields."""
@@ -972,9 +1017,7 @@ class TestRotateKey:
 
     def test_rotate_key_recent_key_rejected(self):
         """Key under 30 days old is rejected without force flag."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=15)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=15))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -989,9 +1032,7 @@ class TestRotateKey:
 
     def test_rotate_key_recent_key_forced(self):
         """Key under 30 days old is accepted with force=True."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=15)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=15))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -1005,9 +1046,7 @@ class TestRotateKey:
 
     def test_rotate_key_dry_run_skips_age_check(self):
         """Dry run skips the key age check."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=5)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=5))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -1045,9 +1084,7 @@ class TestRotateKey:
 
     def test_rotate_key_old_key_no_age_check(self):
         """Key over 30 days old proceeds without force."""
-        key = MockEncryptionKey(
-            created_at=datetime.now(timezone.utc) - timedelta(days=45)
-        )
+        key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=45))
         mock_service = MagicMock()
         mock_service.get_active_key.return_value = key
 
@@ -1093,6 +1130,7 @@ class TestSecurityHandlerInit:
     def test_inherits_secure_handler(self):
         """SecurityHandler inherits from SecureHandler."""
         from aragora.server.handlers.secure import SecureHandler
+
         assert issubclass(SecurityHandler, SecureHandler)
 
 
@@ -1107,6 +1145,7 @@ class TestSecurityHandlerAttributes:
     def test_admin_security_permission_constant(self):
         """ADMIN_SECURITY_PERMISSION is defined."""
         from aragora.server.handlers.admin.security import ADMIN_SECURITY_PERMISSION
+
         assert ADMIN_SECURITY_PERMISSION == "admin:security"
 
     def test_handler_has_required_methods(self):
@@ -1158,7 +1197,9 @@ class TestGetStatusIntegration:
         """Test handle() routing to _get_health with a mocked return value."""
         from aragora.server.handlers.base import json_response
 
-        expected_result = json_response({"status": "healthy", "checks": {}, "issues": [], "warnings": []})
+        expected_result = json_response(
+            {"status": "healthy", "checks": {}, "issues": [], "warnings": []}
+        )
         mock_fn = MagicMock(return_value=expected_result)
         with patch.object(handler, "_get_health", mock_fn):
             result = handler.handle("/api/v1/admin/security/health", {}, mock_http)
@@ -1199,6 +1240,7 @@ class TestErrorResponses:
     def test_error_response_format(self):
         """Error responses include error field."""
         from aragora.server.handlers.base import error_response
+
         result = error_response("Something went wrong", 500)
         body = _body(result)
         assert "error" in body
@@ -1208,6 +1250,7 @@ class TestErrorResponses:
     def test_error_response_with_code(self):
         """Error responses with code use structured format."""
         from aragora.server.handlers.base import error_response
+
         result = error_response("Permission denied", 403, code="PERMISSION_DENIED")
         body = _body(result)
         # When code is provided, error is a dict: {"code": ..., "message": ...}
@@ -1218,9 +1261,7 @@ class TestErrorResponses:
     def test_rate_limit_error_format(self, handler):
         """Rate limit error includes descriptive message."""
         mock_http = _make_http_handler()
-        with patch(
-            "aragora.server.handlers.admin.security._security_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.admin.security._security_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             result = handler.handle("/api/v1/admin/security/status", {}, mock_http)
             body = _body(result)
@@ -1246,7 +1287,7 @@ class TestEdgeCases:
         mock_http_1 = _make_http_handler(ip="10.0.0.1")
         mock_http_2 = _make_http_handler(ip="10.0.0.2")
 
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
         with patch.object(handler, "_get_status", mock_fn):
             # Both IPs should be allowed (separate rate limit buckets)
             result1 = handler.handle("/api/v1/admin/security/status", {}, mock_http_1)
@@ -1286,13 +1327,15 @@ class TestEdgeCases:
         """POST with RBAC allowed proceeds to dispatch."""
         mock_http.auth_context = MagicMock()
         allowed = MockPermissionDecision(allowed=True)
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.admin.security.check_permission",
-            return_value=allowed,
-        ), patch.object(handler, "_rotate_key", mock_fn):
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.admin.security.check_permission",
+                return_value=allowed,
+            ),
+            patch.object(handler, "_rotate_key", mock_fn),
+        ):
             handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
             mock_fn.assert_called_once()
 
@@ -1300,24 +1343,28 @@ class TestEdgeCases:
         """POST without auth_context skips RBAC check."""
         mock_http = MagicMock(spec=[])
         mock_http.client_address = ("127.0.0.1", 12345)
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
 
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.admin.security.check_permission",
-        ) as mock_check, patch.object(handler, "_rotate_key", mock_fn):
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.admin.security.check_permission",
+            ) as mock_check,
+            patch.object(handler, "_rotate_key", mock_fn),
+        ):
             handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
             mock_check.assert_not_called()
 
     def test_handle_post_rbac_unavailable_non_production(self, handler, mock_http):
         """POST with RBAC unavailable in non-production proceeds."""
-        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b'{}'))
-        with patch(
-            "aragora.server.handlers.admin.security.RBAC_AVAILABLE", False
-        ), patch(
-            "aragora.server.handlers.admin.security.rbac_fail_closed",
-            return_value=False,
-        ), patch.object(handler, "_rotate_key", mock_fn):
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        with (
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", False),
+            patch(
+                "aragora.server.handlers.admin.security.rbac_fail_closed",
+                return_value=False,
+            ),
+            patch.object(handler, "_rotate_key", mock_fn),
+        ):
             handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
             mock_fn.assert_called_once()

@@ -180,7 +180,12 @@ class TestLengthConstants:
         assert MAX_CHANNEL_ID_LENGTH == 100
 
     def test_all_length_constants_are_positive_ints(self):
-        for val in (MAX_TOPIC_LENGTH, MAX_COMMAND_LENGTH, MAX_USER_ID_LENGTH, MAX_CHANNEL_ID_LENGTH):
+        for val in (
+            MAX_TOPIC_LENGTH,
+            MAX_COMMAND_LENGTH,
+            MAX_USER_ID_LENGTH,
+            MAX_CHANNEL_ID_LENGTH,
+        ):
             assert isinstance(val, int)
             assert val > 0
 
@@ -273,8 +278,16 @@ class TestAgentDisplayNames:
 
     def test_contains_expected_agents(self):
         expected_keys = {
-            "claude", "gpt4", "gemini", "mistral", "deepseek",
-            "grok", "qwen", "kimi", "anthropic-api", "openai-api",
+            "claude",
+            "gpt4",
+            "gemini",
+            "mistral",
+            "deepseek",
+            "grok",
+            "qwen",
+            "kimi",
+            "anthropic-api",
+            "openai-api",
         }
         assert set(AGENT_DISPLAY_NAMES.keys()) == expected_keys
 

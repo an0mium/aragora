@@ -147,12 +147,8 @@ class Playbook:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Playbook:
         """Create from dictionary."""
-        gates = [
-            ApprovalGate.from_dict(g) for g in data.get("approval_gates", [])
-        ]
-        steps = [
-            PlaybookStep.from_dict(s) for s in data.get("steps", [])
-        ]
+        gates = [ApprovalGate.from_dict(g) for g in data.get("approval_gates", [])]
+        steps = [PlaybookStep.from_dict(s) for s in data.get("steps", [])]
         return cls(
             id=data["id"],
             name=data["name"],

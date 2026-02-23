@@ -20,6 +20,7 @@ def _reset_calibration_fusion_singleton() -> None:
         # If the module can't be imported, tests that need it will fail normally.
         pass
 
+
 class MockMetaStore:
     """Mock metadata store for testing."""
 

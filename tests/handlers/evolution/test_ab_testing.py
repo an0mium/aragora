@@ -140,8 +140,7 @@ class MockHTTPHandler:
 # ---------------------------------------------------------------------------
 
 _GET_ALL_TESTS_PATCH = (
-    "aragora.server.handlers.evolution.ab_testing."
-    "EvolutionABTestingHandler._get_all_tests"
+    "aragora.server.handlers.evolution.ab_testing.EvolutionABTestingHandler._get_all_tests"
 )
 # Local imports in handle_delete - must patch at source
 _EXTRACT_USER_PATCH = "aragora.billing.jwt_auth.extract_user_from_request"
@@ -290,18 +289,14 @@ class TestListTests:
         """Custom limit parameter is respected."""
         mock_manager.get_agent_tests.return_value = []
 
-        result = handler.handle(
-            "/api/evolution/ab-tests", {"agent": "claude", "limit": "10"}, http
-        )
+        result = handler.handle("/api/evolution/ab-tests", {"agent": "claude", "limit": "10"}, http)
 
         assert _status(result) == 200
         mock_manager.get_agent_tests.assert_called_once_with("claude", limit=10)
 
     def test_list_tests_invalid_status_filter(self, handler, mock_manager, http):
         """Invalid status filter returns 400."""
-        result = handler.handle(
-            "/api/evolution/ab-tests", {"status": "bogus"}, http
-        )
+        result = handler.handle("/api/evolution/ab-tests", {"status": "bogus"}, http)
 
         assert _status(result) == 400
         body = _body(result)
@@ -311,27 +306,21 @@ class TestListTests:
         """Valid status 'active' is accepted."""
         t = MockABTest()
         with patch(_GET_ALL_TESTS_PATCH, return_value=[t]):
-            result = handler.handle(
-                "/api/evolution/ab-tests", {"status": "active"}, http
-            )
+            result = handler.handle("/api/evolution/ab-tests", {"status": "active"}, http)
 
         assert _status(result) == 200
 
     def test_list_tests_valid_status_concluded(self, handler, mock_manager, http):
         """Valid status 'concluded' is accepted."""
         with patch(_GET_ALL_TESTS_PATCH, return_value=[]):
-            result = handler.handle(
-                "/api/evolution/ab-tests", {"status": "concluded"}, http
-            )
+            result = handler.handle("/api/evolution/ab-tests", {"status": "concluded"}, http)
 
         assert _status(result) == 200
 
     def test_list_tests_valid_status_cancelled(self, handler, mock_manager, http):
         """Valid status 'cancelled' is accepted."""
         with patch(_GET_ALL_TESTS_PATCH, return_value=[]):
-            result = handler.handle(
-                "/api/evolution/ab-tests", {"status": "cancelled"}, http
-            )
+            result = handler.handle("/api/evolution/ab-tests", {"status": "cancelled"}, http)
 
         assert _status(result) == 200
 
@@ -432,9 +421,7 @@ class TestGetActiveTest:
         """Versioned path works for active test lookup."""
         mock_manager.get_active_test.return_value = None
 
-        result = handler.handle(
-            "/api/v1/evolution/ab-tests/claude/active", {}, http
-        )
+        result = handler.handle("/api/v1/evolution/ab-tests/claude/active", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -613,9 +600,7 @@ class TestRecordResult:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 200
         resp = _body(result)
@@ -640,9 +625,7 @@ class TestRecordResult:
             "variant": "evolved",
             "won": False,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 200
         mock_manager.record_result.assert_called_once_with(
@@ -661,17 +644,13 @@ class TestRecordResult:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/missing/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/missing/record", body, http)
 
         assert _status(result) == 404
 
     def test_record_result_concluded_test(self, handler, mock_manager, http):
         """Cannot record results on concluded test."""
-        concluded_test = MockABTest(
-            test_id="test-done", status=MockTestStatus.CONCLUDED
-        )
+        concluded_test = MockABTest(test_id="test-done", status=MockTestStatus.CONCLUDED)
         mock_manager.get_test.return_value = concluded_test
 
         body = {
@@ -679,9 +658,7 @@ class TestRecordResult:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-done/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-done/record", body, http)
 
         assert _status(result) == 400
         assert "concluded" in _body(result).get("error", "").lower()
@@ -692,9 +669,7 @@ class TestRecordResult:
         mock_manager.get_test.return_value = active_test
 
         body = {"variant": "baseline", "won": True}
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
         assert "debate_id" in _body(result).get("error", "").lower()
@@ -709,9 +684,7 @@ class TestRecordResult:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
         assert "debate_id" in _body(result).get("error", "").lower()
@@ -722,9 +695,7 @@ class TestRecordResult:
         mock_manager.get_test.return_value = active_test
 
         body = {"debate_id": 12345, "variant": "baseline", "won": True}
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
 
@@ -738,9 +709,7 @@ class TestRecordResult:
             "variant": "control",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
         assert "variant" in _body(result).get("error", "").lower()
@@ -751,9 +720,7 @@ class TestRecordResult:
         mock_manager.get_test.return_value = active_test
 
         body = {"debate_id": "debate-123", "variant": "baseline"}
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
         assert "won" in _body(result).get("error", "").lower()
@@ -769,9 +736,7 @@ class TestRecordResult:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 500
 
@@ -787,9 +752,7 @@ class TestRecordResult:
             "variant": "evolved",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/v1/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/v1/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 200
 
@@ -811,9 +774,7 @@ class TestConcludeTest:
         )
         mock_manager.conclude_test.return_value = mock_result
 
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/conclude", {}, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/conclude", {}, http)
 
         assert _status(result) == 200
         resp = _body(result)
@@ -839,9 +800,7 @@ class TestConcludeTest:
         """ValueError from manager returns 400."""
         mock_manager.conclude_test.side_effect = ValueError("Not enough data")
 
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/conclude", {}, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/conclude", {}, http)
 
         assert _status(result) == 400
 
@@ -850,9 +809,7 @@ class TestConcludeTest:
         mock_result = MockABTestResult(test_id="test-002")
         mock_manager.conclude_test.return_value = mock_result
 
-        result = handler.handle_post(
-            "/api/v1/evolution/ab-tests/test-002/conclude", {}, http
-        )
+        result = handler.handle_post("/api/v1/evolution/ab-tests/test-002/conclude", {}, http)
 
         assert _status(result) == 200
 
@@ -867,9 +824,7 @@ class TestConcludeTest:
         )
         mock_manager.conclude_test.return_value = mock_result
 
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/conclude", {}, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/conclude", {}, http)
 
         assert _status(result) == 200
         resp = _body(result)
@@ -901,17 +856,20 @@ class TestDeleteCancelTest:
         mock_manager.cancel_test.return_value = True
         auth_ctx = self._make_auth_ctx(authenticated=True)
 
-        with patch(
-            _EXTRACT_USER_PATCH, return_value=auth_ctx,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+                return_value=auth_ctx,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
             handler._delete_limiter = MagicMock()
             handler._delete_limiter.is_allowed.return_value = True
 
-            result = handler.handle_delete(
-                "/api/evolution/ab-tests/test-001", {}, http
-            )
+            result = handler.handle_delete("/api/evolution/ab-tests/test-001", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -924,17 +882,20 @@ class TestDeleteCancelTest:
         mock_manager.cancel_test.return_value = False
         auth_ctx = self._make_auth_ctx(authenticated=True)
 
-        with patch(
-            _EXTRACT_USER_PATCH, return_value=auth_ctx,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+                return_value=auth_ctx,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
             handler._delete_limiter = MagicMock()
             handler._delete_limiter.is_allowed.return_value = True
 
-            result = handler.handle_delete(
-                "/api/evolution/ab-tests/missing-test", {}, http
-            )
+            result = handler.handle_delete("/api/evolution/ab-tests/missing-test", {}, http)
 
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
@@ -943,14 +904,17 @@ class TestDeleteCancelTest:
         """Unauthenticated delete returns 401."""
         unauth_ctx = self._make_auth_ctx(authenticated=False)
 
-        with patch(
-            _EXTRACT_USER_PATCH, return_value=unauth_ctx,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+                return_value=unauth_ctx,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
-            result = handler.handle_delete(
-                "/api/evolution/ab-tests/test-001", {}, http
-            )
+            result = handler.handle_delete("/api/evolution/ab-tests/test-001", {}, http)
 
         assert _status(result) == 401
         assert "authentication" in _body(result).get("error", "").lower()
@@ -959,17 +923,20 @@ class TestDeleteCancelTest:
         """Rate limited delete returns 429."""
         auth_ctx = self._make_auth_ctx(authenticated=True)
 
-        with patch(
-            _EXTRACT_USER_PATCH, return_value=auth_ctx,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+                return_value=auth_ctx,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
             handler._delete_limiter = MagicMock()
             handler._delete_limiter.is_allowed.return_value = False
 
-            result = handler.handle_delete(
-                "/api/evolution/ab-tests/test-001", {}, http
-            )
+            result = handler.handle_delete("/api/evolution/ab-tests/test-001", {}, http)
 
         assert _status(result) == 429
         assert "rate limit" in _body(result).get("error", "").lower()
@@ -979,30 +946,35 @@ class TestDeleteCancelTest:
         mock_manager.cancel_test.return_value = True
         auth_ctx = self._make_auth_ctx(authenticated=True)
 
-        with patch(
-            _EXTRACT_USER_PATCH, return_value=auth_ctx,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+                return_value=auth_ctx,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
             handler._delete_limiter = MagicMock()
             handler._delete_limiter.is_allowed.return_value = True
 
-            result = handler.handle_delete(
-                "/api/v1/evolution/ab-tests/test-002", {}, http
-            )
+            result = handler.handle_delete("/api/v1/evolution/ab-tests/test-002", {}, http)
 
         assert _status(result) == 200
 
     def test_cancel_test_wrong_path_length(self, handler, mock_manager, http):
         """DELETE on path with extra segments returns None."""
-        with patch(
-            _EXTRACT_USER_PATCH,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
-            result = handler.handle_delete(
-                "/api/evolution/ab-tests/test-001/extra", {}, http
-            )
+            result = handler.handle_delete("/api/evolution/ab-tests/test-001/extra", {}, http)
 
         assert result is None
 
@@ -1017,9 +989,7 @@ class TestModuleUnavailable:
 
     def test_handle_returns_503(self, handler_unavailable, http):
         """GET returns 503 when module unavailable."""
-        result = handler_unavailable.handle(
-            "/api/evolution/ab-tests", {}, http
-        )
+        result = handler_unavailable.handle("/api/evolution/ab-tests", {}, http)
 
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
@@ -1034,14 +1004,16 @@ class TestModuleUnavailable:
 
     def test_handle_delete_returns_503(self, handler_unavailable, http):
         """DELETE returns 503 when module unavailable."""
-        with patch(
-            _EXTRACT_USER_PATCH,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
-            result = handler_unavailable.handle_delete(
-                "/api/evolution/ab-tests/test-001", {}, http
-            )
+            result = handler_unavailable.handle_delete("/api/evolution/ab-tests/test-001", {}, http)
 
         assert _status(result) == 503
 
@@ -1063,26 +1035,20 @@ class TestManagerNotConfigured:
 
     def test_get_test_503(self, handler_no_manager, http):
         """Getting test returns 503 when manager not configured."""
-        result = handler_no_manager.handle(
-            "/api/evolution/ab-tests/test-001", {}, http
-        )
+        result = handler_no_manager.handle("/api/evolution/ab-tests/test-001", {}, http)
 
         assert _status(result) == 503
 
     def test_get_active_test_503(self, handler_no_manager, http):
         """Getting active test returns 503 when manager not configured."""
-        result = handler_no_manager.handle(
-            "/api/evolution/ab-tests/claude/active", {}, http
-        )
+        result = handler_no_manager.handle("/api/evolution/ab-tests/claude/active", {}, http)
 
         assert _status(result) == 503
 
     def test_create_test_503(self, handler_no_manager, http):
         """Creating test returns 503 when manager not configured."""
         body = {"agent": "claude", "baseline_version": 1, "evolved_version": 2}
-        result = handler_no_manager.handle_post(
-            "/api/evolution/ab-tests", body, http
-        )
+        result = handler_no_manager.handle_post("/api/evolution/ab-tests", body, http)
 
         assert _status(result) == 503
 
@@ -1108,17 +1074,20 @@ class TestManagerNotConfigured:
         auth_ctx = MagicMock()
         auth_ctx.is_authenticated = True
 
-        with patch(
-            _EXTRACT_USER_PATCH, return_value=auth_ctx,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+                return_value=auth_ctx,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
             handler_no_manager._delete_limiter = MagicMock()
             handler_no_manager._delete_limiter.is_allowed.return_value = True
 
-            result = handler_no_manager.handle_delete(
-                "/api/evolution/ab-tests/test-001", {}, http
-            )
+            result = handler_no_manager.handle_delete("/api/evolution/ab-tests/test-001", {}, http)
 
         assert _status(result) == 503
 
@@ -1133,47 +1102,41 @@ class TestRoutingEdgeCases:
 
     def test_handle_returns_none_for_unknown_subpath(self, handler, http):
         """Unknown subpath returns None (not handled)."""
-        result = handler.handle(
-            "/api/evolution/ab-tests/test-001/unknown/extra", {}, http
-        )
+        result = handler.handle("/api/evolution/ab-tests/test-001/unknown/extra", {}, http)
 
         assert result is None
 
     def test_handle_post_returns_none_for_unknown_action(self, handler, http):
         """POST on unknown action returns None."""
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/unknown", {}, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/unknown", {}, http)
 
         assert result is None
 
     def test_handle_post_returns_none_short_path(self, handler, http):
         """POST on too-short subpath with id returns None."""
         # POST /api/evolution/ab-tests/{id} (no action) - not handled by handle_post
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001", {}, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001", {}, http)
 
         assert result is None
 
     def test_handle_returns_none_too_many_segments(self, handler, http):
         """Path with too many segments returns None."""
-        result = handler.handle(
-            "/api/evolution/ab-tests/agent1/active/extra", {}, http
-        )
+        result = handler.handle("/api/evolution/ab-tests/agent1/active/extra", {}, http)
 
         assert result is None
 
     def test_handle_delete_returns_none_for_base_path(self, handler, http):
         """DELETE on base path returns None (no id)."""
-        with patch(
-            _EXTRACT_USER_PATCH,
-        ), patch(
-            _GET_CLIENT_IP_PATCH, return_value="127.0.0.1",
+        with (
+            patch(
+                _EXTRACT_USER_PATCH,
+            ),
+            patch(
+                _GET_CLIENT_IP_PATCH,
+                return_value="127.0.0.1",
+            ),
         ):
-            result = handler.handle_delete(
-                "/api/evolution/ab-tests", {}, http
-            )
+            result = handler.handle_delete("/api/evolution/ab-tests", {}, http)
 
         assert result is None
 
@@ -1196,9 +1159,7 @@ class TestInputValidation:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
 
@@ -1212,9 +1173,7 @@ class TestInputValidation:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 400
 
@@ -1230,9 +1189,7 @@ class TestInputValidation:
             "variant": "baseline",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 200
 
@@ -1248,9 +1205,7 @@ class TestInputValidation:
             "variant": "evolved",
             "won": True,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 200
 
@@ -1266,9 +1221,7 @@ class TestInputValidation:
             "variant": "baseline",
             "won": 1,
         }
-        result = handler.handle_post(
-            "/api/evolution/ab-tests/test-001/record", body, http
-        )
+        result = handler.handle_post("/api/evolution/ab-tests/test-001/record", body, http)
 
         assert _status(result) == 200
         mock_manager.record_result.assert_called_once_with(

@@ -590,7 +590,9 @@ class MigrationRunner:
 
             if checksum_warnings:
                 logger.warning(
-                    "[%s] Checksum mismatch for %s migration(s) - files may have been modified after application", db_name, len(checksum_warnings)
+                    "[%s] Checksum mismatch for %s migration(s) - files may have been modified after application",
+                    db_name,
+                    len(checksum_warnings),
                 )
 
             pending = [m for m in migrations if m.version > current and m.version <= target_version]
@@ -608,7 +610,10 @@ class MigrationRunner:
 
             for migration in pending:
                 logger.info(
-                    "[%s] Applying migration %s: %s", db_name, migration.version, migration.description
+                    "[%s] Applying migration %s: %s",
+                    db_name,
+                    migration.version,
+                    migration.description,
                 )
 
                 try:
@@ -633,7 +638,9 @@ class MigrationRunner:
                     conn.commit()
                     applied.append(migration.version)
 
-                    logger.info("[%s] Applied migration %s successfully", db_name, migration.version)
+                    logger.info(
+                        "[%s] Applied migration %s successfully", db_name, migration.version
+                    )
 
                 except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                     conn.rollback()
@@ -790,7 +797,10 @@ class MigrationRunner:
 
             for migration in to_rollback:
                 logger.info(
-                    "[%s] Rolling back migration %s: %s", db_name, migration.version, migration.description
+                    "[%s] Rolling back migration %s: %s",
+                    db_name,
+                    migration.version,
+                    migration.description,
                 )
 
                 try:
@@ -945,7 +955,10 @@ class MigrationRunner:
 
             # Execute rollback
             logger.info(
-                "[%s] Rolling back migration %s: %s", db_name, migration.version, migration.description
+                "[%s] Rolling back migration %s: %s",
+                db_name,
+                migration.version,
+                migration.description,
             )
 
             try:
@@ -975,7 +988,9 @@ class MigrationRunner:
                 new_version = max(previous_versions) if previous_versions else 0
                 manager.set_version(new_version)
 
-                logger.info("[%s] Rolled back migration %s successfully", db_name, migration.version)
+                logger.info(
+                    "[%s] Rolled back migration %s successfully", db_name, migration.version
+                )
 
                 return {
                     "db_name": db_name,

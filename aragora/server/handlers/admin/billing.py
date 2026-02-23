@@ -1012,7 +1012,11 @@ class BillingHandler(SecureHandler):
         subscription_id = session.get("subscription")
 
         logger.info(
-            "Checkout completed: user=%s, org=%s, customer=%s, subscription=%s", user_id, org_id, customer_id, subscription_id
+            "Checkout completed: user=%s, org=%s, customer=%s, subscription=%s",
+            user_id,
+            org_id,
+            customer_id,
+            subscription_id,
         )
 
         if user_store and org_id:
@@ -1069,7 +1073,10 @@ class BillingHandler(SecureHandler):
         price_id = items[0].get("price", {}).get("id", "") if items else ""
 
         logger.info(
-            "Subscription updated: %s, status=%s, cancel_at_period_end=%s", subscription_id, status, cancel_at_period_end
+            "Subscription updated: %s, status=%s, cancel_at_period_end=%s",
+            subscription_id,
+            status,
+            cancel_at_period_end,
         )
 
         # Update organization tier if price changed
@@ -1183,7 +1190,10 @@ class BillingHandler(SecureHandler):
         hosted_invoice_url = invoice.get("hosted_invoice_url")
 
         logger.warning(
-            "Invoice payment failed: customer=%s, subscription=%s, attempt=%s", customer_id, subscription_id, attempt_count
+            "Invoice payment failed: customer=%s, subscription=%s, attempt=%s",
+            customer_id,
+            subscription_id,
+            attempt_count,
         )
 
         # Record failure and get tracking info
@@ -1202,7 +1212,11 @@ class BillingHandler(SecureHandler):
                 )
 
                 logger.info(
-                    "Payment failure recorded for org %s: attempt=%s, days_failing=%s, days_until_downgrade=%s", org.id, failure.attempt_count, failure.days_failing, failure.days_until_downgrade
+                    "Payment failure recorded for org %s: attempt=%s, days_failing=%s, days_until_downgrade=%s",
+                    org.id,
+                    failure.attempt_count,
+                    failure.days_failing,
+                    failure.days_until_downgrade,
                 )
 
                 # Send notification to organization owner
@@ -1220,13 +1234,18 @@ class BillingHandler(SecureHandler):
                         days_until_downgrade=failure.days_until_downgrade,
                     )
                     logger.info(
-                        "Payment failure notification sent to %s: method=%s, success=%s", owner.email, result.method, result.success
+                        "Payment failure notification sent to %s: method=%s, success=%s",
+                        owner.email,
+                        result.method,
+                        result.success,
                     )
 
                 # Log warning if nearing grace period end
                 if failure.days_until_downgrade <= 3:
                     logger.warning(
-                        "Org %s payment grace period ending soon: %s days until auto-downgrade", org.id, failure.days_until_downgrade
+                        "Org %s payment grace period ending soon: %s days until auto-downgrade",
+                        org.id,
+                        failure.days_until_downgrade,
                     )
 
         return json_response(
@@ -1261,9 +1280,18 @@ class BillingHandler(SecureHandler):
                     flushed_records = usage_sync.flush_period(org_id=org.id)
                     if flushed_records:
                         logger.info(
-                            "Flushed %s usage records for org %s on invoice finalize", len(flushed_records), org.id
+                            "Flushed %s usage records for org %s on invoice finalize",
+                            len(flushed_records),
+                            org.id,
                         )
-                except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
+                except (
+                    KeyError,
+                    ValueError,
+                    OSError,
+                    TypeError,
+                    AttributeError,
+                    RuntimeError,
+                ) as e:
                     logger.error("Failed to flush usage on invoice finalize: %s", e)
 
         return json_response(

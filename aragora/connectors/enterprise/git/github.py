@@ -684,7 +684,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             # Issue/PR event
             issue = payload.get("issue") or payload.get("pull_request")
             if issue:
-                logger.info("[%s] Webhook: %s #%s", self.name, event_type, issue.get('number'))
+                logger.info("[%s] Webhook: %s #%s", self.name, event_type, issue.get("number"))
                 return True
 
         return False

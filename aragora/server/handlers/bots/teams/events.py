@@ -551,7 +551,7 @@ Each debate uses a dynamic team selected based on task requirements and agent pe
                     logger.debug("Positive reaction on message %s from %s", reply_to, user_id)
 
         for reaction in reactions_removed:
-            logger.debug("Reaction removed by %s: %s", user_id, reaction.get('type'))
+            logger.debug("Reaction removed by %s: %s", user_id, reaction.get("type"))
 
         return {}
 

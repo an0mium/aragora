@@ -30,7 +30,6 @@ if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
     os.environ["ARAGORA_ENCRYPTION_KEY"] = secrets.token_hex(32)
 
 
-
 def _generate_test_data(size_bytes: int) -> str:
     """Generate random test data of specified size."""
     return secrets.token_urlsafe(size_bytes)

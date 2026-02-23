@@ -799,13 +799,15 @@ class TestValidateActionInput:
             assert valid is False
 
     def test_input_with_nested_structure(self):
-        valid, err = validate_action_input({
-            "messages": [
-                {"role": "user", "content": "hello"},
-                {"role": "assistant", "content": "hi"},
-            ],
-            "config": {"temperature": 0.5},
-        })
+        valid, err = validate_action_input(
+            {
+                "messages": [
+                    {"role": "user", "content": "hello"},
+                    {"role": "assistant", "content": "hi"},
+                ],
+                "config": {"temperature": 0.5},
+            }
+        )
         assert valid is True
         assert err is None
 
@@ -872,12 +874,14 @@ class TestValidateMetadata:
         assert "invalid data" in err
 
     def test_metadata_with_nested_types(self):
-        valid, err = validate_metadata({
-            "tags": ["a", "b"],
-            "count": 10,
-            "active": True,
-            "extra": None,
-        })
+        valid, err = validate_metadata(
+            {
+                "tags": ["a", "b"],
+                "count": 10,
+                "active": True,
+                "extra": None,
+            }
+        )
         assert valid is True
         assert err is None
 
@@ -963,9 +967,7 @@ class TestSecurityScenarios:
             assert valid is True
 
     def test_xss_in_action_parameters_sanitized(self):
-        result = sanitize_action_parameters({
-            "html": "<script>alert('xss')</script>"
-        })
+        result = sanitize_action_parameters({"html": "<script>alert('xss')</script>"})
         sanitized = result["html"]
         assert "\\<" in sanitized
         assert "\\>" in sanitized

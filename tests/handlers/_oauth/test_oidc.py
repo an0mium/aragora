@@ -126,7 +126,9 @@ class _TestOIDCHandler(OIDCOAuthMixin):
             headers={"Location": f"http://localhost:3000/auth/error?error={error}"},
         )
 
-    async def _complete_oauth_flow(self, user_info: OAuthUserInfo, state_data: dict) -> HandlerResult:
+    async def _complete_oauth_flow(
+        self, user_info: OAuthUserInfo, state_data: dict
+    ) -> HandlerResult:
         self._complete_flow_calls.append((user_info, state_data))
         return HandlerResult(
             status_code=302,
@@ -191,9 +193,7 @@ class TestOIDCAuthStart:
     async def test_returns_redirect_to_oidc_provider(self, handler, impl, mock_http_handler):
         """Auth start returns a 302 with Location to OIDC auth endpoint."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(handler, mock_http_handler, {})
 
@@ -255,9 +255,7 @@ class TestOIDCAuthStart:
     async def test_invalid_redirect_url_returns_400(self, handler, impl, mock_http_handler):
         """Returns 400 when redirect_url fails validation."""
         impl._validate_redirect_url = lambda url: False
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(
                 handler, mock_http_handler, {"redirect_url": "https://evil.com"}
@@ -278,9 +276,7 @@ class TestOIDCAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             await _run_auth_start(
                 handler, mock_http_handler, {"redirect_url": "https://app.example.com/done"}
@@ -301,18 +297,14 @@ class TestOIDCAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user-42")
             await _run_auth_start(handler, mock_http_handler, {})
 
         assert captured["user_id"] == "user-42"
 
     @pytest.mark.asyncio
-    async def test_unauthenticated_user_passes_none_user_id(
-        self, handler, impl, mock_http_handler
-    ):
+    async def test_unauthenticated_user_passes_none_user_id(self, handler, impl, mock_http_handler):
         """When user is not authenticated, user_id is None in state."""
         captured = {}
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
@@ -322,18 +314,14 @@ class TestOIDCAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             await _run_auth_start(handler, mock_http_handler, {})
 
         assert captured["user_id"] is None
 
     @pytest.mark.asyncio
-    async def test_default_redirect_url_when_not_in_params(
-        self, handler, impl, mock_http_handler
-    ):
+    async def test_default_redirect_url_when_not_in_params(self, handler, impl, mock_http_handler):
         """Uses OAuth success URL as default redirect when not specified in query."""
         captured = {}
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
@@ -343,9 +331,7 @@ class TestOIDCAuthStart:
             return "state-token"
 
         impl._generate_state = mock_generate
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             await _run_auth_start(handler, mock_http_handler, {})
 
@@ -355,9 +341,7 @@ class TestOIDCAuthStart:
     async def test_discovery_failure_returns_503(self, handler, impl, mock_http_handler):
         """Returns 503 when OIDC discovery has no auth endpoint."""
         handler._get_oidc_discovery = MagicMock(return_value={})
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(handler, mock_http_handler, {})
 
@@ -369,9 +353,7 @@ class TestOIDCAuthStart:
     async def test_meta_refresh_in_body(self, handler, impl, mock_http_handler):
         """Response body contains a meta refresh tag as fallback."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(handler, mock_http_handler, {})
 
@@ -381,12 +363,11 @@ class TestOIDCAuthStart:
     async def test_redirect_url_as_list(self, handler, impl, mock_http_handler):
         """Query parameters provided as lists are handled correctly."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(
-                handler, mock_http_handler,
+                handler,
+                mock_http_handler,
                 {"redirect_url": ["https://app.example.com/done"]},
             )
 
@@ -395,13 +376,12 @@ class TestOIDCAuthStart:
     @pytest.mark.asyncio
     async def test_awaitable_discovery_is_awaited(self, handler, impl, mock_http_handler):
         """When _get_oidc_discovery returns a coroutine, it is awaited."""
+
         async def async_discovery(issuer):
             return MOCK_DISCOVERY
 
         handler._get_oidc_discovery = lambda issuer: async_discovery(issuer)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(handler, mock_http_handler, {})
 
@@ -412,14 +392,13 @@ class TestOIDCAuthStart:
     @pytest.mark.asyncio
     async def test_discovery_timeout_returns_504(self, handler, impl, mock_http_handler):
         """Returns 504 when OIDC discovery times out."""
+
         async def slow_discovery(issuer):
             await asyncio.sleep(100)
             return MOCK_DISCOVERY
 
         handler._get_oidc_discovery = lambda issuer: slow_discovery(issuer)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             with patch(
                 "aragora.server.handlers._oauth.oidc.asyncio.wait_for",
@@ -435,9 +414,7 @@ class TestOIDCAuthStart:
     async def test_redirect_uri_in_auth_url(self, handler, impl, mock_http_handler):
         """Authorization URL includes the configured redirect URI."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
             result = await _run_auth_start(handler, mock_http_handler, {})
 
@@ -448,9 +425,7 @@ class TestOIDCAuthStart:
     @pytest.mark.asyncio
     async def test_auth_start_with_both_issuer_and_client_id_none(self, handler, mock_http_handler):
         """Returns 503 when both OIDC issuer and client ID are None."""
-        mod = _make_impl(
-            **{"_get_oidc_issuer": lambda: None, "_get_oidc_client_id": lambda: None}
-        )
+        mod = _make_impl(**{"_get_oidc_issuer": lambda: None, "_get_oidc_client_id": lambda: None})
         sys.modules[_IMPL_MODULE] = mod
         try:
             result = await _run_auth_start(handler, mock_http_handler, {})
@@ -461,9 +436,7 @@ class TestOIDCAuthStart:
     @pytest.mark.asyncio
     async def test_auth_start_with_both_empty(self, handler, mock_http_handler):
         """Returns 503 when both OIDC issuer and client ID are empty."""
-        mod = _make_impl(
-            **{"_get_oidc_issuer": lambda: "", "_get_oidc_client_id": lambda: ""}
-        )
+        mod = _make_impl(**{"_get_oidc_issuer": lambda: "", "_get_oidc_client_id": lambda: ""})
         sys.modules[_IMPL_MODULE] = mod
         try:
             result = await _run_auth_start(handler, mock_http_handler, {})
@@ -484,27 +457,26 @@ class TestOIDCCallback:
     async def test_error_from_provider_redirects_with_error(self, handler, impl, mock_http_handler):
         """OIDC error parameter triggers redirect with error."""
         result = await _run_callback(
-            handler, mock_http_handler,
+            handler,
+            mock_http_handler,
             {"error": "access_denied", "error_description": "User denied"},
         )
         assert _status(result) == 302
         assert "User denied" in handler._error_messages[0]
 
     @pytest.mark.asyncio
-    async def test_error_without_description_uses_error_code(self, handler, impl, mock_http_handler):
+    async def test_error_without_description_uses_error_code(
+        self, handler, impl, mock_http_handler
+    ):
         """When no error_description, error code itself is used."""
-        result = await _run_callback(
-            handler, mock_http_handler, {"error": "server_error"}
-        )
+        result = await _run_callback(handler, mock_http_handler, {"error": "server_error"})
         assert _status(result) == 302
         assert "server_error" in handler._error_messages[0]
 
     @pytest.mark.asyncio
     async def test_missing_state_returns_error(self, handler, impl, mock_http_handler):
         """Missing state parameter triggers redirect with error."""
-        result = await _run_callback(
-            handler, mock_http_handler, {"code": "auth-code"}
-        )
+        result = await _run_callback(handler, mock_http_handler, {"code": "auth-code"})
         assert _status(result) == 302
         assert "Missing state" in handler._error_messages[0]
 
@@ -521,9 +493,7 @@ class TestOIDCCallback:
     @pytest.mark.asyncio
     async def test_missing_code_returns_error(self, handler, impl, mock_http_handler):
         """Missing authorization code triggers redirect with error."""
-        result = await _run_callback(
-            handler, mock_http_handler, {"state": "valid-state"}
-        )
+        result = await _run_callback(handler, mock_http_handler, {"state": "valid-state"})
         assert _status(result) == 302
         assert "Missing authorization code" in handler._error_messages[0]
 
@@ -533,9 +503,7 @@ class TestOIDCCallback:
         import httpx
 
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        handler._exchange_oidc_code = MagicMock(
-            side_effect=httpx.ConnectError("connection failed")
-        )
+        handler._exchange_oidc_code = MagicMock(side_effect=httpx.ConnectError("connection failed"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -546,9 +514,7 @@ class TestOIDCCallback:
     async def test_token_exchange_connection_error(self, handler, impl, mock_http_handler):
         """ConnectionError during token exchange redirects with error."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        handler._exchange_oidc_code = MagicMock(
-            side_effect=ConnectionError("network down")
-        )
+        handler._exchange_oidc_code = MagicMock(side_effect=ConnectionError("network down"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -559,9 +525,7 @@ class TestOIDCCallback:
     async def test_token_exchange_timeout_error(self, handler, impl, mock_http_handler):
         """TimeoutError during token exchange redirects with error."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        handler._exchange_oidc_code = MagicMock(
-            side_effect=TimeoutError("request timed out")
-        )
+        handler._exchange_oidc_code = MagicMock(side_effect=TimeoutError("request timed out"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -572,9 +536,7 @@ class TestOIDCCallback:
     async def test_token_exchange_os_error(self, handler, impl, mock_http_handler):
         """OSError during token exchange redirects with error."""
         handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        handler._exchange_oidc_code = MagicMock(
-            side_effect=OSError("network unreachable")
-        )
+        handler._exchange_oidc_code = MagicMock(side_effect=OSError("network unreachable"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -601,9 +563,7 @@ class TestOIDCCallback:
         handler._exchange_oidc_code = MagicMock(
             return_value={"access_token": "tok", "id_token": "idt"}
         )
-        handler._get_oidc_user_info = MagicMock(
-            side_effect=ConnectionError("timeout")
-        )
+        handler._get_oidc_user_info = MagicMock(side_effect=ConnectionError("timeout"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -617,9 +577,7 @@ class TestOIDCCallback:
         handler._exchange_oidc_code = MagicMock(
             return_value={"access_token": "tok", "id_token": "idt"}
         )
-        handler._get_oidc_user_info = MagicMock(
-            side_effect=KeyError("email")
-        )
+        handler._get_oidc_user_info = MagicMock(side_effect=KeyError("email"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -633,9 +591,7 @@ class TestOIDCCallback:
         handler._exchange_oidc_code = MagicMock(
             return_value={"access_token": "tok", "id_token": "idt"}
         )
-        handler._get_oidc_user_info = MagicMock(
-            side_effect=ValueError("No email in OIDC response")
-        )
+        handler._get_oidc_user_info = MagicMock(side_effect=ValueError("No email in OIDC response"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -651,9 +607,7 @@ class TestOIDCCallback:
         handler._exchange_oidc_code = MagicMock(
             return_value={"access_token": "tok", "id_token": "idt"}
         )
-        handler._get_oidc_user_info = MagicMock(
-            side_effect=httpx.HTTPError("bad gateway")
-        )
+        handler._get_oidc_user_info = MagicMock(side_effect=httpx.HTTPError("bad gateway"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -667,9 +621,7 @@ class TestOIDCCallback:
         handler._exchange_oidc_code = MagicMock(
             return_value={"access_token": "tok", "id_token": "idt"}
         )
-        handler._get_oidc_user_info = MagicMock(
-            side_effect=OSError("network")
-        )
+        handler._get_oidc_user_info = MagicMock(side_effect=OSError("network"))
         result = await _run_callback(
             handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
         )
@@ -792,7 +744,8 @@ class TestOIDCCallback:
     async def test_injection_in_error_description(self, handler, impl, mock_http_handler):
         """HTML/JS injection in error_description is passed through to redirect_with_error."""
         result = await _run_callback(
-            handler, mock_http_handler,
+            handler,
+            mock_http_handler,
             {"error": "bad", "error_description": '<script>alert("xss")</script>'},
         )
         assert _status(result) == 302
@@ -803,7 +756,8 @@ class TestOIDCCallback:
         """Malicious state parameter is handled safely."""
         impl._validate_state = lambda state: None
         result = await _run_callback(
-            handler, mock_http_handler,
+            handler,
+            mock_http_handler,
             {"state": "'; DROP TABLE users; --", "code": "auth-code"},
         )
         assert _status(result) == 302
@@ -852,9 +806,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
             else:
@@ -871,9 +828,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
             else:
@@ -888,9 +848,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
             else:
@@ -905,9 +868,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
             else:
@@ -922,9 +888,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
             else:
@@ -939,9 +908,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
             else:
@@ -959,9 +931,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com/")
             import inspect
+
             if inspect.isawaitable(result):
                 await result
         call_args = mock_client.get.call_args
@@ -978,9 +953,12 @@ class TestGetOIDCDiscovery:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_discovery("https://idp.example.com")
             import inspect
+
             if inspect.isawaitable(result):
                 await result
         call_args = mock_client.get.call_args
@@ -1010,7 +988,9 @@ class TestExchangeOIDCCode:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response
+        ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
 
         if asyncio.iscoroutine(result):
@@ -1026,7 +1006,9 @@ class TestExchangeOIDCCode:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response
+        ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
             if asyncio.iscoroutine(result):
                 result.close()
@@ -1047,7 +1029,9 @@ class TestExchangeOIDCCode:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch("aragora.server.handlers._oauth.oidc.urllib_request.urlopen", side_effect=mock_urlopen):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", side_effect=mock_urlopen
+        ):
             result = handler._exchange_oidc_code("my-auth-code", MOCK_DISCOVERY)
             if asyncio.iscoroutine(result):
                 result.close()
@@ -1072,9 +1056,12 @@ class TestExchangeOIDCCode:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 data = await result
                 assert data["access_token"] == "async-tok"
@@ -1092,9 +1079,12 @@ class TestExchangeOIDCCode:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 await result
 
@@ -1113,9 +1103,12 @@ class TestExchangeOIDCCode:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._exchange_oidc_code("my-code", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 await result
 
@@ -1154,9 +1147,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1186,9 +1182,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1209,9 +1208,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="No email"):
                     await result
@@ -1228,9 +1230,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="No subject"):
                     await result
@@ -1254,9 +1259,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", id_token, MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1284,9 +1292,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", id_token, MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1313,6 +1324,7 @@ class TestGetOIDCUserInfo:
 
         result = handler._get_oidc_user_info("access-tok", id_token, discovery_no_userinfo)
         import inspect
+
         if inspect.isawaitable(result):
             info = await result
         else:
@@ -1334,6 +1346,7 @@ class TestGetOIDCUserInfo:
 
         result = handler._get_oidc_user_info(None, id_token, MOCK_DISCOVERY)
         import inspect
+
         if inspect.isawaitable(result):
             info = await result
         else:
@@ -1357,9 +1370,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1384,9 +1400,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1409,9 +1428,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("access-tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1431,9 +1453,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("my-bearer-token", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 await result
 
@@ -1452,9 +1477,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 await result
 
@@ -1473,9 +1501,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="No email"):
                     await result
@@ -1492,9 +1523,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("tok", "id-tok", MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 with pytest.raises(ValueError, match="No subject"):
                     await result
@@ -1522,9 +1556,12 @@ class TestGetOIDCUserInfo:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "aragora.server.handlers._oauth.oidc.httpx.AsyncClient", return_value=mock_client
+        ):
             result = handler._get_oidc_user_info("tok", id_token, MOCK_DISCOVERY)
             import inspect
+
             if inspect.isawaitable(result):
                 info = await result
             else:
@@ -1544,6 +1581,7 @@ class TestGetOIDCUserInfo:
 
         result = handler._get_oidc_user_info(None, bad_id_token, discovery_no_userinfo)
         import inspect
+
         if inspect.isawaitable(result):
             with pytest.raises(ValueError, match="No email"):
                 await result
@@ -1558,6 +1596,7 @@ class TestGetOIDCUserInfo:
 
         result = handler._get_oidc_user_info(None, None, discovery_no_userinfo)
         import inspect
+
         if inspect.isawaitable(result):
             with pytest.raises(ValueError, match="No email"):
                 await result
@@ -1572,6 +1611,7 @@ class TestGetOIDCUserInfo:
 
         result = handler._get_oidc_user_info(None, id_token, discovery_no_userinfo)
         import inspect
+
         if inspect.isawaitable(result):
             info = await result
         else:
@@ -1611,13 +1651,9 @@ class TestHandleRouting:
     def test_oidc_auth_start_routed(self, oauth_handler, impl, mock_http_handler):
         """GET /api/v1/auth/oauth/oidc routes to OIDC auth start."""
         oauth_handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
-            result = oauth_handler.handle(
-                "/api/v1/auth/oauth/oidc", {}, mock_http_handler, "GET"
-            )
+            result = oauth_handler.handle("/api/v1/auth/oauth/oidc", {}, mock_http_handler, "GET")
         assert _status(result) == 302
 
     def test_oidc_callback_routed(self, oauth_handler, impl, mock_http_handler):
@@ -1633,13 +1669,9 @@ class TestHandleRouting:
     def test_non_v1_oidc_auth_start_routed(self, oauth_handler, impl, mock_http_handler):
         """GET /api/auth/oauth/oidc also routes correctly (non-v1)."""
         oauth_handler._get_oidc_discovery = MagicMock(return_value=MOCK_DISCOVERY)
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request"
-        ) as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False)
-            result = oauth_handler.handle(
-                "/api/auth/oauth/oidc", {}, mock_http_handler, "GET"
-            )
+            result = oauth_handler.handle("/api/auth/oauth/oidc", {}, mock_http_handler, "GET")
         assert _status(result) == 302
 
     def test_non_v1_oidc_callback_routed(self, oauth_handler, impl, mock_http_handler):
@@ -1655,17 +1687,13 @@ class TestHandleRouting:
     def test_rate_limited_returns_429(self, oauth_handler, impl, mock_http_handler):
         """When rate limiter denies request, returns 429."""
         impl._oauth_limiter.is_allowed = MagicMock(return_value=False)
-        result = oauth_handler.handle(
-            "/api/v1/auth/oauth/oidc", {}, mock_http_handler, "GET"
-        )
+        result = oauth_handler.handle("/api/v1/auth/oauth/oidc", {}, mock_http_handler, "GET")
         assert _status(result) == 429
 
     def test_oidc_post_method_not_allowed(self, oauth_handler, impl, mock_http_handler):
         """POST /api/v1/auth/oauth/oidc returns 405."""
         mock_http_handler.command = "POST"
-        result = oauth_handler.handle(
-            "/api/v1/auth/oauth/oidc", {}, mock_http_handler, "POST"
-        )
+        result = oauth_handler.handle("/api/v1/auth/oauth/oidc", {}, mock_http_handler, "POST")
         assert _status(result) == 405
 
     def test_oidc_callback_post_method_not_allowed(self, oauth_handler, impl, mock_http_handler):

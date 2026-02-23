@@ -56,8 +56,7 @@ class ModuleInfo:
             "imports_from": self.imports_from,
             "line_count": self.line_count,
             "searchable_text": (
-                f"{self.path} {self.docstring} "
-                f"{' '.join(self.classes)} {' '.join(self.functions)}"
+                f"{self.path} {self.docstring} {' '.join(self.classes)} {' '.join(self.functions)}"
             ),
         }
 

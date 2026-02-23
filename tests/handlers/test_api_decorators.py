@@ -299,7 +299,9 @@ class TestRateLimitDecorator:
             captured["kwargs"] = kw
             return lambda fn: fn
 
-        with patch("aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_rate_limit):
+        with patch(
+            "aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_rate_limit
+        ):
 
             @rate_limit(requests_per_minute=42, burst_size=10)
             def handler():
@@ -319,7 +321,9 @@ class TestRateLimitDecorator:
 
             return _dec
 
-        with patch("aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_middleware_rl):
+        with patch(
+            "aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_middleware_rl
+        ):
 
             @rate_limit(requests_per_minute=10)
             def sync_handler():
@@ -344,7 +348,9 @@ class TestRateLimitDecorator:
 
             return _dec
 
-        with patch("aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_middleware_rl):
+        with patch(
+            "aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_middleware_rl
+        ):
 
             @rate_limit(requests_per_minute=10)
             async def async_handler():
@@ -366,7 +372,9 @@ class TestRateLimitDecorator:
 
             return _dec
 
-        with patch("aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_middleware_rl):
+        with patch(
+            "aragora.server.handlers.api_decorators._rate_limit", side_effect=fake_middleware_rl
+        ):
 
             @rate_limit(requests_per_minute=10)
             async def async_handler():
@@ -509,9 +517,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": "test"})
-        result = asyncio.run(
-            handler(fake_self, req, "u123", role="admin")
-        )
+        result = asyncio.run(handler(fake_self, req, "u123", role="admin"))
         assert _status(result) == 200
         body = _body(result)
         assert body["user_id"] == "u123"
@@ -1283,7 +1289,9 @@ class TestExtractUserProxy:
         mock_store = MagicMock()
         mock_ctx = _FakeUserCtx()
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_ctx) as mock_fn:
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_ctx
+        ) as mock_fn:
             result = extract_user_from_request(mock_handler, mock_store)
             mock_fn.assert_called_once_with(mock_handler, mock_store)
             assert result is mock_ctx

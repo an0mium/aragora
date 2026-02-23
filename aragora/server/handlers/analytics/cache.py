@@ -195,7 +195,9 @@ class AnalyticsDashboardCache:
             cleared = cache.clear_prefix(workspace_prefix)
             total_cleared += cleared
         if total_cleared > 0:
-            logger.info("Invalidated %s cache entries for workspace %s", total_cleared, workspace_id)
+            logger.info(
+                "Invalidated %s cache entries for workspace %s", total_cleared, workspace_id
+            )
         return total_cleared
 
     def invalidate_all(self) -> int:

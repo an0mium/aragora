@@ -206,9 +206,7 @@ def mock_loader():
     loader.get_by_capability.side_effect = lambda c: [
         cfg for cfg in configs.values() if c in cfg.capabilities
     ]
-    loader.get_by_tag.side_effect = lambda t: [
-        c for c in configs.values() if t in c.tags
-    ]
+    loader.get_by_tag.side_effect = lambda t: [c for c in configs.values() if t in c.tags]
     return loader
 
 
@@ -308,26 +306,20 @@ class TestListConfigsViaHandle:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             assert body["total"] == 3
             assert len(body["configs"]) == 3
 
     @pytest.mark.asyncio
-    async def test_list_configs_response_structure(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_list_configs_response_structure(self, handler, mock_http_handler, mock_loader):
         """Verify response structure of each config entry."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             body = _body(result)
             config_entry = body["configs"][0]
             expected_keys = {
@@ -343,9 +335,7 @@ class TestListConfigsViaHandle:
             assert expected_keys == set(config_entry.keys())
 
     @pytest.mark.asyncio
-    async def test_list_configs_filter_by_priority(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_list_configs_filter_by_priority(self, handler, mock_http_handler, mock_loader):
         """Filter configs by priority."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -361,9 +351,7 @@ class TestListConfigsViaHandle:
             assert body["configs"][0]["name"] == "claude-critic"
 
     @pytest.mark.asyncio
-    async def test_list_configs_filter_by_role(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_list_configs_filter_by_role(self, handler, mock_http_handler, mock_loader):
         """Filter configs by role."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -397,9 +385,7 @@ class TestListConfigsViaHandle:
             assert body["configs"][0]["name"] == "gpt4-proposer"
 
     @pytest.mark.asyncio
-    async def test_list_configs_filter_no_match(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_list_configs_filter_no_match(self, handler, mock_http_handler, mock_loader):
         """Filter with no matching results returns empty list."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -415,17 +401,13 @@ class TestListConfigsViaHandle:
             assert body["configs"] == []
 
     @pytest.mark.asyncio
-    async def test_list_configs_loader_unavailable(
-        self, handler, mock_http_handler
-    ):
+    async def test_list_configs_loader_unavailable(self, handler, mock_http_handler):
         """Returns 503 when config loader is unavailable."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             assert _status(result) == 503
             body = _body(result)
             assert "not available" in body.get("error", "").lower()
@@ -440,9 +422,7 @@ class TestSearchConfigsViaHandle:
     """Tests for searching configurations via the handle method."""
 
     @pytest.mark.asyncio
-    async def test_search_by_expertise(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_search_by_expertise(self, handler, mock_http_handler, mock_loader):
         """Search by expertise domain returns matching configs."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -459,9 +439,7 @@ class TestSearchConfigsViaHandle:
             assert body["results"][0]["name"] == "claude-critic"
 
     @pytest.mark.asyncio
-    async def test_search_by_capability(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_search_by_capability(self, handler, mock_http_handler, mock_loader):
         """Search by capability returns matching configs."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -478,9 +456,7 @@ class TestSearchConfigsViaHandle:
             assert body["results"][0]["name"] == "gpt4-proposer"
 
     @pytest.mark.asyncio
-    async def test_search_by_tag(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_search_by_tag(self, handler, mock_http_handler, mock_loader):
         """Search by tag returns matching configs."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -497,25 +473,19 @@ class TestSearchConfigsViaHandle:
             assert body["results"][0]["name"] == "gemini-judge"
 
     @pytest.mark.asyncio
-    async def test_search_no_params_returns_400(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_search_no_params_returns_400(self, handler, mock_http_handler, mock_loader):
         """Returns 400 when no search parameters provided."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/search", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/search", {}, mock_http_handler)
             assert _status(result) == 400
             body = _body(result)
             assert "search parameter" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_search_loader_unavailable(
-        self, handler, mock_http_handler
-    ):
+    async def test_search_loader_unavailable(self, handler, mock_http_handler):
         """Returns 503 when config loader is unavailable."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -548,9 +518,7 @@ class TestReloadConfigsViaHandle:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/reload", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/reload", {}, mock_http_handler)
             body = _body(result)
             assert _status(result) == 200
             assert body["success"] is True
@@ -564,9 +532,7 @@ class TestReloadConfigsViaHandle:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/reload", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/reload", {}, mock_http_handler)
             assert _status(result) == 503
 
 
@@ -1130,9 +1096,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/claude-critic", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/claude-critic", {})
             body = _body(result)
             assert _status(result) == 200
             assert body["config"]["name"] == "claude-critic"
@@ -1150,9 +1114,7 @@ class TestHandleConfigEndpoint:
             # /api/agents/configs/{name}/create
             # parts = ["", "api", "agents", "configs", "claude-critic", "create"]
             # parts[4] = "claude-critic", len(parts) >= 6, parts[5] = "create"
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/claude-critic/create", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/claude-critic/create", {})
             body = _body(result)
             assert _status(result) == 200
             assert body["success"] is True
@@ -1163,9 +1125,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=MagicMock(),
         ):
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/<script>alert(1)", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/<script>alert(1)", {})
             assert _status(result) == 400
 
     def test_config_name_too_long(self, handler):
@@ -1175,9 +1135,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=MagicMock(),
         ):
-            result = handler._handle_config_endpoint(
-                f"/api/agents/configs/{long_name}", {}
-            )
+            result = handler._handle_config_endpoint(f"/api/agents/configs/{long_name}", {})
             assert _status(result) == 400
 
     def test_config_name_with_dots(self, handler):
@@ -1186,9 +1144,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=MagicMock(),
         ):
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/my.agent", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/my.agent", {})
             assert _status(result) == 400
 
     def test_config_name_with_spaces(self, handler):
@@ -1197,9 +1153,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=MagicMock(),
         ):
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/my agent", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/my agent", {})
             assert _status(result) == 400
 
     def test_valid_name_at_max_length(self, handler, mock_loader):
@@ -1209,9 +1163,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._handle_config_endpoint(
-                f"/api/agents/configs/{name}", {}
-            )
+            result = handler._handle_config_endpoint(f"/api/agents/configs/{name}", {})
             # Should not be 400 (will be 404 since not in mock)
             assert _status(result) != 400
 
@@ -1221,9 +1173,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/my_agent-v2", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/my_agent-v2", {})
             # passes validation, gets 404 from mock
             assert _status(result) == 404
 
@@ -1233,9 +1183,7 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._handle_config_endpoint(
-                "/api/agents/configs/gpt4-proposer", {}
-            )
+            result = handler._handle_config_endpoint("/api/agents/configs/gpt4-proposer", {})
             body = _body(result)
             assert _status(result) == 200
             assert body["config"]["name"] == "gpt4-proposer"
@@ -1251,54 +1199,40 @@ class TestSecurity:
 
     def test_path_traversal_dots(self, handler):
         """Rejects path traversal with dots."""
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/../etc", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/../etc", {})
         # ".." contains dots, fails SAFE_AGENT_PATTERN
         assert _status(result) == 400
 
     def test_script_injection(self, handler):
         """Rejects script injection in config names."""
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/<script>", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/<script>", {})
         assert _status(result) == 400
 
     def test_null_byte_injection(self, handler):
         """Rejects null bytes in config names."""
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/test\x00evil", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/test\x00evil", {})
         assert _status(result) == 400
 
     def test_sql_injection(self, handler):
         """Rejects SQL injection in config names."""
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/';DROP", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/';DROP", {})
         assert _status(result) == 400
 
     def test_unicode_chars(self, handler):
         """Rejects unicode characters in config names."""
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/test\u00e9", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/test\u00e9", {})
         assert _status(result) == 400
 
     def test_empty_name(self, handler):
         """Rejects empty config name."""
         # Path would be /api/agents/configs/ with empty parts[4] after trailing slash
         # But split gives ["", "api", "agents", "configs", ""]
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/", {})
         assert _status(result) == 400
 
     def test_whitespace_only_name(self, handler):
         """Rejects whitespace-only config name."""
-        result = handler._handle_config_endpoint(
-            "/api/agents/configs/ ", {}
-        )
+        result = handler._handle_config_endpoint("/api/agents/configs/ ", {})
         assert _status(result) == 400
 
 
@@ -1320,12 +1254,8 @@ class TestRBAC:
         async def mock_get_auth_raising(self, request, require_auth=False):
             raise UnauthorizedError("Not authenticated")
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth_raising
-        ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+        with patch.object(SecureHandler, "get_auth_context", mock_get_auth_raising):
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             assert _status(result) == 401
             body = _body(result)
             assert "authentication" in body.get("error", "").lower()
@@ -1350,14 +1280,11 @@ class TestRBAC:
         def mock_check_perm(self, ctx, perm, resource_id=None):
             raise ForbiddenError(f"Missing permission: {perm}")
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth
-        ), patch.object(
-            SecureHandler, "check_permission", mock_check_perm
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch.object(SecureHandler, "check_permission", mock_check_perm),
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             assert _status(result) == 403
             body = _body(result)
             assert "denied" in body.get("error", "").lower()
@@ -1380,9 +1307,7 @@ class TestRBAC:
             return non_admin_ctx
 
         with patch.object(SecureHandler, "get_auth_context", mock_get_auth):
-            result = await handler.handle(
-                "/api/v1/agents/configs/reload", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/reload", {}, mock_http_handler)
             assert _status(result) == 403
             body = _body(result)
             assert "admin" in body.get("error", "").lower()
@@ -1407,15 +1332,14 @@ class TestRBAC:
         mock_loader = MagicMock()
         mock_loader.reload_all.return_value = {}
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth
-        ), patch(
-            "aragora.server.handlers.agents.config.get_config_loader",
-            return_value=mock_loader,
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch(
+                "aragora.server.handlers.agents.config.get_config_loader",
+                return_value=mock_loader,
+            ),
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/reload", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/reload", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.no_auto_auth
@@ -1438,22 +1362,19 @@ class TestRBAC:
         mock_loader = MagicMock()
         mock_loader.reload_all.return_value = {}
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth
-        ), patch(
-            "aragora.server.handlers.agents.config.get_config_loader",
-            return_value=mock_loader,
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch(
+                "aragora.server.handlers.agents.config.get_config_loader",
+                return_value=mock_loader,
+            ),
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/reload", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/reload", {}, mock_http_handler)
             assert _status(result) == 200
 
     @pytest.mark.no_auto_auth
     @pytest.mark.asyncio
-    async def test_create_requires_write_permission(
-        self, handler, mock_http_handler
-    ):
+    async def test_create_requires_write_permission(self, handler, mock_http_handler):
         """Create endpoint returns 403 when user lacks write permission."""
         from aragora.server.handlers.secure import SecureHandler, ForbiddenError
 
@@ -1473,10 +1394,9 @@ class TestRBAC:
                 raise ForbiddenError(f"Missing permission: {perm}")
             return True
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth
-        ), patch.object(
-            SecureHandler, "check_permission", mock_check_perm
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch.object(SecureHandler, "check_permission", mock_check_perm),
         ):
             result = await handler.handle(
                 "/api/v1/agents/configs/test-agent/create",
@@ -1505,14 +1425,11 @@ class TestRBAC:
         def mock_check_perm(self, ctx, perm, resource_id=None):
             raise ForbiddenError(f"Missing permission: {perm}")
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth
-        ), patch.object(
-            SecureHandler, "check_permission", mock_check_perm
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch.object(SecureHandler, "check_permission", mock_check_perm),
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             assert _status(result) == 403
 
     @pytest.mark.no_auto_auth
@@ -1535,10 +1452,9 @@ class TestRBAC:
         def mock_check_perm(self, ctx, perm, resource_id=None):
             raise ForbiddenError(f"Missing permission: {perm}")
 
-        with patch.object(
-            SecureHandler, "get_auth_context", mock_get_auth
-        ), patch.object(
-            SecureHandler, "check_permission", mock_check_perm
+        with (
+            patch.object(SecureHandler, "get_auth_context", mock_get_auth),
+            patch.object(SecureHandler, "check_permission", mock_check_perm),
         ):
             result = await handler.handle(
                 "/api/v1/agents/configs/search",
@@ -1559,31 +1475,23 @@ class TestHandleRouting:
     @pytest.mark.asyncio
     async def test_unmatched_path_returns_none(self, handler, mock_http_handler):
         """Returns None for paths that don't match any route."""
-        result = await handler.handle(
-            "/api/v1/other/endpoint", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/other/endpoint", {}, mock_http_handler)
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_configs_root_routes_to_list(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_configs_root_routes_to_list(self, handler, mock_http_handler, mock_loader):
         """Root path routes to list configs."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs", {}, mock_http_handler)
             body = _body(result)
             assert "configs" in body
             assert "total" in body
 
     @pytest.mark.asyncio
-    async def test_search_routes_correctly(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_search_routes_correctly(self, handler, mock_http_handler, mock_loader):
         """Search path routes to search handler."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -1599,34 +1507,26 @@ class TestHandleRouting:
             assert "search_params" in body
 
     @pytest.mark.asyncio
-    async def test_reload_routes_correctly(
-        self, handler, mock_http_handler, mock_loader
-    ):
+    async def test_reload_routes_correctly(self, handler, mock_http_handler, mock_loader):
         """Reload path routes to reload handler."""
         mock_loader.reload_all.return_value = {}
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/reload", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/reload", {}, mock_http_handler)
             body = _body(result)
             assert "success" in body
             assert "reloaded" in body
 
     @pytest.mark.asyncio
-    async def test_path_with_trailing_content(
-        self, handler, mock_http_handler
-    ):
+    async def test_path_with_trailing_content(self, handler, mock_http_handler):
         """Path starting with /api/v1/agents/configs/ routes to config endpoint."""
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=MagicMock(),
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/some-name", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/some-name", {}, mock_http_handler)
             # This goes through _handle_config_endpoint; may return an error
             # because parts[4] is "configs" which passes validation but likely
             # returns 404 from the mock loader
@@ -1709,12 +1609,15 @@ class TestGetConfigLoader:
         mock_path = MagicMock()
         mock_path.exists.return_value = True
 
-        with patch(
-            "aragora.agents.config_loader.AgentConfigLoader",
-            mock_cls,
-        ), patch(
-            "aragora.server.handlers.agents.config.Path",
-        ) as mock_path_cls:
+        with (
+            patch(
+                "aragora.agents.config_loader.AgentConfigLoader",
+                mock_cls,
+            ),
+            patch(
+                "aragora.server.handlers.agents.config.Path",
+            ) as mock_path_cls,
+        ):
             # Make the default_dir.exists() return True
             mock_path_obj = MagicMock()
             mock_path_obj.exists.return_value = True
@@ -1765,9 +1668,7 @@ class TestEdgeCases:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._list_configs(
-                {"priority": ["normal"], "role": ["critic"]}
-            )
+            result = handler._list_configs({"priority": ["normal"], "role": ["critic"]})
             body = _body(result)
             # claude-critic has priority=high, role=critic -> excluded by priority
             assert body["total"] == 0
@@ -1803,19 +1704,13 @@ class TestEdgeCases:
             assert set(body["configs"]) == {"x", "y", "z"}
 
     @pytest.mark.asyncio
-    async def test_handle_returns_none_for_non_matching_prefix(
-        self, handler, mock_http_handler
-    ):
+    async def test_handle_returns_none_for_non_matching_prefix(self, handler, mock_http_handler):
         """handle returns None when path prefix doesn't match."""
-        result = await handler.handle(
-            "/api/v1/debates/something", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/debates/something", {}, mock_http_handler)
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_handle_subpath_forwards_to_config_endpoint(
-        self, handler, mock_http_handler
-    ):
+    async def test_handle_subpath_forwards_to_config_endpoint(self, handler, mock_http_handler):
         """Paths like /api/v1/agents/configs/xxx go through _handle_config_endpoint."""
         loader = MagicMock()
         loader.get_config.return_value = None  # No config named "configs"
@@ -1823,9 +1718,7 @@ class TestEdgeCases:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=loader,
         ):
-            result = await handler.handle(
-                "/api/v1/agents/configs/test-name", {}, mock_http_handler
-            )
+            result = await handler.handle("/api/v1/agents/configs/test-name", {}, mock_http_handler)
             # Goes through _handle_config_endpoint which extracts parts[4]="configs"
             # This will pass validation (matches SAFE_AGENT_PATTERN)
             # and then call _get_config("configs") which returns 404 from loader

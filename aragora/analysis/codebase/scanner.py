@@ -154,7 +154,10 @@ class DependencyScanner:
             result.completed_at = datetime.now(timezone.utc)
 
             logger.info(
-                "[Scanner] Scan complete: %s vulnerable packages, %s critical, %s high", result.vulnerable_dependencies, result.critical_count, result.high_count
+                "[Scanner] Scan complete: %s vulnerable packages, %s critical, %s high",
+                result.vulnerable_dependencies,
+                result.critical_count,
+                result.high_count,
             )
 
         except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:

@@ -290,8 +290,12 @@ class TestVerificationHistoryEntry:
     def test_timestamp_iso_format(self):
         ts = 1700000000.0
         entry = VerificationHistoryEntry(
-            id="ts_test", claim="c", claim_type=None,
-            context="", result={}, timestamp=ts,
+            id="ts_test",
+            claim="c",
+            claim_type=None,
+            context="",
+            result={},
+            timestamp=ts,
         )
         d = entry.to_dict()
         assert "T" in d["timestamp_iso"]  # ISO format contains 'T'
@@ -491,7 +495,10 @@ class TestAddToHistory:
 
     def test_returns_id(self, mock_governance_store):
         entry_id = _add_to_history(
-            claim="test", claim_type=None, context="", result={},
+            claim="test",
+            claim_type=None,
+            context="",
+            result={},
         )
         assert isinstance(entry_id, str)
         assert len(entry_id) == 16
@@ -511,15 +518,21 @@ class TestAddToHistory:
 
         # Now add one more via _add_to_history
         _add_to_history(
-            claim="overflow", claim_type=None, context="", result={},
+            claim="overflow",
+            claim_type=None,
+            context="",
+            result={},
         )
         assert len(_verification_history) <= MAX_HISTORY_SIZE
 
     def test_with_proof_tree(self, mock_governance_store):
         tree = [{"id": "root"}]
         entry_id = _add_to_history(
-            claim="claim", claim_type=None, context="",
-            result={}, proof_tree=tree,
+            claim="claim",
+            claim_type=None,
+            context="",
+            result={},
+            proof_tree=tree,
         )
         assert _verification_history[entry_id].proof_tree == tree
 
@@ -551,7 +564,9 @@ class TestAddToHistory:
             # Should not raise
             entry_id = _add_to_history(
                 claim="will fail persist",
-                claim_type=None, context="", result={},
+                claim_type=None,
+                context="",
+                result={},
             )
             assert entry_id in _verification_history
 
@@ -563,7 +578,8 @@ class TestAddToHistory:
             mock_sf.get.return_value = mock_store
             _add_to_history(
                 claim="test",
-                claim_type=None, context="",
+                claim_type=None,
+                context="",
                 result="not_a_dict",
             )
             call_kwargs = mock_store.save_verification.call_args[1]
@@ -576,12 +592,20 @@ class TestCleanupOldHistory:
     def test_removes_old_entries(self):
         old_timestamp = time.time() - HISTORY_TTL_SECONDS - 100
         _verification_history["old"] = VerificationHistoryEntry(
-            id="old", claim="old claim", claim_type=None,
-            context="", result={}, timestamp=old_timestamp,
+            id="old",
+            claim="old claim",
+            claim_type=None,
+            context="",
+            result={},
+            timestamp=old_timestamp,
         )
         _verification_history["new"] = VerificationHistoryEntry(
-            id="new", claim="new claim", claim_type=None,
-            context="", result={}, timestamp=time.time(),
+            id="new",
+            claim="new claim",
+            claim_type=None,
+            context="",
+            result={},
+            timestamp=time.time(),
         )
         _cleanup_old_history()
         assert "old" not in _verification_history
@@ -589,8 +613,12 @@ class TestCleanupOldHistory:
 
     def test_keeps_recent_entries(self):
         _verification_history["recent"] = VerificationHistoryEntry(
-            id="recent", claim="recent", claim_type=None,
-            context="", result={}, timestamp=time.time(),
+            id="recent",
+            claim="recent",
+            claim_type=None,
+            context="",
+            result={},
+            timestamp=time.time(),
         )
         _cleanup_old_history()
         assert "recent" in _verification_history
@@ -652,9 +680,7 @@ class TestCheckPermission:
     @pytest.mark.no_auto_auth
     def test_auth_exception_returns_401(self, handler):
         """When auth raises, return 401."""
-        with patch.object(
-            handler, "require_auth_or_error", side_effect=AttributeError("no user")
-        ):
+        with patch.object(handler, "require_auth_or_error", side_effect=AttributeError("no user")):
             result = handler._check_permission(MagicMock(), "verification.read")
             assert result is not None
             assert _status(result) == 401
@@ -680,7 +706,10 @@ class TestHandleAsyncRouting:
     async def test_verify_claim_post_dispatches(self, handler):
         with patch.object(handler, "_check_permission", return_value=None):
             with patch.object(
-                handler, "_handle_verify_claim", new_callable=AsyncMock, return_value=MagicMock(status_code=200)
+                handler,
+                "_handle_verify_claim",
+                new_callable=AsyncMock,
+                return_value=MagicMock(status_code=200),
             ) as mock_fn:
                 body = json.dumps({"claim": "test"}).encode()
                 await handler.handle_async(MagicMock(), "POST", "/api/v1/verify/claim", body=body)
@@ -690,7 +719,10 @@ class TestHandleAsyncRouting:
     async def test_verify_batch_post_dispatches(self, handler):
         with patch.object(handler, "_check_permission", return_value=None):
             with patch.object(
-                handler, "_handle_verify_batch", new_callable=AsyncMock, return_value=MagicMock(status_code=200)
+                handler,
+                "_handle_verify_batch",
+                new_callable=AsyncMock,
+                return_value=MagicMock(status_code=200),
             ) as mock_fn:
                 await handler.handle_async(MagicMock(), "POST", "/api/v1/verify/batch")
                 mock_fn.assert_called_once()
@@ -708,7 +740,10 @@ class TestHandleAsyncRouting:
     async def test_translate_post_dispatches(self, handler):
         with patch.object(handler, "_check_permission", return_value=None):
             with patch.object(
-                handler, "_handle_translate", new_callable=AsyncMock, return_value=MagicMock(status_code=200)
+                handler,
+                "_handle_translate",
+                new_callable=AsyncMock,
+                return_value=MagicMock(status_code=200),
             ) as mock_fn:
                 await handler.handle_async(MagicMock(), "POST", "/api/v1/verify/translate")
                 mock_fn.assert_called_once()
@@ -744,19 +779,20 @@ class TestHandleAsyncRouting:
         from aragora.server.handlers.base import error_response
 
         with patch.object(
-            handler, "_check_permission",
+            handler,
+            "_check_permission",
             return_value=error_response("Permission denied", 403),
         ):
-            result = await handler.handle_async(
-                MagicMock(), "POST", "/api/v1/verify/claim"
-            )
+            result = await handler.handle_async(MagicMock(), "POST", "/api/v1/verify/claim")
             assert _status(result) == 403
 
     @pytest.mark.asyncio
     async def test_post_requires_create_permission(self, handler):
         with patch.object(handler, "_check_permission", return_value=None) as mock_perm:
             with patch.object(
-                handler, "_handle_verify_claim", new_callable=AsyncMock,
+                handler,
+                "_handle_verify_claim",
+                new_callable=AsyncMock,
                 return_value=MagicMock(status_code=200),
             ):
                 await handler.handle_async(MagicMock(), "POST", "/api/v1/verify/claim")
@@ -767,7 +803,9 @@ class TestHandleAsyncRouting:
     async def test_get_requires_read_permission(self, handler):
         with patch.object(handler, "_check_permission", return_value=None) as mock_perm:
             with patch.object(
-                handler, "_handle_verify_status", return_value=MagicMock(status_code=200),
+                handler,
+                "_handle_verify_status",
+                return_value=MagicMock(status_code=200),
             ):
                 await handler.handle_async(MagicMock(), "GET", "/api/v1/verify/status")
                 mock_perm.assert_called_once()
@@ -813,7 +851,9 @@ class TestVerifyClaim:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_successful_verification(self, handler, mock_verification_result, mock_governance_store):
+    async def test_successful_verification(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -827,7 +867,9 @@ class TestVerifyClaim:
             assert "history_id" in data
 
     @pytest.mark.asyncio
-    async def test_history_id_returned(self, handler, mock_verification_result, mock_governance_store):
+    async def test_history_id_returned(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -838,7 +880,9 @@ class TestVerifyClaim:
             assert len(data["history_id"]) == 16
 
     @pytest.mark.asyncio
-    async def test_claim_type_passed_through(self, handler, mock_verification_result, mock_governance_store):
+    async def test_claim_type_passed_through(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -849,7 +893,9 @@ class TestVerifyClaim:
             assert call_kwargs["claim_type"] == "LOGICAL"
 
     @pytest.mark.asyncio
-    async def test_context_passed_through(self, handler, mock_verification_result, mock_governance_store):
+    async def test_context_passed_through(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -860,7 +906,9 @@ class TestVerifyClaim:
             assert call_kwargs["context"] == "basic arithmetic"
 
     @pytest.mark.asyncio
-    async def test_timeout_capped_at_300(self, handler, mock_verification_result, mock_governance_store):
+    async def test_timeout_capped_at_300(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -871,7 +919,9 @@ class TestVerifyClaim:
             assert call_kwargs["timeout_seconds"] == 300.0
 
     @pytest.mark.asyncio
-    async def test_timeout_invalid_defaults_to_60(self, handler, mock_verification_result, mock_governance_store):
+    async def test_timeout_invalid_defaults_to_60(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -882,7 +932,9 @@ class TestVerifyClaim:
             assert call_kwargs["timeout_seconds"] == 60.0
 
     @pytest.mark.asyncio
-    async def test_timeout_normal_value(self, handler, mock_verification_result, mock_governance_store):
+    async def test_timeout_normal_value(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -893,7 +945,9 @@ class TestVerifyClaim:
             assert call_kwargs["timeout_seconds"] == 45.0
 
     @pytest.mark.asyncio
-    async def test_default_context_empty_string(self, handler, mock_verification_result, mock_governance_store):
+    async def test_default_context_empty_string(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -914,9 +968,7 @@ class TestVerifyClaim:
             "language": "lean4",
         }
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             body = json.dumps({"claim": "test claim"}).encode()
             result = await handler._handle_verify_claim(MagicMock(), body)
             data = _body(result)
@@ -978,9 +1030,7 @@ class TestVerifyBatch:
         body = json.dumps({"claims": claims}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1000,7 +1050,10 @@ class TestVerifyBatch:
             _MockFormalProofStatus.TRANSLATION_FAILED,
         ]:
             r = MagicMock()
-            r.to_dict.return_value = {"status": status_val.value, "is_verified": status_val == _MockFormalProofStatus.PROOF_FOUND}
+            r.to_dict.return_value = {
+                "status": status_val.value,
+                "is_verified": status_val == _MockFormalProofStatus.PROOF_FOUND,
+            }
             r.status = status_val
             results_list.append(r)
 
@@ -1066,9 +1119,7 @@ class TestVerifyBatch:
         body = json.dumps({"claims": claims}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1088,9 +1139,7 @@ class TestVerifyBatch:
         body = json.dumps({"claims": claims, "timeout_per_claim": 500}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1109,9 +1158,7 @@ class TestVerifyBatch:
         body = json.dumps({"claims": claims, "max_concurrent": 50}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1129,9 +1176,7 @@ class TestVerifyBatch:
         body = json.dumps({"claims": claims, "timeout_per_claim": "bad"}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1150,9 +1195,7 @@ class TestVerifyBatch:
         body = json.dumps({"claims": claims, "max_concurrent": "bad"}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1180,13 +1223,16 @@ class TestVerifyStatus:
         }
         handler._manager = mock_manager
 
-        with patch.dict("sys.modules", {
-            "aragora.verification.deepseek_prover": MagicMock(
-                DeepSeekProverTranslator=MagicMock(
-                    return_value=MagicMock(is_available=True),
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.verification.deepseek_prover": MagicMock(
+                    DeepSeekProverTranslator=MagicMock(
+                        return_value=MagicMock(is_available=True),
+                    ),
                 ),
-            ),
-        }):
+            },
+        ):
             result = handler._handle_verify_status(MagicMock())
             assert _status(result) == 200
             data = _body(result)
@@ -1201,13 +1247,16 @@ class TestVerifyStatus:
         }
         handler._manager = mock_manager
 
-        with patch.dict("sys.modules", {
-            "aragora.verification.deepseek_prover": MagicMock(
-                DeepSeekProverTranslator=MagicMock(
-                    return_value=MagicMock(is_available=False),
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.verification.deepseek_prover": MagicMock(
+                    DeepSeekProverTranslator=MagicMock(
+                        return_value=MagicMock(is_available=False),
+                    ),
                 ),
-            ),
-        }):
+            },
+        ):
             result = handler._handle_verify_status(MagicMock())
             data = _body(result)
             assert data["deepseek_prover_available"] is False
@@ -1223,6 +1272,7 @@ class TestVerifyStatus:
 
         # Remove the module from sys.modules so import fails
         import sys
+
         saved = sys.modules.pop("aragora.verification.deepseek_prover", None)
         try:
             with patch.dict("sys.modules", {"aragora.verification.deepseek_prover": None}):
@@ -1243,13 +1293,16 @@ class TestVerifyStatus:
         }
         handler._manager = mock_manager
 
-        with patch.dict("sys.modules", {
-            "aragora.verification.deepseek_prover": MagicMock(
-                DeepSeekProverTranslator=MagicMock(
-                    return_value=MagicMock(is_available=False),
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.verification.deepseek_prover": MagicMock(
+                    DeepSeekProverTranslator=MagicMock(
+                        return_value=MagicMock(is_available=False),
+                    ),
                 ),
-            ),
-        }):
+            },
+        ):
             result = handler._handle_verify_status(MagicMock())
             data = _body(result)
             assert len(data["backends"]) == 1
@@ -1313,11 +1366,14 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.deepseek_prover": MagicMock(
-                    DeepSeekProverTranslator=MagicMock(return_value=mock_translator),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.deepseek_prover": MagicMock(
+                        DeepSeekProverTranslator=MagicMock(return_value=mock_translator),
+                    ),
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1333,9 +1389,7 @@ class TestTranslate:
         mock_translator.is_available = False
 
         mock_lean_backend = MagicMock()
-        mock_lean_backend.translate = AsyncMock(
-            return_value="theorem t : True := trivial"
-        )
+        mock_lean_backend.translate = AsyncMock(return_value="theorem t : True := trivial")
 
         mock_formal_module = MagicMock()
         mock_formal_module.LeanBackend = MagicMock(return_value=mock_lean_backend)
@@ -1346,12 +1400,15 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.deepseek_prover": MagicMock(
-                    DeepSeekProverTranslator=MagicMock(return_value=mock_translator),
-                ),
-                "aragora.verification.formal": mock_formal_module,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.deepseek_prover": MagicMock(
+                        DeepSeekProverTranslator=MagicMock(return_value=mock_translator),
+                    ),
+                    "aragora.verification.formal": mock_formal_module,
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1375,10 +1432,13 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.deepseek_prover": None,  # ImportError
-                "aragora.verification.formal": mock_formal_module,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.deepseek_prover": None,  # ImportError
+                    "aragora.verification.formal": mock_formal_module,
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1400,10 +1460,13 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.deepseek_prover": None,
-                "aragora.verification.formal": mock_formal_module,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.deepseek_prover": None,
+                    "aragora.verification.formal": mock_formal_module,
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1414,9 +1477,7 @@ class TestTranslate:
     @pytest.mark.asyncio
     async def test_z3_smt_translation_success(self, handler):
         mock_z3_backend = MagicMock()
-        mock_z3_backend.translate = AsyncMock(
-            return_value="(assert (= (+ 1 1) 2))"
-        )
+        mock_z3_backend.translate = AsyncMock(return_value="(assert (= (+ 1 1) 2))")
 
         mock_formal_module = MagicMock()
         mock_formal_module.Z3Backend = MagicMock(return_value=mock_z3_backend)
@@ -1427,9 +1488,12 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.formal": mock_formal_module,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.formal": mock_formal_module,
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1452,9 +1516,12 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.formal": mock_formal_module,
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.formal": mock_formal_module,
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1482,11 +1549,14 @@ class TestTranslate:
             "aragora.server.handlers.verification.formal_verification._init_verification",
             return_value={},
         ):
-            with patch.dict("sys.modules", {
-                "aragora.verification.deepseek_prover": MagicMock(
-                    DeepSeekProverTranslator=MagicMock(return_value=mock_translator),
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.verification.deepseek_prover": MagicMock(
+                        DeepSeekProverTranslator=MagicMock(return_value=mock_translator),
+                    ),
+                },
+            ):
                 result = await handler._handle_translate(MagicMock(), body)
                 assert _status(result) == 200
                 data = _body(result)
@@ -1519,8 +1589,12 @@ class TestHistory:
     def test_pagination_limit(self, handler, mock_governance_store):
         for i in range(5):
             _verification_history[f"e{i}"] = VerificationHistoryEntry(
-                id=f"e{i}", claim=f"claim_{i}", claim_type=None,
-                context="", result={"status": "proof_found"}, timestamp=time.time(),
+                id=f"e{i}",
+                claim=f"claim_{i}",
+                claim_type=None,
+                context="",
+                result={"status": "proof_found"},
+                timestamp=time.time(),
             )
         result = handler._handle_get_history({"limit": ["2"]})
         data = _body(result)
@@ -1531,8 +1605,12 @@ class TestHistory:
     def test_pagination_offset(self, handler, mock_governance_store):
         for i in range(5):
             _verification_history[f"e{i}"] = VerificationHistoryEntry(
-                id=f"e{i}", claim=f"claim_{i}", claim_type=None,
-                context="", result={}, timestamp=time.time() + i,
+                id=f"e{i}",
+                claim=f"claim_{i}",
+                claim_type=None,
+                context="",
+                result={},
+                timestamp=time.time() + i,
             )
         result = handler._handle_get_history({"offset": ["2"], "limit": ["10"]})
         data = _body(result)
@@ -1542,12 +1620,20 @@ class TestHistory:
 
     def test_status_filter(self, handler, mock_governance_store):
         _verification_history["found"] = VerificationHistoryEntry(
-            id="found", claim="c1", claim_type=None, context="",
-            result={"status": "proof_found"}, timestamp=time.time(),
+            id="found",
+            claim="c1",
+            claim_type=None,
+            context="",
+            result={"status": "proof_found"},
+            timestamp=time.time(),
         )
         _verification_history["failed"] = VerificationHistoryEntry(
-            id="failed", claim="c2", claim_type=None, context="",
-            result={"status": "translation_failed"}, timestamp=time.time(),
+            id="failed",
+            claim="c2",
+            claim_type=None,
+            context="",
+            result={"status": "translation_failed"},
+            timestamp=time.time(),
         )
         result = handler._handle_get_history({"status": ["proof_found"]})
         data = _body(result)
@@ -1556,8 +1642,12 @@ class TestHistory:
 
     def test_status_filter_no_match(self, handler, mock_governance_store):
         _verification_history["e1"] = VerificationHistoryEntry(
-            id="e1", claim="c", claim_type=None, context="",
-            result={"status": "proof_found"}, timestamp=time.time(),
+            id="e1",
+            claim="c",
+            claim_type=None,
+            context="",
+            result={"status": "proof_found"},
+            timestamp=time.time(),
         )
         result = handler._handle_get_history({"status": ["timeout"]})
         data = _body(result)
@@ -1594,8 +1684,12 @@ class TestHistory:
         mock_store.list_verifications.side_effect = RuntimeError("db down")
 
         _verification_history["mem_001"] = VerificationHistoryEntry(
-            id="mem_001", claim="in memory", claim_type=None,
-            context="", result={}, timestamp=time.time(),
+            id="mem_001",
+            claim="in memory",
+            claim_type=None,
+            context="",
+            result={},
+            timestamp=time.time(),
         )
 
         with patch(
@@ -1621,8 +1715,12 @@ class TestHistory:
         """History cleanup is called when listing."""
         old_ts = time.time() - HISTORY_TTL_SECONDS - 10
         _verification_history["old"] = VerificationHistoryEntry(
-            id="old", claim="old", claim_type=None, context="",
-            result={}, timestamp=old_ts,
+            id="old",
+            claim="old",
+            claim_type=None,
+            context="",
+            result={},
+            timestamp=old_ts,
         )
         handler._handle_get_history({})
         assert "old" not in _verification_history
@@ -1634,7 +1732,10 @@ class TestHistory:
         mock_rec_found.claim = "claim1"
         mock_rec_found.claim_type = None
         mock_rec_found.context = ""
-        mock_rec_found.to_dict.return_value = {"result": {"status": "proof_found"}, "proof_tree": None}
+        mock_rec_found.to_dict.return_value = {
+            "result": {"status": "proof_found"},
+            "proof_tree": None,
+        }
         mock_rec_found.timestamp = MagicMock()
         mock_rec_found.timestamp.timestamp.return_value = time.time()
 
@@ -1643,7 +1744,10 @@ class TestHistory:
         mock_rec_failed.claim = "claim2"
         mock_rec_failed.claim_type = None
         mock_rec_failed.context = ""
-        mock_rec_failed.to_dict.return_value = {"result": {"status": "translation_failed"}, "proof_tree": None}
+        mock_rec_failed.to_dict.return_value = {
+            "result": {"status": "translation_failed"},
+            "proof_tree": None,
+        }
         mock_rec_failed.timestamp = MagicMock()
         mock_rec_failed.timestamp.timestamp.return_value = time.time()
 
@@ -1716,8 +1820,12 @@ class TestHistoryEntry:
 
     def test_entry_no_proof_tree(self, handler):
         entry = VerificationHistoryEntry(
-            id="no_tree", claim="c", claim_type=None, context="",
-            result={"status": "failed"}, timestamp=time.time(),
+            id="no_tree",
+            claim="c",
+            claim_type=None,
+            context="",
+            result={"status": "failed"},
+            timestamp=time.time(),
         )
         _verification_history["no_tree"] = entry
         result = handler._handle_get_history_entry("/api/v1/verify/history/no_tree")
@@ -1735,7 +1843,10 @@ class TestHistoryEntry:
     def test_tree_request_builds_from_result(self, handler):
         """When no stored tree but result is verified, build one on the fly."""
         entry = VerificationHistoryEntry(
-            id="build_tree", claim="test claim", claim_type=None, context="",
+            id="build_tree",
+            claim="test claim",
+            claim_type=None,
+            context="",
             result={
                 "status": "proof_found",
                 "is_verified": True,
@@ -1753,7 +1864,10 @@ class TestHistoryEntry:
     def test_tree_request_no_tree_available(self, handler):
         """When entry is not verified and has no tree, return empty nodes."""
         entry = VerificationHistoryEntry(
-            id="no_tree", claim="test", claim_type=None, context="",
+            id="no_tree",
+            claim="test",
+            claim_type=None,
+            context="",
             result={"status": "failed", "is_verified": False},
             timestamp=time.time(),
         )
@@ -1914,7 +2028,9 @@ class TestEdgeCases:
     """Test edge cases and integration behavior."""
 
     @pytest.mark.asyncio
-    async def test_verify_claim_strips_whitespace(self, handler, mock_verification_result, mock_governance_store):
+    async def test_verify_claim_strips_whitespace(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(
                 return_value=mock_verification_result
@@ -1928,8 +2044,12 @@ class TestEdgeCases:
         """In-memory history is returned in reverse order (newest first)."""
         for i in range(3):
             _verification_history[f"e{i}"] = VerificationHistoryEntry(
-                id=f"e{i}", claim=f"claim_{i}", claim_type=None,
-                context="", result={}, timestamp=time.time() + i * 0.01,
+                id=f"e{i}",
+                claim=f"claim_{i}",
+                claim_type=None,
+                context="",
+                result={},
+                timestamp=time.time() + i * 0.01,
             )
         result = handler._handle_get_history({})
         data = _body(result)
@@ -1951,9 +2071,7 @@ class TestEdgeCases:
         body = json.dumps({"claims": [{"claim": "single"}]}).encode()
 
         with patch.object(handler, "_get_manager") as mock_mgr:
-            mock_mgr.return_value.attempt_formal_verification = AsyncMock(
-                return_value=mock_result
-            )
+            mock_mgr.return_value.attempt_formal_verification = AsyncMock(return_value=mock_result)
             with patch(
                 "aragora.server.handlers.verification.formal_verification._init_verification",
                 return_value={"FormalProofStatus": _MockFormalProofStatus},
@@ -1968,9 +2086,16 @@ class TestEdgeCases:
     async def test_handle_async_history_tree_path(self, handler):
         """handle_async correctly routes history/id/tree paths."""
         entry = VerificationHistoryEntry(
-            id="tree_test", claim="test", claim_type=None, context="",
-            result={"status": "proof_found", "is_verified": True,
-                    "formal_statement": "thm : True := trivial", "language": "lean4"},
+            id="tree_test",
+            claim="test",
+            claim_type=None,
+            context="",
+            result={
+                "status": "proof_found",
+                "is_verified": True,
+                "formal_statement": "thm : True := trivial",
+                "language": "lean4",
+            },
             timestamp=time.time(),
             proof_tree=[{"id": "root"}],
         )
@@ -1988,7 +2113,9 @@ class TestEdgeCases:
         assert isinstance(_verification_history, OrderedDict)
 
     @pytest.mark.asyncio
-    async def test_timeout_none_defaults_to_60(self, handler, mock_verification_result, mock_governance_store):
+    async def test_timeout_none_defaults_to_60(
+        self, handler, mock_verification_result, mock_governance_store
+    ):
         """When timeout is None, use default 60."""
         with patch.object(handler, "_get_manager") as mock_mgr:
             mock_mgr.return_value.attempt_formal_verification = AsyncMock(

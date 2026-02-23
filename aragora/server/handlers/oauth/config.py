@@ -231,7 +231,8 @@ def validate_oauth_config(log_warnings: bool = True) -> list[str]:
             missing.append("ARAGORA_JWT_SECRET (too short, need 32+ chars)")
             if log_warnings:
                 logger.warning(
-                    "OAuth config: ARAGORA_JWT_SECRET is too short (%s chars). Need at least 32 characters.", len(jwt_secret)
+                    "OAuth config: ARAGORA_JWT_SECRET is too short (%s chars). Need at least 32 characters.",
+                    len(jwt_secret),
                 )
 
     if not _IS_PRODUCTION:

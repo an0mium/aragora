@@ -185,11 +185,17 @@ class DispatchMixin:
                         )
                         time.sleep(delay_ms / 1000.0)
                         logger.debug(
-                            "Retrying handler %s (attempt %s/%s)", name, retries, retry_config.max_retries
+                            "Retrying handler %s (attempt %s/%s)",
+                            name,
+                            retries,
+                            retry_config.max_retries,
                         )
                     else:
                         logger.warning(
-                            "Handler %s failed after %s retries: %s", name, retry_config.max_retries, e
+                            "Handler %s failed after %s retries: %s",
+                            name,
+                            retry_config.max_retries,
+                            e,
                         )
                         self._circuit_breaker.record_failure(name)
                         if METRICS_AVAILABLE:

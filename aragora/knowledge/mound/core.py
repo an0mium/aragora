@@ -240,9 +240,13 @@ class KnowledgeMoundCore:
                 # Initialize with integrity checks
                 integrity_result = await self._meta_store.initialize()
                 if self.config.enable_integrity_checks and not integrity_result.passed:
-                    logger.warning("Integrity check found issues: %s", integrity_result.issues_found)
+                    logger.warning(
+                        "Integrity check found issues: %s", integrity_result.issues_found
+                    )
                 logger.debug(
-                    "PostgreSQL backend initialized with resilience (integrity: %s checks, %s)", integrity_result.checks_performed, 'passed' if integrity_result.passed else 'issues found'
+                    "PostgreSQL backend initialized with resilience (integrity: %s checks, %s)",
+                    integrity_result.checks_performed,
+                    "passed" if integrity_result.passed else "issues found",
                 )
             else:
                 self._meta_store = base_store

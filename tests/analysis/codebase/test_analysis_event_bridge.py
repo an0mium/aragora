@@ -90,9 +90,7 @@ class TestEmitBugFindings:
         bridge = AnalysisEventBridge(min_confidence=0.7)
         findings = [_BugFinding(confidence=0.9)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_bug_findings(findings)
 
         assert count == 1
@@ -110,9 +108,7 @@ class TestEmitBugFindings:
         bridge = AnalysisEventBridge(min_confidence=0.8)
         findings = [_BugFinding(confidence=0.5)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_bug_findings(findings)
 
         assert count == 0
@@ -126,9 +122,7 @@ class TestEmitBugFindings:
             _BugFinding(confidence=0.75, bug_id="B003"),
         ]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_bug_findings(findings)
 
         assert count == 2
@@ -139,9 +133,7 @@ class TestEmitBugFindings:
         long_desc = "x" * 1000
         findings = [_BugFinding(description=long_desc, confidence=0.9)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_bug_findings(findings)
 
         data = mock_dispatch.call_args[0][1]
@@ -156,9 +148,7 @@ class TestEmitBugFindings:
             )
         ]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_bug_findings(findings)
 
         data = mock_dispatch.call_args[0][1]
@@ -167,9 +157,7 @@ class TestEmitBugFindings:
     def test_empty_findings_list(self) -> None:
         bridge = AnalysisEventBridge()
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_bug_findings([])
 
         assert count == 0
@@ -183,9 +171,7 @@ class TestEmitSecretFindings:
         bridge = AnalysisEventBridge()
         findings = [_SecretFinding()]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_secret_findings(findings)
 
         assert count == 1
@@ -199,9 +185,7 @@ class TestEmitSecretFindings:
         # Add an attribute that looks like a secret value
         finding.matched_text = "sk-XXXXXXXXXXXXXXXX"  # type: ignore[attr-defined]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_secret_findings([finding])
 
         data = mock_dispatch.call_args[0][1]
@@ -213,9 +197,7 @@ class TestEmitSecretFindings:
         bridge = AnalysisEventBridge()
         findings = [_SecretFinding(secret_type=_SecretType.PASSWORD)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_secret_findings(findings)
 
         data = mock_dispatch.call_args[0][1]
@@ -225,9 +207,7 @@ class TestEmitSecretFindings:
         bridge = AnalysisEventBridge()
         findings = [_SecretFinding(file_path="env/.env", line_number=5)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_secret_findings(findings)
 
         data = mock_dispatch.call_args[0][1]
@@ -242,9 +222,7 @@ class TestEmitSecretFindings:
             _SecretFinding(id="S003"),
         ]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_secret_findings(findings)
 
         assert count == 3
@@ -258,9 +236,7 @@ class TestEmitSASTFindings:
         bridge = AnalysisEventBridge()
         findings = [_SASTFinding(severity=_SASTSeverity.ERROR)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
         assert count == 1
@@ -272,9 +248,7 @@ class TestEmitSASTFindings:
         bridge = AnalysisEventBridge()
         findings = [_SASTFinding(severity=_SASTSeverity.CRITICAL)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
         assert count == 1
@@ -285,9 +259,7 @@ class TestEmitSASTFindings:
         bridge = AnalysisEventBridge()
         findings = [_SASTFinding(severity=_SASTSeverity.INFO)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
         assert count == 0
@@ -297,9 +269,7 @@ class TestEmitSASTFindings:
         bridge = AnalysisEventBridge()
         findings = [_SASTFinding(severity=_SASTSeverity.WARNING)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
         assert count == 0
@@ -315,9 +285,7 @@ class TestEmitSASTFindings:
             )
         ]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_sast_findings(findings)
 
         data = mock_dispatch.call_args[0][1]
@@ -327,13 +295,9 @@ class TestEmitSASTFindings:
     def test_message_truncated_to_500_chars(self) -> None:
         bridge = AnalysisEventBridge()
         long_msg = "z" * 800
-        findings = [
-            _SASTFinding(message=long_msg, severity=_SASTSeverity.ERROR)
-        ]
+        findings = [_SASTFinding(message=long_msg, severity=_SASTSeverity.ERROR)]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             bridge.emit_sast_findings(findings)
 
         data = mock_dispatch.call_args[0][1]
@@ -348,9 +312,7 @@ class TestEmitSASTFindings:
             _SASTFinding(severity=_SASTSeverity.CRITICAL, rule_id="R4"),
         ]
 
-        with patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
         # Only error and critical should emit
@@ -391,9 +353,7 @@ class TestStatsTracking:
         with patch("aragora.events.dispatcher.dispatch_event"):
             bridge.emit_bug_findings([_BugFinding(confidence=0.9)])
             bridge.emit_secret_findings([_SecretFinding()])
-            bridge.emit_sast_findings(
-                [_SASTFinding(severity=_SASTSeverity.CRITICAL)]
-            )
+            bridge.emit_sast_findings([_SASTFinding(severity=_SASTSeverity.CRITICAL)])
 
         assert bridge.stats["findings_processed"] == 3
         assert bridge.stats["events_emitted"] == 3

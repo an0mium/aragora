@@ -488,7 +488,9 @@ class TestGetCreditAccount:
 
     @pytest.mark.asyncio
     async def test_get_account_zero_balance(self, handler, mock_mgr):
-        mock_mgr.get_account.return_value = _make_account(balance=0, issued=0, redeemed=0, expired=0)
+        mock_mgr.get_account.return_value = _make_account(
+            balance=0, issued=0, redeemed=0, expired=0
+        )
         result = await handler.get_credit_account("org-001")
         assert _status(result) == 200
         body = _body(result)
@@ -598,10 +600,7 @@ class TestListTransactions:
 
     @pytest.mark.asyncio
     async def test_list_transactions_multiple(self, handler, mock_mgr):
-        txns = [
-            _make_transaction(tx_id=f"cred_{i}", amount_cents=i * 100)
-            for i in range(1, 4)
-        ]
+        txns = [_make_transaction(tx_id=f"cred_{i}", amount_cents=i * 100) for i in range(1, 4)]
         mock_mgr.get_transactions.return_value = txns
         result = await handler.list_transactions("org-001")
         assert _status(result) == 200
@@ -1152,7 +1151,7 @@ class TestMultipleOperations:
             data = {
                 "amount_cents": 100 * (i + 1),
                 "type": "promotional",
-                "description": f"Issue #{i+1}",
+                "description": f"Issue #{i + 1}",
             }
             result = await handler.issue_credit("org-001", data, "admin-001")
             assert _status(result) == 201

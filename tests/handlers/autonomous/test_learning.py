@@ -176,8 +176,12 @@ def mock_learner():
     learner.get_all_calibrations = MagicMock(return_value={})
     # Async methods
     learner.on_debate_completed = AsyncMock(return_value=_make_learning_event())
-    learner.on_user_feedback = AsyncMock(return_value=_make_learning_event(event_type_value="user_feedback"))
-    learner.run_periodic_learning = AsyncMock(return_value={"patterns_extracted": 0, "knowledge_decayed": 0})
+    learner.on_user_feedback = AsyncMock(
+        return_value=_make_learning_event(event_type_value="user_feedback")
+    )
+    learner.run_periodic_learning = AsyncMock(
+        return_value={"patterns_extracted": 0, "knowledge_decayed": 0}
+    )
     return learner
 
 
@@ -390,9 +394,14 @@ class TestGetAgentCalibration:
 
         data = await _parse(resp)
         expected_keys = {
-            "agent_id", "elo_rating", "confidence_accuracy",
-            "topic_strengths", "topic_weaknesses", "last_updated",
-            "total_debates", "win_rate",
+            "agent_id",
+            "elo_rating",
+            "confidence_accuracy",
+            "topic_strengths",
+            "topic_weaknesses",
+            "last_updated",
+            "total_debates",
+            "win_rate",
         }
         assert expected_keys == set(data["calibration"].keys())
 
@@ -521,7 +530,9 @@ class TestGetAllCalibrations:
 
     @pytest.mark.asyncio
     async def test_all_calibrations_single(self, install_learner):
-        cal = _make_calibration(agent_id="claude", elo_rating=1700.0, total_debates=20, win_rate=0.7)
+        cal = _make_calibration(
+            agent_id="claude", elo_rating=1700.0, total_debates=20, win_rate=0.7
+        )
         install_learner.get_all_calibrations.return_value = {"claude": cal}
 
         req = _make_request()
@@ -676,7 +687,10 @@ class TestRecordDebateOutcome:
     async def test_debate_outcome_success(self, install_learner):
         event = _make_learning_event(event_id="evt-debate-1", event_type_value="debate_completed")
         install_learner.on_debate_completed.return_value = event
-        install_learner.elo_updater.get_rating.side_effect = lambda a: {"claude": 1650.0, "gpt-4": 1550.0}.get(a, 1500.0)
+        install_learner.elo_updater.get_rating.side_effect = lambda a: {
+            "claude": 1650.0,
+            "gpt-4": 1550.0,
+        }.get(a, 1500.0)
 
         req = _make_request(
             method="POST",
@@ -1405,9 +1419,15 @@ class TestGetPatterns:
 
         data = await _parse(resp)
         expected_keys = {
-            "id", "pattern_type", "description", "confidence",
-            "evidence_count", "first_seen", "last_seen",
-            "agents_involved", "topics",
+            "id",
+            "pattern_type",
+            "description",
+            "confidence",
+            "evidence_count",
+            "first_seen",
+            "last_seen",
+            "agents_involved",
+            "topics",
         }
         assert expected_keys == set(data["patterns"][0].keys())
 
@@ -1687,11 +1707,7 @@ class TestRegisterRoutes:
         app = web.Application()
         LearningHandler.register_routes(app)
 
-        route_count = sum(
-            1
-            for r in app.router.routes()
-            if hasattr(r, "resource") and r.resource
-        )
+        route_count = sum(1 for r in app.router.routes() if hasattr(r, "resource") and r.resource)
         # 4 GET (ratings, calibration/{id}, calibrations, patterns)
         # 3 POST (debate, feedback, run)
         # 4 HEAD auto-added for GETs

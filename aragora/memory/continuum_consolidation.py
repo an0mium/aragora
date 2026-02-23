@@ -136,7 +136,11 @@ def promote_batch(
 
     if promoted_count > 0:
         logger.info(
-            "[memory] Batch promoted %s/%s entries: %s -> %s", promoted_count, len(ids), from_tier.value, to_tier.value
+            "[memory] Batch promoted %s/%s entries: %s -> %s",
+            promoted_count,
+            len(ids),
+            from_tier.value,
+            to_tier.value,
         )
 
     return promoted_count
@@ -211,7 +215,11 @@ def demote_batch(
 
     if demoted_count > 0:
         logger.info(
-            "[memory] Batch demoted %s/%s entries: %s -> %s", demoted_count, len(ids), from_tier.value, to_tier.value
+            "[memory] Batch demoted %s/%s entries: %s -> %s",
+            demoted_count,
+            len(ids),
+            from_tier.value,
+            to_tier.value,
         )
 
     return demoted_count

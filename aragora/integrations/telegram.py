@@ -155,7 +155,9 @@ class TelegramIntegration:
             logger.warning("Telegram verification connection error: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, KeyError) as e:
-            logger.warning("Telegram verification response parse error: %s: %s", type(e).__name__, e)
+            logger.warning(
+                "Telegram verification response parse error: %s: %s", type(e).__name__, e
+            )
             return False
 
     def _check_rate_limit(self) -> bool:
@@ -319,7 +321,9 @@ class TelegramIntegration:
 
         if confidence < self.config.min_consensus_confidence:
             logger.debug(
-                "Skipping consensus alert: confidence %s < %s", confidence, self.config.min_consensus_confidence
+                "Skipping consensus alert: confidence %s < %s",
+                confidence,
+                self.config.min_consensus_confidence,
             )
             return True
 

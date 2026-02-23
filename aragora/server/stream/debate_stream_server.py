@@ -1161,7 +1161,10 @@ class DebateStreamServer(ServerBase):
         async with self._clients_lock:
             self.clients.discard(websocket)
         logger.info(
-            "[ws] Client %s... disconnected from %s (remaining_clients=%s)", client_id[:8], client_ip, len(self.clients)
+            "[ws] Client %s... disconnected from %s (remaining_clients=%s)",
+            client_id[:8],
+            client_ip,
+            len(self.clients),
         )
 
         # SECURITY: Clean up subscription tracking to prevent stale entries
@@ -1192,7 +1195,11 @@ class DebateStreamServer(ServerBase):
             return
 
         logger.info(
-            "[ws] Client %s... connected from %s (authenticated=%s, total_clients=%s)", client_id[:8], client_ip, is_authenticated, len(self.clients)
+            "[ws] Client %s... connected from %s (authenticated=%s, total_clients=%s)",
+            client_id[:8],
+            client_ip,
+            is_authenticated,
+            len(self.clients),
         )
         try:
             # Send initial connection state
@@ -1307,7 +1314,9 @@ class DebateStreamServer(ServerBase):
 
                         if subscribe_allowed:
                             self._client_subscriptions[ws_id] = debate_id
-                            logger.info("[ws] Client %s... subscribed to %s", client_id[:8], debate_id)
+                            logger.info(
+                                "[ws] Client %s... subscribed to %s", client_id[:8], debate_id
+                            )
                             await self._send_debate_state(websocket, debate_id)
                     else:
                         await websocket.send(
@@ -1354,7 +1363,10 @@ class DebateStreamServer(ServerBase):
             compression="deflate",  # Enable permessage-deflate for reduced bandwidth
         ):
             logger.info(
-                "WebSocket server: ws://%s:%s (max message size: %s bytes)", self.host, self.port, WS_MAX_MESSAGE_SIZE
+                "WebSocket server: ws://%s:%s (max message size: %s bytes)",
+                self.host,
+                self.port,
+                WS_MAX_MESSAGE_SIZE,
             )
             await self._stop_event.wait()  # Run until shutdown signal
 

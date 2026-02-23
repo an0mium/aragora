@@ -80,7 +80,11 @@ class TestDecisionRouterRBAC:
             # Should return failure with error message
             assert result["success"] is False
             assert "error" in result
-            assert "error" in result["error"].lower() or "denied" in result["error"].lower() or "routing" in result["error"].lower()
+            assert (
+                "error" in result["error"].lower()
+                or "denied" in result["error"].lower()
+                or "routing" in result["error"].lower()
+            )
 
     @pytest.mark.asyncio
     async def test_rbac_authorized_user_succeeds(self):

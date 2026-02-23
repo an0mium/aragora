@@ -244,7 +244,15 @@ class HybridDebateProtocol:
             try:
                 available = await agent.is_available()
                 return name, available
-            except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError, TimeoutError) as exc:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                OSError,
+                ConnectionError,
+                TimeoutError,
+            ) as exc:
                 logger.warning("Health check failed for %s: %s", name, exc)
                 return name, False
 
@@ -260,9 +268,7 @@ class HybridDebateProtocol:
                 continue
             # result is tuple[str, bool] after BaseException check
             if not isinstance(result, tuple):
-                raise TypeError(
-                    f"Expected tuple from health check, got {type(result).__name__}"
-                )
+                raise TypeError(f"Expected tuple from health check, got {type(result).__name__}")
             name, available = result
             health[name] = available
 
@@ -329,7 +335,10 @@ class HybridDebateProtocol:
 
         for round_num in range(self.config.max_refinement_rounds):
             logger.debug(
-                "[%s] Verification round %s/%s", debate_id[:8], round_num + 1, self.config.max_refinement_rounds
+                "[%s] Verification round %s/%s",
+                debate_id[:8],
+                round_num + 1,
+                self.config.max_refinement_rounds,
             )
 
             # 2. Collect critiques from verification agents
@@ -339,7 +348,10 @@ class HybridDebateProtocol:
             # 2b. Check verification quorum
             if len(critiques) < self.config.min_verification_quorum:
                 logger.warning(
-                    "[%s] Insufficient critiques (%s/%s)", debate_id[:8], len(critiques), self.config.min_verification_quorum
+                    "[%s] Insufficient critiques (%s/%s)",
+                    debate_id[:8],
+                    len(critiques),
+                    self.config.min_verification_quorum,
                 )
                 # On final round with insufficient quorum, mark as unverified
                 if round_num == self.config.max_refinement_rounds - 1:
@@ -399,7 +411,9 @@ class HybridDebateProtocol:
         # Max rounds reached without consensus
         if not quorum_met:
             logger.warning(
-                "[%s] Verification quorum never met across %s rounds", debate_id[:8], self.config.max_refinement_rounds
+                "[%s] Verification quorum never met across %s rounds",
+                debate_id[:8],
+                self.config.max_refinement_rounds,
             )
         else:
             logger.warning(
@@ -447,7 +461,14 @@ class HybridDebateProtocol:
                     target_agent=self.external_agent.name,
                 )
                 return critique.content
-            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                TimeoutError,
+            ) as e:
                 logger.warning("Critique from %s failed: %s", agent.name, e)
                 return None
 

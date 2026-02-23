@@ -683,7 +683,8 @@ class GoogleTrendsIngestor(PulseIngestor):
 
                 # All URLs failed - Google may have changed their API again
                 logger.warning(
-                    "[google_trends] All Google Trends RSS URLs failed. Google may have changed their API. Last error: %s", last_error
+                    "[google_trends] All Google Trends RSS URLs failed. Google may have changed their API. Last error: %s",
+                    last_error,
                 )
                 raise last_error or Exception("All Google Trends URLs failed")
 

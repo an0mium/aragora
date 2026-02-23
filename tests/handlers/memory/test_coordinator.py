@@ -491,12 +491,8 @@ class TestRBAC:
         async def raise_unauth(self, handler, require_auth=True):
             raise UnauthorizedError("No token")
 
-        with patch.object(
-            type(h), "get_auth_context", raise_unauth
-        ):
-            result = await h.handle(
-                "/api/v1/memory/coordinator/metrics", {}, MockHTTPHandler()
-            )
+        with patch.object(type(h), "get_auth_context", raise_unauth):
+            result = await h.handle("/api/v1/memory/coordinator/metrics", {}, MockHTTPHandler())
         assert _status(result) == 401
         body = _body(result)
         assert "Authentication required" in body.get("error", "")
@@ -528,9 +524,7 @@ class TestRBAC:
             patch.object(type(h), "get_auth_context", return_ctx),
             patch.object(type(h), "check_permission", deny_permission),
         ):
-            result = await h.handle(
-                "/api/v1/memory/coordinator/metrics", {}, MockHTTPHandler()
-            )
+            result = await h.handle("/api/v1/memory/coordinator/metrics", {}, MockHTTPHandler())
         assert _status(result) == 403
         body = _body(result)
         assert "Permission denied" in body.get("error", "")
@@ -546,9 +540,7 @@ class TestCoordinatorAvailable:
 
     @pytest.mark.asyncio
     async def test_coordinator_unavailable_returns_501(self, handler):
-        with patch(
-            "aragora.server.handlers.memory.coordinator.COORDINATOR_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.memory.coordinator.COORDINATOR_AVAILABLE", False):
             result = await handler.handle(
                 "/api/v1/memory/coordinator/metrics", {}, MockHTTPHandler()
             )
@@ -558,9 +550,7 @@ class TestCoordinatorAvailable:
 
     @pytest.mark.asyncio
     async def test_coordinator_unavailable_config(self, handler):
-        with patch(
-            "aragora.server.handlers.memory.coordinator.COORDINATOR_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.memory.coordinator.COORDINATOR_AVAILABLE", False):
             result = await handler.handle(
                 "/api/v1/memory/coordinator/config", {}, MockHTTPHandler()
             )
@@ -613,9 +603,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_handler_arg_none(self, handler):
         """handle() with handler=None (no HTTP handler)."""
-        result = await handler.handle(
-            "/api/v1/memory/coordinator/metrics", {}, None
-        )
+        result = await handler.handle("/api/v1/memory/coordinator/metrics", {}, None)
         assert _status(result) == 200
 
     @pytest.mark.asyncio

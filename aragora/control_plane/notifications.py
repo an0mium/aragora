@@ -212,7 +212,15 @@ class EmailProvider(ChannelProvider):
                 message_id=str(uuid.uuid4()),
             )
 
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, smtplib.SMTPException) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            smtplib.SMTPException,
+        ) as e:
             logger.error("Email send error: %s", e)
             return NotificationResult(
                 success=False,
@@ -518,7 +526,15 @@ class NotificationDispatcher:
             self._update_channel_metrics(channel, success=False)
             return result
 
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, AttributeError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            AttributeError,
+        ) as e:
             breaker.record_failure()
             self._metrics["total_failed"] += 1
             self._update_channel_metrics(channel, success=False)
@@ -649,7 +665,14 @@ class NotificationDispatcher:
 
             except asyncio.CancelledError:
                 break
-            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError) as e:
+            except (
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+            ) as e:
                 logger.error("Worker error: %s", e)
                 await asyncio.sleep(5)
 
@@ -711,7 +734,16 @@ class NotificationDispatcher:
                     )
                     await self._redis.xdel(self._config.queue_stream_key, message_id)
 
-        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError, KeyError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            json.JSONDecodeError,
+            KeyError,
+        ) as e:
             logger.error("Error processing queued message: %s", e)
 
     async def _move_to_dlq(

@@ -251,9 +251,7 @@ class TestListConnectors:
         assert body["total"] == 0
 
     def test_list_filter_by_status_healthy(self, handler, mock_http_handler, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.HEALTHY))
         mock_registry.register(
             _make_connector("telegram", "chat", status=ConnectorStatus.UNHEALTHY)
         )
@@ -264,9 +262,7 @@ class TestListConnectors:
         assert body["connectors"][0]["name"] == "slack"
 
     def test_list_filter_by_status_unhealthy(self, handler, mock_http_handler, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.HEALTHY))
         mock_registry.register(
             _make_connector("telegram", "chat", status=ConnectorStatus.UNHEALTHY)
         )
@@ -277,12 +273,8 @@ class TestListConnectors:
         assert body["connectors"][0]["name"] == "telegram"
 
     def test_list_filter_by_status_degraded(self, handler, mock_http_handler, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.DEGRADED)
-        )
-        mock_registry.register(
-            _make_connector("telegram", "chat", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.DEGRADED))
+        mock_registry.register(_make_connector("telegram", "chat", status=ConnectorStatus.HEALTHY))
         result = handler.handle(_PREFIX, {"status": "degraded"}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
@@ -290,9 +282,7 @@ class TestListConnectors:
         assert body["connectors"][0]["name"] == "slack"
 
     def test_list_filter_by_status_unknown(self, handler, mock_http_handler, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.UNKNOWN)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.UNKNOWN))
         result = handler.handle(_PREFIX, {"status": "unknown"}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
@@ -306,18 +296,12 @@ class TestListConnectors:
         assert "Invalid status filter" in body.get("error", "")
 
     def test_list_combined_type_and_status_filter(self, handler, mock_http_handler, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.HEALTHY))
         mock_registry.register(
             _make_connector("telegram", "chat", status=ConnectorStatus.UNHEALTHY)
         )
-        mock_registry.register(
-            _make_connector("stripe", "payment", status=ConnectorStatus.HEALTHY)
-        )
-        result = handler.handle(
-            _PREFIX, {"type": "chat", "status": "healthy"}, mock_http_handler
-        )
+        mock_registry.register(_make_connector("stripe", "payment", status=ConnectorStatus.HEALTHY))
+        result = handler.handle(_PREFIX, {"type": "chat", "status": "healthy"}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -365,15 +349,11 @@ class TestSummary:
         assert body["connectors"] == []
 
     def test_summary_with_connectors(self, handler, mock_http_handler, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.HEALTHY))
         mock_registry.register(
             _make_connector("telegram", "chat", status=ConnectorStatus.UNHEALTHY)
         )
-        mock_registry.register(
-            _make_connector("stripe", "payment", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("stripe", "payment", status=ConnectorStatus.HEALTHY))
         result = handler.handle(_PREFIX + "/summary", {}, mock_http_handler)
         assert _status(result) == 200
         body = _body(result)
@@ -481,7 +461,9 @@ class TestHealth:
         result = handler.handle(_PREFIX + "/bad-name/health", {}, mock_http_handler)
         assert _status(result) == 400
 
-    def test_health_returns_last_check_and_metadata(self, handler, mock_http_handler, mock_registry):
+    def test_health_returns_last_check_and_metadata(
+        self, handler, mock_http_handler, mock_registry
+    ):
         ts = time.time()
         connector = _make_connector(
             "slack",
@@ -530,7 +512,9 @@ class TestTestConnectivity:
         assert "error" not in body
         assert "warning" not in body
 
-    def test_test_unhealthy_connector_includes_error(self, handler, mock_http_handler, mock_registry):
+    def test_test_unhealthy_connector_includes_error(
+        self, handler, mock_http_handler, mock_registry
+    ):
         connector = _make_connector(
             "telegram",
             "chat",
@@ -548,7 +532,9 @@ class TestTestConnectivity:
         assert "No module named" in body["error"]
         assert "warning" not in body
 
-    def test_test_degraded_connector_includes_warning(self, handler, mock_http_handler, mock_registry):
+    def test_test_degraded_connector_includes_warning(
+        self, handler, mock_http_handler, mock_registry
+    ):
         connector = _make_connector(
             "kafka",
             "enterprise",
@@ -590,7 +576,9 @@ class TestTestConnectivity:
         assert "error" not in body
         assert "warning" not in body
 
-    def test_test_unhealthy_no_import_error_in_metadata(self, handler, mock_http_handler, mock_registry):
+    def test_test_unhealthy_no_import_error_in_metadata(
+        self, handler, mock_http_handler, mock_registry
+    ):
         """When UNHEALTHY but metadata has no import_error, fall back to 'Unknown error'."""
         connector = _make_connector(
             "slack",
@@ -605,7 +593,9 @@ class TestTestConnectivity:
         body = _body(result)
         assert body["error"] == "Unknown error"
 
-    def test_test_degraded_no_health_error_in_metadata(self, handler, mock_http_handler, mock_registry):
+    def test_test_degraded_no_health_error_in_metadata(
+        self, handler, mock_http_handler, mock_registry
+    ):
         """When DEGRADED but metadata has no health_error, fall back to 'Degraded'."""
         connector = _make_connector(
             "slack",
@@ -1015,24 +1005,14 @@ class TestMultipleTypes:
 
     @pytest.fixture(autouse=True)
     def populate_registry(self, mock_registry):
-        mock_registry.register(
-            _make_connector("slack", "chat", status=ConnectorStatus.HEALTHY)
-        )
-        mock_registry.register(
-            _make_connector("telegram", "chat", status=ConnectorStatus.DEGRADED)
-        )
-        mock_registry.register(
-            _make_connector("discord", "chat", status=ConnectorStatus.UNHEALTHY)
-        )
-        mock_registry.register(
-            _make_connector("stripe", "payment", status=ConnectorStatus.HEALTHY)
-        )
+        mock_registry.register(_make_connector("slack", "chat", status=ConnectorStatus.HEALTHY))
+        mock_registry.register(_make_connector("telegram", "chat", status=ConnectorStatus.DEGRADED))
+        mock_registry.register(_make_connector("discord", "chat", status=ConnectorStatus.UNHEALTHY))
+        mock_registry.register(_make_connector("stripe", "payment", status=ConnectorStatus.HEALTHY))
         mock_registry.register(
             _make_connector("kafka", "enterprise", status=ConnectorStatus.HEALTHY)
         )
-        mock_registry.register(
-            _make_connector("github", "ai", status=ConnectorStatus.UNKNOWN)
-        )
+        mock_registry.register(_make_connector("github", "ai", status=ConnectorStatus.UNKNOWN))
 
     def test_list_all(self, handler, mock_http_handler):
         result = handler.handle(_PREFIX, {}, mock_http_handler)
@@ -1060,9 +1040,7 @@ class TestMultipleTypes:
         assert body["total"] == 3
 
     def test_filter_chat_and_healthy(self, handler, mock_http_handler):
-        result = handler.handle(
-            _PREFIX, {"type": "chat", "status": "healthy"}, mock_http_handler
-        )
+        result = handler.handle(_PREFIX, {"type": "chat", "status": "healthy"}, mock_http_handler)
         body = _body(result)
         assert body["total"] == 1
         assert body["connectors"][0]["name"] == "slack"

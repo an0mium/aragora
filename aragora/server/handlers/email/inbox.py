@@ -118,7 +118,15 @@ async def handle_fetch_and_rank_inbox(
             "fetched_at": datetime.now().isoformat(),
         }
 
-    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError, RuntimeError) as e:
+    except (
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         logger.exception("Failed to fetch inbox: %s", e)
         return {
             "success": False,

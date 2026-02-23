@@ -506,9 +506,7 @@ class TestOutlookWebhook:
         self, handler, populated_subscriptions
     ):
         """When subscription exists, account_id should be populated."""
-        req = MockRequest(
-            _body=_make_outlook_payload(subscription_id="sub-002")
-        )
+        req = MockRequest(_body=_make_outlook_payload(subscription_id="sub-002"))
         result = await handler.handle(req, "/api/v1/webhooks/outlook", "POST")
         body = _body(result)
         notif = body["data"]["notifications"][0]
@@ -657,9 +655,7 @@ class TestSubscribe:
 
     @pytest.mark.asyncio
     async def test_subscribe_invalid_provider(self, handler):
-        req = MockRequest(
-            _body={"provider": "yahoo", "account_id": "acc-1"}
-        )
+        req = MockRequest(_body={"provider": "yahoo", "account_id": "acc-1"})
         result = await handler.handle(req, "/api/v1/webhooks/subscribe", "POST")
         assert _status(result) == 400
         body = _body(result)
@@ -681,9 +677,7 @@ class TestSubscribe:
 
     @pytest.mark.asyncio
     async def test_subscribe_stores_subscription(self, handler):
-        req = MockRequest(
-            _body={"provider": "gmail", "account_id": "acc-store-test"}
-        )
+        req = MockRequest(_body={"provider": "gmail", "account_id": "acc-store-test"})
         await handler.handle(req, "/api/v1/webhooks/subscribe", "POST")
         assert len(_subscriptions) == 1
         sub = list(_subscriptions.values())[0]
@@ -692,9 +686,7 @@ class TestSubscribe:
 
     @pytest.mark.asyncio
     async def test_subscribe_records_tenant_mapping(self, handler):
-        req = MockRequest(
-            _body={"provider": "gmail", "account_id": "acc-1"}
-        )
+        req = MockRequest(_body={"provider": "gmail", "account_id": "acc-1"})
         await handler.handle(req, "/api/v1/webhooks/subscribe", "POST")
         assert "test-tenant" in _tenant_subscriptions
         assert len(_tenant_subscriptions["test-tenant"]) == 1
@@ -715,9 +707,7 @@ class TestSubscribe:
 
     @pytest.mark.asyncio
     async def test_subscribe_default_expiration(self, handler):
-        req = MockRequest(
-            _body={"provider": "gmail", "account_id": "acc-1"}
-        )
+        req = MockRequest(_body={"provider": "gmail", "account_id": "acc-1"})
         await handler.handle(req, "/api/v1/webhooks/subscribe", "POST")
         sub = list(_subscriptions.values())[0]
         delta = sub.expires_at - sub.created_at
@@ -726,9 +716,7 @@ class TestSubscribe:
     @pytest.mark.asyncio
     async def test_subscribe_gmail_creation_failure(self, handler):
         """When Gmail subscription creation fails, return error."""
-        req = MockRequest(
-            _body={"provider": "gmail", "account_id": "acc-fail"}
-        )
+        req = MockRequest(_body={"provider": "gmail", "account_id": "acc-fail"})
         with patch.object(
             handler,
             "_create_gmail_subscription",
@@ -741,9 +729,7 @@ class TestSubscribe:
 
     @pytest.mark.asyncio
     async def test_subscribe_outlook_creation_failure(self, handler):
-        req = MockRequest(
-            _body={"provider": "outlook", "account_id": "acc-fail"}
-        )
+        req = MockRequest(_body={"provider": "outlook", "account_id": "acc-fail"})
         with patch.object(
             handler,
             "_create_outlook_subscription",
@@ -754,18 +740,14 @@ class TestSubscribe:
 
     @pytest.mark.asyncio
     async def test_subscribe_case_insensitive_provider(self, handler):
-        req = MockRequest(
-            _body={"provider": "GMAIL", "account_id": "acc-1"}
-        )
+        req = MockRequest(_body={"provider": "GMAIL", "account_id": "acc-1"})
         result = await handler.handle(req, "/api/v1/webhooks/subscribe", "POST")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_subscribe_client_state_is_deterministic(self, handler):
         """Client state is derived from tenant_id, account_id, and subscription_id."""
-        req = MockRequest(
-            _body={"provider": "gmail", "account_id": "acc-1"}
-        )
+        req = MockRequest(_body={"provider": "gmail", "account_id": "acc-1"})
         result = await handler.handle(req, "/api/v1/webhooks/subscribe", "POST")
         body = _body(result)
         client_state = body["data"]["client_state"]
@@ -1048,9 +1030,7 @@ class TestProcessGmailNotification:
 
     @pytest.mark.asyncio
     async def test_process_corrupt_base64(self):
-        result = await process_gmail_notification(
-            {"message": {"data": ";;;corrupt;;;"}}, "t1"
-        )
+        result = await process_gmail_notification({"message": {"data": ";;;corrupt;;;"}}, "t1")
         assert result is None
 
     @pytest.mark.asyncio
@@ -1236,9 +1216,11 @@ class TestJsonBodyUtility:
         req.json = {"b": 2}
         del req.json  # Remove the method
         req.json = {"b": 2}  # Set as property-like
+
         # MagicMock.json is callable by default; use a simple object
         class SimpleReq:
             json = {"b": 2}
+
         body = await handler._get_json_body(SimpleReq())
         assert body == {"b": 2}
 

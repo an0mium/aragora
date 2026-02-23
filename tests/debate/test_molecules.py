@@ -222,9 +222,7 @@ class TestMoleculeTracker:
 
     def test_pending_respects_dependencies(self, tracker):
         m1 = tracker.create_molecule("d1", MoleculeType.PROPOSAL, 1)
-        m2 = tracker.create_molecule(
-            "d1", MoleculeType.CRITIQUE, 1, depends_on=[m1.molecule_id]
-        )
+        m2 = tracker.create_molecule("d1", MoleculeType.CRITIQUE, 1, depends_on=[m1.molecule_id])
         pending = tracker.get_pending_molecules("d1")
         # m1 is pending (no deps), m2 is blocked
         assert m1 in pending
@@ -296,9 +294,7 @@ class TestMoleculeTracker:
 
     def test_complete_unblocks_dependents(self, tracker):
         m1 = tracker.create_molecule("d1", MoleculeType.PROPOSAL, 1)
-        m2 = tracker.create_molecule(
-            "d1", MoleculeType.CRITIQUE, 1, depends_on=[m1.molecule_id]
-        )
+        m2 = tracker.create_molecule("d1", MoleculeType.CRITIQUE, 1, depends_on=[m1.molecule_id])
         # Mark m2 as blocked first
         tracker.get_pending_molecules("d1")
         assert m2.status == MoleculeStatus.BLOCKED

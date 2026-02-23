@@ -240,16 +240,18 @@ class ExecutionHandlersMixin:
 
                 emitter = get_global_emitter()
                 if emitter is not None:
-                    emitter.emit(StreamEvent(
-                        type=StreamEventType.META_LEARNING_EVALUATED,
-                        data={
-                            "plan_id": plan_id,
-                            "debate_id": debate_id,
-                            "success": success,
-                            "tasks_completed": tasks_completed,
-                            "tasks_total": tasks_total,
-                        },
-                    ))
+                    emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.META_LEARNING_EVALUATED,
+                            data={
+                                "plan_id": plan_id,
+                                "debate_id": debate_id,
+                                "success": success,
+                                "tasks_completed": tasks_completed,
+                                "tasks_total": tasks_total,
+                            },
+                        )
+                    )
             except (ImportError, AttributeError, TypeError):
                 pass
 

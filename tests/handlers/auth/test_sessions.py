@@ -273,7 +273,9 @@ class TestListSessions:
             MockSession(session_id="my-jti-123", last_activity=now),
         ]
         payload = MockJWTPayload(jti="my-jti-123")
-        _patch_local_imports(monkeypatch, mgr, extract_token_return="some-token", decode_jwt_return=payload)
+        _patch_local_imports(
+            monkeypatch, mgr, extract_token_return="some-token", decode_jwt_return=payload
+        )
         result = handle_list_sessions(hi, http())
         body = _body(result)
         for s in body["sessions"]:
@@ -282,7 +284,9 @@ class TestListSessions:
             else:
                 assert s["is_current"] is False
 
-    def test_list_sessions_marks_current_via_token_hash_fallback(self, handler_instance, http, monkeypatch):
+    def test_list_sessions_marks_current_via_token_hash_fallback(
+        self, handler_instance, http, monkeypatch
+    ):
         """When JWT payload has no jti, falls back to sha256 hash of token."""
         hi, store, mgr = handler_instance
         now = time.time()
@@ -294,7 +298,9 @@ class TestListSessions:
         ]
         # Payload without jti
         payload = MockJWTPayload(jti=None)
-        _patch_local_imports(monkeypatch, mgr, extract_token_return=token, decode_jwt_return=payload)
+        _patch_local_imports(
+            monkeypatch, mgr, extract_token_return=token, decode_jwt_return=payload
+        )
         result = handle_list_sessions(hi, http())
         body = _body(result)
         for s in body["sessions"]:
@@ -321,7 +327,9 @@ class TestListSessions:
         mgr.sessions = [
             MockSession(session_id="sess-1", last_activity=now),
         ]
-        _patch_local_imports(monkeypatch, mgr, extract_token_return="some-token", decode_jwt_return=None)
+        _patch_local_imports(
+            monkeypatch, mgr, extract_token_return="some-token", decode_jwt_return=None
+        )
         result = handle_list_sessions(hi, http())
         body = _body(result)
         # No session should be marked as current since decode failed
@@ -331,9 +339,7 @@ class TestListSessions:
         from aragora.server.handlers.base import error_response
 
         hi, store, mgr = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         _patch_local_imports(monkeypatch, mgr)
         result = handle_list_sessions(hi, http())
         assert _status(result) == 403
@@ -352,7 +358,9 @@ class TestListSessions:
         handle_list_sessions(hi, http())
         assert "session.list_active" in permission_checked
 
-    def test_list_sessions_session_contains_expected_fields(self, handler_instance, http, monkeypatch):
+    def test_list_sessions_session_contains_expected_fields(
+        self, handler_instance, http, monkeypatch
+    ):
         hi, store, mgr = handler_instance
         now = time.time()
         mgr.sessions = [
@@ -379,8 +387,7 @@ class TestListSessions:
         hi, store, mgr = handler_instance
         now = time.time()
         mgr.sessions = [
-            MockSession(session_id=f"sess-{i}", last_activity=now - i)
-            for i in range(5)
+            MockSession(session_id=f"sess-{i}", last_activity=now - i) for i in range(5)
         ]
         _patch_local_imports(monkeypatch, mgr)
         result = handle_list_sessions(hi, http())
@@ -416,7 +423,8 @@ class TestRevokeSession:
         target_session = MockSession(session_id="sess-to-revoke-12345678")
         mgr.sessions = [target_session]
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="some-other-token",
             decode_jwt_return=MockJWTPayload(jti="current-jti"),
         )
@@ -432,7 +440,8 @@ class TestRevokeSession:
         target_session = MockSession(session_id="sess-revoke-check")
         mgr.sessions = [target_session]
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="token-xyz",
             decode_jwt_return=MockJWTPayload(jti="different-jti"),
         )
@@ -443,9 +452,7 @@ class TestRevokeSession:
         from aragora.server.handlers.base import error_response
 
         hi, store, mgr = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_revoke_session(hi, http(method="DELETE"), "sess-12345678")
         assert _status(result) == 403
 
@@ -498,7 +505,8 @@ class TestRevokeSession:
         hi, store, mgr = handler_instance
         current_jti = "current-session-jti-12345"
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="my-token",
             decode_jwt_return=MockJWTPayload(jti=current_jti),
         )
@@ -507,13 +515,16 @@ class TestRevokeSession:
         assert "cannot revoke current session" in _body(result)["error"].lower()
         assert "/api/auth/logout" in _body(result)["error"].lower()
 
-    def test_revoke_current_session_blocked_by_token_hash(self, handler_instance, http, monkeypatch):
+    def test_revoke_current_session_blocked_by_token_hash(
+        self, handler_instance, http, monkeypatch
+    ):
         """Cannot revoke current session when matching via token SHA256 hash."""
         hi, store, mgr = handler_instance
         token = "my-special-bearer-token"
         token_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return=token,
             # Payload without jti so only the hash is used
             decode_jwt_return=MockJWTPayload(jti=None),
@@ -526,7 +537,8 @@ class TestRevokeSession:
         hi, store, mgr = handler_instance
         # No sessions in manager
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="other-token",
             decode_jwt_return=MockJWTPayload(jti="different-jti"),
         )
@@ -541,7 +553,8 @@ class TestRevokeSession:
         events = []
 
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="other-tok",
             decode_jwt_return=MockJWTPayload(jti="other-jti"),
         )
@@ -583,7 +596,8 @@ class TestRevokeSession:
         target = MockSession(session_id="other-session-12345")
         mgr.sessions = [target]
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="token-value",
             # Return a plain dict (the code checks isinstance(payload, dict))
             decode_jwt_return={"jti": "dict-jti-value", "sub": "user-001"},
@@ -599,7 +613,8 @@ class TestRevokeSession:
         target = MockSession(session_id="normal-session-123")
         mgr.sessions = [target]
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return="token-value",
             decode_jwt_return={"sub": "user-001"},  # no jti
         )
@@ -612,7 +627,8 @@ class TestRevokeSession:
         token = "my-token-for-double-block"
         token_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
         _patch_local_imports(
-            monkeypatch, mgr,
+            monkeypatch,
+            mgr,
             extract_token_return=token,
             decode_jwt_return=MockJWTPayload(jti="payload-jti-value"),
         )
@@ -652,7 +668,9 @@ class TestRevokeSessionEdgeCases:
         result = handle_revoke_session(hi, http(method="DELETE"), special_id)
         assert _status(result) == 200
 
-    def test_revoke_session_returns_session_id_in_response(self, handler_instance, http, monkeypatch):
+    def test_revoke_session_returns_session_id_in_response(
+        self, handler_instance, http, monkeypatch
+    ):
         hi, store, mgr = handler_instance
         session_id = "sess-return-check-1234"
         target = MockSession(session_id=session_id)
@@ -662,7 +680,9 @@ class TestRevokeSessionEdgeCases:
         body = _body(result)
         assert body["session_id"] == session_id
 
-    def test_revoke_session_manager_called_with_correct_user_id(self, handler_instance, http, monkeypatch):
+    def test_revoke_session_manager_called_with_correct_user_id(
+        self, handler_instance, http, monkeypatch
+    ):
         """Verify revoke_session is called with the authenticated user's ID."""
         hi, store, mgr = handler_instance
         target = MockSession(session_id="sess-user-check-12")
@@ -723,7 +743,10 @@ class TestSessionRouting:
         target = MockSession(session_id="sess-v1-route-test")
         session_manager.sessions = [target]
         result = await auth_handler.handle(
-            "/api/v1/auth/sessions/sess-v1-route-test", {}, MockHTTPHandler(method="DELETE"), "DELETE"
+            "/api/v1/auth/sessions/sess-v1-route-test",
+            {},
+            MockHTTPHandler(method="DELETE"),
+            "DELETE",
         )
         assert _status(result) == 200
 
@@ -736,7 +759,9 @@ class TestSessionRouting:
     @pytest.mark.asyncio
     async def test_route_sessions_wrong_method(self, auth_handler):
         """POST to /api/auth/sessions is not a valid route - should 405."""
-        result = await auth_handler.handle("/api/auth/sessions", {}, MockHTTPHandler(method="POST"), "POST")
+        result = await auth_handler.handle(
+            "/api/auth/sessions", {}, MockHTTPHandler(method="POST"), "POST"
+        )
         # The handler falls through to the 405 at the end
         assert _status(result) == 405
 

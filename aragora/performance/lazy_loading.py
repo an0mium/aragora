@@ -343,7 +343,8 @@ class LazyValue(Generic[T]):
             n_plus_one_detected = _detect_n_plus_one(self._property_name)
             if n_plus_one_detected:
                 logger.warning(
-                    "Potential N+1 query detected for '%s'. Consider using prefetch() to batch load. (Set N_PLUS_ONE_AUTO_PREFETCH=true for automatic batching)", self._property_name
+                    "Potential N+1 query detected for '%s'. Consider using prefetch() to batch load. (Set N_PLUS_ONE_AUTO_PREFETCH=true for automatic batching)",
+                    self._property_name,
                 )
 
             # Load value with metrics

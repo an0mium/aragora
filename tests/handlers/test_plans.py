@@ -220,9 +220,7 @@ class TestListPlans:
         mock_store.list.return_value = []
         mock_store.count.return_value = 0
 
-        result = handler.handle(
-            "/api/v1/plans", {"status": "approved"}, http_get
-        )
+        result = handler.handle("/api/v1/plans", {"status": "approved"}, http_get)
 
         assert _status(result) == 200
         # Verify the store received the PlanStatus enum value
@@ -230,9 +228,7 @@ class TestListPlans:
         assert call_kwargs["status"] == PlanStatus.APPROVED
 
     def test_list_plans_invalid_status(self, handler, mock_store, http_get):
-        result = handler.handle(
-            "/api/v1/plans", {"status": "invalid_status"}, http_get
-        )
+        result = handler.handle("/api/v1/plans", {"status": "invalid_status"}, http_get)
 
         assert _status(result) == 400
         assert "Invalid status" in _body(result)["error"]
@@ -410,9 +406,7 @@ class TestCreatePlan:
         assert "task" in _body(result)["error"].lower()
 
     def test_create_plan_accepts_title_as_task(self, handler, mock_store, http_post_factory):
-        http_handler = http_post_factory(
-            body={"debate_id": "dbt-001", "title": "My title"}
-        )
+        http_handler = http_post_factory(body={"debate_id": "dbt-001", "title": "My title"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
             result = handler.handle_post("/api/v1/plans", {}, http_handler)
@@ -422,9 +416,7 @@ class TestCreatePlan:
         assert body["task"] == "My title"
 
     def test_create_plan_accepts_summary_as_task(self, handler, mock_store, http_post_factory):
-        http_handler = http_post_factory(
-            body={"debate_id": "dbt-001", "summary": "My summary"}
-        )
+        http_handler = http_post_factory(body={"debate_id": "dbt-001", "summary": "My summary"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
             result = handler.handle_post("/api/v1/plans", {}, http_handler)
@@ -549,9 +541,7 @@ class TestCreatePlan:
         assert body["status"] == "awaiting_approval"
 
     def test_create_plan_unversioned_path(self, handler, mock_store, http_post_factory):
-        http_handler = http_post_factory(
-            body={"debate_id": "dbt-001", "task": "Design something"}
-        )
+        http_handler = http_post_factory(body={"debate_id": "dbt-001", "task": "Design something"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
             result = handler.handle_post("/api/plans", {}, http_handler)
@@ -616,9 +606,7 @@ class TestApprovePlan:
         http_handler = http_post_factory(body={"reason": "Looks good"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-app/approve", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-app/approve", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
@@ -630,9 +618,7 @@ class TestApprovePlan:
         mock_store.get.return_value = None
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-missing/approve", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-missing/approve", {}, http_handler)
 
         assert _status(result) == 404
 
@@ -642,9 +628,7 @@ class TestApprovePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-exec/approve", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-exec/approve", {}, http_handler)
 
         assert _status(result) == 409
         assert "cannot be approved" in _body(result)["error"].lower()
@@ -655,9 +639,7 @@ class TestApprovePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-dup/approve", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-dup/approve", {}, http_handler)
 
         assert _status(result) == 409
 
@@ -673,9 +655,7 @@ class TestApprovePlan:
                 "aragora.pipeline.execution_bridge.get_execution_bridge",
                 return_value=mock_bridge,
             ):
-                result = handler.handle_post(
-                    "/api/v1/plans/dp-auto/approve", {}, http_handler
-                )
+                result = handler.handle_post("/api/v1/plans/dp-auto/approve", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
@@ -695,9 +675,7 @@ class TestApprovePlan:
                 "sys.modules",
                 {"aragora.pipeline.execution_bridge": None},
             ):
-                result = handler.handle_post(
-                    "/api/v1/plans/dp-autofail/approve", {}, http_handler
-                )
+                result = handler.handle_post("/api/v1/plans/dp-autofail/approve", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
@@ -708,14 +686,10 @@ class TestApprovePlan:
         plan = _make_plan(id="dp-cond", status=PlanStatus.AWAITING_APPROVAL)
         mock_store.get.return_value = plan
 
-        http_handler = http_post_factory(
-            body={"reason": "OK", "conditions": ["Run staging first"]}
-        )
+        http_handler = http_post_factory(body={"reason": "OK", "conditions": ["Run staging first"]})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-cond/approve", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-cond/approve", {}, http_handler)
 
         assert _status(result) == 200
 
@@ -727,9 +701,7 @@ class TestApprovePlan:
         http_handler = http_post_factory(body={})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-cr/approve", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-cr/approve", {}, http_handler)
 
         assert _status(result) == 200
 
@@ -740,9 +712,7 @@ class TestApprovePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-rej/approve", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-rej/approve", {}, http_handler)
 
         assert _status(result) == 409
 
@@ -762,9 +732,7 @@ class TestRejectPlan:
         http_handler = http_post_factory(body={"reason": "Too risky"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-rej/reject", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-rej/reject", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
@@ -777,9 +745,7 @@ class TestRejectPlan:
         mock_store.get.return_value = None
         http_handler = http_post_factory(body={"reason": "Whatever"})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-gone/reject", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-gone/reject", {}, http_handler)
 
         assert _status(result) == 404
 
@@ -789,9 +755,7 @@ class TestRejectPlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-noreason/reject", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-noreason/reject", {}, http_handler)
 
         assert _status(result) == 400
         assert "reason" in _body(result)["error"].lower()
@@ -802,9 +766,7 @@ class TestRejectPlan:
 
         http_handler = http_post_factory(body={"reason": ""})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-empty/reject", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-empty/reject", {}, http_handler)
 
         assert _status(result) == 400
         assert "reason" in _body(result)["error"].lower()
@@ -815,9 +777,7 @@ class TestRejectPlan:
 
         http_handler = http_post_factory(body={"reason": "Changed mind"})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-approved/reject", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-approved/reject", {}, http_handler)
 
         assert _status(result) == 409
         assert "cannot be rejected" in _body(result)["error"].lower()
@@ -830,9 +790,7 @@ class TestRejectPlan:
         http_handler = http_post_factory(body={"reason": "Not ready"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-rej-cr/reject", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-rej-cr/reject", {}, http_handler)
 
         assert _status(result) == 200
         assert _body(result)["status"] == "rejected"
@@ -844,9 +802,7 @@ class TestRejectPlan:
         http_handler = http_post_factory(body={"reason": "Nope"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/plans/dp-urej/reject", {}, http_handler
-            )
+            result = handler.handle_post("/api/plans/dp-urej/reject", {}, http_handler)
 
         assert _status(result) == 200
 
@@ -859,9 +815,7 @@ class TestRejectPlan:
         http_handler = http_post_factory(body={"reason": "Bad idea"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            handler.handle_post(
-                "/api/v1/plans/dp-upd/reject", {}, http_handler
-            )
+            handler.handle_post("/api/v1/plans/dp-upd/reject", {}, http_handler)
 
         call_args = mock_store.update_status.call_args
         assert call_args[0][0] == "dp-upd"
@@ -889,9 +843,7 @@ class TestExecutePlan:
                 "aragora.pipeline.execution_bridge.get_execution_bridge",
                 return_value=mock_bridge,
             ):
-                result = handler.handle_post(
-                    "/api/v1/plans/dp-exec/execute", {}, http_handler
-                )
+                result = handler.handle_post("/api/v1/plans/dp-exec/execute", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 202
@@ -902,9 +854,7 @@ class TestExecutePlan:
         mock_store.get.return_value = None
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-gone/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-gone/execute", {}, http_handler)
 
         assert _status(result) == 404
 
@@ -914,9 +864,7 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-noapp/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-noapp/execute", {}, http_handler)
 
         assert _status(result) == 409
         assert "must be approved" in _body(result)["error"].lower()
@@ -927,9 +875,7 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-running/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-running/execute", {}, http_handler)
 
         assert _status(result) == 409
         assert "already executing" in _body(result)["error"].lower()
@@ -940,9 +886,7 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-done/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-done/execute", {}, http_handler)
 
         assert _status(result) == 409
         assert "already been executed" in _body(result)["error"].lower()
@@ -953,9 +897,7 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-fail/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-fail/execute", {}, http_handler)
 
         assert _status(result) == 409
 
@@ -969,9 +911,7 @@ class TestExecutePlan:
             "aragora.pipeline.execution_bridge.get_execution_bridge",
             side_effect=RuntimeError("Bridge unavailable"),
         ):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-bridgefail/execute", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-bridgefail/execute", {}, http_handler)
 
         assert _status(result) == 500
 
@@ -987,14 +927,10 @@ class TestExecutePlan:
                 "aragora.pipeline.execution_bridge.get_execution_bridge",
                 return_value=mock_bridge,
             ):
-                result = handler.handle_post(
-                    "/api/v1/plans/dp-mode/execute", {}, http_handler
-                )
+                result = handler.handle_post("/api/v1/plans/dp-mode/execute", {}, http_handler)
 
         assert _status(result) == 202
-        mock_bridge.schedule_execution.assert_called_once_with(
-            "dp-mode", execution_mode="dry_run"
-        )
+        mock_bridge.schedule_execution.assert_called_once_with("dp-mode", execution_mode="dry_run")
 
     def test_execute_plan_unversioned(self, handler, mock_store, http_post_factory):
         plan = _make_plan(id="dp-uexec", status=PlanStatus.APPROVED)
@@ -1008,9 +944,7 @@ class TestExecutePlan:
                 "aragora.pipeline.execution_bridge.get_execution_bridge",
                 return_value=mock_bridge,
             ):
-                result = handler.handle_post(
-                    "/api/plans/dp-uexec/execute", {}, http_handler
-                )
+                result = handler.handle_post("/api/plans/dp-uexec/execute", {}, http_handler)
 
         assert _status(result) == 202
 
@@ -1021,9 +955,7 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-rej/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-rej/execute", {}, http_handler)
 
         assert _status(result) == 409
 
@@ -1034,9 +966,7 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        result = handler.handle_post(
-            "/api/v1/plans/dp-created/execute", {}, http_handler
-        )
+        result = handler.handle_post("/api/v1/plans/dp-created/execute", {}, http_handler)
 
         assert _status(result) == 409
         assert "must be approved" in _body(result)["error"].lower()
@@ -1055,19 +985,14 @@ class TestEdgeCases:
         result = handler.handle("/api/v1/other", {}, http_get)
         assert result is None
 
-    def test_handle_post_returns_none_for_unrecognized_post_path(
-        self, handler, http_post_factory
-    ):
+    def test_handle_post_returns_none_for_unrecognized_post_path(self, handler, http_post_factory):
         """handle_post() returns None for paths it doesn't recognize."""
         http_handler = http_post_factory(body={})
         result = handler.handle_post("/api/v1/other", {}, http_handler)
         assert result is None
 
     def test_multiple_plans_listed(self, handler, mock_store, http_get):
-        plans = [
-            _make_plan(id=f"dp-{i}", task=f"Plan {i}")
-            for i in range(5)
-        ]
+        plans = [_make_plan(id=f"dp-{i}", task=f"Plan {i}") for i in range(5)]
         mock_store.list.return_value = plans
         mock_store.count.return_value = 5
 
@@ -1124,9 +1049,7 @@ class TestEdgeCases:
         http_handler = http_post_factory(body={})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-who/approve", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-who/approve", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
@@ -1141,9 +1064,7 @@ class TestEdgeCases:
         http_handler = http_post_factory(body={"reason": "Nope"})
 
         with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            result = handler.handle_post(
-                "/api/v1/plans/dp-rejwho/reject", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/plans/dp-rejwho/reject", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200

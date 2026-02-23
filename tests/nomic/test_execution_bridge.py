@@ -262,9 +262,7 @@ class TestExecutionBridge:
         bridge = ExecutionBridge(base_constraints=["Rule A"])
         subtask = _FakeSubTask()
 
-        inst = bridge.create_instruction(
-            subtask, extra_constraints=["Rule B", "Rule C"]
-        )
+        inst = bridge.create_instruction(subtask, extra_constraints=["Rule B", "Rule C"])
 
         assert "Rule A" in inst.constraints
         assert "Rule B" in inst.constraints
@@ -286,9 +284,7 @@ class TestExecutionBridge:
     def test_create_instruction_dict_success_criteria(self):
         """SubTask with dict success_criteria is converted to list of 'key: value' strings."""
         bridge = ExecutionBridge()
-        subtask = _FakeSubTask(
-            success_criteria={"coverage": ">80%", "no_regressions": "true"}
-        )
+        subtask = _FakeSubTask(success_criteria={"coverage": ">80%", "no_regressions": "true"})
 
         inst = bridge.create_instruction(subtask)
 
@@ -326,9 +322,7 @@ class TestExecutionBridge:
 
         mock_loop = MagicMock()
 
-        with patch.object(
-            asyncio, "get_running_loop", return_value=mock_loop
-        ):
+        with patch.object(asyncio, "get_running_loop", return_value=mock_loop):
             with patch(
                 "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
                 return_value=mock_adapter,
@@ -377,9 +371,7 @@ class TestExecutionBridge:
 
         mock_adapter = MagicMock()
 
-        with patch.object(
-            asyncio, "get_running_loop", side_effect=RuntimeError("no loop")
-        ):
+        with patch.object(asyncio, "get_running_loop", side_effect=RuntimeError("no loop")):
             with patch(
                 "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
                 return_value=mock_adapter,

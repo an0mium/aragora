@@ -87,8 +87,10 @@ def mock_http():
 @pytest.fixture
 def mock_http_with_body():
     """Factory for mock HTTP handler with body."""
+
     def _create(body: dict[str, Any]) -> MockHTTPHandler:
         return MockHTTPHandler(body=body)
+
     return _create
 
 
@@ -147,9 +149,7 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/gmail/drafts/d1/send") is True
 
     def test_attachment(self, handler):
-        assert handler.can_handle(
-            "/api/v1/gmail/messages/msg1/attachments/att1"
-        ) is True
+        assert handler.can_handle("/api/v1/gmail/messages/msg1/attachments/att1") is True
 
     def test_unrelated_path(self, handler):
         assert handler.can_handle("/api/v1/debates") is False
@@ -196,9 +196,7 @@ class TestListThreads:
                     "next123",
                 ),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -219,9 +217,7 @@ class TestListThreads:
                 new_callable=AsyncMock,
                 return_value=([], None),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -286,9 +282,7 @@ class TestListThreads:
                 new_callable=AsyncMock,
                 side_effect=ConnectionError("API down"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 500
         assert "Failed to list threads" in _body(result)["error"]
@@ -306,9 +300,7 @@ class TestListThreads:
                 new_callable=AsyncMock,
                 side_effect=TimeoutError("timeout"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -325,9 +317,7 @@ class TestListThreads:
                 new_callable=AsyncMock,
                 side_effect=ValueError("bad data"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -338,9 +328,7 @@ class TestListThreads:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/gmail/threads", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 401
         assert "authenticate" in _body(result)["error"].lower()
@@ -352,9 +340,7 @@ class TestListThreads:
             new_callable=AsyncMock,
             return_value=gmail_state_no_refresh,
         ):
-            result = await handler.handle(
-                "/api/v1/gmail/threads", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -433,9 +419,7 @@ class TestGetThread:
                 instance.get_thread = AsyncMock(return_value=mock_thread)
                 MockConnector.return_value = instance
 
-                result = await handler.handle(
-                    "/api/v1/gmail/threads/t1", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads/t1", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -475,9 +459,7 @@ class TestGetThread:
                 instance.get_thread = AsyncMock(return_value=mock_thread)
                 MockConnector.return_value = instance
 
-                result = await handler.handle(
-                    "/api/v1/gmail/threads/t2", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads/t2", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -498,9 +480,7 @@ class TestGetThread:
                 instance.get_thread = AsyncMock(side_effect=ConnectionError("fail"))
                 MockConnector.return_value = instance
 
-                result = await handler.handle(
-                    "/api/v1/gmail/threads/t1", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads/t1", {}, mock_http)
 
         assert _status(result) == 500
         assert "Failed to retrieve thread" in _body(result)["error"]
@@ -517,14 +497,10 @@ class TestGetThread:
                 autospec=False,
             ) as MockConnector:
                 instance = MagicMock()
-                instance.get_thread = AsyncMock(
-                    side_effect=AttributeError("missing attr")
-                )
+                instance.get_thread = AsyncMock(side_effect=AttributeError("missing attr"))
                 MockConnector.return_value = instance
 
-                result = await handler.handle(
-                    "/api/v1/gmail/threads/t1", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads/t1", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -568,9 +544,7 @@ class TestGetThread:
                 instance.get_thread = AsyncMock(return_value=mock_thread)
                 MockConnector.return_value = instance
 
-                result = await handler.handle(
-                    "/api/v1/gmail/threads/t3", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads/t3", {}, mock_http)
 
         body = _body(result)
         msg = body["thread"]["messages"][0]
@@ -615,9 +589,7 @@ class TestGetThread:
                 instance.get_thread = AsyncMock(return_value=mock_thread)
                 MockConnector.return_value = instance
 
-                result = await handler.handle(
-                    "/api/v1/gmail/threads/t4", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads/t4", {}, mock_http)
 
         body = _body(result)
         assert body["thread"]["messages"][0]["body_text"] is None
@@ -629,9 +601,7 @@ class TestGetThread:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/gmail/threads/t1", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/threads/t1", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -658,13 +628,9 @@ class TestArchiveThread:
                 new_callable=AsyncMock,
                 return_value={},
             ) as mock_api:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/archive", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/archive", {}, http)
                 # Archive should remove INBOX label
-                mock_api.assert_called_once_with(
-                    gmail_state, "t1", [], ["INBOX"]
-                )
+                mock_api.assert_called_once_with(gmail_state, "t1", [], ["INBOX"])
 
         assert _status(result) == 200
         body = _body(result)
@@ -685,9 +651,7 @@ class TestArchiveThread:
                 new_callable=AsyncMock,
                 side_effect=ConnectionError("fail"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/archive", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/archive", {}, http)
 
         assert _status(result) == 500
 
@@ -713,9 +677,7 @@ class TestTrashThread:
                 "_api_trash_thread",
                 new_callable=AsyncMock,
             ) as mock_trash:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/trash", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/trash", {}, http)
                 mock_trash.assert_called_once_with(gmail_state, "t1")
 
         assert _status(result) == 200
@@ -736,9 +698,7 @@ class TestTrashThread:
                 "_api_untrash_thread",
                 new_callable=AsyncMock,
             ) as mock_untrash:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/trash", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/trash", {}, http)
                 mock_untrash.assert_called_once_with(gmail_state, "t1")
 
         assert _status(result) == 200
@@ -759,9 +719,7 @@ class TestTrashThread:
                 new_callable=AsyncMock,
                 side_effect=TimeoutError("slow"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/trash", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/trash", {}, http)
 
         assert _status(result) == 500
         assert "trash" in _body(result)["error"].lower()
@@ -780,9 +738,7 @@ class TestTrashThread:
                 new_callable=AsyncMock,
                 side_effect=OSError("network"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/trash", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/trash", {}, http)
 
         assert _status(result) == 500
 
@@ -809,12 +765,8 @@ class TestModifyThreadLabels:
                 new_callable=AsyncMock,
                 return_value={},
             ) as mock_api:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/labels", {}, http
-                )
-                mock_api.assert_called_once_with(
-                    gmail_state, "t1", ["STARRED", "IMPORTANT"], []
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/labels", {}, http)
+                mock_api.assert_called_once_with(gmail_state, "t1", ["STARRED", "IMPORTANT"], [])
 
         assert _status(result) == 200
         assert _body(result)["success"] is True
@@ -833,9 +785,7 @@ class TestModifyThreadLabels:
                 new_callable=AsyncMock,
                 return_value={},
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/labels", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/labels", {}, http)
 
         assert _status(result) == 200
 
@@ -853,12 +803,8 @@ class TestModifyThreadLabels:
                 new_callable=AsyncMock,
                 return_value={},
             ) as mock_api:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/labels", {}, http
-                )
-                mock_api.assert_called_once_with(
-                    gmail_state, "t1", ["STARRED"], ["UNREAD"]
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/labels", {}, http)
+                mock_api.assert_called_once_with(gmail_state, "t1", ["STARRED"], ["UNREAD"])
 
         assert _status(result) == 200
 
@@ -870,9 +816,7 @@ class TestModifyThreadLabels:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/threads/t1/labels", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/threads/t1/labels", {}, http)
 
         assert _status(result) == 400
         assert "labels" in _body(result)["error"].lower()
@@ -891,9 +835,7 @@ class TestModifyThreadLabels:
                 new_callable=AsyncMock,
                 side_effect=ValueError("bad"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/labels", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/labels", {}, http)
 
         assert _status(result) == 500
 
@@ -924,9 +866,7 @@ class TestListDrafts:
                     None,
                 ),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/drafts", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/drafts", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -946,9 +886,7 @@ class TestListDrafts:
                 new_callable=AsyncMock,
                 return_value=([], None),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/drafts", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/drafts", {}, mock_http)
 
         assert _status(result) == 200
         assert _body(result)["count"] == 0
@@ -991,9 +929,7 @@ class TestListDrafts:
                 new_callable=AsyncMock,
                 side_effect=OSError("network"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/drafts", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/drafts", {}, mock_http)
 
         assert _status(result) == 500
         assert "Failed to list drafts" in _body(result)["error"]
@@ -1005,9 +941,7 @@ class TestListDrafts:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle(
-                "/api/v1/gmail/drafts", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/drafts", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -1034,9 +968,7 @@ class TestGetDraft:
                 new_callable=AsyncMock,
                 return_value=mock_draft,
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/drafts/d1", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1055,9 +987,7 @@ class TestGetDraft:
                 new_callable=AsyncMock,
                 side_effect=KeyError("missing"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/drafts/d1", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 500
         assert "Failed to retrieve draft" in _body(result)["error"]
@@ -1075,9 +1005,7 @@ class TestGetDraft:
                 new_callable=AsyncMock,
                 side_effect=ConnectionError("fail"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/drafts/d1", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 500
 
@@ -1092,11 +1020,13 @@ class TestCreateDraft:
 
     @pytest.mark.asyncio
     async def test_create_draft_success(self, handler, gmail_state, mock_http_with_body):
-        http = mock_http_with_body({
-            "to": ["recipient@example.com"],
-            "subject": "Test",
-            "body": "Hello world",
-        })
+        http = mock_http_with_body(
+            {
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Hello world",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
@@ -1108,9 +1038,7 @@ class TestCreateDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "d1", "message": {"id": "m1"}},
             ) as mock_api:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts", {}, http)
                 mock_api.assert_called_once()
 
         assert _status(result) == 200
@@ -1120,12 +1048,14 @@ class TestCreateDraft:
 
     @pytest.mark.asyncio
     async def test_create_draft_with_html(self, handler, gmail_state, mock_http_with_body):
-        http = mock_http_with_body({
-            "to": ["r@e.com"],
-            "subject": "HTML",
-            "body": "plain text",
-            "html_body": "<h1>HTML</h1>",
-        })
+        http = mock_http_with_body(
+            {
+                "to": ["r@e.com"],
+                "subject": "HTML",
+                "body": "plain text",
+                "html_body": "<h1>HTML</h1>",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
@@ -1137,9 +1067,7 @@ class TestCreateDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "d2"},
             ) as mock_api:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts", {}, http)
                 call_args = mock_api.call_args
                 assert call_args[0][4] == "<h1>HTML</h1>"  # html_body
 
@@ -1147,13 +1075,15 @@ class TestCreateDraft:
 
     @pytest.mark.asyncio
     async def test_create_draft_reply(self, handler, gmail_state, mock_http_with_body):
-        http = mock_http_with_body({
-            "to": ["r@e.com"],
-            "subject": "Re: Topic",
-            "body": "Reply",
-            "reply_to_message_id": "orig_msg_1",
-            "thread_id": "thread_1",
-        })
+        http = mock_http_with_body(
+            {
+                "to": ["r@e.com"],
+                "subject": "Re: Topic",
+                "body": "Reply",
+                "reply_to_message_id": "orig_msg_1",
+                "thread_id": "thread_1",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
@@ -1165,9 +1095,7 @@ class TestCreateDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "d3"},
             ) as mock_api:
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts", {}, http)
                 call_args = mock_api.call_args
                 assert call_args[0][5] == "orig_msg_1"  # reply_to_message_id
                 assert call_args[0][6] == "thread_1"  # thread_id
@@ -1189,9 +1117,7 @@ class TestCreateDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "d4"},
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts", {}, http)
 
         assert _status(result) == 200
 
@@ -1209,9 +1135,7 @@ class TestCreateDraft:
                 new_callable=AsyncMock,
                 side_effect=TypeError("bad type"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts", {}, http)
 
         assert _status(result) == 500
         assert "Draft creation failed" in _body(result)["error"]
@@ -1224,9 +1148,7 @@ class TestCreateDraft:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/drafts", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/drafts", {}, http)
 
         assert _status(result) == 401
 
@@ -1245,9 +1167,7 @@ class TestCreateDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "d5"},
             ):
-                await handler.handle_post(
-                    "/api/v1/gmail/drafts", {"user_id": "from_query"}, http
-                )
+                await handler.handle_post("/api/v1/gmail/drafts", {"user_id": "from_query"}, http)
                 mock_get.assert_called_once_with("from_body")
 
 
@@ -1273,9 +1193,7 @@ class TestSendDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "sent_msg_1", "threadId": "t1"},
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts/d1/send", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts/d1/send", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -1297,9 +1215,7 @@ class TestSendDraft:
                 new_callable=AsyncMock,
                 side_effect=ConnectionError("send failed"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/drafts/d1/send", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/drafts/d1/send", {}, http)
 
         assert _status(result) == 500
         assert "Draft send failed" in _body(result)["error"]
@@ -1312,9 +1228,7 @@ class TestSendDraft:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/drafts/d1/send", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/drafts/d1/send", {}, http)
 
         assert _status(result) == 401
 
@@ -1329,11 +1243,13 @@ class TestUpdateDraft:
 
     @pytest.mark.asyncio
     async def test_update_draft_success(self, handler, gmail_state, mock_http_with_body):
-        http = mock_http_with_body({
-            "to": ["new@example.com"],
-            "subject": "Updated",
-            "body": "New body",
-        })
+        http = mock_http_with_body(
+            {
+                "to": ["new@example.com"],
+                "subject": "Updated",
+                "body": "New body",
+            }
+        )
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
@@ -1345,9 +1261,7 @@ class TestUpdateDraft:
                 new_callable=AsyncMock,
                 return_value={"id": "d1", "message": {"id": "m1"}},
             ):
-                result = await handler.handle_put(
-                    "/api/v1/gmail/drafts/d1", {}, http
-                )
+                result = await handler.handle_put("/api/v1/gmail/drafts/d1", {}, http)
 
         # NOTE: The handler has a path extraction bug (uses parts[4] instead of parts[5]),
         # causing it to always return 404 for valid draft paths.
@@ -1362,23 +1276,21 @@ class TestUpdateDraft:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle_put(
-                "/api/v1/gmail/drafts/d1", {}, http
-            )
+            result = await handler.handle_put("/api/v1/gmail/drafts/d1", {}, http)
 
         assert _status(result) == 401
 
     @pytest.mark.asyncio
-    async def test_update_draft_no_refresh(self, handler, gmail_state_no_refresh, mock_http_with_body):
+    async def test_update_draft_no_refresh(
+        self, handler, gmail_state_no_refresh, mock_http_with_body
+    ):
         http = mock_http_with_body({"subject": "test"})
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
             return_value=gmail_state_no_refresh,
         ):
-            result = await handler.handle_put(
-                "/api/v1/gmail/drafts/d1", {}, http
-            )
+            result = await handler.handle_put("/api/v1/gmail/drafts/d1", {}, http)
 
         assert _status(result) == 401
 
@@ -1390,9 +1302,7 @@ class TestUpdateDraft:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_put(
-                "/api/v1/gmail/other/d1", {}, http
-            )
+            result = await handler.handle_put("/api/v1/gmail/other/d1", {}, http)
 
         assert _status(result) == 404
 
@@ -1415,9 +1325,7 @@ class TestDeleteDraft:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_delete(
-                "/api/v1/gmail/drafts/d1", {}, mock_http
-            )
+            result = await handler.handle_delete("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 404
 
@@ -1428,9 +1336,7 @@ class TestDeleteDraft:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            result = await handler.handle_delete(
-                "/api/v1/gmail/drafts/d1", {}, mock_http
-            )
+            result = await handler.handle_delete("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -1441,9 +1347,7 @@ class TestDeleteDraft:
             new_callable=AsyncMock,
             return_value=gmail_state_no_refresh,
         ):
-            result = await handler.handle_delete(
-                "/api/v1/gmail/drafts/d1", {}, mock_http
-            )
+            result = await handler.handle_delete("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -1454,9 +1358,7 @@ class TestDeleteDraft:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_delete(
-                "/api/v1/gmail/other/d1", {}, mock_http
-            )
+            result = await handler.handle_delete("/api/v1/gmail/other/d1", {}, mock_http)
 
         assert _status(result) == 404
 
@@ -1592,9 +1494,7 @@ class TestAuthentication:
             new_callable=AsyncMock,
             side_effect=UnauthorizedError("not auth"),
         ):
-            result = await handler.handle(
-                "/api/v1/gmail/threads", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 401
         assert "Authentication required" in _body(result)["error"]
@@ -1625,9 +1525,7 @@ class TestAuthentication:
                 "check_permission",
                 side_effect=ForbiddenError("no gmail:read"),
             ):
-                result = await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                result = await handler.handle("/api/v1/gmail/threads", {}, mock_http)
 
         assert _status(result) == 403
         assert "Permission denied" in _body(result)["error"]
@@ -1647,9 +1545,7 @@ class TestAuthentication:
             new_callable=AsyncMock,
             side_effect=UnauthorizedError("not auth"),
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/threads/t1/archive", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/threads/t1/archive", {}, http)
 
         assert _status(result) == 401
 
@@ -1680,9 +1576,7 @@ class TestAuthentication:
                 "check_permission",
                 side_effect=ForbiddenError("no gmail:write"),
             ):
-                result = await handler.handle_post(
-                    "/api/v1/gmail/threads/t1/archive", {}, http
-                )
+                result = await handler.handle_post("/api/v1/gmail/threads/t1/archive", {}, http)
 
         assert _status(result) == 403
 
@@ -1700,9 +1594,7 @@ class TestAuthentication:
             new_callable=AsyncMock,
             side_effect=UnauthorizedError("not auth"),
         ):
-            result = await handler.handle_put(
-                "/api/v1/gmail/drafts/d1", {}, http
-            )
+            result = await handler.handle_put("/api/v1/gmail/drafts/d1", {}, http)
 
         assert _status(result) == 401
 
@@ -1732,9 +1624,7 @@ class TestAuthentication:
                 "check_permission",
                 side_effect=ForbiddenError("no gmail:write"),
             ):
-                result = await handler.handle_put(
-                    "/api/v1/gmail/drafts/d1", {}, http
-                )
+                result = await handler.handle_put("/api/v1/gmail/drafts/d1", {}, http)
 
         assert _status(result) == 403
 
@@ -1751,9 +1641,7 @@ class TestAuthentication:
             new_callable=AsyncMock,
             side_effect=UnauthorizedError("not auth"),
         ):
-            result = await handler.handle_delete(
-                "/api/v1/gmail/drafts/d1", {}, mock_http
-            )
+            result = await handler.handle_delete("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 401
 
@@ -1782,9 +1670,7 @@ class TestAuthentication:
                 "check_permission",
                 side_effect=ForbiddenError("no gmail:write"),
             ):
-                result = await handler.handle_delete(
-                    "/api/v1/gmail/drafts/d1", {}, mock_http
-                )
+                result = await handler.handle_delete("/api/v1/gmail/drafts/d1", {}, mock_http)
 
         assert _status(result) == 403
 
@@ -1804,9 +1690,7 @@ class TestNotFoundRoutes:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle(
-                "/api/v1/gmail/unknown", {}, mock_http
-            )
+            result = await handler.handle("/api/v1/gmail/unknown", {}, mock_http)
 
         assert _status(result) == 404
 
@@ -1827,30 +1711,30 @@ class TestNotFoundRoutes:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_handle_post_unknown_thread_action(self, handler, gmail_state, mock_http_with_body):
+    async def test_handle_post_unknown_thread_action(
+        self, handler, gmail_state, mock_http_with_body
+    ):
         http = mock_http_with_body({})
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/threads/t1/unknown_action", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/threads/t1/unknown_action", {}, http)
 
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_handle_post_unknown_draft_action(self, handler, gmail_state, mock_http_with_body):
+    async def test_handle_post_unknown_draft_action(
+        self, handler, gmail_state, mock_http_with_body
+    ):
         http = mock_http_with_body({})
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/drafts/d1/unknown", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/drafts/d1/unknown", {}, http)
 
         assert _status(result) == 404
 
@@ -1863,9 +1747,7 @@ class TestNotFoundRoutes:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/threads/t1", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/threads/t1", {}, http)
 
         assert _status(result) == 404
 
@@ -1878,9 +1760,7 @@ class TestNotFoundRoutes:
             new_callable=AsyncMock,
             return_value=gmail_state,
         ):
-            result = await handler.handle_post(
-                "/api/v1/gmail/threads", {}, http
-            )
+            result = await handler.handle_post("/api/v1/gmail/threads", {}, http)
 
         assert _status(result) == 404
 
@@ -1926,13 +1806,13 @@ class TestUserIdExtraction:
                 new_callable=AsyncMock,
                 return_value=([], None),
             ):
-                await handler.handle(
-                    "/api/v1/gmail/threads", {}, mock_http
-                )
+                await handler.handle("/api/v1/gmail/threads", {}, mock_http)
                 mock_get.assert_called_once_with("default")
 
     @pytest.mark.asyncio
-    async def test_post_user_id_from_body_overrides_query(self, handler, gmail_state, mock_http_with_body):
+    async def test_post_user_id_from_body_overrides_query(
+        self, handler, gmail_state, mock_http_with_body
+    ):
         http = mock_http_with_body({"user_id": "body_user"})
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
@@ -1945,13 +1825,13 @@ class TestUserIdExtraction:
                 new_callable=AsyncMock,
                 return_value={"id": "d1"},
             ):
-                await handler.handle_post(
-                    "/api/v1/gmail/drafts", {"user_id": "query_user"}, http
-                )
+                await handler.handle_post("/api/v1/gmail/drafts", {"user_id": "query_user"}, http)
                 mock_get.assert_called_once_with("body_user")
 
     @pytest.mark.asyncio
-    async def test_post_user_id_falls_back_to_query(self, handler, gmail_state, mock_http_with_body):
+    async def test_post_user_id_falls_back_to_query(
+        self, handler, gmail_state, mock_http_with_body
+    ):
         http = mock_http_with_body({})
         with patch(
             "aragora.server.handlers.features.gmail_threads.get_user_state",
@@ -1964,9 +1844,7 @@ class TestUserIdExtraction:
                 new_callable=AsyncMock,
                 return_value={"id": "d1"},
             ):
-                await handler.handle_post(
-                    "/api/v1/gmail/drafts", {"user_id": "query_user"}, http
-                )
+                await handler.handle_post("/api/v1/gmail/drafts", {"user_id": "query_user"}, http)
                 mock_get.assert_called_once_with("query_user")
 
     @pytest.mark.asyncio
@@ -2045,9 +1923,7 @@ class TestInternalApiMethods:
             "aragora.server.http_client_pool.get_http_pool",
             return_value=mock_pool,
         ):
-            threads, next_page = await handler._api_list_threads(
-                gmail_state, "", None, 20, None
-            )
+            threads, next_page = await handler._api_list_threads(gmail_state, "", None, 20, None)
 
         assert threads == []
         assert next_page is None
@@ -2077,9 +1953,7 @@ class TestInternalApiMethods:
             "aragora.server.http_client_pool.get_http_pool",
             return_value=mock_pool,
         ):
-            drafts, next_page = await handler._api_list_drafts(
-                gmail_state, 20, None
-            )
+            drafts, next_page = await handler._api_list_drafts(gmail_state, 20, None)
 
         assert len(drafts) == 1
         assert drafts[0]["id"] == "d1"
@@ -2528,9 +2402,7 @@ class TestUpdateDraftInternal:
             new_callable=AsyncMock,
             side_effect=TypeError("bad"),
         ):
-            result = await handler._update_draft(
-                gmail_state, "d1", {"subject": "S"}
-            )
+            result = await handler._update_draft(gmail_state, "d1", {"subject": "S"})
 
         assert _status(result) == 500
         assert "Draft update failed" in _body(result)["error"]

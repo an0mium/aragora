@@ -812,7 +812,10 @@ class WebhookDeliveryManager:
 
         self._metrics.dead_lettered += 1
         logger.warning(
-            "Moved delivery %s to dead-letter queue after %s attempts: %s", delivery.delivery_id, delivery.attempts, delivery.last_error
+            "Moved delivery %s to dead-letter queue after %s attempts: %s",
+            delivery.delivery_id,
+            delivery.attempts,
+            delivery.last_error,
         )
 
     async def _process_retries(self) -> None:

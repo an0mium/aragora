@@ -157,7 +157,8 @@ class ReplayRecorder:
             self._writer_thread.join(timeout=10.0)
             if self._writer_thread.is_alive():
                 logger.warning(
-                    "Replay writer thread didn't stop in 10s, queue depth: %s", self._write_queue.qsize()
+                    "Replay writer thread didn't stop in 10s, queue depth: %s",
+                    self._write_queue.qsize(),
                 )
         self.meta.status = "completed"
         self.meta.ended_at = datetime.now(timezone.utc).isoformat()

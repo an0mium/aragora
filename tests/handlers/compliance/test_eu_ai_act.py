@@ -56,6 +56,7 @@ def _status(result) -> int:
 
 class _Handler(EUAIActMixin):
     """Minimal concrete class that incorporates the mixin."""
+
     pass
 
 
@@ -164,9 +165,7 @@ class TestClassifyEndpoint:
     @pytest.mark.asyncio
     async def test_classify_success(self, handler, mock_classification):
         """Happy path: valid description returns classification."""
-        with patch(
-            "aragora.server.handlers.compliance.eu_ai_act._get_classifier"
-        ) as mock_get:
+        with patch("aragora.server.handlers.compliance.eu_ai_act._get_classifier") as mock_get:
             classifier = MagicMock()
             classifier.classify.return_value = mock_classification
             mock_get.return_value = classifier
@@ -202,16 +201,12 @@ class TestClassifyEndpoint:
     @pytest.mark.asyncio
     async def test_classify_strips_whitespace(self, handler, mock_classification):
         """Leading/trailing whitespace is stripped before classification."""
-        with patch(
-            "aragora.server.handlers.compliance.eu_ai_act._get_classifier"
-        ) as mock_get:
+        with patch("aragora.server.handlers.compliance.eu_ai_act._get_classifier") as mock_get:
             classifier = MagicMock()
             classifier.classify.return_value = mock_classification
             mock_get.return_value = classifier
 
-            result = await handler._eu_ai_act_classify(
-                {"description": "  recruitment  "}
-            )
+            result = await handler._eu_ai_act_classify({"description": "  recruitment  "})
 
         assert _status(result) == 200
         classifier.classify.assert_called_once_with("recruitment")
@@ -222,16 +217,12 @@ class TestClassifyEndpoint:
         mock_cls = MagicMock()
         mock_cls.to_dict.return_value = {"risk_level": "minimal"}
 
-        with patch(
-            "aragora.server.handlers.compliance.eu_ai_act._get_classifier"
-        ) as mock_get:
+        with patch("aragora.server.handlers.compliance.eu_ai_act._get_classifier") as mock_get:
             classifier = MagicMock()
             classifier.classify.return_value = mock_cls
             mock_get.return_value = classifier
 
-            result = await handler._eu_ai_act_classify(
-                {"description": "simple analytics tool"}
-            )
+            result = await handler._eu_ai_act_classify({"description": "simple analytics tool"})
 
         mock_cls.to_dict.assert_called_once()
         assert _body(result)["classification"]["risk_level"] == "minimal"
@@ -245,9 +236,7 @@ class TestClassifyEndpoint:
     @pytest.mark.asyncio
     async def test_classify_extra_fields_ignored(self, handler, mock_classification):
         """Extra fields in the body are ignored."""
-        with patch(
-            "aragora.server.handlers.compliance.eu_ai_act._get_classifier"
-        ) as mock_get:
+        with patch("aragora.server.handlers.compliance.eu_ai_act._get_classifier") as mock_get:
             classifier = MagicMock()
             classifier.classify.return_value = mock_classification
             mock_get.return_value = classifier
@@ -372,9 +361,7 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            result = await handler._eu_ai_act_generate_bundle(
-                {"receipt": sample_receipt}
-            )
+            result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
 
         assert _status(result) == 200
         body = _body(result)
@@ -428,7 +415,9 @@ class TestGenerateBundleEndpoint:
         mock_get.assert_called_once_with(provider_name="Acme Corp")
 
     @pytest.mark.asyncio
-    async def test_generate_bundle_with_all_optional_fields(self, handler, sample_receipt, mock_bundle):
+    async def test_generate_bundle_with_all_optional_fields(
+        self, handler, sample_receipt, mock_bundle
+    ):
         """All five optional kwargs are forwarded."""
         with patch(
             "aragora.server.handlers.compliance.eu_ai_act._get_artifact_generator"
@@ -437,14 +426,16 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            await handler._eu_ai_act_generate_bundle({
-                "receipt": sample_receipt,
-                "provider_name": "AcmeCorp",
-                "provider_contact": "compliance@acme.com",
-                "eu_representative": "EU Rep Ltd",
-                "system_name": "AcmeAI",
-                "system_version": "1.0.0",
-            })
+            await handler._eu_ai_act_generate_bundle(
+                {
+                    "receipt": sample_receipt,
+                    "provider_name": "AcmeCorp",
+                    "provider_contact": "compliance@acme.com",
+                    "eu_representative": "EU Rep Ltd",
+                    "system_name": "AcmeAI",
+                    "system_version": "1.0.0",
+                }
+            )
 
         mock_get.assert_called_once_with(
             provider_name="AcmeCorp",
@@ -455,7 +446,9 @@ class TestGenerateBundleEndpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_bundle_non_string_optional_ignored(self, handler, sample_receipt, mock_bundle):
+    async def test_generate_bundle_non_string_optional_ignored(
+        self, handler, sample_receipt, mock_bundle
+    ):
         """Non-string optional values (int, list, None) are not forwarded."""
         with patch(
             "aragora.server.handlers.compliance.eu_ai_act._get_artifact_generator"
@@ -464,20 +457,24 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            await handler._eu_ai_act_generate_bundle({
-                "receipt": sample_receipt,
-                "provider_name": 123,
-                "provider_contact": None,
-                "eu_representative": ["not", "a", "string"],
-                "system_name": True,
-                "system_version": {"nested": "dict"},
-            })
+            await handler._eu_ai_act_generate_bundle(
+                {
+                    "receipt": sample_receipt,
+                    "provider_name": 123,
+                    "provider_contact": None,
+                    "eu_representative": ["not", "a", "string"],
+                    "system_name": True,
+                    "system_version": {"nested": "dict"},
+                }
+            )
 
         # None/non-string values should be filtered out, so kwargs should be empty
         mock_get.assert_called_once_with()
 
     @pytest.mark.asyncio
-    async def test_generate_bundle_empty_string_optional_ignored(self, handler, sample_receipt, mock_bundle):
+    async def test_generate_bundle_empty_string_optional_ignored(
+        self, handler, sample_receipt, mock_bundle
+    ):
         """Empty string optional values are not forwarded (falsy check)."""
         with patch(
             "aragora.server.handlers.compliance.eu_ai_act._get_artifact_generator"
@@ -486,17 +483,21 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            await handler._eu_ai_act_generate_bundle({
-                "receipt": sample_receipt,
-                "provider_name": "",
-                "system_version": "",
-            })
+            await handler._eu_ai_act_generate_bundle(
+                {
+                    "receipt": sample_receipt,
+                    "provider_name": "",
+                    "system_version": "",
+                }
+            )
 
         # Empty strings are falsy, so they should be filtered out
         mock_get.assert_called_once_with()
 
     @pytest.mark.asyncio
-    async def test_generate_bundle_partial_optional_fields(self, handler, sample_receipt, mock_bundle):
+    async def test_generate_bundle_partial_optional_fields(
+        self, handler, sample_receipt, mock_bundle
+    ):
         """Only provided optional string fields are forwarded."""
         with patch(
             "aragora.server.handlers.compliance.eu_ai_act._get_artifact_generator"
@@ -505,15 +506,19 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            await handler._eu_ai_act_generate_bundle({
-                "receipt": sample_receipt,
-                "system_name": "MySystem",
-            })
+            await handler._eu_ai_act_generate_bundle(
+                {
+                    "receipt": sample_receipt,
+                    "system_name": "MySystem",
+                }
+            )
 
         mock_get.assert_called_once_with(system_name="MySystem")
 
     @pytest.mark.asyncio
-    async def test_generate_bundle_unknown_optional_fields_ignored(self, handler, sample_receipt, mock_bundle):
+    async def test_generate_bundle_unknown_optional_fields_ignored(
+        self, handler, sample_receipt, mock_bundle
+    ):
         """Fields not in the allowed list are not forwarded."""
         with patch(
             "aragora.server.handlers.compliance.eu_ai_act._get_artifact_generator"
@@ -522,16 +527,20 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            await handler._eu_ai_act_generate_bundle({
-                "receipt": sample_receipt,
-                "unknown_field": "should_be_ignored",
-                "another_field": "also_ignored",
-            })
+            await handler._eu_ai_act_generate_bundle(
+                {
+                    "receipt": sample_receipt,
+                    "unknown_field": "should_be_ignored",
+                    "another_field": "also_ignored",
+                }
+            )
 
         mock_get.assert_called_once_with()
 
     @pytest.mark.asyncio
-    async def test_generate_bundle_passes_receipt_to_generator(self, handler, sample_receipt, mock_bundle):
+    async def test_generate_bundle_passes_receipt_to_generator(
+        self, handler, sample_receipt, mock_bundle
+    ):
         """Verify the receipt dict is passed to the generator's generate method."""
         with patch(
             "aragora.server.handlers.compliance.eu_ai_act._get_artifact_generator"
@@ -557,9 +566,7 @@ class TestGenerateBundleEndpoint:
             gen.generate.return_value = mock_bndl
             mock_get.return_value = gen
 
-            result = await handler._eu_ai_act_generate_bundle(
-                {"receipt": sample_receipt}
-            )
+            result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
 
         mock_bndl.to_dict.assert_called_once()
         assert _body(result)["bundle"]["bundle_id"] == "test"
@@ -581,9 +588,7 @@ class TestLazyLoading:
 
     def test_get_classifier_creates_singleton(self):
         """_get_classifier creates a RiskClassifier on first call."""
-        with patch(
-            "aragora.compliance.eu_ai_act.RiskClassifier"
-        ) as MockCls:
+        with patch("aragora.compliance.eu_ai_act.RiskClassifier") as MockCls:
             instance = MagicMock()
             MockCls.return_value = instance
 
@@ -604,9 +609,7 @@ class TestLazyLoading:
 
     def test_get_report_generator_creates_singleton(self):
         """_get_report_generator creates a ConformityReportGenerator on first call."""
-        with patch(
-            "aragora.compliance.eu_ai_act.ConformityReportGenerator"
-        ) as MockCls:
+        with patch("aragora.compliance.eu_ai_act.ConformityReportGenerator") as MockCls:
             instance = MagicMock()
             MockCls.return_value = instance
 
@@ -627,9 +630,7 @@ class TestLazyLoading:
 
     def test_get_artifact_generator_creates_singleton_no_kwargs(self):
         """_get_artifact_generator creates a ComplianceArtifactGenerator when no kwargs."""
-        with patch(
-            "aragora.compliance.eu_ai_act.ComplianceArtifactGenerator"
-        ) as MockCls:
+        with patch("aragora.compliance.eu_ai_act.ComplianceArtifactGenerator") as MockCls:
             instance = MagicMock()
             MockCls.return_value = instance
 
@@ -650,9 +651,7 @@ class TestLazyLoading:
 
     def test_get_artifact_generator_with_kwargs_creates_new(self):
         """_get_artifact_generator with kwargs creates a fresh instance (not cached)."""
-        with patch(
-            "aragora.compliance.eu_ai_act.ComplianceArtifactGenerator"
-        ) as MockCls:
+        with patch("aragora.compliance.eu_ai_act.ComplianceArtifactGenerator") as MockCls:
             instance = MagicMock()
             MockCls.return_value = instance
 
@@ -668,9 +667,7 @@ class TestLazyLoading:
         cached = MagicMock()
         mod._artifact_generator = cached
 
-        with patch(
-            "aragora.compliance.eu_ai_act.ComplianceArtifactGenerator"
-        ) as MockCls:
+        with patch("aragora.compliance.eu_ai_act.ComplianceArtifactGenerator") as MockCls:
             fresh = MagicMock()
             MockCls.return_value = fresh
 
@@ -691,16 +688,12 @@ class TestResponseFormat:
     @pytest.mark.asyncio
     async def test_classify_200_response_shape(self, handler, mock_classification):
         """Classify 200 response wraps classification in expected key."""
-        with patch(
-            "aragora.server.handlers.compliance.eu_ai_act._get_classifier"
-        ) as mock_get:
+        with patch("aragora.server.handlers.compliance.eu_ai_act._get_classifier") as mock_get:
             classifier = MagicMock()
             classifier.classify.return_value = mock_classification
             mock_get.return_value = classifier
 
-            result = await handler._eu_ai_act_classify(
-                {"description": "chatbot system"}
-            )
+            result = await handler._eu_ai_act_classify({"description": "chatbot system"})
 
         assert _status(result) == 200
         body = _body(result)
@@ -716,9 +709,7 @@ class TestResponseFormat:
             gen.generate.return_value = mock_report
             mock_get.return_value = gen
 
-            result = await handler._eu_ai_act_audit(
-                {"receipt": {"receipt_id": "test"}}
-            )
+            result = await handler._eu_ai_act_audit({"receipt": {"receipt_id": "test"}})
 
         assert _status(result) == 200
         body = _body(result)
@@ -734,9 +725,7 @@ class TestResponseFormat:
             gen.generate.return_value = mock_bundle
             mock_get.return_value = gen
 
-            result = await handler._eu_ai_act_generate_bundle(
-                {"receipt": {"receipt_id": "test"}}
-            )
+            result = await handler._eu_ai_act_generate_bundle({"receipt": {"receipt_id": "test"}})
 
         assert _status(result) == 200
         body = _body(result)
@@ -774,16 +763,12 @@ class TestResponseFormat:
     @pytest.mark.asyncio
     async def test_result_is_handler_result(self, handler, mock_classification):
         """All successful responses are HandlerResult instances."""
-        with patch(
-            "aragora.server.handlers.compliance.eu_ai_act._get_classifier"
-        ) as mock_get:
+        with patch("aragora.server.handlers.compliance.eu_ai_act._get_classifier") as mock_get:
             classifier = MagicMock()
             classifier.classify.return_value = mock_classification
             mock_get.return_value = classifier
 
-            result = await handler._eu_ai_act_classify(
-                {"description": "test system"}
-            )
+            result = await handler._eu_ai_act_classify({"description": "test system"})
 
         assert isinstance(result, HandlerResult)
 

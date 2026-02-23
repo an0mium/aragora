@@ -187,9 +187,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 3.0, "agent_b": 1.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 4.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 4.0, {}, _identity_normalize)
 
         assert ctx.result.consensus_reached is True
         assert ctx.result.confidence == pytest.approx(0.75)
@@ -203,9 +201,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 3.0, "agent_b": 2.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 5.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 5.0, {}, _identity_normalize)
 
         assert ctx.result.consensus_reached is False
         assert ctx.result.confidence == pytest.approx(0.6)
@@ -250,9 +246,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 0.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 0.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 0.0, {}, _identity_normalize)
 
         assert ctx.result.consensus_reached is False
         assert ctx.result.status == "insufficient_participation"
@@ -263,9 +257,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 3.0, "agent_b": 2.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 5.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 5.0, {}, _identity_normalize)
 
         # 3/5 = 0.6 >= 0.5 default -> reached
         assert ctx.result.consensus_reached is True
@@ -280,9 +272,7 @@ class TestDetermineMajorityWinner:
 
         vote_counts = {"agent_a": 3.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 3.0, {}, remap_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 3.0, {}, remap_normalize)
 
         # Falls back to first proposal value
         assert ctx.result.final_answer == "Proposal A"
@@ -296,9 +286,7 @@ class TestDetermineMajorityWinner:
         # counts=[4, 3.5] mean=3.75 var=0.0625
         vote_counts = {"agent_a": 4.0, "agent_b": 3.5}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 7.5, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 7.5, {}, _identity_normalize)
 
         assert ctx.result.consensus_strength == "strong"
         assert ctx.result.consensus_variance == pytest.approx(0.0625)
@@ -310,9 +298,7 @@ class TestDetermineMajorityWinner:
         # counts=[4, 2] mean=3 var=1.0
         vote_counts = {"agent_a": 4.0, "agent_b": 2.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 6.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 6.0, {}, _identity_normalize)
 
         assert ctx.result.consensus_strength == "medium"
         assert ctx.result.consensus_variance == pytest.approx(1.0)
@@ -324,9 +310,7 @@ class TestDetermineMajorityWinner:
         # counts=[5, 1] mean=3 var=4.0
         vote_counts = {"agent_a": 5.0, "agent_b": 1.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 6.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 6.0, {}, _identity_normalize)
 
         assert ctx.result.consensus_strength == "weak"
 
@@ -336,9 +320,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 5.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 5.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 5.0, {}, _identity_normalize)
 
         assert ctx.result.consensus_strength == "unanimous"
         assert ctx.result.consensus_variance == 0.0
@@ -351,9 +333,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx(proposals=proposals, agents=["agent_a", "agent_b", "agent_c"])
         vote_counts = {"agent_a": 3.0, "agent_b": 1.0, "agent_c": 1.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 5.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 5.0, {}, _identity_normalize)
 
         assert len(ctx.result.dissenting_views) == 2
         assert "[agent_b]: Prop B" in ctx.result.dissenting_views
@@ -367,9 +347,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 3.0, "agent_b": 1.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 4.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 4.0, {}, _identity_normalize)
 
         spectator.assert_called_once_with(
             "consensus",
@@ -381,9 +359,7 @@ class TestDetermineMajorityWinner:
         selector = _make_selector(notify_spectator=None)
         ctx = _make_ctx()
 
-        selector.determine_majority_winner(
-            ctx, {"agent_a": 1.0}, 1.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, {"agent_a": 1.0}, 1.0, {}, _identity_normalize)
         assert ctx.result.winner == "agent_a"
 
     def test_recorder_called(self):
@@ -392,13 +368,9 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 3.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 3.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 3.0, {}, _identity_normalize)
 
-        recorder.record_phase_change.assert_called_once_with(
-            "consensus_reached: agent_a"
-        )
+        recorder.record_phase_change.assert_called_once_with("consensus_reached: agent_a")
 
     def test_position_tracker_called(self):
         tracker = MagicMock()
@@ -406,9 +378,7 @@ class TestDetermineMajorityWinner:
         ctx = _make_ctx()
         vote_counts = {"agent_a": 4.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 4.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 4.0, {}, _identity_normalize)
 
         tracker.finalize_debate.assert_called_once()
         call_kwargs = tracker.finalize_debate.call_args.kwargs
@@ -423,9 +393,7 @@ class TestDetermineMajorityWinner:
         ctx.result = FakeResultNoId()
         vote_counts = {"agent_a": 4.0}
 
-        selector.determine_majority_winner(
-            ctx, vote_counts, 4.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, vote_counts, 4.0, {}, _identity_normalize)
 
         call_kwargs = tracker.finalize_debate.call_args.kwargs
         assert call_kwargs["debate_id"] == "Design a rate limiter"
@@ -461,9 +429,7 @@ class TestDetermineMajorityWinner:
     def test_calibration_uses_domain_from_extractor(self):
         cal = MagicMock()
         domain_fn = MagicMock(return_value="healthcare")
-        selector = _make_selector(
-            calibration_tracker=cal, extract_debate_domain=domain_fn
-        )
+        selector = _make_selector(calibration_tracker=cal, extract_debate_domain=domain_fn)
         votes = [FakeVote("agent_a", "agent_a", 0.9)]
         ctx = _make_ctx(votes=votes)
 
@@ -476,9 +442,7 @@ class TestDetermineMajorityWinner:
 
     def test_calibration_defaults_to_general_domain(self):
         cal = MagicMock()
-        selector = _make_selector(
-            calibration_tracker=cal, extract_debate_domain=None
-        )
+        selector = _make_selector(calibration_tracker=cal, extract_debate_domain=None)
         votes = [FakeVote("agent_a", "agent_a", 0.9)]
         ctx = _make_ctx(votes=votes)
 
@@ -520,9 +484,7 @@ class TestMajorityWinnerErrorHandling:
         ctx = _make_ctx()
 
         # Should not raise
-        selector.determine_majority_winner(
-            ctx, {"agent_a": 3.0}, 3.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, {"agent_a": 3.0}, 3.0, {}, _identity_normalize)
         assert ctx.result.winner == "agent_a"
 
     def test_position_tracker_failure_is_swallowed(self):
@@ -531,9 +493,7 @@ class TestMajorityWinnerErrorHandling:
         selector = _make_selector(position_tracker=tracker)
         ctx = _make_ctx()
 
-        selector.determine_majority_winner(
-            ctx, {"agent_a": 3.0}, 3.0, {}, _identity_normalize
-        )
+        selector.determine_majority_winner(ctx, {"agent_a": 3.0}, 3.0, {}, _identity_normalize)
         assert ctx.result.winner == "agent_a"
 
     @patch(
@@ -595,9 +555,7 @@ class TestSetUnanimousWinner:
 
         selector.set_unanimous_winner(ctx, "agent_a", 1.0, 3, 3)
 
-        recorder.record_phase_change.assert_called_once_with(
-            "consensus_reached: agent_a"
-        )
+        recorder.record_phase_change.assert_called_once_with("consensus_reached: agent_a")
 
     def test_recorder_error_swallowed(self):
         recorder = MagicMock()

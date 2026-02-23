@@ -269,7 +269,11 @@ class AirlockProxy:
             except asyncio.TimeoutError:
                 self._metrics.timeout_errors += 1
                 logger.warning(
-                    "airlock_timeout agent=%s op=%s timeout=%ss attempt=%s", self._agent.name, operation, timeout, attempt + 1
+                    "airlock_timeout agent=%s op=%s timeout=%ss attempt=%s",
+                    self._agent.name,
+                    operation,
+                    timeout,
+                    attempt + 1,
                 )
 
                 if attempt < self._config.max_retries:
@@ -279,7 +283,9 @@ class AirlockProxy:
                 if self._config.fallback_on_timeout:
                     self._metrics.fallback_responses += 1
                     logger.info(
-                        "airlock_fallback agent=%s op=%s reason=timeout", self._agent.name, operation
+                        "airlock_fallback agent=%s op=%s reason=timeout",
+                        self._agent.name,
+                        operation,
                     )
                     return fallback
 
@@ -288,7 +294,11 @@ class AirlockProxy:
             except (ConnectionError, OSError, RuntimeError) as e:
                 # Retryable errors - network/connection issues
                 logger.warning(
-                    "airlock_retryable agent=%s op=%s error=%s: %s", self._agent.name, operation, type(e).__name__, e
+                    "airlock_retryable agent=%s op=%s error=%s: %s",
+                    self._agent.name,
+                    operation,
+                    type(e).__name__,
+                    e,
                 )
 
                 if attempt < self._config.max_retries:
@@ -298,7 +308,9 @@ class AirlockProxy:
                 if self._config.fallback_on_error:
                     self._metrics.fallback_responses += 1
                     logger.info(
-                        "airlock_fallback agent=%s op=%s reason=retryable_error", self._agent.name, operation
+                        "airlock_fallback agent=%s op=%s reason=retryable_error",
+                        self._agent.name,
+                        operation,
                     )
                     return fallback
 
@@ -307,7 +319,11 @@ class AirlockProxy:
             except (ValueError, TypeError, AttributeError) as e:
                 # Non-retryable errors - validation/programming issues
                 logger.error(
-                    "airlock_error agent=%s op=%s error=%s: %s (non-retryable)", self._agent.name, operation, type(e).__name__, e
+                    "airlock_error agent=%s op=%s error=%s: %s (non-retryable)",
+                    self._agent.name,
+                    operation,
+                    type(e).__name__,
+                    e,
                 )
                 # Don't retry - raise immediately or fallback
                 if self._config.fallback_on_error:
@@ -318,7 +334,11 @@ class AirlockProxy:
             except Exception as e:  # noqa: BLE001 - Intentional catch-all: airlock is a resilience layer that must contain ANY agent failure to keep debates alive
                 # Unknown errors - log and treat as retryable
                 logger.error(
-                    "airlock_error agent=%s op=%s error=%s: %s", self._agent.name, operation, type(e).__name__, e
+                    "airlock_error agent=%s op=%s error=%s: %s",
+                    self._agent.name,
+                    operation,
+                    type(e).__name__,
+                    e,
                 )
 
                 if attempt < self._config.max_retries:
@@ -372,7 +392,10 @@ class AirlockProxy:
         if content != original_content:
             self._metrics.sanitization_applied += 1
             logger.debug(
-                "airlock_sanitized agent=%s original_len=%s new_len=%s", self._agent.name, len(original_content), len(content)
+                "airlock_sanitized agent=%s original_len=%s new_len=%s",
+                self._agent.name,
+                len(original_content),
+                len(content),
             )
 
         return content.strip()

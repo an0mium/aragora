@@ -180,7 +180,11 @@ class DatabaseConfig:
                 self.pg_ssl_mode = query_params["sslmode"][0]
 
             logger.debug(
-                "Parsed DATABASE_URL: host=%s, port=%s, database=%s, sslmode=%s", self.pg_host, self.pg_port, self.pg_database, self.pg_ssl_mode
+                "Parsed DATABASE_URL: host=%s, port=%s, database=%s, sslmode=%s",
+                self.pg_host,
+                self.pg_port,
+                self.pg_database,
+                self.pg_ssl_mode,
             )
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning("Failed to parse DATABASE_URL: %s", e)

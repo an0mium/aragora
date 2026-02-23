@@ -56,6 +56,7 @@ async def run_pipeline_tool(
             # Persist to KnowledgeMound
             try:
                 from aragora.pipeline.km_bridge import PipelineKMBridge
+
                 PipelineKMBridge().store_pipeline_result(result)
             except (ImportError, AttributeError, RuntimeError, ValueError) as exc:
                 logger.debug("KM persistence skipped: %s", exc)
@@ -78,6 +79,7 @@ async def run_pipeline_tool(
         # Persist result
         try:
             from aragora.storage.pipeline_store import get_pipeline_store
+
             get_pipeline_store().save(result.pipeline_id, result_dict)
         except (ImportError, OSError):
             pass
@@ -85,6 +87,7 @@ async def run_pipeline_tool(
         # Persist to KnowledgeMound
         try:
             from aragora.pipeline.km_bridge import PipelineKMBridge
+
             PipelineKMBridge().store_pipeline_result(result)
         except (ImportError, AttributeError, RuntimeError, ValueError) as exc:
             logger.debug("KM persistence skipped: %s", exc)
@@ -124,7 +127,9 @@ async def extract_goals_tool(
             return {"error": "ideas_json is required"}
 
         try:
-            ideas_list = json_module.loads(ideas_json) if isinstance(ideas_json, str) else ideas_json
+            ideas_list = (
+                json_module.loads(ideas_json) if isinstance(ideas_json, str) else ideas_json
+            )
             if not isinstance(ideas_list, list):
                 return {"error": "ideas_json must be a JSON array of strings"}
         except json_module.JSONDecodeError:
@@ -135,10 +140,7 @@ async def extract_goals_tool(
 
         # Filter by confidence
         if confidence_threshold > 0:
-            goal_graph.goals = [
-                g for g in goal_graph.goals
-                if g.confidence >= confidence_threshold
-            ]
+            goal_graph.goals = [g for g in goal_graph.goals if g.confidence >= confidence_threshold]
 
         return {
             "goal_graph": goal_graph.to_dict(),
@@ -233,6 +235,7 @@ async def advance_pipeline_stage_tool(
         # Persist updated result
         try:
             from aragora.storage.pipeline_store import get_pipeline_store
+
             get_pipeline_store().save(pipeline_id, result_obj.to_dict())
         except (ImportError, OSError):
             pass

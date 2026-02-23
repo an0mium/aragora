@@ -62,36 +62,28 @@ class TestSave:
         assert retrieved["ideas"] == {"v": 2}
 
     def test_save_derives_complete_status(self, store):
-        result = _make_result(
-            stage_status={"ideas": "complete", "goals": "complete"}
-        )
+        result = _make_result(stage_status={"ideas": "complete", "goals": "complete"})
         store.save("pipe-1", result)
 
         retrieved = store.get("pipe-1")
         assert retrieved["status"] == "complete"
 
     def test_save_derives_failed_status(self, store):
-        result = _make_result(
-            stage_status={"ideas": "complete", "goals": "failed"}
-        )
+        result = _make_result(stage_status={"ideas": "complete", "goals": "failed"})
         store.save("pipe-1", result)
 
         retrieved = store.get("pipe-1")
         assert retrieved["status"] == "failed"
 
     def test_save_derives_in_progress_status(self, store):
-        result = _make_result(
-            stage_status={"ideas": "complete", "goals": "pending"}
-        )
+        result = _make_result(stage_status={"ideas": "complete", "goals": "pending"})
         store.save("pipe-1", result)
 
         retrieved = store.get("pipe-1")
         assert retrieved["status"] == "in_progress"
 
     def test_save_derives_pending_status(self, store):
-        result = _make_result(
-            stage_status={"ideas": "pending", "goals": "pending"}
-        )
+        result = _make_result(stage_status={"ideas": "pending", "goals": "pending"})
         store.save("pipe-1", result)
 
         retrieved = store.get("pipe-1")
@@ -105,19 +97,20 @@ class TestSave:
         assert retrieved["receipt"] == receipt
 
     def test_save_preserves_transitions(self, store):
-        transitions = [
-            {"from": "ideas", "to": "goals", "timestamp": 1234.5}
-        ]
+        transitions = [{"from": "ideas", "to": "goals", "timestamp": 1234.5}]
         store.save("pipe-1", _make_result(transitions=transitions))
 
         retrieved = store.get("pipe-1")
         assert retrieved["transitions"] == transitions
 
     def test_save_preserves_provenance(self, store):
-        store.save("pipe-1", _make_result(
-            provenance_count=5,
-            integrity_hash="sha256:abc",
-        ))
+        store.save(
+            "pipe-1",
+            _make_result(
+                provenance_count=5,
+                integrity_hash="sha256:abc",
+            ),
+        )
 
         retrieved = store.get("pipe-1")
         assert retrieved["provenance_count"] == 5
@@ -140,12 +133,15 @@ class TestGet:
         assert store.get("nonexistent") is None
 
     def test_get_deserializes_json_fields(self, store):
-        store.save("pipe-1", _make_result(
-            ideas={"nodes": [1, 2]},
-            goals={"goals": ["g1"]},
-            actions={"steps": ["s1"]},
-            orchestration={"agents": ["a1"]},
-        ))
+        store.save(
+            "pipe-1",
+            _make_result(
+                ideas={"nodes": [1, 2]},
+                goals={"goals": ["g1"]},
+                actions={"steps": ["s1"]},
+                orchestration={"agents": ["a1"]},
+            ),
+        )
 
         retrieved = store.get("pipe-1")
         assert retrieved["ideas"] == {"nodes": [1, 2]}
@@ -190,12 +186,8 @@ class TestListPipelines:
         assert results[1]["id"] == "pipe-1"
 
     def test_list_filters_by_status(self, store):
-        store.save("pipe-1", _make_result(
-            stage_status={"ideas": "complete", "goals": "complete"}
-        ))
-        store.save("pipe-2", _make_result(
-            stage_status={"ideas": "complete", "goals": "failed"}
-        ))
+        store.save("pipe-1", _make_result(stage_status={"ideas": "complete", "goals": "complete"}))
+        store.save("pipe-2", _make_result(stage_status={"ideas": "complete", "goals": "failed"}))
 
         complete = store.list_pipelines(status="complete")
         assert len(complete) == 1
@@ -244,15 +236,9 @@ class TestCount:
         assert store.count() == 2
 
     def test_count_by_status(self, store):
-        store.save("pipe-1", _make_result(
-            stage_status={"ideas": "complete", "goals": "complete"}
-        ))
-        store.save("pipe-2", _make_result(
-            stage_status={"ideas": "failed"}
-        ))
-        store.save("pipe-3", _make_result(
-            stage_status={"ideas": "pending"}
-        ))
+        store.save("pipe-1", _make_result(stage_status={"ideas": "complete", "goals": "complete"}))
+        store.save("pipe-2", _make_result(stage_status={"ideas": "failed"}))
+        store.save("pipe-3", _make_result(stage_status={"ideas": "pending"}))
 
         assert store.count(status="complete") == 1
         assert store.count(status="failed") == 1
@@ -268,6 +254,7 @@ class TestUpdateTimestamp:
 
         # Small delay to ensure timestamp differs
         import time
+
         time.sleep(0.01)
 
         store.save("pipe-1", _make_result(ideas={"v": 2}))

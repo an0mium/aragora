@@ -377,7 +377,14 @@ class RecoveryNarrator:
                         "data": narrative.to_dict(),
                     }
                 )
-            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
+            except (
+                TypeError,
+                ValueError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.warning("narrator_broadcast_failed error=%s", e)
 
         logger.debug("narrator_generated event=%s agent=%s", event_type, component)
@@ -477,7 +484,7 @@ def setup_narrator_with_checkpoint_manager(
             "debate_id": checkpoint.get("debate_id", "unknown"),
         }
         narrative = narrator.narrate("checkpoint_created", "System", details)
-        logger.debug("narrator_checkpoint_created round=%s", details['round'])
+        logger.debug("narrator_checkpoint_created round=%s", details["round"])
 
         if narrator.broadcast_callback:
             try:
@@ -487,7 +494,14 @@ def setup_narrator_with_checkpoint_manager(
                         "data": narrative.to_dict(),
                     }
                 )
-            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
+            except (
+                TypeError,
+                ValueError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.warning("narrator_checkpoint_broadcast_failed error=%s", e)
 
     def on_debate_resumed(event: dict) -> None:
@@ -500,7 +514,7 @@ def setup_narrator_with_checkpoint_manager(
             "agent_count": agent_count,
         }
         narrative = narrator.narrate("debate_resumed", "System", details)
-        logger.debug("narrator_debate_resumed round=%s agents=%s", details['round'], agent_count)
+        logger.debug("narrator_debate_resumed round=%s agents=%s", details["round"], agent_count)
 
         if narrator.broadcast_callback:
             try:
@@ -510,7 +524,14 @@ def setup_narrator_with_checkpoint_manager(
                         "data": narrative.to_dict(),
                     }
                 )
-            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
+            except (
+                TypeError,
+                ValueError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.warning("narrator_resume_broadcast_failed error=%s", e)
 
     # Store handlers on narrator for external registration

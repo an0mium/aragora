@@ -231,7 +231,10 @@ class TaskPatternMatcher:
             affinities = self._query_agent_pattern_stats(critique_store, issue_type)
             if affinities:
                 logger.debug(
-                    "agent_affinities pattern=%s issue_type=%s agents=%s", pattern, issue_type, list(affinities.keys())
+                    "agent_affinities pattern=%s issue_type=%s agents=%s",
+                    pattern,
+                    issue_type,
+                    list(affinities.keys()),
                 )
             return affinities
         except (OSError, RuntimeError, ValueError) as e:

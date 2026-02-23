@@ -363,7 +363,9 @@ class ProposalPhase:
             is_error = True
 
         if is_error:
-            logger.error("agent_error agent=%s phase=proposal error=%s", agent.name, result_or_error)
+            logger.error(
+                "agent_error agent=%s phase=proposal error=%s", agent.name, result_or_error
+            )
             error_type = self._classify_error(result_or_error)
             provider = getattr(agent, "provider", None) or getattr(agent, "model_type", "unknown")
             ctx.record_agent_failure(
@@ -560,7 +562,9 @@ class ProposalPhase:
             if results:
                 success_count = sum(1 for r in results if r.success)
                 logger.info(
-                    "[propulsion] proposals_ready fired handlers=%s success=%s", len(results), success_count
+                    "[propulsion] proposals_ready fired handlers=%s success=%s",
+                    len(results),
+                    success_count,
                 )
         except ImportError:
             logger.debug("[propulsion] PropulsionEngine imports unavailable")
@@ -597,7 +601,9 @@ class ProposalPhase:
                 )
                 self._active_molecules[agent.name] = molecule.molecule_id
                 logger.debug(
-                    "[molecule] Created proposal molecule %s for agent=%s", molecule.molecule_id, agent.name
+                    "[molecule] Created proposal molecule %s for agent=%s",
+                    molecule.molecule_id,
+                    agent.name,
                 )
         except ImportError:
             logger.debug("[molecule] Molecule imports unavailable")
@@ -653,6 +659,8 @@ class ProposalPhase:
         if molecule_id:
             try:
                 self._molecule_tracker.fail_molecule(molecule_id, error)
-                logger.debug("[molecule] Failed molecule %s for %s: %s", molecule_id, agent_name, error)
+                logger.debug(
+                    "[molecule] Failed molecule %s for %s: %s", molecule_id, agent_name, error
+                )
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("[molecule] Failed to record molecule failure: %s", e)

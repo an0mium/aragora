@@ -125,9 +125,7 @@ class MockHTTPHandlerNoBody:
 @pytest.fixture(autouse=True)
 def _patch_gateway_available():
     """Ensure GATEWAY_AVAILABLE is True by default for most tests."""
-    with patch(
-        "aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", True
-    ):
+    with patch("aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", True):
         yield
 
 
@@ -148,24 +146,26 @@ def handler():
 @pytest.fixture
 def handler_with_agents():
     """Create a handler with pre-registered agents."""
-    h = GatewayAgentsHandler(ctx={
-        "external_agents": {
-            "test-agent-1": {
-                "name": "test-agent-1",
-                "framework_type": "crewai",
-                "base_url": "https://agent1.example.com",
-                "timeout": 30,
-                "config": {"key": "value"},
-            },
-            "test-agent-2": {
-                "name": "test-agent-2",
-                "framework_type": "langgraph",
-                "base_url": "https://agent2.example.com",
-                "timeout": 60,
-                "config": {},
-            },
+    h = GatewayAgentsHandler(
+        ctx={
+            "external_agents": {
+                "test-agent-1": {
+                    "name": "test-agent-1",
+                    "framework_type": "crewai",
+                    "base_url": "https://agent1.example.com",
+                    "timeout": 30,
+                    "config": {"key": "value"},
+                },
+                "test-agent-2": {
+                    "name": "test-agent-2",
+                    "framework_type": "langgraph",
+                    "base_url": "https://agent2.example.com",
+                    "timeout": 60,
+                    "config": {},
+                },
+            }
         }
-    })
+    )
     return h
 
 
@@ -360,9 +360,7 @@ class TestGetAgent:
 
     def test_get_agent_default_fields(self, handler):
         """Agent with minimal fields returns defaults."""
-        handler.ctx["external_agents"] = {
-            "min-agent": {"name": "min-agent"}
-        }
+        handler.ctx["external_agents"] = {"min-agent": {"name": "min-agent"}}
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/gateway/agents/min-agent", {}, http)
         assert _status(result) == 200
@@ -388,11 +386,13 @@ class TestRegisterAgent:
     """Test POST /api/v1/gateway/agents."""
 
     def test_register_agent_success(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent",
-            "framework_type": "crewai",
-            "base_url": "https://agent.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent",
+                "framework_type": "crewai",
+                "base_url": "https://agent.example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
         body = _body(result)
@@ -403,25 +403,29 @@ class TestRegisterAgent:
         assert "successfully" in body["message"].lower()
 
     def test_register_agent_stored_in_context(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "stored-agent",
-            "framework_type": "autogen",
-            "base_url": "https://stored.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "stored-agent",
+                "framework_type": "autogen",
+                "base_url": "https://stored.example.com",
+            }
+        )
         handler.handle_post("/api/v1/gateway/agents", {}, http)
         agents = handler.ctx["external_agents"]
         assert "stored-agent" in agents
         assert agents["stored-agent"]["framework_type"] == "autogen"
 
     def test_register_agent_with_optional_fields(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "full-agent",
-            "framework_type": "langgraph",
-            "base_url": "https://full.example.com",
-            "timeout": 120,
-            "config": {"model": "gpt-4"},
-            "api_key_env": "MY_API_KEY",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "full-agent",
+                "framework_type": "langgraph",
+                "base_url": "https://full.example.com",
+                "timeout": 120,
+                "config": {"model": "gpt-4"},
+                "api_key_env": "MY_API_KEY",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
         agents = handler.ctx["external_agents"]
@@ -431,86 +435,104 @@ class TestRegisterAgent:
         assert info["api_key_env"] == "MY_API_KEY"
 
     def test_register_agent_default_timeout(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "default-timeout",
-            "framework_type": "custom",
-            "base_url": "https://default.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "default-timeout",
+                "framework_type": "custom",
+                "base_url": "https://default.example.com",
+            }
+        )
         handler.handle_post("/api/v1/gateway/agents", {}, http)
         agents = handler.ctx["external_agents"]
         assert agents["default-timeout"]["timeout"] == DEFAULT_TIMEOUT
 
     def test_register_agent_no_api_key_env(self, handler):
         """When api_key_env is not provided, it should not appear in stored info."""
-        http = MockHTTPHandler(body={
-            "name": "no-key",
-            "framework_type": "custom",
-            "base_url": "https://nokey.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "no-key",
+                "framework_type": "custom",
+                "base_url": "https://nokey.example.com",
+            }
+        )
         handler.handle_post("/api/v1/gateway/agents", {}, http)
         agents = handler.ctx["external_agents"]
         assert "api_key_env" not in agents["no-key"]
 
     def test_register_agent_missing_name(self, handler):
-        http = MockHTTPHandler(body={
-            "framework_type": "crewai",
-            "base_url": "https://agent.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "framework_type": "crewai",
+                "base_url": "https://agent.example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
         assert "name" in _body(result).get("error", "").lower()
 
     def test_register_agent_empty_name(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "",
-            "framework_type": "crewai",
-            "base_url": "https://agent.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "",
+                "framework_type": "crewai",
+                "base_url": "https://agent.example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_missing_base_url(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent",
-            "framework_type": "crewai",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent",
+                "framework_type": "crewai",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
         assert "base_url" in _body(result).get("error", "").lower()
 
     def test_register_agent_empty_base_url(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent",
-            "framework_type": "crewai",
-            "base_url": "",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent",
+                "framework_type": "crewai",
+                "base_url": "",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_missing_framework_type(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent",
-            "base_url": "https://agent.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent",
+                "base_url": "https://agent.example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
         assert "framework_type" in _body(result).get("error", "").lower()
 
     def test_register_agent_empty_framework_type(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent",
-            "framework_type": "",
-            "base_url": "https://agent.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent",
+                "framework_type": "",
+                "base_url": "https://agent.example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_invalid_framework_type(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent",
-            "framework_type": "invalid_framework",
-            "base_url": "https://agent.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent",
+                "framework_type": "invalid_framework",
+                "base_url": "https://agent.example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
         error = _body(result).get("error", "")
@@ -520,14 +542,14 @@ class TestRegisterAgent:
         """Each allowed framework should register successfully."""
         for fw in sorted(ALLOWED_FRAMEWORKS):
             h = GatewayAgentsHandler(ctx={})
-            http = MockHTTPHandler(body={
-                "name": f"agent-{fw}",
-                "framework_type": fw,
-                "base_url": f"https://{fw}.example.com",
-            })
-            with patch(
-                "aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", True
-            ):
+            http = MockHTTPHandler(
+                body={
+                    "name": f"agent-{fw}",
+                    "framework_type": fw,
+                    "base_url": f"https://{fw}.example.com",
+                }
+            )
+            with patch("aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", True):
                 result = h.handle_post("/api/v1/gateway/agents", {}, http)
             assert _status(result) == 201, f"Failed for framework: {fw}"
 
@@ -542,31 +564,37 @@ class TestRegisterAgent:
         assert _status(result) == 400
 
     def test_register_agent_duplicate_name(self, handler_with_agents):
-        http = MockHTTPHandler(body={
-            "name": "test-agent-1",
-            "framework_type": "custom",
-            "base_url": "https://duplicate.example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "test-agent-1",
+                "framework_type": "custom",
+                "base_url": "https://duplicate.example.com",
+            }
+        )
         result = handler_with_agents.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 409
         assert "already exists" in _body(result).get("error", "").lower()
 
     def test_register_post_on_non_matching_path_returns_none(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/debates", {}, http)
         assert result is None
 
     def test_register_post_on_agent_name_path_returns_none(self, handler):
         """POST on /api/v1/gateway/agents/some-name should return None (only base path accepts POST)."""
-        http = MockHTTPHandler(body={
-            "name": "agent",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents/some-name", {}, http)
         assert result is None
 
@@ -580,95 +608,115 @@ class TestAgentNameValidation:
     """Test agent name pattern validation during registration."""
 
     def test_valid_alphanumeric_name(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent123",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent123",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
 
     def test_valid_name_with_hyphens(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my-agent-v2",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my-agent-v2",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
 
     def test_valid_name_with_underscores(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "my_agent_v2",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "my_agent_v2",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
 
     def test_invalid_name_starts_with_hyphen(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "-bad-name",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "-bad-name",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
         assert "Invalid agent name" in _body(result).get("error", "")
 
     def test_invalid_name_starts_with_underscore(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "_bad_name",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "_bad_name",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_invalid_name_with_spaces(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "bad name",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "bad name",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_invalid_name_with_special_chars(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent@!#",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent@!#",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_invalid_name_too_long(self, handler):
         """Name longer than 64 characters should be rejected."""
-        http = MockHTTPHandler(body={
-            "name": "a" * 65,
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "a" * 65,
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_valid_name_max_length(self, handler):
         """Name at exactly 64 characters should be accepted."""
-        http = MockHTTPHandler(body={
-            "name": "a" * 64,
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "a" * 64,
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
 
     def test_valid_single_char_name(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "a",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "a",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 201
 
@@ -727,11 +775,12 @@ class TestBaseUrlValidation:
         mock_result = MagicMock()
         mock_result.is_safe = False
         mock_result.error = "Internal IP detected"
-        with patch(
-            "aragora.server.handlers.gateway_agents_handler.SSRF_AVAILABLE", True
-        ), patch(
-            "aragora.security.ssrf_protection.validate_url",
-            return_value=mock_result,
+        with (
+            patch("aragora.server.handlers.gateway_agents_handler.SSRF_AVAILABLE", True),
+            patch(
+                "aragora.security.ssrf_protection.validate_url",
+                return_value=mock_result,
+            ),
         ):
             result = handler._validate_base_url("https://internal.example.com")
         assert result is not None
@@ -742,11 +791,12 @@ class TestBaseUrlValidation:
         """When SSRF protection is available and URL is safe, return None."""
         mock_result = MagicMock()
         mock_result.is_safe = True
-        with patch(
-            "aragora.server.handlers.gateway_agents_handler.SSRF_AVAILABLE", True
-        ), patch(
-            "aragora.security.ssrf_protection.validate_url",
-            return_value=mock_result,
+        with (
+            patch("aragora.server.handlers.gateway_agents_handler.SSRF_AVAILABLE", True),
+            patch(
+                "aragora.security.ssrf_protection.validate_url",
+                return_value=mock_result,
+            ),
         ):
             result = handler._validate_base_url("https://safe.example.com")
         assert result is None
@@ -762,9 +812,7 @@ class TestDeleteAgent:
 
     def test_delete_agent_success(self, handler_with_agents):
         http = MockHTTPHandler()
-        result = handler_with_agents.handle_delete(
-            "/api/v1/gateway/agents/test-agent-1", {}, http
-        )
+        result = handler_with_agents.handle_delete("/api/v1/gateway/agents/test-agent-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "test-agent-1"
@@ -774,9 +822,7 @@ class TestDeleteAgent:
 
     def test_delete_agent_not_found(self, handler):
         http = MockHTTPHandler()
-        result = handler.handle_delete(
-            "/api/v1/gateway/agents/nonexistent", {}, http
-        )
+        result = handler.handle_delete("/api/v1/gateway/agents/nonexistent", {}, http)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -793,9 +839,7 @@ class TestDeleteAgent:
 
     def test_delete_preserves_other_agents(self, handler_with_agents):
         http = MockHTTPHandler()
-        handler_with_agents.handle_delete(
-            "/api/v1/gateway/agents/test-agent-1", {}, http
-        )
+        handler_with_agents.handle_delete("/api/v1/gateway/agents/test-agent-1", {}, http)
         assert "test-agent-2" in handler_with_agents.ctx["external_agents"]
 
 
@@ -809,9 +853,7 @@ class TestGatewayUnavailable:
 
     @pytest.fixture(autouse=True)
     def _disable_gateway(self):
-        with patch(
-            "aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", False):
             yield
 
     def test_handle_get_503(self, handler):
@@ -821,11 +863,13 @@ class TestGatewayUnavailable:
         assert "not available" in _body(result).get("error", "").lower()
 
     def test_handle_post_503(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 503
 
@@ -997,66 +1041,80 @@ class TestSecurity:
             assert _status(result) in (400, 404)
 
     def test_register_agent_name_with_dot_dot(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "../../../etc/passwd",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "../../../etc/passwd",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
         assert "Invalid agent name" in _body(result).get("error", "")
 
     def test_register_agent_name_with_null_byte(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent\x00evil",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent\x00evil",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_name_with_unicode(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent\u00e9",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent\u00e9",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_sql_injection_in_name(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "'; DROP TABLE agents;--",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "'; DROP TABLE agents;--",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_xss_in_name(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "<script>alert('xss')</script>",
-            "framework_type": "custom",
-            "base_url": "https://example.com",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "<script>alert('xss')</script>",
+                "framework_type": "custom",
+                "base_url": "https://example.com",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_base_url_with_javascript_protocol(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent1",
-            "framework_type": "custom",
-            "base_url": "javascript:alert(1)",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent1",
+                "framework_type": "custom",
+                "base_url": "javascript:alert(1)",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
     def test_register_agent_base_url_with_data_protocol(self, handler):
-        http = MockHTTPHandler(body={
-            "name": "agent2",
-            "framework_type": "custom",
-            "base_url": "data:text/html,<script>alert(1)</script>",
-        })
+        http = MockHTTPHandler(
+            body={
+                "name": "agent2",
+                "framework_type": "custom",
+                "base_url": "data:text/html,<script>alert(1)</script>",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/agents", {}, http)
         assert _status(result) == 400
 
@@ -1071,13 +1129,15 @@ class TestEndToEnd:
 
     def test_register_list_get_delete(self, handler):
         # 1. Register an agent
-        reg_http = MockHTTPHandler(body={
-            "name": "lifecycle-agent",
-            "framework_type": "openclaw",
-            "base_url": "https://lifecycle.example.com",
-            "timeout": 45,
-            "config": {"version": "1.0"},
-        })
+        reg_http = MockHTTPHandler(
+            body={
+                "name": "lifecycle-agent",
+                "framework_type": "openclaw",
+                "base_url": "https://lifecycle.example.com",
+                "timeout": 45,
+                "config": {"version": "1.0"},
+            }
+        )
         reg_result = handler.handle_post("/api/v1/gateway/agents", {}, reg_http)
         assert _status(reg_result) == 201
 
@@ -1100,9 +1160,7 @@ class TestEndToEnd:
 
         # 4. Delete agent
         del_http = MockHTTPHandler()
-        del_result = handler.handle_delete(
-            "/api/v1/gateway/agents/lifecycle-agent", {}, del_http
-        )
+        del_result = handler.handle_delete("/api/v1/gateway/agents/lifecycle-agent", {}, del_http)
         assert _status(del_result) == 200
 
         # 5. List should be empty
@@ -1118,11 +1176,13 @@ class TestEndToEnd:
     def test_register_multiple_agents(self, handler):
         """Register multiple agents and verify all are listed."""
         for i in range(5):
-            http = MockHTTPHandler(body={
-                "name": f"agent-{i}",
-                "framework_type": "custom",
-                "base_url": f"https://agent{i}.example.com",
-            })
+            http = MockHTTPHandler(
+                body={
+                    "name": f"agent-{i}",
+                    "framework_type": "custom",
+                    "base_url": f"https://agent{i}.example.com",
+                }
+            )
             result = handler.handle_post("/api/v1/gateway/agents", {}, http)
             assert _status(result) == 201
 
@@ -1135,19 +1195,23 @@ class TestEndToEnd:
 
     def test_register_then_duplicate_rejected(self, handler):
         """After registering, a second registration with same name is rejected."""
-        http1 = MockHTTPHandler(body={
-            "name": "unique-agent",
-            "framework_type": "crewai",
-            "base_url": "https://unique.example.com",
-        })
+        http1 = MockHTTPHandler(
+            body={
+                "name": "unique-agent",
+                "framework_type": "crewai",
+                "base_url": "https://unique.example.com",
+            }
+        )
         result1 = handler.handle_post("/api/v1/gateway/agents", {}, http1)
         assert _status(result1) == 201
 
-        http2 = MockHTTPHandler(body={
-            "name": "unique-agent",
-            "framework_type": "autogen",
-            "base_url": "https://other.example.com",
-        })
+        http2 = MockHTTPHandler(
+            body={
+                "name": "unique-agent",
+                "framework_type": "autogen",
+                "base_url": "https://other.example.com",
+            }
+        )
         result2 = handler.handle_post("/api/v1/gateway/agents", {}, http2)
         assert _status(result2) == 409
 
@@ -1186,9 +1250,7 @@ class TestHandleRoutingEdgeCases:
         """GET on /api/v1/gateway/agents/test-agent-1/extra tries to get agent named 'test-agent-1'."""
         http = MockHTTPHandler()
         # _extract_agent_name will return "test-agent-1" since parts[5] = "test-agent-1"
-        result = handler_with_agents.handle(
-            "/api/v1/gateway/agents/test-agent-1/extra", {}, http
-        )
+        result = handler_with_agents.handle("/api/v1/gateway/agents/test-agent-1/extra", {}, http)
         assert _status(result) == 200
         assert _body(result)["name"] == "test-agent-1"
 
@@ -1250,11 +1312,13 @@ class TestDeleteAndReRegister:
 
     def test_re_register_after_delete(self, handler):
         # Register
-        http1 = MockHTTPHandler(body={
-            "name": "reuse-agent",
-            "framework_type": "custom",
-            "base_url": "https://reuse.example.com",
-        })
+        http1 = MockHTTPHandler(
+            body={
+                "name": "reuse-agent",
+                "framework_type": "custom",
+                "base_url": "https://reuse.example.com",
+            }
+        )
         result1 = handler.handle_post("/api/v1/gateway/agents", {}, http1)
         assert _status(result1) == 201
 
@@ -1264,11 +1328,13 @@ class TestDeleteAndReRegister:
         assert _status(del_result) == 200
 
         # Re-register with same name but different framework
-        http2 = MockHTTPHandler(body={
-            "name": "reuse-agent",
-            "framework_type": "crewai",
-            "base_url": "https://reuse-v2.example.com",
-        })
+        http2 = MockHTTPHandler(
+            body={
+                "name": "reuse-agent",
+                "framework_type": "crewai",
+                "base_url": "https://reuse-v2.example.com",
+            }
+        )
         result2 = handler.handle_post("/api/v1/gateway/agents", {}, http2)
         assert _status(result2) == 201
 

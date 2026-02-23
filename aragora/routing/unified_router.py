@@ -144,7 +144,8 @@ class UnifiedDecisionRouter:
         # For explicit types, route directly through Core
         if request.decision_type != DecisionType.AUTO:
             logger.debug(
-                "Explicit decision type %s, routing directly to Core router", request.decision_type.value
+                "Explicit decision type %s, routing directly to Core router",
+                request.decision_type.value,
             )
             return await self._route_via_core(request)
 
@@ -180,7 +181,9 @@ class UnifiedDecisionRouter:
             decision = await gateway.route(gateway_request, gateway_context)
 
             logger.info(
-                "Gateway routing decision: %s (reason: %s...)", decision.destination.value, decision.reason[:80]
+                "Gateway routing decision: %s (reason: %s...)",
+                decision.destination.value,
+                decision.reason[:80],
             )
 
             # Map Gateway destination to Core decision type
@@ -339,7 +342,9 @@ class UnifiedDecisionRouter:
             )
             gateway.update_criteria(criteria)
             logger.info(
-                "Gateway criteria updated: threshold=$%s, risk_levels=%s", financial_threshold, risk_levels
+                "Gateway criteria updated: threshold=$%s, risk_levels=%s",
+                financial_threshold,
+                risk_levels,
             )
         except ImportError:
             logger.warning("Gateway router criteria update failed - module not available")

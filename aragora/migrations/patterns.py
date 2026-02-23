@@ -250,7 +250,10 @@ def safe_drop_column(
             )
             if indexes:
                 logger.warning(
-                    "Column %s.%s is used by indexes: %s. Drop indexes first.", table, column, [idx[0] for idx in indexes]
+                    "Column %s.%s is used by indexes: %s. Drop indexes first.",
+                    table,
+                    column,
+                    [idx[0] for idx in indexes],
                 )
                 raise ValueError(f"Column {column} is still referenced by indexes")
 
@@ -440,7 +443,9 @@ def safe_set_not_null(
     else:
         # SQLite doesn't support ALTER COLUMN, would need table recreation
         logger.warning(
-            "SQLite doesn't support ALTER COLUMN SET NOT NULL. Column %s.%s remains nullable.", table, column
+            "SQLite doesn't support ALTER COLUMN SET NOT NULL. Column %s.%s remains nullable.",
+            table,
+            column,
         )
         return
 
@@ -484,7 +489,7 @@ def safe_create_index(
             f"CREATE {unique_str}INDEX IF NOT EXISTS {qi} ON {qt} ({columns_str})"
         )
 
-    logger.info("Created index %s on %s(%s)", index_name, table, ', '.join(columns))
+    logger.info("Created index %s on %s(%s)", index_name, table, ", ".join(columns))
 
 
 def safe_drop_index(

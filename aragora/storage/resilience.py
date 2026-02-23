@@ -247,7 +247,10 @@ def with_retry(
 
                     if not is_transient_error(e) or attempt >= max_retries:
                         logger.error(
-                            "Database error in %s after %s attempts: %s", func.__name__, attempt + 1, e
+                            "Database error in %s after %s attempts: %s",
+                            func.__name__,
+                            attempt + 1,
+                            e,
                         )
                         raise
 
@@ -970,7 +973,10 @@ def with_postgres_retry(
 
                     if not is_postgres_transient_error(e) or attempt >= max_retries:
                         logger.error(
-                            "PostgreSQL error in %s after %s attempts: %s", func.__name__, attempt + 1, e
+                            "PostgreSQL error in %s after %s attempts: %s",
+                            func.__name__,
+                            attempt + 1,
+                            e,
                         )
                         if circuit_breaker:
                             circuit_breaker.record_failure(e)
@@ -1049,7 +1055,8 @@ def validate_postgres_pool_config(
         errors.append(f"Pool size must be at least 1, got: {pool_size}")
     elif pool_size < 5:
         logger.warning(
-            "Pool size %s is low for production. Consider increasing ARAGORA_DB_POOL_SIZE to at least 10.", pool_size
+            "Pool size %s is low for production. Consider increasing ARAGORA_DB_POOL_SIZE to at least 10.",
+            pool_size,
         )
     elif pool_size > 100:
         errors.append(
@@ -1063,14 +1070,17 @@ def validate_postgres_pool_config(
         errors.append(f"Max overflow must be non-negative, got: {max_overflow}")
     elif max_overflow > pool_size:
         logger.warning(
-            "Max overflow (%s) exceeds pool size (%s). This may cause connection issues under load.", max_overflow, pool_size
+            "Max overflow (%s) exceeds pool size (%s). This may cause connection issues under load.",
+            max_overflow,
+            pool_size,
         )
 
     # Check total connections vs typical PostgreSQL limits
     total_possible = pool_size + max_overflow
     if total_possible > 80:
         logger.warning(
-            "Total possible connections (%s) is high. Ensure PostgreSQL max_connections is configured appropriately.", total_possible
+            "Total possible connections (%s) is high. Ensure PostgreSQL max_connections is configured appropriately.",
+            total_possible,
         )
 
     return len(errors) == 0, errors

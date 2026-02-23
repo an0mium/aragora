@@ -328,9 +328,7 @@ class TestGetPendingBreakpoints:
         assert body["breakpoints"] == []
         assert body["count"] == 0
 
-    def test_with_breakpoints(
-        self, handler, mock_manager, mock_http_handler, sample_breakpoints
-    ):
+    def test_with_breakpoints(self, handler, mock_manager, mock_http_handler, sample_breakpoints):
         mock_manager.get_pending_breakpoints.return_value = sample_breakpoints
         result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         body = _body(result)
@@ -338,9 +336,7 @@ class TestGetPendingBreakpoints:
         assert len(body["breakpoints"]) == 3
         assert body["count"] == 3
 
-    def test_breakpoint_fields(
-        self, handler, mock_manager, mock_http_handler, sample_breakpoint
-    ):
+    def test_breakpoint_fields(self, handler, mock_manager, mock_http_handler, sample_breakpoint):
         mock_manager.get_pending_breakpoints.return_value = [sample_breakpoint]
         result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         body = _body(result)
@@ -365,9 +361,7 @@ class TestGetPendingBreakpoints:
         assert snap["confidence"] == 0.45
         assert snap["agents"] == ["claude", "gpt4", "gemini"]
 
-    def test_breakpoint_without_snapshot(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_breakpoint_without_snapshot(self, handler, mock_manager, mock_http_handler):
         bp = MockBreakpoint(snapshot=None)
         # Override the default fixture snapshot
         bp.snapshot = None
@@ -379,56 +373,34 @@ class TestGetPendingBreakpoints:
     def test_pending_alias(self, handler, mock_manager, mock_http_handler):
         """GET /api/v1/breakpoints/pending returns same result as /breakpoints."""
         mock_manager.get_pending_breakpoints.return_value = []
-        result = handler.handle(
-            "/api/v1/breakpoints/pending", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/pending", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["breakpoints"] == []
         assert body["count"] == 0
 
-    def test_module_unavailable(
-        self, handler_no_manager, mock_http_handler
-    ):
-        result = handler_no_manager.handle(
-            "/api/v1/breakpoints", {}, mock_http_handler
-        )
+    def test_module_unavailable(self, handler_no_manager, mock_http_handler):
+        result = handler_no_manager.handle("/api/v1/breakpoints", {}, mock_http_handler)
         assert _status(result) == 503
         body = _body(result)
         assert "not available" in body["error"].lower()
 
-    def test_pending_module_unavailable(
-        self, handler_no_manager, mock_http_handler
-    ):
-        result = handler_no_manager.handle(
-            "/api/v1/breakpoints/pending", {}, mock_http_handler
-        )
+    def test_pending_module_unavailable(self, handler_no_manager, mock_http_handler):
+        result = handler_no_manager.handle("/api/v1/breakpoints/pending", {}, mock_http_handler)
         assert _status(result) == 503
 
-    def test_attribute_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        mock_manager.get_pending_breakpoints.side_effect = AttributeError(
-            "mock attribute error"
-        )
+    def test_attribute_error_returns_500(self, handler, mock_manager, mock_http_handler):
+        mock_manager.get_pending_breakpoints.side_effect = AttributeError("mock attribute error")
         result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_runtime_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        mock_manager.get_pending_breakpoints.side_effect = RuntimeError(
-            "mock runtime error"
-        )
+    def test_runtime_error_returns_500(self, handler, mock_manager, mock_http_handler):
+        mock_manager.get_pending_breakpoints.side_effect = RuntimeError("mock runtime error")
         result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_type_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        mock_manager.get_pending_breakpoints.side_effect = TypeError(
-            "mock type error"
-        )
+    def test_type_error_returns_500(self, handler, mock_manager, mock_http_handler):
+        mock_manager.get_pending_breakpoints.side_effect = TypeError("mock type error")
         result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         assert _status(result) == 500
 
@@ -441,13 +413,9 @@ class TestGetPendingBreakpoints:
 class TestGetBreakpointStatus:
     """Tests for getting status of a specific breakpoint."""
 
-    def test_breakpoint_found(
-        self, handler, mock_manager, mock_http_handler, sample_breakpoint
-    ):
+    def test_breakpoint_found(self, handler, mock_manager, mock_http_handler, sample_breakpoint):
         mock_manager.get_breakpoint.return_value = sample_breakpoint
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
         assert body["breakpoint_id"] == "bp-001"
@@ -455,13 +423,9 @@ class TestGetBreakpointStatus:
         assert body["message"] == "Confidence below threshold"
         assert body["status"] == "pending"
 
-    def test_breakpoint_not_found(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_breakpoint_not_found(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.return_value = None
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-999/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-999/status", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 404
         assert body["error"] == "Breakpoint not found"
@@ -471,9 +435,7 @@ class TestGetBreakpointStatus:
         self, handler, mock_manager, mock_http_handler, sample_breakpoint
     ):
         mock_manager.get_breakpoint.return_value = sample_breakpoint
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         body = _body(result)
         snap = body["snapshot"]
         assert snap is not None
@@ -482,91 +444,59 @@ class TestGetBreakpointStatus:
         assert snap["task"] == "Evaluate proposal X"
         assert snap["confidence"] == 0.45
 
-    def test_status_without_snapshot(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_status_without_snapshot(self, handler, mock_manager, mock_http_handler):
         bp = MockBreakpoint(snapshot=None)
         bp.snapshot = None
         mock_manager.get_breakpoint.return_value = bp
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         body = _body(result)
         assert body["snapshot"] is None
 
-    def test_resolved_breakpoint(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        bp = MockBreakpoint(
-            status="resolved", resolved_at="2026-01-15T11:00:00Z"
-        )
+    def test_resolved_breakpoint(self, handler, mock_manager, mock_http_handler):
+        bp = MockBreakpoint(status="resolved", resolved_at="2026-01-15T11:00:00Z")
         mock_manager.get_breakpoint.return_value = bp
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         body = _body(result)
         assert body["status"] == "resolved"
         assert body["resolved_at"] == "2026-01-15T11:00:00Z"
 
-    def test_breakpoint_without_status_attr(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_breakpoint_without_status_attr(self, handler, mock_manager, mock_http_handler):
         """Breakpoint without status attribute defaults to 'pending'."""
         bp = MockBreakpoint()
         del bp.status
         mock_manager.get_breakpoint.return_value = bp
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         body = _body(result)
         assert body["status"] == "pending"
 
-    def test_breakpoint_without_resolved_at_attr(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_breakpoint_without_resolved_at_attr(self, handler, mock_manager, mock_http_handler):
         """Breakpoint without resolved_at attribute defaults to None."""
         bp = MockBreakpoint()
         del bp.resolved_at
         mock_manager.get_breakpoint.return_value = bp
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         body = _body(result)
         assert body["resolved_at"] is None
 
-    def test_module_unavailable(
-        self, handler_no_manager, mock_http_handler
-    ):
+    def test_module_unavailable(self, handler_no_manager, mock_http_handler):
         result = handler_no_manager.handle(
             "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
         )
         assert _status(result) == 503
 
-    def test_attribute_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_attribute_error_returns_500(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.side_effect = AttributeError("mock error")
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_runtime_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_runtime_error_returns_500(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.side_effect = RuntimeError("mock error")
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         assert _status(result) == 500
 
-    def test_type_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_type_error_returns_500(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.side_effect = TypeError("mock error")
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001/status", {}, mock_http_handler)
         assert _status(result) == 500
 
 
@@ -578,22 +508,14 @@ class TestGetBreakpointStatus:
 class TestResolveMethodNotAllowed:
     """Tests for GET on resolve endpoint (should return 405)."""
 
-    def test_get_resolve_returns_405(
-        self, handler, mock_http_handler
-    ):
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/resolve", {}, mock_http_handler
-        )
+    def test_get_resolve_returns_405(self, handler, mock_http_handler):
+        result = handler.handle("/api/v1/breakpoints/bp-001/resolve", {}, mock_http_handler)
         assert _status(result) == 405
         body = _body(result)
         assert "POST" in body["error"]
 
-    def test_get_resolve_includes_allow_header(
-        self, handler, mock_http_handler
-    ):
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001/resolve", {}, mock_http_handler
-        )
+    def test_get_resolve_includes_allow_header(self, handler, mock_http_handler):
+        result = handler.handle("/api/v1/breakpoints/bp-001/resolve", {}, mock_http_handler)
         assert result.headers.get("Allow") == "POST"
 
 
@@ -605,15 +527,11 @@ class TestResolveMethodNotAllowed:
 class TestResolveBreakpoint:
     """Tests for resolving a breakpoint via POST."""
 
-    def test_successful_resolve_continue(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_successful_resolve_continue(self, handler, mock_manager, mock_http_handler):
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "continue", "message": "Proceed with debate"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/dbt001_bp-001/resolve",
@@ -627,15 +545,11 @@ class TestResolveBreakpoint:
         assert resp["action"] == "continue"
         assert resp["message"] == "Proceed with debate"
 
-    def test_successful_resolve_abort(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_successful_resolve_abort(self, handler, mock_manager, mock_http_handler):
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "abort", "message": "Cancel this debate"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -645,9 +559,7 @@ class TestResolveBreakpoint:
         assert _status(result) == 200
         assert _body(result)["action"] == "abort"
 
-    def test_successful_resolve_redirect(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_successful_resolve_redirect(self, handler, mock_manager, mock_http_handler):
         mock_manager.resolve_breakpoint.return_value = True
         body = {
             "action": "redirect",
@@ -655,9 +567,7 @@ class TestResolveBreakpoint:
             "redirect_task": "Evaluate alternative proposal",
         }
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -667,15 +577,11 @@ class TestResolveBreakpoint:
         assert _status(result) == 200
         assert _body(result)["action"] == "redirect"
 
-    def test_successful_resolve_inject(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_successful_resolve_inject(self, handler, mock_manager, mock_http_handler):
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "inject", "message": "Consider this new evidence"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -685,9 +591,7 @@ class TestResolveBreakpoint:
         assert _status(result) == 200
         assert _body(result)["action"] == "inject"
 
-    def test_missing_action(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_missing_action(self, handler, mock_manager, mock_http_handler):
         body = {"message": "No action specified"}
         result = handler.handle_post(
             "/api/v1/breakpoints/bp-001/resolve",
@@ -697,9 +601,7 @@ class TestResolveBreakpoint:
         assert _status(result) == 400
         assert "action" in _body(result)["error"].lower()
 
-    def test_empty_action(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_empty_action(self, handler, mock_manager, mock_http_handler):
         body = {"action": "", "message": "Empty action"}
         result = handler.handle_post(
             "/api/v1/breakpoints/bp-001/resolve",
@@ -709,9 +611,7 @@ class TestResolveBreakpoint:
         assert _status(result) == 400
         assert "action" in _body(result)["error"].lower()
 
-    def test_invalid_action(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_invalid_action(self, handler, mock_manager, mock_http_handler):
         body = {"action": "destroy", "message": "Bad action"}
         result = handler.handle_post(
             "/api/v1/breakpoints/bp-001/resolve",
@@ -723,16 +623,12 @@ class TestResolveBreakpoint:
         assert "destroy" in body_resp["error"]
         assert "continue" in body_resp["error"]
 
-    def test_resolve_not_found(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_resolve_not_found(self, handler, mock_manager, mock_http_handler):
         """Breakpoint doesn't exist or already resolved."""
         mock_manager.resolve_breakpoint.return_value = False
         body = {"action": "continue", "message": "Go on"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-999/resolve",
@@ -744,9 +640,7 @@ class TestResolveBreakpoint:
         assert "Failed to resolve" in body_resp["error"]
         assert body_resp["breakpoint_id"] == "bp-999"
 
-    def test_module_unavailable_no_manager(
-        self, handler_no_manager, mock_http_handler
-    ):
+    def test_module_unavailable_no_manager(self, handler_no_manager, mock_http_handler):
         body = {"action": "continue", "message": "test"}
         result = handler_no_manager.handle_post(
             "/api/v1/breakpoints/bp-001/resolve",
@@ -755,9 +649,7 @@ class TestResolveBreakpoint:
         )
         assert _status(result) == 503
 
-    def test_module_unavailable_guidance_class_none(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_module_unavailable_guidance_class_none(self, handler, mock_manager, mock_http_handler):
         """HumanGuidance class is None (import failed)."""
         body = {"action": "continue", "message": "test"}
 
@@ -772,16 +664,12 @@ class TestResolveBreakpoint:
             )
         assert _status(result) == 503
 
-    def test_default_message_empty_string(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_default_message_empty_string(self, handler, mock_manager, mock_http_handler):
         """Missing message defaults to empty string."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "continue"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -791,9 +679,7 @@ class TestResolveBreakpoint:
         assert _status(result) == 200
         assert _body(result)["message"] == ""
 
-    def test_reviewer_id_passed(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_reviewer_id_passed(self, handler, mock_manager, mock_http_handler):
         """Custom reviewer_id is passed to HumanGuidance."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {
@@ -802,9 +688,7 @@ class TestResolveBreakpoint:
             "reviewer_id": "user-42",
         }
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -814,16 +698,12 @@ class TestResolveBreakpoint:
             call_kwargs = mock_guidance_cls.call_args
             assert call_kwargs[1]["human_id"] == "user-42"
 
-    def test_default_reviewer_id(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_default_reviewer_id(self, handler, mock_manager, mock_http_handler):
         """Missing reviewer_id defaults to 'api_user'."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -833,16 +713,12 @@ class TestResolveBreakpoint:
             call_kwargs = mock_guidance_cls.call_args
             assert call_kwargs[1]["human_id"] == "api_user"
 
-    def test_debate_id_extracted_from_breakpoint_id(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_debate_id_extracted_from_breakpoint_id(self, handler, mock_manager, mock_http_handler):
         """debate_id is extracted from breakpoint_id when it contains underscore."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/dbt001_bp001/resolve",
@@ -852,16 +728,12 @@ class TestResolveBreakpoint:
             call_kwargs = mock_guidance_cls.call_args
             assert call_kwargs[1]["debate_id"] == "dbt001"
 
-    def test_debate_id_empty_when_no_underscore(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_debate_id_empty_when_no_underscore(self, handler, mock_manager, mock_http_handler):
         """debate_id is empty string when breakpoint_id has no underscore."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp001/resolve",
@@ -871,9 +743,7 @@ class TestResolveBreakpoint:
             call_kwargs = mock_guidance_cls.call_args
             assert call_kwargs[1]["debate_id"] == ""
 
-    def test_redirect_task_passed(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_redirect_task_passed(self, handler, mock_manager, mock_http_handler):
         """redirect_task is passed as preferred_direction."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {
@@ -882,9 +752,7 @@ class TestResolveBreakpoint:
             "redirect_task": "New task",
         }
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -894,9 +762,7 @@ class TestResolveBreakpoint:
             call_kwargs = mock_guidance_cls.call_args
             assert call_kwargs[1]["preferred_direction"] == "New task"
 
-    def test_post_non_matching_path_returns_none(
-        self, handler, mock_http_handler
-    ):
+    def test_post_non_matching_path_returns_none(self, handler, mock_http_handler):
         """POST to non-matching path returns None."""
         result = handler.handle_post(
             "/api/v1/other/endpoint",
@@ -905,9 +771,7 @@ class TestResolveBreakpoint:
         )
         assert result is None
 
-    def test_post_to_status_returns_none(
-        self, handler, mock_http_handler
-    ):
+    def test_post_to_status_returns_none(self, handler, mock_http_handler):
         """POST to status action returns None (only resolve is handled)."""
         result = handler.handle_post(
             "/api/v1/breakpoints/bp-001/status",
@@ -916,17 +780,11 @@ class TestResolveBreakpoint:
         )
         assert result is None
 
-    def test_attribute_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        mock_manager.resolve_breakpoint.side_effect = AttributeError(
-            "mock error"
-        )
+    def test_attribute_error_returns_500(self, handler, mock_manager, mock_http_handler):
+        mock_manager.resolve_breakpoint.side_effect = AttributeError("mock error")
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -935,17 +793,11 @@ class TestResolveBreakpoint:
             )
         assert _status(result) == 500
 
-    def test_runtime_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        mock_manager.resolve_breakpoint.side_effect = RuntimeError(
-            "mock error"
-        )
+    def test_runtime_error_returns_500(self, handler, mock_manager, mock_http_handler):
+        mock_manager.resolve_breakpoint.side_effect = RuntimeError("mock error")
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -954,17 +806,11 @@ class TestResolveBreakpoint:
             )
         assert _status(result) == 500
 
-    def test_value_error_returns_500(
-        self, handler, mock_manager, mock_http_handler
-    ):
-        mock_manager.resolve_breakpoint.side_effect = ValueError(
-            "mock error"
-        )
+    def test_value_error_returns_500(self, handler, mock_manager, mock_http_handler):
+        mock_manager.resolve_breakpoint.side_effect = ValueError("mock error")
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -973,16 +819,12 @@ class TestResolveBreakpoint:
             )
         assert _status(result) == 500
 
-    def test_import_error_returns_503(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_import_error_returns_503(self, handler, mock_manager, mock_http_handler):
         """ImportError in resolve is caught and returns 503."""
         body = {"action": "continue", "message": "test"}
 
         # Simulate ImportError by making HumanGuidance constructor raise ImportError
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.side_effect = ImportError(
                 "No module named 'aragora.debate.breakpoints'"
             )
@@ -1002,21 +844,13 @@ class TestResolveBreakpoint:
 class TestUnknownRoutes:
     """Tests for handling unknown routes."""
 
-    def test_handle_returns_none_for_unknown(
-        self, handler, mock_http_handler
-    ):
-        result = handler.handle(
-            "/api/v1/other/path", {}, mock_http_handler
-        )
+    def test_handle_returns_none_for_unknown(self, handler, mock_http_handler):
+        result = handler.handle("/api/v1/other/path", {}, mock_http_handler)
         assert result is None
 
-    def test_handle_returns_none_for_base_breakpoints_action(
-        self, handler, mock_http_handler
-    ):
+    def test_handle_returns_none_for_base_breakpoints_action(self, handler, mock_http_handler):
         """A breakpoint ID without an action returns None (doesn't match pattern)."""
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001", {}, mock_http_handler)
         assert result is None
 
 
@@ -1029,23 +863,15 @@ class TestRateLimiting:
     """Tests for rate limiting on breakpoints endpoints."""
 
     def test_rate_limit_exceeded(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.breakpoints._breakpoints_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.breakpoints._breakpoints_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = handler.handle(
-                "/api/v1/breakpoints", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         assert _status(result) == 429
         assert "rate limit" in _body(result)["error"].lower()
 
-    def test_rate_limit_allowed(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_rate_limit_allowed(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_pending_breakpoints.return_value = []
-        result = handler.handle(
-            "/api/v1/breakpoints", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         assert _status(result) == 200
 
     def test_rate_limiter_config(self):
@@ -1063,37 +889,23 @@ class TestRateLimiting:
 class TestInputValidation:
     """Tests for path segment validation."""
 
-    def test_valid_alphanumeric_id(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_valid_alphanumeric_id(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.return_value = None
-        result = handler.handle(
-            "/api/v1/breakpoints/abc123/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/abc123/status", {}, mock_http_handler)
         # Valid ID, breakpoint not found
         assert _status(result) == 404
 
-    def test_valid_id_with_hyphens(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_valid_id_with_hyphens(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.return_value = None
-        result = handler.handle(
-            "/api/v1/breakpoints/bp-001-test/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp-001-test/status", {}, mock_http_handler)
         assert _status(result) == 404
 
-    def test_valid_id_with_underscores(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_valid_id_with_underscores(self, handler, mock_manager, mock_http_handler):
         mock_manager.get_breakpoint.return_value = None
-        result = handler.handle(
-            "/api/v1/breakpoints/bp_001_test/status", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints/bp_001_test/status", {}, mock_http_handler)
         assert _status(result) == 404
 
-    def test_post_invalid_id_with_special_chars(
-        self, handler, mock_http_handler
-    ):
+    def test_post_invalid_id_with_special_chars(self, handler, mock_http_handler):
         """IDs with special characters in POST are rejected by the regex pattern."""
         result = handler.handle_post(
             "/api/v1/breakpoints/bp@001/resolve",
@@ -1163,9 +975,7 @@ class TestSecurity:
         # Pattern matches but validate_path_segment rejects (>64 chars)
         assert _status(result) == 400
 
-    def test_long_id_rejected_in_post(
-        self, handler, mock_http_handler
-    ):
+    def test_long_id_rejected_in_post(self, handler, mock_http_handler):
         """Very long IDs are rejected in POST as well."""
         long_id = "a" * 100
         result = handler.handle_post(
@@ -1175,16 +985,12 @@ class TestSecurity:
         )
         assert _status(result) == 400
 
-    def test_error_messages_sanitized(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_error_messages_sanitized(self, handler, mock_manager, mock_http_handler):
         """Error messages don't leak internal details."""
         mock_manager.get_pending_breakpoints.side_effect = RuntimeError(
             "/internal/path/to/database.db connection failed"
         )
-        result = handler.handle(
-            "/api/v1/breakpoints", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         body_resp = _body(result)
         assert "/internal/path" not in body_resp["error"]
 
@@ -1207,37 +1013,24 @@ class TestSecurity:
 class TestEdgeCases:
     """Tests for edge cases."""
 
-    def test_single_breakpoint_in_list(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_single_breakpoint_in_list(self, handler, mock_manager, mock_http_handler):
         bp = MockBreakpoint()
         mock_manager.get_pending_breakpoints.return_value = [bp]
-        result = handler.handle(
-            "/api/v1/breakpoints", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         body = _body(result)
         assert body["count"] == 1
         assert len(body["breakpoints"]) == 1
 
-    def test_many_breakpoints(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_many_breakpoints(self, handler, mock_manager, mock_http_handler):
         """Handler can return many breakpoints."""
-        breakpoints = [
-            MockBreakpoint(breakpoint_id=f"bp-{i:03d}")
-            for i in range(50)
-        ]
+        breakpoints = [MockBreakpoint(breakpoint_id=f"bp-{i:03d}") for i in range(50)]
         mock_manager.get_pending_breakpoints.return_value = breakpoints
-        result = handler.handle(
-            "/api/v1/breakpoints", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
         body = _body(result)
         assert body["count"] == 50
         assert len(body["breakpoints"]) == 50
 
-    def test_resolve_with_empty_body(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_resolve_with_empty_body(self, handler, mock_manager, mock_http_handler):
         """Empty body returns 400 for missing action."""
         result = handler.handle_post(
             "/api/v1/breakpoints/bp-001/resolve",
@@ -1246,9 +1039,7 @@ class TestEdgeCases:
         )
         assert _status(result) == 400
 
-    def test_resolve_with_extra_fields(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_resolve_with_extra_fields(self, handler, mock_manager, mock_http_handler):
         """Extra fields in body are ignored gracefully."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {
@@ -1258,9 +1049,7 @@ class TestEdgeCases:
             "another": 42,
         }
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -1269,16 +1058,12 @@ class TestEdgeCases:
             )
         assert _status(result) == 200
 
-    def test_different_triggers(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_different_triggers(self, handler, mock_manager, mock_http_handler):
         """Different trigger types are returned correctly."""
         for trigger in MockTrigger:
             bp = MockBreakpoint(trigger=trigger)
             mock_manager.get_pending_breakpoints.return_value = [bp]
-            result = handler.handle(
-                "/api/v1/breakpoints", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/breakpoints", {}, mock_http_handler)
             body = _body(result)
             assert body["breakpoints"][0]["trigger"] == trigger.value
 
@@ -1288,9 +1073,7 @@ class TestEdgeCases:
         h1.breakpoint_manager = mock_manager
         h2 = BreakpointsHandler()
         h2.breakpoint_manager = MagicMock()
-        h2.breakpoint_manager.get_pending_breakpoints.return_value = [
-            MockBreakpoint()
-        ]
+        h2.breakpoint_manager.get_pending_breakpoints.return_value = [MockBreakpoint()]
 
         mock_manager.get_pending_breakpoints.return_value = []
 
@@ -1306,32 +1089,24 @@ class TestEdgeCases:
 
     def test_breakpoint_pattern_regex_groups(self, handler):
         """Regex pattern captures ID and action correctly."""
-        match = handler.BREAKPOINT_PATTERN.match(
-            "/api/v1/breakpoints/test-id_123/resolve"
-        )
+        match = handler.BREAKPOINT_PATTERN.match("/api/v1/breakpoints/test-id_123/resolve")
         assert match is not None
         assert match.group(1) == "test-id_123"
         assert match.group(2) == "resolve"
 
-        match2 = handler.BREAKPOINT_PATTERN.match(
-            "/api/v1/breakpoints/abc/status"
-        )
+        match2 = handler.BREAKPOINT_PATTERN.match("/api/v1/breakpoints/abc/status")
         assert match2 is not None
         assert match2.group(1) == "abc"
         assert match2.group(2) == "status"
 
-    def test_all_valid_actions(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_all_valid_actions(self, handler, mock_manager, mock_http_handler):
         """All four valid actions are accepted."""
         valid_actions = ["continue", "abort", "redirect", "inject"]
         for action in valid_actions:
             mock_manager.resolve_breakpoint.return_value = True
             body = {"action": action, "message": "test"}
 
-            with patch(
-                "aragora.server.handlers.breakpoints.HumanGuidance"
-            ) as mock_guidance_cls:
+            with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
                 mock_guidance_cls.return_value = MagicMock()
                 result = handler.handle_post(
                     "/api/v1/breakpoints/bp-001/resolve",
@@ -1341,16 +1116,12 @@ class TestEdgeCases:
             assert _status(result) == 200, f"Action '{action}' failed"
             assert _body(result)["action"] == action
 
-    def test_guidance_receives_correct_action(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_guidance_receives_correct_action(self, handler, mock_manager, mock_http_handler):
         """HumanGuidance is constructed with the correct action."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "redirect", "message": "go elsewhere"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",
@@ -1361,16 +1132,12 @@ class TestEdgeCases:
             assert call_kwargs["action"] == "redirect"
             assert call_kwargs["reasoning"] == "go elsewhere"
 
-    def test_guidance_id_is_uuid(
-        self, handler, mock_manager, mock_http_handler
-    ):
+    def test_guidance_id_is_uuid(self, handler, mock_manager, mock_http_handler):
         """HumanGuidance is constructed with a UUID guidance_id."""
         mock_manager.resolve_breakpoint.return_value = True
         body = {"action": "continue", "message": "test"}
 
-        with patch(
-            "aragora.server.handlers.breakpoints.HumanGuidance"
-        ) as mock_guidance_cls:
+        with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
             result = handler.handle_post(
                 "/api/v1/breakpoints/bp-001/resolve",

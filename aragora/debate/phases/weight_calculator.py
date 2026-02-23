@@ -186,7 +186,9 @@ class WeightCache:
         with self._lock:
             self._elo_version += 1
             logger.debug(
-                "Weight cache ELO invalidation: session=%s version=%s", self.session_id, self._elo_version
+                "Weight cache ELO invalidation: session=%s version=%s",
+                self.session_id,
+                self._elo_version,
             )
 
     def invalidate_agent(self, agent_name: str) -> None:
@@ -432,7 +434,9 @@ class WeightCalculator:
         if self._enable_cache and session_id:
             self._weight_cache = get_weight_cache(session_id, cache_ttl_seconds)
             logger.debug(
-                "Weight calculator caching enabled: session=%s ttl=%ss", session_id, cache_ttl_seconds
+                "Weight calculator caching enabled: session=%s ttl=%ss",
+                session_id,
+                cache_ttl_seconds,
             )
 
     def compute_weights(self, agents: list[Agent]) -> dict[str, float]:
@@ -661,7 +665,10 @@ class WeightCalculator:
 
         if is_self_vote:
             logger.info(
-                "self_vote_detected agent=%s choice=%s mode=%s", agent_name, vote.choice, self.config.self_vote_mode
+                "self_vote_detected agent=%s choice=%s mode=%s",
+                agent_name,
+                vote.choice,
+                self.config.self_vote_mode,
             )
 
             if self.config.self_vote_mode == "exclude":

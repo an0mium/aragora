@@ -802,7 +802,10 @@ class SecretsRotationScheduler:
         await self._notify_rotation_completed(rotation)
 
         logger.info(
-            "Secret rotation %s: secret=%s, status=%s", rotation.rotation_id, secret_id, rotation.status.value
+            "Secret rotation %s: secret=%s, status=%s",
+            rotation.rotation_id,
+            secret_id,
+            rotation.status.value,
         )
 
         return rotation

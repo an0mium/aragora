@@ -490,8 +490,10 @@ def _preinstall_fake_sentence_transformers():
             if single:
                 sentences = [sentences]
             result = np.array(
-                [np.random.RandomState(hash(t) % 2**32).randn(384).astype(np.float32)
-                 for t in sentences]
+                [
+                    np.random.RandomState(hash(t) % 2**32).randn(384).astype(np.float32)
+                    for t in sentences
+                ]
             )
             return result[0] if single else result
 

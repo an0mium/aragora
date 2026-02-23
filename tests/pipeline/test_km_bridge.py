@@ -121,9 +121,7 @@ class TestQuerySimilarGoals:
         mock_km.search.return_value = []
 
         bridge = PipelineKMBridge(knowledge_mound=mock_km)
-        goal_graph = MockGoalGraph(
-            goals=[MockGoalNode(id="g1", title="Build something")]
-        )
+        goal_graph = MockGoalGraph(goals=[MockGoalNode(id="g1", title="Build something")])
 
         results = bridge.query_similar_goals(goal_graph)
         assert results == {"g1": []}
@@ -133,9 +131,7 @@ class TestQuerySimilarGoals:
         bridge = PipelineKMBridge.__new__(PipelineKMBridge)
         bridge._km = None
 
-        goal_graph = MockGoalGraph(
-            goals=[MockGoalNode(id="g1", title="Build something")]
-        )
+        goal_graph = MockGoalGraph(goals=[MockGoalNode(id="g1", title="Build something")])
 
         results = bridge.query_similar_goals(goal_graph)
         assert results == {}
@@ -146,9 +142,7 @@ class TestQuerySimilarGoals:
         mock_km.search.side_effect = RuntimeError("search failed")
 
         bridge = PipelineKMBridge(knowledge_mound=mock_km)
-        goal_graph = MockGoalGraph(
-            goals=[MockGoalNode(id="g1", title="Build something")]
-        )
+        goal_graph = MockGoalGraph(goals=[MockGoalNode(id="g1", title="Build something")])
 
         results = bridge.query_similar_goals(goal_graph)
         assert results == {"g1": []}
@@ -180,9 +174,7 @@ class TestQuerySimilarActions:
         bridge = PipelineKMBridge.__new__(PipelineKMBridge)
         bridge._km = None
 
-        canvas = MockCanvas(
-            nodes={"a1": MockCanvasNode(label="Deploy")}
-        )
+        canvas = MockCanvas(nodes={"a1": MockCanvasNode(label="Deploy")})
 
         results = bridge.query_similar_actions(canvas)
         assert results == {}
@@ -221,9 +213,7 @@ class TestEnrichWithPrecedents:
         bridge = PipelineKMBridge.__new__(PipelineKMBridge)
         bridge._km = None
 
-        goal_graph = MockGoalGraph(
-            goals=[MockGoalNode(id="g1", title="Build something")]
-        )
+        goal_graph = MockGoalGraph(goals=[MockGoalNode(id="g1", title="Build something")])
 
         precedents = {"g999": [{"title": "Irrelevant", "similarity": 0.5}]}
 
@@ -264,12 +254,8 @@ class TestGracefulDegradation:
         bridge = PipelineKMBridge.__new__(PipelineKMBridge)
         bridge._km = None
 
-        goal_graph = MockGoalGraph(
-            goals=[MockGoalNode(id="g1", title="Test")]
-        )
-        canvas = MockCanvas(
-            nodes={"a1": MockCanvasNode(label="Test")}
-        )
+        goal_graph = MockGoalGraph(goals=[MockGoalNode(id="g1", title="Test")])
+        canvas = MockCanvas(nodes={"a1": MockCanvasNode(label="Test")})
 
         assert bridge.available is False
         assert bridge.query_similar_goals(goal_graph) == {}
@@ -472,9 +458,11 @@ class TestQueryAllAdapterPrecedents:
         bridge._km = None
 
         # Patch all three adapter factories to return empty results
-        with patch.object(bridge, "query_receipt_precedents", return_value=[]), \
-             patch.object(bridge, "query_outcome_precedents", return_value=[]), \
-             patch.object(bridge, "query_debate_precedents", return_value=[]):
+        with (
+            patch.object(bridge, "query_receipt_precedents", return_value=[]),
+            patch.object(bridge, "query_outcome_precedents", return_value=[]),
+            patch.object(bridge, "query_debate_precedents", return_value=[]),
+        ):
             results = bridge.query_all_adapter_precedents("some goal")
 
         assert "receipts" in results
@@ -507,7 +495,8 @@ class TestEnrichGoalsWithAdapterPrecedents:
         }
 
         with patch.object(
-            bridge, "query_all_adapter_precedents",
+            bridge,
+            "query_all_adapter_precedents",
             side_effect=[mock_precs, {"receipts": [], "outcomes": [], "debates": []}],
         ):
             result = bridge.enrich_goals_with_adapter_precedents(goal_graph)
@@ -526,12 +515,11 @@ class TestEnrichGoalsWithAdapterPrecedents:
         bridge = PipelineKMBridge.__new__(PipelineKMBridge)
         bridge._km = None
 
-        goal_graph = MockGoalGraph(
-            goals=[MockGoalNode(id="g1", title="Build something")]
-        )
+        goal_graph = MockGoalGraph(goals=[MockGoalNode(id="g1", title="Build something")])
 
         with patch.object(
-            bridge, "query_all_adapter_precedents",
+            bridge,
+            "query_all_adapter_precedents",
             side_effect=RuntimeError("adapter failed"),
         ):
             # Should not raise

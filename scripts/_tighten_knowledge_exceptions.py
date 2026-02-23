@@ -25,11 +25,13 @@ CALLBACK_TUPLE = "(RuntimeError, ValueError, TypeError, AttributeError)"
 STORE_TUPLE = "(RuntimeError, ValueError, OSError, AttributeError)"
 QUERY_TUPLE = "(RuntimeError, ValueError, OSError, AttributeError, KeyError)"
 
+
 def get_context_lines(lines, idx, window=8):
     """Get surrounding lines for context analysis."""
     start = max(0, idx - window)
     end = min(len(lines), idx + window)
     return "\n".join(lines[start:end])
+
 
 def determine_replacement(lines, idx, filepath):
     """Determine the replacement exception tuple based on context."""
@@ -46,27 +48,50 @@ def determine_replacement(lines, idx, filepath):
     ctx_lower = context.lower()
 
     # Redis operations
-    if any(kw in ctx_lower for kw in ['redis', 'cache_key', 'cache.get', 'cache.set', 'r.get', 'r.set', 'r.hget', 'r.expire']):
+    if any(
+        kw in ctx_lower
+        for kw in [
+            "redis",
+            "cache_key",
+            "cache.get",
+            "cache.set",
+            "r.get",
+            "r.set",
+            "r.hget",
+            "r.expire",
+        ]
+    ):
         return REDIS_TUPLE, is_inner
 
     # JSON parsing
-    if any(kw in ctx_lower for kw in ['json.loads', 'json.dumps', 'json_data', 'json.decoder', 'jsondecodeerror']):
+    if any(
+        kw in ctx_lower
+        for kw in ["json.loads", "json.dumps", "json_data", "json.decoder", "jsondecodeerror"]
+    ):
         return JSON_TUPLE, is_inner
 
     # Health checks
-    if any(kw in ctx_lower for kw in ['health_check', 'is_healthy', 'health_status', 'readiness']):
+    if any(kw in ctx_lower for kw in ["health_check", "is_healthy", "health_status", "readiness"]):
         return HEALTH_TUPLE, True  # Health checks always noqa
 
     # Event callbacks
-    if any(kw in ctx_lower for kw in ['_emit_event', 'event_callback', 'callback(', '_event_callback']):
+    if any(
+        kw in ctx_lower for kw in ["_emit_event", "event_callback", "callback(", "_event_callback"]
+    ):
         return CALLBACK_TUPLE, True  # Callbacks always noqa
 
     # Network/API operations
-    if any(kw in ctx_lower for kw in ['connect', 'request', 'fetch', 'http', 'grpc', 'timeout', 'socket']):
+    if any(
+        kw in ctx_lower
+        for kw in ["connect", "request", "fetch", "http", "grpc", "timeout", "socket"]
+    ):
         return NETWORK_TUPLE, is_inner
 
     # Database/store operations
-    if any(kw in ctx_lower for kw in ['postgres', 'sqlite', 'database', 'cursor', 'execute', 'query(', 'pool']):
+    if any(
+        kw in ctx_lower
+        for kw in ["postgres", "sqlite", "database", "cursor", "execute", "query(", "pool"]
+    ):
         return DB_TUPLE, is_inner
 
     # File path based heuristics
@@ -74,37 +99,37 @@ def determine_replacement(lines, idx, filepath):
     dirpath = os.path.dirname(filepath)
 
     # Vector abstraction layer
-    if 'vector_abstraction' in dirpath:
+    if "vector_abstraction" in dirpath:
         return API_TUPLE, is_inner
 
     # Resilience layer
-    if 'resilience' in dirpath:
-        if 'circuit' in basename:
+    if "resilience" in dirpath:
+        if "circuit" in basename:
             return "(RuntimeError, OSError, ConnectionError, TimeoutError)", is_inner
         return STORE_TUPLE, is_inner
 
     # API layer
-    if '/api/' in dirpath:
+    if "/api/" in dirpath:
         return QUERY_TUPLE, is_inner
 
     # Culture layer
-    if 'culture' in dirpath:
+    if "culture" in dirpath:
         return ADAPTER_OUTER_TUPLE, is_inner
 
     # Adapter files
-    if 'adapter' in basename or 'adapters' in dirpath:
+    if "adapter" in basename or "adapters" in dirpath:
         if is_inner:
             return ADAPTER_INNER_TUPLE, True
         return ADAPTER_OUTER_TUPLE, False
 
     # Ops files
-    if '/ops/' in dirpath:
+    if "/ops/" in dirpath:
         if is_inner:
             return ADAPTER_INNER_TUPLE, True
         return ADAPTER_OUTER_TUPLE, False
 
     # Default for mound files
-    if 'mound' in dirpath:
+    if "mound" in dirpath:
         if is_inner:
             return ADAPTER_INNER_TUPLE, True
         return STORE_TUPLE, False
@@ -117,22 +142,24 @@ def determine_replacement(lines, idx, filepath):
 
 def process_file(filepath):
     """Process a single file, replacing except Exception catches."""
-    with open(filepath, 'r') as f:
+    with open(filepath, "r") as f:
         content = f.read()
 
-    lines = content.split('\n')
+    lines = content.split("\n")
     replacements = 0
     new_lines = []
 
     for i, line in enumerate(lines):
         # Match except Exception patterns
-        match = re.match(r'^(\s*)except Exception(\s+as\s+\w+)?:', line)
+        match = re.match(r"^(\s*)except Exception(\s+as\s+\w+)?:", line)
         if match:
             indent = match.group(1)
             as_clause = match.group(2) or ""
 
             # Skip the intentional savepoint rollback catch
-            if 'transaction.py' in filepath and 'ROLLBACK TO SAVEPOINT' in get_context_lines(lines, i, 3):
+            if "transaction.py" in filepath and "ROLLBACK TO SAVEPOINT" in get_context_lines(
+                lines, i, 3
+            ):
                 new_lines.append(line)
                 continue
 
@@ -151,8 +178,8 @@ def process_file(filepath):
             new_lines.append(line)
 
     if replacements > 0:
-        with open(filepath, 'w') as f:
-            f.write('\n'.join(new_lines))
+        with open(filepath, "w") as f:
+            f.write("\n".join(new_lines))
 
     return replacements
 
@@ -163,17 +190,19 @@ def main():
 
     # Find all files with except Exception
     result = subprocess.run(
-        ['grep', '-rl', 'except Exception', 'aragora/knowledge/', '--include=*.py'],
-        capture_output=True, text=True, cwd='/Users/armand/Development/aragora'
+        ["grep", "-rl", "except Exception", "aragora/knowledge/", "--include=*.py"],
+        capture_output=True,
+        text=True,
+        cwd="/Users/armand/Development/aragora",
     )
 
-    files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
+    files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
 
     total_replacements = 0
     total_files = 0
 
     for filepath in sorted(files):
-        full_path = os.path.join('/Users/armand/Development/aragora', filepath)
+        full_path = os.path.join("/Users/armand/Development/aragora", filepath)
         count = process_file(full_path)
         if count > 0:
             total_files += 1
@@ -183,5 +212,5 @@ def main():
     print(f"\nTotal: {total_replacements} replacements across {total_files} files")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

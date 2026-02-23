@@ -188,7 +188,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_happy_path(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_happy_path(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_summary = FakeSummary()
         mock_run_async.return_value = fake_summary
         mock_get_dash.return_value = MagicMock()
@@ -207,7 +209,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_default_time_range(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_default_time_range(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_summary = FakeSummary()
         mock_run_async.return_value = fake_summary
         mock_get_dash.return_value = MagicMock()
@@ -260,7 +264,10 @@ class TestGetSummary:
 
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    @patch("aragora.server.handlers.analytics_dashboard._run_async", side_effect=RuntimeError("event loop"))
+    @patch(
+        "aragora.server.handlers.analytics_dashboard._run_async",
+        side_effect=RuntimeError("event loop"),
+    )
     def test_summary_runtime_error(self, _mock_run, _mock_tr, _mock_dash, handler, mock_http):
         result = handler._get_summary(
             {"workspace_id": "ws_123"},
@@ -281,7 +288,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_key_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_key_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = KeyError("missing_key")
         mock_get_dash.return_value = MagicMock()
@@ -296,7 +305,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_type_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_type_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = TypeError("bad type")
         mock_get_dash.return_value = MagicMock()
@@ -311,7 +322,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_attribute_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_attribute_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = AttributeError("no attr")
         mock_get_dash.return_value = MagicMock()
@@ -326,7 +339,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_includes_all_fields(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_includes_all_fields(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_summary = FakeSummary()
         mock_run_async.return_value = fake_summary
         mock_get_dash.return_value = MagicMock()
@@ -346,7 +361,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_various_time_ranges(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_various_time_ranges(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         """Test that different valid time_range values are passed through."""
         fake_summary = FakeSummary()
         mock_run_async.return_value = fake_summary
@@ -363,7 +380,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_calls_dashboard_correctly(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_calls_dashboard_correctly(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_summary = FakeSummary()
         mock_run_async.return_value = fake_summary
         mock_dashboard = MagicMock()
@@ -381,7 +400,9 @@ class TestGetSummary:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_custom_values(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_custom_values(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         custom = FakeSummary(total_debates=100, consensus_rate=95.5)
         mock_run_async.return_value = custom
         mock_get_dash.return_value = MagicMock()
@@ -408,7 +429,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_happy_path(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_happy_path(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         trends = [FakeTrend(), FakeTrend(date="2026-02-21", findings=3, resolved=2)]
         mock_arun.return_value = trends
         mock_get_dash.return_value = MagicMock()
@@ -430,7 +453,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_default_params(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_default_params(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_arun.return_value = [FakeTrend()]
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -491,7 +516,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run", side_effect=RuntimeError("event loop"))
-    def test_trends_runtime_error(self, _mock_arun, _mock_g, _mock_tr, _mock_dash, handler, mock_http):
+    def test_trends_runtime_error(
+        self, _mock_arun, _mock_g, _mock_tr, _mock_dash, handler, mock_http
+    ):
         result = handler._get_finding_trends(
             {"workspace_id": "ws_123"},
             handler=mock_http,
@@ -513,7 +540,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_key_error(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_key_error(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         bad_trend = MagicMock()
         bad_trend.to_dict.side_effect = KeyError("missing_key")
         mock_arun.return_value = [bad_trend]
@@ -531,7 +560,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_type_error(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_type_error(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         bad_trend = MagicMock()
         bad_trend.to_dict.side_effect = TypeError("bad type")
         mock_arun.return_value = [bad_trend]
@@ -549,7 +580,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_attribute_error(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_attribute_error(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_arun.side_effect = AttributeError("no attr")
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -565,7 +598,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_empty_result(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_empty_result(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_arun.return_value = []
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -583,7 +618,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_calls_dashboard_correctly(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_calls_dashboard_correctly(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_arun.return_value = []
         mock_dashboard = MagicMock()
         mock_get_dash.return_value = mock_dashboard
@@ -598,13 +635,17 @@ class TestGetFindingTrends:
         )
         mock_time_range.assert_called_with("7d")
         mock_granularity.assert_called_with("hour")
-        mock_dashboard.get_finding_trends.assert_called_once_with("ws_abc", mock_tr_instance, mock_g_instance)
+        mock_dashboard.get_finding_trends.assert_called_once_with(
+            "ws_abc", mock_tr_instance, mock_g_instance
+        )
 
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_various_granularities(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_various_granularities(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_arun.return_value = []
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -621,7 +662,9 @@ class TestGetFindingTrends:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_response_structure(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_response_structure(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         trends = [FakeTrend(date="2026-02-20", findings=5, resolved=3)]
         mock_arun.return_value = trends
         mock_get_dash.return_value = MagicMock()
@@ -653,7 +696,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_happy_path(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_happy_path(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeRemediationMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()
@@ -674,7 +719,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_default_time_range(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_default_time_range(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeRemediationMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()
@@ -722,7 +769,9 @@ class TestGetRemediationMetrics:
 
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    @patch("aragora.server.handlers.analytics_dashboard._run_async", side_effect=RuntimeError("boom"))
+    @patch(
+        "aragora.server.handlers.analytics_dashboard._run_async", side_effect=RuntimeError("boom")
+    )
     def test_remediation_runtime_error(self, _mock_run, _mock_tr, _mock_dash, handler, mock_http):
         result = handler._get_remediation_metrics(
             {"workspace_id": "ws_123"},
@@ -743,7 +792,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_key_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_key_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = KeyError("missing_key")
         mock_get_dash.return_value = MagicMock()
@@ -758,7 +809,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_type_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_type_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = TypeError("bad type")
         mock_get_dash.return_value = MagicMock()
@@ -773,7 +826,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_includes_all_fields(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_includes_all_fields(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeRemediationMetrics()
         mock_run_async.return_value = fake_metrics
         mock_get_dash.return_value = MagicMock()
@@ -795,7 +850,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_calls_dashboard_correctly(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_calls_dashboard_correctly(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         fake_metrics = FakeRemediationMetrics()
         mock_run_async.return_value = fake_metrics
         mock_dashboard = MagicMock()
@@ -813,8 +870,12 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_custom_values(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
-        custom = FakeRemediationMetrics(total_findings=100, remediated=50, pending=50, remediation_rate=50.0)
+    def test_remediation_custom_values(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
+        custom = FakeRemediationMetrics(
+            total_findings=100, remediated=50, pending=50, remediation_rate=50.0
+        )
         mock_run_async.return_value = custom
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -831,7 +892,9 @@ class TestGetRemediationMetrics:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_remediation_attribute_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_remediation_attribute_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = AttributeError("no attr")
         mock_get_dash.return_value = MagicMock()
@@ -924,7 +987,9 @@ class TestGetComplianceScorecard:
 
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_compliance_frameworks_with_spaces(self, mock_run_async, mock_get_dash, handler, mock_http):
+    def test_compliance_frameworks_with_spaces(
+        self, mock_run_async, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = []
         mock_dashboard = MagicMock()
         mock_get_dash.return_value = mock_dashboard
@@ -962,7 +1027,10 @@ class TestGetComplianceScorecard:
         assert _status(result) == 500
 
     @patch("aragora.analytics.get_analytics_dashboard")
-    @patch("aragora.server.handlers.analytics_dashboard._run_async", side_effect=RuntimeError("event loop"))
+    @patch(
+        "aragora.server.handlers.analytics_dashboard._run_async",
+        side_effect=RuntimeError("event loop"),
+    )
     def test_compliance_runtime_error(self, _mock_run, _mock_dash, handler, mock_http):
         result = handler._get_compliance_scorecard(
             {"workspace_id": "ws_123"},
@@ -980,7 +1048,9 @@ class TestGetComplianceScorecard:
         assert _status(result) == 500
 
     @patch("aragora.analytics.get_analytics_dashboard")
-    @patch("aragora.server.handlers.analytics_dashboard._run_async", side_effect=ValueError("bad val"))
+    @patch(
+        "aragora.server.handlers.analytics_dashboard._run_async", side_effect=ValueError("bad val")
+    )
     def test_compliance_value_error(self, _mock_run, _mock_dash, handler, mock_http):
         result = handler._get_compliance_scorecard(
             {"workspace_id": "ws_123"},
@@ -1072,7 +1142,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_happy_path(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_happy_path(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         cells = [
             FakeHeatmapCell("security", "high", 5),
             FakeHeatmapCell("reliability", "medium", 3),
@@ -1096,7 +1168,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_default_time_range(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_default_time_range(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = []
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -1143,7 +1217,10 @@ class TestGetRiskHeatmap:
 
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
-    @patch("aragora.server.handlers.analytics_dashboard._run_async", side_effect=RuntimeError("event loop"))
+    @patch(
+        "aragora.server.handlers.analytics_dashboard._run_async",
+        side_effect=RuntimeError("event loop"),
+    )
     def test_heatmap_runtime_error(self, _mock_run, _mock_tr, _mock_dash, handler, mock_http):
         result = handler._get_risk_heatmap(
             {"workspace_id": "ws_123"},
@@ -1164,7 +1241,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_key_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_key_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         bad_cell = MagicMock()
         bad_cell.to_dict.side_effect = KeyError("missing")
         mock_run_async.return_value = [bad_cell]
@@ -1180,7 +1259,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_type_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_type_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         bad_cell = MagicMock()
         bad_cell.to_dict.side_effect = TypeError("bad type")
         mock_run_async.return_value = [bad_cell]
@@ -1196,7 +1277,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_attribute_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_attribute_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         bad_cell = MagicMock()
         bad_cell.to_dict.side_effect = AttributeError("no attr")
         mock_run_async.return_value = [bad_cell]
@@ -1212,7 +1295,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_empty_cells(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_empty_cells(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = []
         mock_get_dash.return_value = MagicMock()
         mock_time_range.return_value = MagicMock()
@@ -1228,7 +1313,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_response_structure(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_response_structure(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         cells = [FakeHeatmapCell()]
         mock_run_async.return_value = cells
         mock_get_dash.return_value = MagicMock()
@@ -1247,7 +1334,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_calls_dashboard_correctly(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_calls_dashboard_correctly(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = []
         mock_dashboard = MagicMock()
         mock_get_dash.return_value = mock_dashboard
@@ -1264,7 +1353,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_multiple_cells(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_multiple_cells(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         cells = [
             FakeHeatmapCell("security", "critical", 10),
             FakeHeatmapCell("security", "high", 5),
@@ -1286,7 +1377,9 @@ class TestGetRiskHeatmap:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_heatmap_value_error(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_heatmap_value_error(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         """ValueError from _run_async should return 400."""
         mock_run_async.side_effect = ValueError("bad value")
         mock_get_dash.return_value = MagicMock()
@@ -1349,7 +1442,9 @@ class TestRouting:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_handle_routes_summary(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_handle_routes_summary(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         """handle() routes /api/analytics/summary to _get_summary."""
         fake_summary = FakeSummary()
         mock_run_async.return_value = fake_summary
@@ -1368,7 +1463,9 @@ class TestRouting:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_handle_routes_trends(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_handle_routes_trends(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         """handle() routes /api/analytics/trends/findings to _get_finding_trends."""
         mock_arun.return_value = [FakeTrend()]
         mock_get_dash.return_value = MagicMock()
@@ -1386,7 +1483,9 @@ class TestRouting:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_handle_routes_remediation(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_handle_routes_remediation(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         """handle() routes /api/analytics/remediation to _get_remediation_metrics."""
         mock_run_async.return_value = FakeRemediationMetrics()
         mock_get_dash.return_value = MagicMock()
@@ -1486,7 +1585,9 @@ class TestRouting:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_handle_versioned_routes_summary(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_handle_versioned_routes_summary(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         """Versioned path /api/v1/analytics/summary routes correctly."""
         mock_run_async.return_value = FakeSummary()
         mock_get_dash.return_value = MagicMock()
@@ -1626,7 +1727,9 @@ class TestErrorCodes:
     @patch("aragora.analytics.get_analytics_dashboard")
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_summary_data_error_code(self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_summary_data_error_code(
+        self, mock_run_async, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         mock_run_async.return_value = MagicMock()
         mock_run_async.return_value.to_dict.side_effect = KeyError("missing")
         mock_get_dash.return_value = MagicMock()
@@ -1645,7 +1748,9 @@ class TestErrorCodes:
     @patch("aragora.analytics.TimeRange")
     @patch("aragora.analytics.Granularity")
     @patch("asyncio.run")
-    def test_trends_data_error_code(self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http):
+    def test_trends_data_error_code(
+        self, mock_arun, mock_granularity, mock_time_range, mock_get_dash, handler, mock_http
+    ):
         bad_trend = MagicMock()
         bad_trend.to_dict.side_effect = KeyError("missing")
         mock_arun.return_value = [bad_trend]

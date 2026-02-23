@@ -275,17 +275,20 @@ class TestWorkerHealthStatus:
 
         @contextlib.contextmanager
         def _cm():
-            with patch.dict("sys.modules", {
-                "aragora.server.startup.workers": MagicMock(
-                    get_gauntlet_worker=MagicMock(return_value=gauntlet)
-                ),
-                "aragora.control_plane.notifications": MagicMock(
-                    get_default_notification_dispatcher=MagicMock(return_value=notification)
-                ),
-                "aragora.queue.workers": MagicMock(
-                    get_consensus_healing_worker=MagicMock(return_value=healing)
-                ),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.startup.workers": MagicMock(
+                        get_gauntlet_worker=MagicMock(return_value=gauntlet)
+                    ),
+                    "aragora.control_plane.notifications": MagicMock(
+                        get_default_notification_dispatcher=MagicMock(return_value=notification)
+                    ),
+                    "aragora.queue.workers": MagicMock(
+                        get_consensus_healing_worker=MagicMock(return_value=healing)
+                    ),
+                },
+            ):
                 yield
 
         return _cm()
@@ -343,17 +346,20 @@ class TestWorkerGauntletBranch:
     def test_gauntlet_running(self, mock_handler):
         """Running gauntlet worker reported correctly."""
         gauntlet = _make_gauntlet_worker(running=True, active_jobs=["j1", "j2"])
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=gauntlet)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=gauntlet)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         gauntlet_info = next(w for w in body["workers"] if w["name"] == "gauntlet")
@@ -364,17 +370,20 @@ class TestWorkerGauntletBranch:
 
     def test_gauntlet_not_initialized(self, mock_handler):
         """None gauntlet worker returns not-initialized note."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=None)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=None)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         gauntlet_info = next(w for w in body["workers"] if w["name"] == "gauntlet")
@@ -385,6 +394,7 @@ class TestWorkerGauntletBranch:
     def test_gauntlet_import_error(self, mock_handler):
         """ImportError on gauntlet adds to errors list."""
         import sys as _sys
+
         # Remove the module so the import inside the function fails
         saved = {}
         for k in list(_sys.modules.keys()):
@@ -392,6 +402,7 @@ class TestWorkerGauntletBranch:
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def fail_gauntlet(name, *args, **kwargs):
@@ -401,14 +412,17 @@ class TestWorkerGauntletBranch:
 
             with patch("builtins.__import__", side_effect=fail_gauntlet):
                 # Also ensure the other modules work
-                with patch.dict("sys.modules", {
-                    "aragora.control_plane.notifications": MagicMock(
-                        get_default_notification_dispatcher=MagicMock(return_value=None)
-                    ),
-                    "aragora.queue.workers": MagicMock(
-                        get_consensus_healing_worker=MagicMock(return_value=None)
-                    ),
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.control_plane.notifications": MagicMock(
+                            get_default_notification_dispatcher=MagicMock(return_value=None)
+                        ),
+                        "aragora.queue.workers": MagicMock(
+                            get_consensus_healing_worker=MagicMock(return_value=None)
+                        ),
+                    },
+                ):
                     result = worker_health_status(mock_handler)
         finally:
             _sys.modules.update(saved)
@@ -428,17 +442,20 @@ class TestWorkerGauntletBranch:
                 raise AttributeError("no _running")
 
         bad_worker = BadWorker()
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=bad_worker)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=bad_worker)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         assert body["errors"] is not None
@@ -446,20 +463,24 @@ class TestWorkerGauntletBranch:
 
     def test_gauntlet_runtime_error(self, mock_handler):
         """RuntimeError on gauntlet worker access adds to errors."""
+
         def raise_runtime():
             raise RuntimeError("worker crashed")
 
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(side_effect=RuntimeError("crashed"))
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(side_effect=RuntimeError("crashed"))
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         assert body["errors"] is not None
@@ -468,17 +489,20 @@ class TestWorkerGauntletBranch:
     def test_gauntlet_stopped(self, mock_handler):
         """Stopped gauntlet worker shows running=False."""
         gauntlet = _make_gauntlet_worker(running=False)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=gauntlet)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=gauntlet)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         gauntlet_info = next(w for w in body["workers"] if w["name"] == "gauntlet")
@@ -548,7 +572,10 @@ class TestWorkerNotificationBranch:
         body = _body(result)
         notif = next(w for w in body["workers"] if w["name"] == "notification")
         assert notif["running"] is False
-        assert "not initialized" in notif.get("note", "").lower() or "no worker task" in notif.get("note", "").lower()
+        assert (
+            "not initialized" in notif.get("note", "").lower()
+            or "no worker task" in notif.get("note", "").lower()
+        )
 
     def test_notification_dispatcher_none(self, mock_handler):
         """None dispatcher gives not-initialized note."""
@@ -565,12 +592,14 @@ class TestWorkerNotificationBranch:
     def test_notification_import_error(self, mock_handler):
         """ImportError on notifications module gives module-not-available note."""
         import sys as _sys
+
         saved = {}
         for k in list(_sys.modules.keys()):
             if k.startswith("aragora.control_plane.notifications"):
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def fail_notification(name, *args, **kwargs):
@@ -594,9 +623,7 @@ class TestWorkerNotificationBranch:
         """AttributeError on dispatcher access adds to errors."""
         modules = self._patch_others()
         modules["aragora.control_plane.notifications"] = MagicMock(
-            get_default_notification_dispatcher=MagicMock(
-                side_effect=AttributeError("bad attr")
-            )
+            get_default_notification_dispatcher=MagicMock(side_effect=AttributeError("bad attr"))
         )
         with patch.dict("sys.modules", modules):
             result = worker_health_status(mock_handler)
@@ -608,9 +635,7 @@ class TestWorkerNotificationBranch:
         """RuntimeError on dispatcher access adds to errors."""
         modules = self._patch_others()
         modules["aragora.control_plane.notifications"] = MagicMock(
-            get_default_notification_dispatcher=MagicMock(
-                side_effect=RuntimeError("rt error")
-            )
+            get_default_notification_dispatcher=MagicMock(side_effect=RuntimeError("rt error"))
         )
         with patch.dict("sys.modules", modules):
             result = worker_health_status(mock_handler)
@@ -683,12 +708,14 @@ class TestWorkerConsensusHealingBranch:
     def test_healing_import_error(self, mock_handler):
         """ImportError on queue.workers gives module-not-available note."""
         import sys as _sys
+
         saved = {}
         for k in list(_sys.modules.keys()):
             if k.startswith("aragora.queue.workers"):
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def fail_healing(name, *args, **kwargs):
@@ -712,9 +739,7 @@ class TestWorkerConsensusHealingBranch:
         """AttributeError on healing worker adds to errors."""
         modules = self._patch_others()
         modules["aragora.queue.workers"] = MagicMock(
-            get_consensus_healing_worker=MagicMock(
-                side_effect=AttributeError("bad")
-            )
+            get_consensus_healing_worker=MagicMock(side_effect=AttributeError("bad"))
         )
         with patch.dict("sys.modules", modules):
             result = worker_health_status(mock_handler)
@@ -726,9 +751,7 @@ class TestWorkerConsensusHealingBranch:
         """RuntimeError on healing worker adds to errors."""
         modules = self._patch_others()
         modules["aragora.queue.workers"] = MagicMock(
-            get_consensus_healing_worker=MagicMock(
-                side_effect=RuntimeError("crashed")
-            )
+            get_consensus_healing_worker=MagicMock(side_effect=RuntimeError("crashed"))
         )
         with patch.dict("sys.modules", modules):
             result = worker_health_status(mock_handler)
@@ -835,13 +858,24 @@ class TestJobQueueHealthStatus:
 
     def test_healthy_queue(self, mock_handler):
         """Healthy queue with low counts returns status=healthy."""
-        store = _make_job_store(stats={
-            "pending": 5, "processing": 2, "completed": 100,
-            "failed": 0, "cancelled": 3, "total": 110,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(get_job_store=MagicMock(return_value=store))
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 5,
+                "processing": 2,
+                "completed": 100,
+                "failed": 0,
+                "cancelled": 3,
+                "total": 110,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -852,9 +886,14 @@ class TestJobQueueHealthStatus:
     def test_response_has_required_fields(self, mock_handler):
         """Response contains all expected fields."""
         store = _make_job_store()
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(get_job_store=MagicMock(return_value=store))
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert "status" in body
@@ -866,13 +905,24 @@ class TestJobQueueHealthStatus:
 
     def test_stats_fields(self, mock_handler):
         """Stats contain pending, processing, completed, failed, cancelled, total."""
-        store = _make_job_store(stats={
-            "pending": 5, "processing": 2, "completed": 100,
-            "failed": 1, "cancelled": 3, "total": 111,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(get_job_store=MagicMock(return_value=store))
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 5,
+                "processing": 2,
+                "completed": 100,
+                "failed": 1,
+                "cancelled": 3,
+                "total": 111,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         stats = body["stats"]
@@ -892,24 +942,37 @@ class TestJobQueueHealthStatus:
 class TestJobQueueBackendDetection:
     """Tests for backend type detection from class name."""
 
-    @pytest.mark.parametrize("class_name,expected_backend", [
-        ("SQLiteJobStore", "sqlite"),
-        ("PostgresJobStore", "postgresql"),
-        ("RedisJobStore", "redis"),
-        ("InMemoryStore", "InMemoryStore"),
-        ("CustomBackend", "CustomBackend"),
-    ])
+    @pytest.mark.parametrize(
+        "class_name,expected_backend",
+        [
+            ("SQLiteJobStore", "sqlite"),
+            ("PostgresJobStore", "postgresql"),
+            ("RedisJobStore", "redis"),
+            ("InMemoryStore", "InMemoryStore"),
+            ("CustomBackend", "CustomBackend"),
+        ],
+    )
     def test_backend_detection(self, mock_handler, class_name, expected_backend):
         """Backend type is correctly detected from class name."""
-        store = _make_job_store(class_name=class_name, stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            class_name=class_name,
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            },
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["backend"] == expected_backend
@@ -926,12 +989,14 @@ class TestJobQueueConnectivity:
     def test_import_error_shows_unhealthy(self, mock_handler):
         """ImportError on job_queue_store results in unhealthy."""
         import sys as _sys
+
         saved = {}
         for k in list(_sys.modules.keys()):
             if k.startswith("aragora.storage.job_queue_store"):
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def fail_import(name, *args, **kwargs):
@@ -951,11 +1016,14 @@ class TestJobQueueConnectivity:
 
     def test_connection_error(self, mock_handler):
         """ConnectionError shows unhealthy with connectivity error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=ConnectionError("refused"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=ConnectionError("refused"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -964,11 +1032,14 @@ class TestJobQueueConnectivity:
 
     def test_timeout_error(self, mock_handler):
         """TimeoutError shows unhealthy with connectivity error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=TimeoutError("timed out"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=TimeoutError("timed out"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -976,11 +1047,14 @@ class TestJobQueueConnectivity:
 
     def test_os_error(self, mock_handler):
         """OSError shows unhealthy with connectivity error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=OSError("disk error"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=OSError("disk error"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -988,11 +1062,14 @@ class TestJobQueueConnectivity:
 
     def test_runtime_error(self, mock_handler):
         """RuntimeError shows unhealthy with status error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=RuntimeError("bad"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=RuntimeError("bad"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -1001,11 +1078,14 @@ class TestJobQueueConnectivity:
 
     def test_value_error(self, mock_handler):
         """ValueError shows unhealthy with status error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=ValueError("bad value"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=ValueError("bad value"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -1013,33 +1093,42 @@ class TestJobQueueConnectivity:
 
     def test_type_error(self, mock_handler):
         """TypeError shows unhealthy with status error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=TypeError("bad type"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=TypeError("bad type"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
 
     def test_key_error(self, mock_handler):
         """KeyError shows unhealthy with status error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=KeyError("missing"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=KeyError("missing"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
 
     def test_attribute_error(self, mock_handler):
         """AttributeError shows unhealthy with status error."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(side_effect=AttributeError("no attr"))
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(side_effect=AttributeError("no attr"))
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -1047,12 +1136,14 @@ class TestJobQueueConnectivity:
     def test_backend_unknown_when_disconnected(self, mock_handler):
         """Backend is 'unknown' when store cannot be loaded."""
         import sys as _sys
+
         saved = {}
         for k in list(_sys.modules.keys()):
             if k.startswith("aragora.storage.job_queue_store"):
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def fail_import(name, *args, **kwargs):
@@ -1079,22 +1170,27 @@ class TestJobQueueThresholds:
 
     def _make_store_with_stats(self, pending=0, processing=0, failed=0):
         """Create a store mock with specific stats."""
-        return _make_job_store(stats={
-            "pending": pending,
-            "processing": processing,
-            "completed": 100,
-            "failed": failed,
-            "cancelled": 0,
-            "total": pending + processing + 100 + failed,
-        })
+        return _make_job_store(
+            stats={
+                "pending": pending,
+                "processing": processing,
+                "completed": 100,
+                "failed": failed,
+                "cancelled": 0,
+                "total": pending + processing + 100 + failed,
+            }
+        )
 
     def _run_with_store(self, store, handler):
         """Run job_queue_health_status with the given store."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             return job_queue_health_status(handler)
 
     def test_no_warnings_below_thresholds(self, mock_handler):
@@ -1199,18 +1295,26 @@ class TestJobQueueEnvironmentConfig:
     """Tests for environment variable threshold configuration."""
 
     def _make_store_with_stats(self, pending=0, processing=0, failed=0):
-        return _make_job_store(stats={
-            "pending": pending, "processing": processing,
-            "completed": 0, "failed": failed, "cancelled": 0,
-            "total": pending + processing + failed,
-        })
+        return _make_job_store(
+            stats={
+                "pending": pending,
+                "processing": processing,
+                "completed": 0,
+                "failed": failed,
+                "cancelled": 0,
+                "total": pending + processing + failed,
+            }
+        )
 
     def _run(self, store, handler):
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             return job_queue_health_status(handler)
 
     def test_custom_pending_warning_threshold(self, mock_handler, monkeypatch):
@@ -1271,20 +1375,32 @@ class TestCombinedWorkerQueueHealth:
 
     def test_combined_returns_200(self, mock_handler):
         """Combined endpoint returns 200."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
         with patch.dict("sys.modules", self._patch_all(store=store)):
             result = combined_worker_queue_health(mock_handler)
         assert _status(result) == 200
 
     def test_combined_has_all_sections(self, mock_handler):
         """Combined response has status, workers, job_queue, timestamp."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
         with patch.dict("sys.modules", self._patch_all(store=store)):
             result = combined_worker_queue_health(mock_handler)
         body = _body(result)
@@ -1295,10 +1411,16 @@ class TestCombinedWorkerQueueHealth:
 
     def test_combined_workers_section_has_worker_data(self, mock_handler):
         """Workers section contains worker health data."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
         with patch.dict("sys.modules", self._patch_all(store=store)):
             result = combined_worker_queue_health(mock_handler)
         body = _body(result)
@@ -1307,10 +1429,16 @@ class TestCombinedWorkerQueueHealth:
 
     def test_combined_queue_section_has_queue_data(self, mock_handler):
         """Job queue section contains queue health data."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
         with patch.dict("sys.modules", self._patch_all(store=store)):
             result = combined_worker_queue_health(mock_handler)
         body = _body(result)
@@ -1342,14 +1470,28 @@ class TestCombinedStatusPriority:
     def _make_result(self, status: str, data: dict | None = None):
         """Create a HandlerResult with JSON body."""
         from aragora.server.handlers.base import json_response
+
         body_data = data or {}
         body_data["status"] = status
         return json_response(body_data)
 
     def test_both_healthy_yields_healthy(self, mock_handler):
         """Both healthy yields overall healthy."""
-        w = self._make_result("healthy", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"})
-        q = self._make_result("healthy", {"connected": True, "backend": "sqlite", "stats": {}, "thresholds": {}, "warnings": None, "errors": None, "timestamp": "t"})
+        w = self._make_result(
+            "healthy", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"}
+        )
+        q = self._make_result(
+            "healthy",
+            {
+                "connected": True,
+                "backend": "sqlite",
+                "stats": {},
+                "thresholds": {},
+                "warnings": None,
+                "errors": None,
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1358,8 +1500,21 @@ class TestCombinedStatusPriority:
 
     def test_worker_degraded_queue_healthy_yields_degraded(self, mock_handler):
         """Workers degraded, queue healthy yields overall degraded."""
-        w = self._make_result("degraded", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"})
-        q = self._make_result("healthy", {"connected": True, "backend": "sqlite", "stats": {}, "thresholds": {}, "warnings": None, "errors": None, "timestamp": "t"})
+        w = self._make_result(
+            "degraded", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"}
+        )
+        q = self._make_result(
+            "healthy",
+            {
+                "connected": True,
+                "backend": "sqlite",
+                "stats": {},
+                "thresholds": {},
+                "warnings": None,
+                "errors": None,
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1368,8 +1523,21 @@ class TestCombinedStatusPriority:
 
     def test_worker_healthy_queue_critical_yields_critical(self, mock_handler):
         """Workers healthy, queue critical yields overall critical."""
-        w = self._make_result("healthy", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"})
-        q = self._make_result("critical", {"connected": True, "backend": "sqlite", "stats": {}, "thresholds": {}, "warnings": [], "errors": None, "timestamp": "t"})
+        w = self._make_result(
+            "healthy", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"}
+        )
+        q = self._make_result(
+            "critical",
+            {
+                "connected": True,
+                "backend": "sqlite",
+                "stats": {},
+                "thresholds": {},
+                "warnings": [],
+                "errors": None,
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1378,8 +1546,21 @@ class TestCombinedStatusPriority:
 
     def test_both_unhealthy_yields_unhealthy(self, mock_handler):
         """Both unhealthy yields overall unhealthy."""
-        w = self._make_result("unhealthy", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"})
-        q = self._make_result("unhealthy", {"connected": False, "backend": "unknown", "stats": {}, "thresholds": {}, "warnings": None, "errors": [], "timestamp": "t"})
+        w = self._make_result(
+            "unhealthy", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"}
+        )
+        q = self._make_result(
+            "unhealthy",
+            {
+                "connected": False,
+                "backend": "unknown",
+                "stats": {},
+                "thresholds": {},
+                "warnings": None,
+                "errors": [],
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1388,8 +1569,21 @@ class TestCombinedStatusPriority:
 
     def test_worker_unhealthy_queue_degraded_yields_unhealthy(self, mock_handler):
         """Workers unhealthy (priority 3) beats queue degraded (priority 1)."""
-        w = self._make_result("unhealthy", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"})
-        q = self._make_result("degraded", {"connected": True, "backend": "sqlite", "stats": {}, "thresholds": {}, "warnings": [], "errors": None, "timestamp": "t"})
+        w = self._make_result(
+            "unhealthy", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"}
+        )
+        q = self._make_result(
+            "degraded",
+            {
+                "connected": True,
+                "backend": "sqlite",
+                "stats": {},
+                "thresholds": {},
+                "warnings": [],
+                "errors": None,
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1398,8 +1592,21 @@ class TestCombinedStatusPriority:
 
     def test_worker_critical_queue_unhealthy_yields_unhealthy(self, mock_handler):
         """Queue unhealthy (priority 3) beats worker critical (priority 2)."""
-        w = self._make_result("critical", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"})
-        q = self._make_result("unhealthy", {"connected": False, "backend": "unknown", "stats": {}, "thresholds": {}, "warnings": None, "errors": [], "timestamp": "t"})
+        w = self._make_result(
+            "critical", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"}
+        )
+        q = self._make_result(
+            "unhealthy",
+            {
+                "connected": False,
+                "backend": "unknown",
+                "stats": {},
+                "thresholds": {},
+                "warnings": None,
+                "errors": [],
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1408,8 +1615,21 @@ class TestCombinedStatusPriority:
 
     def test_unknown_status_gets_priority_4(self, mock_handler):
         """Unknown status gets priority 4 (highest/worst)."""
-        w = self._make_result("unknown_status", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"})
-        q = self._make_result("healthy", {"connected": True, "backend": "sqlite", "stats": {}, "thresholds": {}, "warnings": None, "errors": None, "timestamp": "t"})
+        w = self._make_result(
+            "unknown_status", {"summary": {}, "workers": [], "errors": [], "timestamp": "t"}
+        )
+        q = self._make_result(
+            "healthy",
+            {
+                "connected": True,
+                "backend": "sqlite",
+                "stats": {},
+                "thresholds": {},
+                "warnings": None,
+                "errors": None,
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1418,8 +1638,21 @@ class TestCombinedStatusPriority:
 
     def test_equal_priority_uses_worker_status(self, mock_handler):
         """When priorities are equal, worker status is chosen (>= comparison)."""
-        w = self._make_result("degraded", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"})
-        q = self._make_result("degraded", {"connected": True, "backend": "sqlite", "stats": {}, "thresholds": {}, "warnings": [], "errors": None, "timestamp": "t"})
+        w = self._make_result(
+            "degraded", {"summary": {}, "workers": [], "errors": None, "timestamp": "t"}
+        )
+        q = self._make_result(
+            "degraded",
+            {
+                "connected": True,
+                "backend": "sqlite",
+                "stats": {},
+                "thresholds": {},
+                "warnings": [],
+                "errors": None,
+                "timestamp": "t",
+            },
+        )
         p1, p2 = self._patch_with_results(w, q)
         with p1, p2:
             result = combined_worker_queue_health(mock_handler)
@@ -1468,90 +1701,144 @@ class TestEdgeCases:
 
     def test_queue_pending_at_boundary_49(self, mock_handler):
         """49 pending jobs (just below warning) yields healthy."""
-        store = _make_job_store(stats={
-            "pending": 49, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 49,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 49,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 49,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "healthy"
 
     def test_queue_pending_at_boundary_50(self, mock_handler):
         """50 pending jobs (at warning) yields degraded."""
-        store = _make_job_store(stats={
-            "pending": 50, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 50,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 50,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 50,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "degraded"
 
     def test_queue_pending_at_boundary_199(self, mock_handler):
         """199 pending jobs (just below critical) yields degraded."""
-        store = _make_job_store(stats={
-            "pending": 199, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 199,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 199,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 199,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "degraded"
 
     def test_queue_pending_at_boundary_200(self, mock_handler):
         """200 pending jobs (at critical) yields critical."""
-        store = _make_job_store(stats={
-            "pending": 200, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 200,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 200,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 200,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "critical"
 
     def test_queue_processing_at_boundary_19(self, mock_handler):
         """19 processing jobs (just below warning) yields healthy."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 19, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 19,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 19,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 19,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "healthy"
 
     def test_queue_processing_at_boundary_20(self, mock_handler):
         """20 processing jobs (at warning) yields degraded."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 20, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 20,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 20,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 20,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["status"] == "degraded"
@@ -1559,11 +1846,14 @@ class TestEdgeCases:
     def test_queue_stats_missing_keys_default_to_zero(self, mock_handler):
         """Missing keys in queue stats default to 0."""
         store = _make_job_store(stats={})
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["stats"]["pending"] == 0
@@ -1575,10 +1865,16 @@ class TestEdgeCases:
 
     def test_combined_timestamp_format(self, mock_handler):
         """Combined endpoint timestamp ends with Z."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
         modules = {
             "aragora.server.startup.workers": MagicMock(
                 get_gauntlet_worker=MagicMock(return_value=None)
@@ -1600,17 +1896,20 @@ class TestEdgeCases:
 
     def test_worker_handler_arg_ignored(self, mock_handler):
         """Handler argument is passed through but not used meaningfully."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=None)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=None)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             # Any handler value should work
             result1 = worker_health_status(None)
             result2 = worker_health_status("string handler")
@@ -1631,17 +1930,20 @@ class TestSecurity:
     def test_no_sensitive_data_in_worker_response(self, mock_handler):
         """Worker response does not contain passwords, tokens, or keys."""
         g = _make_gauntlet_worker(running=True)
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=g)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=g)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body_str = json.dumps(_body(result)).lower()
         assert "password" not in body_str
@@ -1651,15 +1953,24 @@ class TestSecurity:
 
     def test_no_sensitive_data_in_queue_response(self, mock_handler):
         """Queue response does not contain passwords, tokens, or keys."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body_str = json.dumps(_body(result)).lower()
         assert "password" not in body_str
@@ -1669,12 +1980,14 @@ class TestSecurity:
     def test_error_messages_do_not_leak_internal_paths(self, mock_handler):
         """Error messages from gauntlet import failure do not expose system paths."""
         import sys as _sys
+
         saved = {}
         for k in list(_sys.modules.keys()):
             if k.startswith("aragora.server.startup"):
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
+
             original_import = builtins.__import__
 
             def fail_gauntlet(name, *args, **kwargs):
@@ -1683,14 +1996,17 @@ class TestSecurity:
                 return original_import(name, *args, **kwargs)
 
             with patch("builtins.__import__", side_effect=fail_gauntlet):
-                with patch.dict("sys.modules", {
-                    "aragora.control_plane.notifications": MagicMock(
-                        get_default_notification_dispatcher=MagicMock(return_value=None)
-                    ),
-                    "aragora.queue.workers": MagicMock(
-                        get_consensus_healing_worker=MagicMock(return_value=None)
-                    ),
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.control_plane.notifications": MagicMock(
+                            get_default_notification_dispatcher=MagicMock(return_value=None)
+                        ),
+                        "aragora.queue.workers": MagicMock(
+                            get_consensus_healing_worker=MagicMock(return_value=None)
+                        ),
+                    },
+                ):
                     result = worker_health_status(mock_handler)
         finally:
             _sys.modules.update(saved)
@@ -1705,19 +2021,22 @@ class TestSecurity:
 
     def test_sanitized_attribute_error_type_only(self, mock_handler):
         """AttributeError in worker access only shows type name, not message."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(
-                    side_effect=AttributeError("internal detail should not leak")
-                )
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(
+                        side_effect=AttributeError("internal detail should not leak")
+                    )
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         # The error includes type(e).__name__ which is "AttributeError"
@@ -1727,13 +2046,16 @@ class TestSecurity:
 
     def test_queue_connectivity_error_sanitized(self, mock_handler):
         """Connection errors don't leak internal details."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(
-                    side_effect=ConnectionError("redis://password:secret@host:6379")
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(
+                        side_effect=ConnectionError("redis://password:secret@host:6379")
+                    )
                 )
-            )
-        }):
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["errors"] is not None
@@ -1743,13 +2065,16 @@ class TestSecurity:
 
     def test_queue_runtime_error_sanitized(self, mock_handler):
         """Runtime errors don't leak internal details."""
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(
-                    side_effect=RuntimeError("internal: /etc/passwd readable")
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(
+                        side_effect=RuntimeError("internal: /etc/passwd readable")
+                    )
                 )
-            )
-        }):
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["errors"] is not None
@@ -1818,30 +2143,48 @@ class TestJobQueueTimestamp:
 
     def test_queue_timestamp_ends_with_z(self, mock_handler):
         """Queue health timestamp ends with Z."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert body["timestamp"].endswith("Z")
 
     def test_queue_timestamp_is_parseable(self, mock_handler):
         """Queue health timestamp is parseable as ISO 8601."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 0,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 0,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         ts = body["timestamp"].rstrip("Z")
@@ -1851,17 +2194,20 @@ class TestJobQueueTimestamp:
 
     def test_worker_timestamp_is_parseable(self, mock_handler):
         """Worker health timestamp is parseable as ISO 8601."""
-        with patch.dict("sys.modules", {
-            "aragora.server.startup.workers": MagicMock(
-                get_gauntlet_worker=MagicMock(return_value=None)
-            ),
-            "aragora.control_plane.notifications": MagicMock(
-                get_default_notification_dispatcher=MagicMock(return_value=None)
-            ),
-            "aragora.queue.workers": MagicMock(
-                get_consensus_healing_worker=MagicMock(return_value=None)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.workers": MagicMock(
+                    get_gauntlet_worker=MagicMock(return_value=None)
+                ),
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=None)
+                ),
+                "aragora.queue.workers": MagicMock(
+                    get_consensus_healing_worker=MagicMock(return_value=None)
+                ),
+            },
+        ):
             result = worker_health_status(mock_handler)
         body = _body(result)
         ts = body["timestamp"].rstrip("Z")
@@ -1879,60 +2225,96 @@ class TestCriticalPendingWithWarning:
 
     def test_critical_warning_message_includes_threshold(self, mock_handler):
         """Critical pending warning includes the threshold value."""
-        store = _make_job_store(stats={
-            "pending": 250, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 250,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 250,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 250,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert any("200" in w for w in body["warnings"])
 
     def test_warning_message_includes_count(self, mock_handler):
         """Warning message includes the actual count of pending jobs."""
-        store = _make_job_store(stats={
-            "pending": 75, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 75,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 75,
+                "processing": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 75,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert any("75" in w for w in body["warnings"])
 
     def test_processing_warning_mentions_stuck_jobs(self, mock_handler):
         """Processing warning mentions stuck jobs."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 30, "completed": 0,
-            "failed": 0, "cancelled": 0, "total": 30,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 30,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "total": 30,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert any("stuck" in w.lower() for w in body["warnings"])
 
     def test_failed_warning_includes_count(self, mock_handler):
         """Failed jobs warning includes the count."""
-        store = _make_job_store(stats={
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 42, "cancelled": 0, "total": 42,
-        })
-        with patch.dict("sys.modules", {
-            "aragora.storage.job_queue_store": MagicMock(
-                get_job_store=MagicMock(return_value=store)
-            )
-        }):
+        store = _make_job_store(
+            stats={
+                "pending": 0,
+                "processing": 0,
+                "completed": 0,
+                "failed": 42,
+                "cancelled": 0,
+                "total": 42,
+            }
+        )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.job_queue_store": MagicMock(
+                    get_job_store=MagicMock(return_value=store)
+                )
+            },
+        ):
             result = job_queue_health_status(mock_handler)
         body = _body(result)
         assert any("42" in w for w in body["warnings"])

@@ -224,7 +224,10 @@ class GDPRMixin:
             )
 
             logger.info(
-                "GDPR RTBF request processed: user=%s, request_id=%s, deletion=%s", user_id, request_id, deletion_scheduled.isoformat()
+                "GDPR RTBF request processed: user=%s, request_id=%s, deletion=%s",
+                user_id,
+                request_id,
+                deletion_scheduled.isoformat(),
             )
 
             return json_response(result)

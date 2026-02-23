@@ -611,7 +611,9 @@ class MongoDBConnector(EnterpriseConnector):
             connector_id=self.connector_id,
         )
 
-        logger.info("[%s] Webhook CDC event: %s on %s", self.name, event.operation.value, event.table)
+        logger.info(
+            "[%s] Webhook CDC event: %s on %s", self.name, event.operation.value, event.table
+        )
 
         # Process through CDC manager if handlers are configured
         if self._change_handlers:

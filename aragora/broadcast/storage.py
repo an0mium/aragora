@@ -371,7 +371,9 @@ class AudioFileStore:
         with open(audio_path, "rb") as f:
             header = f.read(12)
         if not _validate_audio_magic(header, format_lower):
-            logger.warning("Audio magic bytes don't match format %s for %s", format_lower, audio_path)
+            logger.warning(
+                "Audio magic bytes don't match format %s for %s", format_lower, audio_path
+            )
             # Continue anyway - logged for monitoring
 
         # Copy audio file to storage
@@ -475,7 +477,9 @@ class AudioFileStore:
         # Update cache
         self._cache[debate_id] = metadata
 
-        logger.info("Saved audio for debate %s: %s (%s bytes)", debate_id, dest_path, len(audio_data))
+        logger.info(
+            "Saved audio for debate %s: %s (%s bytes)", debate_id, dest_path, len(audio_data)
+        )
         return dest_path
 
     def get_path(self, debate_id: str) -> Path | None:

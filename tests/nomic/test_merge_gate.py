@@ -120,21 +120,30 @@ def git_repo(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(
-        ["git", "init", "-b", "main"], cwd=repo, capture_output=True, check=True,
+        ["git", "init", "-b", "main"],
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     (repo / "README.md").write_text("# Test")
     subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     return repo
 
@@ -146,18 +155,24 @@ def repo_with_branch(git_repo):
     # Create a feature branch
     subprocess.run(
         ["git", "checkout", "-b", "feature/test"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     (repo / "feature.py").write_text("# Feature code\nprint('hello')\n")
     subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "Add feature"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     # Switch back to main
     subprocess.run(
         ["git", "checkout", "main"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
     return repo
 
@@ -197,11 +212,19 @@ class TestMergeWithGatePreMerge:
         )
 
         # Mock run_tests_in_worktree to return failure
-        with patch.object(
-            manager, "run_tests_in_worktree",
-            return_value={"success": False, "output": "FAILED test_foo", "exit_code": 1, "duration": 1.0},
-        ) as mock_tests, patch.object(manager, "_run_git") as mock_git:
-
+        with (
+            patch.object(
+                manager,
+                "run_tests_in_worktree",
+                return_value={
+                    "success": False,
+                    "output": "FAILED test_foo",
+                    "exit_code": 1,
+                    "duration": 1.0,
+                },
+            ) as mock_tests,
+            patch.object(manager, "_run_git") as mock_git,
+        ):
             result = await manager.merge_with_gate(ctx, config)
 
         assert result.success is False
@@ -284,7 +307,8 @@ class TestMergeWithGateSuccess:
         )
 
         with patch.object(
-            manager, "run_tests_in_worktree",
+            manager,
+            "run_tests_in_worktree",
             return_value={"success": True, "output": "1 passed", "exit_code": 0, "duration": 0.5},
         ):
             result = await manager.merge_with_gate(ctx_obj, config)
@@ -313,12 +337,23 @@ class TestMergeWithGateSuccess:
         )
 
         # Mock pre-merge tests pass, and subprocess for post-merge tests pass
-        with patch.object(
-            manager, "run_tests_in_worktree",
-            return_value={"success": True, "output": "1 passed", "exit_code": 0, "duration": 0.5},
-        ), patch("asyncio.to_thread") as mock_to_thread:
+        with (
+            patch.object(
+                manager,
+                "run_tests_in_worktree",
+                return_value={
+                    "success": True,
+                    "output": "1 passed",
+                    "exit_code": 0,
+                    "duration": 0.5,
+                },
+            ),
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
             mock_to_thread.return_value = MagicMock(
-                returncode=0, stdout="1 passed\n", stderr="",
+                returncode=0,
+                stdout="1 passed\n",
+                stderr="",
             )
             result = await manager.merge_with_gate(ctx_obj, config)
 
@@ -353,7 +388,9 @@ class TestMergeWithGatePostMergeFailure:
         # Post-merge tests will fail
         with patch("asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = MagicMock(
-                returncode=1, stdout="FAILED\n", stderr="1 failed",
+                returncode=1,
+                stdout="FAILED\n",
+                stderr="1 failed",
             )
             result = await manager.merge_with_gate(ctx_obj, config)
 
@@ -386,7 +423,9 @@ class TestMergeWithGatePostMergeFailure:
         # Post-merge tests will fail
         with patch("asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = MagicMock(
-                returncode=1, stdout="FAILED\n", stderr="1 failed",
+                returncode=1,
+                stdout="FAILED\n",
+                stderr="1 failed",
             )
             # Also spy on _revert_merge to make sure it's NOT called
             with patch.object(manager, "_revert_merge") as mock_revert:
@@ -465,11 +504,16 @@ class TestRevertMerge:
         # Merge first to get a commit to revert
         subprocess.run(
             ["git", "merge", "--no-ff", "-m", "Merge feature", "feature/test"],
-            cwd=repo_with_branch, capture_output=True, check=True,
+            cwd=repo_with_branch,
+            capture_output=True,
+            check=True,
         )
         sha = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            cwd=repo_with_branch, capture_output=True, text=True, check=True,
+            cwd=repo_with_branch,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
 
         result = manager._revert_merge(sha)
@@ -506,17 +550,20 @@ class TestSafeMergeWithGate:
         """Should abort if dry-run merge detects conflicts."""
         coordinator = BranchCoordinator(repo_path=Path("/tmp/fake-repo"))
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(coordinator, "_get_branch_files", return_value=[]), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=False,
-                     conflicts=["file.py"],
-                 ),
-             ):
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(coordinator, "_get_branch_files", return_value=[]),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=False,
+                    conflicts=["file.py"],
+                ),
+            ),
+        ):
             result = await coordinator.safe_merge_with_gate("feature")
 
         assert result.success is False
@@ -527,23 +574,29 @@ class TestSafeMergeWithGate:
         """Should abort when pre-merge tests fail."""
         coordinator = BranchCoordinator(repo_path=Path("/tmp/fake-repo"))
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(coordinator, "_get_branch_files", return_value=["aragora/foo/bar.py"]), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=True,
-                 ),
-             ), \
-             patch("asyncio.to_thread") as mock_to_thread:
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(coordinator, "_get_branch_files", return_value=["aragora/foo/bar.py"]),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=True,
+                ),
+            ),
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
             # Pre-merge tests fail
             mock_to_thread.return_value = MagicMock(
-                returncode=1, stdout="FAILED\n", stderr="",
+                returncode=1,
+                stdout="FAILED\n",
+                stderr="",
             )
             result = await coordinator.safe_merge_with_gate(
-                "feature", test_paths=["tests/foo/test_bar.py"],
+                "feature",
+                test_paths=["tests/foo/test_bar.py"],
             )
 
         assert result.success is False
@@ -566,19 +619,21 @@ class TestSafeMergeWithGate:
                 # Post-merge: fail
                 return MagicMock(returncode=1, stdout="FAILED", stderr="")
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(coordinator, "_get_branch_files", return_value=[]), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=True,
-                 ),
-             ), \
-             patch.object(coordinator, "_run_git") as mock_git, \
-             patch("asyncio.to_thread", side_effect=mock_to_thread_fn):
-
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(coordinator, "_get_branch_files", return_value=[]),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=True,
+                ),
+            ),
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch("asyncio.to_thread", side_effect=mock_to_thread_fn),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="abc123\n", stderr="")
 
             result = await coordinator.safe_merge_with_gate(
@@ -606,19 +661,21 @@ class TestSafeMergeWithGate:
             else:
                 return MagicMock(returncode=1, stdout="FAILED", stderr="")
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(coordinator, "_get_branch_files", return_value=[]), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=True,
-                 ),
-             ), \
-             patch.object(coordinator, "_run_git") as mock_git, \
-             patch("asyncio.to_thread", side_effect=mock_to_thread_fn):
-
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(coordinator, "_get_branch_files", return_value=[]),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=True,
+                ),
+            ),
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch("asyncio.to_thread", side_effect=mock_to_thread_fn),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="abc123\n", stderr="")
 
             result = await coordinator.safe_merge_with_gate(
@@ -639,19 +696,21 @@ class TestSafeMergeWithGate:
         async def mock_to_thread_fn(*args, **kwargs):
             return MagicMock(returncode=0, stdout="OK", stderr="")
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(coordinator, "_get_branch_files", return_value=[]), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=True,
-                 ),
-             ), \
-             patch.object(coordinator, "_run_git") as mock_git, \
-             patch("asyncio.to_thread", side_effect=mock_to_thread_fn):
-
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(coordinator, "_get_branch_files", return_value=[]),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=True,
+                ),
+            ),
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch("asyncio.to_thread", side_effect=mock_to_thread_fn),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="abc123\n", stderr="")
 
             result = await coordinator.safe_merge_with_gate(
@@ -667,22 +726,24 @@ class TestSafeMergeWithGate:
         """Should skip test phases when no test_paths provided and inference returns empty."""
         coordinator = BranchCoordinator(repo_path=Path("/tmp/fake-repo"))
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(coordinator, "_get_branch_files", return_value=[]), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=True,
-                 ),
-             ), \
-             patch.object(coordinator, "_run_git") as mock_git, \
-             patch(
-                 "aragora.nomic.autonomous_orchestrator.AutonomousOrchestrator._infer_test_paths",
-                 return_value=[],
-             ):
-
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(coordinator, "_get_branch_files", return_value=[]),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=True,
+                ),
+            ),
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch(
+                "aragora.nomic.autonomous_orchestrator.AutonomousOrchestrator._infer_test_paths",
+                return_value=[],
+            ),
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="abc123\n", stderr="")
 
             result = await coordinator.safe_merge_with_gate("feature")
@@ -697,22 +758,25 @@ class TestSafeMergeWithGate:
         async def mock_to_thread_fn(*args, **kwargs):
             return MagicMock(returncode=0, stdout="OK", stderr="")
 
-        with patch.object(coordinator, "branch_exists", return_value=True), \
-             patch.object(
-                 coordinator, "_get_branch_files",
-                 return_value=["aragora/nomic/worktree_manager.py"],
-             ), \
-             patch.object(
-                 coordinator, "safe_merge",
-                 return_value=MergeResult(
-                     source_branch="feature",
-                     target_branch="main",
-                     success=True,
-                 ),
-             ), \
-             patch.object(coordinator, "_run_git") as mock_git, \
-             patch("asyncio.to_thread", side_effect=mock_to_thread_fn) as mock_thread:
-
+        with (
+            patch.object(coordinator, "branch_exists", return_value=True),
+            patch.object(
+                coordinator,
+                "_get_branch_files",
+                return_value=["aragora/nomic/worktree_manager.py"],
+            ),
+            patch.object(
+                coordinator,
+                "safe_merge",
+                return_value=MergeResult(
+                    source_branch="feature",
+                    target_branch="main",
+                    success=True,
+                ),
+            ),
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch("asyncio.to_thread", side_effect=mock_to_thread_fn) as mock_thread,
+        ):
             mock_git.return_value = MagicMock(returncode=0, stdout="abc123\n", stderr="")
 
             result = await coordinator.safe_merge_with_gate("feature")
@@ -745,6 +809,8 @@ class TestSafeMergeWithGateIntegration:
         # Verify merge happened
         log = subprocess.run(
             ["git", "log", "--oneline", "-5"],
-            cwd=repo_with_branch, capture_output=True, text=True,
+            cwd=repo_with_branch,
+            capture_output=True,
+            text=True,
         )
         assert "Merge feature/test into main" in log.stdout

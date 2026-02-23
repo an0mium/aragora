@@ -134,13 +134,13 @@ def mock_mound():
     mound.register_federated_region = AsyncMock(return_value=MockFederatedRegion())
     mound.unregister_federated_region = AsyncMock(return_value=True)
     mound.sync_to_region = AsyncMock(return_value=MockSyncResult())
-    mound.pull_from_region = AsyncMock(
-        return_value=MockSyncResult(direction="pull")
-    )
+    mound.pull_from_region = AsyncMock(return_value=MockSyncResult(direction="pull"))
     mound.sync_all_regions = AsyncMock(
         return_value=[
             MockSyncResult(region_id="region-us-east", direction="push"),
-            MockSyncResult(region_id="region-eu-west", direction="push", success=False, error="timeout"),
+            MockSyncResult(
+                region_id="region-eu-west", direction="push", success=False, error="timeout"
+            ),
         ]
     )
     mound.get_federation_status = AsyncMock(
@@ -168,25 +168,31 @@ def handler_no_mound():
 @contextmanager
 def _mock_metrics():
     """Patch federation metrics context managers and functions."""
+
     # track_federation_sync is a context manager that yields a mutable dict
     @contextmanager
     def mock_sync_tracker(region_id, direction):
         ctx = {"status": "success", "nodes_synced": 0}
         yield ctx
 
-    with patch(
-        "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
-        side_effect=mock_sync_tracker,
-    ), patch(
-        "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions",
-    ), patch(
-        "aragora.server.handlers.knowledge_base.mound.federation.validate_webhook_url",
-        return_value=(True, ""),
-    ), patch(
-        "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-        side_effect=lambda coro: __import__("asyncio").run(coro)
-        if hasattr(coro, "__await__")
-        else coro,
+    with (
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
+            side_effect=mock_sync_tracker,
+        ),
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions",
+        ),
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.validate_webhook_url",
+            return_value=(True, ""),
+        ),
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation._run_async",
+            side_effect=lambda coro: __import__("asyncio").run(coro)
+            if hasattr(coro, "__await__")
+            else coro,
+        ),
     ):
         yield
 
@@ -194,24 +200,30 @@ def _mock_metrics():
 @contextmanager
 def _mock_metrics_with_ssrf_fail(error_msg="Blocked private IP"):
     """Patch metrics but make validate_webhook_url fail."""
+
     @contextmanager
     def mock_sync_tracker(region_id, direction):
         ctx = {"status": "success", "nodes_synced": 0}
         yield ctx
 
-    with patch(
-        "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
-        side_effect=mock_sync_tracker,
-    ), patch(
-        "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions",
-    ), patch(
-        "aragora.server.handlers.knowledge_base.mound.federation.validate_webhook_url",
-        return_value=(False, error_msg),
-    ), patch(
-        "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-        side_effect=lambda coro: __import__("asyncio").run(coro)
-        if hasattr(coro, "__await__")
-        else coro,
+    with (
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
+            side_effect=mock_sync_tracker,
+        ),
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions",
+        ),
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.validate_webhook_url",
+            return_value=(False, error_msg),
+        ),
+        patch(
+            "aragora.server.handlers.knowledge_base.mound.federation._run_async",
+            side_effect=lambda coro: __import__("asyncio").run(coro)
+            if hasattr(coro, "__await__")
+            else coro,
+        ),
     ):
         yield
 
@@ -380,9 +392,7 @@ class TestRegisterRegion:
 
     def test_register_region_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError from mound returns 500."""
-        mock_mound.register_federated_region = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.register_federated_region = AsyncMock(side_effect=ConnectionError("refused"))
         body = {
             "region_id": "region-1",
             "endpoint_url": "https://example.com/api",
@@ -395,9 +405,7 @@ class TestRegisterRegion:
 
     def test_register_region_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError from mound returns 500."""
-        mock_mound.register_federated_region = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.register_federated_region = AsyncMock(side_effect=TimeoutError("timed out"))
         body = {
             "region_id": "region-1",
             "endpoint_url": "https://example.com/api",
@@ -410,9 +418,7 @@ class TestRegisterRegion:
 
     def test_register_region_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
-        mock_mound.register_federated_region = AsyncMock(
-            side_effect=OSError("disk full")
-        )
+        mock_mound.register_federated_region = AsyncMock(side_effect=OSError("disk full"))
         body = {
             "region_id": "region-1",
             "endpoint_url": "https://example.com/api",
@@ -425,9 +431,7 @@ class TestRegisterRegion:
 
     def test_register_region_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
-        mock_mound.register_federated_region = AsyncMock(
-            side_effect=ValueError("bad data")
-        )
+        mock_mound.register_federated_region = AsyncMock(side_effect=ValueError("bad data"))
         body = {
             "region_id": "region-1",
             "endpoint_url": "https://example.com/api",
@@ -440,9 +444,7 @@ class TestRegisterRegion:
 
     def test_register_region_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
-        mock_mound.register_federated_region = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.register_federated_region = AsyncMock(side_effect=TypeError("wrong type"))
         body = {
             "region_id": "region-1",
             "endpoint_url": "https://example.com/api",
@@ -455,9 +457,7 @@ class TestRegisterRegion:
 
     def test_register_region_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
-        mock_mound.register_federated_region = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.register_federated_region = AsyncMock(side_effect=KeyError("missing"))
         body = {
             "region_id": "region-1",
             "endpoint_url": "https://example.com/api",
@@ -515,9 +515,7 @@ class TestRegisterRegion:
     def test_register_region_response_endpoint_url(self, handler, mock_mound):
         """Response includes endpoint_url from the registered region."""
         mock_mound.register_federated_region = AsyncMock(
-            return_value=MockFederatedRegion(
-                endpoint_url="https://custom.example.com/api"
-            )
+            return_value=MockFederatedRegion(endpoint_url="https://custom.example.com/api")
         )
         body = {
             "region_id": "region-1",
@@ -574,9 +572,7 @@ class TestUnregisterRegion:
 
     def test_unregister_region_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError returns 500."""
-        mock_mound.unregister_federated_region = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.unregister_federated_region = AsyncMock(side_effect=ConnectionError("refused"))
         mock_http = _make_http_handler()
         with _mock_metrics():
             result = handler._handle_unregister_region("region-1", mock_http)
@@ -584,9 +580,7 @@ class TestUnregisterRegion:
 
     def test_unregister_region_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError returns 500."""
-        mock_mound.unregister_federated_region = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.unregister_federated_region = AsyncMock(side_effect=TimeoutError("timed out"))
         mock_http = _make_http_handler()
         with _mock_metrics():
             result = handler._handle_unregister_region("region-1", mock_http)
@@ -594,9 +588,7 @@ class TestUnregisterRegion:
 
     def test_unregister_region_os_error_returns_500(self, handler, mock_mound):
         """OSError returns 500."""
-        mock_mound.unregister_federated_region = AsyncMock(
-            side_effect=OSError("disk error")
-        )
+        mock_mound.unregister_federated_region = AsyncMock(side_effect=OSError("disk error"))
         mock_http = _make_http_handler()
         with _mock_metrics():
             result = handler._handle_unregister_region("region-1", mock_http)
@@ -604,9 +596,7 @@ class TestUnregisterRegion:
 
     def test_unregister_region_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
-        mock_mound.unregister_federated_region = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.unregister_federated_region = AsyncMock(side_effect=ValueError("bad"))
         mock_http = _make_http_handler()
         with _mock_metrics():
             result = handler._handle_unregister_region("region-1", mock_http)
@@ -614,9 +604,7 @@ class TestUnregisterRegion:
 
     def test_unregister_region_type_error_returns_500(self, handler, mock_mound):
         """TypeError returns 500."""
-        mock_mound.unregister_federated_region = AsyncMock(
-            side_effect=TypeError("bad type")
-        )
+        mock_mound.unregister_federated_region = AsyncMock(side_effect=TypeError("bad type"))
         mock_http = _make_http_handler()
         with _mock_metrics():
             result = handler._handle_unregister_region("region-1", mock_http)
@@ -624,9 +612,7 @@ class TestUnregisterRegion:
 
     def test_unregister_region_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
-        mock_mound.unregister_federated_region = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.unregister_federated_region = AsyncMock(side_effect=KeyError("missing"))
         mock_http = _make_http_handler()
         with _mock_metrics():
             result = handler._handle_unregister_region("region-1", mock_http)
@@ -719,9 +705,7 @@ class TestSyncToRegion:
 
     def test_sync_to_region_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError returns 500."""
-        mock_mound.sync_to_region = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.sync_to_region = AsyncMock(side_effect=ConnectionError("refused"))
         body = {"region_id": "region-1"}
         mock_http = _make_http_handler(body)
         with _mock_metrics():
@@ -730,9 +714,7 @@ class TestSyncToRegion:
 
     def test_sync_to_region_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError returns 500."""
-        mock_mound.sync_to_region = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.sync_to_region = AsyncMock(side_effect=TimeoutError("timed out"))
         body = {"region_id": "region-1"}
         mock_http = _make_http_handler(body)
         with _mock_metrics():
@@ -902,9 +884,7 @@ class TestPullFromRegion:
 
     def test_pull_from_region_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError returns 500."""
-        mock_mound.pull_from_region = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.pull_from_region = AsyncMock(side_effect=ConnectionError("refused"))
         body = {"region_id": "region-1"}
         mock_http = _make_http_handler(body)
         with _mock_metrics():
@@ -913,9 +893,7 @@ class TestPullFromRegion:
 
     def test_pull_from_region_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError returns 500."""
-        mock_mound.pull_from_region = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.pull_from_region = AsyncMock(side_effect=TimeoutError("timed out"))
         body = {"region_id": "region-1"}
         mock_http = _make_http_handler(body)
         with _mock_metrics():
@@ -1076,9 +1054,7 @@ class TestSyncAllRegions:
 
     def test_sync_all_regions_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError returns 500."""
-        mock_mound.sync_all_regions = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.sync_all_regions = AsyncMock(side_effect=ConnectionError("refused"))
         mock_http = _make_http_handler({})
         with _mock_metrics():
             result = handler._handle_sync_all_regions(mock_http)
@@ -1086,9 +1062,7 @@ class TestSyncAllRegions:
 
     def test_sync_all_regions_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError returns 500."""
-        mock_mound.sync_all_regions = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.sync_all_regions = AsyncMock(side_effect=TimeoutError("timed out"))
         mock_http = _make_http_handler({})
         with _mock_metrics():
             result = handler._handle_sync_all_regions(mock_http)
@@ -1225,54 +1199,42 @@ class TestGetFederationStatus:
 
     def test_get_status_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=ConnectionError("refused"))
         with _mock_metrics():
             result = handler._handle_get_federation_status({})
         assert _status(result) == 500
 
     def test_get_status_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=TimeoutError("timed out"))
         with _mock_metrics():
             result = handler._handle_get_federation_status({})
         assert _status(result) == 500
 
     def test_get_status_os_error_returns_500(self, handler, mock_mound):
         """OSError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=OSError("disk"))
         with _mock_metrics():
             result = handler._handle_get_federation_status({})
         assert _status(result) == 500
 
     def test_get_status_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=ValueError("bad"))
         with _mock_metrics():
             result = handler._handle_get_federation_status({})
         assert _status(result) == 500
 
     def test_get_status_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=KeyError("missing"))
         with _mock_metrics():
             result = handler._handle_get_federation_status({})
         assert _status(result) == 500
 
     def test_get_status_type_error_returns_500(self, handler, mock_mound):
         """TypeError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=TypeError("wrong type")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=TypeError("wrong type"))
         with _mock_metrics():
             result = handler._handle_get_federation_status({})
         assert _status(result) == 500
@@ -1316,15 +1278,19 @@ class TestGetFederationStatus:
 
     def test_get_status_tracks_metrics(self, handler, mock_mound):
         """Federation region metrics tracking function is called."""
-        with patch(
-            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions",
-        ) as mock_track, patch(
-            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
-        ), patch(
-            "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-            side_effect=lambda coro: __import__("asyncio").run(coro)
-            if hasattr(coro, "__await__")
-            else coro,
+        with (
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions",
+            ) as mock_track,
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.federation._run_async",
+                side_effect=lambda coro: __import__("asyncio").run(coro)
+                if hasattr(coro, "__await__")
+                else coro,
+            ),
         ):
             handler._handle_get_federation_status({})
         mock_track.assert_called_once_with(
@@ -1368,9 +1334,7 @@ class TestListRegions:
             result = handler._handle_list_regions({})
         data = _body(result)
         # Find the us-east region
-        us_east = next(
-            r for r in data["regions"] if r["region_id"] == "region-us-east"
-        )
+        us_east = next(r for r in data["regions"] if r["region_id"] == "region-us-east")
         assert us_east["enabled"] is True
         assert us_east["healthy"] is True
 
@@ -1382,54 +1346,42 @@ class TestListRegions:
 
     def test_list_regions_connection_error_returns_500(self, handler, mock_mound):
         """ConnectionError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=ConnectionError("refused")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=ConnectionError("refused"))
         with _mock_metrics():
             result = handler._handle_list_regions({})
         assert _status(result) == 500
 
     def test_list_regions_timeout_error_returns_500(self, handler, mock_mound):
         """TimeoutError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=TimeoutError("timed out")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=TimeoutError("timed out"))
         with _mock_metrics():
             result = handler._handle_list_regions({})
         assert _status(result) == 500
 
     def test_list_regions_os_error_returns_500(self, handler, mock_mound):
         """OSError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=OSError("disk")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=OSError("disk"))
         with _mock_metrics():
             result = handler._handle_list_regions({})
         assert _status(result) == 500
 
     def test_list_regions_value_error_returns_500(self, handler, mock_mound):
         """ValueError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=ValueError("bad")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=ValueError("bad"))
         with _mock_metrics():
             result = handler._handle_list_regions({})
         assert _status(result) == 500
 
     def test_list_regions_key_error_returns_500(self, handler, mock_mound):
         """KeyError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=KeyError("missing")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=KeyError("missing"))
         with _mock_metrics():
             result = handler._handle_list_regions({})
         assert _status(result) == 500
 
     def test_list_regions_type_error_returns_500(self, handler, mock_mound):
         """TypeError returns 500."""
-        mock_mound.get_federation_status = AsyncMock(
-            side_effect=TypeError("wrong")
-        )
+        mock_mound.get_federation_status = AsyncMock(side_effect=TypeError("wrong"))
         with _mock_metrics():
             result = handler._handle_list_regions({})
         assert _status(result) == 500

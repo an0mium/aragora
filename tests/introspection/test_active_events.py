@@ -45,20 +45,26 @@ class TestIntrospectionEvents:
             "aragora.events.dispatcher.dispatch_event",
             side_effect=lambda name, data: events.append(data),
         ):
-            tracker.update_round("claude", RoundMetrics(
-                round_number=1,
-                proposals_made=1,
-                proposals_accepted=1,
-                critiques_given=2,
-                critiques_led_to_changes=1,
-            ))
-            tracker.update_round("claude", RoundMetrics(
-                round_number=2,
-                proposals_made=1,
-                proposals_accepted=0,
-                critiques_given=1,
-                critiques_led_to_changes=0,
-            ))
+            tracker.update_round(
+                "claude",
+                RoundMetrics(
+                    round_number=1,
+                    proposals_made=1,
+                    proposals_accepted=1,
+                    critiques_given=2,
+                    critiques_led_to_changes=1,
+                ),
+            )
+            tracker.update_round(
+                "claude",
+                RoundMetrics(
+                    round_number=2,
+                    proposals_made=1,
+                    proposals_accepted=0,
+                    critiques_given=1,
+                    critiques_led_to_changes=0,
+                ),
+            )
 
         assert len(events) == 2
         # After round 2: 2 proposals, 1 accepted = 50%
@@ -74,8 +80,12 @@ class TestIntrospectionEvents:
             "aragora.events.dispatcher.dispatch_event",
             side_effect=lambda name, data: events.append(data),
         ):
-            tracker.update_round("claude", RoundMetrics(round_number=1, proposals_made=3, proposals_accepted=2))
-            tracker.update_round("gemini", RoundMetrics(round_number=1, proposals_made=1, proposals_accepted=0))
+            tracker.update_round(
+                "claude", RoundMetrics(round_number=1, proposals_made=3, proposals_accepted=2)
+            )
+            tracker.update_round(
+                "gemini", RoundMetrics(round_number=1, proposals_made=1, proposals_accepted=0)
+            )
 
         assert len(events) == 2
         claude_event = [e for e in events if e["agent"] == "claude"][0]
@@ -109,11 +119,14 @@ class TestIntrospectionEvents:
         tracker = ActiveIntrospectionTracker()
 
         with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
-            tracker.update_round("claude", RoundMetrics(
-                round_number=1,
-                critiques_given=4,
-                critiques_led_to_changes=3,
-            ))
+            tracker.update_round(
+                "claude",
+                RoundMetrics(
+                    round_number=1,
+                    critiques_given=4,
+                    critiques_led_to_changes=3,
+                ),
+            )
 
         data = mock_dispatch.call_args[0][1]
         assert data["critique_effectiveness"] == 0.75
@@ -122,10 +135,13 @@ class TestIntrospectionEvents:
         tracker = ActiveIntrospectionTracker()
 
         with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
-            tracker.update_round("claude", RoundMetrics(
-                round_number=1,
-                argument_influence=0.85,
-            ))
+            tracker.update_round(
+                "claude",
+                RoundMetrics(
+                    round_number=1,
+                    argument_influence=0.85,
+                ),
+            )
 
         data = mock_dispatch.call_args[0][1]
         assert data["average_influence"] == 0.85

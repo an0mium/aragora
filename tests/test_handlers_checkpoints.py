@@ -331,7 +331,9 @@ class TestListResumableDebates:
         with patch.object(
             checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
         ):
-            result = await checkpoint_handler.handle("/api/v1/checkpoints/resumable", {}, mock_handler)
+            result = await checkpoint_handler.handle(
+                "/api/v1/checkpoints/resumable", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 200
@@ -365,7 +367,9 @@ class TestListResumableDebates:
         with patch.object(
             checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
         ):
-            result = await checkpoint_handler.handle("/api/v1/checkpoints/resumable", {}, mock_handler)
+            result = await checkpoint_handler.handle(
+                "/api/v1/checkpoints/resumable", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 200
@@ -820,7 +824,9 @@ class TestRequestRouting:
         with patch.object(
             checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
         ):
-            result = await checkpoint_handler.handle("/api/v1/checkpoints/resumable", {}, mock_handler)
+            result = await checkpoint_handler.handle(
+                "/api/v1/checkpoints/resumable", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 200

@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from 'next';
+import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
@@ -60,7 +68,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={jetbrainsMono.variable} suppressHydrationWarning>
       <head>
         {/* SSR-safe theme initialization - prevents flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

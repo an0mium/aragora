@@ -147,9 +147,7 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/github/audit/sync/session-123")
 
     def test_sync_prefix_with_long_id(self, handler):
-        assert handler.can_handle(
-            "/api/v1/github/audit/sync/very-long-session-id-abc-def-012345"
-        )
+        assert handler.can_handle("/api/v1/github/audit/sync/very-long-session-id-abc-def-012345")
 
     def test_rejects_unrelated_path(self, handler):
         assert not handler.can_handle("/api/v1/debates")
@@ -445,9 +443,7 @@ class TestGetLabelsForFinding:
         assert labels.count("security") == 1
 
     def test_combined_labels_deduplicated(self):
-        labels = get_labels_for_finding(
-            {"severity": "critical", "category": "security"}
-        )
+        labels = get_labels_for_finding({"severity": "critical", "category": "security"})
         # "security" appears in both SEVERITY_LABELS["critical"] and CATEGORY_LABELS["security"]
         assert labels.count("security") == 1
 
@@ -554,16 +550,12 @@ class TestHandlePostCreateIssue:
 
     @pytest.mark.asyncio
     async def test_create_issue_missing_repository(self, handler, sample_finding):
-        result = await handler.handle_post_create_issue(
-            {"finding": sample_finding}
-        )
+        result = await handler.handle_post_create_issue({"finding": sample_finding})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_create_issue_missing_finding(self, handler):
-        result = await handler.handle_post_create_issue(
-            {"repository": "owner/repo"}
-        )
+        result = await handler.handle_post_create_issue({"repository": "owner/repo"})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -651,16 +643,12 @@ class TestHandlePostBulkCreateIssues:
 
     @pytest.mark.asyncio
     async def test_bulk_create_missing_repository(self, handler, sample_findings):
-        result = await handler.handle_post_bulk_create_issues(
-            {"findings": sample_findings}
-        )
+        result = await handler.handle_post_bulk_create_issues({"findings": sample_findings})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_bulk_create_missing_findings(self, handler):
-        result = await handler.handle_post_bulk_create_issues(
-            {"repository": "owner/repo"}
-        )
+        result = await handler.handle_post_bulk_create_issues({"repository": "owner/repo"})
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -835,9 +823,7 @@ class TestHandleGetSyncStatus:
 
     @pytest.mark.asyncio
     async def test_get_sync_empty_session(self, handler):
-        result = await handler.handle_get_sync_status(
-            {}, session_id="nonexistent-session"
-        )
+        result = await handler.handle_get_sync_status({}, session_id="nonexistent-session")
         body = _body(result)
         assert _status(result) == 200
         assert body["data"]["syncs"] == []
@@ -855,9 +841,7 @@ class TestHandleGetSyncStatus:
         _sync_results["sync-test-1"] = sr
         _session_syncs["sess-1"] = ["sync-test-1"]
 
-        result = await handler.handle_get_sync_status(
-            {}, session_id="sess-1"
-        )
+        result = await handler.handle_get_sync_status({}, session_id="sess-1")
         body = _body(result)
         assert _status(result) == 200
         assert body["data"]["total"] == 1
@@ -899,9 +883,7 @@ class TestHandlePostSyncSession:
 
     @pytest.mark.asyncio
     async def test_sync_missing_repository(self, handler):
-        result = await handler.handle_post_sync_session(
-            {}, session_id="sess-1"
-        )
+        result = await handler.handle_post_sync_session({}, session_id="sess-1")
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -958,9 +940,7 @@ class TestHandleGetFindingIssues:
 
     @pytest.mark.asyncio
     async def test_get_finding_issues_empty_session(self, handler):
-        result = await handler.handle_get_finding_issues(
-            {"session_id": "nonexistent"}
-        )
+        result = await handler.handle_get_finding_issues({"session_id": "nonexistent"})
         body = _body(result)
         assert _status(result) == 200
         assert body["data"]["issues"] == {}
@@ -969,9 +949,7 @@ class TestHandleGetFindingIssues:
     @pytest.mark.asyncio
     async def test_get_finding_issues_with_data(self, handler):
         _finding_issues["sess-linked"] = {"finding-1": 42, "finding-2": 43}
-        result = await handler.handle_get_finding_issues(
-            {"session_id": "sess-linked"}
-        )
+        result = await handler.handle_get_finding_issues({"session_id": "sess-linked"})
         body = _body(result)
         assert _status(result) == 200
         assert body["data"]["total"] == 2
@@ -1150,10 +1128,7 @@ class TestHandleCreateFixPRFn:
     async def test_pr_many_findings_truncated_in_body(self, monkeypatch):
         """PR body truncates findings list at 20 with a '... and N more' note."""
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-        findings = [
-            {"id": f"f-{i}", "title": f"Finding {i}", "severity": "low"}
-            for i in range(25)
-        ]
+        findings = [{"id": f"f-{i}", "title": f"Finding {i}", "severity": "low"} for i in range(25)]
         result = await handle_create_fix_pr(
             repository="owner/repo",
             session_id="sess-many",
@@ -1267,17 +1242,13 @@ class TestHandleGetSyncStatusFn:
             repository="o/r",
             status=SyncStatus.PARTIAL,
         )
-        result = await handle_get_sync_status(
-            session_id="sess-2", sync_id="sync-b"
-        )
+        result = await handle_get_sync_status(session_id="sess-2", sync_id="sync-b")
         assert result["success"] is True
         assert result["sync"]["status"] == "partial"
 
     @pytest.mark.asyncio
     async def test_sync_not_found(self):
-        result = await handle_get_sync_status(
-            session_id="s", sync_id="nonexistent"
-        )
+        result = await handle_get_sync_status(session_id="s", sync_id="nonexistent")
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
@@ -1307,18 +1278,14 @@ class TestHandleGetFindingIssuesFn:
     @pytest.mark.asyncio
     async def test_get_specific_finding_issue(self):
         _finding_issues["sess-fi2"] = {"f1": 10}
-        result = await handle_get_finding_issues(
-            session_id="sess-fi2", finding_id="f1"
-        )
+        result = await handle_get_finding_issues(session_id="sess-fi2", finding_id="f1")
         assert result["success"] is True
         assert result["issue_number"] == 10
 
     @pytest.mark.asyncio
     async def test_finding_not_found(self):
         _finding_issues["sess-fi3"] = {}
-        result = await handle_get_finding_issues(
-            session_id="sess-fi3", finding_id="missing"
-        )
+        result = await handle_get_finding_issues(session_id="sess-fi3", finding_id="missing")
         assert result["success"] is False
         assert "no issue found" in result["error"].lower()
 
@@ -1343,8 +1310,14 @@ class TestLabelConstants:
 
     def test_category_labels_has_expected_keys(self):
         expected = {
-            "security", "performance", "quality", "compliance",
-            "consistency", "documentation", "testing", "accessibility",
+            "security",
+            "performance",
+            "quality",
+            "compliance",
+            "consistency",
+            "documentation",
+            "testing",
+            "accessibility",
         }
         assert set(CATEGORY_LABELS.keys()) == expected
 

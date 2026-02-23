@@ -79,7 +79,15 @@ class AudienceSuggestionsHandler(BaseHandler):
                     "total_clusters": len(clusters),
                 }
             )
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             logger.error("Failed to list audience suggestions: %s", exc)
             return error_response("Failed to list audience suggestions", 500)
 
@@ -123,7 +131,15 @@ class AudienceSuggestionsHandler(BaseHandler):
                 },
                 status=201,
             )
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
+        except (
+            ImportError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             logger.error("Failed to submit suggestion: %s", exc)
             return error_response("Failed to submit suggestion", 500)
 

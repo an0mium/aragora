@@ -171,12 +171,10 @@ class TestOutcomeFeedbackStep:
         )
         mock_result = self._make_debate_result()
 
-        with patch.object(
-            coordinator, "_step_explain", return_value={"explanation": "test"}
-        ), patch.object(
-            coordinator, "_step_outcome_feedback", return_value=None
-        ), patch.object(
-            coordinator, "_step_persist_receipt", return_value=True
+        with (
+            patch.object(coordinator, "_step_explain", return_value={"explanation": "test"}),
+            patch.object(coordinator, "_step_outcome_feedback", return_value=None),
+            patch.object(coordinator, "_step_persist_receipt", return_value=True),
         ):
             result = coordinator.run("d1", mock_result, confidence=0.9, task="test")
 
@@ -237,9 +235,11 @@ class TestOutcomeFeedbackStep:
             call_order.append("execution_bridge")
             return []
 
-        with patch.object(coordinator, "_step_push_calibration", side_effect=track_calibration), \
-             patch.object(coordinator, "_step_outcome_feedback", side_effect=track_feedback), \
-             patch.object(coordinator, "_step_execution_bridge", side_effect=track_bridge):
+        with (
+            patch.object(coordinator, "_step_push_calibration", side_effect=track_calibration),
+            patch.object(coordinator, "_step_outcome_feedback", side_effect=track_feedback),
+            patch.object(coordinator, "_step_execution_bridge", side_effect=track_bridge),
+        ):
             coordinator.run("d1", mock_result, confidence=0.95, task="test")
 
         assert call_order == ["calibration", "outcome_feedback", "execution_bridge"]

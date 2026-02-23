@@ -321,7 +321,11 @@ class QuotaEnforcer:
             self._policies[policy.resource_type] = policy
 
         logger.info(
-            "Quota policy set: resource=%s, limit=%s/%s, org=%s", policy.resource_type, policy.limit, policy.period.value, org_id
+            "Quota policy set: resource=%s, limit=%s/%s, org=%s",
+            policy.resource_type,
+            policy.limit,
+            policy.period.value,
+            org_id,
         )
 
     def get_policy(
@@ -391,11 +395,17 @@ class QuotaEnforcer:
             # Hard limit or soft limit?
             if policy.hard_limit:
                 logger.warning(
-                    "Quota exceeded: user=%s, resource=%s, current=%s, limit=%s", user_id, resource_type, current, policy.limit
+                    "Quota exceeded: user=%s, resource=%s, current=%s, limit=%s",
+                    user_id,
+                    resource_type,
+                    current,
+                    policy.limit,
                 )
                 return False
             else:
-                logger.info("Quota soft limit exceeded: user=%s, resource=%s", user_id, resource_type)
+                logger.info(
+                    "Quota soft limit exceeded: user=%s, resource=%s", user_id, resource_type
+                )
                 return True  # Allow but warn
 
         return True
@@ -452,7 +462,11 @@ class QuotaEnforcer:
         self._persist_usage(key, record)
 
         logger.debug(
-            "Usage recorded: user=%s, resource=%s, amount=%s, cost=%s", user_id, resource_type, amount, cost
+            "Usage recorded: user=%s, resource=%s, amount=%s, cost=%s",
+            user_id,
+            resource_type,
+            amount,
+            cost,
         )
 
         return record

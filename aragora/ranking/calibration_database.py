@@ -79,7 +79,9 @@ class CalibrationDatabase:
                 conn.execute("COMMIT")
             except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
                 logger.warning(
-                    "Non-database exception during transaction, rolling back: %s: %s", type(e).__name__, e
+                    "Non-database exception during transaction, rolling back: %s: %s",
+                    type(e).__name__,
+                    e,
                 )
                 conn.execute("ROLLBACK")
                 raise

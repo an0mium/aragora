@@ -217,7 +217,9 @@ class SlackTokenRefreshScheduler:
         self._running = True
         self._task = asyncio.create_task(self._refresh_loop())
         logger.info(
-            "Started Slack token refresh scheduler (interval=%smin, window=%sh)", self.interval_minutes, self.expiry_window_hours
+            "Started Slack token refresh scheduler (interval=%smin, window=%sh)",
+            self.interval_minutes,
+            self.expiry_window_hours,
         )
 
     async def stop(self) -> None:
@@ -246,7 +248,9 @@ class SlackTokenRefreshScheduler:
 
                 if stats.failed > 0:
                     logger.warning(
-                        "Token refresh cycle completed with errors: %s refreshed, %s failed", stats.refreshed, stats.failed
+                        "Token refresh cycle completed with errors: %s refreshed, %s failed",
+                        stats.refreshed,
+                        stats.failed,
                     )
                 elif stats.refreshed > 0:
                     logger.info("Token refresh cycle completed: %s refreshed", stats.refreshed)

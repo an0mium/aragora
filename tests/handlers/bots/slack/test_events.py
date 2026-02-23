@@ -306,6 +306,7 @@ class TestAppMention:
     @pytest.mark.asyncio
     async def test_text_too_long(self, events_module):
         from aragora.server.handlers.bots.slack.constants import MAX_TOPIC_LENGTH
+
         data = _make_event_data(text="x" * (MAX_TOPIC_LENGTH + 1))
         req = MockSlackEventRequest(data)
         result = await events_module.handle_slack_events(req)
@@ -429,7 +430,10 @@ class TestAppMentionRBAC:
         assert _status(result) == 200
         body = _body(result)
         assert body.get("response_type") == "ephemeral"
-        assert "access control" in body.get("text", "").lower() or "unavailable" in body.get("text", "").lower()
+        assert (
+            "access control" in body.get("text", "").lower()
+            or "unavailable" in body.get("text", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_rbac_unavailable_fail_open(self, events_module, monkeypatch):
@@ -628,9 +632,10 @@ class TestAppUninstalled:
         data = _make_event_data(event_type="app_uninstalled", team_id="T12345ABC")
         req = MockSlackEventRequest(data)
 
-        with patch(
-            "aragora.server.handlers.bots.slack.events.audit_data"
-        ) as mock_audit, patch.dict("sys.modules", {}):
+        with (
+            patch("aragora.server.handlers.bots.slack.events.audit_data") as mock_audit,
+            patch.dict("sys.modules", {}),
+        ):
             with patch(
                 "aragora.storage.slack_workspace_store.get_slack_workspace_store",
                 mock_get_store,
@@ -677,6 +682,7 @@ class TestAppUninstalled:
 
         # Remove the module from sys.modules and make re-import fail
         import sys
+
         saved = sys.modules.pop("aragora.storage.slack_workspace_store", None)
         fake = MagicMock()
         fake.get_slack_workspace_store = MagicMock(side_effect=ImportError("no store"))
@@ -722,11 +728,12 @@ class TestAppUninstalled:
         }
         req = MockSlackEventRequest(data)
 
-        with patch(
-            "aragora.server.handlers.bots.slack.events.audit_data"
-        ), patch(
-            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
-            mock_get_store,
+        with (
+            patch("aragora.server.handlers.bots.slack.events.audit_data"),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                mock_get_store,
+            ),
         ):
             result = await events_module.handle_slack_events(req)
 
@@ -790,6 +797,7 @@ class TestTokensRevoked:
         req = MockSlackEventRequest(data)
 
         import sys
+
         saved = sys.modules.pop("aragora.storage.slack_workspace_store", None)
         sys.modules["aragora.storage.slack_workspace_store"] = None  # type: ignore
         try:
@@ -956,11 +964,7 @@ class TestExtractSlackAttachments:
 
     def test_file_preview_truncation(self, events_module):
         long_text = "x" * 3000
-        event = {
-            "files": [
-                {"id": "F003", "preview_plain_text": long_text}
-            ]
-        }
+        event = {"files": [{"id": "F003", "preview_plain_text": long_text}]}
         result = events_module._extract_slack_attachments(event, max_preview=2000)
         assert len(result) == 1
         assert result[0]["text"].endswith("...")
@@ -968,11 +972,7 @@ class TestExtractSlackAttachments:
 
     def test_file_url_fallback_chain(self, events_module):
         """Falls back: url_private_download -> url_private -> permalink."""
-        event = {
-            "files": [
-                {"id": "F004", "permalink": "https://example.com/p"}
-            ]
-        }
+        event = {"files": [{"id": "F004", "permalink": "https://example.com/p"}]}
         result = events_module._extract_slack_attachments(event)
         assert result[0]["url"] == "https://example.com/p"
 
@@ -1017,23 +1017,17 @@ class TestExtractSlackAttachments:
         assert result[0]["text"] == "Link description"
 
     def test_event_attachment_fallback_text(self, events_module):
-        event = {
-            "attachments": [{"fallback": "fallback text"}]
-        }
+        event = {"attachments": [{"fallback": "fallback text"}]}
         result = events_module._extract_slack_attachments(event)
         assert result[0]["text"] == "fallback text"
 
     def test_event_attachment_text_truncation(self, events_module):
-        event = {
-            "attachments": [{"text": "y" * 3000}]
-        }
+        event = {"attachments": [{"text": "y" * 3000}]}
         result = events_module._extract_slack_attachments(event, max_preview=100)
         assert result[0]["text"] == "y" * 100 + "..."
 
     def test_event_attachment_url_fallback(self, events_module):
-        event = {
-            "attachments": [{"from_url": "https://example.com/from"}]
-        }
+        event = {"attachments": [{"from_url": "https://example.com/from"}]}
         result = events_module._extract_slack_attachments(event)
         assert result[0]["url"] == "https://example.com/from"
 

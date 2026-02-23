@@ -206,8 +206,14 @@ class TestGetWorkspaceCircuitBreakerStatus:
         _get_workspace_circuit_breaker("metrics")
         status = get_workspace_circuit_breaker_status()
         keys = set(status["metrics"].keys())
-        expected = {"state", "failure_count", "success_count", "failure_threshold",
-                    "cooldown_seconds", "last_failure_time"}
+        expected = {
+            "state",
+            "failure_count",
+            "success_count",
+            "failure_threshold",
+            "cooldown_seconds",
+            "last_failure_time",
+        }
         assert expected.issubset(keys)
 
     def test_status_after_success_resets_failure_count(self):

@@ -120,7 +120,8 @@ def _completed_debate(
         "question": question,
         "status": status,
         "agents": agents or ["claude", "gpt-4", "gemini"],
-        "messages": messages or [
+        "messages": messages
+        or [
             {"agent": "claude", "role": "proposal", "content": "I propose X.", "round": 1},
             {"agent": "gpt-4", "role": "critique", "content": "I critique X.", "round": 1},
         ],
@@ -241,7 +242,10 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/debates/12345/package") is True
 
     def test_uuid_debate_id(self, handler):
-        assert handler.can_handle("/api/v1/debates/550e8400-e29b-41d4-a716-446655440000/package") is True
+        assert (
+            handler.can_handle("/api/v1/debates/550e8400-e29b-41d4-a716-446655440000/package")
+            is True
+        )
 
     def test_markdown_with_uuid(self, handler):
         assert handler.can_handle("/api/v1/debates/550e8400/package/markdown") is True
@@ -364,7 +368,9 @@ class TestGenerateNextSteps:
         for verdict in ["APPROVED", "APPROVED_WITH_CONDITIONS", "NEEDS_REVIEW", "UNKNOWN"]:
             steps = _generate_next_steps(verdict, 0.3, True, "q")
             actions = [s["action"] for s in steps]
-            assert any("Low confidence" in a for a in actions), f"No low-confidence step for {verdict}"
+            assert any("Low confidence" in a for a in actions), (
+                f"No low-confidence step for {verdict}"
+            )
 
     def test_high_confidence_no_low_confidence_step(self):
         steps = _generate_next_steps("APPROVED", 0.9, True, "q")
@@ -428,13 +434,15 @@ class TestBuildMarkdown:
         assert "# Decision Package: Unknown" in md
 
     def test_summary_section_present(self):
-        md = _build_markdown({
-            "question": "To be or not to be?",
-            "verdict": "APPROVED",
-            "confidence": 0.92,
-            "consensus_reached": True,
-            "status": "completed",
-        })
+        md = _build_markdown(
+            {
+                "question": "To be or not to be?",
+                "verdict": "APPROVED",
+                "confidence": 0.92,
+                "consensus_reached": True,
+                "status": "completed",
+            }
+        )
         assert "## Summary" in md
         assert "To be or not to be?" in md
         assert "APPROVED" in md
@@ -465,12 +473,14 @@ class TestBuildMarkdown:
         assert "## Explanation" not in md
 
     def test_cost_breakdown(self):
-        md = _build_markdown({
-            "cost": {
-                "total_cost_usd": 0.0042,
-                "per_agent_cost": {"claude": 0.002, "gpt-4": 0.0022},
+        md = _build_markdown(
+            {
+                "cost": {
+                    "total_cost_usd": 0.0042,
+                    "per_agent_cost": {"claude": 0.002, "gpt-4": 0.0022},
+                }
             }
-        })
+        )
         assert "## Cost Breakdown" in md
         assert "$0.0042" in md
         assert "claude" in md
@@ -481,13 +491,15 @@ class TestBuildMarkdown:
         assert "## Cost Breakdown" not in md
 
     def test_receipt_section(self):
-        md = _build_markdown({
-            "receipt": {
-                "receipt_id": "r-123",
-                "risk_level": "LOW",
-                "checksum": "abc123def",
+        md = _build_markdown(
+            {
+                "receipt": {
+                    "receipt_id": "r-123",
+                    "risk_level": "LOW",
+                    "checksum": "abc123def",
+                }
             }
-        })
+        )
         assert "## Receipt" in md
         assert "r-123" in md
         assert "LOW" in md
@@ -498,12 +510,14 @@ class TestBuildMarkdown:
         assert "## Receipt" not in md
 
     def test_next_steps_section(self):
-        md = _build_markdown({
-            "next_steps": [
-                {"action": "Do something", "priority": "high"},
-                {"action": "Do another", "priority": "medium"},
-            ]
-        })
+        md = _build_markdown(
+            {
+                "next_steps": [
+                    {"action": "Do something", "priority": "high"},
+                    {"action": "Do another", "priority": "medium"},
+                ]
+            }
+        )
         assert "## Next Steps" in md
         assert "[HIGH] Do something" in md
         assert "[MEDIUM] Do another" in md
@@ -523,12 +537,14 @@ class TestBuildMarkdown:
         assert "## Participants" not in md
 
     def test_argument_map_section(self):
-        md = _build_markdown({
-            "argument_map": {
-                "nodes": [{"id": 1}, {"id": 2}, {"id": 3}],
-                "edges": [{"from": 1, "to": 2}],
+        md = _build_markdown(
+            {
+                "argument_map": {
+                    "nodes": [{"id": 1}, {"id": 2}, {"id": 3}],
+                    "edges": [{"from": 1, "to": 2}],
+                }
             }
-        })
+        )
         assert "## Argument Map" in md
         assert "**Nodes:** 3" in md
         assert "**Edges:** 1" in md
@@ -573,9 +589,15 @@ class TestBuildMarkdown:
         }
         md = _build_markdown(package)
         for section in [
-            "## Summary", "## Final Answer", "## Explanation",
-            "## Cost Breakdown", "## Receipt", "## Next Steps",
-            "## Participants", "## Argument Map", "## Export Formats",
+            "## Summary",
+            "## Final Answer",
+            "## Explanation",
+            "## Cost Breakdown",
+            "## Receipt",
+            "## Next Steps",
+            "## Participants",
+            "## Argument Map",
+            "## Export Formats",
         ]:
             assert section in md
 
@@ -590,25 +612,33 @@ class TestHandleDispatch:
 
     def test_json_package_returns_200(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         assert _status(result) == 200
 
     def test_markdown_package_returns_200(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package/markdown", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package/markdown",
+            {},
+            http_handler,
         )
         assert _status(result) == 200
 
     def test_json_content_type(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         assert "json" in result.content_type
 
     def test_markdown_content_type(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package/markdown", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package/markdown",
+            {},
+            http_handler,
         )
         assert "text/markdown" in result.content_type
 
@@ -618,7 +648,9 @@ class TestHandleDispatch:
     )
     def test_missing_debate_id_returns_400(self, mock_extract, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates//package", {}, http_handler,
+            "/api/v1/debates//package",
+            {},
+            http_handler,
         )
         assert _status(result) == 400
         assert "Missing debate ID" in _body(result).get("error", "")
@@ -688,7 +720,9 @@ class TestAssemblePackageCompleted:
 
     def test_basic_fields_present(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert body["debate_id"] == "test-debate-001"
@@ -699,21 +733,27 @@ class TestAssemblePackageCompleted:
 
     def test_final_answer_in_package(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert body["final_answer"] == "Yes, microservices are recommended."
 
     def test_explanation_summary_in_package(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert body["explanation_summary"] == "All agents agreed on microservices."
 
     def test_participants_in_package(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert "claude" in body["participants"]
@@ -721,7 +761,9 @@ class TestAssemblePackageCompleted:
 
     def test_cost_in_package(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert body["cost"]["total_cost_usd"] == 0.0042
@@ -729,14 +771,18 @@ class TestAssemblePackageCompleted:
 
     def test_export_formats_listed(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert set(body["export_formats"]) == {"json", "markdown", "csv", "html", "txt"}
 
     def test_assembled_at_present(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert "assembled_at" in body
@@ -744,7 +790,9 @@ class TestAssemblePackageCompleted:
 
     def test_next_steps_present(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert len(body["next_steps"]) > 0
@@ -972,17 +1020,21 @@ class TestArgumentMapIntegration:
 
     def test_argument_map_generated_when_messages_present(self, http_handler):
         """Argument map should be built from debate messages."""
-        debate = _completed_debate(messages=[
-            {"agent": "claude", "role": "proposal", "content": "X is good.", "round": 1},
-        ])
+        debate = _completed_debate(
+            messages=[
+                {"agent": "claude", "role": "proposal", "content": "X is good.", "round": 1},
+            ]
+        )
         storage = _make_storage({"d1": debate})
         h = DecisionPackageHandler(ctx={"storage": storage})
 
         mock_cart = MagicMock()
-        mock_cart.export_json.return_value = json.dumps({
-            "nodes": [{"id": "n1"}],
-            "edges": [],
-        })
+        mock_cart.export_json.return_value = json.dumps(
+            {
+                "nodes": [{"id": "n1"}],
+                "edges": [],
+            }
+        )
 
         with patch(
             "aragora.visualization.mapper.ArgumentCartographer",
@@ -1036,27 +1088,35 @@ class TestMarkdownEndpoint:
 
     def test_markdown_response_is_text(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package/markdown", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package/markdown",
+            {},
+            http_handler,
         )
         text = _text(result)
         assert "# Decision Package:" in text
 
     def test_markdown_contains_question(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package/markdown", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package/markdown",
+            {},
+            http_handler,
         )
         text = _text(result)
         assert "Should we use microservices?" in text
 
     def test_markdown_content_type_charset(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package/markdown", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package/markdown",
+            {},
+            http_handler,
         )
         assert "charset=utf-8" in result.content_type
 
     def test_markdown_body_is_bytes(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package/markdown", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package/markdown",
+            {},
+            http_handler,
         )
         assert isinstance(result.body, bytes)
 
@@ -1115,7 +1175,9 @@ class TestEdgeCases:
         storage = _make_storage({"debate-with-dashes": debate})
         h = DecisionPackageHandler(ctx={"storage": storage})
         result = h.handle(
-            "/api/v1/debates/debate-with-dashes/package", {}, http_handler,
+            "/api/v1/debates/debate-with-dashes/package",
+            {},
+            http_handler,
         )
         assert _status(result) == 200
         body = _body(result)
@@ -1192,16 +1254,20 @@ class TestEdgeCases:
 
     def test_debate_status_is_included(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert body["status"] == "completed"
 
     def test_argument_map_with_messages_missing_agent(self, http_handler):
         """Messages missing agent field should still work (fallback to 'role')."""
-        debate = _completed_debate(messages=[
-            {"role": "proposal", "content": "Something", "round": 1},
-        ])
+        debate = _completed_debate(
+            messages=[
+                {"role": "proposal", "content": "Something", "round": 1},
+            ]
+        )
         storage = _make_storage({"d1": debate})
         h = DecisionPackageHandler(ctx={"storage": storage})
 
@@ -1276,20 +1342,35 @@ class TestJSONStructure:
 
     def test_all_top_level_keys(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         expected_keys = {
-            "debate_id", "question", "status", "verdict", "confidence",
-            "consensus_reached", "final_answer", "explanation_summary",
-            "participants", "receipt", "cost", "argument_map",
-            "next_steps", "export_formats", "assembled_at",
+            "debate_id",
+            "question",
+            "status",
+            "verdict",
+            "confidence",
+            "consensus_reached",
+            "final_answer",
+            "explanation_summary",
+            "participants",
+            "receipt",
+            "cost",
+            "argument_map",
+            "next_steps",
+            "export_formats",
+            "assembled_at",
         }
         assert expected_keys.issubset(set(body.keys()))
 
     def test_cost_structure(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         assert "total_cost_usd" in body["cost"]
@@ -1297,7 +1378,9 @@ class TestJSONStructure:
 
     def test_next_steps_structure(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
-            "/api/v1/debates/test-debate-001/package", {}, http_handler,
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
         )
         body = _body(result)
         for step in body["next_steps"]:

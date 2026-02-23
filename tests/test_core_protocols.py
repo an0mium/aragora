@@ -126,7 +126,7 @@ class TestEloBackendProtocol:
                 participants: list[str],
                 scores: dict[str, float],
             ) -> dict[str, float]:
-                return {p: 0.0 for p in participants}
+                return dict.fromkeys(participants, 0.0)
 
             def get_leaderboard(
                 self, limit: int = 20, domain: str | None = None

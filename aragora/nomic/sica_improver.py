@@ -1059,7 +1059,9 @@ Preserve all existing functionality while fixing the issue."""
             file_path.write_text(original)
 
         logger.info(
-            "sica_validation patch_id=%s result=%s", patch.id, patch.validation_result.value if patch.validation_result else 'none'
+            "sica_validation patch_id=%s result=%s",
+            patch.id,
+            patch.validation_result.value if patch.validation_result else "none",
         )
 
         return patch.validation_result == ValidationResult.PASSED

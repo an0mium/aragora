@@ -52,10 +52,9 @@ def _extract_mode(query_params: dict[str, Any]) -> str:
         raw = raw[0] if raw else "quick"
     mode = str(raw).lower().strip()
     if mode not in VALID_MODES:
-        raise ValueError(
-            f"Invalid mode '{mode}'. Must be one of: {', '.join(VALID_MODES)}"
-        )
+        raise ValueError(f"Invalid mode '{mode}'. Must be one of: {', '.join(VALID_MODES)}")
     return mode
+
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -140,9 +139,7 @@ def _cluster_ideas(ideas: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
         for j in range(i + 1, len(ideas)):
             if j in assigned:
                 continue
-            words_j = set(
-                (ideas[j].get("label") or ideas[j].get("text", "")).lower().split()
-            )
+            words_j = set((ideas[j].get("label") or ideas[j].get("text", "")).lower().split())
             if words_i & words_j:
                 cluster.append(ideas[j])
                 assigned.add(j)
@@ -189,19 +186,19 @@ def _ideas_to_goals_logic(
             from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
             import asyncio
 
-            planner = MetaPlanner(MetaPlannerConfig(
-                quick_mode=(mode == "quick"),
-                use_business_context=True,
-                max_goals=max(3, len(ideas) // 2),
-            ))
+            planner = MetaPlanner(
+                MetaPlannerConfig(
+                    quick_mode=(mode == "quick"),
+                    use_business_context=True,
+                    max_goals=max(3, len(ideas) // 2),
+                )
+            )
 
             idea_summaries = [
-                idea.get("label", idea.get("content", idea.get("text", "")))
-                for idea in ideas
+                idea.get("label", idea.get("content", idea.get("text", ""))) for idea in ideas
             ]
             objective = (
-                f"Derive actionable goals from these ideas: "
-                f"{'; '.join(idea_summaries[:10])}"
+                f"Derive actionable goals from these ideas: {'; '.join(idea_summaries[:10])}"
             )
 
             loop = asyncio.new_event_loop()
@@ -233,9 +230,13 @@ def _ideas_to_goals_logic(
                     result_nodes.append(goal_node)
                     _node_store[goal_node.id] = asdict(goal_node)
                     for idea_n in idea_nodes:
-                        result_edges.append(PipelineEdge(
-                            source=idea_n.id, target=goal_node.id, edge_type="derives",
-                        ))
+                        result_edges.append(
+                            PipelineEdge(
+                                source=idea_n.id,
+                                target=goal_node.id,
+                                edge_type="derives",
+                            )
+                        )
 
                 goal_nodes = [n for n in result_nodes if n.stage == "goal"]
                 provenance_method = "meta_planner" if mode == "quick" else "meta_planner_debate"
@@ -260,14 +261,10 @@ def _ideas_to_goals_logic(
     edges: list[PipelineEdge] = []
 
     for cluster in clusters:
-        cluster_labels = [
-            i.get("label") or i.get("text", "") for i in cluster
-        ]
+        cluster_labels = [i.get("label") or i.get("text", "") for i in cluster]
         objective = f"Achieve: {cluster_labels[0]}" if cluster_labels else "Achieve: goal"
         goal_id = f"goal-{uuid.uuid4().hex[:8]}"
-        source_ids = [
-            i.get("id") or f"idea-{uuid.uuid4().hex[:8]}" for i in cluster
-        ]
+        source_ids = [i.get("id") or f"idea-{uuid.uuid4().hex[:8]}" for i in cluster]
 
         goal_node = PipelineNode(
             id=goal_id,
@@ -361,7 +358,9 @@ def _goals_to_tasks_logic(
                 for idx, subtask in enumerate(decomposition.subtasks):
                     if max_tasks and task_count >= max_tasks:
                         break
-                    task_id = f"task-{subtask.id}" if not subtask.id.startswith("task-") else subtask.id
+                    task_id = (
+                        f"task-{subtask.id}" if not subtask.id.startswith("task-") else subtask.id
+                    )
                     assignee_type = _ASSIGNEE_TYPES[idx % len(_ASSIGNEE_TYPES)]
 
                     task_node = PipelineNode(
@@ -380,9 +379,13 @@ def _goals_to_tasks_logic(
                     )
                     all_nodes.append(task_node)
                     _node_store[task_id] = asdict(task_node)
-                    all_edges.append(PipelineEdge(
-                        source=goal_id, target=task_id, edge_type="decomposes",
-                    ))
+                    all_edges.append(
+                        PipelineEdge(
+                            source=goal_id,
+                            target=task_id,
+                            edge_type="decomposes",
+                        )
+                    )
                     task_count += 1
 
                 if max_tasks and task_count >= max_tasks:
@@ -399,7 +402,8 @@ def _goals_to_tasks_logic(
                     for i in range(len(task_ids) - 1):
                         all_edges.append(
                             PipelineEdge(
-                                source=task_ids[i], target=task_ids[i + 1],
+                                source=task_ids[i],
+                                target=task_ids[i + 1],
                                 edge_type="depends_on",
                             )
                         )
@@ -550,9 +554,13 @@ def _tasks_to_workflow_logic(
             nodes.append(orch_node)
             _node_store[orch_id] = asdict(orch_node)
             if source_task_id:
-                edges.append(PipelineEdge(
-                    source=source_task_id, target=orch_id, edge_type="triggers",
-                ))
+                edges.append(
+                    PipelineEdge(
+                        source=source_task_id,
+                        target=orch_id,
+                        edge_type="triggers",
+                    )
+                )
 
         # Carry over sequential dependency edges
         orch_by_task: dict[str, str] = {}
@@ -566,11 +574,13 @@ def _tasks_to_workflow_logic(
             deps = task.get("derived_from") or task.get("depends_on") or []
             for dep_id in deps:
                 if dep_id in orch_by_task and tid in orch_by_task:
-                    edges.append(PipelineEdge(
-                        source=orch_by_task[dep_id],
-                        target=orch_by_task[tid],
-                        edge_type="depends_on",
-                    ))
+                    edges.append(
+                        PipelineEdge(
+                            source=orch_by_task[dep_id],
+                            target=orch_by_task[tid],
+                            edge_type="depends_on",
+                        )
+                    )
 
         return TransitionResult(
             nodes=nodes,
@@ -692,7 +702,10 @@ class PipelineTransitionsHandler(SecureHandler):
         return cleaned.startswith("/api/pipeline/transitions")
 
     def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any,
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult | None:
         """Route GET requests."""
         cleaned = strip_version_prefix(path)
@@ -712,7 +725,9 @@ class PipelineTransitionsHandler(SecureHandler):
             if len(parts) == 6 and parts[5] == "provenance":
                 node_id = parts[4]
                 is_valid, err = validate_path_segment(
-                    node_id, "node_id", SAFE_ID_PATTERN,
+                    node_id,
+                    "node_id",
+                    SAFE_ID_PATTERN,
                 )
                 if not is_valid:
                     return error_response(err, 400)
@@ -722,7 +737,10 @@ class PipelineTransitionsHandler(SecureHandler):
 
     @handle_errors("pipeline transition")
     def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any,
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to transition sub-endpoints."""
         cleaned = strip_version_prefix(path)
@@ -749,7 +767,9 @@ class PipelineTransitionsHandler(SecureHandler):
     # ── Endpoint implementations ────────────────────────────────────────
 
     def _ideas_to_goals(
-        self, body: dict[str, Any], query_params: dict[str, Any] | None = None,
+        self,
+        body: dict[str, Any],
+        query_params: dict[str, Any] | None = None,
     ) -> HandlerResult:
         ideas = body.get("ideas")
         if not ideas or not isinstance(ideas, list):
@@ -765,7 +785,9 @@ class PipelineTransitionsHandler(SecureHandler):
         return json_response(self._serialize_result(result))
 
     def _goals_to_tasks(
-        self, body: dict[str, Any], query_params: dict[str, Any] | None = None,
+        self,
+        body: dict[str, Any],
+        query_params: dict[str, Any] | None = None,
     ) -> HandlerResult:
         goals = body.get("goals")
         if not goals or not isinstance(goals, list):
@@ -801,33 +823,39 @@ class PipelineTransitionsHandler(SecureHandler):
         execution_id = f"exec-{uuid.uuid4().hex[:12]}"
 
         if dry_run:
-            return json_response({
-                "execution_id": execution_id,
-                "status": "dry_run",
-                "plan": {
-                    "node_count": len(workflow_nodes),
-                    "edge_count": len(workflow_edges) if workflow_edges else 0,
-                    "estimated_steps": len(workflow_nodes),
-                },
-            })
+            return json_response(
+                {
+                    "execution_id": execution_id,
+                    "status": "dry_run",
+                    "plan": {
+                        "node_count": len(workflow_nodes),
+                        "edge_count": len(workflow_edges) if workflow_edges else 0,
+                        "estimated_steps": len(workflow_nodes),
+                    },
+                }
+            )
 
         # Real execution: store and mark as started
-        return json_response({
-            "execution_id": execution_id,
-            "status": "started",
-            "node_count": len(workflow_nodes),
-        })
+        return json_response(
+            {
+                "execution_id": execution_id,
+                "status": "started",
+                "node_count": len(workflow_nodes),
+            }
+        )
 
     def _get_provenance(self, node_id: str) -> HandlerResult:
         chain = _get_provenance_chain(node_id)
         if not chain:
             return error_response(f"Node '{node_id}' not found", 404)
 
-        return json_response({
-            "node_id": node_id,
-            "chain": chain,
-            "depth": len(chain),
-        })
+        return json_response(
+            {
+                "node_id": node_id,
+                "chain": chain,
+                "depth": len(chain),
+            }
+        )
 
     # ── Serialisation helpers ───────────────────────────────────────────
 

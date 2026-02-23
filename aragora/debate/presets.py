@@ -260,6 +260,7 @@ def get_preset(name: str) -> dict[str, Any]:
     if pdc_preset:
         try:
             from aragora.debate.post_debate_coordinator import PostDebateConfig
+
             result["post_debate_config"] = PostDebateConfig(**pdc_preset)
         except ImportError:
             pass

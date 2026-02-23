@@ -157,10 +157,19 @@ class TestUnifiedContact:
 
     def test_properties_default_factory(self):
         c = UnifiedContact(
-            id="x", platform="hubspot", email=None, first_name=None,
-            last_name=None, phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="x",
+            platform="hubspot",
+            email=None,
+            first_name=None,
+            last_name=None,
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         assert c.properties == {}
         assert isinstance(c.properties, dict)
@@ -168,16 +177,34 @@ class TestUnifiedContact:
     def test_properties_default_not_shared(self):
         """Each instance gets its own default dict."""
         c1 = UnifiedContact(
-            id="a", platform="p", email=None, first_name=None,
-            last_name=None, phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="a",
+            platform="p",
+            email=None,
+            first_name=None,
+            last_name=None,
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         c2 = UnifiedContact(
-            id="b", platform="p", email=None, first_name=None,
-            last_name=None, phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="b",
+            platform="p",
+            email=None,
+            first_name=None,
+            last_name=None,
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         c1.properties["key"] = "val"
         assert "key" not in c2.properties
@@ -205,19 +232,37 @@ class TestUnifiedContact:
 
     def test_full_name_first_only(self, now):
         c = UnifiedContact(
-            id="x", platform="p", email=None, first_name="Alice",
-            last_name=None, phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="x",
+            platform="p",
+            email=None,
+            first_name="Alice",
+            last_name=None,
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         assert c.to_dict()["full_name"] == "Alice"
 
     def test_full_name_last_only(self):
         c = UnifiedContact(
-            id="x", platform="p", email=None, first_name=None,
-            last_name="Smith", phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="x",
+            platform="p",
+            email=None,
+            first_name=None,
+            last_name="Smith",
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         assert c.to_dict()["full_name"] == "Smith"
 
@@ -227,10 +272,19 @@ class TestUnifiedContact:
 
     def test_full_name_empty_strings(self):
         c = UnifiedContact(
-            id="x", platform="p", email=None, first_name="",
-            last_name="", phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="x",
+            platform="p",
+            email=None,
+            first_name="",
+            last_name="",
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         # Empty strings become '' via `or ''`, strip() yields '', which is falsy => None
         assert c.to_dict()["full_name"] is None
@@ -238,10 +292,19 @@ class TestUnifiedContact:
     def test_full_name_whitespace_first_name(self):
         """first_name with whitespace still gets stripped."""
         c = UnifiedContact(
-            id="x", platform="p", email=None, first_name="  ",
-            last_name=None, phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            id="x",
+            platform="p",
+            email=None,
+            first_name="  ",
+            last_name=None,
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         # "  " is truthy so it uses "  " directly, then strip() produces ""
         # The expression: f"{self.first_name or ''} {self.last_name or ''}".strip()
@@ -258,20 +321,40 @@ class TestUnifiedContact:
 
     def test_to_dict_keys(self, full_contact):
         expected_keys = {
-            "id", "platform", "email", "first_name", "last_name",
-            "full_name", "phone", "company", "job_title",
-            "lifecycle_stage", "lead_status", "owner_id",
-            "created_at", "updated_at", "properties",
+            "id",
+            "platform",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "phone",
+            "company",
+            "job_title",
+            "lifecycle_stage",
+            "lead_status",
+            "owner_id",
+            "created_at",
+            "updated_at",
+            "properties",
         }
         assert set(full_contact.to_dict().keys()) == expected_keys
 
     def test_datetime_isoformat_output(self):
         dt = datetime(2025, 6, 15, 8, 30, 45, tzinfo=timezone.utc)
         c = UnifiedContact(
-            id="x", platform="p", email=None, first_name=None,
-            last_name=None, phone=None, company=None, job_title=None,
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=dt, updated_at=dt,
+            id="x",
+            platform="p",
+            email=None,
+            first_name=None,
+            last_name=None,
+            phone=None,
+            company=None,
+            job_title=None,
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=dt,
+            updated_at=dt,
         )
         d = c.to_dict()
         assert d["created_at"] == "2025-06-15T08:30:45+00:00"
@@ -279,13 +362,19 @@ class TestUnifiedContact:
 
     def test_special_characters_in_fields(self):
         c = UnifiedContact(
-            id="c-special", platform="hubspot",
+            id="c-special",
+            platform="hubspot",
             email="o'malley@example.com",
             first_name="Jean-Pierre",
             last_name="O'Brien",
-            phone=None, company='Acme "Corp"', job_title="VP & GM",
-            lifecycle_stage=None, lead_status=None, owner_id=None,
-            created_at=None, updated_at=None,
+            phone=None,
+            company='Acme "Corp"',
+            job_title="VP & GM",
+            lifecycle_stage=None,
+            lead_status=None,
+            owner_id=None,
+            created_at=None,
+            updated_at=None,
         )
         d = c.to_dict()
         assert d["email"] == "o'malley@example.com"
@@ -363,8 +452,15 @@ class TestUnifiedCompany:
 
     def test_to_dict_keys(self, full_company):
         expected_keys = {
-            "id", "platform", "name", "domain", "industry",
-            "employee_count", "annual_revenue", "owner_id", "created_at",
+            "id",
+            "platform",
+            "name",
+            "domain",
+            "industry",
+            "employee_count",
+            "annual_revenue",
+            "owner_id",
+            "created_at",
         }
         assert set(full_company.to_dict().keys()) == expected_keys
 
@@ -373,9 +469,15 @@ class TestUnifiedCompany:
 
     def test_zero_employees(self):
         c = UnifiedCompany(
-            id="c", platform="p", name="Startup",
-            domain=None, industry=None, employee_count=0,
-            annual_revenue=0.0, owner_id=None, created_at=None,
+            id="c",
+            platform="p",
+            name="Startup",
+            domain=None,
+            industry=None,
+            employee_count=0,
+            annual_revenue=0.0,
+            owner_id=None,
+            created_at=None,
         )
         d = c.to_dict()
         assert d["employee_count"] == 0
@@ -383,9 +485,15 @@ class TestUnifiedCompany:
 
     def test_large_revenue(self):
         c = UnifiedCompany(
-            id="c", platform="p", name="MegaCorp",
-            domain=None, industry=None, employee_count=100_000,
-            annual_revenue=99_999_999_999.99, owner_id=None, created_at=None,
+            id="c",
+            platform="p",
+            name="MegaCorp",
+            domain=None,
+            industry=None,
+            employee_count=100_000,
+            annual_revenue=99_999_999_999.99,
+            owner_id=None,
+            created_at=None,
         )
         d = c.to_dict()
         assert d["annual_revenue"] == 99_999_999_999.99
@@ -393,9 +501,15 @@ class TestUnifiedCompany:
     def test_datetime_isoformat(self):
         dt = datetime(2024, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         c = UnifiedCompany(
-            id="c", platform="p", name="N",
-            domain=None, industry=None, employee_count=None,
-            annual_revenue=None, owner_id=None, created_at=dt,
+            id="c",
+            platform="p",
+            name="N",
+            domain=None,
+            industry=None,
+            employee_count=None,
+            annual_revenue=None,
+            owner_id=None,
+            created_at=dt,
         )
         assert c.to_dict()["created_at"] == "2024-12-31T23:59:59+00:00"
 
@@ -403,9 +517,15 @@ class TestUnifiedCompany:
         """Naive (no tz) datetimes still serialise without offset."""
         dt = datetime(2025, 3, 1, 10, 0, 0)
         c = UnifiedCompany(
-            id="c", platform="p", name="N",
-            domain=None, industry=None, employee_count=None,
-            annual_revenue=None, owner_id=None, created_at=dt,
+            id="c",
+            platform="p",
+            name="N",
+            domain=None,
+            industry=None,
+            employee_count=None,
+            annual_revenue=None,
+            owner_id=None,
+            created_at=dt,
         )
         assert c.to_dict()["created_at"] == "2025-03-01T10:00:00"
 
@@ -464,12 +584,24 @@ class TestUnifiedDeal:
 
     def test_default_contact_ids_not_shared(self):
         d1 = UnifiedDeal(
-            id="a", platform="p", name="A", amount=None,
-            stage="s", pipeline=None, close_date=None, probability=None,
+            id="a",
+            platform="p",
+            name="A",
+            amount=None,
+            stage="s",
+            pipeline=None,
+            close_date=None,
+            probability=None,
         )
         d2 = UnifiedDeal(
-            id="b", platform="p", name="B", amount=None,
-            stage="s", pipeline=None, close_date=None, probability=None,
+            id="b",
+            platform="p",
+            name="B",
+            amount=None,
+            stage="s",
+            pipeline=None,
+            close_date=None,
+            probability=None,
         )
         d1.contact_ids.append("c-1")
         assert "c-1" not in d2.contact_ids
@@ -510,9 +642,18 @@ class TestUnifiedDeal:
 
     def test_to_dict_keys(self, full_deal):
         expected_keys = {
-            "id", "platform", "name", "amount", "stage", "pipeline",
-            "close_date", "probability", "contact_ids", "company_id",
-            "owner_id", "created_at",
+            "id",
+            "platform",
+            "name",
+            "amount",
+            "stage",
+            "pipeline",
+            "close_date",
+            "probability",
+            "contact_ids",
+            "company_id",
+            "owner_id",
+            "created_at",
         }
         assert set(full_deal.to_dict().keys()) == expected_keys
 
@@ -525,34 +666,54 @@ class TestUnifiedDeal:
 
     def test_zero_amount(self):
         deal = UnifiedDeal(
-            id="d", platform="p", name="Free",
-            amount=0.0, stage="closed", pipeline=None,
-            close_date=None, probability=1.0,
+            id="d",
+            platform="p",
+            name="Free",
+            amount=0.0,
+            stage="closed",
+            pipeline=None,
+            close_date=None,
+            probability=1.0,
         )
         assert deal.to_dict()["amount"] == 0.0
 
     def test_zero_probability(self):
         deal = UnifiedDeal(
-            id="d", platform="p", name="Unlikely",
-            amount=100.0, stage="lost", pipeline=None,
-            close_date=None, probability=0.0,
+            id="d",
+            platform="p",
+            name="Unlikely",
+            amount=100.0,
+            stage="lost",
+            pipeline=None,
+            close_date=None,
+            probability=0.0,
         )
         assert deal.to_dict()["probability"] == 0.0
 
     def test_probability_one(self):
         deal = UnifiedDeal(
-            id="d", platform="p", name="Sure Thing",
-            amount=100.0, stage="closed-won", pipeline=None,
-            close_date=None, probability=1.0,
+            id="d",
+            platform="p",
+            name="Sure Thing",
+            amount=100.0,
+            stage="closed-won",
+            pipeline=None,
+            close_date=None,
+            probability=1.0,
         )
         assert deal.to_dict()["probability"] == 1.0
 
     def test_close_date_isoformat(self):
         dt = datetime(2026, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         deal = UnifiedDeal(
-            id="d", platform="p", name="EOY Deal",
-            amount=None, stage="s", pipeline=None,
-            close_date=dt, probability=None,
+            id="d",
+            platform="p",
+            name="EOY Deal",
+            amount=None,
+            stage="s",
+            pipeline=None,
+            close_date=dt,
+            probability=None,
         )
         assert deal.to_dict()["close_date"] == "2026-12-31T23:59:59+00:00"
 
@@ -567,20 +728,25 @@ class TestModuleExports:
 
     def test_all_contains_supported_platforms(self):
         from aragora.server.handlers.features.crm import models
+
         assert "SUPPORTED_PLATFORMS" in models.__all__
 
     def test_all_contains_unified_contact(self):
         from aragora.server.handlers.features.crm import models
+
         assert "UnifiedContact" in models.__all__
 
     def test_all_contains_unified_company(self):
         from aragora.server.handlers.features.crm import models
+
         assert "UnifiedCompany" in models.__all__
 
     def test_all_contains_unified_deal(self):
         from aragora.server.handlers.features.crm import models
+
         assert "UnifiedDeal" in models.__all__
 
     def test_all_length(self):
         from aragora.server.handlers.features.crm import models
+
         assert len(models.__all__) == 4

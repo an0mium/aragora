@@ -178,19 +178,23 @@ class TestGetRequestId:
 
     def test_priority_order_request_id_first(self):
         """X-Request-ID takes priority over X-Trace-ID and X-Correlation-ID."""
-        handler = MockHandlerWithHeaders({
-            "X-Request-ID": "req-1",
-            "X-Trace-ID": "trace-2",
-            "X-Correlation-ID": "corr-3",
-        })
+        handler = MockHandlerWithHeaders(
+            {
+                "X-Request-ID": "req-1",
+                "X-Trace-ID": "trace-2",
+                "X-Correlation-ID": "corr-3",
+            }
+        )
         assert get_request_id(handler) == "req-1"
 
     def test_priority_order_trace_id_second(self):
         """X-Trace-ID takes priority over X-Correlation-ID when no X-Request-ID."""
-        handler = MockHandlerWithHeaders({
-            "X-Trace-ID": "trace-2",
-            "X-Correlation-ID": "corr-3",
-        })
+        handler = MockHandlerWithHeaders(
+            {
+                "X-Trace-ID": "trace-2",
+                "X-Correlation-ID": "corr-3",
+            }
+        )
         assert get_request_id(handler) == "trace-2"
 
     def test_returns_none_when_no_id_headers(self):
@@ -203,19 +207,23 @@ class TestGetRequestId:
 
     def test_empty_request_id_falls_through(self):
         """Empty string is falsy, so it should fall through to next header."""
-        handler = MockHandlerWithHeaders({
-            "X-Request-ID": "",
-            "X-Trace-ID": "trace-ok",
-        })
+        handler = MockHandlerWithHeaders(
+            {
+                "X-Request-ID": "",
+                "X-Trace-ID": "trace-ok",
+            }
+        )
         assert get_request_id(handler) == "trace-ok"
 
     def test_all_empty_returns_none_or_empty(self):
         """All headers empty should return empty string (falsy)."""
-        handler = MockHandlerWithHeaders({
-            "X-Request-ID": "",
-            "X-Trace-ID": "",
-            "X-Correlation-ID": "",
-        })
+        handler = MockHandlerWithHeaders(
+            {
+                "X-Request-ID": "",
+                "X-Trace-ID": "",
+                "X-Correlation-ID": "",
+            }
+        )
         # The or-chain returns the last empty string
         result = get_request_id(handler)
         assert result == "" or result is None
@@ -617,7 +625,8 @@ class TestBuildApiUrl:
 
     def test_with_multiple_query_params(self):
         result = build_api_url(
-            "api", "debates",
+            "api",
+            "debates",
             query_params={"limit": 10, "offset": 20},
         )
         assert "limit=10" in result
@@ -626,7 +635,8 @@ class TestBuildApiUrl:
 
     def test_query_params_none_values_excluded(self):
         result = build_api_url(
-            "api", "agents",
+            "api",
+            "agents",
             query_params={"limit": 10, "cursor": None},
         )
         assert "cursor" not in result
@@ -800,11 +810,13 @@ class TestCrossFunctionIntegration:
 
     def test_request_header_chain(self):
         """Test extracting multiple headers from the same handler."""
-        handler = MockHandlerWithHeaders({
-            "Host": "api.aragora.io",
-            "X-Request-ID": "req-abc",
-            "Content-Length": "512",
-        })
+        handler = MockHandlerWithHeaders(
+            {
+                "Host": "api.aragora.io",
+                "X-Request-ID": "req-abc",
+                "Content-Length": "512",
+            }
+        )
         assert get_host_header(handler) == "api.aragora.io"
         assert get_request_id(handler) == "req-abc"
         assert get_content_length(handler) == 512

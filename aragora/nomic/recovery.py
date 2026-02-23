@@ -113,7 +113,9 @@ class CircuitBreaker:
 
         if self._failures >= self.failure_threshold:
             self._state = "open"
-            logger.warning("Circuit breaker '%s' opened after %s failures", self.name, self._failures)
+            logger.warning(
+                "Circuit breaker '%s' opened after %s failures", self.name, self._failures
+            )
 
     def reset(self) -> None:
         """Manually reset the circuit breaker."""

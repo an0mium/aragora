@@ -227,9 +227,7 @@ class TestGetSupermemoryAdapter:
         """When SupermemoryConfig.from_env() returns None, return None."""
         mock_module = MagicMock()
         mock_module.SupermemoryConfig.from_env.return_value = None
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is None
 
@@ -243,9 +241,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.return_value = mock_client
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is mock_client
             # Verify it was cached
@@ -261,9 +257,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.return_value = mock_client
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             first = handler._get_supermemory_adapter()
             # Second call should use cached
             second = handler._get_supermemory_adapter()
@@ -277,9 +271,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.side_effect = ConnectionError("refused")
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is None
 
@@ -290,9 +282,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.side_effect = TimeoutError("timed out")
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is None
 
@@ -303,9 +293,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.side_effect = ValueError("bad config")
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is None
 
@@ -316,9 +304,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.side_effect = RuntimeError("init failed")
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is None
 
@@ -329,9 +315,7 @@ class TestGetSupermemoryAdapter:
         mock_module.SupermemoryConfig.from_env.return_value = mock_config
         mock_module.get_client.side_effect = OSError("network error")
 
-        with patch.dict(
-            "sys.modules", {"aragora.connectors.supermemory": mock_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.connectors.supermemory": mock_module}):
             result = handler._get_supermemory_adapter()
             assert result is None
 
@@ -363,9 +347,7 @@ class TestSearchSupermemory:
         )
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = "test-tag"
             with patch(
@@ -389,9 +371,7 @@ class TestSearchSupermemory:
         mock_response = MagicMock()
         mock_response.results = []
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -411,9 +391,7 @@ class TestSearchSupermemory:
         mock_response = MagicMock()
         mock_response.results = []
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = "my-tag"
             with patch(
@@ -433,9 +411,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(content=long_content)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -457,9 +433,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(content=short_content)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -479,9 +453,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(content=content)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -499,9 +471,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(memory_id=None)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -517,14 +487,11 @@ class TestSearchSupermemory:
         mock_client = MagicMock()
         mock_response = MagicMock()
         items = [
-            _make_supermemory_result_item(memory_id=None, content=f"item {i}")
-            for i in range(3)
+            _make_supermemory_result_item(memory_id=None, content=f"item {i}") for i in range(3)
         ]
         mock_response.results = items
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -544,9 +511,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(similarity=0.123456789)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -565,9 +530,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(content=content)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -585,9 +548,7 @@ class TestSearchSupermemory:
         item = _make_supermemory_result_item(content="")
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -611,9 +572,7 @@ class TestSearchSupermemory:
         item.container_tag = None
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -637,9 +596,7 @@ class TestSearchSupermemory:
         item.container_tag = None
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -656,9 +613,7 @@ class TestSearchSupermemory:
         mock_response = MagicMock(spec=[])  # no attributes
         # getattr(response, "results", []) will return []
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -675,9 +630,7 @@ class TestSearchSupermemory:
         mock_response = MagicMock()
         mock_response.results = None
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -694,9 +647,7 @@ class TestSearchSupermemory:
         mock_response = MagicMock()
         mock_response.results = []
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             # Don't set _supermemory_config at all
             with patch(
                 "aragora.server.handlers.memory.memory_external.run_async",
@@ -706,9 +657,7 @@ class TestSearchSupermemory:
 
         assert results == []
         # container_tag should be None since config is None
-        mock_client.search.assert_called_once_with(
-            query="query", limit=10, container_tag=None
-        )
+        mock_client.search.assert_called_once_with(query="query", limit=10, container_tag=None)
 
     def test_multiple_results(self, handler):
         """Multiple search results are all returned."""
@@ -722,9 +671,7 @@ class TestSearchSupermemory:
         ]
         mock_response.results = items
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -741,9 +688,7 @@ class TestSearchSupermemory:
         """ConnectionError during search returns empty list."""
         mock_client = MagicMock()
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -758,9 +703,7 @@ class TestSearchSupermemory:
         """TimeoutError during search returns empty list."""
         mock_client = MagicMock()
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -775,9 +718,7 @@ class TestSearchSupermemory:
         """OSError during search returns empty list."""
         mock_client = MagicMock()
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -792,9 +733,7 @@ class TestSearchSupermemory:
         """ValueError during search returns empty list."""
         mock_client = MagicMock()
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -809,9 +748,7 @@ class TestSearchSupermemory:
         """RuntimeError during search returns empty list."""
         mock_client = MagicMock()
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
@@ -836,9 +773,7 @@ class TestSearchClaudeMem:
         with patch.dict("sys.modules", {"aragora.connectors": MagicMock(spec=[])}):
             # spec=[] means no attributes, so importing ClaudeMemConnector will fail
             # But we need to simulate ImportError from the from-import
-            with patch(
-                "builtins.__import__", side_effect=ImportError("no module")
-            ):
+            with patch("builtins.__import__", side_effect=ImportError("no module")):
                 result = handler._search_claude_mem("query")
                 assert result == []
 
@@ -868,9 +803,7 @@ class TestSearchClaudeMem:
                 import importlib
                 import sys
 
-                with patch.object(
-                    importlib, "import_module", return_value=mock_module
-                ):
+                with patch.object(importlib, "import_module", return_value=mock_module):
                     # Use a more direct approach - patch at the point of use
                     pass
 
@@ -933,9 +866,7 @@ class TestSearchClaudeMem:
                 return_value=[],
             ):
                 handler._search_claude_mem("query")
-                mock_connector.search.assert_called_once_with(
-                    "query", limit=10, project=None
-                )
+                mock_connector.search.assert_called_once_with("query", limit=10, project=None)
 
     def test_preview_truncation_at_220(self, handler):
         """Content longer than 220 chars gets truncated with ellipsis."""
@@ -1049,9 +980,7 @@ class TestSearchClaudeMem:
         """Multiple evidence items are all returned."""
         mock_connector = MagicMock()
         mock_config = MagicMock()
-        evidence = [
-            _make_claude_mem_item(id=f"cm-{i}", content=f"Memory {i}") for i in range(4)
-        ]
+        evidence = [_make_claude_mem_item(id=f"cm-{i}", content=f"Memory {i}") for i in range(4)]
 
         mock_connectors = MagicMock()
         mock_connectors.ClaudeMemConnector.return_value = mock_connector
@@ -1253,18 +1182,14 @@ class TestMixinIntegration:
         item = _make_supermemory_result_item(content="twelve char")
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(
                 "aragora.server.handlers.memory.memory_external.run_async",
                 return_value=mock_response,
             ):
-                with patch.object(
-                    handler, "_estimate_tokens", return_value=42
-                ) as mock_est:
+                with patch.object(handler, "_estimate_tokens", return_value=42) as mock_est:
                     results = handler._search_supermemory("query")
                     mock_est.assert_called_once_with("twelve char")
                     assert results[0]["token_estimate"] == 42
@@ -1278,9 +1203,7 @@ class TestMixinIntegration:
         item = _make_supermemory_result_item(content=content)
         mock_response.results = [item]
 
-        with patch.object(
-            handler, "_get_supermemory_adapter", return_value=mock_client
-        ):
+        with patch.object(handler, "_get_supermemory_adapter", return_value=mock_client):
             handler._supermemory_config = MagicMock()
             handler._supermemory_config.container_tag = None
             with patch(

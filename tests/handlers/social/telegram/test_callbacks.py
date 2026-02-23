@@ -85,22 +85,20 @@ def _patch_tg():
 @pytest.fixture
 def _patch_telemetry():
     """Patch telemetry functions so they do nothing."""
-    with patch(
-        "aragora.server.handlers.social.telegram.callbacks.record_message"
-    ) as rm, patch(
-        "aragora.server.handlers.social.telegram.callbacks.record_vote"
-    ) as rv:
+    with (
+        patch("aragora.server.handlers.social.telegram.callbacks.record_message") as rm,
+        patch("aragora.server.handlers.social.telegram.callbacks.record_vote") as rv,
+    ):
         yield {"record_message": rm, "record_vote": rv}
 
 
 @pytest.fixture
 def _patch_events():
     """Patch chat event emitters."""
-    with patch(
-        "aragora.server.handlers.social.telegram.callbacks.emit_message_received"
-    ) as emr, patch(
-        "aragora.server.handlers.social.telegram.callbacks.emit_vote_received"
-    ) as evr:
+    with (
+        patch("aragora.server.handlers.social.telegram.callbacks.emit_message_received") as emr,
+        patch("aragora.server.handlers.social.telegram.callbacks.emit_vote_received") as evr,
+    ):
         yield {"emit_message_received": emr, "emit_vote_received": evr}
 
 
@@ -118,15 +116,18 @@ def _patch_rbac():
 @pytest.fixture
 def _patch_deny_rbac():
     """Patch RBAC permission check to always deny."""
-    with patch.object(
-        TelegramHandler,
-        "_check_telegram_user_permission",
-        return_value=False,
-    ), patch.object(
-        TelegramHandler,
-        "_deny_telegram_permission",
-        return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
-    ) as deny_mock:
+    with (
+        patch.object(
+            TelegramHandler,
+            "_check_telegram_user_permission",
+            return_value=False,
+        ),
+        patch.object(
+            TelegramHandler,
+            "_deny_telegram_permission",
+            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        ) as deny_mock,
+    ):
         yield deny_mock
 
 
@@ -225,7 +226,9 @@ class TestHandleMessageBasic:
     @pytest.mark.usefixtures("_full_patch")
     def test_long_message_triggers_debate_suggestion(self, handler, _patch_tg):
         """Messages longer than 10 chars suggest starting a debate."""
-        long_text = "This is definitely longer than ten characters and should get a debate suggestion"
+        long_text = (
+            "This is definitely longer than ten characters and should get a debate suggestion"
+        )
         msg = _make_message(long_text)
         result = handler._handle_message(msg)
         assert _status(result) == 200
@@ -293,14 +296,11 @@ class TestHandleMessageEmpty:
         """Missing 'from' field defaults gracefully."""
         msg = {"chat": {"id": CHAT_ID}, "text": "A long enough test message here"}
         # This should still work because user defaults to {}
-        with patch.object(
-            TelegramHandler, "_check_telegram_user_permission", return_value=True
-        ), patch(
-            "aragora.server.handlers.social.telegram.callbacks._tg"
-        ) as mock_tg_fn, patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_message"
-        ), patch(
-            "aragora.server.handlers.social.telegram.callbacks.emit_message_received"
+        with (
+            patch.object(TelegramHandler, "_check_telegram_user_permission", return_value=True),
+            patch("aragora.server.handlers.social.telegram.callbacks._tg") as mock_tg_fn,
+            patch("aragora.server.handlers.social.telegram.callbacks.record_message"),
+            patch("aragora.server.handlers.social.telegram.callbacks.emit_message_received"),
         ):
             mock_tg_fn.return_value.create_tracked_task = MagicMock()
             result = handler._handle_message(msg)
@@ -385,9 +385,7 @@ class TestHandleCallbackQueryRouting:
             return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
         ) as hv:
             result = handler._handle_callback_query(cb)
-            hv.assert_called_once_with(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "debate-1", "agree"
-            )
+            hv.assert_called_once_with(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "debate-1", "agree")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -400,9 +398,7 @@ class TestHandleCallbackQueryRouting:
             return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
         ) as hvd:
             result = handler._handle_callback_query(cb)
-            hvd.assert_called_once_with(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "debate-2"
-            )
+            hvd.assert_called_once_with(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "debate-2")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -521,9 +517,7 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_agree_vote_records_and_acks(self, handler, _patch_tg, _patch_events):
         """Agree vote records metrics and sends ack."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ) as rv:
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote") as rv:
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
             )
@@ -542,9 +536,7 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_disagree_vote_records_and_acks(self, handler, _patch_tg, _patch_events):
         """Disagree vote records correct emoji and metrics."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ):
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "disagree"
             )
@@ -554,12 +546,8 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_agree_emoji_is_plus(self, handler, _patch_tg):
         """Agree votes use '+' emoji."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ):
-            handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
-            )
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
+            handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree")
         # Check the task callback message contains "+"
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
@@ -567,12 +555,8 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_disagree_emoji_is_minus(self, handler, _patch_tg):
         """Disagree votes use '-' emoji."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ):
-            handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "disagree"
-            )
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
+            handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "disagree")
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
 
@@ -582,15 +566,14 @@ class TestHandleVote:
         mock_db = MagicMock()
         mock_db.record_vote = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            return_value=mock_db,
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                return_value=mock_db,
+            ),
         ):
-            handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
-            )
+            handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree")
         mock_db.record_vote.assert_called_once_with(
             debate_id=DEBATE_ID,
             voter_id=f"telegram:{USER_ID}",
@@ -601,11 +584,12 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_storage_import_error_handled(self, handler, _patch_tg):
         """ImportError when accessing storage is handled gracefully."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            side_effect=ImportError("no storage"),
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                side_effect=ImportError("no storage"),
+            ),
         ):
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
@@ -615,11 +599,12 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_storage_runtime_error_handled(self, handler, _patch_tg):
         """RuntimeError in storage is handled gracefully."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            side_effect=RuntimeError("db error"),
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                side_effect=RuntimeError("db error"),
+            ),
         ):
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
@@ -629,11 +614,12 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_storage_returns_none(self, handler, _patch_tg):
         """When get_debates_db returns None, vote still succeeds."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            return_value=None,
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                return_value=None,
+            ),
         ):
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
@@ -644,11 +630,12 @@ class TestHandleVote:
     def test_vote_storage_no_record_vote_method(self, handler, _patch_tg):
         """When db exists but has no record_vote, vote still succeeds."""
         mock_db = MagicMock(spec=[])  # no record_vote
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            return_value=mock_db,
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                return_value=mock_db,
+            ),
         ):
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
@@ -660,11 +647,12 @@ class TestHandleVote:
         """ValueError during vote recording is caught."""
         mock_db = MagicMock()
         mock_db.record_vote.side_effect = ValueError("invalid vote")
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            return_value=mock_db,
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                return_value=mock_db,
+            ),
         ):
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
@@ -674,9 +662,7 @@ class TestHandleVote:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_custom_option(self, handler, _patch_tg):
         """Custom vote options (not agree/disagree) still work."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ) as rv:
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote") as rv:
             result = handler._handle_vote(
                 CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "abstain"
             )
@@ -1142,12 +1128,8 @@ class TestEdgeCases:
     @pytest.mark.usefixtures("_full_patch")
     def test_vote_with_empty_debate_id(self, handler, _patch_tg, _patch_events):
         """Vote with empty debate_id still processes."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ):
-            result = handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "", "agree"
-            )
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
+            result = handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "", "agree")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -1157,9 +1139,7 @@ class TestEdgeCases:
             "aragora.server.storage.get_debates_db",
             return_value=MagicMock(get=MagicMock(return_value=None)),
         ):
-            result = handler._handle_view_details(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, ""
-            )
+            result = handler._handle_view_details(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "")
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
@@ -1243,13 +1223,14 @@ class TestMessageBehavior:
     def test_command_returns_before_permission_check(self, handler, _patch_tg):
         """Commands bypass the message-send permission check."""
         # Commands go through _handle_command, not the text message path
-        with patch.object(
-            TelegramHandler,
-            "_handle_command",
-            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
-        ) as hc, patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_message"
-        ) as rm:
+        with (
+            patch.object(
+                TelegramHandler,
+                "_handle_command",
+                return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+            ) as hc,
+            patch("aragora.server.handlers.social.telegram.callbacks.record_message") as rm,
+        ):
             msg = _make_message("/help")
             handler._handle_message(msg)
             hc.assert_called_once()
@@ -1263,7 +1244,9 @@ class TestMessageBehavior:
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
         # Second positional arg or name kwarg should include chat_id
-        task_name = call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        task_name = (
+            call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        )
         assert str(CHAT_ID) in task_name
 
     @pytest.mark.usefixtures("_full_patch")
@@ -1306,7 +1289,9 @@ class TestCallbackBehavior:
         handler._handle_callback_query(cb)
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
-        task_name = call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        task_name = (
+            call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        )
         assert CALLBACK_ID in task_name
 
     @pytest.mark.usefixtures("_full_patch")
@@ -1345,9 +1330,7 @@ class TestCallbackBehavior:
             return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
         ) as hvd:
             handler._handle_callback_query(cb)
-            hvd.assert_called_once_with(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "debate-xyz-789"
-            )
+            hvd.assert_called_once_with(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, "debate-xyz-789")
 
     @pytest.mark.usefixtures("_full_patch")
     def test_rbac_deny_task_name_includes_denied(self, handler, _patch_tg):
@@ -1361,7 +1344,9 @@ class TestCallbackBehavior:
             handler._handle_callback_query(cb)
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
-        task_name = call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        task_name = (
+            call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        )
         assert "denied" in task_name
 
 
@@ -1371,12 +1356,8 @@ class TestVoteBehavior:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_emits_correct_platform(self, handler, _patch_events):
         """Vote event includes platform='telegram'."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ):
-            handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
-            )
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
+            handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree")
         _patch_events["emit_vote_received"].assert_called_once()
         call_kwargs = _patch_events["emit_vote_received"].call_args.kwargs
         assert call_kwargs["platform"] == "telegram"
@@ -1386,15 +1367,14 @@ class TestVoteBehavior:
         """Vote voter_id is prefixed with 'telegram:'."""
         mock_db = MagicMock()
         mock_db.record_vote = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ), patch(
-            "aragora.server.storage.get_debates_db",
-            return_value=mock_db,
+        with (
+            patch("aragora.server.handlers.social.telegram.callbacks.record_vote"),
+            patch(
+                "aragora.server.storage.get_debates_db",
+                return_value=mock_db,
+            ),
         ):
-            handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "disagree"
-            )
+            handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "disagree")
         mock_db.record_vote.assert_called_once()
         call_kwargs = mock_db.record_vote.call_args.kwargs
         assert call_kwargs["voter_id"] == f"telegram:{USER_ID}"
@@ -1403,15 +1383,13 @@ class TestVoteBehavior:
     @pytest.mark.usefixtures("_patch_tg", "_patch_events")
     def test_vote_ack_task_name_includes_callback_id(self, handler, _patch_tg):
         """Vote ack task name includes the callback_id."""
-        with patch(
-            "aragora.server.handlers.social.telegram.callbacks.record_vote"
-        ):
-            handler._handle_vote(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree"
-            )
+        with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
+            handler._handle_vote(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID, "agree")
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
-        task_name = call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        task_name = (
+            call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        )
         assert CALLBACK_ID in task_name
 
 
@@ -1436,9 +1414,7 @@ class TestViewDetailsBehavior:
             "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
-            handler._handle_view_details(
-                CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID
-            )
+            handler._handle_view_details(CALLBACK_ID, CHAT_ID, USER_ID, USERNAME, DEBATE_ID)
         # Second create_tracked_task call should be the detail message
         assert _patch_tg.create_tracked_task.call_count >= 2
 
@@ -1542,7 +1518,9 @@ class TestInlineQueryBehavior:
         handler._handle_inline_query(query)
         call_args = _patch_tg.create_tracked_task.call_args
         assert call_args is not None
-        task_name = call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        task_name = (
+            call_args[1].get("name", "") if len(call_args) > 1 else call_args.kwargs.get("name", "")
+        )
         assert QUERY_ID in task_name
 
 

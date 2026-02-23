@@ -36,9 +36,7 @@ class TestVagueGoalExpansion:
         assert len(result.subtasks) >= 2
 
         # Should reference security-related content
-        all_text = " ".join(
-            f"{st.title} {st.description}" for st in result.subtasks
-        ).lower()
+        all_text = " ".join(f"{st.title} {st.description}" for st in result.subtasks).lower()
         assert "security" in all_text or "audit" in all_text
 
     def test_improve_developer_experience(self):

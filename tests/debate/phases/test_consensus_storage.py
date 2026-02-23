@@ -378,42 +378,52 @@ class TestConfidenceToStrength:
 
     def test_unanimous_at_exactly_0_9(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.9) is ConsensusStrength.UNANIMOUS
 
     def test_unanimous_above_0_9(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(1.0) is ConsensusStrength.UNANIMOUS
 
     def test_strong_at_exactly_0_8(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.8) is ConsensusStrength.STRONG
 
     def test_strong_below_0_9(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.85) is ConsensusStrength.STRONG
 
     def test_moderate_at_exactly_0_6(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.6) is ConsensusStrength.MODERATE
 
     def test_moderate_below_0_8(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.7) is ConsensusStrength.MODERATE
 
     def test_weak_at_exactly_0_5(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.5) is ConsensusStrength.WEAK
 
     def test_weak_below_0_6(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.55) is ConsensusStrength.WEAK
 
     def test_split_below_0_5(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.49) is ConsensusStrength.SPLIT
 
     def test_split_at_zero(self):
         from aragora.memory.consensus import ConsensusStrength
+
         assert self.cs._confidence_to_strength(0.0) is ConsensusStrength.SPLIT
 
 

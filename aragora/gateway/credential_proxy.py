@@ -273,7 +273,10 @@ class CredentialProxy:
         self._credentials[credential.credential_id] = credential
         self._invalidate_cache(credential.credential_id)
         logger.info(
-            "Registered credential %s for %s (tenant: %s)", credential.credential_id, credential.external_service, credential.tenant_id
+            "Registered credential %s for %s (tenant: %s)",
+            credential.credential_id,
+            credential.external_service,
+            credential.tenant_id,
         )
 
     def unregister_credential(self, credential_id: str) -> bool:
@@ -428,7 +431,14 @@ class CredentialProxy:
 
             return result
 
-        except (CredentialProxyError, OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
+        except (
+            CredentialProxyError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            RuntimeError,
+            ValueError,
+        ) as e:
             usage.error_message = str(e)
             raise
 

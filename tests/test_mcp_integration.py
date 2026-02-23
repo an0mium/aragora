@@ -9,7 +9,6 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
 
-
 class TestMCPModuleStructure:
     """Tests for MCP module structure and exports."""
 

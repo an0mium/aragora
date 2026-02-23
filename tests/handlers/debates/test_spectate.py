@@ -256,7 +256,7 @@ class TestPushSpectatorEvent:
         _active_collectors["d1"] = {q1}
         _active_collectors["d2"] = {q2}
         push_spectator_event("d1", "event_for_d1")
-        assert not q2.empty() is False or q2.qsize() == 0  # q2 should be empty
+        assert q2.empty() is not False or q2.qsize() == 0  # q2 should be empty
         assert q1.qsize() == 1
         assert q2.qsize() == 0
 

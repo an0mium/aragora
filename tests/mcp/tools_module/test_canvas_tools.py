@@ -16,7 +16,6 @@ from aragora.mcp.tools_module.canvas import (
 )
 
 
-
 @pytest.fixture(autouse=True)
 def reset_canvas_manager():
     """Reset global canvas manager between tests."""

@@ -239,7 +239,8 @@ class SQLiteStore(BaseDatabase, ABC):
             safe_patterns = ["IS NULL", "IS NOT NULL", "TRUE", "FALSE"]
             if not any(p in where_check for p in safe_patterns):
                 logger.warning(
-                    "WHERE clause without placeholders or params may indicate SQL injection risk: %s", where[:50]
+                    "WHERE clause without placeholders or params may indicate SQL injection risk: %s",
+                    where[:50],
                 )
 
     def count(self, table: str, where: str = "", params: tuple = ()) -> int:

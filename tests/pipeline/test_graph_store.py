@@ -32,35 +32,52 @@ def sample_graph():
         metadata={"version": 1},
     )
     n1 = UniversalNode(
-        id="n1", stage=PipelineStage.IDEAS,
-        node_subtype="concept", label="Idea A",
-        description="First idea", confidence=0.9,
+        id="n1",
+        stage=PipelineStage.IDEAS,
+        node_subtype="concept",
+        label="Idea A",
+        description="First idea",
+        confidence=0.9,
     )
     n2 = UniversalNode(
-        id="n2", stage=PipelineStage.GOALS,
-        node_subtype="goal", label="Goal from A",
-        parent_ids=["n1"], source_stage=PipelineStage.IDEAS,
+        id="n2",
+        stage=PipelineStage.GOALS,
+        node_subtype="goal",
+        label="Goal from A",
+        parent_ids=["n1"],
+        source_stage=PipelineStage.IDEAS,
         confidence=0.7,
     )
     n3 = UniversalNode(
-        id="n3", stage=PipelineStage.ACTIONS,
-        node_subtype="task", label="Task for Goal",
-        parent_ids=["n2"], source_stage=PipelineStage.GOALS,
+        id="n3",
+        stage=PipelineStage.ACTIONS,
+        node_subtype="task",
+        label="Task for Goal",
+        parent_ids=["n2"],
+        source_stage=PipelineStage.GOALS,
     )
     graph.add_node(n1)
     graph.add_node(n2)
     graph.add_node(n3)
 
     e1 = UniversalEdge(
-        id="e1", source_id="n1", target_id="n2",
-        edge_type=StageEdgeType.DERIVED_FROM, label="derived",
+        id="e1",
+        source_id="n1",
+        target_id="n2",
+        edge_type=StageEdgeType.DERIVED_FROM,
+        label="derived",
     )
     graph.add_edge(e1)
 
-    graph.transitions.append(StageTransition(
-        id="t1", from_stage=PipelineStage.IDEAS, to_stage=PipelineStage.GOALS,
-        status="approved", confidence=0.8,
-    ))
+    graph.transitions.append(
+        StageTransition(
+            id="t1",
+            from_stage=PipelineStage.IDEAS,
+            to_stage=PipelineStage.GOALS,
+            status="approved",
+            confidence=0.8,
+        )
+    )
 
     return graph
 
@@ -124,8 +141,10 @@ class TestGraphStoreNodes:
     def test_add_node(self, store, sample_graph):
         store.create(sample_graph)
         new_node = UniversalNode(
-            id="n4", stage=PipelineStage.ORCHESTRATION,
-            node_subtype="agent_task", label="Execute",
+            id="n4",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Execute",
         )
         store.add_node(sample_graph.id, new_node)
         loaded = store.get(sample_graph.id)
@@ -162,9 +181,7 @@ class TestGraphStoreNodes:
 
     def test_query_nodes_combined_filter(self, store, sample_graph):
         store.create(sample_graph)
-        result = store.query_nodes(
-            sample_graph.id, stage=PipelineStage.IDEAS, subtype="concept"
-        )
+        result = store.query_nodes(sample_graph.id, stage=PipelineStage.IDEAS, subtype="concept")
         assert len(result) == 1
 
 
@@ -193,8 +210,10 @@ class TestGraphStoreDataIntegrity:
     def test_node_data_preserved(self, store):
         graph = UniversalGraph(id="g-data")
         node = UniversalNode(
-            id="n1", stage=PipelineStage.IDEAS,
-            node_subtype="concept", label="With Data",
+            id="n1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="With Data",
             data={"key1": "val1", "nested": {"a": 1}},
             style={"color": "red"},
             metadata={"source": "test"},
@@ -220,9 +239,12 @@ class TestGraphStoreDataIntegrity:
         graph.add_node(n1)
         graph.add_node(n2)
         edge = UniversalEdge(
-            id="e1", source_id="n1", target_id="n2",
+            id="e1",
+            source_id="n1",
+            target_id="n2",
             edge_type=StageEdgeType.DERIVED_FROM,
-            weight=0.95, label="test edge",
+            weight=0.95,
+            label="test edge",
             data={"custom": True},
         )
         graph.add_edge(edge)

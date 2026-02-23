@@ -286,7 +286,7 @@ async def phase_implement():
         complexity="complex",
     )
 
-    print(f"\nExecuting implementation task via HybridExecutor...")
+    print("\nExecuting implementation task via HybridExecutor...")
     print(f"  Task: {task.id} ({task.complexity})")
     print(f"  Working dir: {ARAGORA_PATH}")
 
@@ -636,13 +636,19 @@ def _collect_metrics_baseline() -> dict | None:
 
         collector = MetricsCollector(aragora_path=ARAGORA_PATH)
         baseline = collector.collect_baseline()
-        print(f"  ✓ Baseline metrics: {baseline.tests_passed} tests passing, "
-              f"{baseline.lint_errors} lint errors")
-        return baseline.to_dict() if hasattr(baseline, "to_dict") else {
-            "tests_passed": baseline.tests_passed,
-            "tests_failed": baseline.tests_failed,
-            "lint_errors": baseline.lint_errors,
-        }
+        print(
+            f"  ✓ Baseline metrics: {baseline.tests_passed} tests passing, "
+            f"{baseline.lint_errors} lint errors"
+        )
+        return (
+            baseline.to_dict()
+            if hasattr(baseline, "to_dict")
+            else {
+                "tests_passed": baseline.tests_passed,
+                "tests_failed": baseline.tests_failed,
+                "lint_errors": baseline.lint_errors,
+            }
+        )
     except (ImportError, RuntimeError, OSError) as e:
         logger.debug("MetricsCollector not available: %s", e)
         return None
@@ -661,8 +667,10 @@ def _collect_metrics_after(baseline_data: dict | None) -> dict | None:
         delta = collector.compare()
 
         improvement = getattr(delta, "improvement_score", 0.0)
-        print(f"  ✓ After metrics: {after.tests_passed} tests passing, "
-              f"{after.lint_errors} lint errors")
+        print(
+            f"  ✓ After metrics: {after.tests_passed} tests passing, "
+            f"{after.lint_errors} lint errors"
+        )
         print(f"  ✓ Improvement score: {improvement:.2f}")
 
         return {
@@ -692,6 +700,7 @@ def _run_gauntlet_and_bridge() -> list[dict]:
             return []
 
         import json as _json
+
         gauntlet_data = _json.loads(gauntlet_path.read_text())
         goals = findings_to_goals(gauntlet_data, max_goals=5, min_severity="medium")
 

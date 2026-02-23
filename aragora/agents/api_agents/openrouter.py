@@ -254,7 +254,9 @@ class OpenRouterAgent(APIAgent):
                                     fallback = OPENROUTER_FALLBACK_MODELS.get(model)
                                     if fallback:
                                         logger.warning(
-                                            "OpenRouter %s exhausted retries, falling back to %s", model, fallback
+                                            "OpenRouter %s exhausted retries, falling back to %s",
+                                            model,
+                                            fallback,
                                         )
                                         return await self._generate_with_model(
                                             fallback,

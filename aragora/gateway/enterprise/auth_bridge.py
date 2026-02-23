@@ -693,7 +693,9 @@ class AuthBridge:
                 except (ValueError, RuntimeError, KeyError) as e:
                     # Fall back to userinfo fetch with access token
                     logger.debug(
-                        "ID token validation failed, falling back to userinfo: %s: %s", type(e).__name__, e
+                        "ID token validation failed, falling back to userinfo: %s: %s",
+                        type(e).__name__,
+                        e,
                     )
                     tokens = {"access_token": token}
                     user = await provider._get_user_info(tokens)
@@ -948,7 +950,9 @@ class AuthBridge:
         self._permission_mappings.append(mapping)
         self._rebuild_indexes()
         logger.debug(
-            "Added permission mapping: %s -> %s", mapping.aragora_permission, mapping.external_action
+            "Added permission mapping: %s -> %s",
+            mapping.aragora_permission,
+            mapping.external_action,
         )
 
     def remove_permission_mapping(
@@ -1220,7 +1224,9 @@ class AuthBridge:
                     },
                 )
 
-            logger.info("Token exchanged for user %s targeting %s", context.user_id, target_audience)
+            logger.info(
+                "Token exchanged for user %s targeting %s", context.user_id, target_audience
+            )
             return result
 
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:

@@ -669,7 +669,10 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         )
 
         logger.info(
-            "Consensus KM sync complete: synced=%s, skipped=%s, failed=%s", result.records_synced, result.records_skipped, result.records_failed
+            "Consensus KM sync complete: synced=%s, skipped=%s, failed=%s",
+            result.records_synced,
+            result.records_skipped,
+            result.records_failed,
         )
 
         return result
@@ -763,7 +766,9 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         duration_ms = (time.time() - start_time) * 1000
 
         logger.info(
-            "Consensus reverse sync complete: analyzed=%s, updated=%s", result['records_analyzed'], result['records_updated']
+            "Consensus reverse sync complete: analyzed=%s, updated=%s",
+            result["records_analyzed"],
+            result["records_updated"],
         )
 
         return ValidationSyncResult(

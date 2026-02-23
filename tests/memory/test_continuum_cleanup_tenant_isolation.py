@@ -376,7 +376,7 @@ class TestHandlerTenantExtraction:
 
     def test_handler_returns_400_when_tenant_enforcement_enabled_but_no_context(self):
         """Handler should return 400 when tenant enforcement is on but no tenant context."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
 
         # Mock the handler's imports
         mock_handler = MagicMock()

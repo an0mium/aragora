@@ -429,7 +429,11 @@ async def batch_collect_votes(
             if lead >= min_lead:
                 winning_choice = leader_choice
                 logger.info(
-                    "batch_vote_early_termination leader=%s votes=%s/%s lead=%s", leader_choice, leader_count, len(votes), lead
+                    "batch_vote_early_termination leader=%s votes=%s/%s lead=%s",
+                    leader_choice,
+                    leader_count,
+                    len(votes),
+                    lead,
                 )
                 return True
 

@@ -509,9 +509,7 @@ class TestListPlatformCompanies:
         companies = [_mock_hubspot_company(f"co{i}", f"C{i}") for i in range(3)]
         _setup_hubspot_connector(companies=companies)
 
-        result = await handler._list_platform_companies(
-            _req(query={"limit": "2"}), "hubspot"
-        )
+        result = await handler._list_platform_companies(_req(query={"limit": "2"}), "hubspot")
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -671,9 +669,7 @@ class TestGetCompany:
     @pytest.mark.asyncio
     async def test_valid_resource_id_formats(self, handler):
         _connect_hubspot()
-        _setup_hubspot_connector(
-            get_company_result=_mock_hubspot_company("co1", "Acme")
-        )
+        _setup_hubspot_connector(get_company_result=_mock_hubspot_company("co1", "Acme"))
         for cid in ["co1", "company-abc", "company_def", "A1B2C3"]:
             result = await handler._get_company(_req(), "hubspot", cid)
             assert _status(result) == 200, f"Expected 200 for id: {cid}"
@@ -692,16 +688,21 @@ class TestGetCompany:
     @pytest.mark.asyncio
     async def test_normalized_response_shape(self, handler):
         _connect_hubspot()
-        company = _mock_hubspot_company(
-            "co1", "Acme", "acme.com", "Tech", "50", "1000000", "own1"
-        )
+        company = _mock_hubspot_company("co1", "Acme", "acme.com", "Tech", "50", "1000000", "own1")
         _setup_hubspot_connector(get_company_result=company)
 
         result = await handler._get_company(_req(), "hubspot", "co1")
         body = _body(result)
         expected_keys = {
-            "id", "platform", "name", "domain", "industry",
-            "employee_count", "annual_revenue", "owner_id", "created_at",
+            "id",
+            "platform",
+            "name",
+            "domain",
+            "industry",
+            "employee_count",
+            "annual_revenue",
+            "owner_id",
+            "created_at",
         }
         assert expected_keys.issubset(body.keys())
 
@@ -782,7 +783,10 @@ class TestCreateCompany:
             "hubspot",
         )
         assert _status(result) == 400
-        assert "company name" in _body(result)["error"].lower() or "required" in _body(result)["error"].lower()
+        assert (
+            "company name" in _body(result)["error"].lower()
+            or "required" in _body(result)["error"].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_empty_name(self, handler):
@@ -1085,9 +1089,7 @@ class TestHandleRequestRouting:
     async def test_list_platform_companies_route(self, handler):
         _connect_hubspot()
         _setup_hubspot_connector(companies=[])
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies"))
         assert _status(result) == 200
         assert "companies" in _body(result)
 
@@ -1097,9 +1099,7 @@ class TestHandleRequestRouting:
         company = _mock_hubspot_company("co123", "Acme")
         _setup_hubspot_connector(get_company_result=company)
 
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies/co123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies/co123"))
         assert _status(result) == 200
         assert _body(result)["name"] == "Acme"
 
@@ -1126,16 +1126,12 @@ class TestHandleRequestRouting:
 
     @pytest.mark.asyncio
     async def test_list_platform_companies_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_company_platform_not_connected(self, handler):
-        result = await handler.handle_request(
-            _req(path="/api/v1/crm/hubspot/companies/co123")
-        )
+        result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies/co123"))
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -1177,9 +1173,7 @@ class TestHandleRequestRouting:
     async def test_get_company_no_connector_via_route(self, handler):
         _connect_hubspot()
         with patch.object(handler, "_get_connector", return_value=None):
-            result = await handler.handle_request(
-                _req(path="/api/v1/crm/hubspot/companies/co123")
-            )
+            result = await handler.handle_request(_req(path="/api/v1/crm/hubspot/companies/co123"))
         assert _status(result) == 500
 
 
@@ -1212,9 +1206,7 @@ class TestEdgeCases:
             handler._list_all_companies(_req()),
             handler._list_platform_companies(_req(), "hubspot"),
             handler._get_company(_req(), "hubspot", "co1"),
-            handler._create_company(
-                _req(method="POST", body={"name": "Acme"}), "hubspot"
-            ),
+            handler._create_company(_req(method="POST", body={"name": "Acme"}), "hubspot"),
         ]
         for coro in ops:
             result = await coro
@@ -1296,9 +1288,7 @@ class TestEdgeCases:
     async def test_normalization_invalid_employee_count(self, handler):
         """Non-numeric employee count should be normalized to None."""
         _connect_hubspot()
-        company = _mock_hubspot_company(
-            "co1", "Acme", employees="not-a-number"
-        )
+        company = _mock_hubspot_company("co1", "Acme", employees="not-a-number")
         _setup_hubspot_connector(get_company_result=company)
 
         result = await handler._get_company(_req(), "hubspot", "co1")
@@ -1309,9 +1299,7 @@ class TestEdgeCases:
     async def test_normalization_invalid_annual_revenue(self, handler):
         """Non-numeric revenue should be normalized to None."""
         _connect_hubspot()
-        company = _mock_hubspot_company(
-            "co1", "Acme", revenue="not-a-number"
-        )
+        company = _mock_hubspot_company("co1", "Acme", revenue="not-a-number")
         _setup_hubspot_connector(get_company_result=company)
 
         result = await handler._get_company(_req(), "hubspot", "co1")

@@ -90,7 +90,7 @@ try:
         auto_error_response,  # noqa: F401
         error_response,
         json_response,
-    handle_errors,
+        handle_errors,
     )
     from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit  # noqa: F401
 
@@ -396,7 +396,14 @@ class ChatWebhookRouter:
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+            except (
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ) as e:
                 logger.error("Event handler error: %s", e)
 
         return {"success": True}
@@ -417,7 +424,14 @@ class ChatWebhookRouter:
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+            except (
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ) as e:
                 logger.error("Command handler error: %s", e)
 
         return {"success": True}
@@ -567,14 +581,28 @@ class ChatWebhookRouter:
                     return {"success": True}
             except ImportError:
                 logger.debug("Approval interaction router not available")
-            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as exc:
+            except (
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ) as exc:
                 logger.warning("Approval interaction handling failed: %s", exc)
 
         # Pass to event handler
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+            except (
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ) as e:
                 logger.error("Interaction handler error: %s", e)
 
         return {"success": True}
@@ -595,7 +623,14 @@ class ChatWebhookRouter:
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+            except (
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ) as e:
                 logger.error("Message handler error: %s", e)
 
         return {"success": True}

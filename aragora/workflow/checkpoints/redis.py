@@ -95,7 +95,9 @@ class RedisCheckpointStore:
                     pool.connection_kwargs["socket_timeout"] = self._socket_timeout
                     pool.connection_kwargs["socket_connect_timeout"] = self._socket_connect_timeout
                     logger.debug(
-                        "Redis checkpoint store configured with timeouts: socket_timeout=%ss, connect_timeout=%ss", self._socket_timeout, self._socket_connect_timeout
+                        "Redis checkpoint store configured with timeouts: socket_timeout=%ss, connect_timeout=%ss",
+                        self._socket_timeout,
+                        self._socket_connect_timeout,
                     )
             except (AttributeError, KeyError, TypeError, RuntimeError) as e:
                 logger.debug("Could not configure Redis socket timeouts: %s", e)
@@ -156,7 +158,11 @@ class RedisCheckpointStore:
             redis.expire(index_key, self._ttl_seconds)
 
             logger.info(
-                "Saved checkpoint to Redis: workflow=%s, id=%s, size=%s, compressed=%s", checkpoint.workflow_id, checkpoint_id, len(data_bytes), is_compressed
+                "Saved checkpoint to Redis: workflow=%s, id=%s, size=%s, compressed=%s",
+                checkpoint.workflow_id,
+                checkpoint_id,
+                len(data_bytes),
+                is_compressed,
             )
             return checkpoint_id
 
@@ -207,7 +213,14 @@ class RedisCheckpointStore:
             checkpoint_dict = json.loads(data)
             return self._dict_to_checkpoint(checkpoint_dict)
 
-        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, json.JSONDecodeError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             # Check for Redis timeout errors
             error_name = type(e).__name__
             if "Timeout" in error_name or "ConnectionError" in error_name:

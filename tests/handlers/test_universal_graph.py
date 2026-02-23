@@ -34,6 +34,7 @@ from aragora.server.handlers.pipeline.universal_graph import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_node(
     node_id: str = "n-1",
     stage: str = "ideas",
@@ -89,6 +90,7 @@ def _mock_handler() -> MagicMock:
 def _reset_store():
     """Reset the module-level lazy store between tests."""
     import aragora.server.handlers.pipeline.universal_graph as mod
+
     mod._store = None
     yield
     mod._store = None
@@ -105,12 +107,14 @@ def _bypass_rbac():
 def _reset_rate_limiter():
     """Reset rate limiter between tests."""
     import aragora.server.handlers.pipeline.universal_graph as mod
+
     mod._graph_limiter = type(mod._graph_limiter)(requests_per_minute=60)
 
 
 # =========================================================================
 # can_handle
 # =========================================================================
+
 
 class TestCanHandle:
     def test_matches_versioned_path(self):
@@ -133,6 +137,7 @@ class TestCanHandle:
 # =========================================================================
 # GET /api/v1/pipeline/graphs (list)
 # =========================================================================
+
 
 class TestListGraphs:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -187,6 +192,7 @@ class TestListGraphs:
 # GET /api/v1/pipeline/graphs/:id (get)
 # =========================================================================
 
+
 class TestGetGraph:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
     def test_get_existing_graph(self, mock_gs):
@@ -226,6 +232,7 @@ class TestGetGraph:
 # =========================================================================
 # POST /api/v1/pipeline/graphs (create)
 # =========================================================================
+
 
 class TestCreateGraph:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -274,6 +281,7 @@ class TestCreateGraph:
 # PUT /api/v1/pipeline/graphs/:id (update)
 # =========================================================================
 
+
 class TestUpdateGraph:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
     def test_update_graph_name(self, mock_gs):
@@ -283,9 +291,7 @@ class TestUpdateGraph:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle_put(
-            "/api/v1/pipeline/graphs/g-1", {"name": "New Name"}, _mock_handler()
-        )
+        result = h.handle_put("/api/v1/pipeline/graphs/g-1", {"name": "New Name"}, _mock_handler())
 
         assert result is not None
         assert graph.name == "New Name"
@@ -298,9 +304,7 @@ class TestUpdateGraph:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle_put(
-            "/api/v1/pipeline/graphs/missing", {"name": "X"}, _mock_handler()
-        )
+        result = h.handle_put("/api/v1/pipeline/graphs/missing", {"name": "X"}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 404
@@ -309,9 +313,7 @@ class TestUpdateGraph:
         """Path traversal IDs are either rejected (400) or don't match PUT route."""
         h = UniversalGraphHandler()
         # "../../bad" in path creates extra segments, so len(parts) != 5
-        result = h.handle_put(
-            "/api/v1/pipeline/graphs/../../bad", {"name": "X"}, _mock_handler()
-        )
+        result = h.handle_put("/api/v1/pipeline/graphs/../../bad", {"name": "X"}, _mock_handler())
         # Returns None because len(parts) != 5 for PUT route
         assert result is None
 
@@ -336,15 +338,14 @@ class TestUpdateGraph:
 
     def test_update_unmatched_path_returns_none(self):
         h = UniversalGraphHandler()
-        result = h.handle_put(
-            "/api/v1/pipeline/graphs/g-1/extra", {}, _mock_handler()
-        )
+        result = h.handle_put("/api/v1/pipeline/graphs/g-1/extra", {}, _mock_handler())
         assert result is None
 
 
 # =========================================================================
 # DELETE /api/v1/pipeline/graphs/:id (delete)
 # =========================================================================
+
 
 class TestDeleteGraph:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -377,6 +378,7 @@ class TestDeleteGraph:
 # =========================================================================
 # POST /api/v1/pipeline/graphs/:id/nodes (add node)
 # =========================================================================
+
 
 class TestAddNode:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -455,6 +457,7 @@ class TestAddNode:
 # DELETE /api/v1/pipeline/graphs/:id/nodes/:nid (remove node)
 # =========================================================================
 
+
 class TestRemoveNode:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
     def test_remove_node(self, mock_gs):
@@ -462,9 +465,7 @@ class TestRemoveNode:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/g-1/nodes/n-1", {}, _mock_handler()
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/g-1/nodes/n-1", {}, _mock_handler())
 
         assert result is not None
         body = json.loads(result["body"])
@@ -474,9 +475,7 @@ class TestRemoveNode:
 
     def test_remove_node_invalid_node_id_returns_400(self):
         h = UniversalGraphHandler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/g-1/nodes/../../bad", {}, _mock_handler()
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/g-1/nodes/../../bad", {}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -485,6 +484,7 @@ class TestRemoveNode:
 # =========================================================================
 # GET /api/v1/pipeline/graphs/:id/nodes (query)
 # =========================================================================
+
 
 class TestQueryNodes:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -519,9 +519,7 @@ class TestQueryNodes:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/g-1/nodes", {"stage": "bad"}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/g-1/nodes", {"stage": "bad"}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -545,6 +543,7 @@ class TestQueryNodes:
 # =========================================================================
 # POST /api/v1/pipeline/graphs/:id/edges (add edge)
 # =========================================================================
+
 
 class TestAddEdge:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -626,6 +625,7 @@ class TestAddEdge:
 # DELETE /api/v1/pipeline/graphs/:id/edges/:eid (remove edge)
 # =========================================================================
 
+
 class TestRemoveEdge:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
     def test_remove_edge(self, mock_gs):
@@ -636,9 +636,7 @@ class TestRemoveEdge:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/g-1/edges/e-1", {}, _mock_handler()
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/g-1/edges/e-1", {}, _mock_handler())
 
         assert result is not None
         body = json.loads(result["body"])
@@ -652,9 +650,7 @@ class TestRemoveEdge:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/missing/edges/e-1", {}, _mock_handler()
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/missing/edges/e-1", {}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 404
@@ -677,9 +673,7 @@ class TestRemoveEdge:
 
     def test_remove_edge_invalid_id_returns_400(self):
         h = UniversalGraphHandler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/g-1/edges/../../bad", {}, _mock_handler()
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/g-1/edges/../../bad", {}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -688,6 +682,7 @@ class TestRemoveEdge:
 # =========================================================================
 # POST /api/v1/pipeline/graphs/:id/promote (promote nodes)
 # =========================================================================
+
 
 class TestPromote:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -703,9 +698,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": ["n-1"], "target_stage": "goals"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler())
 
         assert result is not None
         resp = json.loads(result["body"])
@@ -724,9 +717,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": ["g-1"], "target_stage": "actions"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler())
 
         assert result is not None
         resp = json.loads(result["body"])
@@ -743,9 +734,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": ["a-1"], "target_stage": "orchestration"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler())
 
         assert result is not None
         resp = json.loads(result["body"])
@@ -759,9 +748,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": ["n-1"], "target_stage": "goals"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/missing/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/missing/promote", body, _mock_handler())
 
         assert result is not None
         assert result["status"] == 404
@@ -775,9 +762,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": ["n-1"], "target_stage": "bogus"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -791,9 +776,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": [], "target_stage": "goals"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -807,9 +790,7 @@ class TestPromote:
 
         h = UniversalGraphHandler()
         body = {"node_ids": ["n-1"], "target_stage": "ideas"}
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/promote", body, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -818,6 +799,7 @@ class TestPromote:
 # =========================================================================
 # GET /api/v1/pipeline/graphs/:id/provenance/:nid
 # =========================================================================
+
 
 class TestProvenance:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -829,9 +811,7 @@ class TestProvenance:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/g-1/provenance/n-1", {}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/g-1/provenance/n-1", {}, _mock_handler())
 
         assert result is not None
         body = json.loads(result["body"])
@@ -840,9 +820,7 @@ class TestProvenance:
 
     def test_provenance_invalid_node_id_returns_400(self):
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/g-1/provenance/../../bad", {}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/g-1/provenance/../../bad", {}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 400
@@ -851,6 +829,7 @@ class TestProvenance:
 # =========================================================================
 # GET /api/v1/pipeline/graphs/:id/react-flow
 # =========================================================================
+
 
 class TestReactFlow:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
@@ -861,9 +840,7 @@ class TestReactFlow:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/g-1/react-flow", {}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/g-1/react-flow", {}, _mock_handler())
 
         assert result is not None
         body = json.loads(result["body"])
@@ -877,9 +854,7 @@ class TestReactFlow:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/missing/react-flow", {}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/missing/react-flow", {}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 404
@@ -923,6 +898,7 @@ class TestReactFlow:
 # GET /api/v1/pipeline/graphs/:id/integrity
 # =========================================================================
 
+
 class TestIntegrity:
     @patch("aragora.server.handlers.pipeline.universal_graph._get_store")
     def test_integrity_hash(self, mock_gs):
@@ -932,9 +908,7 @@ class TestIntegrity:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/g-1/integrity", {}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/g-1/integrity", {}, _mock_handler())
 
         assert result is not None
         body = json.loads(result["body"])
@@ -950,9 +924,7 @@ class TestIntegrity:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/missing/integrity", {}, _mock_handler()
-        )
+        result = h.handle("/api/v1/pipeline/graphs/missing/integrity", {}, _mock_handler())
 
         assert result is not None
         assert result["status"] == 404
@@ -962,9 +934,11 @@ class TestIntegrity:
 # Rate limiting
 # =========================================================================
 
+
 class TestRateLimiting:
     def test_get_rate_limit_exceeded(self):
         import aragora.server.handlers.pipeline.universal_graph as mod
+
         mod._graph_limiter = MagicMock()
         mod._graph_limiter.is_allowed.return_value = False
 
@@ -976,6 +950,7 @@ class TestRateLimiting:
 
     def test_post_rate_limit_exceeded(self):
         import aragora.server.handlers.pipeline.universal_graph as mod
+
         mod._graph_limiter = MagicMock()
         mod._graph_limiter.is_allowed.return_value = False
 
@@ -989,6 +964,7 @@ class TestRateLimiting:
 # =========================================================================
 # Unmatched routes return None
 # =========================================================================
+
 
 class TestUnmatchedRoutes:
     def test_handle_unmatched_returns_none(self):
@@ -1021,9 +997,7 @@ class TestUnmatchedRoutes:
         mock_gs.return_value = store
 
         h = UniversalGraphHandler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/g-1/unknown", {}, _mock_handler()
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/g-1/unknown", {}, _mock_handler())
         assert result is None
 
 
@@ -1031,10 +1005,13 @@ class TestUnmatchedRoutes:
 # RBAC permission checks
 # =========================================================================
 
+
 class TestRBACPermissions:
     def test_post_checks_pipeline_write(self):
         h = UniversalGraphHandler()
-        with patch.object(h, "_check_permission", return_value={"status": 403, "body": "{}"}) as mock_check:
+        with patch.object(
+            h, "_check_permission", return_value={"status": 403, "body": "{}"}
+        ) as mock_check:
             handler = _mock_handler()
             result = h.handle_post("/api/v1/pipeline/graphs", {}, handler)
             assert result["status"] == 403
@@ -1042,13 +1019,17 @@ class TestRBACPermissions:
 
     def test_put_checks_pipeline_write(self):
         h = UniversalGraphHandler()
-        with patch.object(h, "_check_permission", return_value={"status": 403, "body": "{}"}) as mock_check:
+        with patch.object(
+            h, "_check_permission", return_value={"status": 403, "body": "{}"}
+        ) as mock_check:
             result = h.handle_put("/api/v1/pipeline/graphs/g-1", {}, _mock_handler())
             assert result["status"] == 403
 
     def test_delete_checks_pipeline_write(self):
         h = UniversalGraphHandler()
-        with patch.object(h, "_check_permission", return_value={"status": 403, "body": "{}"}) as mock_check:
+        with patch.object(
+            h, "_check_permission", return_value={"status": 403, "body": "{}"}
+        ) as mock_check:
             result = h.handle_delete("/api/v1/pipeline/graphs/g-1", {}, _mock_handler())
             assert result["status"] == 403
 

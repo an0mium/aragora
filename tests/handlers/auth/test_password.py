@@ -231,9 +231,7 @@ class TestChangePassword:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_change_password(
             hi,
             http(body={"current_password": "x", "new_password": VALID_PASSWORD}),
@@ -250,17 +248,13 @@ class TestChangePassword:
 
     def test_missing_current_password(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_change_password(
-            hi, http(body={"new_password": VALID_PASSWORD})
-        )
+        result = handle_change_password(hi, http(body={"new_password": VALID_PASSWORD}))
         assert _status(result) == 400
         assert "required" in _body(result)["error"].lower()
 
     def test_missing_new_password(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_change_password(
-            hi, http(body={"current_password": "correct-password"})
-        )
+        result = handle_change_password(hi, http(body={"current_password": "correct-password"}))
         assert _status(result) == 400
         assert "required" in _body(result)["error"].lower()
 
@@ -280,9 +274,7 @@ class TestChangePassword:
 
     def test_both_passwords_empty(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_change_password(
-            hi, http(body={"current_password": "", "new_password": ""})
-        )
+        result = handle_change_password(hi, http(body={"current_password": "", "new_password": ""}))
         assert _status(result) == 400
 
     def test_no_user_store(self, http):
@@ -312,7 +304,9 @@ class TestChangePassword:
         store.get_user_by_id.return_value = MockUser()
         result = handle_change_password(
             hi,
-            http(body={"current_password": "correct-password", "new_password": "nouppercase123!@#"}),
+            http(
+                body={"current_password": "correct-password", "new_password": "nouppercase123!@#"}
+            ),
         )
         assert _status(result) == 400
         assert "uppercase" in _body(result)["error"].lower()
@@ -408,9 +402,7 @@ class TestForgotPassword:
             lambda user, link: None,
         )
 
-        result = handle_forgot_password(
-            hi, http(body={"email": "test@example.com"})
-        )
+        result = handle_forgot_password(hi, http(body={"email": "test@example.com"}))
         assert _status(result) == 200
         body = _body(result)
         assert "if an account exists" in body["message"].lower()
@@ -421,9 +413,7 @@ class TestForgotPassword:
         hi, store = handler_instance
         store.get_user_by_email.return_value = None
 
-        result = handle_forgot_password(
-            hi, http(body={"email": "nonexistent@example.com"})
-        )
+        result = handle_forgot_password(hi, http(body={"email": "nonexistent@example.com"}))
         assert _status(result) == 200
         body = _body(result)
         assert "if an account exists" in body["message"].lower()
@@ -464,9 +454,7 @@ class TestForgotPassword:
 
         hi = AuthHandler(server_context={})
         hi._check_permission = MagicMock(return_value=None)
-        result = handle_forgot_password(
-            hi, http(body={"email": "test@example.com"})
-        )
+        result = handle_forgot_password(hi, http(body={"email": "test@example.com"}))
         assert _status(result) == 503
         assert "unavailable" in _body(result)["error"].lower()
 
@@ -480,9 +468,7 @@ class TestForgotPassword:
         mock_reset_store = MagicMock()
         mock_get_store.return_value = mock_reset_store
 
-        result = handle_forgot_password(
-            hi, http(body={"email": "test@example.com"})
-        )
+        result = handle_forgot_password(hi, http(body={"email": "test@example.com"}))
         assert _status(result) == 200
         mock_reset_store.create_token.assert_not_called()
 
@@ -497,9 +483,7 @@ class TestForgotPassword:
         mock_reset_store.create_token.return_value = (None, "Too many requests")
         mock_get_store.return_value = mock_reset_store
 
-        result = handle_forgot_password(
-            hi, http(body={"email": "test@example.com"})
-        )
+        result = handle_forgot_password(hi, http(body={"email": "test@example.com"}))
         assert _status(result) == 200  # Still success for anti-enumeration
 
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
@@ -529,7 +513,9 @@ class TestForgotPassword:
         assert audit_calls[0]["event_type"] == "anomaly"
 
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    def test_audit_not_called_when_unavailable(self, mock_get_store, handler_instance, http, monkeypatch):
+    def test_audit_not_called_when_unavailable(
+        self, mock_get_store, handler_instance, http, monkeypatch
+    ):
         hi, store = handler_instance
         user = MockUser(is_active=True)
         store.get_user_by_email.return_value = user
@@ -558,9 +544,7 @@ class TestForgotPassword:
         hi, store = handler_instance
         store.get_user_by_email.return_value = None
 
-        result = handle_forgot_password(
-            hi, http(body={"email": "  Test@EXAMPLE.COM  "})
-        )
+        result = handle_forgot_password(hi, http(body={"email": "  Test@EXAMPLE.COM  "}))
         assert _status(result) == 200
         body = _body(result)
         assert body["email"] == "test@example.com"
@@ -587,7 +571,9 @@ class TestForgotPassword:
         assert "my-unique-token" in sent_links[0]
 
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    def test_reset_link_uses_frontend_url_env(self, mock_get_store, handler_instance, http, monkeypatch):
+    def test_reset_link_uses_frontend_url_env(
+        self, mock_get_store, handler_instance, http, monkeypatch
+    ):
         """Reset link should use ARAGORA_FRONTEND_URL environment variable."""
         hi, store = handler_instance
         user = MockUser(is_active=True)
@@ -664,9 +650,7 @@ class TestResetPassword:
         mock_reset_store.validate_token.return_value = ("test@example.com", None)
         mock_get_store.return_value = mock_reset_store
 
-        handle_reset_password(
-            hi, http(body={"token": "valid-token", "password": VALID_PASSWORD})
-        )
+        handle_reset_password(hi, http(body={"token": "valid-token", "password": VALID_PASSWORD}))
         store.update_user.assert_called_once_with(
             user.id,
             password_hash="reset_hash",
@@ -684,14 +668,14 @@ class TestResetPassword:
         mock_reset_store.validate_token.return_value = ("test@example.com", None)
         mock_get_store.return_value = mock_reset_store
 
-        handle_reset_password(
-            hi, http(body={"token": "valid-token", "password": VALID_PASSWORD})
-        )
+        handle_reset_password(hi, http(body={"token": "valid-token", "password": VALID_PASSWORD}))
         store.increment_token_version.assert_called_once_with(user.id)
 
     @patch("aragora.billing.models.hash_password", return_value=("h", "s"))
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    def test_consumes_token_and_invalidates_others(self, mock_get_store, mock_hash, handler_instance, http):
+    def test_consumes_token_and_invalidates_others(
+        self, mock_get_store, mock_hash, handler_instance, http
+    ):
         hi, store = handler_instance
         user = MockUser(is_active=True)
         store.get_user_by_email.return_value = user
@@ -700,9 +684,7 @@ class TestResetPassword:
         mock_reset_store.validate_token.return_value = ("test@example.com", None)
         mock_get_store.return_value = mock_reset_store
 
-        handle_reset_password(
-            hi, http(body={"token": "valid-token", "password": VALID_PASSWORD})
-        )
+        handle_reset_password(hi, http(body={"token": "valid-token", "password": VALID_PASSWORD}))
         mock_reset_store.consume_token.assert_called_once_with("valid-token")
         mock_reset_store.invalidate_tokens_for_email.assert_called_once_with("test@example.com")
 
@@ -716,48 +698,36 @@ class TestResetPassword:
 
     def test_missing_token(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_reset_password(
-            hi, http(body={"password": VALID_PASSWORD})
-        )
+        result = handle_reset_password(hi, http(body={"password": VALID_PASSWORD}))
         assert _status(result) == 400
         assert "token" in _body(result)["error"].lower()
 
     def test_empty_token(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_reset_password(
-            hi, http(body={"token": "", "password": VALID_PASSWORD})
-        )
+        result = handle_reset_password(hi, http(body={"token": "", "password": VALID_PASSWORD}))
         assert _status(result) == 400
 
     def test_whitespace_token(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_reset_password(
-            hi, http(body={"token": "   ", "password": VALID_PASSWORD})
-        )
+        result = handle_reset_password(hi, http(body={"token": "   ", "password": VALID_PASSWORD}))
         assert _status(result) == 400
 
     def test_missing_password(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_reset_password(
-            hi, http(body={"token": "some-token"})
-        )
+        result = handle_reset_password(hi, http(body={"token": "some-token"}))
         assert _status(result) == 400
         assert "password" in _body(result)["error"].lower()
 
     def test_empty_password(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_reset_password(
-            hi, http(body={"token": "some-token", "password": ""})
-        )
+        result = handle_reset_password(hi, http(body={"token": "some-token", "password": ""}))
         assert _status(result) == 400
 
     def test_password_validation_failure(self, handler_instance, http):
         """New password must meet validation requirements."""
         hi, _ = handler_instance
 
-        result = handle_reset_password(
-            hi, http(body={"token": "some-token", "password": "weak"})
-        )
+        result = handle_reset_password(hi, http(body={"token": "some-token", "password": "weak"}))
         assert _status(result) == 400
 
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
@@ -772,7 +742,10 @@ class TestResetPassword:
             hi, http(body={"token": "bad-token", "password": VALID_PASSWORD})
         )
         assert _status(result) == 400
-        assert "expired" in _body(result)["error"].lower() or "invalid" in _body(result)["error"].lower()
+        assert (
+            "expired" in _body(result)["error"].lower()
+            or "invalid" in _body(result)["error"].lower()
+        )
 
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
     def test_no_user_store(self, mock_get_store, http):
@@ -826,7 +799,9 @@ class TestResetPassword:
 
     @patch("aragora.billing.models.hash_password", return_value=("h", "s"))
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    def test_audit_logged_on_success(self, mock_get_store, mock_hash, handler_instance, http, monkeypatch):
+    def test_audit_logged_on_success(
+        self, mock_get_store, mock_hash, handler_instance, http, monkeypatch
+    ):
         hi, store = handler_instance
         user = MockUser(is_active=True)
         store.get_user_by_email.return_value = user
@@ -841,16 +816,16 @@ class TestResetPassword:
             lambda **kwargs: audit_calls.append(kwargs),
         )
 
-        handle_reset_password(
-            hi, http(body={"token": "valid-token", "password": VALID_PASSWORD})
-        )
+        handle_reset_password(hi, http(body={"token": "valid-token", "password": VALID_PASSWORD}))
         assert len(audit_calls) == 1
         assert audit_calls[0]["reason"] == "password_reset_completed"
         assert audit_calls[0]["event_type"] == "encryption"
 
     @patch("aragora.billing.models.hash_password", return_value=("h", "s"))
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    def test_audit_not_called_when_unavailable(self, mock_get_store, mock_hash, handler_instance, http, monkeypatch):
+    def test_audit_not_called_when_unavailable(
+        self, mock_get_store, mock_hash, handler_instance, http, monkeypatch
+    ):
         hi, store = handler_instance
         user = MockUser(is_active=True)
         store.get_user_by_email.return_value = user
@@ -867,14 +842,14 @@ class TestResetPassword:
             lambda **kwargs: audit_calls.append(kwargs),
         )
 
-        handle_reset_password(
-            hi, http(body={"token": "valid-token", "password": VALID_PASSWORD})
-        )
+        handle_reset_password(hi, http(body={"token": "valid-token", "password": VALID_PASSWORD}))
         assert len(audit_calls) == 0
 
     @patch("aragora.billing.models.hash_password", return_value=("h", "s"))
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    def test_emit_handler_event_called(self, mock_get_store, mock_hash, handler_instance, http, monkeypatch):
+    def test_emit_handler_event_called(
+        self, mock_get_store, mock_hash, handler_instance, http, monkeypatch
+    ):
         hi, store = handler_instance
         user = MockUser(is_active=True)
         store.get_user_by_email.return_value = user
@@ -889,9 +864,7 @@ class TestResetPassword:
             lambda *args, **kwargs: events.append((args, kwargs)),
         )
 
-        handle_reset_password(
-            hi, http(body={"token": "valid-token", "password": VALID_PASSWORD})
-        )
+        handle_reset_password(hi, http(body={"token": "valid-token", "password": VALID_PASSWORD}))
         assert len(events) == 1
         assert events[0][0][0] == "auth"
         assert events[0][0][2]["action"] == "password_reset"
@@ -996,7 +969,9 @@ class TestAuthHandlerRouting:
     @pytest.mark.asyncio
     @patch("aragora.billing.models.hash_password", return_value=("h", "s"))
     @patch("aragora.storage.password_reset_store.get_password_reset_store")
-    async def test_route_reset_password_legacy(self, mock_get_store, mock_hash, routable_handler, http):
+    async def test_route_reset_password_legacy(
+        self, mock_get_store, mock_hash, routable_handler, http
+    ):
         """POST /api/auth/reset-password (legacy) should work."""
         hi, store = routable_handler
         user = MockUser(is_active=True)

@@ -516,7 +516,7 @@ def init_extensions(storage_path: Path | None = None) -> ExtensionState:
         enabled.append("ComputerUse")
 
     if enabled:
-        logger.info("[extensions] Enabled extensions: %s", ', '.join(enabled))
+        logger.info("[extensions] Enabled extensions: %s", ", ".join(enabled))
     else:
         logger.info("[extensions] No extensions enabled")
 

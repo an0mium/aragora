@@ -300,7 +300,9 @@ class ClaudeComputerUseBridge:
         messages = self._build_messages(goal, screenshot_b64, previous_steps, initial_context)
 
         logger.debug(
-            "Calling Claude API: %s messages, screenshot=%s", len(messages), 'yes' if screenshot_b64 else 'no'
+            "Calling Claude API: %s messages, screenshot=%s",
+            len(messages),
+            "yes" if screenshot_b64 else "no",
         )
 
         # Make API call

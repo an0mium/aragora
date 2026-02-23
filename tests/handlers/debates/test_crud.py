@@ -185,9 +185,7 @@ class TestListDebates:
 
     def test_list_debates_with_org_filter(self):
         storage = MagicMock()
-        storage.list_recent.return_value = [
-            {"id": "d1", "task": "Org debate", "status": "active"}
-        ]
+        storage.list_recent.return_value = [{"id": "d1", "task": "Org debate", "status": "active"}]
         h = _make_handler(storage=storage)
         result = h._list_debates(limit=5, org_id="org-123")
         assert _status(result) == 200
@@ -418,7 +416,14 @@ class TestGetDebateBySlug:
         h = _make_handler(storage=storage)
         handler = _mock_http_handler()
 
-        active = {"d-active": {"task": "Active debate", "status": "starting", "agents": "claude,gpt-4", "rounds": 3}}
+        active = {
+            "d-active": {
+                "task": "Active debate",
+                "status": "starting",
+                "agents": "claude,gpt-4",
+                "rounds": 3,
+            }
+        }
         with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d-active")
         assert _status(result) == 200
@@ -835,7 +840,9 @@ class TestPatchDebate:
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
             # Bypass schema validation to test the code-level SDK status handling
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -870,7 +877,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -890,7 +899,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -945,7 +956,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=False, reason="Not owner")
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -965,7 +978,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -1165,7 +1180,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -1188,7 +1205,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -1209,7 +1228,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -1230,7 +1251,9 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 result = h._patch_debate(handler, "d1")
 
@@ -1573,9 +1596,7 @@ class TestCrudEdgeCases:
     def test_list_debates_concluded_status_normalized(self):
         """Concluded status is normalized to completed in list."""
         storage = MagicMock()
-        storage.list_recent.return_value = [
-            {"id": "d1", "status": "concluded", "task": "T"}
-        ]
+        storage.list_recent.return_value = [{"id": "d1", "status": "concluded", "task": "T"}]
         h = _make_handler(storage=storage)
         result = h._list_debates(limit=10)
         body = _body(result)
@@ -1584,9 +1605,7 @@ class TestCrudEdgeCases:
     def test_list_debates_archived_status_normalized(self):
         """Archived status is normalized to completed in list."""
         storage = MagicMock()
-        storage.list_recent.return_value = [
-            {"id": "d1", "status": "archived", "task": "T"}
-        ]
+        storage.list_recent.return_value = [{"id": "d1", "status": "archived", "task": "T"}]
         h = _make_handler(storage=storage)
         result = h._list_debates(limit=10)
         body = _body(result)
@@ -1620,11 +1639,14 @@ class TestCrudEdgeCases:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 h._patch_debate(handler, "d1")
 
         from aragora.server.middleware.abac import Action
+
         call_kwargs = mock_access.call_args
         assert call_kwargs.kwargs.get("action") == Action.WRITE
 
@@ -1645,6 +1667,7 @@ class TestCrudEdgeCases:
             h._delete_debate(handler, "d1")
 
         from aragora.server.middleware.abac import Action
+
         call_kwargs = mock_access.call_args
         assert call_kwargs.kwargs.get("action") == Action.DELETE
 
@@ -1662,11 +1685,14 @@ class TestCrudEdgeCases:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+            with patch(
+                "aragora.server.handlers.debates.crud.validate_against_schema"
+            ) as mock_validate:
                 mock_validate.return_value = MagicMock(is_valid=True)
                 h._patch_debate(handler, "d1")
 
         from aragora.server.middleware.abac import ResourceType
+
         call_kwargs = mock_access.call_args
         assert call_kwargs.kwargs.get("resource_type") == ResourceType.DEBATE
 

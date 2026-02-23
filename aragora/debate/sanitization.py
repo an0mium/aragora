@@ -51,7 +51,10 @@ class OutputSanitizer:
         stripped_chars = original_len - len(raw_output)
         if stripped_chars > 0:
             logger.debug(
-                "[Stability] %s: stripped %s control chars (original: %s chars)", agent_name, stripped_chars, original_len
+                "[Stability] %s: stripped %s control chars (original: %s chars)",
+                agent_name,
+                stripped_chars,
+                original_len,
             )
 
         result = raw_output.strip()
@@ -60,7 +63,11 @@ class OutputSanitizer:
             # Include repr of original for debugging encoding/control char issues
             original_sample = repr(raw_output[:200]) if original_len > 0 else "empty"
             logger.warning(
-                "[Stability] %s: output empty after sanitization. Original: %s chars, stripped: %s. Sample: %s", agent_name, original_len, stripped_chars, original_sample
+                "[Stability] %s: output empty after sanitization. Original: %s chars, stripped: %s. Sample: %s",
+                agent_name,
+                original_len,
+                stripped_chars,
+                original_sample,
             )
             return "(Agent produced empty output)"
 

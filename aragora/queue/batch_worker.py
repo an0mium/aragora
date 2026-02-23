@@ -272,7 +272,10 @@ class BatchExplainabilityWorker:
 
             self._batches_processed += 1
             logger.info(
-                "Batch job %s completed: %s/%s succeeded", job_id, progress.succeeded, progress.total
+                "Batch job %s completed: %s/%s succeeded",
+                job_id,
+                progress.succeeded,
+                progress.total,
             )
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:

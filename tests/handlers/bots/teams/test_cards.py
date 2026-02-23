@@ -519,7 +519,9 @@ class TestSummaryAction:
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.bots.teams.cards.audit_data")
-    async def test_summary_shows_leading_agent_with_votes(self, mock_audit, card_actions, active_debate):
+    async def test_summary_shows_leading_agent_with_votes(
+        self, mock_audit, card_actions, active_debate
+    ):
         """Summary shows leading agent when votes exist."""
         from aragora.server.handlers.bots.teams_utils import _user_votes
 
@@ -578,7 +580,9 @@ class TestViewDetailsAction:
         assert "not found" in reply_text
 
     @pytest.mark.asyncio
-    async def test_view_details_active_debate_with_import_error(self, card_actions, mock_bot, active_debate):
+    async def test_view_details_active_debate_with_import_error(
+        self, card_actions, mock_bot, active_debate
+    ):
         """View details falls back to text when card module import fails."""
         import sys
 
@@ -603,7 +607,9 @@ class TestViewDetailsAction:
         assert "microservices" in reply_text
 
     @pytest.mark.asyncio
-    async def test_view_details_active_debate_with_card_module(self, card_actions, mock_bot, active_debate):
+    async def test_view_details_active_debate_with_card_module(
+        self, card_actions, mock_bot, active_debate
+    ):
         """View details sends progress card when module is available."""
         mock_card = {"type": "AdaptiveCard"}
         with patch(
@@ -859,7 +865,9 @@ class TestComposeExtensionSubmit:
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.bots.teams.cards._start_teams_debate", new_callable=AsyncMock)
     @patch("aragora.server.handlers.bots.teams.cards.build_debate_card")
-    async def test_start_debate_uses_debate_topic_field(self, mock_build_card, mock_start, card_actions):
+    async def test_start_debate_uses_debate_topic_field(
+        self, mock_build_card, mock_start, card_actions
+    ):
         """startDebate reads from data.debate_topic as fallback."""
         mock_start.return_value = "d-001"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
@@ -875,7 +883,9 @@ class TestComposeExtensionSubmit:
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.bots.teams.cards._start_teams_debate", new_callable=AsyncMock)
     @patch("aragora.server.handlers.bots.teams.cards.build_debate_card")
-    async def test_start_debate_preview_truncates_topic(self, mock_build_card, mock_start, card_actions):
+    async def test_start_debate_preview_truncates_topic(
+        self, mock_build_card, mock_start, card_actions
+    ):
         """Preview title truncates long topics to 50 chars."""
         mock_start.return_value = "d-002"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
@@ -908,7 +918,9 @@ class TestComposeExtensionSubmit:
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.bots.teams.cards._start_teams_debate", new_callable=AsyncMock)
     @patch("aragora.server.handlers.bots.teams.cards.build_debate_card")
-    async def test_start_debate_non_list_attachments(self, mock_build_card, mock_start, card_actions):
+    async def test_start_debate_non_list_attachments(
+        self, mock_build_card, mock_start, card_actions
+    ):
         """Non-list attachments are replaced with empty list."""
         mock_start.return_value = "d-004"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
@@ -1115,13 +1127,17 @@ class TestTaskModuleSubmit:
     @patch("aragora.server.handlers.bots.teams.cards._start_teams_debate", new_callable=AsyncMock)
     @patch("aragora.server.handlers.bots.teams.cards.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.cards.audit_data")
-    async def test_submit_start_debate(self, mock_audit, mock_build_card, mock_start, card_actions, mock_bot):
+    async def test_submit_start_debate(
+        self, mock_audit, mock_build_card, mock_start, card_actions, mock_bot
+    ):
         """Submit with start_debate_from_task_module starts debate."""
         mock_start.return_value = "debate-tm-001"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity(
             invoke_name="task/submit",
-            value={"data": {"action": "start_debate_from_task_module", "debate_topic": "ML Ethics"}},
+            value={
+                "data": {"action": "start_debate_from_task_module", "debate_topic": "ML Ethics"}
+            },
         )
         result = await card_actions.handle_invoke(activity)
         assert result["status"] == 200
@@ -1133,13 +1149,17 @@ class TestTaskModuleSubmit:
     @patch("aragora.server.handlers.bots.teams.cards._start_teams_debate", new_callable=AsyncMock)
     @patch("aragora.server.handlers.bots.teams.cards.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.cards.audit_data")
-    async def test_submit_start_debate_audit_fields(self, mock_audit, mock_build_card, mock_start, card_actions, mock_bot):
+    async def test_submit_start_debate_audit_fields(
+        self, mock_audit, mock_build_card, mock_start, card_actions, mock_bot
+    ):
         """Submit audit log includes correct fields."""
         mock_start.return_value = "debate-tm-002"
         mock_build_card.return_value = {"type": "AdaptiveCard"}
         activity = _make_activity(
             invoke_name="task/submit",
-            value={"data": {"action": "start_debate_from_task_module", "debate_topic": "Topic XYZ"}},
+            value={
+                "data": {"action": "start_debate_from_task_module", "debate_topic": "Topic XYZ"}
+            },
         )
         await card_actions.handle_invoke(activity)
         mock_audit.assert_called_once_with(
@@ -1402,7 +1422,18 @@ class TestAgentDisplayNames:
         """AGENT_DISPLAY_NAMES contains all expected agent mappings."""
         from aragora.server.handlers.bots.teams.cards import AGENT_DISPLAY_NAMES
 
-        expected = {"claude", "gpt4", "gemini", "mistral", "deepseek", "grok", "qwen", "kimi", "anthropic-api", "openai-api"}
+        expected = {
+            "claude",
+            "gpt4",
+            "gemini",
+            "mistral",
+            "deepseek",
+            "grok",
+            "qwen",
+            "kimi",
+            "anthropic-api",
+            "openai-api",
+        }
         assert set(AGENT_DISPLAY_NAMES.keys()) == expected
 
     def test_display_names_are_strings(self):
@@ -1532,6 +1563,7 @@ class TestEdgeCases:
 
         # Force ImportError for the progress card
         import sys
+
         saved = sys.modules.get("aragora.server.handlers.bots.teams_cards")
         sys.modules["aragora.server.handlers.bots.teams_cards"] = None  # type: ignore
         try:
@@ -1551,7 +1583,9 @@ class TestEdgeCases:
     @patch("aragora.server.handlers.bots.teams.cards._start_teams_debate", new_callable=AsyncMock)
     @patch("aragora.server.handlers.bots.teams.cards.build_debate_card")
     @patch("aragora.server.handlers.bots.teams.cards.audit_data")
-    async def test_submit_task_preview_truncated(self, mock_audit, mock_build_card, mock_start, card_actions, mock_bot):
+    async def test_submit_task_preview_truncated(
+        self, mock_audit, mock_build_card, mock_start, card_actions, mock_bot
+    ):
         """Audit log truncates task_preview to 100 chars."""
         mock_start.return_value = "d-long"
         mock_build_card.return_value = {"type": "AdaptiveCard"}

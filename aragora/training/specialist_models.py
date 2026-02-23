@@ -758,7 +758,11 @@ class SpecialistTrainingPipeline:
         )
 
         logger.info(
-            "Exported %s training examples from %s debates for model %s (vertical: %s)", total_examples, total_debates, model_id, config.vertical.value
+            "Exported %s training examples from %s debates for model %s (vertical: %s)",
+            total_examples,
+            total_debates,
+            model_id,
+            config.vertical.value,
         )
 
         return total_examples

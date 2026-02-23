@@ -1227,7 +1227,7 @@ class TestTournamentIntegration:
         # Update standings manually
         for match in matches:
             match.winner = match.participants[0]
-            match.scores = {p: 0.5 for p in match.participants}
+            match.scores = dict.fromkeys(match.participants, 0.5)
             tournament._update_standings(match)
 
         # Save to database

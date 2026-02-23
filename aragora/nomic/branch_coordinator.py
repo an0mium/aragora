@@ -615,7 +615,11 @@ class BranchCoordinator:
             still_remaining: list[TrackAssignment] = []
 
             for a in remaining:
-                deps = getattr(a.goal, "dependencies", None) or getattr(a.goal, "depends_on", None) or []
+                deps = (
+                    getattr(a.goal, "dependencies", None)
+                    or getattr(a.goal, "depends_on", None)
+                    or []
+                )
                 unmet = [d for d in deps if d in by_id and d not in assigned]
                 if not unmet:
                     wave.append(a)
@@ -663,7 +667,10 @@ class BranchCoordinator:
 
         for conflict in conflicts:
             logger.warning(
-                "potential_conflict source=%s target=%s files=%s", conflict.source_branch, conflict.target_branch, conflict.conflicting_files
+                "potential_conflict source=%s target=%s files=%s",
+                conflict.source_branch,
+                conflict.target_branch,
+                conflict.conflicting_files,
             )
             if self.on_conflict:
                 self.on_conflict(conflict)
@@ -700,9 +707,7 @@ class BranchCoordinator:
                 tasks = []
                 for assignment in wave:
                     if assignment.branch_name:
-                        task = asyncio.create_task(
-                            self._run_assignment(assignment, run_nomic_fn)
-                        )
+                        task = asyncio.create_task(self._run_assignment(assignment, run_nomic_fn))
                         tasks.append(task)
 
                 try:
@@ -739,7 +744,9 @@ class BranchCoordinator:
                         merged_count += 1
                     else:
                         logger.warning(
-                            "Could not auto-merge %s: %s", assignment.branch_name, merge_result.error
+                            "Could not auto-merge %s: %s",
+                            assignment.branch_name,
+                            merge_result.error,
                         )
 
         # Compute result
@@ -1022,7 +1029,9 @@ class BranchCoordinator:
 
             # Step 5: Auto-revert if post-merge tests fail
             if not post_passed and auto_revert:
-                revert_result = self._run_git("revert", "-m", "1", "--no-edit", commit_sha, check=False)
+                revert_result = self._run_git(
+                    "revert", "-m", "1", "--no-edit", commit_sha, check=False
+                )
                 revert_msg = " (reverted)" if revert_result.returncode == 0 else " (revert failed)"
                 logger.warning(
                     "merge_gate_post_failed source=%s sha=%s%s",

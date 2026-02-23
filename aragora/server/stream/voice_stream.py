@@ -301,7 +301,9 @@ class VoiceStreamHandler:
                 self._ip_sessions[client_ip] = set()
             self._ip_sessions[client_ip].add(session_id)
 
-        logger.info("[Voice] Session %s started for debate %s from %s", session_id, debate_id, client_ip)
+        logger.info(
+            "[Voice] Session %s started for debate %s from %s", session_id, debate_id, client_ip
+        )
 
         # Send ready message
         await ws.send_json(
@@ -679,7 +681,10 @@ class VoiceStreamHandler:
             audio_format = audio_path.suffix.lstrip(".") or "mp3"
 
             logger.info(
-                "[Voice] TTS synthesized: %s chars -> %s bytes (%s)", len(text), audio_size, audio_format
+                "[Voice] TTS synthesized: %s chars -> %s bytes (%s)",
+                len(text),
+                audio_size,
+                audio_format,
             )
 
             # Send audio metadata

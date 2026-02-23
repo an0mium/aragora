@@ -101,8 +101,13 @@ class OrchestrationCanvasHandler(SecureHandler):
 
         try:
             return self._route_request(
-                path, method, query_params, body,
-                user_id, workspace_id, auth_context,
+                path,
+                method,
+                query_params,
+                body,
+                user_id,
+                workspace_id,
+                auth_context,
             )
         except PermissionDeniedError as e:
             perm = e.permission_key if hasattr(e, "permission_key") else "unknown"
@@ -203,10 +208,12 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     def _get_store(self):
         from aragora.canvas.orchestration_store import get_orchestration_canvas_store
+
         return get_orchestration_canvas_store()
 
     def _get_canvas_manager(self):
         from aragora.canvas import get_canvas_manager
+
         return get_canvas_manager()
 
     def _run_async(self, coro):
@@ -226,7 +233,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:read")
     def _list_canvases(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         query_params: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
@@ -247,7 +255,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:create")
     def _create_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         body: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
@@ -271,7 +280,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:read")
     def _get_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -298,7 +308,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:update")
     def _update_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -320,7 +331,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:delete")
     def _delete_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -340,7 +352,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:create")
     def _add_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -388,7 +401,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:update")
     def _update_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         body: dict[str, Any],
@@ -424,7 +438,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:delete")
     def _delete_node(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         user_id: str | None,
@@ -445,7 +460,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:create")
     def _add_edge(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -485,7 +501,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:delete")
     def _delete_edge(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         edge_id: str,
         user_id: str | None,
@@ -506,7 +523,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:read")
     def _export_canvas(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         user_id: str | None,
     ) -> HandlerResult:
@@ -524,7 +542,8 @@ class OrchestrationCanvasHandler(SecureHandler):
 
     @require_permission("orchestration:execute")
     def _execute_pipeline(
-        self, context: AuthorizationContext,
+        self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
@@ -547,15 +566,18 @@ class OrchestrationCanvasHandler(SecureHandler):
 
             execution_id = f"exec-{uuid.uuid4().hex[:8]}"
 
-            return json_response({
-                "execution_id": execution_id,
-                "canvas_id": canvas_id,
-                "stage": "orchestration",
-                "nodes_count": len(nodes),
-                "edges_count": len(edges),
-                "metadata": canvas_meta.get("metadata", {}),
-                "status": "queued",
-            }, status=201)
+            return json_response(
+                {
+                    "execution_id": execution_id,
+                    "canvas_id": canvas_id,
+                    "stage": "orchestration",
+                    "nodes_count": len(nodes),
+                    "edges_count": len(edges),
+                    "metadata": canvas_meta.get("metadata", {}),
+                    "status": "queued",
+                },
+                status=201,
+            )
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to execute orchestration pipeline: %s", e)
             return error_response("Pipeline execution failed", 500)

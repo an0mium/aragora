@@ -622,7 +622,11 @@ class AuditLog:
         self._last_hash = event.event_hash
 
         logger.debug(
-            "audit_logged category=%s action=%s actor=%s outcome=%s", event.category.value, event.action, event.actor_id, event.outcome.value
+            "audit_logged category=%s action=%s actor=%s outcome=%s",
+            event.category.value,
+            event.action,
+            event.actor_id,
+            event.outcome.value,
         )
 
         return event.id

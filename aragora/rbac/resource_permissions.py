@@ -383,7 +383,11 @@ class ResourcePermissionStore:
         )
         if existing and existing.is_valid:
             logger.warning(
-                "Permission already exists: %s for user %s on %s/%s", existing.id, user_id, resource_type.value, resource_id
+                "Permission already exists: %s for user %s on %s/%s",
+                existing.id,
+                user_id,
+                resource_type.value,
+                resource_id,
             )
             # Update existing permission instead of creating duplicate
             existing.expires_at = expires_at
@@ -416,7 +420,11 @@ class ResourcePermissionStore:
         self._invalidate_cache_for_user_resource(user_id, resource_type, resource_id)
 
         logger.info(
-            "Granted permission %s to user %s for %s/%s", permission_id, user_id, resource_type.value, resource_id
+            "Granted permission %s to user %s for %s/%s",
+            permission_id,
+            user_id,
+            resource_type.value,
+            resource_id,
         )
 
         return permission
@@ -450,7 +458,11 @@ class ResourcePermissionStore:
         )
 
         logger.info(
-            "Revoked permission %s from user %s for %s/%s", permission.permission_id, permission.user_id, permission.resource_type.value, permission.resource_id
+            "Revoked permission %s from user %s for %s/%s",
+            permission.permission_id,
+            permission.user_id,
+            permission.resource_type.value,
+            permission.resource_id,
         )
 
         return True

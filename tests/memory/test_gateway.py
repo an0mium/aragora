@@ -185,18 +185,14 @@ class TestQueryFanOut:
             continuum_memory=_make_continuum_mock(),
             knowledge_mound=_make_km_mock(),
         )
-        resp = await gw.query(
-            UnifiedMemoryQuery(query="test", sources=["km"])
-        )
+        resp = await gw.query(UnifiedMemoryQuery(query="test", sources=["km"]))
         assert "km" in resp.sources_queried
         assert all(r.source_system == "km" for r in resp.results)
 
     @pytest.mark.asyncio
     async def test_query_unavailable_source_ignored(self):
         gw = MemoryGateway(continuum_memory=_make_continuum_mock())
-        resp = await gw.query(
-            UnifiedMemoryQuery(query="test", sources=["km", "continuum"])
-        )
+        resp = await gw.query(UnifiedMemoryQuery(query="test", sources=["km", "continuum"]))
         # Only continuum is available
         assert resp.sources_queried == ["continuum"]
 
@@ -211,16 +207,10 @@ class TestQueryFanOut:
     @pytest.mark.asyncio
     async def test_query_with_min_confidence_filter(self):
         gw = MemoryGateway(
-            continuum_memory=_make_continuum_mock(
-                [FakeContinuumEntry(importance=0.3)]
-            ),
-            knowledge_mound=_make_km_mock(
-                [FakeKMItem(confidence=0.9)]
-            ),
+            continuum_memory=_make_continuum_mock([FakeContinuumEntry(importance=0.3)]),
+            knowledge_mound=_make_km_mock([FakeKMItem(confidence=0.9)]),
         )
-        resp = await gw.query(
-            UnifiedMemoryQuery(query="test", min_confidence=0.5)
-        )
+        resp = await gw.query(UnifiedMemoryQuery(query="test", min_confidence=0.5))
         assert all(r.confidence >= 0.5 for r in resp.results)
 
     @pytest.mark.asyncio
@@ -245,12 +235,8 @@ class TestDedup:
         """Same content in continuum and KM should be deduped."""
         same_content = "identical rate limiting advice"
         gw = MemoryGateway(
-            continuum_memory=_make_continuum_mock(
-                [FakeContinuumEntry(content=same_content)]
-            ),
-            knowledge_mound=_make_km_mock(
-                [FakeKMItem(content=same_content)]
-            ),
+            continuum_memory=_make_continuum_mock([FakeContinuumEntry(content=same_content)]),
+            knowledge_mound=_make_km_mock([FakeKMItem(content=same_content)]),
         )
         resp = await gw.query(UnifiedMemoryQuery(query="test"))
         assert resp.duplicates_removed >= 1
@@ -260,16 +246,10 @@ class TestDedup:
     async def test_dedup_disabled(self):
         same_content = "identical content"
         gw = MemoryGateway(
-            continuum_memory=_make_continuum_mock(
-                [FakeContinuumEntry(content=same_content)]
-            ),
-            knowledge_mound=_make_km_mock(
-                [FakeKMItem(content=same_content)]
-            ),
+            continuum_memory=_make_continuum_mock([FakeContinuumEntry(content=same_content)]),
+            knowledge_mound=_make_km_mock([FakeKMItem(content=same_content)]),
         )
-        resp = await gw.query(
-            UnifiedMemoryQuery(query="test", dedup=False)
-        )
+        resp = await gw.query(UnifiedMemoryQuery(query="test", dedup=False))
         assert resp.duplicates_removed == 0
         assert len(resp.results) == 2
 
@@ -286,9 +266,7 @@ class TestRanking:
             continuum_memory=_make_continuum_mock(
                 [FakeContinuumEntry(content="low", importance=0.2)]
             ),
-            knowledge_mound=_make_km_mock(
-                [FakeKMItem(content="high", confidence=0.95)]
-            ),
+            knowledge_mound=_make_km_mock([FakeKMItem(content="high", confidence=0.95)]),
         )
         resp = await gw.query(UnifiedMemoryQuery(query="test"))
         assert resp.results[0].source_system == "km"

@@ -168,7 +168,9 @@ class EventBus:
                 self._async_handlers[event_type].remove(handler)
                 return True
             except ValueError as e:
-                logger.debug("Failed to remove async handler for event type '%s': %s", event_type, e)
+                logger.debug(
+                    "Failed to remove async handler for event type '%s': %s", event_type, e
+                )
                 # Handler was not in list, likely already removed
         return False
 
@@ -459,14 +461,15 @@ class EventBus:
         acquired = self._user_event_lock.acquire(timeout=self.LOCK_TIMEOUT)
         if not acquired:
             logger.warning(
-                "[event_bus] Lock timeout in queue_user_event, dropping event: %s", event.get('type', 'unknown')
+                "[event_bus] Lock timeout in queue_user_event, dropping event: %s",
+                event.get("type", "unknown"),
             )
             return
         try:
             self._user_event_queue.put(event)
         finally:
             self._user_event_lock.release()
-        logger.debug("Queued user event: %s", event.get('type', 'unknown'))
+        logger.debug("Queued user event: %s", event.get("type", "unknown"))
 
     async def drain_user_events(self, debate_id: str) -> list[dict[str, Any]]:
         """

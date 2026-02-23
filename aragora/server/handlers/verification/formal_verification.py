@@ -792,7 +792,14 @@ class FormalVerificationHandler(BaseHandler):
                         )
                         # Cache in memory for future lookups
                         _verification_history[entry_id] = entry
-                except (OSError, ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
+                except (
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    KeyError,
+                    RuntimeError,
+                    AttributeError,
+                ) as e:
                     logger.warning("Failed to load verification from store: %s", e)
 
         if not entry:

@@ -101,9 +101,7 @@ class MockOAuthState:
     """Mock OAuth state from the state store."""
 
     redirect_url: str | None = "/"
-    metadata: dict[str, Any] | None = field(
-        default_factory=lambda: {"provider_type": "oidc"}
-    )
+    metadata: dict[str, Any] | None = field(default_factory=lambda: {"provider_type": "oidc"})
     expires_at: float = 0.0
     created_at: float = 0.0
 
@@ -139,9 +137,7 @@ def mock_provider():
             refresh_token="refreshed-refresh-token",
         )
     )
-    provider.logout = AsyncMock(
-        return_value="https://idp.example.com/logout?post_logout=/"
-    )
+    provider.logout = AsyncMock(return_value="https://idp.example.com/logout?post_logout=/")
     return provider
 
 
@@ -168,9 +164,7 @@ def mock_user_store():
 @pytest.fixture(autouse=True)
 def _patch_sso_state_store(mock_state_store):
     """Patch the lazy SSO state store singleton."""
-    with patch(
-        "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-    ) as mock_lazy:
+    with patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_lazy:
         mock_lazy.get.return_value = mock_state_store
         yield mock_lazy
 
@@ -472,10 +466,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-token-123",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "auth-code-abc",
-                "state": "valid-state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "auth-code-abc",
+                    "state": "valid-state",
+                }
+            )
 
         assert _status(result) == 200
         data = _data(result)
@@ -512,10 +508,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-new-user",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "auth-code",
-                "state": "state-token",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "auth-code",
+                    "state": "state-token",
+                }
+            )
 
         assert _status(result) == 200
         mock_user_store.create_user.assert_called_once_with(
@@ -530,12 +528,8 @@ class TestHandleSSOCallback:
         self, mock_provider, mock_state_store, mock_user_store
     ):
         mock_user_store.get_user_by_email.return_value = None
-        mock_user_store.create_user.return_value = MockUser(
-            email="noname@corp.com", name="noname"
-        )
-        mock_provider.authenticate.return_value = MockSSOUser(
-            email="noname@corp.com", name=""
-        )
+        mock_user_store.create_user.return_value = MockUser(email="noname@corp.com", name="noname")
+        mock_provider.authenticate.return_value = MockSSOUser(email="noname@corp.com", name="")
 
         with (
             patch(
@@ -560,19 +554,23 @@ class TestHandleSSOCallback:
 
     @pytest.mark.asyncio
     async def test_callback_idp_error(self, mock_state_store):
-        result = await handle_sso_callback({
-            "error": "access_denied",
-            "error_description": "User cancelled authentication",
-        })
+        result = await handle_sso_callback(
+            {
+                "error": "access_denied",
+                "error_description": "User cancelled authentication",
+            }
+        )
 
         assert _status(result) == 401
         assert "User cancelled authentication" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_callback_idp_error_no_description(self, mock_state_store):
-        result = await handle_sso_callback({
-            "error": "server_error",
-        })
+        result = await handle_sso_callback(
+            {
+                "error": "server_error",
+            }
+        )
 
         assert _status(result) == 401
         assert "server_error" in _body(result).get("error", "")
@@ -595,14 +593,18 @@ class TestHandleSSOCallback:
     async def test_callback_invalid_state(self, mock_state_store):
         mock_state_store.validate_and_consume.return_value = None
         # No in-memory session either
-        result = await handle_sso_callback({
-            "code": "auth-code",
-            "state": "invalid-state",
-        })
+        result = await handle_sso_callback(
+            {
+                "code": "auth-code",
+                "state": "invalid-state",
+            }
+        )
 
         assert _status(result) == 401
-        assert "invalid" in _body(result).get("error", "").lower() or \
-               "expired" in _body(result).get("error", "").lower()
+        assert (
+            "invalid" in _body(result).get("error", "").lower()
+            or "expired" in _body(result).get("error", "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_callback_fallback_to_in_memory_session(
@@ -631,10 +633,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-fallback",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "auth-code",
-                "state": "fallback-state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "auth-code",
+                    "state": "fallback-state",
+                }
+            )
 
         assert _status(result) == 200
         data = _data(result)
@@ -648,18 +652,18 @@ class TestHandleSSOCallback:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=None,
         ):
-            result = await handle_sso_callback({
-                "code": "auth-code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "auth-code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_callback_user_store_unavailable(
-        self, mock_provider, mock_state_store
-    ):
+    async def test_callback_user_store_unavailable(self, mock_provider, mock_state_store):
         with (
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
@@ -670,10 +674,12 @@ class TestHandleSSOCallback:
                 return_value=None,
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "auth-code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "auth-code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 503
         assert "unavailable" in _body(result).get("error", "").lower()
@@ -694,10 +700,12 @@ class TestHandleSSOCallback:
                 return_value=mock_user_store,
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "bad-code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "bad-code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 401
 
@@ -729,10 +737,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-updated",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 200
         mock_user_store.update_user.assert_called_once_with("u1", name="SSO Updated")
@@ -766,10 +776,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-tok",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 200
         assert _data(result)["redirect_url"] == "/custom-redirect"
@@ -797,10 +809,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-tok",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 200
         # Defaults to "/" and "oidc"
@@ -830,10 +844,12 @@ class TestHandleSSOCallback:
                 return_value="jwt-tok",
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 200
 
@@ -852,10 +868,12 @@ class TestHandleSSORefresh:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_refresh({
-                "provider": "oidc",
-                "refresh_token": "old-refresh-token",
-            })
+            result = await handle_sso_refresh(
+                {
+                    "provider": "oidc",
+                    "refresh_token": "old-refresh-token",
+                }
+            )
 
         assert _status(result) == 200
         data = _data(result)
@@ -886,10 +904,12 @@ class TestHandleSSORefresh:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=None,
         ):
-            result = await handle_sso_refresh({
-                "provider": "oidc",
-                "refresh_token": "tok",
-            })
+            result = await handle_sso_refresh(
+                {
+                    "provider": "oidc",
+                    "refresh_token": "tok",
+                }
+            )
 
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
@@ -902,9 +922,11 @@ class TestHandleSSORefresh:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_refresh({
-                "refresh_token": "expired-token",
-            })
+            result = await handle_sso_refresh(
+                {
+                    "refresh_token": "expired-token",
+                }
+            )
 
         assert _status(result) == 401
         assert "refresh failed" in _body(result).get("error", "").lower()
@@ -917,9 +939,11 @@ class TestHandleSSORefresh:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_refresh({
-                "refresh_token": "tok",
-            })
+            result = await handle_sso_refresh(
+                {
+                    "refresh_token": "tok",
+                }
+            )
 
         assert _status(result) == 401
 
@@ -929,9 +953,12 @@ class TestHandleSSORefresh:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_refresh({
-                "refresh_token": "my-refresh",
-            }, user_id="u123")
+            result = await handle_sso_refresh(
+                {
+                    "refresh_token": "my-refresh",
+                },
+                user_id="u123",
+            )
 
         assert _status(result) == 200
         # Verify the provider was called with a temp SSOUser having our refresh token
@@ -942,10 +969,12 @@ class TestHandleSSORefresh:
 
     @pytest.mark.asyncio
     async def test_refresh_empty_token(self):
-        result = await handle_sso_refresh({
-            "provider": "oidc",
-            "refresh_token": "",
-        })
+        result = await handle_sso_refresh(
+            {
+                "provider": "oidc",
+                "refresh_token": "",
+            }
+        )
 
         assert _status(result) == 400
 
@@ -964,10 +993,12 @@ class TestHandleSSOLogout:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_logout({
-                "provider": "oidc",
-                "id_token": "my-id-token",
-            })
+            result = await handle_sso_logout(
+                {
+                    "provider": "oidc",
+                    "id_token": "my-id-token",
+                }
+            )
 
         assert _status(result) == 200
         data = _data(result)
@@ -1020,10 +1051,12 @@ class TestHandleSSOLogout:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_logout({
-                "provider": "oidc",
-                "id_token": "tok",
-            })
+            result = await handle_sso_logout(
+                {
+                    "provider": "oidc",
+                    "id_token": "tok",
+                }
+            )
 
         assert _status(result) == 500
 
@@ -1387,26 +1420,32 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_callback_with_empty_code(self, mock_state_store):
-        result = await handle_sso_callback({
-            "code": "",
-            "state": "state-token",
-        })
+        result = await handle_sso_callback(
+            {
+                "code": "",
+                "state": "state-token",
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_callback_with_empty_state(self, mock_state_store):
-        result = await handle_sso_callback({
-            "code": "auth-code",
-            "state": "",
-        })
+        result = await handle_sso_callback(
+            {
+                "code": "auth-code",
+                "state": "",
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_refresh_with_none_token(self):
-        result = await handle_sso_refresh({
-            "provider": "oidc",
-            "refresh_token": None,
-        })
+        result = await handle_sso_refresh(
+            {
+                "provider": "oidc",
+                "refresh_token": None,
+            }
+        )
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1426,10 +1465,12 @@ class TestEdgeCases:
                 return_value=mock_user_store,
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 401
 
@@ -1441,10 +1482,12 @@ class TestEdgeCases:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_logout({
-                "provider": "oidc",
-                "id_token": "bad",
-            })
+            result = await handle_sso_logout(
+                {
+                    "provider": "oidc",
+                    "id_token": "bad",
+                }
+            )
 
         assert _status(result) == 500
 
@@ -1457,9 +1500,11 @@ class TestEdgeCases:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_refresh({
-                "refresh_token": "tok",
-            })
+            result = await handle_sso_refresh(
+                {
+                    "refresh_token": "tok",
+                }
+            )
 
         assert _status(result) == 401
 
@@ -1480,10 +1525,12 @@ class TestEdgeCases:
                 return_value=mock_user_store,
             ),
         ):
-            result = await handle_sso_callback({
-                "code": "code",
-                "state": "state",
-            })
+            result = await handle_sso_callback(
+                {
+                    "code": "code",
+                    "state": "state",
+                }
+            )
 
         assert _status(result) == 401
 
@@ -1507,22 +1554,26 @@ class TestEdgeCases:
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
             return_value=mock_provider,
         ):
-            result = await handle_sso_logout({
-                "provider": "oidc",
-                "id_token": "tok",
-            })
+            result = await handle_sso_logout(
+                {
+                    "provider": "oidc",
+                    "id_token": "tok",
+                }
+            )
 
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_callback_idp_error_takes_precedence(self, mock_state_store):
         """IdP error should be returned even if code and state are present."""
-        result = await handle_sso_callback({
-            "code": "auth-code",
-            "state": "state",
-            "error": "invalid_scope",
-            "error_description": "Requested scope not allowed",
-        })
+        result = await handle_sso_callback(
+            {
+                "code": "auth-code",
+                "state": "state",
+                "error": "invalid_scope",
+                "error_description": "Requested scope not allowed",
+            }
+        )
 
         assert _status(result) == 401
         assert "scope" in _body(result).get("error", "").lower()

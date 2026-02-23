@@ -203,7 +203,9 @@ class WinnerSelector:
             logger.debug("calibration_recorded predictions=%s", len(result.votes))
         except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             category, msg, exc_info = _build_error_action(e, "calibration")
-            logger.warning("calibration_error category=%s error=%s", category, msg, exc_info=exc_info)
+            logger.warning(
+                "calibration_error category=%s error=%s", category, msg, exc_info=exc_info
+            )
 
     def set_unanimous_winner(
         self,
@@ -274,7 +276,9 @@ class WinnerSelector:
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 category, msg, exc_info = _build_error_action(e, "calibration")
                 logger.warning(
-                    "calibration_error_unanimous category=%s error=%s", category, msg,
+                    "calibration_error_unanimous category=%s error=%s",
+                    category,
+                    msg,
                     exc_info=exc_info,
                 )
 

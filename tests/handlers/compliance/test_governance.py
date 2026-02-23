@@ -112,6 +112,7 @@ def _mock_violation(violation_id: str = "viol_abc123", severity: str = "high"):
 def policy_handler():
     """Create a PolicyHandler via the governance re-export."""
     from aragora.server.handlers.compliance.governance import PolicyHandler
+
     return PolicyHandler({})
 
 
@@ -152,30 +153,37 @@ class TestGovernanceImports:
 
     def test_import_policy_handler(self):
         from aragora.server.handlers.compliance.governance import PolicyHandler
+
         assert PolicyHandler is not None
 
     def test_import_compliance_handler(self):
         from aragora.server.handlers.compliance.governance import ComplianceHandler
+
         assert ComplianceHandler is not None
 
     def test_import_create_compliance_handler(self):
         from aragora.server.handlers.compliance.governance import create_compliance_handler
+
         assert callable(create_compliance_handler)
 
     def test_import_require_permission(self):
         from aragora.server.handlers.compliance.governance import require_permission
+
         assert callable(require_permission)
 
     def test_import_governance_read_permission(self):
         from aragora.server.handlers.compliance.governance import GOVERNANCE_READ_PERMISSION
+
         assert isinstance(GOVERNANCE_READ_PERMISSION, str)
 
     def test_import_governance_write_permission(self):
         from aragora.server.handlers.compliance.governance import GOVERNANCE_WRITE_PERMISSION
+
         assert isinstance(GOVERNANCE_WRITE_PERMISSION, str)
 
     def test_all_exports_complete(self):
         from aragora.server.handlers.compliance import governance
+
         expected = {
             "require_permission",
             "GOVERNANCE_READ_PERMISSION",
@@ -190,18 +198,23 @@ class TestGovernanceImports:
         """Re-exported PolicyHandler is the same class as original."""
         from aragora.server.handlers.compliance.governance import PolicyHandler as GovPH
         from aragora.server.handlers.policy import PolicyHandler as OrigPH
+
         assert GovPH is OrigPH
 
     def test_compliance_handler_identity(self):
         """Re-exported ComplianceHandler is the same class as original."""
         from aragora.server.handlers.compliance.governance import ComplianceHandler as GovCH
         from aragora.server.handlers.compliance.handler import ComplianceHandler as OrigCH
+
         assert GovCH is OrigCH
 
     def test_create_compliance_handler_identity(self):
         """Re-exported factory is the same function as original."""
-        from aragora.server.handlers.compliance.governance import create_compliance_handler as gov_fn
+        from aragora.server.handlers.compliance.governance import (
+            create_compliance_handler as gov_fn,
+        )
         from aragora.server.handlers.compliance.handler import create_compliance_handler as orig_fn
+
         assert gov_fn is orig_fn
 
 
@@ -215,10 +228,12 @@ class TestGovernanceConstants:
 
     def test_read_permission_value(self):
         from aragora.server.handlers.compliance.governance import GOVERNANCE_READ_PERMISSION
+
         assert GOVERNANCE_READ_PERMISSION == "governance:read"
 
     def test_write_permission_value(self):
         from aragora.server.handlers.compliance.governance import GOVERNANCE_WRITE_PERMISSION
+
         assert GOVERNANCE_WRITE_PERMISSION == "governance:write"
 
     def test_permissions_are_strings(self):
@@ -226,6 +241,7 @@ class TestGovernanceConstants:
             GOVERNANCE_READ_PERMISSION,
             GOVERNANCE_WRITE_PERMISSION,
         )
+
         assert isinstance(GOVERNANCE_READ_PERMISSION, str)
         assert isinstance(GOVERNANCE_WRITE_PERMISSION, str)
 
@@ -234,6 +250,7 @@ class TestGovernanceConstants:
             GOVERNANCE_READ_PERMISSION,
             GOVERNANCE_WRITE_PERMISSION,
         )
+
         assert ":" in GOVERNANCE_READ_PERMISSION
         assert ":" in GOVERNANCE_WRITE_PERMISSION
 
@@ -376,9 +393,11 @@ class TestPolicyHandlerCreatePolicy:
         mock_policy_cls = MagicMock(return_value=created)
         mock_rule_cls = MagicMock()
         mock_rule_cls.from_dict = MagicMock(return_value=MagicMock())
-        with patch.object(policy_handler, "_get_policy_store", return_value=mock_store), \
-             patch("aragora.compliance.policy_store.Policy", mock_policy_cls, create=True), \
-             patch("aragora.compliance.policy_store.PolicyRule", mock_rule_cls, create=True):
+        with (
+            patch.object(policy_handler, "_get_policy_store", return_value=mock_store),
+            patch("aragora.compliance.policy_store.Policy", mock_policy_cls, create=True),
+            patch("aragora.compliance.policy_store.PolicyRule", mock_rule_cls, create=True),
+        ):
             result = await policy_handler.handle("/api/v1/policies", {}, http)
         assert _status(result) == 201
         body = _body(result)
@@ -509,9 +528,7 @@ class TestPolicyHandlerTogglePolicy:
         body_data = {"enabled": False}
         http = _mock_http("POST", body=body_data)
         with patch.object(policy_handler, "_get_policy_store", return_value=mock_store):
-            result = await policy_handler.handle(
-                "/api/v1/policies/pol_abc123/toggle", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/policies/pol_abc123/toggle", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["enabled"] is False
@@ -524,9 +541,7 @@ class TestPolicyHandlerTogglePolicy:
         mock_store.toggle_policy.return_value = True
         http = _mock_http("POST")
         with patch.object(policy_handler, "_get_policy_store", return_value=mock_store):
-            result = await policy_handler.handle(
-                "/api/v1/policies/pol_abc123/toggle", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/policies/pol_abc123/toggle", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["enabled"] is False  # toggled from True
@@ -537,18 +552,14 @@ class TestPolicyHandlerTogglePolicy:
         body_data = {"enabled": True}
         http = _mock_http("POST", body=body_data)
         with patch.object(policy_handler, "_get_policy_store", return_value=mock_store):
-            result = await policy_handler.handle(
-                "/api/v1/policies/pol_missing/toggle", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/policies/pol_missing/toggle", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_toggle_policy_store_unavailable(self, policy_handler):
         http = _mock_http("POST", body={"enabled": True})
         with patch.object(policy_handler, "_get_policy_store", return_value=None):
-            result = await policy_handler.handle(
-                "/api/v1/policies/pol_abc123/toggle", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/policies/pol_abc123/toggle", {}, http)
         assert _status(result) == 503
 
 
@@ -567,9 +578,7 @@ class TestPolicyHandlerGetPolicyViolations:
         mock_store.list_violations.return_value = violations
         http = _mock_http("GET")
         with patch.object(policy_handler, "_get_policy_store", return_value=mock_store):
-            result = await policy_handler.handle(
-                "/api/v1/policies/pol_abc123/violations", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/policies/pol_abc123/violations", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 2
@@ -599,9 +608,7 @@ class TestPolicyHandlerListViolations:
         mock_store.list_violations.return_value = violations
         http = _mock_http("GET")
         with patch.object(policy_handler, "_get_policy_store", return_value=mock_store):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/violations", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/compliance/violations", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["total"] == 1
@@ -610,9 +617,7 @@ class TestPolicyHandlerListViolations:
     async def test_list_violations_store_unavailable(self, policy_handler):
         http = _mock_http("GET")
         with patch.object(policy_handler, "_get_policy_store", return_value=None):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/violations", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/compliance/violations", {}, http)
         assert _status(result) == 503
 
 
@@ -737,11 +742,11 @@ class TestPolicyHandlerCheckCompliance:
 
         body_data = {"content": "Test content for compliance"}
         http = _mock_http("POST", body=body_data)
-        with patch.object(policy_handler, "_get_compliance_manager", return_value=mock_manager), \
-             patch("aragora.compliance.framework.ComplianceSeverity", mock_severity):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/check", {}, http
-            )
+        with (
+            patch.object(policy_handler, "_get_compliance_manager", return_value=mock_manager),
+            patch("aragora.compliance.framework.ComplianceSeverity", mock_severity),
+        ):
+            result = await policy_handler.handle("/api/v1/compliance/check", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["compliant"] is True
@@ -752,9 +757,7 @@ class TestPolicyHandlerCheckCompliance:
         mock_manager = MagicMock()
         http = _mock_http("POST", body={})
         with patch.object(policy_handler, "_get_compliance_manager", return_value=mock_manager):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/check", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/compliance/check", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -762,9 +765,7 @@ class TestPolicyHandlerCheckCompliance:
         body_data = {"content": "Test content"}
         http = _mock_http("POST", body=body_data)
         with patch.object(policy_handler, "_get_compliance_manager", return_value=None):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/check", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/compliance/check", {}, http)
         assert _status(result) == 503
 
 
@@ -789,9 +790,7 @@ class TestPolicyHandlerStats:
         }
         http = _mock_http("GET")
         with patch.object(policy_handler, "_get_policy_store", return_value=mock_store):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/stats", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/compliance/stats", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["policies"]["total"] == 2
@@ -802,9 +801,7 @@ class TestPolicyHandlerStats:
     async def test_stats_store_unavailable(self, policy_handler):
         http = _mock_http("GET")
         with patch.object(policy_handler, "_get_policy_store", return_value=None):
-            result = await policy_handler.handle(
-                "/api/v1/compliance/stats", {}, http
-            )
+            result = await policy_handler.handle("/api/v1/compliance/stats", {}, http)
         assert _status(result) == 503
 
 
@@ -818,26 +815,31 @@ class TestComplianceHandlerViaGovernance:
 
     def test_can_handle_v2_compliance_get(self):
         from aragora.server.handlers.compliance.governance import ComplianceHandler
+
         h = ComplianceHandler({})
         assert h.can_handle("/api/v2/compliance/status", "GET") is True
 
     def test_can_handle_v2_compliance_post(self):
         from aragora.server.handlers.compliance.governance import ComplianceHandler
+
         h = ComplianceHandler({})
         assert h.can_handle("/api/v2/compliance/audit-verify", "POST") is True
 
     def test_can_handle_v2_compliance_delete(self):
         from aragora.server.handlers.compliance.governance import ComplianceHandler
+
         h = ComplianceHandler({})
         assert h.can_handle("/api/v2/compliance/gdpr/legal-holds/hold_123", "DELETE") is True
 
     def test_cannot_handle_wrong_method(self):
         from aragora.server.handlers.compliance.governance import ComplianceHandler
+
         h = ComplianceHandler({})
         assert h.can_handle("/api/v2/compliance/status", "PUT") is False
 
     def test_cannot_handle_unrelated_path(self):
         from aragora.server.handlers.compliance.governance import ComplianceHandler
+
         h = ComplianceHandler({})
         assert h.can_handle("/api/v2/debates", "GET") is False
 
@@ -846,6 +848,7 @@ class TestComplianceHandlerViaGovernance:
             ComplianceHandler,
             create_compliance_handler,
         )
+
         ctx = {"some_key": "some_value"}
         h = create_compliance_handler(ctx)
         assert isinstance(h, ComplianceHandler)
@@ -897,6 +900,7 @@ class TestPolicyHandlerEdgeCases:
     async def test_policy_handler_init_default_ctx(self):
         """PolicyHandler initialises with empty ctx if None provided."""
         from aragora.server.handlers.compliance.governance import PolicyHandler
+
         h = PolicyHandler(None)
         assert h.ctx == {}
 

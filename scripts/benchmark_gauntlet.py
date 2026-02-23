@@ -56,9 +56,11 @@ from aragora.gauntlet.types import GauntletSeverity
 # Test scenarios: mix of strong and weak claims
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TestDecision:
     """A decision to stress-test through the Gauntlet."""
+
     name: str
     category: str  # "strong" or "weak"
     input_text: str
@@ -395,29 +397,31 @@ def simulate_gauntlet_run(decision: TestDecision) -> GauntletResult:
     # Add simulated vulnerabilities
     for i, vuln_data in enumerate(decision.simulated_vulnerabilities):
         vuln = Vulnerability(
-            id=f"vuln-{i+1:04d}",
+            id=f"vuln-{i + 1:04d}",
             title=vuln_data["title"],
             description=vuln_data.get("evidence", ""),
             severity=vuln_data["severity"],
             category=vuln_data["category"],
             source="benchmark_simulation",
             evidence=vuln_data.get("evidence", ""),
-            exploitability=0.7 if vuln_data["severity"] in [SeverityLevel.CRITICAL, SeverityLevel.HIGH] else 0.4,
+            exploitability=0.7
+            if vuln_data["severity"] in [SeverityLevel.CRITICAL, SeverityLevel.HIGH]
+            else 0.4,
             impact=0.9 if vuln_data["severity"] == SeverityLevel.CRITICAL else 0.6,
             agent_name="benchmark-agent",
         )
         result.add_vulnerability(vuln)
 
     # Set attack summary
-    total_attacks = len(decision.simulated_vulnerabilities) + 5  # Simulate additional non-finding attacks
+    total_attacks = (
+        len(decision.simulated_vulnerabilities) + 5
+    )  # Simulate additional non-finding attacks
     result.attack_summary = AttackSummary(
         total_attacks=total_attacks,
         successful_attacks=int(total_attacks * decision.attack_success_rate),
         robustness_score=decision.robustness_score,
         coverage_score=0.8,
-        by_category={
-            v["category"]: 1 for v in decision.simulated_vulnerabilities
-        },
+        by_category={v["category"]: 1 for v in decision.simulated_vulnerabilities},
     )
 
     # Set probe summary
@@ -427,7 +431,10 @@ def simulate_gauntlet_run(decision: TestDecision) -> GauntletResult:
         probes_run=probes_run,
         vulnerabilities_found=vulns_found,
         vulnerability_rate=decision.probe_vulnerability_rate,
-        by_category={"contradiction": vulns_found // 2, "hallucination": vulns_found - vulns_found // 2},
+        by_category={
+            "contradiction": vulns_found // 2,
+            "hallucination": vulns_found - vulns_found // 2,
+        },
     )
 
     # Calculate verdict using the real verdict logic
@@ -450,6 +457,7 @@ def simulate_gauntlet_run(decision: TestDecision) -> GauntletResult:
 @dataclass
 class DecisionResult:
     """Result of evaluating a single decision."""
+
     name: str
     category: str
     expected_verdict: str
@@ -469,6 +477,7 @@ class DecisionResult:
 @dataclass
 class BenchmarkResults:
     """Aggregated benchmark results."""
+
     decisions: list[DecisionResult] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     duration_ms: float = 0.0
@@ -527,7 +536,11 @@ def run_benchmark() -> BenchmarkResults:
         )
         results.decisions.append(dr)
 
-        icon = "PASS" if actual_verdict == "pass" else ("COND" if actual_verdict == "conditional" else "FAIL")
+        icon = (
+            "PASS"
+            if actual_verdict == "pass"
+            else ("COND" if actual_verdict == "conditional" else "FAIL")
+        )
         match_icon = "ok" if verdict_correct else "MISMATCH"
         print(
             f"  Verdict: {icon} | Findings: {dr.findings_count} "
@@ -573,16 +586,22 @@ def generate_report(results: BenchmarkResults) -> str:
 
     lines.append(
         f"**The Gauntlet correctly identified {len(weak_caught)} out of {len(weak)} "
-        f"poorly-supported decisions ({len(weak_caught)/len(weak)*100:.0f}%) "
+        f"poorly-supported decisions ({len(weak_caught) / len(weak) * 100:.0f}%) "
         f"before they could cause harm.**"
     )
     lines.append("")
-    lines.append(f"- **Verdict accuracy:** {len(correct_verdicts)}/{len(results.decisions)} "
-                 f"correct ({len(correct_verdicts)/len(results.decisions)*100:.0f}%)")
-    lines.append(f"- **Strong decisions surviving:** {len(strong_passed)}/{len(strong)} "
-                 f"({len(strong_passed)/len(strong)*100:.0f}%)")
-    lines.append(f"- **Weak decisions caught:** {len(weak_caught)}/{len(weak)} "
-                 f"({len(weak_caught)/len(weak)*100:.0f}%)")
+    lines.append(
+        f"- **Verdict accuracy:** {len(correct_verdicts)}/{len(results.decisions)} "
+        f"correct ({len(correct_verdicts) / len(results.decisions) * 100:.0f}%)"
+    )
+    lines.append(
+        f"- **Strong decisions surviving:** {len(strong_passed)}/{len(strong)} "
+        f"({len(strong_passed) / len(strong) * 100:.0f}%)"
+    )
+    lines.append(
+        f"- **Weak decisions caught:** {len(weak_caught)}/{len(weak)} "
+        f"({len(weak_caught) / len(weak) * 100:.0f}%)"
+    )
     lines.append(f"- **Total findings generated:** {total_findings}")
     lines.append(f"- **Critical findings on weak decisions:** {total_critical}")
     lines.append("")
@@ -602,8 +621,12 @@ def generate_report(results: BenchmarkResults) -> str:
     # Results Table
     lines.append("## Results Summary")
     lines.append("")
-    lines.append("| Decision | Category | Verdict | Correct | Findings | Critical | High | Robustness |")
-    lines.append("|:---------|:--------:|:-------:|:-------:|:--------:|:--------:|:----:|:----------:|")
+    lines.append(
+        "| Decision | Category | Verdict | Correct | Findings | Critical | High | Robustness |"
+    )
+    lines.append(
+        "|:---------|:--------:|:-------:|:-------:|:--------:|:--------:|:----:|:----------:|"
+    )
 
     for d in results.decisions:
         verdict_fmt = f"**{d.actual_verdict.upper()}**"
@@ -629,7 +652,9 @@ def generate_report(results: BenchmarkResults) -> str:
         verdict_icon = "PASS" if d.actual_verdict == "pass" else d.actual_verdict.upper()
         lines.append(f"### {d.name} -- {verdict_icon}")
         lines.append("")
-        lines.append(f"- **Findings:** {d.findings_count} ({d.critical_count}C / {d.high_count}H / {d.medium_count}M / {d.low_count}L)")
+        lines.append(
+            f"- **Findings:** {d.findings_count} ({d.critical_count}C / {d.high_count}H / {d.medium_count}M / {d.low_count}L)"
+        )
         lines.append(f"- **Robustness:** {d.robustness_score:.0%}")
         lines.append(f"- **Verdict reasoning:** {d.verdict_reasoning}")
         lines.append("")
@@ -647,7 +672,9 @@ def generate_report(results: BenchmarkResults) -> str:
         verdict_icon = "FAIL" if d.actual_verdict == "fail" else d.actual_verdict.upper()
         lines.append(f"### {d.name} -- {verdict_icon}")
         lines.append("")
-        lines.append(f"- **Findings:** {d.findings_count} ({d.critical_count}C / {d.high_count}H / {d.medium_count}M / {d.low_count}L)")
+        lines.append(
+            f"- **Findings:** {d.findings_count} ({d.critical_count}C / {d.high_count}H / {d.medium_count}M / {d.low_count}L)"
+        )
         lines.append(f"- **Robustness:** {d.robustness_score:.0%}")
         lines.append(f"- **Attack categories:** {', '.join(d.attack_categories)}")
         lines.append(f"- **Verdict reasoning:** {d.verdict_reasoning}")
@@ -697,9 +724,9 @@ def generate_report(results: BenchmarkResults) -> str:
     lines.append("")
 
     lines.append(
-        f"Strong decisions averaged **{sum(strong_findings.values())/len(strong):.1f}** "
-        f"findings vs. weak decisions averaging **{sum(weak_findings.values())/len(weak):.1f}** "
-        f"findings -- a **{sum(weak_findings.values())/max(1,sum(strong_findings.values())):.1f}x** "
+        f"Strong decisions averaged **{sum(strong_findings.values()) / len(strong):.1f}** "
+        f"findings vs. weak decisions averaging **{sum(weak_findings.values()) / len(weak):.1f}** "
+        f"findings -- a **{sum(weak_findings.values()) / max(1, sum(strong_findings.values())):.1f}x** "
         f"difference in issue density."
     )
     lines.append("")

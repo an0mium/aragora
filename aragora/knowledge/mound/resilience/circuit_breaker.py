@@ -195,14 +195,19 @@ class AdapterCircuitBreaker:
             self._half_open_calls -= 1
             self._transition_to_open()
             circuit_opened = True
-            logger.warning("Adapter circuit %s reopened from half-open: %s", self.adapter_name, error)
+            logger.warning(
+                "Adapter circuit %s reopened from half-open: %s", self.adapter_name, error
+            )
         elif self._state == AdapterCircuitState.CLOSED:
             self._failure_count += 1
             if self._failure_count >= self.config.failure_threshold:
                 self._transition_to_open()
                 circuit_opened = True
                 logger.warning(
-                    "Adapter circuit %s opened after %s failures: %s", self.adapter_name, self._failure_count, error
+                    "Adapter circuit %s opened after %s failures: %s",
+                    self.adapter_name,
+                    self._failure_count,
+                    error,
                 )
 
         self._record_metrics("failure")
@@ -295,7 +300,10 @@ class AdapterCircuitBreaker:
                 AdapterCircuitState.OPEN: 1,  # unhealthy
             }
             logger.debug(
-                "Adapter %s state: %s (health=%s)", self.adapter_name, self._state.value, state_map.get(self._state, 0)
+                "Adapter %s state: %s (health=%s)",
+                self.adapter_name,
+                self._state.value,
+                state_map.get(self._state, 0),
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.debug("Failed to record state change metric: %s", e)
@@ -305,16 +313,18 @@ class AdapterCircuitBreaker:
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                self._event_emitter.emit(StreamEvent(
-                    type=StreamEventType.KM_CIRCUIT_BREAKER_STATE,
-                    data={
-                        "adapter": self.adapter_name,
-                        "state": self._state.value,
-                        "failure_count": self._failure_count,
-                        "total_failures": self._total_failures,
-                        "total_circuit_opens": self._total_circuit_opens,
-                    },
-                ))
+                self._event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.KM_CIRCUIT_BREAKER_STATE,
+                        data={
+                            "adapter": self.adapter_name,
+                            "state": self._state.value,
+                            "failure_count": self._failure_count,
+                            "total_failures": self._total_failures,
+                            "total_circuit_opens": self._total_circuit_opens,
+                        },
+                    )
+                )
             except (ImportError, AttributeError, TypeError):
                 pass
 

@@ -153,9 +153,7 @@ class TestHybridExecutorSandboxMode:
             complexity="simple",
         )
 
-        with patch.object(
-            executor, "_execute_in_sandbox", new_callable=AsyncMock
-        ) as mock_sandbox:
+        with patch.object(executor, "_execute_in_sandbox", new_callable=AsyncMock) as mock_sandbox:
             mock_sandbox.return_value = MagicMock(
                 task_id="task-1", success=True, diff="", model_used="sandbox:claude"
             )
@@ -187,16 +185,12 @@ class TestHybridExecutorSandboxMode:
         mock_agent.name = "codex-fallback"
         mock_agent.timeout = 300
 
-        with patch.object(
-            executor, "_execute_in_sandbox", new_callable=AsyncMock
-        ) as mock_sandbox:
+        with patch.object(executor, "_execute_in_sandbox", new_callable=AsyncMock) as mock_sandbox:
             with patch.object(executor, "_select_agent", return_value=(mock_agent, "codex")):
                 with patch.object(executor, "_get_git_diff", return_value=""):
                     with patch(
                         "aragora.server.stream.arena_hooks.streaming_task_context",
-                        return_value=MagicMock(
-                            __enter__=MagicMock(), __exit__=MagicMock()
-                        ),
+                        return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
                     ):
                         result = await executor.execute_task(task, use_fallback=True)
 
@@ -225,16 +219,12 @@ class TestHybridExecutorSandboxMode:
         mock_agent.name = "claude-implementer"
         mock_agent.timeout = 300
 
-        with patch.object(
-            executor, "_execute_in_sandbox", new_callable=AsyncMock
-        ) as mock_sandbox:
+        with patch.object(executor, "_execute_in_sandbox", new_callable=AsyncMock) as mock_sandbox:
             with patch.object(executor, "_select_agent", return_value=(mock_agent, "claude")):
                 with patch.object(executor, "_get_git_diff", return_value=""):
                     with patch(
                         "aragora.server.stream.arena_hooks.streaming_task_context",
-                        return_value=MagicMock(
-                            __enter__=MagicMock(), __exit__=MagicMock()
-                        ),
+                        return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
                     ):
                         result = await executor.execute_task(task, attempt=2)
 

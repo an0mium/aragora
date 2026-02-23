@@ -229,7 +229,10 @@ class CreateOperationsMixin:
         result = await router.route(request)
 
         logger.info(
-            "DecisionRouter completed debate %s (success=%s, debate_id=%s)", request.request_id, result.success, getattr(result, 'debate_id', 'N/A')
+            "DecisionRouter completed debate %s (success=%s, debate_id=%s)",
+            request.request_id,
+            result.success,
+            getattr(result, "debate_id", "N/A"),
         )
 
         # Build response

@@ -96,9 +96,7 @@ class TestAddVipEmail:
 
     @pytest.mark.asyncio
     async def test_add_email_success(self, mock_store, empty_config):
-        result = await handle_add_vip(
-            user_id="u1", email="vip@example.com", workspace_id="ws1"
-        )
+        result = await handle_add_vip(user_id="u1", email="vip@example.com", workspace_id="ws1")
         assert result["success"] is True
         assert result["added"]["email"] == "vip@example.com"
         assert result["added"]["domain"] is None
@@ -107,16 +105,12 @@ class TestAddVipEmail:
 
     @pytest.mark.asyncio
     async def test_add_email_calls_store(self, mock_store, empty_config):
-        await handle_add_vip(
-            user_id="u1", email="vip@example.com", workspace_id="ws1"
-        )
+        await handle_add_vip(user_id="u1", email="vip@example.com", workspace_id="ws1")
         mock_store.add_vip_sender.assert_called_once_with("u1", "ws1", "vip@example.com")
 
     @pytest.mark.asyncio
     async def test_add_email_persists_config(self, mock_store, empty_config):
-        await handle_add_vip(
-            user_id="u1", email="vip@example.com", workspace_id="ws1"
-        )
+        await handle_add_vip(user_id="u1", email="vip@example.com", workspace_id="ws1")
         empty_config.assert_called_once()
         args = empty_config.call_args
         assert args[0][0] == "u1"
@@ -138,9 +132,7 @@ class TestAddVipEmail:
             patch(f"{STORAGE}._load_config_from_store") as load_mock,
             patch(f"{STORAGE}._save_config_to_store"),
         ):
-            result = await handle_add_vip(
-                user_id="u1", email="vip@example.com"
-            )
+            result = await handle_add_vip(user_id="u1", email="vip@example.com")
         assert result["success"] is True
         assert result["vip_addresses"].count("vip@example.com") == 1
 
@@ -150,9 +142,7 @@ class TestAddVipDomain:
 
     @pytest.mark.asyncio
     async def test_add_domain_success(self, mock_store, empty_config):
-        result = await handle_add_vip(
-            user_id="u1", domain="important.com", workspace_id="ws1"
-        )
+        result = await handle_add_vip(user_id="u1", domain="important.com", workspace_id="ws1")
         assert result["success"] is True
         assert result["added"]["domain"] == "important.com"
         assert result["added"]["email"] is None
@@ -168,9 +158,7 @@ class TestAddVipDomain:
             patch(f"{STORAGE}._load_config_from_store"),
             patch(f"{STORAGE}._save_config_to_store"),
         ):
-            result = await handle_add_vip(
-                user_id="u1", domain="important.com"
-            )
+            result = await handle_add_vip(user_id="u1", domain="important.com")
         assert result["success"] is True
         assert result["vip_domains"].count("important.com") == 1
 
@@ -261,9 +249,7 @@ class TestAddVipStoreFailures:
         store = _mock_store()
         store.add_vip_sender.side_effect = KeyError("missing key")
         with patch(f"{STORAGE}.get_email_store", return_value=store):
-            result = await handle_add_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_add_vip(user_id="u1", email="vip@test.com")
         # Should succeed despite store failure (graceful degradation)
         assert result["success"] is True
         assert "vip@test.com" in result["vip_addresses"]
@@ -273,9 +259,7 @@ class TestAddVipStoreFailures:
         store = _mock_store()
         store.add_vip_sender.side_effect = OSError("disk full")
         with patch(f"{STORAGE}.get_email_store", return_value=store):
-            result = await handle_add_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_add_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -283,9 +267,7 @@ class TestAddVipStoreFailures:
         store = _mock_store()
         store.add_vip_sender.side_effect = ValueError("bad value")
         with patch(f"{STORAGE}.get_email_store", return_value=store):
-            result = await handle_add_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_add_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -293,16 +275,12 @@ class TestAddVipStoreFailures:
         store = _mock_store()
         store.add_vip_sender.side_effect = TypeError("type mismatch")
         with patch(f"{STORAGE}.get_email_store", return_value=store):
-            result = await handle_add_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_add_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_store_unavailable_still_succeeds(self, no_store, empty_config):
-        result = await handle_add_vip(
-            user_id="u1", email="vip@test.com"
-        )
+        result = await handle_add_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
         assert "vip@test.com" in result["vip_addresses"]
 
@@ -456,9 +434,7 @@ class TestRemoveVipEmail:
             "vip_addresses": ["vip@test.com", "other@test.com"],
         }
         with patch(f"{STORAGE}._save_config_to_store"):
-            result = await handle_remove_vip(
-                user_id="u1", email="vip@test.com", workspace_id="ws1"
-            )
+            result = await handle_remove_vip(user_id="u1", email="vip@test.com", workspace_id="ws1")
         assert result["success"] is True
         assert result["removed"]["email"] == "vip@test.com"
         assert result["removed"]["domain"] is None
@@ -471,9 +447,7 @@ class TestRemoveVipEmail:
             "vip_addresses": ["vip@test.com"],
         }
         with patch(f"{STORAGE}._save_config_to_store"):
-            await handle_remove_vip(
-                user_id="u1", email="vip@test.com", workspace_id="ws1"
-            )
+            await handle_remove_vip(user_id="u1", email="vip@test.com", workspace_id="ws1")
         mock_store.remove_vip_sender.assert_called_once_with("u1", "ws1", "vip@test.com")
 
     @pytest.mark.asyncio
@@ -482,9 +456,7 @@ class TestRemoveVipEmail:
             "vip_addresses": ["vip@test.com"],
         }
         with patch(f"{STORAGE}._save_config_to_store") as save_mock:
-            await handle_remove_vip(
-                user_id="u1", email="vip@test.com", workspace_id="ws1"
-            )
+            await handle_remove_vip(user_id="u1", email="vip@test.com", workspace_id="ws1")
         save_mock.assert_called_once()
 
     @pytest.mark.asyncio
@@ -503,9 +475,7 @@ class TestRemoveVipEmail:
             "vip_addresses": ["other@test.com"],
         }
         with patch(f"{STORAGE}._save_config_to_store"):
-            result = await handle_remove_vip(
-                user_id="u1", email="nonexistent@test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", email="nonexistent@test.com")
         assert result["success"] is True
         assert result["removed"]["email"] is None
         mock_store.remove_vip_sender.assert_not_called()
@@ -515,9 +485,7 @@ class TestRemoveVipEmail:
         """When config has no vip_addresses key at all."""
         storage_module._user_configs["u1"] = {}
         with patch(f"{STORAGE}._save_config_to_store"):
-            result = await handle_remove_vip(
-                user_id="u1", email="test@test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", email="test@test.com")
         assert result["success"] is True
         assert result["removed"]["email"] is None
 
@@ -531,9 +499,7 @@ class TestRemoveVipDomain:
             "vip_domains": ["corp.com", "other.com"],
         }
         with patch(f"{STORAGE}._save_config_to_store"):
-            result = await handle_remove_vip(
-                user_id="u1", domain="corp.com", workspace_id="ws1"
-            )
+            result = await handle_remove_vip(user_id="u1", domain="corp.com", workspace_id="ws1")
         assert result["success"] is True
         assert result["removed"]["domain"] == "corp.com"
         assert result["removed"]["email"] is None
@@ -546,9 +512,7 @@ class TestRemoveVipDomain:
             "vip_domains": ["other.com"],
         }
         with patch(f"{STORAGE}._save_config_to_store"):
-            result = await handle_remove_vip(
-                user_id="u1", domain="nonexistent.com"
-            )
+            result = await handle_remove_vip(user_id="u1", domain="nonexistent.com")
         assert result["success"] is True
         assert result["removed"]["domain"] is None
 
@@ -557,9 +521,7 @@ class TestRemoveVipDomain:
         """When config has no vip_domains key at all."""
         storage_module._user_configs["u1"] = {}
         with patch(f"{STORAGE}._save_config_to_store"):
-            result = await handle_remove_vip(
-                user_id="u1", domain="test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", domain="test.com")
         assert result["success"] is True
         assert result["removed"]["domain"] is None
 
@@ -631,9 +593,7 @@ class TestRemoveVipCacheMiss:
             ),
             patch(f"{STORAGE}._save_config_to_store"),
         ):
-            result = await handle_remove_vip(
-                user_id="new_user", email="vip@test.com"
-            )
+            result = await handle_remove_vip(user_id="new_user", email="vip@test.com")
         assert result["success"] is True
         assert result["removed"]["email"] == "vip@test.com"
         assert result["vip_addresses"] == []
@@ -658,9 +618,7 @@ class TestRemoveVipStoreFailures:
             patch(f"{STORAGE}.get_email_store", return_value=store),
             patch(f"{STORAGE}._save_config_to_store"),
         ):
-            result = await handle_remove_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -674,9 +632,7 @@ class TestRemoveVipStoreFailures:
             patch(f"{STORAGE}.get_email_store", return_value=store),
             patch(f"{STORAGE}._save_config_to_store"),
         ):
-            result = await handle_remove_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -688,9 +644,7 @@ class TestRemoveVipStoreFailures:
             patch(f"{STORAGE}.get_email_store", return_value=None),
             patch(f"{STORAGE}._save_config_to_store"),
         ):
-            result = await handle_remove_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is True
         assert result["removed"]["email"] == "vip@test.com"
 
@@ -712,9 +666,7 @@ class TestRemoveVipOuterException:
             patch(f"{STORAGE}._save_config_to_store", side_effect=KeyError("boom")),
             patch(f"{STORAGE}.get_email_store", return_value=None),
         ):
-            result = await handle_remove_vip(
-                user_id="u1", email="vip@test.com"
-            )
+            result = await handle_remove_vip(user_id="u1", email="vip@test.com")
         assert result["success"] is False
         assert "Failed to remove VIP" in result["error"]
 
@@ -819,7 +771,7 @@ class TestConstants:
         """_AUTH_CONTEXT_UNSET should be a unique sentinel, not None or other falsy."""
         assert _AUTH_CONTEXT_UNSET is not None
         assert _AUTH_CONTEXT_UNSET is not False
-        assert _AUTH_CONTEXT_UNSET is not 0
+        assert _AUTH_CONTEXT_UNSET != 0
 
     def test_auth_context_unset_identity(self):
         """The sentinel should be a specific object type (used for `is` comparison)."""

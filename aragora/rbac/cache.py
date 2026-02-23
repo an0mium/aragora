@@ -227,7 +227,8 @@ class RBACDistributedCache:
                 )
 
             logger.warning(
-                "RBAC cache Redis unavailable, using local-only: %s. Set ARAGORA_MULTI_INSTANCE=true to enforce distributed cache.", e
+                "RBAC cache Redis unavailable, using local-only: %s. Set ARAGORA_MULTI_INSTANCE=true to enforce distributed cache.",
+                e,
             )
             self._redis_checked = True
             self._redis = None

@@ -262,23 +262,31 @@ class TestIsBotEnabled:
     """Test _is_bot_enabled() with various env configurations."""
 
     def test_enabled_when_both_set(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+        ):
             assert handler._is_bot_enabled() is True
 
     def test_disabled_when_no_app_id(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_disabled_when_no_password(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""),
+        ):
             assert handler._is_bot_enabled() is False
 
     def test_disabled_when_none(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", None), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", None):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", None),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", None),
+        ):
             assert handler._is_bot_enabled() is False
 
 
@@ -291,17 +299,19 @@ class TestGetPlatformConfigStatus:
     """Test _get_platform_config_status() returns Teams-specific fields."""
 
     def test_returns_expected_keys(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_TENANT_ID", "tenant-1"), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler._check_botframework_available",
-                 return_value=(True, None),
-             ), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler._check_connector_available",
-                 return_value=(True, None),
-             ):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_TENANT_ID", "tenant-1"),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_botframework_available",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_connector_available",
+                return_value=(True, None),
+            ),
+        ):
             status = handler._get_platform_config_status()
             assert status["app_id_configured"] is True
             assert status["password_configured"] is True
@@ -317,17 +327,19 @@ class TestGetPlatformConfigStatus:
             assert status["features"]["link_unfurling"] is True
 
     def test_sdk_not_available(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_TENANT_ID", ""), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler._check_botframework_available",
-                 return_value=(False, "not installed"),
-             ), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler._check_connector_available",
-                 return_value=(False, "not available"),
-             ):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""),
+            patch("aragora.server.handlers.bots.teams.TEAMS_TENANT_ID", ""),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_botframework_available",
+                return_value=(False, "not installed"),
+            ),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_connector_available",
+                return_value=(False, "not available"),
+            ),
+        ):
             status = handler._get_platform_config_status()
             assert status["sdk_available"] is False
             assert status["sdk_error"] == "not installed"
@@ -344,12 +356,15 @@ class TestGetPlatformConfigStatus:
         _active_debates["d2"] = {"topic": "test2"}
         _conversation_references["c1"] = {"service_url": "x"}
 
-        with patch(
-            "aragora.server.handlers.bots.teams.handler._check_botframework_available",
-            return_value=(True, None),
-        ), patch(
-            "aragora.server.handlers.bots.teams.handler._check_connector_available",
-            return_value=(True, None),
+        with (
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_botframework_available",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_connector_available",
+                return_value=(True, None),
+            ),
         ):
             status = handler._get_platform_config_status()
             assert status["active_debates"] == 2
@@ -366,23 +381,29 @@ class TestEnsureBot:
 
     @pytest.mark.asyncio
     async def test_returns_bot_when_configured(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+        ):
             bot = await handler._ensure_bot()
             assert bot is not None
             assert bot.app_id == "app-123"
 
     @pytest.mark.asyncio
     async def test_returns_none_when_not_configured(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""),
+        ):
             bot = await handler._ensure_bot()
             assert bot is None
 
     @pytest.mark.asyncio
     async def test_caches_bot_instance(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+        ):
             bot1 = await handler._ensure_bot()
             bot2 = await handler._ensure_bot()
             assert bot1 is bot2
@@ -390,8 +411,10 @@ class TestEnsureBot:
     @pytest.mark.asyncio
     async def test_caches_none_when_not_configured(self, handler):
         """Once _bot_initialized is True, does not retry."""
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""),
+        ):
             bot1 = await handler._ensure_bot()
             assert bot1 is None
         # Even with creds now available, returns None (cached)
@@ -409,17 +432,19 @@ class TestHandleGetStatus:
 
     @pytest.mark.asyncio
     async def test_status_returns_200(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_TENANT_ID", "t1"), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler._check_botframework_available",
-                 return_value=(True, None),
-             ), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler._check_connector_available",
-                 return_value=(True, None),
-             ):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_TENANT_ID", "t1"),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_botframework_available",
+                return_value=(True, None),
+            ),
+            patch(
+                "aragora.server.handlers.bots.teams.handler._check_connector_available",
+                return_value=(True, None),
+            ),
+        ):
             mock_handler = _make_http_handler()
             result = await handler.handle("/api/v1/bots/teams/status", {}, mock_handler)
             assert _status(result) == 200
@@ -444,22 +469,24 @@ class TestHandlePostMessages:
 
     @pytest.mark.asyncio
     async def test_bot_not_configured_returns_503(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""),
+        ):
             handler._bot_initialized = False
             handler._bot = None
             activity = _make_activity()
             mock_h = _make_http_handler(body=activity)
-            result = await handler.handle_post(
-                "/api/v1/bots/teams/messages", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
             assert _status(result) == 503
             assert "not configured" in _body(result).get("error", "")
 
     @pytest.mark.asyncio
     async def test_empty_body_returns_400(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+        ):
             handler._bot_initialized = False
             handler._bot = None
             mock_h = MockHTTPHandler(
@@ -469,27 +496,27 @@ class TestHandlePostMessages:
             mock_h.rfile = io.BytesIO(b"")
             mock_h.headers["Content-Length"] = "0"
             mock_h.client_address = ("127.0.0.1", 12345)
-            result = await handler.handle_post(
-                "/api/v1/bots/teams/messages", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
             assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_invalid_json_returns_error(self, handler):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-123"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "secret"),
+        ):
             handler._bot_initialized = False
             handler._bot = None
             bad_body = b"not-json"
-            mock_h = MockHTTPHandler(headers={
-                "Content-Length": str(len(bad_body)),
-                "Authorization": "Bearer x",
-            })
+            mock_h = MockHTTPHandler(
+                headers={
+                    "Content-Length": str(len(bad_body)),
+                    "Authorization": "Bearer x",
+                }
+            )
             mock_h.rfile = io.BytesIO(bad_body)
             mock_h.client_address = ("127.0.0.1", 12345)
-            result = await handler.handle_post(
-                "/api/v1/bots/teams/messages", {}, mock_h
-            )
+            result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
             # Should return an error (400 for invalid JSON or 200 with error body)
             status = _status(result)
             assert status in (200, 400)
@@ -506,9 +533,7 @@ class TestHandlePostMessages:
         handler._bot_initialized = True
 
         mock_h = _make_http_handler(body=activity)
-        result = await handler.handle_post(
-            "/api/v1/bots/teams/messages", {}, mock_h
-        )
+        result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
         assert _status(result) == 200
         mock_bot.process_activity.assert_awaited_once()
 
@@ -528,9 +553,7 @@ class TestHandlePostMessages:
         handler._bot_initialized = True
 
         mock_h = _make_http_handler(body=activity)
-        result = await handler.handle_post(
-            "/api/v1/bots/teams/messages", {}, mock_h
-        )
+        result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -545,9 +568,7 @@ class TestHandlePostMessages:
         handler._bot_initialized = True
 
         mock_h = _make_http_handler(body=activity)
-        result = await handler.handle_post(
-            "/api/v1/bots/teams/messages", {}, mock_h
-        )
+        result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
         assert _status(result) == 401
 
     @pytest.mark.asyncio
@@ -562,17 +583,13 @@ class TestHandlePostMessages:
         handler._bot_initialized = True
 
         mock_h = _make_http_handler(body=activity)
-        result = await handler.handle_post(
-            "/api/v1/bots/teams/messages", {}, mock_h
-        )
+        result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_handle_post_unknown_path_returns_none(self, handler):
         mock_h = _make_http_handler()
-        result = await handler.handle_post(
-            "/api/v1/bots/teams/unknown", {}, mock_h
-        )
+        result = await handler.handle_post("/api/v1/bots/teams/unknown", {}, mock_h)
         assert result is None
 
 
@@ -590,15 +607,19 @@ class TestTeamsBotInit:
         assert bot.app_password == "my-pass"
 
     def test_default_empty_credentials(self, bot_cls):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", None), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", None):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", None),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", None),
+        ):
             bot = bot_cls()
             assert bot.app_id == ""
             assert bot.app_password == ""
 
     def test_env_credentials(self, bot_cls):
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "env-app"), \
-             patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "env-pass"):
+        with (
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "env-app"),
+            patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "env-pass"),
+        ):
             bot = bot_cls()
             assert bot.app_id == "env-app"
             assert bot.app_password == "env-pass"
@@ -673,12 +694,15 @@ class TestProcessActivity:
     async def test_tenant_validation_failure(self, bot, handler_module):
         """Tenant mismatch returns 403."""
         activity = _make_activity(tenant_id="bad-tenant")
-        with patch(
-            "aragora.server.handlers.bots.teams._verify_teams_token",
-            new_callable=AsyncMock,
-            return_value=True,
-        ), patch.object(
-            bot, "_validate_tenant", return_value={"error": "tenant_denied", "message": "nope"}
+        with (
+            patch(
+                "aragora.server.handlers.bots.teams._verify_teams_token",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch.object(
+                bot, "_validate_tenant", return_value={"error": "tenant_denied", "message": "nope"}
+            ),
         ):
             result = await bot.process_activity(activity, "Bearer valid")
             assert result["status"] == 403
@@ -966,18 +990,10 @@ class TestHandleInvoke:
         bot._handle_card_action = AsyncMock(
             return_value={"status": 200, "body": {"statusCode": 200}}
         )
-        bot._handle_compose_extension_submit = AsyncMock(
-            return_value={"status": 200, "body": {}}
-        )
-        bot._handle_compose_extension_query = AsyncMock(
-            return_value={"status": 200, "body": {}}
-        )
-        bot._handle_task_module_fetch = AsyncMock(
-            return_value={"status": 200, "body": {}}
-        )
-        bot._handle_task_module_submit = AsyncMock(
-            return_value={"status": 200, "body": {}}
-        )
+        bot._handle_compose_extension_submit = AsyncMock(return_value={"status": 200, "body": {}})
+        bot._handle_compose_extension_query = AsyncMock(return_value={"status": 200, "body": {}})
+        bot._handle_task_module_fetch = AsyncMock(return_value={"status": 200, "body": {}})
+        bot._handle_task_module_submit = AsyncMock(return_value={"status": 200, "body": {}})
         return bot
 
     @pytest.mark.asyncio
@@ -1076,8 +1092,12 @@ class TestHandleCommand:
     async def test_debate_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="debate", args="topic", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="debate",
+            args="topic",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"debate": True}
 
@@ -1085,8 +1105,12 @@ class TestHandleCommand:
     async def test_ask_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="ask", args="question", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="ask",
+            args="question",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"debate": True}
 
@@ -1094,8 +1118,12 @@ class TestHandleCommand:
     async def test_status_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="status", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="status",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"status": True}
 
@@ -1103,8 +1131,12 @@ class TestHandleCommand:
     async def test_help_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="help", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="help",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"help": True}
 
@@ -1112,8 +1144,12 @@ class TestHandleCommand:
     async def test_leaderboard_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="leaderboard", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="leaderboard",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"leaderboard": True}
 
@@ -1121,8 +1157,12 @@ class TestHandleCommand:
     async def test_agents_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="agents", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="agents",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"agents": True}
 
@@ -1130,8 +1170,12 @@ class TestHandleCommand:
     async def test_vote_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="vote", args="claude", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="vote",
+            args="claude",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"vote": True}
         bot._cmd_vote.assert_awaited_once_with("claude", activity)
@@ -1140,8 +1184,12 @@ class TestHandleCommand:
     async def test_unknown_command(self, bot):
         activity = _make_activity()
         result = await bot._handle_command(
-            command="xyzzy", args="", conversation_id="c",
-            user_id="u", service_url="s", activity=activity,
+            command="xyzzy",
+            args="",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            activity=activity,
         )
         assert result == {"unknown": True}
         bot._cmd_unknown.assert_awaited_once_with("xyzzy", activity)
@@ -1168,8 +1216,12 @@ class TestCmdDebate:
         )
         activity = _make_activity()
         result = await bot._cmd_debate(
-            topic="test", conversation_id="c", user_id="u",
-            service_url="s", thread_id=None, activity=activity,
+            topic="test",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            thread_id=None,
+            activity=activity,
         )
         bot.send_reply.assert_awaited()
         assert result == {}
@@ -1182,8 +1234,12 @@ class TestCmdDebate:
         bot._get_event_processor = MagicMock(return_value=mock_ep)
         activity = _make_activity()
         result = await bot._cmd_debate(
-            topic="test", conversation_id="c", user_id="u",
-            service_url="s", thread_id=None, activity=activity,
+            topic="test",
+            conversation_id="c",
+            user_id="u",
+            service_url="s",
+            thread_id=None,
+            activity=activity,
         )
         assert result == {"debating": True}
 
@@ -1436,6 +1492,7 @@ class TestSendProactiveMessage:
 
     def _store_ref(self, conv_id: str, service_url: str = "https://svc"):
         from aragora.server.handlers.bots.teams_utils import _conversation_references
+
         _conversation_references[conv_id] = {"service_url": service_url}
 
     @pytest.mark.asyncio
@@ -1535,18 +1592,14 @@ class TestLazySubcomponents:
         return bot_cls(app_id="app-id", app_password="pass")
 
     def test_get_event_processor_creates_instance(self, bot):
-        with patch(
-            "aragora.server.handlers.bots.teams.events.TeamsEventProcessor"
-        ) as MockEP:
+        with patch("aragora.server.handlers.bots.teams.events.TeamsEventProcessor") as MockEP:
             MockEP.return_value = MagicMock()
             ep = bot._get_event_processor()
             assert ep is not None
             MockEP.assert_called_once_with(bot)
 
     def test_get_event_processor_caches(self, bot):
-        with patch(
-            "aragora.server.handlers.bots.teams.events.TeamsEventProcessor"
-        ) as MockEP:
+        with patch("aragora.server.handlers.bots.teams.events.TeamsEventProcessor") as MockEP:
             MockEP.return_value = MagicMock()
             ep1 = bot._get_event_processor()
             ep2 = bot._get_event_processor()
@@ -1554,18 +1607,14 @@ class TestLazySubcomponents:
             assert MockEP.call_count == 1
 
     def test_get_card_actions_creates_instance(self, bot):
-        with patch(
-            "aragora.server.handlers.bots.teams.cards.TeamsCardActions"
-        ) as MockCA:
+        with patch("aragora.server.handlers.bots.teams.cards.TeamsCardActions") as MockCA:
             MockCA.return_value = MagicMock()
             ca = bot._get_card_actions()
             assert ca is not None
             MockCA.assert_called_once_with(bot)
 
     def test_get_card_actions_caches(self, bot):
-        with patch(
-            "aragora.server.handlers.bots.teams.cards.TeamsCardActions"
-        ) as MockCA:
+        with patch("aragora.server.handlers.bots.teams.cards.TeamsCardActions") as MockCA:
             MockCA.return_value = MagicMock()
             ca1 = bot._get_card_actions()
             ca2 = bot._get_card_actions()
@@ -1631,24 +1680,28 @@ class TestCheckPermission:
 
     def test_rbac_unavailable_dev_mode(self, bot, handler_module):
         """When RBAC is unavailable and not in production, returns None (permissive)."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch.object(handler_module, "check_permission", None), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler.rbac_fail_closed",
-                 return_value=False,
-             ):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch.object(handler_module, "check_permission", None),
+            patch(
+                "aragora.server.handlers.bots.teams.handler.rbac_fail_closed",
+                return_value=False,
+            ),
+        ):
             activity = _make_activity(user_id="u1")
             result = bot._check_permission(activity, "teams:messages:read")
             assert result is None
 
     def test_rbac_unavailable_production_mode(self, bot, handler_module):
         """When RBAC is unavailable in production, returns 503."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch.object(handler_module, "check_permission", None), \
-             patch(
-                 "aragora.server.handlers.bots.teams.handler.rbac_fail_closed",
-                 return_value=True,
-             ):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch.object(handler_module, "check_permission", None),
+            patch(
+                "aragora.server.handlers.bots.teams.handler.rbac_fail_closed",
+                return_value=True,
+            ),
+        ):
             activity = _make_activity(user_id="u1")
             result = bot._check_permission(activity, "teams:messages:read")
             assert result is not None
@@ -1660,8 +1713,10 @@ class TestCheckPermission:
         mock_decision.allowed = True
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission", mock_check):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission", mock_check),
+        ):
             activity = _make_activity(user_id="u1", aad_object_id="aad-1")
             result = bot._check_permission(activity, "teams:messages:read")
             assert result is None
@@ -1673,8 +1728,10 @@ class TestCheckPermission:
         mock_decision.reason = "No role"
         mock_check = MagicMock(return_value=mock_decision)
 
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission", mock_check):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission", mock_check),
+        ):
             activity = _make_activity(user_id="u1", aad_object_id="aad-1")
             result = bot._check_permission(activity, "teams:messages:read")
             assert result is not None
@@ -1682,8 +1739,10 @@ class TestCheckPermission:
 
     def test_no_auth_context_returns_none(self, bot, handler_module):
         """When auth context cannot be built, returns None (permissive)."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission", MagicMock()):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission", MagicMock()),
+        ):
             activity = {"from": {}, "conversation": {}}
             result = bot._check_permission(activity, "teams:messages:read")
             assert result is None
@@ -1692,8 +1751,10 @@ class TestCheckPermission:
         """When check_permission raises, returns None (graceful degradation)."""
         mock_check = MagicMock(side_effect=TypeError("bad arg"))
 
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission", mock_check):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission", mock_check),
+        ):
             activity = _make_activity(user_id="u1", aad_object_id="aad-1")
             result = bot._check_permission(activity, "teams:messages:read")
             assert result is None

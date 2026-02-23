@@ -158,7 +158,10 @@ class CapabilityRouter(AgentRouter):
                             )
                             if has_fallback:
                                 logger.info(
-                                    "Using fallback agent %s for %s (missing: %s)", cap_rule.fallback_agent_id, message.message_id, missing
+                                    "Using fallback agent %s for %s (missing: %s)",
+                                    cap_rule.fallback_agent_id,
+                                    message.message_id,
+                                    missing,
                                 )
                                 return RoutingResult(
                                     agent_id=cap_rule.fallback_agent_id,

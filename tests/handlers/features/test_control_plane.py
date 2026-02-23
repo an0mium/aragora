@@ -345,9 +345,11 @@ class TestListAgents:
     async def test_list_agents_with_shared_state(self, handler):
         """When shared state is available, it delegates to shared state."""
         mock_shared = AsyncMock()
-        mock_shared.list_agents = AsyncMock(return_value=[
-            _make_agent("shared-1", status="active"),
-        ])
+        mock_shared.list_agents = AsyncMock(
+            return_value=[
+                _make_agent("shared-1", status="active"),
+            ]
+        )
 
         req = MockHTTPRequest(
             path="/api/v1/control-plane/agents",
@@ -364,10 +366,12 @@ class TestListAgents:
     async def test_list_agents_shared_state_populates_defaults(self, handler):
         """Shared state with empty agents populates defaults."""
         mock_shared = AsyncMock()
-        mock_shared.list_agents = AsyncMock(side_effect=[
-            [],  # first call returns empty
-            [_make_agent("default-1")],  # after register
-        ])
+        mock_shared.list_agents = AsyncMock(
+            side_effect=[
+                [],  # first call returns empty
+                [_make_agent("default-1")],  # after register
+            ]
+        )
         mock_shared.register_agent = AsyncMock()
 
         req = MockHTTPRequest(
@@ -846,9 +850,11 @@ class TestGetQueue:
     @pytest.mark.asyncio
     async def test_get_queue_with_shared_state(self, handler):
         mock_shared = AsyncMock()
-        mock_shared.list_tasks = AsyncMock(return_value=[
-            _make_task("st-1", priority="high"),
-        ])
+        mock_shared.list_tasks = AsyncMock(
+            return_value=[
+                _make_task("st-1", priority="high"),
+            ]
+        )
 
         req = MockHTTPRequest(
             path="/api/v1/control-plane/queue",
@@ -864,10 +870,12 @@ class TestGetQueue:
     @pytest.mark.asyncio
     async def test_get_queue_shared_state_populates_sample(self, handler):
         mock_shared = AsyncMock()
-        mock_shared.list_tasks = AsyncMock(side_effect=[
-            [],  # first call empty
-            [_make_task("st-demo")],  # after add_task
-        ])
+        mock_shared.list_tasks = AsyncMock(
+            side_effect=[
+                [],  # first call empty
+                [_make_task("st-demo")],  # after add_task
+            ]
+        )
         mock_shared.add_task = AsyncMock()
 
         req = MockHTTPRequest(
@@ -950,9 +958,11 @@ class TestPrioritizeQueue:
             path="/api/v1/control-plane/queue/prioritize",
             method="POST",
         )
+
         # Force _parse_json_body to raise
         async def bad_json():
             raise json.JSONDecodeError("bad", "", 0)
+
         req.json = bad_json
 
         with patch(f"{MODULE}._get_shared_state", return_value=None):
@@ -1013,7 +1023,9 @@ class TestPrioritizeQueue:
     @pytest.mark.asyncio
     async def test_prioritize_with_shared_state(self, handler):
         mock_shared = AsyncMock()
-        mock_shared.update_task_priority = AsyncMock(return_value=_make_task("st-1", priority="high"))
+        mock_shared.update_task_priority = AsyncMock(
+            return_value=_make_task("st-1", priority="high")
+        )
 
         req = MockHTTPRequest(
             path="/api/v1/control-plane/queue/prioritize",
@@ -1104,8 +1116,12 @@ class TestGetMetrics:
     @pytest.mark.asyncio
     async def test_get_metrics_performance_calculations(self, handler):
         """Performance metrics are correctly calculated."""
-        _agents["a1"] = _make_agent("a1", avg_response_time=100, tasks_completed=60, error_rate=0.05)
-        _agents["a2"] = _make_agent("a2", avg_response_time=200, tasks_completed=120, error_rate=0.10)
+        _agents["a1"] = _make_agent(
+            "a1", avg_response_time=100, tasks_completed=60, error_rate=0.05
+        )
+        _agents["a2"] = _make_agent(
+            "a2", avg_response_time=200, tasks_completed=120, error_rate=0.10
+        )
 
         req = MockHTTPRequest(
             path="/api/v1/control-plane/metrics",
@@ -1125,10 +1141,12 @@ class TestGetMetrics:
     @pytest.mark.asyncio
     async def test_get_metrics_with_shared_state(self, handler):
         mock_shared = AsyncMock()
-        mock_shared.get_metrics = AsyncMock(return_value={
-            "agents": {"total": 5},
-            "queue": {"total_tasks": 10},
-        })
+        mock_shared.get_metrics = AsyncMock(
+            return_value={
+                "agents": {"total": 5},
+                "queue": {"total_tasks": 10},
+            }
+        )
 
         req = MockHTTPRequest(
             path="/api/v1/control-plane/metrics",

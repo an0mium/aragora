@@ -522,9 +522,7 @@ class TestAddUserVotes:
         """With no user votes, counts and total are returned unchanged."""
         weighter = make_weighter(user_votes=[])
         vote_counts: dict[str, float] = {"proposal_a": 3.0}
-        updated_counts, updated_total = weighter.add_user_votes(
-            vote_counts, 5.0, {}
-        )
+        updated_counts, updated_total = weighter.add_user_votes(vote_counts, 5.0, {})
         assert updated_counts == {"proposal_a": 3.0}
         assert updated_total == pytest.approx(5.0)
 

@@ -96,7 +96,11 @@ async def handle_generate_sbom(
             repo_results[sbom_id] = result
 
         logger.info(
-            "[SBOM] Generated %s for %s: %s components, %s vulnerabilities", format, repo_id, result.component_count, result.vulnerability_count
+            "[SBOM] Generated %s for %s: %s components, %s vulnerabilities",
+            format,
+            repo_id,
+            result.component_count,
+            result.vulnerability_count,
         )
 
         return success_response(

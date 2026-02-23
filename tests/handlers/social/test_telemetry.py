@@ -275,12 +275,15 @@ class TestRecordDebateStarted:
         """Prometheus path increments both counter and gauge."""
         mock_started = MagicMock()
         mock_in_progress = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_STARTED",
-            mock_started,
-        ), patch(
-            "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_IN_PROGRESS",
-            mock_in_progress,
+        with (
+            patch(
+                "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_STARTED",
+                mock_started,
+            ),
+            patch(
+                "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_IN_PROGRESS",
+                mock_in_progress,
+            ),
         ):
             record_debate_started("whatsapp")
         mock_started.labels.assert_called_once_with(platform="whatsapp")
@@ -323,12 +326,15 @@ class TestRecordDebateCompleted:
         """Prometheus path increments completed and decrements in-progress."""
         mock_completed = MagicMock()
         mock_in_progress = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_COMPLETED",
-            mock_completed,
-        ), patch(
-            "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_IN_PROGRESS",
-            mock_in_progress,
+        with (
+            patch(
+                "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_COMPLETED",
+                mock_completed,
+            ),
+            patch(
+                "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_IN_PROGRESS",
+                mock_in_progress,
+            ),
         ):
             record_debate_completed("telegram", consensus_reached=True)
         mock_completed.labels.assert_called_once_with(platform="telegram", consensus="reached")
@@ -363,12 +369,15 @@ class TestRecordDebateFailed:
         """Prometheus path increments failed and decrements in-progress."""
         mock_failed = MagicMock()
         mock_in_progress = MagicMock()
-        with patch(
-            "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_FAILED",
-            mock_failed,
-        ), patch(
-            "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_IN_PROGRESS",
-            mock_in_progress,
+        with (
+            patch(
+                "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_FAILED",
+                mock_failed,
+            ),
+            patch(
+                "aragora.server.handlers.social.telemetry.SOCIAL_DEBATES_IN_PROGRESS",
+                mock_in_progress,
+            ),
         ):
             record_debate_failed("telegram")
         mock_failed.labels.assert_called_once_with(platform="telegram")

@@ -328,7 +328,17 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument(
         "--preset",
-        choices=["sme", "enterprise", "minimal", "audit", "visual", "compliance", "research", "healthcare", "financial"],
+        choices=[
+            "sme",
+            "enterprise",
+            "minimal",
+            "audit",
+            "visual",
+            "compliance",
+            "research",
+            "healthcare",
+            "financial",
+        ],
         help="Apply a configuration preset (sme, enterprise, minimal, audit, visual, compliance, research, healthcare, financial)",
     )
     ask_parser.add_argument(
@@ -1808,9 +1818,7 @@ Examples:
         action="store_true",
         help="Show detailed progress",
     )
-    si_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.self_improve", "cmd_self_improve")
-    )
+    si_parser.set_defaults(func=_lazy("aragora.cli.commands.self_improve", "cmd_self_improve"))
 
 
 def _add_worktree_parser(subparsers) -> None:

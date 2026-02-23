@@ -863,7 +863,11 @@ class SlackOAuthHandler(SecureHandler):
                                     response.headers.get("Retry-After", retry_delay * 2)
                                 )
                                 logger.warning(
-                                    "[%s] Slack OAuth rate limited, retrying in %ss (attempt %s/%s)", request_id, retry_after, attempt + 1, max_retries
+                                    "[%s] Slack OAuth rate limited, retrying in %ss (attempt %s/%s)",
+                                    request_id,
+                                    retry_after,
+                                    attempt + 1,
+                                    max_retries,
                                 )
                                 if attempt < max_retries - 1:
                                     await asyncio.sleep(retry_after)
@@ -872,7 +876,11 @@ class SlackOAuthHandler(SecureHandler):
                             if status_code >= 500:
                                 # Server error - retry with backoff
                                 logger.warning(
-                                    "[%s] Slack OAuth server error %s, retrying (attempt %s/%s)", request_id, status_code, attempt + 1, max_retries
+                                    "[%s] Slack OAuth server error %s, retrying (attempt %s/%s)",
+                                    request_id,
+                                    status_code,
+                                    attempt + 1,
+                                    max_retries,
                                 )
                                 if attempt < max_retries - 1:
                                     await asyncio.sleep(retry_delay * (2**attempt))
@@ -885,7 +893,10 @@ class SlackOAuthHandler(SecureHandler):
                 except httpx.TimeoutException as e:
                     last_error = e
                     logger.warning(
-                        "[%s] Slack OAuth timeout, retrying (attempt %s/%s)", request_id, attempt + 1, max_retries
+                        "[%s] Slack OAuth timeout, retrying (attempt %s/%s)",
+                        request_id,
+                        attempt + 1,
+                        max_retries,
                     )
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay * (2**attempt))
@@ -894,7 +905,10 @@ class SlackOAuthHandler(SecureHandler):
                 except httpx.ConnectError as e:
                     last_error = e
                     logger.warning(
-                        "[%s] Slack OAuth connection error, retrying (attempt %s/%s)", request_id, attempt + 1, max_retries
+                        "[%s] Slack OAuth connection error, retrying (attempt %s/%s)",
+                        request_id,
+                        attempt + 1,
+                        max_retries,
                     )
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay * (2**attempt))
@@ -902,7 +916,10 @@ class SlackOAuthHandler(SecureHandler):
 
             if data is None:
                 logger.error(
-                    "[%s] Slack token exchange failed after %s attempts: %s", request_id, max_retries, last_error
+                    "[%s] Slack token exchange failed after %s attempts: %s",
+                    request_id,
+                    max_retries,
+                    last_error,
                 )
                 return error_response(f"Token exchange failed after retries: {last_error}", 500)
 

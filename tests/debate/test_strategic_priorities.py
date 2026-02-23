@@ -227,9 +227,11 @@ class TestCodebaseRLMIntegration:
         mock_rlm = MagicMock()
         mock_rlm.query = AsyncMock(return_value="RLM found 5 relevant modules")
 
-        with patch("aragora.nomic.context_builder.NomicContextBuilder", return_value=mock_builder), \
-             patch("aragora.rlm.bridge.AragoraRLM", return_value=mock_rlm), \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("aragora.nomic.context_builder.NomicContextBuilder", return_value=mock_builder),
+            patch("aragora.rlm.bridge.AragoraRLM", return_value=mock_rlm),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             result = await provider.build_context("Refactor error handling")
 
         assert "Codebase map" in result
@@ -252,9 +254,11 @@ class TestCodebaseRLMIntegration:
         mock_builder = AsyncMock()
         mock_builder.build_debate_context = AsyncMock(return_value="# Standard context")
 
-        with patch("aragora.nomic.context_builder.NomicContextBuilder", return_value=mock_builder), \
-             patch.dict("sys.modules", {"aragora.rlm.bridge": None}), \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("aragora.nomic.context_builder.NomicContextBuilder", return_value=mock_builder),
+            patch.dict("sys.modules", {"aragora.rlm.bridge": None}),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             result = await provider.build_context("Test task")
 
         assert "Standard context" in result
@@ -277,8 +281,10 @@ class TestCodebaseRLMIntegration:
         mock_builder = AsyncMock()
         mock_builder.build_debate_context = AsyncMock(return_value="# Context")
 
-        with patch("aragora.nomic.context_builder.NomicContextBuilder", return_value=mock_builder), \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("aragora.nomic.context_builder.NomicContextBuilder", return_value=mock_builder),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             result = await provider.build_context("Test task")
 
         assert "RLM Deep Analysis" not in result
@@ -483,4 +489,7 @@ class TestFlywheelIntegration:
         from aragora.debate.presets import get_preset_info
 
         info = get_preset_info("diverse")
-        assert "multi-provider" in info["description"].lower() or "diverse" in info["description"].lower()
+        assert (
+            "multi-provider" in info["description"].lower()
+            or "diverse" in info["description"].lower()
+        )

@@ -285,7 +285,9 @@ async def init_notification_worker() -> bool:
         logger.info("task_event_dispatcher_wired")
 
         logger.info(
-            "Notification worker started (concurrency=%s, channels_loaded=%s)", config.max_concurrent_deliveries, channel_count
+            "Notification worker started (concurrency=%s, channels_loaded=%s)",
+            config.max_concurrent_deliveries,
+            channel_count,
         )
         return True
 
@@ -452,7 +454,10 @@ async def init_backup_scheduler() -> bool:
         await start_backup_scheduler(manager, schedule)
 
         logger.info(
-            "Backup scheduler started (daily=%s, dr_drills=%s, dr_interval=%sd)", daily_time_str, 'enabled' if dr_drills_enabled else 'disabled', dr_drill_interval
+            "Backup scheduler started (daily=%s, dr_drills=%s, dr_interval=%sd)",
+            daily_time_str,
+            "enabled" if dr_drills_enabled else "disabled",
+            dr_drill_interval,
         )
         return True
 

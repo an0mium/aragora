@@ -201,11 +201,11 @@ class TestAnalyzeModule:
         assert "method" not in info.functions
 
     def test_extracts_aragora_imports(self, tmp_path: Path):
-        source = textwrap.dedent('''\
+        source = textwrap.dedent("""\
             from aragora.debate.consensus import ConsensusEngine
             from aragora.memory.coordinator import MemoryCoordinator
             import os
-        ''')
+        """)
         py = tmp_path / "mod.py"
         py.write_text(source)
 
@@ -219,10 +219,10 @@ class TestAnalyzeModule:
         assert len(info.imports_from) == 2
 
     def test_deduplicates_imports(self, tmp_path: Path):
-        source = textwrap.dedent('''\
+        source = textwrap.dedent("""\
             from aragora.debate.consensus import ConsensusEngine
             from aragora.debate.consensus import VoteAggregator
-        ''')
+        """)
         py = tmp_path / "mod.py"
         py.write_text(source)
 
@@ -288,12 +288,8 @@ class TestIndex:
         src = tmp_path / "src"
         src.mkdir()
         (src / "__init__.py").write_text('"""Package."""\n')
-        (src / "alpha.py").write_text(
-            '"""Alpha module."""\n\nclass AlphaClass:\n    pass\n'
-        )
-        (src / "beta.py").write_text(
-            '"""Beta module."""\n\ndef beta_func():\n    pass\n'
-        )
+        (src / "alpha.py").write_text('"""Alpha module."""\n\nclass AlphaClass:\n    pass\n')
+        (src / "beta.py").write_text('"""Beta module."""\n\ndef beta_func():\n    pass\n')
 
         indexer = CodebaseIndexer(
             repo_path=tmp_path,
@@ -331,12 +327,8 @@ class TestIndex:
 
         tdir = tmp_path / "tests"
         tdir.mkdir()
-        (tdir / "test_core.py").write_text(
-            "from aragora.core import something\n"
-        )
-        (tdir / "test_utils.py").write_text(
-            "from aragora.utils import helper\n"
-        )
+        (tdir / "test_core.py").write_text("from aragora.core import something\n")
+        (tdir / "test_utils.py").write_text("from aragora.utils import helper\n")
 
         indexer = CodebaseIndexer(
             repo_path=tmp_path,
@@ -482,9 +474,7 @@ class TestTestMap:
 
         tdir = tmp_path / "tests"
         tdir.mkdir()
-        (tdir / "test_core.py").write_text(
-            "from aragora.core import CoreClass\n"
-        )
+        (tdir / "test_core.py").write_text("from aragora.core import CoreClass\n")
 
         indexer = CodebaseIndexer(
             repo_path=tmp_path,
@@ -597,9 +587,7 @@ class TestPersistToKM:
             "aragora.knowledge.mound.adapters.nomic_cycle_adapter.NomicCycleAdapter"
         ) as MockAdapter:
             mock_instance = MagicMock()
-            mock_instance.ingest_cycle_outcome = AsyncMock(
-                side_effect=RuntimeError("KM down")
-            )
+            mock_instance.ingest_cycle_outcome = AsyncMock(side_effect=RuntimeError("KM down"))
             MockAdapter.return_value = mock_instance
 
             indexer = CodebaseIndexer(
@@ -627,7 +615,8 @@ class TestEndToEnd:
         src.mkdir(parents=True)
 
         (src / "__init__.py").write_text('"""Debate package."""\n')
-        (src / "consensus.py").write_text(textwrap.dedent('''\
+        (src / "consensus.py").write_text(
+            textwrap.dedent('''\
             """Consensus detection for multi-agent debates.
 
             Implements majority voting and convergence-based consensus.
@@ -646,19 +635,21 @@ class TestEndToEnd:
 
             def calculate_majority(votes):
                 return max(votes, key=votes.count)
-        '''))
-        (src / "convergence.py").write_text(textwrap.dedent('''\
+        ''')
+        )
+        (src / "convergence.py").write_text(
+            textwrap.dedent('''\
             """Semantic convergence detection."""
 
             def is_converged(positions):
                 return False
-        '''))
+        ''')
+        )
 
         tdir = tmp_path / "tests"
         tdir.mkdir()
         (tdir / "test_consensus.py").write_text(
-            "from aragora.debate.consensus import ConsensusEngine\n"
-            "\ndef test_detect():\n    pass\n"
+            "from aragora.debate.consensus import ConsensusEngine\n\ndef test_detect():\n    pass\n"
         )
 
         indexer = CodebaseIndexer(

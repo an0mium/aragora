@@ -156,7 +156,14 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
     def _run_in_thread() -> None:
         try:
             asyncio.run(coro)
-        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as exc:  # pragma: no cover - safety net
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            RuntimeError,
+            OSError,
+            ConnectionError,
+        ) as exc:  # pragma: no cover - safety net
             logger.error("Task %s failed with exception: %s", name, exc, exc_info=exc)
 
     thread = threading.Thread(target=_run_in_thread, name=f"slack-task-{name}", daemon=True)

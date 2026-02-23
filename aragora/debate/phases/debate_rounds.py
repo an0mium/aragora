@@ -605,7 +605,9 @@ class DebateRoundsPhase:
             # Emit early stop event for convergence-based termination
             similarity = convergence_result.similarity if convergence_result else 0.0
             self._emit_early_stop_event(
-                ctx, round_num, "convergence",
+                ctx,
+                round_num,
+                "convergence",
                 f"Semantic convergence detected (similarity={similarity:.2f})",
             )
             if ctx.result is not None:

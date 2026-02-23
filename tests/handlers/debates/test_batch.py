@@ -284,7 +284,11 @@ class TestSubmitBatch:
         result = h._submit_batch(_mock_http_handler())
         assert _status(result) == 400
         body = _body(result)
-        assert "and" not in body.get("error", "").split("more")[0] if "more" in body.get("error", "") else True
+        assert (
+            "and" not in body.get("error", "").split("more")[0]
+            if "more" in body.get("error", "")
+            else True
+        )
 
     @patch("aragora.server.handlers.debates.batch.validate_against_schema")
     @patch("aragora.server.debate_queue.BatchItem.from_dict")
@@ -339,9 +343,7 @@ class TestSubmitBatch:
     @patch("aragora.server.handlers.debates.batch.validate_against_schema")
     @patch("aragora.server.debate_queue.BatchItem.from_dict")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_submit_batch_queue_error(
-        self, mock_extract_user, mock_from_dict, mock_validate
-    ):
+    def test_submit_batch_queue_error(self, mock_extract_user, mock_from_dict, mock_validate):
         """Queue submission failure returns 500."""
         mock_validate.return_value = _MockValidationResult(is_valid=True)
         mock_from_dict.return_value = MagicMock()
@@ -485,9 +487,7 @@ class TestSubmitBatch:
     @patch("aragora.server.handlers.debates.batch.validate_against_schema")
     @patch("aragora.server.debate_queue.BatchItem.from_dict")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
-    def test_submit_batch_quota_exceeded(
-        self, mock_extract_user, mock_from_dict, mock_validate
-    ):
+    def test_submit_batch_quota_exceeded(self, mock_extract_user, mock_from_dict, mock_validate):
         """Org at debate limit returns 402."""
         mock_validate.return_value = _MockValidationResult(is_valid=True)
         mock_from_dict.return_value = MagicMock()
@@ -617,11 +617,7 @@ class TestSubmitBatch:
         mock_handler.user_store = mock_user_store
         mock_run_async.return_value = "batch_inc123"
 
-        h = _make_handler(
-            json_body={
-                "items": [{"question": "Q1?"}, {"question": "Q2?"}]
-            }
-        )
+        h = _make_handler(json_body={"items": [{"question": "Q1?"}, {"question": "Q2?"}]})
         result = h._submit_batch(mock_handler)
         assert _status(result) == 200
         mock_user_store.increment_usage.assert_called_once_with("org-1", 2)
@@ -674,9 +670,10 @@ class TestSubmitBatch:
         mock_spam_mod.enabled = True
         mock_spam_mod.check_debate_input = AsyncMock(return_value=mock_spam_result)
 
-        with patch(
-            "aragora.moderation.get_spam_moderation", return_value=mock_spam_mod
-        ), patch("aragora.server.http_utils.run_async", side_effect=lambda coro: mock_spam_result):
+        with (
+            patch("aragora.moderation.get_spam_moderation", return_value=mock_spam_mod),
+            patch("aragora.server.http_utils.run_async", side_effect=lambda coro: mock_spam_result),
+        ):
             h = _make_handler(json_body={"items": [{"question": "Buy cheap stuff!"}]})
             result = h._submit_batch(_mock_http_handler())
             assert _status(result) == 400
@@ -709,11 +706,15 @@ class TestSubmitBatch:
                 # queue submit run_async
                 return "batch_ok"
 
-        with patch("aragora.moderation.get_spam_moderation", return_value=mock_spam_mod), \
-             patch("aragora.server.debate_queue.BatchItem.from_dict", return_value=MagicMock()), \
-             patch("aragora.billing.jwt_auth.extract_user_from_request",
-                   return_value=_MockUserCtx(is_authenticated=False, org_id=None)), \
-             patch("aragora.server.http_utils.run_async", side_effect=smart_run_async):
+        with (
+            patch("aragora.moderation.get_spam_moderation", return_value=mock_spam_mod),
+            patch("aragora.server.debate_queue.BatchItem.from_dict", return_value=MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_MockUserCtx(is_authenticated=False, org_id=None),
+            ),
+            patch("aragora.server.http_utils.run_async", side_effect=smart_run_async),
+        ):
             h = _make_handler(json_body={"items": [{"question": "Valid question?"}]})
             result = h._submit_batch(_mock_http_handler())
             # The spam error is caught, item proceeds, batch submits
@@ -724,13 +725,13 @@ class TestSubmitBatch:
         """Spam moderation import failure is handled gracefully."""
         mock_validate.return_value = _MockValidationResult(is_valid=True)
 
-        with patch(
-            "aragora.server.debate_queue.BatchItem.from_dict", return_value=MagicMock()
-        ), patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=_MockUserCtx(is_authenticated=False, org_id=None),
-        ), patch(
-            "aragora.server.http_utils.run_async", return_value="batch_ok"
+        with (
+            patch("aragora.server.debate_queue.BatchItem.from_dict", return_value=MagicMock()),
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_MockUserCtx(is_authenticated=False, org_id=None),
+            ),
+            patch("aragora.server.http_utils.run_async", return_value="batch_ok"),
         ):
             h = _make_handler(json_body={"items": [{"question": "Good question?"}]})
             # Spam moderation import fails silently inside the method
@@ -876,10 +877,13 @@ class TestListBatches:
             {"batch_id": "batch_1", "status": "completed"},
         ]
 
-        with patch(
-            "aragora.server.debate_queue.get_debate_queue_sync",
-            return_value=mock_queue,
-        ), patch("aragora.server.debate_queue.BatchStatus") as mock_status_cls:
+        with (
+            patch(
+                "aragora.server.debate_queue.get_debate_queue_sync",
+                return_value=mock_queue,
+            ),
+            patch("aragora.server.debate_queue.BatchStatus") as mock_status_cls,
+        ):
             mock_status_cls.return_value = "completed"
             mock_status_cls.__iter__ = MagicMock(return_value=iter([]))
 

@@ -154,7 +154,14 @@ class DebateLoaders:
                         results.append(self._elo_to_rating(name, rating))
                     else:
                         results.append(None)
-                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
+                except (
+                    TypeError,
+                    ValueError,
+                    AttributeError,
+                    KeyError,
+                    RuntimeError,
+                    OSError,
+                ) as e:
                     logger.debug("Failed to load ELO for %s: %s", name, e)
                     results.append(None)
             return results
@@ -194,7 +201,14 @@ class DebateLoaders:
                         results.append(self._dict_to_stats(name, stats))
                     else:
                         results.append(None)
-                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
+                except (
+                    TypeError,
+                    ValueError,
+                    AttributeError,
+                    KeyError,
+                    RuntimeError,
+                    OSError,
+                ) as e:
                     logger.debug("Failed to load stats for %s: %s", name, e)
                     results.append(None)
             return results

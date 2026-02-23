@@ -156,7 +156,15 @@ class TestHealthCheck:
         """Response contains all required top-level fields."""
         h = _make_handler()
         body = _body(self._call(h))
-        for key in ("status", "version", "uptime_seconds", "checks", "timestamp", "response_time_ms", "demo_mode"):
+        for key in (
+            "status",
+            "version",
+            "uptime_seconds",
+            "checks",
+            "timestamp",
+            "response_time_ms",
+            "demo_mode",
+        ):
             assert key in body, f"Missing key: {key}"
 
     @patch(_P_FS, return_value=_HEALTHY_FS)
@@ -379,7 +387,10 @@ class TestHealthCheck:
     @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_redis_configured_and_failing_causes_503(self, _sec, _ai, _fs):
         """Redis configured but failing makes health degraded."""
-        with patch(_P_REDIS, return_value={"healthy": False, "configured": True, "error": "Connection failed"}):
+        with patch(
+            _P_REDIS,
+            return_value={"healthy": False, "configured": True, "error": "Connection failed"},
+        ):
             h = _make_handler()
             result = self._call(h)
             assert _status(result) == 503
@@ -401,7 +412,9 @@ class TestHealthCheck:
     @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_no_ai_providers_adds_warning(self, _sec, _redis, _fs):
         """No AI providers -> warning added but still healthy."""
-        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
+        with patch(
+            _P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}
+        ):
             h = _make_handler()
             result = self._call(h)
             body = _body(result)
@@ -757,7 +770,10 @@ class TestDetailedHealthCheck:
         assert any("SQLite" in w for w in body.get("warnings", []))
         assert body["database"]["production_ready"] is False
 
-    @patch.dict("os.environ", {"ARAGORA_ENV": "production", "DATABASE_URL": "postgresql://localhost/aragora"})
+    @patch.dict(
+        "os.environ",
+        {"ARAGORA_ENV": "production", "DATABASE_URL": "postgresql://localhost/aragora"},
+    )
     def test_postgres_in_production_no_warning(self):
         """PostgreSQL in production -> no SQLite warning."""
         h = _make_handler()
@@ -1247,7 +1263,9 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_stripe_configured_and_failing(self, _slack, _ai, _redis, _fs):
         """Stripe configured but failing -> degraded + warning."""
-        with patch(_P_STRIPE, return_value={"healthy": False, "configured": True, "error": "Auth failed"}):
+        with patch(
+            _P_STRIPE, return_value={"healthy": False, "configured": True, "error": "Auth failed"}
+        ):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
@@ -1262,7 +1280,10 @@ class TestDeepHealthCheck:
     @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
     def test_slack_configured_and_failing(self, _stripe, _ai, _redis, _fs):
         """Slack configured but failing -> degraded + warning."""
-        with patch(_P_SLACK, return_value={"healthy": False, "configured": True, "error": "Connection failed"}):
+        with patch(
+            _P_SLACK,
+            return_value={"healthy": False, "configured": True, "error": "Connection failed"},
+        ):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
@@ -1277,7 +1298,9 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_healthy_with_warnings_status(self, _slack, _stripe, _redis, _fs):
         """Warnings but no failures -> healthy_with_warnings."""
-        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
+        with patch(
+            _P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}
+        ):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "healthy_with_warnings"
@@ -1293,10 +1316,13 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_email_services_not_available(self, _slack, _stripe, _ai, _redis, _fs):
         """Email services module missing -> not_available."""
-        with patch.dict("sys.modules", {
-            "aragora.services.followup_tracker": None,
-            "aragora.services.snooze_recommender": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.services.followup_tracker": None,
+                "aragora.services.snooze_recommender": None,
+            },
+        ):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["checks"]["email_services"]["status"] == "not_available"
@@ -1349,7 +1375,10 @@ class TestDeepHealthCheck:
     @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_redis_configured_failing_degrades(self, _slack, _stripe, _ai, _fs):
         """Redis configured but unhealthy -> degrades."""
-        with patch(_P_REDIS, return_value={"healthy": False, "configured": True, "error": "Connection refused"}):
+        with patch(
+            _P_REDIS,
+            return_value={"healthy": False, "configured": True, "error": "Connection refused"},
+        ):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"

@@ -159,8 +159,14 @@ class TestGetDashboard:
     async def test_today_stats(self):
         result = await handle_get_dashboard(context=CTX, data={}, user_id="u1")
         today = _data(result)["today"]
-        for key in ("emails_received", "emails_sent", "emails_archived",
-                     "meetings_scheduled", "action_items_completed", "action_items_created"):
+        for key in (
+            "emails_received",
+            "emails_sent",
+            "emails_archived",
+            "meetings_scheduled",
+            "action_items_completed",
+            "action_items_created",
+        ):
             assert key in today
 
     @pytest.mark.asyncio
@@ -176,8 +182,12 @@ class TestGetDashboard:
     async def test_ai_stats(self):
         result = await handle_get_dashboard(context=CTX, data={}, user_id="u1")
         ai = _data(result)["ai"]
-        for key in ("emails_categorized", "auto_responses_suggested",
-                     "priority_predictions", "debates_run"):
+        for key in (
+            "emails_categorized",
+            "auto_responses_suggested",
+            "priority_predictions",
+            "debates_run",
+        ):
             assert key in ai
 
     @pytest.mark.asyncio
@@ -363,8 +373,13 @@ class TestGetStats:
     async def test_summary_metrics(self):
         result = await handle_get_stats(context=CTX, data={})
         s = _data(result)["summary"]
-        for key in ("total_emails", "avg_daily_emails", "response_rate",
-                     "avg_response_time_mins", "ai_accuracy"):
+        for key in (
+            "total_emails",
+            "avg_daily_emails",
+            "response_rate",
+            "avg_response_time_mins",
+            "ai_accuracy",
+        ):
             assert key in s
 
     @pytest.mark.asyncio
@@ -531,9 +546,14 @@ class TestGetActivity:
         result = await handle_get_activity(context=CTX, data={})
         types = {a["type"] for a in _data(result)["activities"]}
         expected = {
-            "email_received", "email_sent", "action_completed",
-            "mention", "assignment", "email_archived",
-            "meeting_scheduled", "ai_suggestion",
+            "email_received",
+            "email_sent",
+            "action_completed",
+            "mention",
+            "assignment",
+            "email_archived",
+            "meeting_scheduled",
+            "ai_suggestion",
         }
         assert types == expected
 
@@ -654,8 +674,12 @@ class TestGetQuickActions:
         actions = _data(await handle_get_quick_actions(context=CTX, data={}))["actions"]
         ids = {a["id"] for a in actions}
         expected = {
-            "archive_read", "snooze_low", "mark_spam",
-            "complete_actions", "ai_respond", "sync_inbox",
+            "archive_read",
+            "snooze_low",
+            "mark_spam",
+            "complete_actions",
+            "ai_respond",
+            "sync_inbox",
         }
         assert ids == expected
 
@@ -778,8 +802,14 @@ class TestExecuteQuickAction:
 
     @pytest.mark.asyncio
     async def test_executed_flag(self):
-        for action in ("archive_read", "snooze_low", "mark_spam",
-                        "complete_actions", "ai_respond", "sync_inbox"):
+        for action in (
+            "archive_read",
+            "snooze_low",
+            "mark_spam",
+            "complete_actions",
+            "ai_respond",
+            "sync_inbox",
+        ):
             result = await handle_execute_quick_action(context=CTX, data={}, action_id=action)
             assert _data(result)["executed"] is True
 
@@ -863,8 +893,12 @@ class TestRegistration:
     def test_get_dashboard_handlers_keys(self):
         handlers = get_dashboard_handlers()
         expected_keys = {
-            "get_dashboard", "get_stats", "get_activity",
-            "get_inbox_summary", "get_quick_actions", "execute_quick_action",
+            "get_dashboard",
+            "get_stats",
+            "get_activity",
+            "get_inbox_summary",
+            "get_quick_actions",
+            "execute_quick_action",
         }
         assert set(handlers.keys()) == expected_keys
 
@@ -915,7 +949,9 @@ class TestRegistration:
         assert handler_map["/api/v1/dashboard/activity"] is handle_get_activity
         assert handler_map["/api/v1/dashboard/inbox-summary"] is handle_get_inbox_summary
         assert handler_map["/api/v1/dashboard/quick-actions"] is handle_get_quick_actions
-        assert handler_map["/api/v1/dashboard/quick-actions/{action}"] is handle_execute_quick_action
+        assert (
+            handler_map["/api/v1/dashboard/quick-actions/{action}"] is handle_execute_quick_action
+        )
 
 
 # ===========================================================================
@@ -958,9 +994,7 @@ class TestErrorHandling:
         # the exception differently -- patch datetime.now to raise TypeError
         from unittest.mock import patch as _patch
 
-        with _patch(
-            "aragora.server.handlers.dashboard.datetime"
-        ) as mock_dt:
+        with _patch("aragora.server.handlers.dashboard.datetime") as mock_dt:
             mock_dt.now.side_effect = TypeError("bad")
             mock_dt.side_effect = TypeError("bad")
             result = await handle_get_inbox_summary(context=CTX, data={})
@@ -1095,9 +1129,7 @@ class TestRBACEnforcement:
     async def test_write_permission_grants_execute(self):
         """dashboard:write is sufficient for execute endpoint."""
         ctx = _make_context(permissions={"dashboard:write"})
-        result = await handle_execute_quick_action(
-            context=ctx, data={}, action_id="sync_inbox"
-        )
+        result = await handle_execute_quick_action(context=ctx, data={}, action_id="sync_inbox")
         assert _status(result) == 200
 
     @pytest.mark.no_auto_auth
@@ -1107,9 +1139,7 @@ class TestRBACEnforcement:
         ctx = _make_context(permissions={"*"})
         result = await handle_get_dashboard(context=ctx, data={})
         assert _status(result) == 200
-        result2 = await handle_execute_quick_action(
-            context=ctx, data={}, action_id="sync_inbox"
-        )
+        result2 = await handle_execute_quick_action(context=ctx, data={}, action_id="sync_inbox")
         assert _status(result2) == 200
 
 
@@ -1138,8 +1168,14 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_execute_action_all_valid_actions(self):
         """All valid action IDs should return 200."""
-        valid = ["archive_read", "snooze_low", "mark_spam",
-                 "complete_actions", "ai_respond", "sync_inbox"]
+        valid = [
+            "archive_read",
+            "snooze_low",
+            "mark_spam",
+            "complete_actions",
+            "ai_respond",
+            "sync_inbox",
+        ]
         for action in valid:
             result = await handle_execute_quick_action(context=CTX, data={}, action_id=action)
             assert _status(result) == 200, f"Action '{action}' failed"
@@ -1159,9 +1195,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_snooze_until_is_future(self):
         """snooze_until should be approximately 1 day in the future."""
-        result = await handle_execute_quick_action(
-            context=CTX, data={}, action_id="snooze_low"
-        )
+        result = await handle_execute_quick_action(context=CTX, data={}, action_id="snooze_low")
         snooze_until = datetime.fromisoformat(_data(result)["snooze_until"])
         now = datetime.now(timezone.utc)
         diff = snooze_until - now

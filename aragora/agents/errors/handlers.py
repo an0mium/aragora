@@ -68,14 +68,21 @@ async def handle_agent_operation(
         return cast(T, fallback_message if fallback_message else fallback_value)
 
     except (ConnectionError, OSError) as e:
-        logger.warning("[Autonomic] Agent %s %s connection error: %s", agent_name, operation_name, e)
+        logger.warning(
+            "[Autonomic] Agent %s %s connection error: %s", agent_name, operation_name, e
+        )
         return cast(T, fallback_message if fallback_message else fallback_value)
 
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: autonomic error handler is the last-resort safety net keeping debates alive
         # Use ErrorClassifier for more detailed categorization
         _, category = ErrorClassifier.classify_error(e)
         logger.exception(
-            "[Autonomic] Agent %s %s failed (%s): %s: %s", agent_name, operation_name, category, type(e).__name__, e
+            "[Autonomic] Agent %s %s failed (%s): %s: %s",
+            agent_name,
+            operation_name,
+            category,
+            type(e).__name__,
+            e,
         )
         return cast(T, fallback_message if fallback_message else fallback_value)
 
@@ -120,19 +127,29 @@ class AgentErrorHandler:
         self.error = exc_val
 
         if exc_type is asyncio.TimeoutError:
-            logger.warning("[Autonomic] Agent %s %s timed out", self.agent_name, self.operation_name)
+            logger.warning(
+                "[Autonomic] Agent %s %s timed out", self.agent_name, self.operation_name
+            )
             return True  # Suppress exception
 
         if issubclass(exc_type, (ConnectionError, OSError)):
             logger.warning(
-                "[Autonomic] Agent %s %s connection error: %s", self.agent_name, self.operation_name, exc_val
+                "[Autonomic] Agent %s %s connection error: %s",
+                self.agent_name,
+                self.operation_name,
+                exc_val,
             )
             return True
 
         # General exception
         _, category = ErrorClassifier.classify_error(exc_val)
         logger.exception(
-            "[Autonomic] Agent %s %s failed (%s): %s: %s", self.agent_name, self.operation_name, category, type(exc_val).__name__, exc_val
+            "[Autonomic] Agent %s %s failed (%s): %s: %s",
+            self.agent_name,
+            self.operation_name,
+            category,
+            type(exc_val).__name__,
+            exc_val,
         )
         return True  # Suppress exception and use fallback
 

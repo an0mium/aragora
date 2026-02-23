@@ -190,7 +190,9 @@ Adapt your approach based on the specific task requirements.""",
             max_tokens=config.max_tokens,
         )
 
-        logger.info("Created specialist agent: %s (vertical=%s)", specialist.id, config.vertical.value)
+        logger.info(
+            "Created specialist agent: %s (vertical=%s)", specialist.id, config.vertical.value
+        )
 
         return SpecialistAgentInfo(
             agent=agent,
@@ -236,7 +238,9 @@ Adapt your approach based on the specific task requirements.""",
         )
 
         logger.info(
-            "Created base agent: %s (vertical=%s, no specialist available)", openrouter_model, config.vertical.value
+            "Created base agent: %s (vertical=%s, no specialist available)",
+            openrouter_model,
+            config.vertical.value,
         )
 
         return SpecialistAgentInfo(

@@ -131,10 +131,7 @@ class VerifyPhase:
             if ci_result:
                 checks.append(ci_result)
                 # CI failures are warnings, not blockers (unless critical)
-                if (
-                    not ci_result.get("passed")
-                    and ci_result.get("severity") == "critical"
-                ):
+                if not ci_result.get("passed") and ci_result.get("severity") == "critical":
                     all_passed = False
 
         # 7. Consistency check (if enabled and auditor available)
@@ -310,7 +307,9 @@ class VerifyPhase:
                 + (" (no tests collected)" if no_tests_collected else "")
             )
             self._stream_emit(
-                "on_verification_result", "tests", passed,
+                "on_verification_result",
+                "tests",
+                passed,
                 result.stdout[-200:] if result.stdout else "",
             )
             return check
@@ -352,7 +351,9 @@ class VerifyPhase:
                 + (" (no tests collected)" if no_tests_collected else "")
             )
             self._stream_emit(
-                "on_verification_result", "tests", passed,
+                "on_verification_result",
+                "tests",
+                passed,
                 stdout_text[-200:] if stdout_text else "",
             )
             return check
@@ -599,7 +600,6 @@ Be concise - this is a quality gate, not a full review."""
                 "note": "Check skipped due to error",
             }
 
-
     async def _check_ci_results(self) -> dict | None:
         """Check CI results for the current branch if a collector is available.
 
@@ -610,7 +610,10 @@ Be concise - this is a quality gate, not a full review."""
         try:
             # Get current branch and HEAD sha
             branch_proc = await asyncio.create_subprocess_exec(
-                "git", "rev-parse", "--abbrev-ref", "HEAD",
+                "git",
+                "rev-parse",
+                "--abbrev-ref",
+                "HEAD",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -619,7 +622,9 @@ Be concise - this is a quality gate, not a full review."""
             branch = branch_out.decode().strip() if branch_out else ""
 
             sha_proc = await asyncio.create_subprocess_exec(
-                "git", "rev-parse", "HEAD",
+                "git",
+                "rev-parse",
+                "HEAD",
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -653,7 +658,9 @@ Be concise - this is a quality gate, not a full review."""
 
             self._log(f"    [ci] CI {result.conclusion} ({failure_count} failures)")
             self._stream_emit(
-                "on_verification_result", "ci", False,
+                "on_verification_result",
+                "ci",
+                False,
                 f"CI {result.conclusion}",
             )
             return {

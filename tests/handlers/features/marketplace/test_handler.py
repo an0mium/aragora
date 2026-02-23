@@ -208,15 +208,19 @@ def mock_cb_open():
 @pytest.fixture
 def handler(templates, mock_cb):
     """Create a MarketplaceHandler with patched template loading and circuit breaker."""
-    with patch(
-        "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
-        return_value=templates,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
-        return_value=mock_cb,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler.get_marketplace_circuit_breaker_status",
-        return_value=mock_cb.get_status(),
+    with (
+        patch(
+            "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
+            return_value=templates,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
+            return_value=mock_cb,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler.get_marketplace_circuit_breaker_status",
+            return_value=mock_cb.get_status(),
+        ),
     ):
         h = MarketplaceHandler(server_context={})
         yield h
@@ -284,27 +288,35 @@ async def _call(
                 return {}, None
         return {}, None
 
-    with patch(
-        "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
-        return_value=templates,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
-        return_value=mock_cb,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler.get_marketplace_circuit_breaker_status",
-        return_value=cb_status,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler._parse_json_body_proxy",
-        side_effect=_parse_body,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler.get_deployments",
-        wraps=get_deployments,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler.get_ratings",
-        wraps=get_ratings,
-    ), patch(
-        "aragora.server.handlers.features.marketplace.handler.get_download_counts",
-        wraps=get_download_counts,
+    with (
+        patch(
+            "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
+            return_value=templates,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
+            return_value=mock_cb,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler.get_marketplace_circuit_breaker_status",
+            return_value=cb_status,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler._parse_json_body_proxy",
+            side_effect=_parse_body,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler.get_deployments",
+            wraps=get_deployments,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler.get_ratings",
+            wraps=get_ratings,
+        ),
+        patch(
+            "aragora.server.handlers.features.marketplace.handler.get_download_counts",
+            wraps=get_download_counts,
+        ),
     ):
         return await handler_instance.handle(request, path, method)
 
@@ -1526,15 +1538,19 @@ class TestEdgeCases:
         async def _parse_body(req, *, context=""):
             return {}, None
 
-        with patch(
-            "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
-            side_effect=ValueError("broken"),
-        ), patch(
-            "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace.handler._parse_json_body_proxy",
-            side_effect=_parse_body,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
+                side_effect=ValueError("broken"),
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace.handler._parse_json_body_proxy",
+                side_effect=_parse_body,
+            ),
         ):
             result = await handler.handle(_req(), "/api/v1/marketplace/templates", "GET")
         assert _status(result) == 500
@@ -1642,18 +1658,23 @@ class TestModuleFunctions:
         async def _parse_body(r, *, context=""):
             return {}, None
 
-        with patch(
-            "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
-            return_value=templates,
-        ), patch(
-            "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
-            return_value=mock_cb,
-        ), patch(
-            "aragora.server.handlers.features.marketplace.handler.get_marketplace_circuit_breaker_status",
-            return_value=mock_cb.get_status(),
-        ), patch(
-            "aragora.server.handlers.features.marketplace.handler._parse_json_body_proxy",
-            side_effect=_parse_body,
+        with (
+            patch(
+                "aragora.server.handlers.features.marketplace.handler._load_templates_proxy",
+                return_value=templates,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace.handler._get_marketplace_circuit_breaker_proxy",
+                return_value=mock_cb,
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace.handler.get_marketplace_circuit_breaker_status",
+                return_value=mock_cb.get_status(),
+            ),
+            patch(
+                "aragora.server.handlers.features.marketplace.handler._parse_json_body_proxy",
+                side_effect=_parse_body,
+            ),
         ):
             result = await handle_marketplace(req, "/api/v1/marketplace/categories", "GET")
         assert _status(result) == 200

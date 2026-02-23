@@ -160,7 +160,9 @@ class TestGauntletReceiptChannelPipeline:
         mock_client.aclose = AsyncMock()
 
         with patch("aragora.server.debate_origin.router.USE_DOCK_ROUTING", False):
-            with patch("aragora.server.debate_origin.senders.slack.httpx.AsyncClient") as MockClient:
+            with patch(
+                "aragora.server.debate_origin.senders.slack.httpx.AsyncClient"
+            ) as MockClient:
                 MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
                 MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -239,7 +241,9 @@ class TestGauntletReceiptChannelPipeline:
         mock_client.aclose = AsyncMock()
 
         with patch("aragora.server.debate_origin.router.USE_DOCK_ROUTING", False):
-            with patch("aragora.server.debate_origin.senders.telegram.httpx.AsyncClient") as MockClient:
+            with patch(
+                "aragora.server.debate_origin.senders.telegram.httpx.AsyncClient"
+            ) as MockClient:
                 MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
                 MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 

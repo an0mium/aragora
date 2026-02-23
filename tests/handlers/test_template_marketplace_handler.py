@@ -472,9 +472,13 @@ class TestMarketplaceTemplate:
     def test_to_summary_truncates_long_description(self):
         long_desc = "x" * 300
         t = MarketplaceTemplate(
-            id="test/t", name="T", description=long_desc,
-            category="security", pattern="debate",
-            author_id="u", author_name="A",
+            id="test/t",
+            name="T",
+            description=long_desc,
+            category="security",
+            pattern="debate",
+            author_id="u",
+            author_name="A",
         )
         s = t.to_summary()
         assert len(s["description"]) == 203  # 200 chars + "..."
@@ -482,8 +486,13 @@ class TestMarketplaceTemplate:
 
     def test_default_values(self):
         t = MarketplaceTemplate(
-            id="t", name="N", description="D", category="security",
-            pattern="debate", author_id="a", author_name="A",
+            id="t",
+            name="N",
+            description="D",
+            category="security",
+            pattern="debate",
+            author_id="a",
+            author_name="A",
         )
         assert t.version == "1.0.0"
         assert t.tags == []
@@ -515,8 +524,13 @@ class TestTemplateReview:
 
     def test_default_helpful_count(self):
         r = TemplateReview(
-            id="r", template_id="t", user_id="u", user_name="U",
-            rating=3, title="T", content="C",
+            id="r",
+            template_id="t",
+            user_id="u",
+            user_name="U",
+            rating=3,
+            title="T",
+            content="C",
         )
         assert r.helpful_count == 0
 
@@ -614,9 +628,7 @@ class TestRateLimiting:
         ) as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             mock_get = make_mock_handler(method="GET")
-            result = seeded_handler.handle(
-                "/api/v1/marketplace/templates", {}, mock_get
-            )
+            result = seeded_handler.handle("/api/v1/marketplace/templates", {}, mock_get)
             assert result.status_code == 429
 
 
@@ -774,9 +786,7 @@ class TestListTemplates:
 
     def test_method_not_allowed(self, seeded_handler):
         mock_put = make_mock_handler(method="PUT")
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/templates", {}, mock_put
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/templates", {}, mock_put)
         assert result.status_code == 405
 
 
@@ -948,9 +958,7 @@ class TestPublishTemplate:
         assert result.status_code == 413
 
     def test_publish_rate_limit(self, handler):
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             data = _publish_body()
             mock_post = make_mock_handler(method="POST", body=json_body(data))
@@ -1065,9 +1073,7 @@ class TestRateTemplate:
         assert b2["rating_count"] == count_after_first
 
     def test_rate_template_rate_limit(self, seeded_handler):
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
             data = {"rating": 4}
             mock_post = make_mock_handler(method="POST", body=json_body(data))
@@ -1090,9 +1096,7 @@ class TestRateTemplate:
         tpl = _insert_routed_template(routed_id="templates/mycat/mytpl")
         data = {"rating": 3, "user_id": "user-x"}
         mock_post = make_mock_handler(method="POST", body=json_body(data))
-        result = handler.handle(
-            "/api/v1/marketplace/templates/mycat/mytpl/rate", {}, mock_post
-        )
+        result = handler.handle("/api/v1/marketplace/templates/mycat/mytpl/rate", {}, mock_post)
         body = parse_body(result)
         assert result.status_code == 200
         assert body["status"] == "rated"
@@ -1150,9 +1154,7 @@ class TestGetReviews:
         ]
         _template_reviews["security/code-audit"] = reviews
 
-        result = seeded_handler._get_reviews(
-            "security/code-audit", {"limit": "2", "offset": "0"}
-        )
+        result = seeded_handler._get_reviews("security/code-audit", {"limit": "2", "offset": "0"})
         body = parse_body(result)
         assert len(body["reviews"]) == 2
         assert body["total"] == 5
@@ -1355,9 +1357,7 @@ class TestImportTemplate:
         """End-to-end routing test for import endpoint."""
         _insert_routed_template(routed_id="templates/cat/tpl", download_count=50)
         mock_post = make_mock_handler(method="POST", body=json_body({"workspace_id": "ws-2"}))
-        result = handler.handle(
-            "/api/v1/marketplace/templates/cat/tpl/import", {}, mock_post
-        )
+        result = handler.handle("/api/v1/marketplace/templates/cat/tpl/import", {}, mock_post)
         body = parse_body(result)
         assert result.status_code == 200
         assert body["status"] == "imported"
@@ -1373,9 +1373,7 @@ class TestFeaturedTemplates:
     """Tests for GET /api/v1/marketplace/featured."""
 
     def test_get_featured(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/featured", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/featured", {}, mock_http_get)
         body = parse_body(result)
         assert result.status_code == 200
         assert "featured" in body
@@ -1385,17 +1383,13 @@ class TestFeaturedTemplates:
             assert t["is_featured"] is True
 
     def test_featured_sorted_by_rating(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/featured", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/featured", {}, mock_http_get)
         body = parse_body(result)
         ratings = [t["rating"] for t in body["featured"]]
         assert ratings == sorted(ratings, reverse=True)
 
     def test_featured_max_10(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/featured", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/featured", {}, mock_http_get)
         body = parse_body(result)
         assert len(body["featured"]) <= 10
 
@@ -1409,18 +1403,14 @@ class TestTrendingTemplates:
     """Tests for GET /api/v1/marketplace/trending."""
 
     def test_get_trending(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/trending", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/trending", {}, mock_http_get)
         body = parse_body(result)
         assert result.status_code == 200
         assert "trending" in body
         assert "period" in body
 
     def test_trending_default_limit(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/trending", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/trending", {}, mock_http_get)
         body = parse_body(result)
         assert len(body["trending"]) <= 10
 
@@ -1434,9 +1424,7 @@ class TestTrendingTemplates:
         assert len(body["trending"]) <= 3
 
     def test_trending_sorted_by_downloads(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/trending", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/trending", {}, mock_http_get)
         body = parse_body(result)
         downloads = [t["download_count"] for t in body["trending"]]
         assert downloads == sorted(downloads, reverse=True)
@@ -1460,18 +1448,14 @@ class TestCategories:
     """Tests for GET /api/v1/marketplace/categories."""
 
     def test_get_categories(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/categories", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/categories", {}, mock_http_get)
         body = parse_body(result)
         assert result.status_code == 200
         assert "categories" in body
         assert body["total"] > 0
 
     def test_categories_have_counts(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/categories", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/categories", {}, mock_http_get)
         body = parse_body(result)
         for cat in body["categories"]:
             assert "id" in cat
@@ -1481,9 +1465,7 @@ class TestCategories:
             assert cat["template_count"] > 0
 
     def test_categories_sorted_by_count(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/categories", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/categories", {}, mock_http_get)
         body = parse_body(result)
         counts = [c["template_count"] for c in body["categories"]]
         assert counts == sorted(counts, reverse=True)
@@ -1499,9 +1481,7 @@ class TestRecommendationsHandler:
 
     def test_recommendations_returns_templates(self, rec_handler, mock_http_get):
         _seed_marketplace_templates()
-        result = rec_handler.handle(
-            "/api/v1/marketplace/recommendations", {}, mock_http_get
-        )
+        result = rec_handler.handle("/api/v1/marketplace/recommendations", {}, mock_http_get)
         body = parse_body(result)
         assert result.status_code == 200
         assert "recommendations" in body
@@ -1509,9 +1489,7 @@ class TestRecommendationsHandler:
 
     def test_recommendations_default_limit(self, rec_handler, mock_http_get):
         _seed_marketplace_templates()
-        result = rec_handler.handle(
-            "/api/v1/marketplace/recommendations", {}, mock_http_get
-        )
+        result = rec_handler.handle("/api/v1/marketplace/recommendations", {}, mock_http_get)
         body = parse_body(result)
         assert len(body["recommendations"]) <= 5
 
@@ -1541,8 +1519,13 @@ class TestClearMarketplaceState:
     def test_clears_reviews(self):
         _template_reviews["test-id"] = [
             TemplateReview(
-                id="r1", template_id="test-id", user_id="u1",
-                user_name="U", rating=5, title="T", content="C",
+                id="r1",
+                template_id="test-id",
+                user_id="u1",
+                user_name="U",
+                rating=5,
+                title="T",
+                content="C",
             )
         ]
         _clear_marketplace_state()
@@ -1606,9 +1589,7 @@ class TestInvalidPath:
     """Tests for invalid path handling."""
 
     def test_invalid_path_returns_400(self, seeded_handler, mock_http_get):
-        result = seeded_handler.handle(
-            "/api/v1/marketplace/unknown_endpoint", {}, mock_http_get
-        )
+        result = seeded_handler.handle("/api/v1/marketplace/unknown_endpoint", {}, mock_http_get)
         assert result.status_code == 400
 
 
@@ -1676,11 +1657,13 @@ class TestListTemplatesInternal:
         assert downloads == sorted(downloads, reverse=True)
 
     def test_list_combined_filters(self, seeded_handler):
-        result = seeded_handler._list_templates({
-            "category": "sme",
-            "pattern": "debate",
-            "verified_only": "true",
-        })
+        result = seeded_handler._list_templates(
+            {
+                "category": "sme",
+                "pattern": "debate",
+                "verified_only": "true",
+            }
+        )
         body = parse_body(result)
         for t in body["templates"]:
             assert t["category"] == "sme"

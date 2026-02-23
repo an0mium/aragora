@@ -513,9 +513,12 @@ class TestDatabaseStoresHealth:
         healthy = {"healthy": True, "status": "connected"}
         times = iter([100.0, 100.050])
 
-        with _patch_handle_rv((healthy, True)), patch(
-            "aragora.server.handlers.admin.health.database.time.time",
-            side_effect=lambda: next(times, 100.050),
+        with (
+            _patch_handle_rv((healthy, True)),
+            patch(
+                "aragora.server.handlers.admin.health.database.time.time",
+                side_effect=lambda: next(times, 100.050),
+            ),
         ):
             result = database_stores_health(handler)
         assert _body(result)["elapsed_ms"] == 50.0

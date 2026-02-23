@@ -597,120 +597,172 @@ class TestValidateOAuthConfig:
 
     def test_production_google_enabled_missing_secret(self, monkeypatch):
         """In production with Google enabled but missing client secret."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value=""), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value=""),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "GOOGLE_OAUTH_CLIENT_SECRET" in result
 
     def test_production_google_enabled_missing_redirect(self, monkeypatch):
         """In production with Google enabled but missing redirect URI."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value=""), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="secret"),
+                patch.object(cfg, "_get_google_redirect_uri", return_value=""),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "GOOGLE_OAUTH_REDIRECT_URI" in result
 
     def test_production_google_enabled_missing_success_url(self, monkeypatch):
         """In production with Google enabled but missing success URL."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value=""), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="secret"),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value=""),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "OAUTH_SUCCESS_URL" in result
 
     def test_production_google_enabled_missing_error_url(self, monkeypatch):
         """In production with Google enabled but missing error URL."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value=""):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="secret"),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value=""),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "OAUTH_ERROR_URL" in result
 
     def test_production_google_enabled_missing_allowed_hosts(self, monkeypatch):
         """In production with Google enabled but no allowed redirect hosts."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()):
-            with patch.object(cfg, "_get_google_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="secret"),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "OAUTH_ALLOWED_REDIRECT_HOSTS" in result
 
     def test_production_google_all_configured(self, monkeypatch):
         """In production with Google fully configured, no missing vars."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="secret"),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert result == []
 
     def test_production_github_enabled_missing_secret(self, monkeypatch):
         """In production with GitHub enabled but missing client secret."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", ""), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_github_client_secret", return_value=""), \
-                 patch.object(cfg, "_get_github_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", ""),
+            patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_github_client_secret", return_value=""),
+                patch.object(
+                    cfg, "_get_github_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "GITHUB_OAUTH_CLIENT_SECRET" in result
 
     def test_production_github_enabled_missing_redirect(self, monkeypatch):
         """In production with GitHub enabled but missing redirect URI."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", ""), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_github_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_github_redirect_uri", return_value=""), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", ""),
+            patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_github_client_secret", return_value="secret"),
+                patch.object(cfg, "_get_github_redirect_uri", return_value=""),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert "GITHUB_OAUTH_REDIRECT_URI" in result
 
     def test_production_github_missing_shared_urls_no_duplicate(self, monkeypatch):
         """GitHub checks don't duplicate shared URL entries already from Google."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_github_client_secret", return_value="secret"), \
-                 patch.object(cfg, "_get_github_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value=""), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value=""):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="secret"),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_github_client_secret", return_value="secret"),
+                patch.object(
+                    cfg, "_get_github_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value=""),
+                patch.object(cfg, "_get_oauth_error_url", return_value=""),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         # OAUTH_SUCCESS_URL and OAUTH_ERROR_URL should appear only once
         assert result.count("OAUTH_SUCCESS_URL") == 1
@@ -718,39 +770,57 @@ class TestValidateOAuthConfig:
 
     def test_production_no_providers_enabled(self, monkeypatch):
         """In production with no providers enabled, only JWT checked."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", ""), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", ""),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+        ):
             result = cfg.validate_oauth_config(log_warnings=False)
         # Under pytest, JWT check is skipped
         assert result == []
 
     def test_log_warnings_true(self, monkeypatch, caplog):
         """With log_warnings=True, warnings are logged for missing vars."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value=""), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
-                with caplog.at_level(logging.WARNING, logger="aragora.server.handlers.oauth.config"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value=""),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
+                with caplog.at_level(
+                    logging.WARNING, logger="aragora.server.handlers.oauth.config"
+                ):
                     result = cfg.validate_oauth_config(log_warnings=True)
         assert "GOOGLE_OAUTH_CLIENT_SECRET" in result
         assert any("Missing required variables" in r.message for r in caplog.records)
 
     def test_log_warnings_false_no_log(self, monkeypatch, caplog):
         """With log_warnings=False, no warnings are logged."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", ""), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
-            with patch.object(cfg, "_get_google_client_secret", return_value=""), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"):
-                with caplog.at_level(logging.WARNING, logger="aragora.server.handlers.oauth.config"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", ""),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value=""),
+                patch.object(
+                    cfg, "_get_google_redirect_uri", return_value="https://example.com/cb"
+                ),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+            ):
+                with caplog.at_level(
+                    logging.WARNING, logger="aragora.server.handlers.oauth.config"
+                ):
                     result = cfg.validate_oauth_config(log_warnings=False)
         assert "GOOGLE_OAUTH_CLIENT_SECRET" in result
         # "Missing required variables" should NOT be in logs
@@ -799,7 +869,9 @@ class TestValidateOAuthConfig:
         with patch.object(cfg, "_IS_PRODUCTION", False):
             saved = sys.modules.pop("pytest", None)
             try:
-                with caplog.at_level(logging.WARNING, logger="aragora.server.handlers.oauth.config"):
+                with caplog.at_level(
+                    logging.WARNING, logger="aragora.server.handlers.oauth.config"
+                ):
                     cfg.validate_oauth_config(log_warnings=True)
             finally:
                 if saved is not None:
@@ -812,7 +884,9 @@ class TestValidateOAuthConfig:
         with patch.object(cfg, "_IS_PRODUCTION", False):
             saved = sys.modules.pop("pytest", None)
             try:
-                with caplog.at_level(logging.WARNING, logger="aragora.server.handlers.oauth.config"):
+                with caplog.at_level(
+                    logging.WARNING, logger="aragora.server.handlers.oauth.config"
+                ):
                     cfg.validate_oauth_config(log_warnings=True)
             finally:
                 if saved is not None:
@@ -821,16 +895,20 @@ class TestValidateOAuthConfig:
 
     def test_production_github_missing_allowed_hosts_not_duplicated(self, monkeypatch):
         """GitHub missing hosts entry is not duplicated if already from Google."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()):
-            with patch.object(cfg, "_get_google_client_secret", return_value="s"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="u"), \
-                 patch.object(cfg, "_get_github_client_secret", return_value="s"), \
-                 patch.object(cfg, "_get_github_redirect_uri", return_value="u"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="u"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="u"):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()),
+        ):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="s"),
+                patch.object(cfg, "_get_google_redirect_uri", return_value="u"),
+                patch.object(cfg, "_get_github_client_secret", return_value="s"),
+                patch.object(cfg, "_get_github_redirect_uri", return_value="u"),
+                patch.object(cfg, "_get_oauth_success_url", return_value="u"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="u"),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         assert result.count("OAUTH_ALLOWED_REDIRECT_HOSTS") == 1
 
@@ -1209,7 +1287,9 @@ class TestSecurityEdgeCases:
 
     def test_allowed_hosts_with_unusual_chars(self, monkeypatch):
         """Hosts with unusual but valid characters are included."""
-        monkeypatch.setenv("OAUTH_ALLOWED_REDIRECT_HOSTS", "evil.com,normal.com,sub-domain.test.com")
+        monkeypatch.setenv(
+            "OAUTH_ALLOWED_REDIRECT_HOSTS", "evil.com,normal.com,sub-domain.test.com"
+        )
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             result = cfg._get_allowed_redirect_hosts()
         # The function strips and lowercases, but doesn't validate hostnames
@@ -1285,17 +1365,23 @@ class TestIntegration:
 
     def test_mixed_providers_validation(self, monkeypatch):
         """Validate with one provider fully configured and another partially."""
-        with patch.object(cfg, "_IS_PRODUCTION", True), \
-             patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"), \
-             patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"), \
-             patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})):
+        with (
+            patch.object(cfg, "_IS_PRODUCTION", True),
+            patch.object(cfg, "GOOGLE_CLIENT_ID", "goog-id"),
+            patch.object(cfg, "GITHUB_CLIENT_ID", "gh-id"),
+            patch.object(cfg, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset({"example.com"})),
+        ):
             # Google fully configured
-            with patch.object(cfg, "_get_google_client_secret", return_value="gs"), \
-                 patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/g"), \
-                 patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"), \
-                 patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"), \
-                 patch.object(cfg, "_get_github_client_secret", return_value=""), \
-                 patch.object(cfg, "_get_github_redirect_uri", return_value="https://example.com/gh"):
+            with (
+                patch.object(cfg, "_get_google_client_secret", return_value="gs"),
+                patch.object(cfg, "_get_google_redirect_uri", return_value="https://example.com/g"),
+                patch.object(cfg, "_get_oauth_success_url", return_value="https://example.com/ok"),
+                patch.object(cfg, "_get_oauth_error_url", return_value="https://example.com/err"),
+                patch.object(cfg, "_get_github_client_secret", return_value=""),
+                patch.object(
+                    cfg, "_get_github_redirect_uri", return_value="https://example.com/gh"
+                ),
+            ):
                 result = cfg.validate_oauth_config(log_warnings=False)
         # Google should pass, GitHub should fail on client_secret
         assert "GOOGLE_OAUTH_CLIENT_SECRET" not in result

@@ -112,7 +112,9 @@ class OAuthRotationHandler(RotationHandler):
             return new_access_token, {
                 **metadata,
                 "refresh_token": new_refresh_token,
-                "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
+                "expires_at": (
+                    datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                ).isoformat(),
                 "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
                 "rotated_at": datetime.now(timezone.utc).isoformat(),
             }

@@ -167,7 +167,10 @@ class DebateConvergenceTracker:
             )
             if intervention:
                 logger.info(
-                    "trickster_intervention round=%s type=%s targets=%s", round_num, intervention.intervention_type.value, intervention.target_agents
+                    "trickster_intervention round=%s type=%s targets=%s",
+                    round_num,
+                    intervention.intervention_type.value,
+                    intervention.target_agents,
                 )
                 # Notify spectator about hollow consensus
                 if self._notify_spectator:
@@ -293,7 +296,9 @@ class DebateConvergenceTracker:
                 )
                 if intervention:
                     logger.info(
-                        "novelty_challenge round=%s targets=%s", round_num, intervention.target_agents
+                        "novelty_challenge round=%s targets=%s",
+                        round_num,
+                        intervention.target_agents,
                     )
                     if self._notify_spectator:
                         self._notify_spectator(

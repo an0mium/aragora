@@ -33,9 +33,7 @@ from aragora.server.handlers.utils.responses import HandlerResult
 
 _TEST_TOKEN = "test-token-123"
 
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.nodes._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.nodes._run_async"
 
 
 def _body(result) -> dict:
@@ -205,9 +203,7 @@ def mock_mound():
     """Create a mock KnowledgeMound with node-related methods."""
     mound = MagicMock()
     mound.add_node = MagicMock(return_value="node-001")
-    mound.get_node = MagicMock(
-        return_value=MockKnowledgeNode(node_id="node-001")
-    )
+    mound.get_node = MagicMock(return_value=MockKnowledgeNode(node_id="node-001"))
     mound.query_nodes = MagicMock(
         return_value=[
             MockKnowledgeNode(node_id="node-001"),
@@ -277,8 +273,9 @@ class TestMoundQuery:
             handler._handle_mound_query(http)
         mock_mound.query_semantic.assert_called_once()
         call_kwargs = mock_mound.query_semantic.call_args
-        assert call_kwargs.kwargs.get("workspace_id") == "ws-prod" or \
-            (len(call_kwargs.args) > 0 and "ws-prod" in str(call_kwargs))
+        assert call_kwargs.kwargs.get("workspace_id") == "ws-prod" or (
+            len(call_kwargs.args) > 0 and "ws-prod" in str(call_kwargs)
+        )
 
     def test_query_with_min_confidence(self, handler, mock_mound):
         """min_confidence from body is forwarded."""
@@ -289,9 +286,7 @@ class TestMoundQuery:
 
     def test_query_with_node_types(self, handler, mock_mound):
         """node_types from body is forwarded."""
-        http = MockHTTPHandler.post(
-            {"query": "test", "node_types": ["fact", "claim"]}
-        )
+        http = MockHTTPHandler.post({"query": "test", "node_types": ["fact", "claim"]})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_mound_query(http)
         mock_mound.query_semantic.assert_called_once()
@@ -454,11 +449,13 @@ class TestCreateNode:
 
     def test_create_node_success(self, handler, mock_mound):
         """Successfully creating a node returns 201 with node data."""
-        http = MockHTTPHandler.post({
-            "content": "The sky is blue",
-            "node_type": "fact",
-            "workspace_id": "default",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "The sky is blue",
+                "node_type": "fact",
+                "workspace_id": "default",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
@@ -467,14 +464,16 @@ class TestCreateNode:
 
     def test_create_node_with_all_fields(self, handler, mock_mound):
         """Node creation with all fields works correctly."""
-        http = MockHTTPHandler.post({
-            "content": "Complex fact",
-            "node_type": "claim",
-            "workspace_id": "ws-prod",
-            "confidence": 0.9,
-            "topics": ["science", "physics"],
-            "metadata": {"key": "value"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "Complex fact",
+                "node_type": "claim",
+                "workspace_id": "ws-prod",
+                "confidence": 0.9,
+                "topics": ["science", "physics"],
+                "metadata": {"key": "value"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
@@ -545,11 +544,13 @@ class TestCreateNode:
     def test_create_node_default_type_is_fact(self, handler, mock_mound):
         """Default node_type is 'fact' when not specified."""
         http = MockHTTPHandler.post({"content": "test content"})
-        with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro), \
-             patch(
-                 "aragora.server.handlers.knowledge_base.mound.nodes.KnowledgeNode",
-                 create=True,
-             ) as mock_kn_cls:
+        with (
+            patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro),
+            patch(
+                "aragora.server.handlers.knowledge_base.mound.nodes.KnowledgeNode",
+                create=True,
+            ) as mock_kn_cls,
+        ):
             mock_kn_cls.return_value = MagicMock()
             # The handler creates a KnowledgeNode with node_type from data
             handler._handle_create_node(http)
@@ -558,27 +559,31 @@ class TestCreateNode:
 
     def test_create_node_with_source_provenance(self, handler, mock_mound):
         """Node creation with source/provenance works."""
-        http = MockHTTPHandler.post({
-            "content": "Sourced fact",
-            "source": {
-                "type": "user",
-                "id": "src-001",
-                "user_id": "user-123",
-                "agent_id": None,
-                "debate_id": "debate-001",
-                "document_id": None,
-            },
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "Sourced fact",
+                "source": {
+                    "type": "user",
+                    "id": "src-001",
+                    "user_id": "user-123",
+                    "agent_id": None,
+                    "debate_id": "debate-001",
+                    "document_id": None,
+                },
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
 
     def test_create_node_invalid_source_type_returns_400(self, handler):
         """Invalid source type returns 400."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "source": {"type": "not_a_real_type", "id": "src"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "source": {"type": "not_a_real_type", "id": "src"},
+            }
+        )
         result = handler._handle_create_node(http)
         assert _status(result) == 400
         body = _body(result)
@@ -683,20 +688,24 @@ class TestCreateNode:
 
     def test_create_node_with_topics(self, handler, mock_mound):
         """Node creation with topics list."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "topics": ["ml", "ai", "nlp"],
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "topics": ["ml", "ai", "nlp"],
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
 
     def test_create_node_with_metadata(self, handler, mock_mound):
         """Node creation with metadata dict."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "metadata": {"source": "paper", "year": 2025},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "metadata": {"source": "paper", "year": 2025},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
@@ -1074,9 +1083,7 @@ class TestMoundStats:
 
     def test_stats_custom_fields_passed_through(self, handler, mock_mound):
         """Custom fields in stats are passed through."""
-        mock_mound.get_stats = MagicMock(
-            return_value={"total_nodes": 42, "custom_metric": "yes"}
-        )
+        mock_mound.get_stats = MagicMock(return_value={"total_nodes": 42, "custom_metric": "yes"})
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_mound_stats({})
         body = _body(result)
@@ -1115,9 +1122,11 @@ class TestSecurityAndEdgeCases:
 
     def test_create_node_xss_in_content(self, handler, mock_mound):
         """XSS in content is stored as-is (rendering layer handles escaping)."""
-        http = MockHTTPHandler.post({
-            "content": "<script>alert('xss')</script>",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "<script>alert('xss')</script>",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
@@ -1218,50 +1227,60 @@ class TestCreateNodeSourceTypes:
 
     def test_source_type_user(self, handler, mock_mound):
         """Source type 'user' is valid."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "source": {"type": "user", "id": "src-001"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "source": {"type": "user", "id": "src-001"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
 
     def test_source_type_agent(self, handler, mock_mound):
         """Source type 'agent' is valid."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "source": {"type": "agent", "id": "src-002", "agent_id": "agent-1"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "source": {"type": "agent", "id": "src-002", "agent_id": "agent-1"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
 
     def test_source_type_debate(self, handler, mock_mound):
         """Source type 'debate' is valid."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "source": {"type": "debate", "id": "src-003", "debate_id": "d-1"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "source": {"type": "debate", "id": "src-003", "debate_id": "d-1"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
 
     def test_source_without_optional_fields(self, handler, mock_mound):
         """Source with minimal fields (only type and id) works."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "source": {"type": "user", "id": "src-minimal"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "source": {"type": "user", "id": "src-minimal"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201
 
     def test_source_empty_dict_no_type_uses_default_user(self, handler, mock_mound):
         """Source with empty type defaults to 'user'."""
-        http = MockHTTPHandler.post({
-            "content": "test",
-            "source": {"id": "src-no-type"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "content": "test",
+                "source": {"id": "src-no-type"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_node(http)
         assert _status(result) == 201

@@ -548,7 +548,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         for table in self.tables:
             table_config = SERVICENOW_TABLES.get(table, {"name": table})
-            logger.info("[%s] Syncing table: %s", self.name, table_config.get('name', table))
+            logger.info("[%s] Syncing table: %s", self.name, table_config.get("name", table))
 
             async for record in self._get_records(table, modified_since):
                 # Get comments

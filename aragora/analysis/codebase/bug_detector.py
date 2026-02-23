@@ -1248,7 +1248,9 @@ EXPLANATION: <brief explanation>"""
                         )
 
                     logger.debug(
-                        "[BugDetector] Agent verified %s: %s", bug.bug_id, 'real bug' if is_bug else 'false positive'
+                        "[BugDetector] Agent verified %s: %s",
+                        bug.bug_id,
+                        "real bug" if is_bug else "false positive",
                     )
 
         except ImportError:

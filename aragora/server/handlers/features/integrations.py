@@ -776,7 +776,10 @@ class IntegrationsHandler(SecureHandler):
             await store.save(config)
 
             logger.info(
-                "Integration synced: %s for user %s, %s changes", integration_type, user_id, len(sync_result['changes'])
+                "Integration synced: %s for user %s, %s changes",
+                integration_type,
+                user_id,
+                len(sync_result["changes"]),
             )
 
             return json_response(
@@ -884,7 +887,14 @@ class IntegrationsHandler(SecureHandler):
 
         except ImportError as e:
             logger.debug("Provider sync not available for %s: %s", integration_type, e)
-        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            AttributeError,
+        ) as e:
             logger.warning("Provider-specific sync failed for %s: %s", integration_type, e)
 
         return changes

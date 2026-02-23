@@ -328,9 +328,7 @@ def _csv_body(result) -> str:
 def user_store():
     """Create a user store with standard test data."""
     store = MockUserStore()
-    auth_user = MockUser(
-        id="test-user-001", email="test@example.com", role="owner", org_id="org_1"
-    )
+    auth_user = MockUser(id="test-user-001", email="test@example.com", role="owner", org_id="org_1")
     store.add_user(auth_user)
 
     org = MockOrganization(
@@ -385,9 +383,7 @@ def _make_enterprise_store(
 ) -> MockUserStore:
     """Create a user store with an enterprise org that has audit logs enabled."""
     store = MockUserStore()
-    store.add_user(
-        MockUser(id="test-user-001", email="t@t.com", role=role, org_id="org_ent")
-    )
+    store.add_user(MockUser(id="test-user-001", email="t@t.com", role=role, org_id="org_ent"))
     store.add_organization(
         MockOrganization(
             id="org_ent",
@@ -465,6 +461,7 @@ class TestAuditLog:
         # Override the context role to member
         try:
             from aragora.server.handlers.utils import decorators as _dec
+
             override = getattr(_dec, "_test_user_context_override", None)
             if override is not None:
                 object.__setattr__(override, "role", "member")
@@ -479,6 +476,7 @@ class TestAuditLog:
         # Restore role
         try:
             from aragora.server.handlers.utils import decorators as _dec
+
             override = getattr(_dec, "_test_user_context_override", None)
             if override is not None:
                 object.__setattr__(override, "role", "owner")
@@ -1187,9 +1185,7 @@ class TestGetInvoices:
         ):
             http = MockHTTPHandler(query_params={"limit": "25"})
             result = handler.handle("/api/v1/billing/invoices", {}, http, method="GET")
-        mock_client.list_invoices.assert_called_once_with(
-            customer_id="cus_test_123", limit=25
-        )
+        mock_client.list_invoices.assert_called_once_with(customer_id="cus_test_123", limit=25)
 
     def test_limit_default_is_10(self, handler):
         mock_client = MagicMock()
@@ -1200,9 +1196,7 @@ class TestGetInvoices:
         ):
             http = MockHTTPHandler()
             result = handler.handle("/api/v1/billing/invoices", {}, http, method="GET")
-        mock_client.list_invoices.assert_called_once_with(
-            customer_id="cus_test_123", limit=10
-        )
+        mock_client.list_invoices.assert_called_once_with(customer_id="cus_test_123", limit=10)
 
     def test_limit_clamped_to_100(self, handler):
         mock_client = MagicMock()
@@ -1213,9 +1207,7 @@ class TestGetInvoices:
         ):
             http = MockHTTPHandler(query_params={"limit": "500"})
             result = handler.handle("/api/v1/billing/invoices", {}, http, method="GET")
-        mock_client.list_invoices.assert_called_once_with(
-            customer_id="cus_test_123", limit=100
-        )
+        mock_client.list_invoices.assert_called_once_with(customer_id="cus_test_123", limit=100)
 
     def test_no_billing_account_returns_404(self):
         store = MockUserStore()
@@ -1400,9 +1392,7 @@ class TestSecurity:
         _ensure_role_on_auth_context()
         store = _make_enterprise_store()
         h = BillingHandler(ctx={"user_store": store})
-        http = MockHTTPHandler(
-            query_params={"action": "<script>alert('xss')</script>"}
-        )
+        http = MockHTTPHandler(query_params={"action": "<script>alert('xss')</script>"})
         result = h.handle("/api/v1/billing/audit-log", {}, http, method="GET")
         # Should not crash, action filter is just passed to store
         assert _status(result) == 200
@@ -1451,9 +1441,7 @@ class TestSecurity:
         ):
             http = MockHTTPHandler(query_params={"limit": "-5"})
             result = handler.handle("/api/v1/billing/invoices", {}, http, method="GET")
-        mock_client.list_invoices.assert_called_once_with(
-            customer_id="cus_test_123", limit=10
-        )
+        mock_client.list_invoices.assert_called_once_with(customer_id="cus_test_123", limit=10)
 
     def test_invoice_limit_non_numeric_falls_back(self, handler):
         mock_client = MagicMock()
@@ -1464,9 +1452,7 @@ class TestSecurity:
         ):
             http = MockHTTPHandler(query_params={"limit": "abc"})
             result = handler.handle("/api/v1/billing/invoices", {}, http, method="GET")
-        mock_client.list_invoices.assert_called_once_with(
-            customer_id="cus_test_123", limit=10
-        )
+        mock_client.list_invoices.assert_called_once_with(customer_id="cus_test_123", limit=10)
 
     def test_very_long_action_filter_handled(self):
         _ensure_role_on_auth_context()

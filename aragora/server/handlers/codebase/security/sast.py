@@ -84,7 +84,10 @@ async def handle_scan_sast(
                     sast_scan_results[repo_id][scan_id] = result
 
                 logger.info(
-                    "[SAST] Completed scan %s for %s: %s findings", scan_id, repo_id, len(result.findings)
+                    "[SAST] Completed scan %s for %s: %s findings",
+                    scan_id,
+                    repo_id,
+                    len(result.findings),
                 )
 
                 # Emit security events for critical/high findings

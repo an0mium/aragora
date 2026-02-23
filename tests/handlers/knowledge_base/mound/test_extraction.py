@@ -58,13 +58,17 @@ class MockExtractionResult:
     """Mock extraction result with to_dict method."""
 
     debate_id: str = "debate-001"
-    claims: list[dict[str, Any]] = field(default_factory=lambda: [
-        {"claim_id": "c1", "text": "Claim one", "confidence": 0.9},
-        {"claim_id": "c2", "text": "Claim two", "confidence": 0.7},
-    ])
-    relationships: list[dict[str, Any]] = field(default_factory=lambda: [
-        {"source": "c1", "target": "c2", "type": "supports"},
-    ])
+    claims: list[dict[str, Any]] = field(
+        default_factory=lambda: [
+            {"claim_id": "c1", "text": "Claim one", "confidence": 0.9},
+            {"claim_id": "c2", "text": "Claim two", "confidence": 0.7},
+        ]
+    )
+    relationships: list[dict[str, Any]] = field(
+        default_factory=lambda: [
+            {"source": "c1", "target": "c2", "type": "supports"},
+        ]
+    )
     topic: str | None = "test topic"
 
     def to_dict(self) -> dict[str, Any]:
@@ -102,12 +106,14 @@ def mock_mound():
     mound = MagicMock()
     mound.extract_from_debate = AsyncMock(return_value=MockExtractionResult())
     mound.promote_extracted_knowledge = AsyncMock(return_value=5)
-    mound.get_extraction_stats = MagicMock(return_value={
-        "total_extractions": 42,
-        "total_claims": 128,
-        "avg_confidence": 0.75,
-        "debates_processed": 20,
-    })
+    mound.get_extraction_stats = MagicMock(
+        return_value={
+            "total_extractions": 42,
+            "total_claims": 128,
+            "avg_confidence": 0.75,
+            "debates_processed": 20,
+        }
+    )
     return mound
 
 
@@ -526,9 +532,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError during promotion returns 500."""
-        mock_mound.promote_extracted_knowledge = AsyncMock(
-            side_effect=RuntimeError("failed")
-        )
+        mock_mound.promote_extracted_knowledge = AsyncMock(side_effect=RuntimeError("failed"))
         result = await handler.promote_extracted_knowledge(
             workspace_id="ws-001",
         )
@@ -537,9 +541,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError during promotion returns 500."""
-        mock_mound.promote_extracted_knowledge = AsyncMock(
-            side_effect=AttributeError("no attr")
-        )
+        mock_mound.promote_extracted_knowledge = AsyncMock(side_effect=AttributeError("no attr"))
         result = await handler.promote_extracted_knowledge(
             workspace_id="ws-001",
         )
@@ -592,12 +594,14 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_stats_empty(self, handler, mock_mound):
         """Stats with zero values."""
-        mock_mound.get_extraction_stats = MagicMock(return_value={
-            "total_extractions": 0,
-            "total_claims": 0,
-            "avg_confidence": 0.0,
-            "debates_processed": 0,
-        })
+        mock_mound.get_extraction_stats = MagicMock(
+            return_value={
+                "total_extractions": 0,
+                "total_claims": 0,
+                "avg_confidence": 0.0,
+                "debates_processed": 0,
+            }
+        )
         result = await handler.get_extraction_stats()
         assert _status(result) == 200
         body = _body(result)
@@ -607,12 +611,14 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_stats_large_numbers(self, handler, mock_mound):
         """Stats with large values serialize correctly."""
-        mock_mound.get_extraction_stats = MagicMock(return_value={
-            "total_extractions": 999999,
-            "total_claims": 5000000,
-            "avg_confidence": 0.823456,
-            "debates_processed": 100000,
-        })
+        mock_mound.get_extraction_stats = MagicMock(
+            return_value={
+                "total_extractions": 999999,
+                "total_claims": 5000000,
+                "avg_confidence": 0.823456,
+                "debates_processed": 100000,
+            }
+        )
         result = await handler.get_extraction_stats()
         assert _status(result) == 200
         body = _body(result)
@@ -622,11 +628,13 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_stats_additional_fields(self, handler, mock_mound):
         """Stats with extra fields are passed through."""
-        mock_mound.get_extraction_stats = MagicMock(return_value={
-            "total_extractions": 10,
-            "custom_field": "custom_value",
-            "nested": {"key": "val"},
-        })
+        mock_mound.get_extraction_stats = MagicMock(
+            return_value={
+                "total_extractions": 10,
+                "custom_field": "custom_value",
+                "nested": {"key": "val"},
+            }
+        )
         result = await handler.get_extraction_stats()
         assert _status(result) == 200
         body = _body(result)

@@ -808,7 +808,11 @@ class TestPartnerErrorHandling:
         """Invalid JSON body returns 400."""
         handler = MagicMock()
         handler.command = "POST"
-        handler.headers = {"Content-Length": "10", "X-Partner-ID": "partner-123", "Content-Type": "application/json"}
+        handler.headers = {
+            "Content-Length": "10",
+            "X-Partner-ID": "partner-123",
+            "Content-Type": "application/json",
+        }
         handler.rfile = BytesIO(b"not-json!!")
 
         result = partner_handler._register_partner(handler)

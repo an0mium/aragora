@@ -482,7 +482,10 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
             results["downgraded"] += 1
 
             logger.warning(
-                "Auto-downgraded org %s from %s to FREE due to payment failure (grace period expired after %s days)", failure.org_id, old_tier, failure.days_failing
+                "Auto-downgraded org %s from %s to FREE due to payment failure (grace period expired after %s days)",
+                failure.org_id,
+                old_tier,
+                failure.days_failing,
             )
 
             # Send downgrade notification

@@ -355,13 +355,15 @@ class TestParseRequest:
         assert rc.capability_router == {"vision": "gpt-4v"}
 
     def test_fabric_fields(self):
-        rc = self._parse({
-            "fabric_models": ["claude", "gpt-4"],
-            "fabric_pool_id": "pool-1",
-            "fabric_min_agents": 2,
-            "fabric_max_agents": 5,
-            "fabric_timeout_seconds": 60,
-        })
+        rc = self._parse(
+            {
+                "fabric_models": ["claude", "gpt-4"],
+                "fabric_pool_id": "pool-1",
+                "fabric_min_agents": 2,
+                "fabric_max_agents": 5,
+                "fabric_timeout_seconds": 60,
+            }
+        )
         assert rc.fabric_models == ["claude", "gpt-4"]
         assert rc.fabric_pool_id == "pool-1"
         assert rc.fabric_min_agents == 2
@@ -476,9 +478,7 @@ class TestPersistReceipt:
         store.save.return_value = "rcpt-saved"
 
         # patch the import inside the function
-        with patch(
-            "aragora.storage.receipt_store.get_receipt_store", return_value=store
-        ):
+        with patch("aragora.storage.receipt_store.get_receipt_store", return_value=store):
             result = _persist_receipt(_MockReceipt(), "d1")
 
         assert result == "rcpt-saved"
@@ -510,9 +510,7 @@ class TestPersistPlan:
             mock_factory,
             create=True,
         ):
-            with patch(
-                "aragora.pipeline.executor.store_plan"
-            ) as mock_store:
+            with patch("aragora.pipeline.executor.store_plan") as mock_store:
                 with patch(
                     "aragora.pipeline.decision_plan.DecisionPlanFactory",
                     mock_factory,
@@ -543,10 +541,12 @@ class TestBuildChangesList:
 
     def test_with_tasks(self):
         h = _make_handler()
-        plan = _MockPlan(tasks=[
-            _MockTask(id="t1", description="Do X", files=["a.py"], complexity="low"),
-            _MockTask(id="t2", description="Do Y", files=["b.py"], complexity="high"),
-        ])
+        plan = _MockPlan(
+            tasks=[
+                _MockTask(id="t1", description="Do X", files=["a.py"], complexity="low"),
+                _MockTask(id="t2", description="Do Y", files=["b.py"], complexity="high"),
+            ]
+        )
         changes = h._build_changes_list(plan)
         assert len(changes) == 2
         assert changes[0]["id"] == "t1"
@@ -937,9 +937,7 @@ class TestHandleWorkflowMode:
     @patch("aragora.pipeline.executor.store_plan")
     @patch("aragora.pipeline.risk_register.RiskLevel")
     @patch("aragora.pipeline.decision_plan.ApprovalMode")
-    def test_workflow_no_approval_needed(
-        self, MockAM, MockRL, mock_store, MockFactory, mock_ra
-    ):
+    def test_workflow_no_approval_needed(self, MockAM, MockRL, mock_store, MockFactory, mock_ra):
         from aragora.server.handlers.debates.implementation import _parse_request
 
         mock_plan = MagicMock()
@@ -961,9 +959,7 @@ class TestHandleWorkflowMode:
             "aragora.server.handlers.debates.implementation.coerce_debate_result",
             return_value=MagicMock(),
         ):
-            result = h._handle_workflow_mode(
-                handler, {"task": "T"}, "d1", _MockPackage(), rc, {}
-            )
+            result = h._handle_workflow_mode(handler, {"task": "T"}, "d1", _MockPackage(), rc, {})
 
         assert _status(result) == 200
         body = _body(result)
@@ -974,9 +970,7 @@ class TestHandleWorkflowMode:
     @patch("aragora.pipeline.decision_plan.DecisionPlanFactory")
     @patch("aragora.pipeline.executor.store_plan")
     @patch("aragora.pipeline.executor.PlanExecutor")
-    def test_workflow_execute_approved(
-        self, MockPE, mock_store, MockFactory, mock_ra, monkeypatch
-    ):
+    def test_workflow_execute_approved(self, MockPE, mock_store, MockFactory, mock_ra, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION", "1")
         from aragora.server.handlers.debates.implementation import _parse_request
 
@@ -1009,12 +1003,8 @@ class TestHandleWorkflowMode:
             "aragora.server.handlers.debates.implementation.coerce_debate_result",
             return_value=MagicMock(),
         ):
-            with patch(
-                "aragora.pipeline.risk_register.RiskLevel", MagicMock()
-            ):
-                with patch(
-                    "aragora.pipeline.decision_plan.ApprovalMode", MagicMock()
-                ):
+            with patch("aragora.pipeline.risk_register.RiskLevel", MagicMock()):
+                with patch("aragora.pipeline.decision_plan.ApprovalMode", MagicMock()):
                     result = h._handle_workflow_mode(
                         _mock_http_handler(), {}, "d1", _MockPackage(), rc, {}
                     )
@@ -1027,9 +1017,7 @@ class TestHandleWorkflowMode:
     @patch("aragora.server.handlers.debates.implementation.run_async")
     @patch("aragora.pipeline.decision_plan.DecisionPlanFactory")
     @patch("aragora.pipeline.executor.store_plan")
-    def test_workflow_execute_pending_approval(
-        self, mock_store, MockFactory, mock_ra, monkeypatch
-    ):
+    def test_workflow_execute_pending_approval(self, mock_store, MockFactory, mock_ra, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION", "1")
         from aragora.server.handlers.debates.implementation import _parse_request
 
@@ -1324,15 +1312,16 @@ class TestExecuteFabric:
 
         with patch("aragora.fabric.AgentFabric"):
             with patch("aragora.implement.fabric_integration.FabricImplementationRunner"):
-                with patch(
-                    "aragora.implement.fabric_integration.FabricImplementationConfig"
-                ):
+                with patch("aragora.implement.fabric_integration.FabricImplementationConfig"):
                     h._execute_fabric("d1", _MockPackage(), rc, payload)
 
         assert payload["execution"]["status"] == "completed"
         assert payload["execution"]["mode"] == "fabric"
 
-    @patch("aragora.server.handlers.debates.implementation.run_async", side_effect=ImportError("no fabric"))
+    @patch(
+        "aragora.server.handlers.debates.implementation.run_async",
+        side_effect=ImportError("no fabric"),
+    )
     def test_import_error(self, mock_ra):
         from aragora.server.handlers.debates.implementation import _parse_request
 
@@ -1379,9 +1368,7 @@ class TestExecuteComputerUse:
         rc = _parse_request({"execution_mode": "computer_use"}, {})
         h = _make_handler()
         payload: dict[str, Any] = {}
-        approval = _MockApprovalRequest(
-            status=ApprovalStatus.APPROVED, approved_by="admin"
-        )
+        approval = _MockApprovalRequest(status=ApprovalStatus.APPROVED, approved_by="admin")
         h._execute_computer_use(rc, payload, approval, "user", cu_plan)
         assert payload["execution"]["status"] == "completed"
         assert payload["execution"]["mode"] == "computer_use"
@@ -1411,9 +1398,7 @@ class TestGetReceiptStore:
     def test_none_raises(self):
         from aragora.server.handlers.debates.implementation import get_receipt_store
 
-        with patch(
-            "aragora.server.handlers.debates.implementation._receipt_store_get", None
-        ):
+        with patch("aragora.server.handlers.debates.implementation._receipt_store_get", None):
             with pytest.raises(RuntimeError, match="unavailable"):
                 get_receipt_store()
 
@@ -1522,9 +1507,7 @@ class TestEdgeCases:
         rc = _parse_request({"execution_mode": "computer_use"}, {})
         payload: dict[str, Any] = {}
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as MockFactory:
+        with patch("aragora.pipeline.decision_plan.DecisionPlanFactory") as MockFactory:
             MockFactory.from_implement_plan.side_effect = TypeError("bad plan")
             with patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",

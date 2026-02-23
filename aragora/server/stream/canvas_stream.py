@@ -175,7 +175,9 @@ class CanvasStreamServer:
                 self._clients[canvas_id] = set()
             self._clients[canvas_id].add(websocket)
             logger.debug(
-                "Client connected to canvas %s. Total clients: %s", canvas_id, len(self._clients[canvas_id])
+                "Client connected to canvas %s. Total clients: %s",
+                canvas_id,
+                len(self._clients[canvas_id]),
             )
 
     async def _unregister_client(self, canvas_id: str, websocket):
@@ -499,9 +501,7 @@ class CanvasStreamServer:
     # Idea Canvas collaboration handlers
     # =========================================================================
 
-    async def _handle_idea_cursor_move(
-        self, canvas_id: str, user_id: str, data: dict[str, Any]
-    ):
+    async def _handle_idea_cursor_move(self, canvas_id: str, user_id: str, data: dict[str, Any]):
         """Broadcast cursor position to other clients (fire-and-forget)."""
         await self.broadcast_to_canvas(
             canvas_id,
@@ -514,9 +514,7 @@ class CanvasStreamServer:
             },
         )
 
-    async def _handle_idea_presence(
-        self, canvas_id: str, user_id: str, action: str
-    ):
+    async def _handle_idea_presence(self, canvas_id: str, user_id: str, action: str):
         """Broadcast presence join/leave events."""
         await self.broadcast_to_canvas(
             canvas_id,
@@ -524,9 +522,7 @@ class CanvasStreamServer:
                 "type": f"ideas:presence:{action}",
                 "canvas_id": canvas_id,
                 "user_id": user_id,
-                "users": [
-                    u["user_id"] for u in self.get_connected_users(canvas_id)
-                ],
+                "users": [u["user_id"] for u in self.get_connected_users(canvas_id)],
                 "timestamp": time.time(),
             },
         )
@@ -559,9 +555,7 @@ class CanvasStreamServer:
     # Goal Canvas collaboration handlers
     # =========================================================================
 
-    async def _handle_goal_cursor_move(
-        self, canvas_id: str, user_id: str, data: dict[str, Any]
-    ):
+    async def _handle_goal_cursor_move(self, canvas_id: str, user_id: str, data: dict[str, Any]):
         """Broadcast cursor position to other clients (fire-and-forget)."""
         await self.broadcast_to_canvas(
             canvas_id,
@@ -574,9 +568,7 @@ class CanvasStreamServer:
             },
         )
 
-    async def _handle_goal_presence(
-        self, canvas_id: str, user_id: str, action: str
-    ):
+    async def _handle_goal_presence(self, canvas_id: str, user_id: str, action: str):
         """Broadcast presence join/leave events."""
         await self.broadcast_to_canvas(
             canvas_id,
@@ -584,9 +576,7 @@ class CanvasStreamServer:
                 "type": f"goals:presence:{action}",
                 "canvas_id": canvas_id,
                 "user_id": user_id,
-                "users": [
-                    u["user_id"] for u in self.get_connected_users(canvas_id)
-                ],
+                "users": [u["user_id"] for u in self.get_connected_users(canvas_id)],
                 "timestamp": time.time(),
             },
         )

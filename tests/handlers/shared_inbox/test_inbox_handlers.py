@@ -337,14 +337,10 @@ class TestListSharedInboxes:
         with _storage_lock:
             _shared_inboxes["i1"] = inbox
 
-        result = await handle_list_shared_inboxes(
-            workspace_id="ws_1", user_id="user_a"
-        )
+        result = await handle_list_shared_inboxes(workspace_id="ws_1", user_id="user_a")
         assert result["total"] == 1
 
-        result = await handle_list_shared_inboxes(
-            workspace_id="ws_1", user_id="user_b"
-        )
+        result = await handle_list_shared_inboxes(workspace_id="ws_1", user_id="user_b")
         assert result["total"] == 0
 
     @pytest.mark.asyncio
@@ -357,9 +353,7 @@ class TestListSharedInboxes:
         with _storage_lock:
             _shared_inboxes["i1"] = inbox
 
-        result = await handle_list_shared_inboxes(
-            workspace_id="ws_1", user_id="admin_a"
-        )
+        result = await handle_list_shared_inboxes(workspace_id="ws_1", user_id="admin_a")
         assert result["total"] == 1
 
     @pytest.mark.asyncio
@@ -377,9 +371,7 @@ class TestListSharedInboxes:
     @pytest.mark.asyncio
     async def test_list_uses_store_when_available(self, patch_store):
         store = patch_store
-        store.list_shared_inboxes.return_value = [
-            {"id": "si1", "name": "Store Inbox"}
-        ]
+        store.list_shared_inboxes.return_value = [{"id": "si1", "name": "Store Inbox"}]
         result = await handle_list_shared_inboxes(workspace_id="ws_1")
         assert result["success"] is True
         assert result["total"] == 1
@@ -650,16 +642,25 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_get_messages_combined_filters(self, patch_store_none):
         m1 = _make_message(
-            message_id="m1", inbox_id="i1",
-            status=MessageStatus.OPEN, assigned_to="alice", tags=["urgent"],
+            message_id="m1",
+            inbox_id="i1",
+            status=MessageStatus.OPEN,
+            assigned_to="alice",
+            tags=["urgent"],
         )
         m2 = _make_message(
-            message_id="m2", inbox_id="i1",
-            status=MessageStatus.OPEN, assigned_to="bob", tags=["urgent"],
+            message_id="m2",
+            inbox_id="i1",
+            status=MessageStatus.OPEN,
+            assigned_to="bob",
+            tags=["urgent"],
         )
         m3 = _make_message(
-            message_id="m3", inbox_id="i1",
-            status=MessageStatus.RESOLVED, assigned_to="alice", tags=["urgent"],
+            message_id="m3",
+            inbox_id="i1",
+            status=MessageStatus.RESOLVED,
+            assigned_to="alice",
+            tags=["urgent"],
         )
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": m1, "m2": m2, "m3": m3}
@@ -728,9 +729,7 @@ class TestAssignMessage:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_assign_message(
-            inbox_id="i1", message_id="m1", assigned_to="alice"
-        )
+        result = await handle_assign_message(inbox_id="i1", message_id="m1", assigned_to="alice")
         assert result["success"] is True
         assert result["message"]["assigned_to"] == "alice"
 
@@ -740,22 +739,18 @@ class TestAssignMessage:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_assign_message(
-            inbox_id="i1", message_id="m1", assigned_to="alice"
-        )
+        result = await handle_assign_message(inbox_id="i1", message_id="m1", assigned_to="alice")
         assert result["message"]["status"] == "assigned"
 
     @pytest.mark.asyncio
-    async def test_assign_does_not_change_non_open_status(self, patch_store_none, patch_log_activity):
-        msg = _make_message(
-            message_id="m1", inbox_id="i1", status=MessageStatus.IN_PROGRESS
-        )
+    async def test_assign_does_not_change_non_open_status(
+        self, patch_store_none, patch_log_activity
+    ):
+        msg = _make_message(message_id="m1", inbox_id="i1", status=MessageStatus.IN_PROGRESS)
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_assign_message(
-            inbox_id="i1", message_id="m1", assigned_to="bob"
-        )
+        result = await handle_assign_message(inbox_id="i1", message_id="m1", assigned_to="bob")
         assert result["message"]["status"] == "in_progress"
         assert result["message"]["assigned_to"] == "bob"
 
@@ -765,9 +760,7 @@ class TestAssignMessage:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_assign_message(
-            inbox_id="i1", message_id="m1", assigned_to="alice"
-        )
+        result = await handle_assign_message(inbox_id="i1", message_id="m1", assigned_to="alice")
         assert result["message"]["assigned_at"] is not None
 
     @pytest.mark.asyncio
@@ -791,8 +784,10 @@ class TestAssignMessage:
     @pytest.mark.asyncio
     async def test_assign_logs_reassigned_action(self, patch_store_none, patch_log_activity):
         msg = _make_message(
-            message_id="m1", inbox_id="i1",
-            status=MessageStatus.ASSIGNED, assigned_to="bob",
+            message_id="m1",
+            inbox_id="i1",
+            status=MessageStatus.ASSIGNED,
+            assigned_to="bob",
         )
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
@@ -813,26 +808,26 @@ class TestAssignMessage:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        await handle_assign_message(
-            inbox_id="i1", message_id="m1", assigned_to="alice"
-        )
+        await handle_assign_message(inbox_id="i1", message_id="m1", assigned_to="alice")
         patch_log_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_assign_persists_to_store_update_message_status(self, patch_store, patch_log_activity):
+    async def test_assign_persists_to_store_update_message_status(
+        self, patch_store, patch_log_activity
+    ):
         store = patch_store
         msg = _make_message(message_id="m1", inbox_id="i1", status=MessageStatus.OPEN)
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_assign_message(
-            inbox_id="i1", message_id="m1", assigned_to="alice"
-        )
+        result = await handle_assign_message(inbox_id="i1", message_id="m1", assigned_to="alice")
         assert result["success"] is True
         store.update_message_status.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_assign_persists_to_store_update_message_fallback(self, mock_store, patch_log_activity):
+    async def test_assign_persists_to_store_update_message_fallback(
+        self, mock_store, patch_log_activity
+    ):
         """When store lacks update_message_status, uses update_message."""
         del mock_store.update_message_status
         msg = _make_message(message_id="m1", inbox_id="i1", status=MessageStatus.OPEN)
@@ -954,14 +949,14 @@ class TestUpdateMessageStatus:
         assert kw["metadata"]["to_status"] == "assigned"
 
     @pytest.mark.asyncio
-    async def test_update_status_no_activity_without_org(self, patch_store_none, patch_log_activity):
+    async def test_update_status_no_activity_without_org(
+        self, patch_store_none, patch_log_activity
+    ):
         msg = _make_message(message_id="m1", inbox_id="i1")
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        await handle_update_message_status(
-            inbox_id="i1", message_id="m1", status="closed"
-        )
+        await handle_update_message_status(inbox_id="i1", message_id="m1", status="closed")
         patch_log_activity.assert_not_called()
 
     @pytest.mark.asyncio
@@ -978,7 +973,9 @@ class TestUpdateMessageStatus:
         store.update_message_status.assert_called_once_with("m1", "resolved")
 
     @pytest.mark.asyncio
-    async def test_update_status_store_update_message_fallback(self, mock_store, patch_log_activity):
+    async def test_update_status_store_update_message_fallback(
+        self, mock_store, patch_log_activity
+    ):
         del mock_store.update_message_status
         msg = _make_message(message_id="m1", inbox_id="i1")
         with _storage_lock:
@@ -1028,7 +1025,9 @@ class TestUpdateMessageStatus:
             assert result["success"] is True, f"Failed for status {status.value}"
 
     @pytest.mark.asyncio
-    async def test_update_status_default_actor_is_system(self, patch_store_none, patch_log_activity):
+    async def test_update_status_default_actor_is_system(
+        self, patch_store_none, patch_log_activity
+    ):
         msg = _make_message(message_id="m1", inbox_id="i1")
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
@@ -1050,9 +1049,7 @@ class TestAddMessageTag:
 
     @pytest.mark.asyncio
     async def test_add_tag_message_not_found(self, patch_store_none):
-        result = await handle_add_message_tag(
-            inbox_id="i1", message_id="m_missing", tag="urgent"
-        )
+        result = await handle_add_message_tag(inbox_id="i1", message_id="m_missing", tag="urgent")
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
@@ -1062,9 +1059,7 @@ class TestAddMessageTag:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="urgent"
-        )
+        result = await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="urgent")
         assert result["success"] is True
         assert "urgent" in result["message"]["tags"]
 
@@ -1075,9 +1070,7 @@ class TestAddMessageTag:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        result = await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="urgent"
-        )
+        result = await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="urgent")
         assert result["success"] is True
         assert result["message"]["tags"].count("urgent") == 1
 
@@ -1088,9 +1081,7 @@ class TestAddMessageTag:
             _inbox_messages["i1"] = {"m1": msg}
 
         await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="urgent")
-        result = await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="billing"
-        )
+        result = await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="billing")
         assert "urgent" in result["message"]["tags"]
         assert "billing" in result["message"]["tags"]
 
@@ -1101,8 +1092,11 @@ class TestAddMessageTag:
             _inbox_messages["i1"] = {"m1": msg}
 
         await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="urgent",
-            added_by="admin", org_id="org_1",
+            inbox_id="i1",
+            message_id="m1",
+            tag="urgent",
+            added_by="admin",
+            org_id="org_1",
         )
         patch_log_activity.assert_called_once()
         kw = patch_log_activity.call_args[1]
@@ -1115,9 +1109,7 @@ class TestAddMessageTag:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="urgent", org_id="org_1"
-        )
+        await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="urgent", org_id="org_1")
         patch_log_activity.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1126,9 +1118,7 @@ class TestAddMessageTag:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="urgent"
-        )
+        await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="urgent")
         patch_log_activity.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1137,9 +1127,7 @@ class TestAddMessageTag:
         with _storage_lock:
             _inbox_messages["i1"] = {"m1": msg}
 
-        await handle_add_message_tag(
-            inbox_id="i1", message_id="m1", tag="t1", org_id="org_1"
-        )
+        await handle_add_message_tag(inbox_id="i1", message_id="m1", tag="t1", org_id="org_1")
         kw = patch_log_activity.call_args[1]
         assert kw["actor_id"] == "system"
 
@@ -1356,9 +1344,7 @@ class TestCrossHandlerIntegration:
 
     @pytest.mark.asyncio
     async def test_create_then_get(self, patch_store_none):
-        create_result = await handle_create_shared_inbox(
-            workspace_id="ws_1", name="My Inbox"
-        )
+        create_result = await handle_create_shared_inbox(workspace_id="ws_1", name="My Inbox")
         inbox_id = create_result["inbox"]["id"]
 
         get_result = await handle_get_shared_inbox(inbox_id=inbox_id)
@@ -1367,9 +1353,7 @@ class TestCrossHandlerIntegration:
 
     @pytest.mark.asyncio
     async def test_add_message_then_get_messages(self, patch_store_none):
-        create_result = await handle_create_shared_inbox(
-            workspace_id="ws_1", name="Test"
-        )
+        create_result = await handle_create_shared_inbox(workspace_id="ws_1", name="Test")
         inbox_id = create_result["inbox"]["id"]
 
         await handle_add_message_to_inbox(
@@ -1400,18 +1384,12 @@ class TestCrossHandlerIntegration:
         )
         msg_id = add_result["message"]["id"]
 
-        await handle_assign_message(
-            inbox_id="i1", message_id=msg_id, assigned_to="alice"
-        )
+        await handle_assign_message(inbox_id="i1", message_id=msg_id, assigned_to="alice")
 
-        result = await handle_get_inbox_messages(
-            inbox_id="i1", assigned_to="alice"
-        )
+        result = await handle_get_inbox_messages(inbox_id="i1", assigned_to="alice")
         assert result["total"] == 1
 
-        result = await handle_get_inbox_messages(
-            inbox_id="i1", assigned_to="bob"
-        )
+        result = await handle_get_inbox_messages(inbox_id="i1", assigned_to="bob")
         assert result["total"] == 0
 
     @pytest.mark.asyncio
@@ -1429,9 +1407,7 @@ class TestCrossHandlerIntegration:
         )
         msg_id = add_result["message"]["id"]
 
-        await handle_add_message_tag(
-            inbox_id="i1", message_id=msg_id, tag="vip"
-        )
+        await handle_add_message_tag(inbox_id="i1", message_id=msg_id, tag="vip")
 
         result = await handle_get_inbox_messages(inbox_id="i1", tag="vip")
         assert result["total"] == 1
@@ -1439,9 +1415,7 @@ class TestCrossHandlerIntegration:
     @pytest.mark.asyncio
     async def test_full_lifecycle(self, patch_store_none, patch_log_activity):
         """Create inbox -> add message -> assign -> update status -> resolve."""
-        create_result = await handle_create_shared_inbox(
-            workspace_id="ws_1", name="Lifecycle"
-        )
+        create_result = await handle_create_shared_inbox(workspace_id="ws_1", name="Lifecycle")
         inbox_id = create_result["inbox"]["id"]
 
         add_result = await handle_add_message_to_inbox(
@@ -1478,9 +1452,7 @@ class TestCrossHandlerIntegration:
     @pytest.mark.asyncio
     async def test_get_inbox_counts_after_operations(self, patch_store_none, patch_log_activity):
         """Inbox counts should reflect current message states."""
-        create_result = await handle_create_shared_inbox(
-            workspace_id="ws_1", name="Counts"
-        )
+        create_result = await handle_create_shared_inbox(workspace_id="ws_1", name="Counts")
         inbox_id = create_result["inbox"]["id"]
 
         # Add 3 messages
@@ -1497,9 +1469,7 @@ class TestCrossHandlerIntegration:
             msg_ids.append(r["message"]["id"])
 
         # Assign first, resolve second
-        await handle_assign_message(
-            inbox_id=inbox_id, message_id=msg_ids[0], assigned_to="alice"
-        )
+        await handle_assign_message(inbox_id=inbox_id, message_id=msg_ids[0], assigned_to="alice")
         await handle_update_message_status(
             inbox_id=inbox_id, message_id=msg_ids[1], status="resolved"
         )

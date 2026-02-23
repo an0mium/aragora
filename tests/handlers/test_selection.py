@@ -218,6 +218,7 @@ class TestInit:
 
     def test_extends_base_handler(self, handler):
         from aragora.server.handlers.base import BaseHandler
+
         assert isinstance(handler, BaseHandler)
 
     def test_has_routes(self, handler):
@@ -495,41 +496,31 @@ class TestGetHistory:
 
     def test_custom_limit(self, handler):
         mock_h = _MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/agent-selection/history", {"limit": "5"}, mock_h
-        )
+        result = handler.handle("/api/v1/agent-selection/history", {"limit": "5"}, mock_h)
         body = _body(result)
         assert body["limit"] == 5
 
     def test_custom_offset(self, handler):
         mock_h = _MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/agent-selection/history", {"offset": "10"}, mock_h
-        )
+        result = handler.handle("/api/v1/agent-selection/history", {"offset": "10"}, mock_h)
         body = _body(result)
         assert body["offset"] == 10
 
     def test_limit_clamped_to_max(self, handler):
         mock_h = _MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/agent-selection/history", {"limit": "9999"}, mock_h
-        )
+        result = handler.handle("/api/v1/agent-selection/history", {"limit": "9999"}, mock_h)
         body = _body(result)
         assert body["limit"] == 500
 
     def test_limit_clamped_to_min(self, handler):
         mock_h = _MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/agent-selection/history", {"limit": "0"}, mock_h
-        )
+        result = handler.handle("/api/v1/agent-selection/history", {"limit": "0"}, mock_h)
         body = _body(result)
         assert body["limit"] == 1
 
     def test_offset_clamped_to_min(self, handler):
         mock_h = _MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/agent-selection/history", {"offset": "-5"}, mock_h
-        )
+        result = handler.handle("/api/v1/agent-selection/history", {"offset": "-5"}, mock_h)
         body = _body(result)
         assert body["offset"] == 0
 
@@ -1033,9 +1024,7 @@ class TestAssignRoles:
         assert _status(result) == 400
 
     def test_empty_agents_returns_400(self, handler):
-        mock_h = _MockHTTPHandler(
-            body={"task_description": "Build a tool", "agents": []}
-        )
+        mock_h = _MockHTTPHandler(body={"task_description": "Build a tool", "agents": []})
         result = handler.handle_post("/api/v1/selection/assign-roles", {}, mock_h)
         assert _status(result) == 400
 
@@ -1198,6 +1187,7 @@ class TestGetTeamBuilder:
 
     def test_returns_team_builder(self):
         from aragora.routing.team_builder import TeamBuilder
+
         tb = get_team_builder()
         assert isinstance(tb, TeamBuilder)
 

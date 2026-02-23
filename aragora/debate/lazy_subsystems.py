@@ -177,7 +177,9 @@ def create_lazy_knowledge_mound(arena: Arena):
             auto_initialize=True,
         )
         logger.info(
-            "[lazy] Auto-created KM instance for debate (retrieval=%s, ingestion=%s)", arena.enable_knowledge_retrieval, arena.enable_knowledge_ingestion
+            "[lazy] Auto-created KM instance for debate (retrieval=%s, ingestion=%s)",
+            arena.enable_knowledge_retrieval,
+            arena.enable_knowledge_ingestion,
         )
         return mound
     except ImportError as e:

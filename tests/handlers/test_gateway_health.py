@@ -187,9 +187,7 @@ class MockAgentAsyncAvailable:
 @pytest.fixture(autouse=True)
 def _patch_gateway_available():
     """Ensure GATEWAY_AVAILABLE is True by default for most tests."""
-    with patch(
-        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE", True
-    ):
+    with patch("aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE", True):
         yield
 
 
@@ -212,34 +210,40 @@ def handler():
 @pytest.fixture
 def handler_with_agents():
     """Create a handler with pre-registered healthy agents."""
-    return GatewayHealthHandler(ctx={
-        "external_agents": {
-            "agent-1": MockAgent(available=True, agent_type="crewai"),
-            "agent-2": MockAgent(available=True, agent_type="langgraph"),
+    return GatewayHealthHandler(
+        ctx={
+            "external_agents": {
+                "agent-1": MockAgent(available=True, agent_type="crewai"),
+                "agent-2": MockAgent(available=True, agent_type="langgraph"),
+            }
         }
-    })
+    )
 
 
 @pytest.fixture
 def handler_mixed_agents():
     """Create a handler with a mix of healthy and unhealthy agents."""
-    return GatewayHealthHandler(ctx={
-        "external_agents": {
-            "healthy": MockAgent(available=True, agent_type="crewai"),
-            "unhealthy": MockAgent(available=False, agent_type="langgraph"),
+    return GatewayHealthHandler(
+        ctx={
+            "external_agents": {
+                "healthy": MockAgent(available=True, agent_type="crewai"),
+                "unhealthy": MockAgent(available=False, agent_type="langgraph"),
+            }
         }
-    })
+    )
 
 
 @pytest.fixture
 def handler_all_unhealthy():
     """Create a handler with only unhealthy agents."""
-    return GatewayHealthHandler(ctx={
-        "external_agents": {
-            "down-1": MockAgent(available=False, agent_type="crewai"),
-            "down-2": MockAgent(available=False, agent_type="langgraph"),
+    return GatewayHealthHandler(
+        ctx={
+            "external_agents": {
+                "down-1": MockAgent(available=False, agent_type="crewai"),
+                "down-2": MockAgent(available=False, agent_type="langgraph"),
+            }
         }
-    })
+    )
 
 
 # ===========================================================================
@@ -539,8 +543,7 @@ class TestOverallHealth:
     def test_many_agents_all_healthy(self, handler):
         """Health check with many agents all healthy."""
         handler.ctx["external_agents"] = {
-            f"agent-{i}": MockAgent(available=True, agent_type=f"type-{i}")
-            for i in range(20)
+            f"agent-{i}": MockAgent(available=True, agent_type=f"type-{i}") for i in range(20)
         }
         http = MockHTTPHandler()
         result = handler.handle("/api/v1/gateway/health", {}, http)
@@ -551,10 +554,7 @@ class TestOverallHealth:
 
     def test_one_unhealthy_of_many(self, handler):
         """One unhealthy agent among many => degraded."""
-        agents = {
-            f"agent-{i}": MockAgent(available=True)
-            for i in range(9)
-        }
+        agents = {f"agent-{i}": MockAgent(available=True) for i in range(9)}
         agents["sick"] = MockAgent(available=False)
         handler.ctx["external_agents"] = agents
         http = MockHTTPHandler()
@@ -575,9 +575,7 @@ class TestAgentHealth:
     def test_healthy_agent(self, handler_with_agents):
         """Agent that is available => healthy status."""
         http = MockHTTPHandler()
-        result = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http
-        )
+        result = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "agent-1"
@@ -589,11 +587,13 @@ class TestAgentHealth:
 
     def test_unhealthy_agent(self):
         """Agent that is not available => unhealthy status."""
-        h = GatewayHealthHandler(ctx={
-            "external_agents": {
-                "down": MockAgent(available=False, agent_type="crewai"),
+        h = GatewayHealthHandler(
+            ctx={
+                "external_agents": {
+                    "down": MockAgent(available=False, agent_type="crewai"),
+                }
             }
-        })
+        )
         http = MockHTTPHandler()
         result = h.handle("/api/v1/gateway/agents/down/health", {}, http)
         assert _status(result) == 200
@@ -604,18 +604,14 @@ class TestAgentHealth:
     def test_agent_not_found(self, handler):
         """Non-existent agent => 404."""
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/nonexistent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/nonexistent/health", {}, http)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
     def test_agent_not_found_with_agents_registered(self, handler_with_agents):
         """Agent not in registry => 404 even when other agents exist."""
         http = MockHTTPHandler()
-        result = handler_with_agents.handle(
-            "/api/v1/gateway/agents/missing/health", {}, http
-        )
+        result = handler_with_agents.handle("/api/v1/gateway/agents/missing/health", {}, http)
         assert _status(result) == 404
 
     def test_agent_without_is_available(self, handler):
@@ -624,9 +620,7 @@ class TestAgentHealth:
             "no-check": MockAgentNoIsAvailable(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/no-check/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/no-check/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unhealthy"
@@ -637,9 +631,7 @@ class TestAgentHealth:
             "faulty": MockAgentRaisesAttributeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/faulty/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/faulty/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unknown"
@@ -650,9 +642,7 @@ class TestAgentHealth:
             "broken": MockAgentRaisesTypeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/broken/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/broken/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unknown"
@@ -663,9 +653,7 @@ class TestAgentHealth:
             "bad-val": MockAgentRaisesValueError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/bad-val/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/bad-val/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unknown"
@@ -676,9 +664,7 @@ class TestAgentHealth:
             "crashed": MockAgentRaisesRuntimeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/crashed/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/crashed/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unavailable"
@@ -689,9 +675,7 @@ class TestAgentHealth:
             "timeout": MockAgentRaisesTimeoutError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/timeout/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/timeout/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unavailable"
@@ -702,9 +686,7 @@ class TestAgentHealth:
             "network": MockAgentRaisesOSError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/network/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/network/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "unavailable"
@@ -715,9 +697,7 @@ class TestAgentHealth:
             "with-url": MockAgent(base_url="https://agent.example.com"),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/with-url/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/with-url/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["base_url"] == "https://agent.example.com"
@@ -729,9 +709,7 @@ class TestAgentHealth:
         agent.agent_type = "custom"
         handler.ctx["external_agents"] = {"no-url": agent}
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/no-url/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/no-url/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["base_url"] is None
@@ -739,9 +717,7 @@ class TestAgentHealth:
     def test_framework_from_agent_type(self, handler_with_agents):
         """Framework field comes from agent.agent_type."""
         http = MockHTTPHandler()
-        result = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http
-        )
+        result = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http)
         body = _body(result)
         assert body["framework"] == "crewai"
 
@@ -751,18 +727,14 @@ class TestAgentHealth:
         agent.is_available.return_value = True
         handler.ctx["external_agents"] = {"bare": agent}
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/bare/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/bare/health", {}, http)
         body = _body(result)
         assert body["framework"] == "unknown"
 
     def test_response_time_ms_is_number(self, handler_with_agents):
         """response_time_ms should be a float."""
         http = MockHTTPHandler()
-        result = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http
-        )
+        result = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http)
         body = _body(result)
         assert isinstance(body["response_time_ms"], (int, float))
 
@@ -770,9 +742,7 @@ class TestAgentHealth:
         """ctx with external_agents=None => agent not found."""
         handler.ctx["external_agents"] = None
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/anything/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/anything/health", {}, http)
         assert _status(result) == 404
 
 
@@ -836,9 +806,7 @@ class TestGatewayUnavailable:
 
     @pytest.fixture(autouse=True)
     def _disable_gateway(self):
-        with patch(
-            "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE", False):
             yield
 
     def test_overall_health_503(self, handler):
@@ -849,9 +817,7 @@ class TestGatewayUnavailable:
 
     def test_agent_health_503(self, handler):
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/some-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/some-agent/health", {}, http)
         assert _status(result) == 503
         assert "not available" in _body(result).get("error", "").lower()
 
@@ -954,6 +920,7 @@ class TestModuleExports:
 
     def test_handler_class_importable(self):
         from aragora.server.handlers.gateway_health_handler import GatewayHealthHandler
+
         assert GatewayHealthHandler is not None
 
 
@@ -968,9 +935,7 @@ class TestSecurity:
     def test_path_traversal_in_agent_name(self, handler):
         """Path traversal in agent name should not cause issues."""
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/../../etc/passwd/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/../../etc/passwd/health", {}, http)
         # Either None (not matched due to segment count) or 404 (not found)
         if result is not None:
             assert _status(result) in (404, 503)
@@ -978,9 +943,7 @@ class TestSecurity:
     def test_null_byte_in_agent_name(self, handler):
         """Null byte in agent name should not cause crashes."""
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/agent\x00evil/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/agent\x00evil/health", {}, http)
         if result is not None:
             assert _status(result) in (404, 503)
 
@@ -989,9 +952,7 @@ class TestSecurity:
         handler.ctx["external_agents"] = {}
         http = MockHTTPHandler()
         # The slash in the SQL injection changes segment count
-        result = handler.handle(
-            "/api/v1/gateway/agents/'; DROP TABLE agents;--/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/'; DROP TABLE agents;--/health", {}, http)
         if result is not None:
             assert _status(result) in (404, 503)
 
@@ -999,9 +960,7 @@ class TestSecurity:
         """XSS attempt in agent name should not cause issues."""
         handler.ctx["external_agents"] = {}
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/<script>alert(1)</script>/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/<script>alert(1)</script>/health", {}, http)
         if result is not None:
             assert _status(result) in (404, 503)
 
@@ -1010,9 +969,7 @@ class TestSecurity:
         handler.ctx["external_agents"] = {}
         long_name = "a" * 10000
         http = MockHTTPHandler()
-        result = handler.handle(
-            f"/api/v1/gateway/agents/{long_name}/health", {}, http
-        )
+        result = handler.handle(f"/api/v1/gateway/agents/{long_name}/health", {}, http)
         if result is not None:
             assert _status(result) == 404
 
@@ -1020,9 +977,7 @@ class TestSecurity:
         """Unicode in agent name should be handled gracefully."""
         handler.ctx["external_agents"] = {}
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/\u00e9l\u00e8ve/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/\u00e9l\u00e8ve/health", {}, http)
         if result is not None:
             assert _status(result) == 404
 
@@ -1041,9 +996,7 @@ class TestPathParsing:
             "test-agent": MockAgent(available=True),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/test-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/test-agent/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "test-agent"
@@ -1054,9 +1007,7 @@ class TestPathParsing:
             "my-cool-agent": MockAgent(available=True),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/my-cool-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/my-cool-agent/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "my-cool-agent"
@@ -1067,9 +1018,7 @@ class TestPathParsing:
             "agent42": MockAgent(available=True),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/agent42/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/agent42/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "agent42"
@@ -1081,9 +1030,7 @@ class TestPathParsing:
             "name": MockAgent(available=True),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/name/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/name/health", {}, http)
         assert _status(result) == 200
 
     def test_path_too_few_segments(self, handler):
@@ -1100,9 +1047,7 @@ class TestPathParsing:
     def test_case_sensitive_health_path(self, handler):
         """Path matching is case-sensitive: /Health should not match."""
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/name/Health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/name/Health", {}, http)
         assert result is None
 
     def test_case_sensitive_gateway_path(self, handler):
@@ -1197,9 +1142,7 @@ class TestHandleDispatch:
             "my-agent": MockAgent(available=True),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/my-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/my-agent/health", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["name"] == "my-agent"
@@ -1227,9 +1170,7 @@ class TestAgentHealthErrorFramework:
             "err-agent": MockAgentRaisesAttributeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/err-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/err-agent/health", {}, http)
         body = _body(result)
         assert body["framework"] == "faulty"
 
@@ -1238,9 +1179,7 @@ class TestAgentHealthErrorFramework:
             "runtime-agent": MockAgentRaisesRuntimeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/runtime-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/runtime-agent/health", {}, http)
         body = _body(result)
         assert body["framework"] == "runtime_fail"
 
@@ -1249,9 +1188,7 @@ class TestAgentHealthErrorFramework:
             "to-agent": MockAgentRaisesTimeoutError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/to-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/to-agent/health", {}, http)
         body = _body(result)
         assert body["framework"] == "timeout_agent"
 
@@ -1260,9 +1197,7 @@ class TestAgentHealthErrorFramework:
             "os-agent": MockAgentRaisesOSError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/os-agent/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/os-agent/health", {}, http)
         body = _body(result)
         assert body["framework"] == "network_fail"
 
@@ -1317,13 +1252,15 @@ class TestResponseStructure:
     def test_individual_health_response_keys(self, handler_with_agents):
         """Individual agent health response contains all required keys."""
         http = MockHTTPHandler()
-        result = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http
-        )
+        result = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http)
         body = _body(result)
         assert set(body.keys()) == {
-            "name", "status", "framework", "base_url",
-            "last_check", "response_time_ms",
+            "name",
+            "status",
+            "framework",
+            "base_url",
+            "last_check",
+            "response_time_ms",
         }
 
 
@@ -1347,13 +1284,9 @@ class TestIdempotency:
     def test_agent_health_idempotent(self, handler_with_agents):
         """Two consecutive agent health calls should return same status."""
         http1 = MockHTTPHandler()
-        result1 = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http1
-        )
+        result1 = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http1)
         http2 = MockHTTPHandler()
-        result2 = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http2
-        )
+        result2 = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http2)
         assert _body(result1)["status"] == _body(result2)["status"]
         assert _body(result1)["name"] == _body(result2)["name"]
 
@@ -1362,9 +1295,7 @@ class TestIdempotency:
         http1 = MockHTTPHandler()
         overall = handler_with_agents.handle("/api/v1/gateway/health", {}, http1)
         http2 = MockHTTPHandler()
-        individual = handler_with_agents.handle(
-            "/api/v1/gateway/agents/agent-1/health", {}, http2
-        )
+        individual = handler_with_agents.handle("/api/v1/gateway/agents/agent-1/health", {}, http2)
         overall_agent = _body(overall)["agents"]["agent-1"]
         individual_body = _body(individual)
         assert overall_agent["status"] == individual_body["status"]
@@ -1412,9 +1343,7 @@ class TestAgentHealthResponseTime:
             "err": MockAgentRaisesAttributeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/err/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/err/health", {}, http)
         body = _body(result)
         assert "response_time_ms" in body
         assert isinstance(body["response_time_ms"], (int, float))
@@ -1425,9 +1354,7 @@ class TestAgentHealthResponseTime:
             "err": MockAgentRaisesRuntimeError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/err/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/err/health", {}, http)
         body = _body(result)
         assert "response_time_ms" in body
         assert body["response_time_ms"] >= 0
@@ -1437,9 +1364,7 @@ class TestAgentHealthResponseTime:
             "err": MockAgentRaisesTimeoutError(),
         }
         http = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/gateway/agents/err/health", {}, http
-        )
+        result = handler.handle("/api/v1/gateway/agents/err/health", {}, http)
         body = _body(result)
         assert "response_time_ms" in body
         assert body["response_time_ms"] >= 0

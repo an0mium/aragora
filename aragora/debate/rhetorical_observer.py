@@ -374,9 +374,7 @@ class StructuralAnalyzer:
 
         return result
 
-    def _detect_fallacies(
-        self, content: str, agent: str, round_num: int
-    ) -> list[FallacyDetection]:
+    def _detect_fallacies(self, content: str, agent: str, round_num: int) -> list[FallacyDetection]:
         """Detect logical fallacies using keyword and pattern matching."""
         content_lower = content.lower()
         detected: list[FallacyDetection] = []
@@ -407,9 +405,7 @@ class StructuralAnalyzer:
 
             confidence = min(1.0, score)
             if confidence >= 0.3:
-                excerpt = matched_excerpt or self._find_fallacy_excerpt(
-                    content, fallacy_type
-                )
+                excerpt = matched_excerpt or self._find_fallacy_excerpt(content, fallacy_type)
                 detected.append(
                     FallacyDetection(
                         fallacy_type=fallacy_type,
@@ -436,9 +432,7 @@ class StructuralAnalyzer:
 
         return sentences[0].strip()[:150] if sentences else content[:100]
 
-    def _extract_premise_chains(
-        self, content: str, agent: str
-    ) -> list[PremiseChain]:
+    def _extract_premise_chains(self, content: str, agent: str) -> list[PremiseChain]:
         """Extract premise-conclusion chains from content."""
         chains: list[PremiseChain] = []
         sentences = re.split(r"[.!?]+", content)
@@ -458,9 +452,7 @@ class StructuralAnalyzer:
 
                 if premises:
                     # Check for gaps: premises with no causal connectors
-                    has_gap = not any(
-                        self._PREMISE_MARKERS.search(p) for p in premises
-                    )
+                    has_gap = not any(self._PREMISE_MARKERS.search(p) for p in premises)
                     chains.append(
                         PremiseChain(
                             premises=premises,
@@ -517,10 +509,7 @@ class StructuralAnalyzer:
                 if not has_evidence:
                     # Check adjacent sentences
                     prev_has = i > 0 and evidence_pattern.search(sentences[i - 1])
-                    next_has = (
-                        i < len(sentences) - 1
-                        and evidence_pattern.search(sentences[i + 1])
-                    )
+                    next_has = i < len(sentences) - 1 and evidence_pattern.search(sentences[i + 1])
                     if not prev_has and not next_has:
                         unsupported.append(sentence[:200])
 
@@ -565,9 +554,7 @@ class StructuralAnalyzer:
 
         return contradictions
 
-    def _extract_claim_relationships(
-        self, content: str, agent: str
-    ) -> list[ClaimRelationship]:
+    def _extract_claim_relationships(self, content: str, agent: str) -> list[ClaimRelationship]:
         """Extract relationships between claims in the content and prior claims."""
         relationships: list[ClaimRelationship] = []
         sentences = re.split(r"[.!?]+", content)
@@ -1022,7 +1009,14 @@ class RhetoricalAnalysisObserver:
                         },
                     }
                 )
-            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
+            except (
+                TypeError,
+                ValueError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.warning("rhetorical_broadcast_failed error=%s", e)
 
         return observations

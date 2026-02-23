@@ -249,6 +249,7 @@ def reset_rate_limiters():
     yield
     try:
         from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
         clear_all_limiters()
     except ImportError:
         pass
@@ -577,9 +578,7 @@ class TestGetRun:
     async def test_get_run_does_not_match_cancel_path(self, handler, http_handler):
         """GET to /runs/:id/cancel should not be treated as get_run."""
         handler._store = MagicMock()
-        result = await handler.handle(
-            "/api/self-improve/runs/run-001/cancel", {}, http_handler
-        )
+        result = await handler.handle("/api/self-improve/runs/run-001/cancel", {}, http_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -963,9 +962,7 @@ class TestCancelRun:
     async def test_cancel_run(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/self-improve/runs/run-001/cancel", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/runs/run-001/cancel", {}, http)
         body = _body(result)
         assert body["status"] == "cancelled"
         assert body["run_id"] == "run-001"
@@ -975,9 +972,7 @@ class TestCancelRun:
         handler._store = mock_store
         mock_store.cancel_run.return_value = None
         http = MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/self-improve/runs/nonexistent/cancel", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/runs/nonexistent/cancel", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -988,9 +983,7 @@ class TestCancelRun:
         _active_tasks["run-001"] = mock_task
 
         http = MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/self-improve/runs/run-001/cancel", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/runs/run-001/cancel", {}, http)
         mock_task.cancel.assert_called_once()
         assert "run-001" not in _active_tasks
 
@@ -1010,9 +1003,7 @@ class TestCancelRun:
         handler._store = None
         with patch.object(handler, "_get_store", return_value=None):
             http = MockHTTPHandler(body={})
-            result = await handler.handle_post(
-                "/api/self-improve/runs/run-001/cancel", {}, http
-            )
+            result = await handler.handle_post("/api/self-improve/runs/run-001/cancel", {}, http)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -1020,9 +1011,7 @@ class TestCancelRun:
         """Cancel a run that has no active task (already cleaned up)."""
         handler._store = mock_store
         http = MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/self-improve/runs/run-001/cancel", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/runs/run-001/cancel", {}, http)
         body = _body(result)
         assert body["status"] == "cancelled"
 
@@ -1030,9 +1019,7 @@ class TestCancelRun:
     async def test_cancel_200_status(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={})
-        result = await handler.handle_post(
-            "/api/self-improve/runs/run-001/cancel", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/runs/run-001/cancel", {}, http)
         assert _status(result) == 200
 
 
@@ -1167,9 +1154,7 @@ class TestExecuteCoordination:
     async def test_coordination_failure(self, handler, mock_store):
         handler._store = mock_store
 
-        mock_result = MockCoordinationResult(
-            success=False, cycles_used=3, worker_reports=[]
-        )
+        mock_result = MockCoordinationResult(success=False, cycles_used=3, worker_reports=[])
 
         mock_coordinator = MagicMock()
         mock_coordinator.coordinate = AsyncMock(return_value=mock_result)
@@ -1285,9 +1270,7 @@ class TestExecuteRun:
         handler._store = mock_store
 
         with patch.object(handler, "_execute_coordination", new_callable=AsyncMock) as mock_coord:
-            await handler._execute_run(
-                "run-e01", "Test", None, "hierarchical", None, 3
-            )
+            await handler._execute_run("run-e01", "Test", None, "hierarchical", None, 3)
         mock_coord.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -1327,15 +1310,13 @@ class TestExecuteRun:
 
         with patch.object(handler, "_get_stream_server", return_value=None):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                with patch.dict(
+                    "sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}
+                ):
                     await handler._execute_run("run-e04", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "completed"
-            for c in update_calls
-            if c[0][0] == "run-e04"
-        )
+        assert any(c[1].get("status") == "completed" for c in update_calls if c[0][0] == "run-e04")
 
     @pytest.mark.asyncio
     async def test_execute_run_both_fail(self, handler, mock_store):
@@ -1348,11 +1329,7 @@ class TestExecuteRun:
                     await handler._execute_run("run-e05", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "failed"
-            for c in update_calls
-            if c[0][0] == "run-e05"
-        )
+        assert any(c[1].get("status") == "failed" for c in update_calls if c[0][0] == "run-e05")
 
     @pytest.mark.asyncio
     async def test_execute_run_clears_active_tasks(self, handler, mock_store):
@@ -1439,7 +1416,9 @@ class TestExecuteRun:
 
         with patch.object(handler, "_get_stream_server", return_value=mock_stream):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_pipeline_module}):
-                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                with patch.dict(
+                    "sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}
+                ):
                     await handler._execute_run("run-e09", "Test", None, "flat", None, 5)
 
         mock_stream.emit_error.assert_awaited_once()
@@ -1459,7 +1438,9 @@ class TestExecuteRun:
 
         with patch.object(handler, "_get_stream_server", return_value=mock_stream):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                with patch.dict(
+                    "sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}
+                ):
                     await handler._execute_run("run-e10", "Test", None, "flat", None, 5)
 
         mock_stream.emit_error.assert_awaited()
@@ -1480,7 +1461,9 @@ class TestExecuteRun:
 
         with patch.object(handler, "_get_stream_server", return_value=mock_stream):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                with patch.dict(
+                    "sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}
+                ):
                     await handler._execute_run("run-e11", "Test", None, "flat", None, 5)
 
         # Should not raise
@@ -1511,11 +1494,7 @@ class TestPipelineZeroCompleted:
                 await handler._execute_run("run-zero", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "failed"
-            for c in update_calls
-            if c[0][0] == "run-zero"
-        )
+        assert any(c[1].get("status") == "failed" for c in update_calls if c[0][0] == "run-zero")
 
 
 # ===========================================================================
@@ -1537,14 +1516,14 @@ class TestOrchestratorStatusMapping:
 
         with patch.object(handler, "_get_stream_server", return_value=None):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_module}):
+                with patch.dict(
+                    "sys.modules", {"aragora.nomic.hardened_orchestrator": mock_module}
+                ):
                     await handler._execute_run("run-orch-ok", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
         assert any(
-            c[1].get("status") == "completed"
-            for c in update_calls
-            if c[0][0] == "run-orch-ok"
+            c[1].get("status") == "completed" for c in update_calls if c[0][0] == "run-orch-ok"
         )
 
     @pytest.mark.asyncio
@@ -1558,14 +1537,14 @@ class TestOrchestratorStatusMapping:
 
         with patch.object(handler, "_get_stream_server", return_value=None):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_module}):
+                with patch.dict(
+                    "sys.modules", {"aragora.nomic.hardened_orchestrator": mock_module}
+                ):
                     await handler._execute_run("run-orch-fail", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
         assert any(
-            c[1].get("status") == "failed"
-            for c in update_calls
-            if c[0][0] == "run-orch-fail"
+            c[1].get("status") == "failed" for c in update_calls if c[0][0] == "run-orch-fail"
         )
 
 
@@ -1648,9 +1627,7 @@ class TestWorktrees:
 
         with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             http = MockHTTPHandler(body={})
-            result = await handler.handle_post(
-                "/api/self-improve/worktrees/cleanup", {}, http
-            )
+            result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         body = _body(result)
         assert body["status"] == "cleaned"
@@ -1660,22 +1637,20 @@ class TestWorktrees:
     async def test_cleanup_worktrees_import_error(self, handler):
         with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": None}):
             http = MockHTTPHandler(body={})
-            result = await handler.handle_post(
-                "/api/self-improve/worktrees/cleanup", {}, http
-            )
+            result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_cleanup_worktrees_os_error(self, handler):
         mock_module = MagicMock()
-        mock_module.BranchCoordinator.return_value.cleanup_all_worktrees.side_effect = OSError("disk")
+        mock_module.BranchCoordinator.return_value.cleanup_all_worktrees.side_effect = OSError(
+            "disk"
+        )
 
         with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             http = MockHTTPHandler(body={})
-            result = await handler.handle_post(
-                "/api/self-improve/worktrees/cleanup", {}, http
-            )
+            result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         assert _status(result) == 503
 
@@ -1686,9 +1661,7 @@ class TestWorktrees:
 
         with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             http = MockHTTPHandler(body={})
-            result = await handler.handle_post(
-                "/api/self-improve/worktrees/cleanup", {}, http
-            )
+            result = await handler.handle_post("/api/self-improve/worktrees/cleanup", {}, http)
 
         assert _status(result) == 503
 

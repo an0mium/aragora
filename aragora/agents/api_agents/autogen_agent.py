@@ -267,7 +267,8 @@ class AutoGenAgent(ExternalFrameworkAgent):
 
         if self.autogen_config.audit_all_requests:
             logger.info(
-                "[%s] AutoGen request", self.name,
+                "[%s] AutoGen request",
+                self.name,
                 extra={
                     "prompt_length": len(prompt),
                     "mode": self.autogen_config.mode,
@@ -307,7 +308,8 @@ class AutoGenAgent(ExternalFrameworkAgent):
 
         if self.autogen_config.audit_all_requests:
             logger.info(
-                "[%s] Initiating AutoGen chat", self.name,
+                "[%s] Initiating AutoGen chat",
+                self.name,
                 extra={
                     "conversation_id": conversation_id,
                     "agents": agents,
@@ -439,7 +441,10 @@ class AutoGenAgent(ExternalFrameworkAgent):
         available = await super().is_available()
         if available:
             logger.debug(
-                "[%s] AutoGen available at %s (mode=%s)", self.name, self.base_url, self.autogen_config.mode
+                "[%s] AutoGen available at %s (mode=%s)",
+                self.name,
+                self.base_url,
+                self.autogen_config.mode,
             )
         return available
 

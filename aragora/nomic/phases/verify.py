@@ -348,7 +348,9 @@ class VerifyPhase:
                 + (" (no tests collected)" if no_tests_collected else "")
             )
             self._stream_emit(
-                "on_verification_result", "tests", passed,
+                "on_verification_result",
+                "tests",
+                passed,
                 result.stdout[-200:] if result.stdout else "",
             )
             return check
@@ -391,7 +393,9 @@ class VerifyPhase:
                 + (" (no tests collected)" if no_tests_collected else "")
             )
             self._stream_emit(
-                "on_verification_result", "tests", passed,
+                "on_verification_result",
+                "tests",
+                passed,
                 stdout_text[-200:] if stdout_text else "",
             )
             return check

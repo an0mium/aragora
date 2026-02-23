@@ -58,10 +58,12 @@ class MockHTTPHandler:
 
     path: str = "/"
     command: str = "POST"
-    headers: dict[str, str] = field(default_factory=lambda: {
-        "Content-Length": "0",
-        "Content-Type": "application/json",
-    })
+    headers: dict[str, str] = field(
+        default_factory=lambda: {
+            "Content-Length": "0",
+            "Content-Type": "application/json",
+        }
+    )
     client_address: tuple = ("127.0.0.1", 12345)
     _body: dict[str, Any] | None = None
 
@@ -209,6 +211,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -217,6 +220,7 @@ def reset_rate_limiters():
         from aragora.server.middleware.rate_limit.registry import (
             reset_rate_limiters as _reset,
         )
+
         _reset()
     except ImportError:
         pass
@@ -268,7 +272,9 @@ class TestFolderUploadJob:
         assert d["user_id"] == "test-user-001"
 
     def test_to_dict_scan_section(self):
-        job = _make_job(total_files_found=20, included_count=15, excluded_count=5, total_size_bytes=4096)
+        job = _make_job(
+            total_files_found=20, included_count=15, excluded_count=5, total_size_bytes=4096
+        )
         d = job.to_dict()
         assert d["scan"]["total_files_found"] == 20
         assert d["scan"]["included_count"] == 15
@@ -598,9 +604,7 @@ class TestGetUploadStatus:
         FolderUploadHandler._jobs["job-100"] = job
 
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/job-100/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/job-100/status", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["folder_id"] == "job-100"
@@ -608,9 +612,7 @@ class TestGetUploadStatus:
 
     def test_status_not_found(self, handler):
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/nonexistent/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/nonexistent/status", {}, http)
         assert _status(result) == 404
 
     def test_status_contains_progress(self, handler):
@@ -623,9 +625,7 @@ class TestGetUploadStatus:
         FolderUploadHandler._jobs["job-200"] = job
 
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/job-200/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/job-200/status", {}, http)
         body = _body(result)
         assert body["progress"]["files_uploaded"] == 3
         assert body["progress"]["percent_complete"] == 30.0
@@ -641,9 +641,7 @@ class TestGetUploadStatus:
         FolderUploadHandler._jobs["job-300"] = job
 
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/job-300/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/job-300/status", {}, http)
         body = _body(result)
         assert body["scan"]["total_files_found"] == 50
         assert body["scan"]["included_count"] == 40
@@ -653,9 +651,7 @@ class TestGetUploadStatus:
         FolderUploadHandler._jobs["job-pending"] = job
 
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/job-pending/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/job-pending/status", {}, http)
         body = _body(result)
         assert body["status"] == "pending"
 
@@ -668,9 +664,7 @@ class TestGetUploadStatus:
         FolderUploadHandler._jobs["job-fail"] = job
 
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/job-fail/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/job-fail/status", {}, http)
         body = _body(result)
         assert body["status"] == "failed"
         assert body["results"]["error_count"] == 1
@@ -785,15 +779,15 @@ class TestScanFolder:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             http = _make_http(body={"path": str(tmp_path)})
-            result = await handler.handle_post(
-                "/api/v1/documents/folder/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/documents/folder/scan", {}, http)
             assert _status(result) == 200
             body = _body(result)
             assert body["total_files_found"] == 5
@@ -802,9 +796,7 @@ class TestScanFolder:
     async def test_scan_import_error_returns_503(self, handler, tmp_path):
         with patch.dict("sys.modules", {"aragora.documents.folder": None}):
             http = _make_http(body={"path": str(tmp_path)})
-            result = await handler.handle_post(
-                "/api/v1/documents/folder/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/documents/folder/scan", {}, http)
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -822,15 +814,15 @@ class TestScanFolder:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(),
-                FolderUploadConfig=MagicMock(side_effect=config_side_effect),
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(),
+                    FolderUploadConfig=MagicMock(side_effect=config_side_effect),
+                )
+            },
         ):
             http = _make_http(body={"path": str(tmp_path)})
-            result = await handler.handle_post(
-                "/api/v1/documents/folder/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/documents/folder/scan", {}, http)
             assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -844,15 +836,15 @@ class TestScanFolder:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             http = _make_http(body={"path": str(tmp_path)})
-            result = await handler.handle_post(
-                "/api/v1/documents/folder/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/documents/folder/scan", {}, http)
             assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -867,24 +859,26 @@ class TestScanFolder:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
-            http = _make_http(body={
-                "path": str(tmp_path),
-                "config": {
-                    "maxDepth": 5,
-                    "excludePatterns": ["*.log"],
-                    "maxFileSizeMb": 50,
-                    "maxTotalSizeMb": 200,
-                    "maxFileCount": 500,
-                },
-            })
-            result = await handler.handle_post(
-                "/api/v1/documents/folder/scan", {}, http
+            http = _make_http(
+                body={
+                    "path": str(tmp_path),
+                    "config": {
+                        "maxDepth": 5,
+                        "excludePatterns": ["*.log"],
+                        "maxFileSizeMb": 50,
+                        "maxTotalSizeMb": 200,
+                        "maxFileCount": 500,
+                    },
+                }
             )
+            result = await handler.handle_post("/api/v1/documents/folder/scan", {}, http)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -920,17 +914,13 @@ class TestStartUpload:
     @pytest.mark.asyncio
     async def test_upload_missing_path(self, handler):
         http = _make_http(body={})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_upload_nonexistent_path(self, handler):
         http = _make_http(body={"path": "/nonexistent/xxx/yyy"})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
@@ -938,9 +928,7 @@ class TestStartUpload:
         f = tmp_path / "file.txt"
         f.write_text("content")
         http = _make_http(body={"path": str(f)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -954,9 +942,7 @@ class TestStartUpload:
             [allowed.resolve()],
         )
         http = _make_http(body={"path": str(target)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         assert _status(result) == 403
 
     @pytest.mark.asyncio
@@ -964,9 +950,7 @@ class TestStartUpload:
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
 
         http = _make_http(body={"path": str(tmp_path)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert "folder_id" in body
@@ -978,9 +962,7 @@ class TestStartUpload:
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
 
         http = _make_http(body={"path": str(tmp_path)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         body = _body(result)
         folder_id = body["folder_id"]
         assert folder_id in FolderUploadHandler._jobs
@@ -993,9 +975,7 @@ class TestStartUpload:
 
         config = {"maxDepth": 3, "excludePatterns": ["*.log"]}
         http = _make_http(body={"path": str(tmp_path), "config": config})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         body = _body(result)
         folder_id = body["folder_id"]
         assert FolderUploadHandler._jobs[folder_id].config == config
@@ -1011,9 +991,7 @@ class TestStartUpload:
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
 
         http = _make_http(body={"path": str(tmp_path)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         body = _body(result)
         job = FolderUploadHandler._jobs[body["folder_id"]]
         assert Path(job.root_path).is_absolute()
@@ -1023,9 +1001,7 @@ class TestStartUpload:
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
 
         http = _make_http(body={"path": str(tmp_path)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         body = _body(result)
         job = FolderUploadHandler._jobs[body["folder_id"]]
         assert job.user_id == "test-user-001"
@@ -1044,9 +1020,7 @@ class TestStartUpload:
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
 
         http = _make_http(body={"path": str(tmp_path)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         body = _body(result)
         job = FolderUploadHandler._jobs[body["folder_id"]]
         assert job.config == {}
@@ -1078,9 +1052,7 @@ class TestDeleteFolder:
         FolderUploadHandler._jobs["del-1"] = job
 
         http = _make_http()
-        result = handler.handle_delete(
-            "/api/v1/documents/folders/del-1", {}, http
-        )
+        result = handler.handle_delete("/api/v1/documents/folders/del-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
@@ -1088,9 +1060,7 @@ class TestDeleteFolder:
 
     def test_delete_not_found(self, handler):
         http = _make_http()
-        result = handler.handle_delete(
-            "/api/v1/documents/folders/missing-id", {}, http
-        )
+        result = handler.handle_delete("/api/v1/documents/folders/missing-id", {}, http)
         assert _status(result) == 404
 
     def test_delete_removes_job_from_store(self, handler):
@@ -1106,9 +1076,7 @@ class TestDeleteFolder:
         FolderUploadHandler._jobs["del-3"] = job
 
         http = _make_http()
-        result = handler.handle_delete(
-            "/api/v1/documents/folders/del-3", {}, http
-        )
+        result = handler.handle_delete("/api/v1/documents/folders/del-3", {}, http)
         body = _body(result)
         assert "success" in body
         assert "message" in body
@@ -1136,9 +1104,7 @@ class TestDeleteFolder:
         FolderUploadHandler._jobs["del-nouser"] = job
 
         http = _make_http()
-        result = handler.handle_delete(
-            "/api/v1/documents/folders/del-nouser", {}, http
-        )
+        result = handler.handle_delete("/api/v1/documents/folders/del-nouser", {}, http)
         assert _status(result) == 200
 
 
@@ -1162,9 +1128,7 @@ class TestHandleRouting:
         FolderUploadHandler._jobs["route-1"] = job
 
         http = _make_http()
-        result = handler.handle(
-            "/api/v1/documents/folder/upload/route-1/status", {}, http
-        )
+        result = handler.handle("/api/v1/documents/folder/upload/route-1/status", {}, http)
         assert _status(result) == 200
 
     def test_routes_to_folder_detail(self, handler):
@@ -1201,24 +1165,22 @@ class TestHandlePostRouting:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             http = _make_http(body={"path": str(tmp_path)})
-            result = await handler.handle_post(
-                "/api/v1/documents/folder/scan", {}, http
-            )
+            result = await handler.handle_post("/api/v1/documents/folder/scan", {}, http)
             assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_routes_to_upload(self, handler, tmp_path, monkeypatch):
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
         http = _make_http(body={"path": str(tmp_path)})
-        result = await handler.handle_post(
-            "/api/v1/documents/folder/upload", {}, http
-        )
+        result = await handler.handle_post("/api/v1/documents/folder/upload", {}, http)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1343,10 +1305,12 @@ class TestRunUploadJob:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             handler._run_upload_job("bg-1", tmp_path, {})
 
@@ -1380,10 +1344,12 @@ class TestRunUploadJob:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             handler._run_upload_job("bg-2", tmp_path, {})
 
@@ -1430,10 +1396,12 @@ class TestRunUploadJob:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             handler._run_upload_job("bg-4", tmp_path, {})
 
@@ -1494,10 +1462,12 @@ class TestRunUploadJob:
 
         with patch.dict(
             "sys.modules",
-            {"aragora.documents.folder": MagicMock(
-                FolderScanner=MagicMock(return_value=mock_scanner),
-                FolderUploadConfig=mock_config_cls,
-            )},
+            {
+                "aragora.documents.folder": MagicMock(
+                    FolderScanner=MagicMock(return_value=mock_scanner),
+                    FolderUploadConfig=mock_config_cls,
+                )
+            },
         ):
             handler._run_upload_job("bg-6", tmp_path, {})
 
@@ -1568,9 +1538,7 @@ class TestEdgeCases:
 
         def read_job():
             http = _make_http()
-            r = handler.handle(
-                "/api/v1/documents/folder/upload/conc-1/status", {}, http
-            )
+            r = handler.handle("/api/v1/documents/folder/upload/conc-1/status", {}, http)
             results.append(_status(r))
 
         threads = [threading.Thread(target=read_job) for _ in range(5)]
@@ -1587,9 +1555,7 @@ class TestEdgeCases:
         FolderUploadHandler._jobs[fid] = job
 
         http = _make_http()
-        result = handler.handle(
-            f"/api/v1/documents/folder/upload/{fid}/status", {}, http
-        )
+        result = handler.handle(f"/api/v1/documents/folder/upload/{fid}/status", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["folder_id"] == fid

@@ -97,7 +97,10 @@ class PolicyHistory:
                 self._history[policy_id] = self._history[policy_id][-self._max_versions :]
 
             logger.info(
-                "Policy version recorded: %s v%s by %s", policy.name, policy.version, changed_by or 'system'
+                "Policy version recorded: %s v%s by %s",
+                policy.name,
+                policy.version,
+                changed_by or "system",
             )
 
             return version
@@ -184,7 +187,12 @@ class PolicyHistory:
         )
 
         logger.info(
-            "Policy rolled back: %s from v%s to v%s (now v%s) by %s", policy_id, current_version, version, restored_policy.version, rolled_back_by or 'system'
+            "Policy rolled back: %s from v%s to v%s (now v%s) by %s",
+            policy_id,
+            current_version,
+            version,
+            restored_policy.version,
+            rolled_back_by or "system",
         )
 
         return restored_policy

@@ -341,9 +341,7 @@ class TestComputeStatsTopSenders:
         senders = [f"sender{i}@example.com" for i in range(8)]
         for i, sender in enumerate(senders):
             for _ in range(8 - i):
-                messages.append(
-                    _make_message(id=f"m-{sender}-{_}", sender_email=sender)
-                )
+                messages.append(_make_message(id=f"m-{sender}-{_}", sender_email=sender))
         stats = compute_stats([], messages)
         assert len(stats.top_senders) == 5
 
@@ -360,8 +358,7 @@ class TestComputeStatsTopSenders:
     def test_same_sender_multiple_messages(self):
         """Same sender across many messages produces single entry with total count."""
         messages = [
-            _make_message(id=f"m{i}", sender_email="frequent@example.com")
-            for i in range(20)
+            _make_message(id=f"m{i}", sender_email="frequent@example.com") for i in range(20)
         ]
         stats = compute_stats([], messages)
         assert len(stats.top_senders) == 1
@@ -464,17 +461,13 @@ class TestComputeStatsPendingTriage:
 
     def test_unread_with_triage_not_pending(self):
         """Unread message that already has a triage_action is not pending."""
-        messages = [
-            _make_message(is_read=False, triage_action=TriageAction.ARCHIVE)
-        ]
+        messages = [_make_message(is_read=False, triage_action=TriageAction.ARCHIVE)]
         stats = compute_stats([], messages)
         assert stats.pending_triage == 0
 
     def test_read_with_triage_not_pending(self):
         """Read message with triage_action is not pending."""
-        messages = [
-            _make_message(is_read=True, triage_action=TriageAction.RESPOND_URGENT)
-        ]
+        messages = [_make_message(is_read=True, triage_action=TriageAction.RESPOND_URGENT)]
         stats = compute_stats([], messages)
         assert stats.pending_triage == 0
 

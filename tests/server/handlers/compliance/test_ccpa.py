@@ -792,9 +792,7 @@ class TestCCPAErrorHandling:
     async def test_delete_handles_scheduler_error(self, ccpa_handler, mock_legal_hold_manager):
         """Delete handles scheduler errors."""
         mock_deletion_scheduler = MagicMock()
-        mock_deletion_scheduler.schedule_deletion.side_effect = OSError(
-            "Scheduler unavailable"
-        )
+        mock_deletion_scheduler.schedule_deletion.side_effect = OSError("Scheduler unavailable")
 
         with (
             patch(

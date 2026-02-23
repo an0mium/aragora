@@ -31,9 +31,7 @@ from aragora.server.handlers.utils.responses import HandlerResult
 
 _TEST_TOKEN = "test-token-123"
 
-_RUN_ASYNC_PATCH = (
-    "aragora.server.handlers.knowledge_base.mound.relationships._run_async"
-)
+_RUN_ASYNC_PATCH = "aragora.server.handlers.knowledge_base.mound.relationships._run_async"
 
 
 def _body(result) -> dict:
@@ -137,7 +135,9 @@ class MockRelationship:
     to_node_id: str = "node-002"
     relationship_type: str = "supports"
     strength: float = 0.9
-    created_at: datetime = field(default_factory=lambda: datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc))
+    created_at: datetime = field(
+        default_factory=lambda: datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    )
     created_by: str = "test-user"
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -193,7 +193,12 @@ def mock_mound():
     mound.get_relationships = MagicMock(
         return_value=[
             MockRelationship(id="rel-001", from_node_id="node-001", to_node_id="node-002"),
-            MockRelationship(id="rel-002", from_node_id="node-003", to_node_id="node-001", relationship_type="contradicts"),
+            MockRelationship(
+                id="rel-002",
+                from_node_id="node-003",
+                to_node_id="node-001",
+                relationship_type="contradicts",
+            ),
         ]
     )
     mound.add_relationship = MagicMock(return_value="rel-new-001")
@@ -400,9 +405,7 @@ class TestGetNodeRelationships:
 
     def test_relationship_created_at_none_serializes_as_none(self, handler, mock_mound):
         """Relationship with created_at=None serializes created_at as null."""
-        mock_mound.get_relationships = MagicMock(
-            return_value=[MockRelationship(created_at=None)]
-        )
+        mock_mound.get_relationships = MagicMock(return_value=[MockRelationship(created_at=None)])
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_get_node_relationships("node-001", {})
         body = _body(result)
@@ -469,11 +472,13 @@ class TestCreateRelationship:
 
     def test_create_success(self, handler, mock_mound):
         """Successfully creating a relationship returns 201."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
@@ -485,14 +490,16 @@ class TestCreateRelationship:
 
     def test_create_with_all_optional_fields(self, handler, mock_mound):
         """Creating a relationship with all optional fields works."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "contradicts",
-            "strength": 0.75,
-            "created_by": "admin",
-            "metadata": {"reason": "logical inconsistency"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "contradicts",
+                "strength": 0.75,
+                "created_by": "admin",
+                "metadata": {"reason": "logical inconsistency"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
@@ -507,11 +514,13 @@ class TestCreateRelationship:
 
     def test_create_default_strength_is_1(self, handler, mock_mound):
         """Default strength is 1.0 when not specified."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_create_relationship(http)
         call_kwargs = mock_mound.add_relationship.call_args
@@ -519,11 +528,13 @@ class TestCreateRelationship:
 
     def test_create_default_created_by_is_empty(self, handler, mock_mound):
         """Default created_by is empty string when not specified."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_create_relationship(http)
         call_kwargs = mock_mound.add_relationship.call_args
@@ -531,11 +542,13 @@ class TestCreateRelationship:
 
     def test_create_default_metadata_is_none(self, handler, mock_mound):
         """Default metadata is None when not specified."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             handler._handle_create_relationship(http)
         call_kwargs = mock_mound.add_relationship.call_args
@@ -543,10 +556,12 @@ class TestCreateRelationship:
 
     def test_create_missing_from_node_id_returns_400(self, handler):
         """Missing from_node_id returns 400."""
-        http = MockHTTPHandler.post({
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -554,10 +569,12 @@ class TestCreateRelationship:
 
     def test_create_missing_to_node_id_returns_400(self, handler):
         """Missing to_node_id returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "relationship_type": "supports",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -565,10 +582,12 @@ class TestCreateRelationship:
 
     def test_create_missing_relationship_type_returns_400(self, handler):
         """Missing relationship_type returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -576,11 +595,13 @@ class TestCreateRelationship:
 
     def test_create_empty_from_node_id_returns_400(self, handler):
         """Empty from_node_id returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -588,11 +609,13 @@ class TestCreateRelationship:
 
     def test_create_empty_to_node_id_returns_400(self, handler):
         """Empty to_node_id returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "",
+                "relationship_type": "supports",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -600,11 +623,13 @@ class TestCreateRelationship:
 
     def test_create_empty_relationship_type_returns_400(self, handler):
         """Empty relationship_type returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -612,54 +637,78 @@ class TestCreateRelationship:
 
     def test_create_valid_type_supports(self, handler, mock_mound):
         """relationship_type 'supports' is valid."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_valid_type_contradicts(self, handler, mock_mound):
         """relationship_type 'contradicts' is valid."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "contradicts",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "contradicts",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_valid_type_derived_from(self, handler, mock_mound):
         """relationship_type 'derived_from' is valid."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "derived_from",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "derived_from",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_valid_type_related_to(self, handler, mock_mound):
         """relationship_type 'related_to' is valid."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "related_to",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "related_to",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_valid_type_supersedes(self, handler, mock_mound):
         """relationship_type 'supersedes' is valid."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supersedes",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supersedes",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_invalid_type_returns_400(self, handler):
         """Invalid relationship_type returns 400."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "unknown_type",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "unknown_type",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
         body = _body(result)
@@ -700,9 +749,13 @@ class TestCreateRelationship:
 
     def test_create_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         result = handler_no_mound._handle_create_relationship(http)
         assert _status(result) == 503
         body = _body(result)
@@ -711,9 +764,13 @@ class TestCreateRelationship:
     def test_create_add_relationship_not_available_returns_503(self, handler, mock_mound):
         """Missing add_relationship method on mound returns 503."""
         del mock_mound.add_relationship
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 503
@@ -722,64 +779,90 @@ class TestCreateRelationship:
 
     def test_create_mound_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound.add_relationship returns 500."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=RuntimeError("db fail")):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 500
 
     def test_create_mound_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound.add_relationship returns 500."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=KeyError("missing")):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 500
 
     def test_create_mound_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound.add_relationship returns 500."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=ValueError("bad")):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 500
 
     def test_create_mound_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound.add_relationship returns 500."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=OSError("disk")):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 500
 
     def test_create_mound_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound.add_relationship returns 500."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=TypeError("wrong")):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 500
 
     def test_create_auth_failure_returns_401(self, handler_auth_fail):
         """Authentication failure returns 401."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1", "to_node_id": "n2", "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         result = handler_auth_fail._handle_create_relationship(http)
         assert _status(result) == 401
 
     def test_create_response_structure(self, handler, mock_mound):
         """Create response contains id, from_node_id, to_node_id, relationship_type."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "node-001",
-            "to_node_id": "node-002",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "node-001",
+                "to_node_id": "node-002",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         body = _body(result)
@@ -813,23 +896,27 @@ class TestSecurityAndEdgeCases:
 
     def test_create_sql_injection_in_from_node_id(self, handler, mock_mound):
         """SQL injection in from_node_id is passed as-is to mound."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "'; DROP TABLE nodes; --",
-            "to_node_id": "n2",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "'; DROP TABLE nodes; --",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_xss_in_metadata(self, handler, mock_mound):
         """XSS in metadata is stored as-is (rendering handles escaping)."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1",
-            "to_node_id": "n2",
-            "relationship_type": "supports",
-            "metadata": {"note": "<script>alert('xss')</script>"},
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+                "metadata": {"note": "<script>alert('xss')</script>"},
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
@@ -843,22 +930,26 @@ class TestSecurityAndEdgeCases:
 
     def test_create_unicode_node_ids(self, handler, mock_mound):
         """Unicode characters in node IDs are accepted."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "noeud-un",
-            "to_node_id": "noeud-deux",
-            "relationship_type": "related_to",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "noeud-un",
+                "to_node_id": "noeud-deux",
+                "relationship_type": "related_to",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
 
     def test_create_very_long_node_ids(self, handler, mock_mound):
         """Very long node IDs are accepted (handler does not limit them)."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n" * 10000,
-            "to_node_id": "m" * 10000,
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n" * 10000,
+                "to_node_id": "m" * 10000,
+                "relationship_type": "supports",
+            }
+        )
         with patch(_RUN_ASYNC_PATCH, side_effect=lambda coro: coro):
             result = handler._handle_create_relationship(http)
         assert _status(result) == 201
@@ -884,20 +975,24 @@ class TestSecurityAndEdgeCases:
 
     def test_create_none_from_node_id_returns_400(self, handler):
         """None from_node_id returns 400 (falsy check)."""
-        http = MockHTTPHandler.post({
-            "from_node_id": None,
-            "to_node_id": "n2",
-            "relationship_type": "supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": None,
+                "to_node_id": "n2",
+                "relationship_type": "supports",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400
 
     def test_create_case_sensitive_relationship_type(self, handler):
         """Relationship types are case-sensitive; 'Supports' is invalid."""
-        http = MockHTTPHandler.post({
-            "from_node_id": "n1",
-            "to_node_id": "n2",
-            "relationship_type": "Supports",
-        })
+        http = MockHTTPHandler.post(
+            {
+                "from_node_id": "n1",
+                "to_node_id": "n2",
+                "relationship_type": "Supports",
+            }
+        )
         result = handler._handle_create_relationship(http)
         assert _status(result) == 400

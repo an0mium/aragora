@@ -441,9 +441,7 @@ class TestDebatesTrends:
         """Trends return data_points grouped by granularity."""
         mock_storage.list_debates.return_value = five_debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_trends(
-                {"time_range": "30d", "granularity": "daily"}
-            )
+            result = handler._get_debates_trends({"time_range": "30d", "granularity": "daily"})
 
         body = _body(result)
         assert _status(result) == 200
@@ -510,9 +508,7 @@ class TestDebatesTrends:
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_trends(
-                {"time_range": "7d", "granularity": "daily"}
-            )
+            result = handler._get_debates_trends({"time_range": "7d", "granularity": "daily"})
 
         body = _body(result)
         assert len(body["data_points"]) >= 1
@@ -544,9 +540,7 @@ class TestDebatesTrends:
             roles = set()
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_trends(
-                {"org_id": "org-b"}, auth_context=UserAuth()
-            )
+            result = handler._get_debates_trends({"org_id": "org-b"}, auth_context=UserAuth())
 
         assert _status(result) == 403
 
@@ -606,9 +600,15 @@ class TestDebatesTopics:
         """Topics extracted from debate domain/task."""
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", domain="security", consensus_reached=True, created_at=now.isoformat()),
-            _make_debate("d2", domain="security", consensus_reached=False, created_at=now.isoformat()),
-            _make_debate("d3", domain="performance", consensus_reached=True, created_at=now.isoformat()),
+            _make_debate(
+                "d1", domain="security", consensus_reached=True, created_at=now.isoformat()
+            ),
+            _make_debate(
+                "d2", domain="security", consensus_reached=False, created_at=now.isoformat()
+            ),
+            _make_debate(
+                "d3", domain="performance", consensus_reached=True, created_at=now.isoformat()
+            ),
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
@@ -670,7 +670,9 @@ class TestDebatesTopics:
     def test_topic_from_task_when_no_domain(self, handler, mock_storage):
         """When no domain, topic is first word of task (lowered)."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", domain="", task="Refactor the module", created_at=now.isoformat())
+        debate = _make_debate(
+            "d1", domain="", task="Refactor the module", created_at=now.isoformat()
+        )
         debate.pop("domain", None)
         debate["result"] = {"confidence": 0.8}
         mock_storage.list_debates.return_value = [debate]
@@ -772,9 +774,7 @@ class TestDebatesTopics:
             roles = set()
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_topics(
-                {"org_id": "org-other"}, auth_context=UserAuth()
-            )
+            result = handler._get_debates_topics({"org_id": "org-other"}, auth_context=UserAuth())
 
         assert _status(result) == 403
 
@@ -828,17 +828,37 @@ class TestDebatesOutcomes:
         now = datetime.now(timezone.utc)
         debates = [
             # consensus outcome: consensus_reached + confidence >= 0.8
-            _make_debate("d1", consensus_reached=True, confidence=0.9,
-                         outcome_type="consensus", created_at=now.isoformat()),
+            _make_debate(
+                "d1",
+                consensus_reached=True,
+                confidence=0.9,
+                outcome_type="consensus",
+                created_at=now.isoformat(),
+            ),
             # majority: consensus_reached + confidence >= 0.5
-            _make_debate("d2", consensus_reached=True, confidence=0.6,
-                         outcome_type="majority", created_at=now.isoformat()),
+            _make_debate(
+                "d2",
+                consensus_reached=True,
+                confidence=0.6,
+                outcome_type="majority",
+                created_at=now.isoformat(),
+            ),
             # dissent: not consensus + confidence >= 0.3
-            _make_debate("d3", consensus_reached=False, confidence=0.4,
-                         outcome_type="dissent", created_at=now.isoformat()),
+            _make_debate(
+                "d3",
+                consensus_reached=False,
+                confidence=0.4,
+                outcome_type="dissent",
+                created_at=now.isoformat(),
+            ),
             # no_resolution: not consensus + confidence < 0.3
-            _make_debate("d4", consensus_reached=False, confidence=0.1,
-                         outcome_type="", created_at=now.isoformat()),
+            _make_debate(
+                "d4",
+                consensus_reached=False,
+                confidence=0.1,
+                outcome_type="",
+                created_at=now.isoformat(),
+            ),
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
@@ -859,9 +879,7 @@ class TestDebatesOutcomes:
 
         body = _body(result)
         assert _status(result) == 200
-        assert body["outcomes"] == {
-            "consensus": 0, "majority": 0, "dissent": 0, "no_resolution": 0
-        }
+        assert body["outcomes"] == {"consensus": 0, "majority": 0, "dissent": 0, "no_resolution": 0}
         assert body["total_debates"] == 0
         assert body["by_confidence"] == {}
 
@@ -878,14 +896,34 @@ class TestDebatesOutcomes:
         """Debates bucketed by confidence: high >= 0.8, medium >= 0.5, low < 0.5."""
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", consensus_reached=True, confidence=0.9,
-                         outcome_type="consensus", created_at=now.isoformat()),
-            _make_debate("d2", consensus_reached=True, confidence=0.85,
-                         outcome_type="consensus", created_at=now.isoformat()),
-            _make_debate("d3", consensus_reached=False, confidence=0.6,
-                         outcome_type="majority", created_at=now.isoformat()),
-            _make_debate("d4", consensus_reached=False, confidence=0.2,
-                         outcome_type="", created_at=now.isoformat()),
+            _make_debate(
+                "d1",
+                consensus_reached=True,
+                confidence=0.9,
+                outcome_type="consensus",
+                created_at=now.isoformat(),
+            ),
+            _make_debate(
+                "d2",
+                consensus_reached=True,
+                confidence=0.85,
+                outcome_type="consensus",
+                created_at=now.isoformat(),
+            ),
+            _make_debate(
+                "d3",
+                consensus_reached=False,
+                confidence=0.6,
+                outcome_type="majority",
+                created_at=now.isoformat(),
+            ),
+            _make_debate(
+                "d4",
+                consensus_reached=False,
+                confidence=0.2,
+                outcome_type="",
+                created_at=now.isoformat(),
+            ),
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
@@ -906,8 +944,13 @@ class TestDebatesOutcomes:
         """Only non-empty confidence buckets are in by_confidence."""
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", consensus_reached=True, confidence=0.95,
-                         outcome_type="consensus", created_at=now.isoformat()),
+            _make_debate(
+                "d1",
+                consensus_reached=True,
+                confidence=0.95,
+                outcome_type="consensus",
+                created_at=now.isoformat(),
+            ),
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):
@@ -937,8 +980,13 @@ class TestDebatesOutcomes:
     def test_consensus_by_high_confidence_without_outcome_type(self, handler, mock_storage):
         """consensus_reached + confidence >= 0.8 -> consensus (no outcome_type)."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", consensus_reached=True, confidence=0.9,
-                              outcome_type="", created_at=now.isoformat())
+        debate = _make_debate(
+            "d1",
+            consensus_reached=True,
+            confidence=0.9,
+            outcome_type="",
+            created_at=now.isoformat(),
+        )
         mock_storage.list_debates.return_value = [debate]
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({"time_range": "30d"})
@@ -949,8 +997,13 @@ class TestDebatesOutcomes:
     def test_majority_by_medium_confidence_without_outcome_type(self, handler, mock_storage):
         """consensus_reached + confidence >= 0.5 but < 0.8 -> majority (no outcome_type)."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", consensus_reached=True, confidence=0.6,
-                              outcome_type="", created_at=now.isoformat())
+        debate = _make_debate(
+            "d1",
+            consensus_reached=True,
+            confidence=0.6,
+            outcome_type="",
+            created_at=now.isoformat(),
+        )
         mock_storage.list_debates.return_value = [debate]
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({"time_range": "30d"})
@@ -961,8 +1014,13 @@ class TestDebatesOutcomes:
     def test_dissent_with_moderate_confidence(self, handler, mock_storage):
         """Not consensus + confidence >= 0.3 -> dissent."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", consensus_reached=False, confidence=0.35,
-                              outcome_type="", created_at=now.isoformat())
+        debate = _make_debate(
+            "d1",
+            consensus_reached=False,
+            confidence=0.35,
+            outcome_type="",
+            created_at=now.isoformat(),
+        )
         mock_storage.list_debates.return_value = [debate]
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({"time_range": "30d"})
@@ -973,8 +1031,13 @@ class TestDebatesOutcomes:
     def test_no_resolution_low_confidence_no_consensus(self, handler, mock_storage):
         """Not consensus + confidence < 0.3 -> no_resolution."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", consensus_reached=False, confidence=0.1,
-                              outcome_type="", created_at=now.isoformat())
+        debate = _make_debate(
+            "d1",
+            consensus_reached=False,
+            confidence=0.1,
+            outcome_type="",
+            created_at=now.isoformat(),
+        )
         mock_storage.list_debates.return_value = [debate]
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({"time_range": "30d"})
@@ -1012,17 +1075,16 @@ class TestDebatesOutcomes:
             roles = set()
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_outcomes(
-                {"org_id": "org-y"}, auth_context=UserAuth()
-            )
+            result = handler._get_debates_outcomes({"org_id": "org-y"}, auth_context=UserAuth())
 
         assert _status(result) == 403
 
     def test_datetime_object_in_created_at(self, handler, mock_storage):
         """created_at as datetime object works."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", consensus_reached=True, confidence=0.9,
-                              outcome_type="consensus")
+        debate = _make_debate(
+            "d1", consensus_reached=True, confidence=0.9, outcome_type="consensus"
+        )
         debate["created_at"] = now
         mock_storage.list_debates.return_value = [debate]
         with patch.object(handler, "get_storage", return_value=mock_storage):
@@ -1044,8 +1106,13 @@ class TestDebatesOutcomes:
     def test_explicit_dissent_outcome_type(self, handler, mock_storage):
         """outcome_type='dissent' categorized as dissent even with higher confidence."""
         now = datetime.now(timezone.utc)
-        debate = _make_debate("d1", consensus_reached=False, confidence=0.7,
-                              outcome_type="dissent", created_at=now.isoformat())
+        debate = _make_debate(
+            "d1",
+            consensus_reached=False,
+            confidence=0.7,
+            outcome_type="dissent",
+            created_at=now.isoformat(),
+        )
         mock_storage.list_debates.return_value = [debate]
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_debates_outcomes({"time_range": "30d"})
@@ -1264,9 +1331,7 @@ class TestEdgeCases:
 
         mock_storage.list_debates.return_value = []
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            handler._get_debates_overview(
-                {"org_id": "target-org"}, auth_context=AdminAuth()
-            )
+            handler._get_debates_overview({"org_id": "target-org"}, auth_context=AdminAuth())
 
         mock_storage.list_debates.assert_called_with(limit=10000, org_id="target-org")
 
@@ -1300,12 +1365,22 @@ class TestEdgeCases:
         """Numeric fields are rounded to expected precision."""
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", consensus_reached=True, confidence=0.777,
-                         rounds_used=3, agents=["a", "b", "c"],
-                         created_at=now.isoformat()),
-            _make_debate("d2", consensus_reached=False, confidence=0.333,
-                         rounds_used=5, agents=["a"],
-                         created_at=now.isoformat()),
+            _make_debate(
+                "d1",
+                consensus_reached=True,
+                confidence=0.777,
+                rounds_used=3,
+                agents=["a", "b", "c"],
+                created_at=now.isoformat(),
+            ),
+            _make_debate(
+                "d2",
+                consensus_reached=False,
+                confidence=0.333,
+                rounds_used=5,
+                agents=["a"],
+                created_at=now.isoformat(),
+            ),
         ]
         mock_storage.list_debates.return_value = debates
         with patch.object(handler, "get_storage", return_value=mock_storage):

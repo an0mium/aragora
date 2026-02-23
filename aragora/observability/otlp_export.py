@@ -136,7 +136,9 @@ class OTLPConfig:
             exporter_type = OTLPExporterType(exporter_str)
         except ValueError:
             logger.warning(
-                "Unknown OTLP exporter type: %s, using 'none'. Valid options: %s", exporter_str, [e.value for e in OTLPExporterType]
+                "Unknown OTLP exporter type: %s, using 'none'. Valid options: %s",
+                exporter_str,
+                [e.value for e in OTLPExporterType],
             )
             exporter_type = OTLPExporterType.NONE
 
@@ -446,7 +448,12 @@ def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
             _tracer_provider = provider
 
             logger.info(
-                "OTLP tracing configured: exporter=%s, endpoint=%s, service=%s, environment=%s, sample_rate=%s", config.exporter_type.value, config.get_effective_endpoint(), config.service_name, config.environment, config.sample_rate
+                "OTLP tracing configured: exporter=%s, endpoint=%s, service=%s, environment=%s, sample_rate=%s",
+                config.exporter_type.value,
+                config.get_effective_endpoint(),
+                config.service_name,
+                config.environment,
+                config.sample_rate,
             )
 
             return provider
@@ -458,7 +465,8 @@ def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
 
     except ImportError as e:
         logger.warning(
-            "OpenTelemetry SDK not available: %s. Install with: pip install opentelemetry-api opentelemetry-sdk", e
+            "OpenTelemetry SDK not available: %s. Install with: pip install opentelemetry-api opentelemetry-sdk",
+            e,
         )
         return None
     except (RuntimeError, OSError, ValueError, TypeError) as e:

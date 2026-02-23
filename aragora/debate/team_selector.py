@@ -348,7 +348,10 @@ class TeamSelector:
 
         selected = [agent for agent, _ in scored]
         logger.info(
-            "performance_selection domain=%s selected=%s scores=%s", domain, [a.name for a in selected], [f'{s:.2f}' for _, s in scored]
+            "performance_selection domain=%s selected=%s scores=%s",
+            domain,
+            [a.name for a in selected],
+            [f"{s:.2f}" for _, s in scored],
         )
 
         return selected
@@ -426,7 +429,10 @@ class TeamSelector:
             self._domain_non_preferred = {a.name for a in non_matching_agents}
             if self._domain_non_preferred:
                 logger.info(
-                    "domain_soft_filter domain=%s preferred=%s penalized=%s", domain, [a.name for a in matching_agents], [a.name for a in non_matching_agents]
+                    "domain_soft_filter domain=%s preferred=%s penalized=%s",
+                    domain,
+                    [a.name for a in matching_agents],
+                    [a.name for a in non_matching_agents],
                 )
             return agents
 
@@ -434,7 +440,10 @@ class TeamSelector:
         if not matching_agents:
             if self.config.domain_filter_fallback:
                 logger.info(
-                    "No agents match domain '%s' patterns %s, falling back to all %s agents", domain, preferred_patterns, len(agents)
+                    "No agents match domain '%s' patterns %s, falling back to all %s agents",
+                    domain,
+                    preferred_patterns,
+                    len(agents),
                 )
                 return agents
             else:
@@ -442,7 +451,10 @@ class TeamSelector:
                 return []
 
         logger.info(
-            "domain_capability_filter domain=%s matched=%s from=%s", domain, [a.name for a in matching_agents], [a.name for a in agents]
+            "domain_capability_filter domain=%s matched=%s from=%s",
+            domain,
+            [a.name for a in matching_agents],
+            [a.name for a in agents],
         )
         return matching_agents
 
@@ -468,7 +480,9 @@ class TeamSelector:
                 domain_weights = self.feedback_loop.get_domain_weights(domain)
                 if domain_weights:
                     logger.debug(
-                        "domain_filter_auto_soft domain=%s feedback_agents=%s", domain, len(domain_weights)
+                        "domain_filter_auto_soft domain=%s feedback_agents=%s",
+                        domain,
+                        len(domain_weights),
                     )
                     return "soft"
             except (AttributeError, TypeError):
@@ -509,7 +523,10 @@ class TeamSelector:
 
             if action == BudgetAction.HARD_LIMIT or action == BudgetAction.SUSPEND:
                 logger.warning(
-                    "budget_hard_limit org=%s action=%s agents_blocked=%s", self.org_id, action.value, len(agents)
+                    "budget_hard_limit org=%s action=%s agents_blocked=%s",
+                    self.org_id,
+                    action.value,
+                    len(agents),
                 )
                 raise BudgetExceededError(
                     f"Budget {action.value} reached for org {self.org_id}. "
@@ -521,7 +538,10 @@ class TeamSelector:
                 if len(agents) > max_agents:
                     reduced = agents[:max_agents]
                     logger.info(
-                        "budget_soft_limit org=%s reduced_agents=%s->%s", self.org_id, len(agents), len(reduced)
+                        "budget_soft_limit org=%s reduced_agents=%s->%s",
+                        self.org_id,
+                        len(agents),
+                        len(reduced),
                     )
                     return reduced
                 return agents
@@ -538,7 +558,10 @@ class TeamSelector:
                     if max_agents and len(cheap_agents) > max_agents:
                         cheap_agents = cheap_agents[:max_agents]
                     logger.info(
-                        "budget_warn_prefer_cheap org=%s cheap_agents=%s from=%s", self.org_id, [a.name for a in cheap_agents], [a.name for a in agents]
+                        "budget_warn_prefer_cheap org=%s cheap_agents=%s from=%s",
+                        self.org_id,
+                        [a.name for a in cheap_agents],
+                        [a.name for a in agents],
                     )
                     return cheap_agents
                 # No cheap agents available, return all
@@ -587,7 +610,9 @@ class TeamSelector:
         if not matching_agents:
             if self.config.hierarchy_filter_fallback:
                 logger.info(
-                    "No agents match hierarchy roles %s, falling back to all %s agents", required_roles, len(agents)
+                    "No agents match hierarchy roles %s, falling back to all %s agents",
+                    required_roles,
+                    len(agents),
                 )
                 return agents
             else:
@@ -597,7 +622,10 @@ class TeamSelector:
                 return []
 
         logger.info(
-            "hierarchy_role_filter roles=%s matched=%s from=%s", required_roles, [a.name for a in matching_agents], [a.name for a in agents]
+            "hierarchy_role_filter roles=%s matched=%s from=%s",
+            required_roles,
+            [a.name for a in matching_agents],
+            [a.name for a in agents],
         )
         return matching_agents
 
@@ -649,7 +677,11 @@ class TeamSelector:
             self._hierarchy_assignments[debate_id] = assignments
 
             logger.info(
-                "hierarchy_roles_assigned debate=%s orchestrator=%s monitors=%s workers=%s", debate_id, self.agent_hierarchy.get_orchestrator(debate_id), self.agent_hierarchy.get_monitors(debate_id), self.agent_hierarchy.get_workers(debate_id)
+                "hierarchy_roles_assigned debate=%s orchestrator=%s monitors=%s workers=%s",
+                debate_id,
+                self.agent_hierarchy.get_orchestrator(debate_id),
+                self.agent_hierarchy.get_monitors(debate_id),
+                self.agent_hierarchy.get_workers(debate_id),
             )
         except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.warning("Failed to assign hierarchy roles: %s", e)
@@ -998,7 +1030,7 @@ class TeamSelector:
             return max(0.0, min(1.0, 0.5 + score * 0.5))
 
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.debug("Memory score failed for %s: %s", getattr(agent, 'name', agent), e)
+            logger.debug("Memory score failed for %s: %s", getattr(agent, "name", agent), e)
             return 0.0
 
     def _compute_pulse_relevance(
@@ -1080,7 +1112,9 @@ class TeamSelector:
             return min(1.0, topic_score * 0.7 + expertise_bonus)
 
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.debug("Pulse relevance score failed for %s: %s", getattr(agent, 'name', agent), e)
+            logger.debug(
+                "Pulse relevance score failed for %s: %s", getattr(agent, "name", agent), e
+            )
             return 0.0
 
     async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
@@ -1364,7 +1398,9 @@ class TeamSelector:
         total = sum(self._pattern_classification_counts.values())
         if total % 50 == 0:  # Log summary every 50 classifications
             logger.info(
-                "pattern_classification_summary total=%s distribution=%s", total, self._pattern_classification_counts
+                "pattern_classification_summary total=%s distribution=%s",
+                total,
+                self._pattern_classification_counts,
             )
 
     def get_pattern_telemetry(self) -> dict[str, Any]:
@@ -1429,7 +1465,10 @@ class TeamSelector:
                     result[name] = cv
 
                 logger.debug(
-                    "cv_batch_fetch cached=%s fetched=%s total=%s", len(result) - len(new_cvs), len(new_cvs), len(result)
+                    "cv_batch_fetch cached=%s fetched=%s total=%s",
+                    len(result) - len(new_cvs),
+                    len(new_cvs),
+                    len(result),
                 )
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                 logger.warning("CV batch fetch failed: %s", e)

@@ -206,7 +206,11 @@ class DecisionResultStore:
         self._cleanup_expired()
 
         logger.info(
-            "DecisionResultStore initialized: backend=%s, ttl=%ss, max=%s, cache=%s", backend, ttl_seconds, max_entries, cache_size
+            "DecisionResultStore initialized: backend=%s, ttl=%ss, max=%s, cache=%s",
+            backend,
+            ttl_seconds,
+            max_entries,
+            cache_size,
         )
 
     def _get_connection(self):
@@ -596,7 +600,9 @@ class DecisionResultStore:
                         """,
                         (time.time(), excess),
                     )
-                    logger.info("LRU evicted %s decision results (max: %s)", excess, self._max_entries)
+                    logger.info(
+                        "LRU evicted %s decision results (max: %s)", excess, self._max_entries
+                    )
                 return
 
             conn = self._get_connection()

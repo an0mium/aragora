@@ -326,7 +326,9 @@ class TokenManager:
         # Check type if specified
         if expected_type and token_data.token_type != expected_type:
             logger.debug(
-                "Token type mismatch: expected %s, got %s", expected_type.value, token_data.token_type.value
+                "Token type mismatch: expected %s, got %s",
+                expected_type.value,
+                token_data.token_type.value,
             )
             return None
 

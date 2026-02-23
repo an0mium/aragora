@@ -298,7 +298,8 @@ class ConsensusVerifier:
 
         if adjusted_count > 0:
             logger.info(
-                "[verification] Adjusted confidence for %s votes based on verification results", adjusted_count
+                "[verification] Adjusted confidence for %s votes based on verification results",
+                adjusted_count,
             )
 
         return votes

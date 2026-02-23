@@ -284,7 +284,11 @@ class RecoveryStrategy:
                 # Determine recovery action
                 action = self._determine_recovery_action(e, attempt)
                 logger.info(
-                    "[%s] %s failed (attempt %s), action: %s", self.connector_name, operation_name, attempt + 1, action.value
+                    "[%s] %s failed (attempt %s), action: %s",
+                    self.connector_name,
+                    operation_name,
+                    attempt + 1,
+                    action.value,
                 )
 
                 if action == RecoveryAction.RETRY:
@@ -321,7 +325,9 @@ class RecoveryStrategy:
 
                 elif action == RecoveryAction.ESCALATE:
                     logger.warning(
-                        "[%s] Escalating after %s consecutive failures", self.connector_name, self._consecutive_failures
+                        "[%s] Escalating after %s consecutive failures",
+                        self.connector_name,
+                        self._consecutive_failures,
                     )
                     if self.config.escalation_callback:
                         try:
@@ -340,12 +346,19 @@ class RecoveryStrategy:
                 # Give up
                 classified = classify_exception(e, self.connector_name)
                 logger.error(
-                    "[%s] %s failed after %s attempts: %s", self.connector_name, operation_name, attempt + 1, classified
+                    "[%s] %s failed after %s attempts: %s",
+                    self.connector_name,
+                    operation_name,
+                    attempt + 1,
+                    classified,
                 )
                 raise classified from e
         else:
             logger.warning(
-                "[%s] Recovery retry cap (%s) reached for %s", self.connector_name, _MAX_RETRIES, operation_name
+                "[%s] Recovery retry cap (%s) reached for %s",
+                self.connector_name,
+                _MAX_RETRIES,
+                operation_name,
             )
 
         # Should never reach here under normal operation

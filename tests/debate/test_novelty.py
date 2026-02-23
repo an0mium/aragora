@@ -1154,9 +1154,7 @@ def test_codebase_novelty_checker_key_terms_limit():
     checker = CodebaseNoveltyChecker(context, backend=MockSimilarityBackend())
 
     # Should extract at most 50 key terms
-    extracted_terms = [
-        f["name"] for f in checker.features if f["section"] == "extracted"
-    ]
+    extracted_terms = [f["name"] for f in checker.features if f["section"] == "extracted"]
     assert len(extracted_terms) <= 50
 
 

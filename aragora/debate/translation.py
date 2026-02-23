@@ -348,7 +348,15 @@ Text:
                     detected_language=language,
                     confidence=0.9,
                 )
-        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, ImportError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            ImportError,
+        ) as e:
             logger.warning("LLM language detection failed: %s", e)
 
         # Default to English

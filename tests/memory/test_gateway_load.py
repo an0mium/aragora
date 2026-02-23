@@ -46,12 +46,8 @@ class TestDedupEngineLoad:
         items = []
         base = "the quick brown fox jumps over the lazy dog"
         for i in range(100):
-            items.append(
-                {"id": f"a_{i}", "source": "continuum", "content": f"{base} version {i}"}
-            )
-            items.append(
-                {"id": f"b_{i}", "source": "km", "content": f"{base} variant {i}"}
-            )
+            items.append({"id": f"a_{i}", "source": "continuum", "content": f"{base} version {i}"})
+            items.append({"id": f"b_{i}", "source": "km", "content": f"{base} variant {i}"})
 
         report = await engine.scan_cross_system_duplicates(items)
         assert report.total_items_scanned == 200
@@ -123,19 +119,13 @@ class TestGatewayFanOut:
     @pytest.mark.asyncio
     async def test_parallel_4_sources_200_results(self):
         """Fan-out merges 50 results x 4 sources."""
-        continuum = SimpleNamespace(
-            search=lambda query, limit: _make_continuum_results(50)
-        )
+        continuum = SimpleNamespace(search=lambda query, limit: _make_continuum_results(50))
         km = AsyncMock()
         km.query = AsyncMock(return_value=_make_km_query_result(50))
         supermemory = AsyncMock()
-        supermemory.search_memories = AsyncMock(
-            return_value=_make_supermemory_results(50)
-        )
+        supermemory.search_memories = AsyncMock(return_value=_make_supermemory_results(50))
         claude_mem = AsyncMock()
-        claude_mem.search_observations = AsyncMock(
-            return_value=_make_claude_mem_results(50)
-        )
+        claude_mem.search_observations = AsyncMock(return_value=_make_claude_mem_results(50))
 
         gateway = MemoryGateway(
             config=MemoryGatewayConfig(
@@ -147,9 +137,7 @@ class TestGatewayFanOut:
             claude_mem_adapter=claude_mem,
         )
 
-        response = await gateway.query(
-            UnifiedMemoryQuery(query="test", limit=200, dedup=False)
-        )
+        response = await gateway.query(UnifiedMemoryQuery(query="test", limit=200, dedup=False))
         assert response.total_found == 200
         assert len(response.sources_queried) == 4
         assert not response.errors
@@ -162,9 +150,7 @@ class TestGatewayFanOut:
             await asyncio.sleep(10)
             return _make_km_query_result(10)
 
-        continuum = SimpleNamespace(
-            search=lambda query, limit: _make_continuum_results(10)
-        )
+        continuum = SimpleNamespace(search=lambda query, limit: _make_continuum_results(10))
         km = AsyncMock()
         km.query = slow_query
 
@@ -200,9 +186,7 @@ class TestGatewayFanOut:
         km = AsyncMock()
         km.query = AsyncMock(
             return_value=SimpleNamespace(
-                items=[
-                    SimpleNamespace(id="k_0", content=shared_content, confidence=0.9)
-                ]
+                items=[SimpleNamespace(id="k_0", content=shared_content, confidence=0.9)]
             )
         )
 
@@ -212,9 +196,7 @@ class TestGatewayFanOut:
             knowledge_mound=km,
         )
 
-        response = await gateway.query(
-            UnifiedMemoryQuery(query="test", limit=10, dedup=True)
-        )
+        response = await gateway.query(UnifiedMemoryQuery(query="test", limit=10, dedup=True))
         assert len(response.results) == 1
         assert response.duplicates_removed == 1
 
@@ -245,9 +227,7 @@ class TestGatewayFanOut:
             continuum_memory=continuum,
         )
 
-        response = await gateway.query(
-            UnifiedMemoryQuery(query="test", limit=10, dedup=False)
-        )
+        response = await gateway.query(UnifiedMemoryQuery(query="test", limit=10, dedup=False))
         assert len(response.results) == 2
         # Higher confidence should rank first
         assert response.results[0].confidence > response.results[1].confidence

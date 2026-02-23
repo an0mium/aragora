@@ -14,7 +14,6 @@ from aragora.mcp.tools_module.workflow import (
 )
 
 
-
 def _make_engine_module(mock_engine_instance):
     """Create a mock module for aragora.workflow.engine with WorkflowEngine returning mock_engine_instance."""
     mod = MagicMock()

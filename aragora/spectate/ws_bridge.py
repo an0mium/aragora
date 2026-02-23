@@ -93,7 +93,14 @@ class SpectateWebSocketBridge:
                 round_number: int | None = None,
             ) -> None:
                 # Call original emit (terminal output)
-                original_emit(self_stream, event_type, agent=agent, details=details, metric=metric, round_number=round_number)
+                original_emit(
+                    self_stream,
+                    event_type,
+                    agent=agent,
+                    details=details,
+                    metric=metric,
+                    round_number=round_number,
+                )
                 # Only forward to bridge if the stream is enabled
                 if not getattr(self_stream, "enabled", True):
                     return
@@ -211,7 +218,7 @@ class SpectateWebSocketBridge:
         with self._lock:
             self._event_buffer.append(event)
             if len(self._event_buffer) > self._max_buffer:
-                self._event_buffer = self._event_buffer[-self._max_buffer:]
+                self._event_buffer = self._event_buffer[-self._max_buffer :]
 
             subscribers = list(self._subscribers)
 

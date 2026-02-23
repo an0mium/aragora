@@ -24,7 +24,9 @@ _debate_mod = pytest.importorskip("aragora_debate", reason="aragora-debate packa
 Debate = _debate_mod.Debate
 create_agent = _debate_mod.create_agent
 
-_receipt_mod = pytest.importorskip("aragora_debate.receipt", reason="aragora-debate package not installed")
+_receipt_mod = pytest.importorskip(
+    "aragora_debate.receipt", reason="aragora-debate package not installed"
+)
 ReceiptBuilder = _receipt_mod.ReceiptBuilder
 
 

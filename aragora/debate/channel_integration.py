@@ -119,7 +119,9 @@ class ChannelIntegration:
                 await self._channel.join(agent_name)
 
             logger.info(
-                "Channel setup complete for debate %s with %s agents", self._debate_id, len(self._agents)
+                "Channel setup complete for debate %s with %s agents",
+                self._debate_id,
+                len(self._agents),
             )
             return True
 

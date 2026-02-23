@@ -234,7 +234,9 @@ class ExportOperationsMixin:
                 try:
                     debates_map[debate_id] = storage.get_debate(debate_id)
                 except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-                    logger.warning("Failed to fetch debate %s: %s: %s", debate_id, type(e).__name__, e)
+                    logger.warning(
+                        "Failed to fetch debate %s: %s: %s", debate_id, type(e).__name__, e
+                    )
                     debates_map[debate_id] = None
 
         for i, item in enumerate(job.items):

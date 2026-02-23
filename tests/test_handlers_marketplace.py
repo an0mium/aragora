@@ -133,7 +133,9 @@ class TestBrowseTemplates:
             assert template["category"] == "security"
 
     def test_browse_with_search(self, handler, mock_get_request):
-        result = handler.handle("/api/v1/marketplace/templates", {"search": "code"}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/marketplace/templates", {"search": "code"}, mock_get_request
+        )
         body, status = parse_handler_result(result)
 
         assert status == 200

@@ -270,9 +270,7 @@ class TestGetFindingEvidence:
         auditor = _make_auditor(findings=[])
 
         with patch(f"{MODULE}.get_document_auditor", return_value=auditor):
-            result = handler.handle(
-                "/api/v1/findings/nonexistent/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/nonexistent/evidence", {}, mock_handler)
 
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
@@ -283,9 +281,7 @@ class TestGetFindingEvidence:
         auditor = _make_auditor(findings=[finding])
 
         with patch(f"{MODULE}.get_document_auditor", return_value=auditor):
-            result = handler.handle(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -301,9 +297,7 @@ class TestGetFindingEvidence:
         auditor = _make_auditor(findings=[finding])
 
         with patch(f"{MODULE}.get_document_auditor", return_value=auditor):
-            result = handler.handle(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -320,9 +314,7 @@ class TestGetFindingEvidence:
             f"{MODULE}.get_document_auditor",
             side_effect=RuntimeError("Auditor unavailable"),
         ):
-            result = handler.handle(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -332,9 +324,7 @@ class TestGetFindingEvidence:
         auditor = _make_auditor(findings=[finding])
 
         with patch(f"{MODULE}.get_document_auditor", return_value=auditor):
-            result = handler.handle(
-                "/api/v1/findings/wrong-id/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/wrong-id/evidence", {}, mock_handler)
 
         assert _status(result) == 404
 
@@ -349,9 +339,7 @@ class TestGetFindingEvidence:
         auditor._sessions = {"session-001": s1, "session-002": s2}
 
         with patch(f"{MODULE}.get_document_auditor", return_value=auditor):
-            result = handler.handle(
-                "/api/v1/findings/finding-in-s2/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-in-s2/evidence", {}, mock_handler)
 
         assert _status(result) == 200
         assert _body(result)["finding_id"] == "finding-in-s2"
@@ -367,19 +355,19 @@ class TestEnrichFinding:
 
     def test_enrich_finding_success(self, handler, finding):
         """Successful enrichment returns enrichment data."""
-        mock_handler = MockHTTPHandler(body={
-            "document_content": "Some document text",
-            "config": {"max_sources_per_finding": 3},
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "document_content": "Some document text",
+                "config": {"max_sources_per_finding": 3},
+            }
+        )
         enrichment_result = {
             "finding_id": "finding-001",
             "enrichment": MockEnrichment().to_dict(),
         }
 
         with patch(f"{MODULE}._run_async", return_value=enrichment_result):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -394,9 +382,7 @@ class TestEnrichFinding:
             f"{MODULE}._run_async",
             side_effect=ValueError("Finding not found: nonexistent"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/nonexistent/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/nonexistent/evidence", {}, mock_handler)
 
         assert _status(result) == 404
 
@@ -408,9 +394,7 @@ class TestEnrichFinding:
             f"{MODULE}._run_async",
             side_effect=RuntimeError("Connection failed"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -422,9 +406,7 @@ class TestEnrichFinding:
             f"{MODULE}._run_async",
             side_effect=TimeoutError("Timed out"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -436,9 +418,7 @@ class TestEnrichFinding:
             f"{MODULE}._run_async",
             side_effect=ConnectionError("Connection refused"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -451,28 +431,26 @@ class TestEnrichFinding:
         }
 
         with patch(f"{MODULE}._run_async", return_value=enrichment_result):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 200
 
     def test_enrich_finding_with_related_documents(self, handler):
         """Enrichment with related_documents in body."""
-        mock_handler = MockHTTPHandler(body={
-            "document_content": "Main doc",
-            "related_documents": {"doc2": "Related content"},
-            "config": {"enable_cross_reference": True},
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "document_content": "Main doc",
+                "related_documents": {"doc2": "Related content"},
+                "config": {"enable_cross_reference": True},
+            }
+        )
         enrichment_result = {
             "finding_id": "finding-001",
             "enrichment": MockEnrichment().to_dict(),
         }
 
         with patch(f"{MODULE}._run_async", return_value=enrichment_result):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 200
 
@@ -485,9 +463,7 @@ class TestEnrichFinding:
     def test_enrich_finding_wrong_segment_count(self, handler):
         """POST to path with wrong number of segments returns None."""
         mock_handler = MockHTTPHandler(body={})
-        result = handler.handle_post(
-            "/api/v1/findings/a/b/evidence", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/findings/a/b/evidence", {}, mock_handler)
         assert result is None
 
 
@@ -501,10 +477,12 @@ class TestBatchEnrich:
 
     def test_batch_enrich_success(self, handler):
         """Successful batch enrichment returns enrichment map."""
-        mock_handler = MockHTTPHandler(body={
-            "finding_ids": ["finding-001", "finding-002"],
-            "config": {"max_sources_per_finding": 3},
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "finding_ids": ["finding-001", "finding-002"],
+                "config": {"max_sources_per_finding": 3},
+            }
+        )
         batch_result = {
             "enrichments": {
                 "finding-001": MockEnrichment(finding_id="finding-001").to_dict(),
@@ -516,9 +494,7 @@ class TestBatchEnrich:
         }
 
         with patch(f"{MODULE}._run_async", return_value=batch_result):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -529,10 +505,12 @@ class TestBatchEnrich:
 
     def test_batch_enrich_partial_success(self, handler):
         """Batch with some missing findings returns errors dict."""
-        mock_handler = MockHTTPHandler(body={
-            "finding_ids": ["finding-001", "missing-id"],
-            "config": {},
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "finding_ids": ["finding-001", "missing-id"],
+                "config": {},
+            }
+        )
         batch_result = {
             "enrichments": {
                 "finding-001": MockEnrichment(finding_id="finding-001").to_dict(),
@@ -543,9 +521,7 @@ class TestBatchEnrich:
         }
 
         with patch(f"{MODULE}._run_async", return_value=batch_result):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 200
         body = _body(result)
@@ -562,9 +538,7 @@ class TestBatchEnrich:
         # {} is falsy in Python? No, {} is falsy! empty dict is falsy.
         mock_handler = MockHTTPHandler()
 
-        result = handler.handle_post(
-            "/api/v1/findings/batch-evidence", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 400
         assert "body" in _body(result).get("error", "").lower()
@@ -573,9 +547,7 @@ class TestBatchEnrich:
         """Batch with empty finding_ids list returns 400."""
         mock_handler = MockHTTPHandler(body={"finding_ids": []})
 
-        result = handler.handle_post(
-            "/api/v1/findings/batch-evidence", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 400
         assert "finding_ids" in _body(result).get("error", "")
@@ -584,57 +556,55 @@ class TestBatchEnrich:
         """Batch without finding_ids key returns 400."""
         mock_handler = MockHTTPHandler(body={"config": {}})
 
-        result = handler.handle_post(
-            "/api/v1/findings/batch-evidence", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 400
 
     def test_batch_enrich_runtime_error(self, handler):
         """Batch with runtime failure returns 500."""
-        mock_handler = MockHTTPHandler(body={
-            "finding_ids": ["finding-001"],
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "finding_ids": ["finding-001"],
+            }
+        )
 
         with patch(
             f"{MODULE}._run_async",
             side_effect=RuntimeError("Batch processing failed"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
     def test_batch_enrich_timeout_error(self, handler):
         """Batch with timeout returns 500."""
-        mock_handler = MockHTTPHandler(body={
-            "finding_ids": ["finding-001"],
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "finding_ids": ["finding-001"],
+            }
+        )
 
         with patch(
             f"{MODULE}._run_async",
             side_effect=TimeoutError("Batch timed out"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
     def test_batch_enrich_value_error(self, handler):
         """Batch with ValueError returns 500."""
-        mock_handler = MockHTTPHandler(body={
-            "finding_ids": ["finding-001"],
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "finding_ids": ["finding-001"],
+            }
+        )
 
         with patch(
             f"{MODULE}._run_async",
             side_effect=ValueError("Invalid input"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -653,9 +623,7 @@ class TestHandleRouting:
         auditor = _make_auditor(findings=[finding])
 
         with patch(f"{MODULE}.get_document_auditor", return_value=auditor):
-            result = handler.handle(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert result is not None
         assert _status(result) == 200
@@ -669,9 +637,7 @@ class TestHandleRouting:
     def test_handle_wrong_segment_count(self, handler):
         """GET to path with wrong segment count returns None."""
         mock_handler = MockHTTPHandler()
-        result = handler.handle(
-            "/api/v1/findings/a/b/evidence", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/findings/a/b/evidence", {}, mock_handler)
         assert result is None
 
 
@@ -694,9 +660,7 @@ class TestHandlePostRouting:
         }
 
         with patch(f"{MODULE}._run_async", return_value=batch_result):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert result is not None
         assert _status(result) == 200
@@ -710,9 +674,7 @@ class TestHandlePostRouting:
         }
 
         with patch(f"{MODULE}._run_async", return_value=enrichment_result):
-            result = handler.handle_post(
-                "/api/v1/findings/f1/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/f1/evidence", {}, mock_handler)
 
         assert result is not None
         assert _status(result) == 200
@@ -1106,9 +1068,7 @@ class TestEdgeCases:
             f"{MODULE}.get_document_auditor",
             side_effect=AttributeError("No attribute"),
         ):
-            result = handler.handle(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -1120,9 +1080,7 @@ class TestEdgeCases:
             f"{MODULE}.get_document_auditor",
             side_effect=KeyError("missing"),
         ):
-            result = handler.handle(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -1134,9 +1092,7 @@ class TestEdgeCases:
             f"{MODULE}._run_async",
             side_effect=TypeError("bad type"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
@@ -1148,25 +1104,23 @@ class TestEdgeCases:
             f"{MODULE}._run_async",
             side_effect=OSError("disk error"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/finding-001/evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/finding-001/evidence", {}, mock_handler)
 
         assert _status(result) == 500
 
     def test_batch_connection_error(self, handler):
         """ConnectionError during batch returns 500."""
-        mock_handler = MockHTTPHandler(body={
-            "finding_ids": ["f1"],
-        })
+        mock_handler = MockHTTPHandler(
+            body={
+                "finding_ids": ["f1"],
+            }
+        )
 
         with patch(
             f"{MODULE}._run_async",
             side_effect=ConnectionError("unreachable"),
         ):
-            result = handler.handle_post(
-                "/api/v1/findings/batch-evidence", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/findings/batch-evidence", {}, mock_handler)
 
         assert _status(result) == 500
 

@@ -126,7 +126,9 @@ class ReceiptDeliveryHook:
                 return
 
             logger.info(
-                "Delivering receipt for debate %s to %s channels", result.debate_id, len(subscriptions)
+                "Delivering receipt for debate %s to %s channels",
+                result.debate_id,
+                len(subscriptions),
             )
 
             # Generate the receipt

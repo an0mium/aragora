@@ -69,7 +69,11 @@ async def start_dr_drilling() -> DRDrillScheduler | None:
         _dr_drill_scheduler = scheduler
 
         logger.info(
-            "DR drill scheduler started (monthly_day=%s, target_rto=%ss, target_rpo=%ss, dry_run=%s)", config.monthly_drill_day, config.target_rto_seconds, config.target_rpo_seconds, config.dry_run
+            "DR drill scheduler started (monthly_day=%s, target_rto=%ss, target_rpo=%ss, dry_run=%s)",
+            config.monthly_drill_day,
+            config.target_rto_seconds,
+            config.target_rpo_seconds,
+            config.dry_run,
         )
         return scheduler
 

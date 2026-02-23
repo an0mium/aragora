@@ -157,9 +157,7 @@ class TestTrackerCreation:
         await setup_debate_infrastructure(fake_arena, execution_state)
 
         assert fake_arena.active_introspection_tracker is not None
-        assert isinstance(
-            fake_arena.active_introspection_tracker, ActiveIntrospectionTracker
-        )
+        assert isinstance(fake_arena.active_introspection_tracker, ActiveIntrospectionTracker)
 
     @pytest.mark.asyncio
     async def test_tracker_not_created_when_disabled(self, fake_arena, execution_state):
@@ -171,9 +169,7 @@ class TestTrackerCreation:
         assert fake_arena.active_introspection_tracker is None
 
     @pytest.mark.asyncio
-    async def test_tracker_graceful_on_missing_event_bus(
-        self, fake_arena, execution_state
-    ):
+    async def test_tracker_graceful_on_missing_event_bus(self, fake_arena, execution_state):
         """Tracker should be created even without EventBus (just no subscriptions)."""
         fake_arena.event_bus = None
 
@@ -268,8 +264,12 @@ class TestEventBusSubscription:
 
         # First, add an agent via a proposal
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Proposal", role="proposer", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Proposal",
+            role="proposer",
+            round_num=1,
         )
 
         # Now emit round_end for round 2
@@ -308,18 +308,30 @@ class TestEventBusSubscription:
 
         # Proposal from claude
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Proposal A", role="proposer", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Proposal A",
+            role="proposer",
+            round_num=1,
         )
         # Critique from gpt4
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="gpt4", content="Critique of A", role="critic", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="gpt4",
+            content="Critique of A",
+            role="critic",
+            round_num=1,
         )
         # Another proposal from claude
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Proposal B", role="proposer", round_num=2,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Proposal B",
+            role="proposer",
+            round_num=2,
         )
 
         claude_summary = tracker.get_summary("claude")
@@ -340,18 +352,28 @@ class TestSummaryAttachment:
     """Tests for attaching introspection summaries to DebateResult."""
 
     @pytest.mark.asyncio
-    async def test_introspection_attached_to_result_metadata(
-        self, fake_arena, execution_state
-    ):
+    async def test_introspection_attached_to_result_metadata(self, fake_arena, execution_state):
         """Introspection summaries should be in result.metadata['introspection']."""
         # Create and populate a tracker
         tracker = ActiveIntrospectionTracker()
-        tracker.update_round("claude", 1, RoundMetrics(
-            round_number=1, proposals_made=2, proposals_accepted=1,
-        ))
-        tracker.update_round("gpt4", 1, RoundMetrics(
-            round_number=1, critiques_given=3, critiques_led_to_changes=2,
-        ))
+        tracker.update_round(
+            "claude",
+            1,
+            RoundMetrics(
+                round_number=1,
+                proposals_made=2,
+                proposals_accepted=1,
+            ),
+        )
+        tracker.update_round(
+            "gpt4",
+            1,
+            RoundMetrics(
+                round_number=1,
+                critiques_given=3,
+                critiques_led_to_changes=2,
+            ),
+        )
         fake_arena.active_introspection_tracker = tracker
 
         await handle_debate_completion(fake_arena, execution_state)
@@ -380,9 +402,7 @@ class TestSummaryAttachment:
         assert "introspection" not in result.metadata
 
     @pytest.mark.asyncio
-    async def test_introspection_not_attached_when_no_data(
-        self, fake_arena, execution_state
-    ):
+    async def test_introspection_not_attached_when_no_data(self, fake_arena, execution_state):
         """No introspection metadata when tracker has no data."""
         tracker = ActiveIntrospectionTracker()
         # Empty tracker -- no agents tracked
@@ -395,15 +415,19 @@ class TestSummaryAttachment:
         assert "introspection" not in result.metadata
 
     @pytest.mark.asyncio
-    async def test_introspection_summaries_are_serializable(
-        self, fake_arena, execution_state
-    ):
+    async def test_introspection_summaries_are_serializable(self, fake_arena, execution_state):
         """Summaries in metadata should be plain dicts (JSON-serializable)."""
         tracker = ActiveIntrospectionTracker()
-        tracker.update_round("claude", 1, RoundMetrics(
-            round_number=1, proposals_made=1, proposals_accepted=1,
-            argument_influence=0.8,
-        ))
+        tracker.update_round(
+            "claude",
+            1,
+            RoundMetrics(
+                round_number=1,
+                proposals_made=1,
+                proposals_accepted=1,
+                argument_influence=0.8,
+            ),
+        )
         fake_arena.active_introspection_tracker = tracker
 
         await handle_debate_completion(fake_arena, execution_state)
@@ -420,17 +444,26 @@ class TestSummaryAttachment:
         assert isinstance(claude_data["proposal_acceptance_rate"], (int, float))
 
     @pytest.mark.asyncio
-    async def test_introspection_has_round_history(
-        self, fake_arena, execution_state
-    ):
+    async def test_introspection_has_round_history(self, fake_arena, execution_state):
         """Introspection metadata should include round history."""
         tracker = ActiveIntrospectionTracker()
-        tracker.update_round("claude", 1, RoundMetrics(
-            round_number=1, proposals_made=1,
-        ))
-        tracker.update_round("claude", 2, RoundMetrics(
-            round_number=2, proposals_made=1, proposals_accepted=1,
-        ))
+        tracker.update_round(
+            "claude",
+            1,
+            RoundMetrics(
+                round_number=1,
+                proposals_made=1,
+            ),
+        )
+        tracker.update_round(
+            "claude",
+            2,
+            RoundMetrics(
+                round_number=2,
+                proposals_made=1,
+                proposals_accepted=1,
+            ),
+        )
         fake_arena.active_introspection_tracker = tracker
 
         await handle_debate_completion(fake_arena, execution_state)
@@ -463,26 +496,38 @@ class TestFullRoundTrip:
         # Step 2: Simulate debate events through EventBus
         # Round 1: proposals
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Rate limiting with token bucket",
-            role="proposer", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Rate limiting with token bucket",
+            role="proposer",
+            round_num=1,
         )
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="gpt4", content="Circuit breaker pattern instead",
-            role="proposer", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="gpt4",
+            content="Circuit breaker pattern instead",
+            role="proposer",
+            round_num=1,
         )
 
         # Round 1: critiques
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="gpt4", content="Token bucket is too simple",
-            role="critic", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="gpt4",
+            content="Token bucket is too simple",
+            role="critic",
+            round_num=1,
         )
         bus.emit_sync(
-            "agent_message", debate_id="test",
-            agent="claude", content="Circuit breakers don't limit rate",
-            role="critic", round_num=1,
+            "agent_message",
+            debate_id="test",
+            agent="claude",
+            content="Circuit breakers don't limit rate",
+            role="critic",
+            round_num=1,
         )
 
         # Verify tracker accumulated events

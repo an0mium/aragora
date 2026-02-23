@@ -365,9 +365,7 @@ class TestCreateForwardDraft:
     async def test_forward_via_gmail(self, handler, gmail):
         result = await handler._create_forward_draft("e1", {"to": "fwd@x.com"})
         assert result["draftId"] == "draft-fwd-001"
-        gmail.create_forward_draft.assert_awaited_once_with(
-            message_id="e1", to="fwd@x.com"
-        )
+        gmail.create_forward_draft.assert_awaited_once_with(message_id="e1", to="fwd@x.com")
 
     @pytest.mark.asyncio
     async def test_forward_demo_mode(self, demo_handler):
@@ -923,9 +921,7 @@ class TestSecurityEdgeCases:
 
     @pytest.mark.asyncio
     async def test_sanitize_reply_with_script_injection(self, handler):
-        result = handler._sanitize_action_params(
-            "reply", {"body": "<script>alert('xss')</script>"}
-        )
+        result = handler._sanitize_action_params("reply", {"body": "<script>alert('xss')</script>"})
         # Body is sanitized by stripping/truncating, but not HTML-encoded
         # (encoding happens at display layer). It should not crash.
         assert isinstance(result["body"], str)
@@ -939,9 +935,7 @@ class TestSecurityEdgeCases:
         assert result["to"] == ""
 
     def test_sanitize_snooze_with_long_duration(self, handler):
-        result = handler._sanitize_action_params(
-            "snooze", {"duration": "x" * 10000}
-        )
+        result = handler._sanitize_action_params("snooze", {"duration": "x" * 10000})
         assert result["duration"] == "1d"
 
     @pytest.mark.asyncio

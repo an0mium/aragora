@@ -221,14 +221,10 @@ def handler(mock_workspace_module):
             self._mock_audit_log.generate_compliance_report = AsyncMock(
                 return_value={"report_id": "rpt-001", "summary": "OK"}
             )
-            self._mock_audit_log.verify_integrity = AsyncMock(
-                return_value=(True, [])
-            )
+            self._mock_audit_log.verify_integrity = AsyncMock(return_value=(True, []))
             self._mock_audit_log.get_actor_history = AsyncMock(return_value=[])
             self._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
-            self._mock_audit_log.get_denied_access_attempts = AsyncMock(
-                return_value=[]
-            )
+            self._mock_audit_log.get_denied_access_attempts = AsyncMock(return_value=[])
 
         def _get_user_store(self):
             return self._mock_user_store
@@ -309,9 +305,7 @@ class TestClassifyContent:
         classification = _make_classification_result()
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "Data", "document_id": "doc-42"}
-        )
+        req = make_handler_request(body={"content": "Data", "document_id": "doc-42"})
         result = handler._handle_classify_content(req)
         assert _status(result) == 200
 
@@ -324,9 +318,7 @@ class TestClassifyContent:
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
         metadata = {"source": "email", "department": "legal"}
-        req = make_handler_request(
-            body={"content": "Data", "metadata": metadata}
-        )
+        req = make_handler_request(body={"content": "Data", "metadata": metadata})
         result = handler._handle_classify_content(req)
         assert _status(result) == 200
 
@@ -368,20 +360,22 @@ class TestClassifyContent:
         result = handler._handle_classify_content(req)
         assert _status(result) == 403
 
-    def test_classify_audit_log_with_document_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_audit_log_with_document_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """When document_id is provided, audit log entry should be created."""
         classification = _make_classification_result(
             level=MockSensitivityLevel.CONFIDENTIAL, confidence=0.9
         )
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "Data", "document_id": "doc-99"}
-        )
+        req = make_handler_request(body={"content": "Data", "document_id": "doc-99"})
         handler._handle_classify_content(req)
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_classify_no_audit_log_without_document_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_no_audit_log_without_document_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """When no document_id is provided, audit log should NOT be written."""
         classification = _make_classification_result()
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
@@ -390,7 +384,9 @@ class TestClassifyContent:
         handler._handle_classify_content(req)
         handler._mock_audit_log.log.assert_not_called()
 
-    def test_classify_default_document_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_default_document_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Default document_id is empty string, which is falsy -- no audit log."""
         classification = _make_classification_result()
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
@@ -412,7 +408,9 @@ class TestClassifyContent:
         call_kwargs = handler._mock_classifier.classify.call_args.kwargs
         assert call_kwargs["metadata"] == {}
 
-    def test_classify_all_sensitivity_levels(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_all_sensitivity_levels(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Verify response works with all sensitivity levels."""
         for level in MockSensitivityLevel:
             classification = _make_classification_result(level=level)
@@ -424,25 +422,23 @@ class TestClassifyContent:
             body = _body(result)
             assert body["classification"]["level"] == level.value
 
-    def test_classify_audit_actor_uses_user_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_audit_actor_uses_user_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         classification = _make_classification_result()
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "Data", "document_id": "doc-1"}
-        )
+        req = make_handler_request(body={"content": "Data", "document_id": "doc-1"})
         handler._handle_classify_content(req)
         mock_workspace_module.Actor.assert_called_with(id="test-user-001", type="user")
 
-    def test_classify_audit_resource_sensitivity_level(self, handler, make_handler_request, mock_workspace_module):
-        classification = _make_classification_result(
-            level=MockSensitivityLevel.RESTRICTED
-        )
+    def test_classify_audit_resource_sensitivity_level(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
+        classification = _make_classification_result(level=MockSensitivityLevel.RESTRICTED)
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "Data", "document_id": "doc-sec"}
-        )
+        req = make_handler_request(body={"content": "Data", "document_id": "doc-sec"})
         handler._handle_classify_content(req)
 
         # Verify Resource was created with sensitivity_level
@@ -450,7 +446,9 @@ class TestClassifyContent:
         call_kwargs = mock_workspace_module.Resource.call_args.kwargs
         assert call_kwargs["sensitivity_level"] == "restricted"
 
-    def test_classify_rbac_checks_write_permission(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_rbac_checks_write_permission(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Verify that classify uses PERM_CLASSIFY_WRITE."""
         captured_perms = []
 
@@ -486,7 +484,9 @@ class TestGetLevelPolicy:
         assert body["level"] == "confidential"
         assert body["policy"] == policy
 
-    def test_get_policy_all_valid_levels(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_all_valid_levels(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Each valid sensitivity level should return 200."""
         for level in MockSensitivityLevel:
             handler._mock_classifier.get_level_policy.return_value = {}
@@ -504,7 +504,9 @@ class TestGetLevelPolicy:
         assert "Invalid level" in _error(result)
         assert "ultra_secret" in _error(result)
 
-    def test_get_policy_invalid_level_lists_valid(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_invalid_level_lists_valid(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Error should list valid sensitivity levels."""
         req = make_handler_request(method="GET")
         result = handler._handle_get_level_policy(req, "bogus")
@@ -513,7 +515,9 @@ class TestGetLevelPolicy:
         assert "internal" in error_msg
         assert "confidential" in error_msg
 
-    def test_get_policy_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="GET")
@@ -529,7 +533,9 @@ class TestGetLevelPolicy:
         result = handler._handle_get_level_policy(req, "public")
         assert _status(result) == 403
 
-    def test_get_policy_rbac_checks_read_permission(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_rbac_checks_read_permission(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         captured_perms = []
 
         def capture_rbac(h, perm, auth_ctx):
@@ -543,7 +549,9 @@ class TestGetLevelPolicy:
         handler._handle_get_level_policy(req, "public")
         assert "classify:read" in captured_perms
 
-    def test_get_policy_case_sensitive_level(self, handler, make_handler_request, mock_workspace_module):
+    def test_get_policy_case_sensitive_level(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """SensitivityLevel is case-sensitive; uppercase should fail."""
         req = make_handler_request(method="GET")
         result = handler._handle_get_level_policy(req, "PUBLIC")
@@ -587,10 +595,13 @@ class TestQueryAudit:
         handler._mock_audit_log.query = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
-        result = handler._handle_query_audit(req, {
-            "start_date": "2026-01-01T00:00:00+00:00",
-            "end_date": "2026-02-01T00:00:00+00:00",
-        })
+        result = handler._handle_query_audit(
+            req,
+            {
+                "start_date": "2026-01-01T00:00:00+00:00",
+                "end_date": "2026-02-01T00:00:00+00:00",
+            },
+        )
         assert _status(result) == 200
 
         call_kwargs = handler._mock_audit_log.query.call_args.kwargs
@@ -685,7 +696,9 @@ class TestQueryAudit:
         assert body["entries"][0]["id"] == "cached-entry"
         handler._mock_audit_log.query.assert_not_called()
 
-    def test_query_cache_miss_stores_result(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_cache_miss_stores_result(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._audit_query_cache.get.return_value = None
         handler._mock_audit_log.query = AsyncMock(return_value=[])
 
@@ -709,7 +722,9 @@ class TestQueryAudit:
         result = handler._handle_query_audit(req, {})
         assert _status(result) == 403
 
-    def test_query_rbac_checks_audit_read(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_rbac_checks_audit_read(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         captured_perms = []
 
         def capture_rbac(h, perm, auth_ctx):
@@ -723,7 +738,9 @@ class TestQueryAudit:
         handler._handle_query_audit(req, {})
         assert "audit:read" in captured_perms
 
-    def test_query_no_filters_passes_defaults(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_no_filters_passes_defaults(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.query = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -749,9 +766,7 @@ class TestAuditReport:
 
     def test_report_success(self, handler, make_handler_request, mock_workspace_module):
         report = {"report_id": "rpt-001", "summary": "All good"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         result = handler._handle_audit_report(req, {})
@@ -761,15 +776,16 @@ class TestAuditReport:
 
     def test_report_with_date_range(self, handler, make_handler_request, mock_workspace_module):
         report = {"report_id": "rpt-002"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
-        result = handler._handle_audit_report(req, {
-            "start_date": "2026-01-01",
-            "end_date": "2026-02-01",
-        })
+        result = handler._handle_audit_report(
+            req,
+            {
+                "start_date": "2026-01-01",
+                "end_date": "2026-02-01",
+            },
+        )
         assert _status(result) == 200
 
         call_kwargs = handler._mock_audit_log.generate_compliance_report.call_args.kwargs
@@ -778,9 +794,7 @@ class TestAuditReport:
 
     def test_report_with_workspace_id(self, handler, make_handler_request, mock_workspace_module):
         report = {"report_id": "rpt-003"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {"workspace_id": "ws-42"})
@@ -789,9 +803,7 @@ class TestAuditReport:
 
     def test_report_with_format(self, handler, make_handler_request, mock_workspace_module):
         report = {"report_id": "rpt-004"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {"format": "csv"})
@@ -800,9 +812,7 @@ class TestAuditReport:
 
     def test_report_default_format_json(self, handler, make_handler_request, mock_workspace_module):
         report = {"report_id": "rpt-005"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {})
@@ -818,19 +828,17 @@ class TestAuditReport:
     def test_report_audit_log_logged(self, handler, make_handler_request, mock_workspace_module):
         """Generating a report should log to audit."""
         report = {"report_id": "rpt-006"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {})
         handler._mock_audit_log.log.assert_called_once()
 
-    def test_report_audit_resource_uses_report_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_report_audit_resource_uses_report_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = {"report_id": "rpt-unique"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {})
@@ -855,7 +863,9 @@ class TestAuditReport:
         result = handler._handle_audit_report(req, {})
         assert _status(result) == 403
 
-    def test_report_rbac_checks_report_permission(self, handler, make_handler_request, mock_workspace_module):
+    def test_report_rbac_checks_report_permission(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         captured_perms = []
 
         def capture_rbac(h, perm, auth_ctx):
@@ -864,9 +874,7 @@ class TestAuditReport:
 
         handler._check_rbac_permission = capture_rbac
         report = {"report_id": "rpt-007"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {})
@@ -882,9 +890,7 @@ class TestVerifyIntegrity:
     """Test the _handle_verify_integrity endpoint."""
 
     def test_verify_success_valid(self, handler, make_handler_request, mock_workspace_module):
-        handler._mock_audit_log.verify_integrity = AsyncMock(
-            return_value=(True, [])
-        )
+        handler._mock_audit_log.verify_integrity = AsyncMock(return_value=(True, []))
 
         req = make_handler_request(method="GET")
         result = handler._handle_verify_integrity(req, {})
@@ -897,9 +903,7 @@ class TestVerifyIntegrity:
 
     def test_verify_with_errors(self, handler, make_handler_request, mock_workspace_module):
         errors = ["Checksum mismatch at entry-5", "Missing entry-6"]
-        handler._mock_audit_log.verify_integrity = AsyncMock(
-            return_value=(False, errors)
-        )
+        handler._mock_audit_log.verify_integrity = AsyncMock(return_value=(False, errors))
 
         req = make_handler_request(method="GET")
         result = handler._handle_verify_integrity(req, {})
@@ -910,15 +914,16 @@ class TestVerifyIntegrity:
         assert len(body["errors"]) == 2
 
     def test_verify_with_date_range(self, handler, make_handler_request, mock_workspace_module):
-        handler._mock_audit_log.verify_integrity = AsyncMock(
-            return_value=(True, [])
-        )
+        handler._mock_audit_log.verify_integrity = AsyncMock(return_value=(True, []))
 
         req = make_handler_request(method="GET")
-        result = handler._handle_verify_integrity(req, {
-            "start_date": "2026-01-01",
-            "end_date": "2026-02-01",
-        })
+        result = handler._handle_verify_integrity(
+            req,
+            {
+                "start_date": "2026-01-01",
+                "end_date": "2026-02-01",
+            },
+        )
         assert _status(result) == 200
 
         call_kwargs = handler._mock_audit_log.verify_integrity.call_args.kwargs
@@ -947,7 +952,9 @@ class TestVerifyIntegrity:
         result = handler._handle_verify_integrity(req, {})
         assert _status(result) == 403
 
-    def test_verify_rbac_checks_verify_permission(self, handler, make_handler_request, mock_workspace_module):
+    def test_verify_rbac_checks_verify_permission(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         captured_perms = []
 
         def capture_rbac(h, perm, auth_ctx):
@@ -955,18 +962,16 @@ class TestVerifyIntegrity:
             return None
 
         handler._check_rbac_permission = capture_rbac
-        handler._mock_audit_log.verify_integrity = AsyncMock(
-            return_value=(True, [])
-        )
+        handler._mock_audit_log.verify_integrity = AsyncMock(return_value=(True, []))
 
         req = make_handler_request(method="GET")
         handler._handle_verify_integrity(req, {})
         assert "audit:verify" in captured_perms
 
-    def test_verify_verified_at_is_iso_format(self, handler, make_handler_request, mock_workspace_module):
-        handler._mock_audit_log.verify_integrity = AsyncMock(
-            return_value=(True, [])
-        )
+    def test_verify_verified_at_is_iso_format(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
+        handler._mock_audit_log.verify_integrity = AsyncMock(return_value=(True, []))
 
         req = make_handler_request(method="GET")
         result = handler._handle_verify_integrity(req, {})
@@ -975,9 +980,7 @@ class TestVerifyIntegrity:
         datetime.fromisoformat(body["verified_at"])
 
     def test_verify_no_date_filters(self, handler, make_handler_request, mock_workspace_module):
-        handler._mock_audit_log.verify_integrity = AsyncMock(
-            return_value=(True, [])
-        )
+        handler._mock_audit_log.verify_integrity = AsyncMock(return_value=(True, []))
 
         req = make_handler_request(method="GET")
         handler._handle_verify_integrity(req, {})
@@ -994,7 +997,9 @@ class TestVerifyIntegrity:
 class TestActorHistory:
     """Test the _handle_actor_history endpoint."""
 
-    def test_actor_history_success_empty(self, handler, make_handler_request, mock_workspace_module):
+    def test_actor_history_success_empty(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.get_actor_history = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -1049,7 +1054,9 @@ class TestActorHistory:
         assert body["entries"][0]["id"] == "cached"
         handler._mock_audit_log.get_actor_history.assert_not_called()
 
-    def test_actor_history_cache_miss_stores_result(self, handler, make_handler_request, mock_workspace_module):
+    def test_actor_history_cache_miss_stores_result(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._audit_query_cache.get.return_value = None
         handler._mock_audit_log.get_actor_history = AsyncMock(return_value=[])
 
@@ -1057,7 +1064,9 @@ class TestActorHistory:
         handler._handle_actor_history(req, "user-42", {})
         mock_workspace_module._audit_query_cache.set.assert_called_once()
 
-    def test_actor_history_cache_key_format(self, handler, make_handler_request, mock_workspace_module):
+    def test_actor_history_cache_key_format(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._audit_query_cache.get.return_value = None
         handler._mock_audit_log.get_actor_history = AsyncMock(return_value=[])
 
@@ -1066,7 +1075,9 @@ class TestActorHistory:
         get_call = mock_workspace_module._audit_query_cache.get.call_args
         assert get_call[0][0] == "audit:actor:user-99:days:14"
 
-    def test_actor_history_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_actor_history_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="GET")
@@ -1091,7 +1102,9 @@ class TestActorHistory:
 class TestResourceHistory:
     """Test the _handle_resource_history endpoint."""
 
-    def test_resource_history_success_empty(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_success_empty(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -1103,7 +1116,9 @@ class TestResourceHistory:
         assert body["total"] == 0
         assert body["days"] == 30  # default
 
-    def test_resource_history_with_entries(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_with_entries(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         entries = [
             _make_audit_entry(entry_id="e1", resource_id="doc-42"),
             _make_audit_entry(entry_id="e2", resource_id="doc-42"),
@@ -1117,7 +1132,9 @@ class TestResourceHistory:
         body = _body(result)
         assert body["total"] == 3
 
-    def test_resource_history_custom_days(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_custom_days(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -1130,7 +1147,9 @@ class TestResourceHistory:
             resource_id="doc-42", days=60
         )
 
-    def test_resource_history_days_clamped_max(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_days_clamped_max(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Days should be clamped to max_val=365."""
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
 
@@ -1139,7 +1158,9 @@ class TestResourceHistory:
         body = _body(result)
         assert body["days"] == 365
 
-    def test_resource_history_days_clamped_min(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_days_clamped_min(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Days should be clamped to min_val=1."""
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
 
@@ -1164,7 +1185,9 @@ class TestResourceHistory:
         assert body["entries"][0]["id"] == "cached"
         handler._mock_audit_log.get_resource_history.assert_not_called()
 
-    def test_resource_history_cache_miss_stores_result(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_cache_miss_stores_result(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._audit_query_cache.get.return_value = None
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
 
@@ -1172,7 +1195,9 @@ class TestResourceHistory:
         handler._handle_resource_history(req, "doc-42", {})
         mock_workspace_module._audit_query_cache.set.assert_called_once()
 
-    def test_resource_history_cache_key_format(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_cache_key_format(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._audit_query_cache.get.return_value = None
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=[])
 
@@ -1181,14 +1206,18 @@ class TestResourceHistory:
         get_call = mock_workspace_module._audit_query_cache.get.call_args
         assert get_call[0][0] == "audit:resource:res-abc:days:7"
 
-    def test_resource_history_not_authenticated(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_not_authenticated(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module.extract_user_from_request.return_value.is_authenticated = False
 
         req = make_handler_request(method="GET")
         result = handler._handle_resource_history(req, "doc-42", {})
         assert _status(result) == 401
 
-    def test_resource_history_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_rbac_denied(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -1222,9 +1251,7 @@ class TestDeniedAccess:
             _make_audit_entry(entry_id="d1", outcome="denied"),
             _make_audit_entry(entry_id="d2", outcome="denied"),
         ]
-        handler._mock_audit_log.get_denied_access_attempts = AsyncMock(
-            return_value=entries
-        )
+        handler._mock_audit_log.get_denied_access_attempts = AsyncMock(return_value=entries)
 
         req = make_handler_request(method="GET")
         result = handler._handle_denied_access(req, {})
@@ -1271,7 +1298,9 @@ class TestDeniedAccess:
         assert body["denied_attempts"][0]["id"] == "cached-d"
         handler._mock_audit_log.get_denied_access_attempts.assert_not_called()
 
-    def test_denied_cache_miss_stores_result(self, handler, make_handler_request, mock_workspace_module):
+    def test_denied_cache_miss_stores_result(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         mock_workspace_module._audit_query_cache.get.return_value = None
         handler._mock_audit_log.get_denied_access_attempts = AsyncMock(return_value=[])
 
@@ -1304,7 +1333,9 @@ class TestDeniedAccess:
         result = handler._handle_denied_access(req, {})
         assert _status(result) == 403
 
-    def test_denied_rbac_checks_audit_read(self, handler, make_handler_request, mock_workspace_module):
+    def test_denied_rbac_checks_audit_read(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         captured_perms = []
 
         def capture_rbac(h, perm, auth_ctx):
@@ -1341,7 +1372,9 @@ class TestModuleExports:
 class TestCacheKeyFormats:
     """Test that cache keys are formed correctly for audit queries."""
 
-    def test_query_cache_key_all_defaults(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_cache_key_all_defaults(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.query = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -1352,7 +1385,9 @@ class TestCacheKeyFormats:
         assert key.startswith("audit:query:")
         assert "all" in key  # workspace_id is None -> "all"
 
-    def test_query_cache_key_with_workspace(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_cache_key_with_workspace(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.query = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -1393,26 +1428,24 @@ class TestCacheKeyFormats:
 class TestSecurityEdgeCases:
     """Test security-related edge cases."""
 
-    def test_classify_content_with_script_tag(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_content_with_script_tag(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Ensure script tags in content are accepted (classification handles it)."""
-        classification = _make_classification_result(
-            level=MockSensitivityLevel.RESTRICTED
-        )
+        classification = _make_classification_result(level=MockSensitivityLevel.RESTRICTED)
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "<script>alert('xss')</script>"}
-        )
+        req = make_handler_request(body={"content": "<script>alert('xss')</script>"})
         result = handler._handle_classify_content(req)
         assert _status(result) == 200
 
-    def test_classify_content_with_sql_injection(self, handler, make_handler_request, mock_workspace_module):
+    def test_classify_content_with_sql_injection(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         classification = _make_classification_result()
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "'; DROP TABLE users; --"}
-        )
+        req = make_handler_request(body={"content": "'; DROP TABLE users; --"})
         result = handler._handle_classify_content(req)
         assert _status(result) == 200
 
@@ -1435,7 +1468,9 @@ class TestSecurityEdgeCases:
         result = handler._handle_classify_content(req)
         assert _status(result) == 200
 
-    def test_query_audit_path_traversal_actor_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_audit_path_traversal_actor_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         """Path traversal in actor_id should not cause issues."""
         handler._mock_audit_log.get_actor_history = AsyncMock(return_value=[])
 
@@ -1444,7 +1479,9 @@ class TestSecurityEdgeCases:
         # The handler should still process it (validation at routing layer)
         assert _status(result) == 200
 
-    def test_query_audit_empty_workspace_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_query_audit_empty_workspace_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         handler._mock_audit_log.query = AsyncMock(return_value=[])
 
         req = make_handler_request(method="GET")
@@ -1471,20 +1508,18 @@ class TestAuditLogDetails:
         )
         handler._mock_classifier.classify = AsyncMock(return_value=classification)
 
-        req = make_handler_request(
-            body={"content": "Secret", "document_id": "doc-detail"}
-        )
+        req = make_handler_request(body={"content": "Secret", "document_id": "doc-detail"})
         handler._handle_classify_content(req)
 
         call_kwargs = handler._mock_audit_log.log.call_args.kwargs
         assert call_kwargs["details"]["level"] == "confidential"
         assert call_kwargs["details"]["confidence"] == 0.92
 
-    def test_report_audit_details_workspace_id(self, handler, make_handler_request, mock_workspace_module):
+    def test_report_audit_details_workspace_id(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = {"report_id": "rpt-audit"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {"workspace_id": "ws-detail"})
@@ -1492,11 +1527,11 @@ class TestAuditLogDetails:
         call_kwargs = handler._mock_audit_log.log.call_args.kwargs
         assert call_kwargs["details"]["workspace_id"] == "ws-detail"
 
-    def test_report_audit_details_no_workspace(self, handler, make_handler_request, mock_workspace_module):
+    def test_report_audit_details_no_workspace(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         report = {"report_id": "rpt-nows"}
-        handler._mock_audit_log.generate_compliance_report = AsyncMock(
-            return_value=report
-        )
+        handler._mock_audit_log.generate_compliance_report = AsyncMock(return_value=report)
 
         req = make_handler_request(method="GET")
         handler._handle_audit_report(req, {})
@@ -1509,10 +1544,7 @@ class TestEntryConversion:
     """Test batch conversion of entries to dicts."""
 
     def test_query_entries_to_dict(self, handler, make_handler_request, mock_workspace_module):
-        entries = [
-            _make_audit_entry(entry_id=f"e-{i}")
-            for i in range(5)
-        ]
+        entries = [_make_audit_entry(entry_id=f"e-{i}") for i in range(5)]
         handler._mock_audit_log.query = AsyncMock(return_value=entries)
 
         req = make_handler_request(method="GET")
@@ -1522,7 +1554,9 @@ class TestEntryConversion:
         for i, entry in enumerate(body["entries"]):
             assert entry["id"] == f"e-{i}"
 
-    def test_actor_history_entries_to_dict(self, handler, make_handler_request, mock_workspace_module):
+    def test_actor_history_entries_to_dict(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         entries = [_make_audit_entry(entry_id="ah-1"), _make_audit_entry(entry_id="ah-2")]
         handler._mock_audit_log.get_actor_history = AsyncMock(return_value=entries)
 
@@ -1532,7 +1566,9 @@ class TestEntryConversion:
         assert body["entries"][0]["id"] == "ah-1"
         assert body["entries"][1]["id"] == "ah-2"
 
-    def test_resource_history_entries_to_dict(self, handler, make_handler_request, mock_workspace_module):
+    def test_resource_history_entries_to_dict(
+        self, handler, make_handler_request, mock_workspace_module
+    ):
         entries = [_make_audit_entry(entry_id="rh-1")]
         handler._mock_audit_log.get_resource_history = AsyncMock(return_value=entries)
 
@@ -1543,9 +1579,7 @@ class TestEntryConversion:
 
     def test_denied_entries_to_dict(self, handler, make_handler_request, mock_workspace_module):
         entries = [_make_audit_entry(entry_id="deny-1")]
-        handler._mock_audit_log.get_denied_access_attempts = AsyncMock(
-            return_value=entries
-        )
+        handler._mock_audit_log.get_denied_access_attempts = AsyncMock(return_value=entries)
 
         req = make_handler_request(method="GET")
         result = handler._handle_denied_access(req, {})

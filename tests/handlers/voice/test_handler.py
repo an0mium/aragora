@@ -332,7 +332,7 @@ class TestHandleInbound:
     @pytest.mark.asyncio
     async def test_twiml_response_text(self, handler, voice_mock):
         """Verify the TwiML from handle_inbound_call is returned."""
-        expected_twiml = '<Response><Say>Custom greeting</Say></Response>'
+        expected_twiml = "<Response><Say>Custom greeting</Say></Response>"
         voice_mock.handle_inbound_call.return_value = expected_twiml
         request = _req(
             post_data={
@@ -753,9 +753,7 @@ class TestHandleDeviceAssociation:
             json_body={"call_sid": "CA123", "device_id": "device-001"},
         )
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
 
         assert _status(resp) == 200
@@ -771,9 +769,7 @@ class TestHandleDeviceAssociation:
             path="/api/v1/voice/device",
             json_body={"call_sid": "CA123", "device_id": "device-001"},
         )
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False):
             resp = await handler.handle_device_association(request)
         assert _status(resp) == 503
         assert "not available" in _body(resp)["error"]
@@ -784,9 +780,7 @@ class TestHandleDeviceAssociation:
         request = _req(path="/api/v1/voice/device")
         request.json = AsyncMock(side_effect=ValueError("bad json"))
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
 
         assert _status(resp) == 400
@@ -798,9 +792,7 @@ class TestHandleDeviceAssociation:
             path="/api/v1/voice/device",
             json_body={"device_id": "device-001"},
         )
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
         assert _status(resp) == 400
         assert "required" in _body(resp)["error"]
@@ -811,9 +803,7 @@ class TestHandleDeviceAssociation:
             path="/api/v1/voice/device",
             json_body={"call_sid": "CA123"},
         )
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
         assert _status(resp) == 400
         assert "required" in _body(resp)["error"]
@@ -827,17 +817,13 @@ class TestHandleDeviceAssociation:
             path="/api/v1/voice/device",
             json_body={"call_sid": "CA123", "device_id": "nonexistent"},
         )
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
         assert _status(resp) == 400
         assert "Failed" in _body(resp)["error"]
 
     @pytest.mark.asyncio
-    async def test_device_without_voice_capability(
-        self, handler_with_device, device_registry
-    ):
+    async def test_device_without_voice_capability(self, handler_with_device, device_registry):
         """Device without voice capability -> association fails."""
         node = _make_device_node(capabilities=["sms", "email"])
         device_registry.get = AsyncMock(return_value=node)
@@ -846,9 +832,7 @@ class TestHandleDeviceAssociation:
             path="/api/v1/voice/device",
             json_body={"call_sid": "CA123", "device_id": "device-001"},
         )
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
         assert _status(resp) == 400
 
@@ -858,9 +842,7 @@ class TestHandleDeviceAssociation:
         request = _req(path="/api/v1/voice/device")
         request.json = AsyncMock(side_effect=TypeError("no body"))
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             resp = await handler_with_device.handle_device_association(request)
         assert _status(resp) == 400
         assert "Invalid JSON" in _body(resp)["error"]
@@ -879,12 +861,8 @@ class TestAssociateCallWithDevice:
         node = _make_device_node()
         device_registry.get = AsyncMock(return_value=node)
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
-            result = await handler_with_device.associate_call_with_device(
-                "CA123", "device-001"
-            )
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
+            result = await handler_with_device.associate_call_with_device("CA123", "device-001")
         assert result is True
         assert handler_with_device._call_device_map["CA123"] == "device-001"
 
@@ -897,12 +875,8 @@ class TestAssociateCallWithDevice:
     async def test_device_not_found(self, handler_with_device, device_registry):
         device_registry.get = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
-            result = await handler_with_device.associate_call_with_device(
-                "CA123", "nonexistent"
-            )
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
+            result = await handler_with_device.associate_call_with_device("CA123", "nonexistent")
         assert result is False
 
     @pytest.mark.asyncio
@@ -910,22 +884,14 @@ class TestAssociateCallWithDevice:
         node = _make_device_node(capabilities=["sms"])
         device_registry.get = AsyncMock(return_value=node)
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
-            result = await handler_with_device.associate_call_with_device(
-                "CA123", "device-001"
-            )
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
+            result = await handler_with_device.associate_call_with_device("CA123", "device-001")
         assert result is False
 
     @pytest.mark.asyncio
     async def test_has_device_registry_false(self, handler_with_device):
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False
-        ):
-            result = await handler_with_device.associate_call_with_device(
-                "CA123", "device-001"
-            )
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False):
+            result = await handler_with_device.associate_call_with_device("CA123", "device-001")
         assert result is False
 
 
@@ -943,17 +909,13 @@ class TestGetDeviceForCall:
         device_registry.get = AsyncMock(return_value=node)
         handler_with_device._call_device_map["CA123"] = "device-001"
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             result = await handler_with_device.get_device_for_call("CA123")
         assert result is node
 
     @pytest.mark.asyncio
     async def test_no_mapping(self, handler_with_device, device_registry):
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             result = await handler_with_device.get_device_for_call("CA999")
         assert result is None
 
@@ -965,9 +927,7 @@ class TestGetDeviceForCall:
     @pytest.mark.asyncio
     async def test_has_device_registry_false(self, handler_with_device):
         handler_with_device._call_device_map["CA123"] = "device-001"
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False):
             result = await handler_with_device.get_device_for_call("CA123")
         assert result is None
 
@@ -1009,9 +969,7 @@ class TestVerifySignature:
         monkeypatch.setenv("ARAGORA_ENV", "test")
         request = _req(post_data={})
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", False):
             result = await handler._verify_signature(request, {})
         assert result is True
 
@@ -1021,9 +979,7 @@ class TestVerifySignature:
         monkeypatch.setenv("ARAGORA_ENV", "production")
         request = _req(post_data={})
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", False):
             result = await handler._verify_signature(request, {})
         assert result is False
 
@@ -1034,10 +990,9 @@ class TestVerifySignature:
         monkeypatch.delenv("TWILIO_AUTH_TOKEN", raising=False)
         request = _req(post_data={})
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator", MagicMock()
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch("aragora.server.handlers.voice.handler.RequestValidator", MagicMock()),
         ):
             result = await handler._verify_signature(request, {})
         assert result is True
@@ -1049,10 +1004,9 @@ class TestVerifySignature:
         monkeypatch.delenv("TWILIO_AUTH_TOKEN", raising=False)
         request = _req(post_data={})
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator", MagicMock()
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch("aragora.server.handlers.voice.handler.RequestValidator", MagicMock()),
         ):
             result = await handler._verify_signature(request, {})
         assert result is False
@@ -1066,10 +1020,9 @@ class TestVerifySignature:
         if "X-Twilio-Signature" in request.headers:
             del request.headers["X-Twilio-Signature"]
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator", MagicMock()
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch("aragora.server.handlers.voice.handler.RequestValidator", MagicMock()),
         ):
             result = await handler._verify_signature(request, {})
         assert result is False
@@ -1089,11 +1042,12 @@ class TestVerifySignature:
             headers={"X-Twilio-Signature": "valid-sig"},
         )
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator",
-            mock_validator_cls,
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch(
+                "aragora.server.handlers.voice.handler.RequestValidator",
+                mock_validator_cls,
+            ),
         ):
             result = await handler._verify_signature(request, {"CallSid": "CA123"})
         assert result is True
@@ -1115,11 +1069,12 @@ class TestVerifySignature:
             headers={"X-Twilio-Signature": "bad-sig"},
         )
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator",
-            mock_validator_cls,
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch(
+                "aragora.server.handlers.voice.handler.RequestValidator",
+                mock_validator_cls,
+            ),
         ):
             result = await handler._verify_signature(request, {"CallSid": "CA123"})
         assert result is False
@@ -1139,11 +1094,12 @@ class TestVerifySignature:
             headers={"X-Twilio-Signature": "some-sig"},
         )
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator",
-            mock_validator_cls,
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch(
+                "aragora.server.handlers.voice.handler.RequestValidator",
+                mock_validator_cls,
+            ),
         ):
             result = await handler._verify_signature(request, {})
         assert result is False
@@ -1163,11 +1119,12 @@ class TestVerifySignature:
             headers={"X-Twilio-Signature": "some-sig"},
         )
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator",
-            mock_validator_cls,
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch(
+                "aragora.server.handlers.voice.handler.RequestValidator",
+                mock_validator_cls,
+            ),
         ):
             result = await handler._verify_signature(request, {})
         assert result is False
@@ -1187,11 +1144,12 @@ class TestVerifySignature:
             headers={"X-Twilio-Signature": "some-sig"},
         )
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True
-        ), patch(
-            "aragora.server.handlers.voice.handler.RequestValidator",
-            mock_validator_cls,
+        with (
+            patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", True),
+            patch(
+                "aragora.server.handlers.voice.handler.RequestValidator",
+                mock_validator_cls,
+            ),
         ):
             result = await handler._verify_signature(request, {})
         assert result is False
@@ -1202,9 +1160,7 @@ class TestVerifySignature:
         monkeypatch.setenv("ARAGORA_ENV", "local")
         request = _req(post_data={})
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_TWILIO_VALIDATOR", False):
             result = await handler._verify_signature(request, {})
         assert result is True
 
@@ -1283,9 +1239,7 @@ class TestQueueDebateFromVoice:
         )
         h._call_device_map["CA123"] = "device-001"
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             await h._queue_debate_from_voice("CA123", "test question")
 
         call_kwargs = starter.call_args[1]
@@ -1360,9 +1314,7 @@ class TestSetupVoiceRoutes:
         setup_voice_routes(app)
 
         # Collect all registered paths
-        registered_paths = [
-            call.args[0] for call in app.router.add_post.call_args_list
-        ]
+        registered_paths = [call.args[0] for call in app.router.add_post.call_args_list]
         assert "/api/v1/voice/inbound" in registered_paths
         assert "/api/v1/voice/status" in registered_paths
         assert "/api/v1/voice/gather" in registered_paths
@@ -1375,9 +1327,7 @@ class TestSetupVoiceRoutes:
 
         setup_voice_routes(app)
 
-        registered_paths = [
-            call.args[0] for call in app.router.add_post.call_args_list
-        ]
+        registered_paths = [call.args[0] for call in app.router.add_post.call_args_list]
         assert "/api/voice/inbound" in registered_paths
         assert "/api/voice/status" in registered_paths
         assert "/api/voice/gather" in registered_paths
@@ -1391,14 +1341,10 @@ class TestSetupVoiceRoutes:
         registry = _make_device_registry()
         h = VoiceHandler(voice_integration=voice_mock, device_registry=registry)
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             setup_voice_routes(app, handler=h)
 
-        registered_paths = [
-            call.args[0] for call in app.router.add_post.call_args_list
-        ]
+        registered_paths = [call.args[0] for call in app.router.add_post.call_args_list]
         assert "/api/v1/voice/device" in registered_paths
 
     def test_device_route_not_registered_when_no_registry(self):
@@ -1406,14 +1352,10 @@ class TestSetupVoiceRoutes:
         app.router = MagicMock()
         app.router.add_post = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False):
             setup_voice_routes(app)
 
-        registered_paths = [
-            call.args[0] for call in app.router.add_post.call_args_list
-        ]
+        registered_paths = [call.args[0] for call in app.router.add_post.call_args_list]
         assert "/api/v1/voice/device" not in registered_paths
 
     def test_total_route_count_without_device(self):
@@ -1421,9 +1363,7 @@ class TestSetupVoiceRoutes:
         app.router = MagicMock()
         app.router.add_post = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", False):
             setup_voice_routes(app)
 
         # 4 v1 + 4 legacy = 8
@@ -1435,9 +1375,7 @@ class TestSetupVoiceRoutes:
         app.router.add_post = MagicMock()
 
         registry = _make_device_registry()
-        with patch(
-            "aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True
-        ):
+        with patch("aragora.server.handlers.voice.handler.HAS_DEVICE_REGISTRY", True):
             h = setup_voice_routes(app, device_registry=registry)
 
         # The handler was created with the device registry

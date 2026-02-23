@@ -101,7 +101,9 @@ def _validate_resolution(width: int, height: int) -> tuple[int, int]:
     clamped_height = max(MIN_RESOLUTION[1], min(height, MAX_RESOLUTION[1]))
 
     if clamped_width != width or clamped_height != height:
-        logger.warning("Resolution %sx%s clamped to %sx%s", width, height, clamped_width, clamped_height)
+        logger.warning(
+            "Resolution %sx%s clamped to %sx%s", width, height, clamped_width, clamped_height
+        )
 
     return clamped_width, clamped_height
 
@@ -171,7 +173,10 @@ def _validate_duration(duration: int | None) -> bool:
 
     if duration > MAX_DURATION_SECONDS:
         logger.error(
-            "Audio duration %ss exceeds maximum %ss (%s hours)", duration, MAX_DURATION_SECONDS, MAX_DURATION_SECONDS // 3600
+            "Audio duration %ss exceeds maximum %ss (%s hours)",
+            duration,
+            MAX_DURATION_SECONDS,
+            MAX_DURATION_SECONDS // 3600,
         )
         return False
 
@@ -481,7 +486,7 @@ class VideoGenerator:
             _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
 
             if process.returncode != 0:
-                logger.error("ffmpeg failed: %s", stderr.decode('utf-8', errors='replace')[:500])
+                logger.error("ffmpeg failed: %s", stderr.decode("utf-8", errors="replace")[:500])
                 return None
 
             if output_path.exists():
@@ -588,7 +593,7 @@ class VideoGenerator:
 
             if process.returncode != 0:
                 logger.error(
-                    "ffmpeg waveform failed: %s", stderr.decode('utf-8', errors='replace')[:500]
+                    "ffmpeg waveform failed: %s", stderr.decode("utf-8", errors="replace")[:500]
                 )
                 return None
 
@@ -760,7 +765,7 @@ async def generate_video(
             _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
 
             if process.returncode != 0:
-                logger.error("ffmpeg failed: %s", stderr.decode('utf-8', errors='replace')[:500])
+                logger.error("ffmpeg failed: %s", stderr.decode("utf-8", errors="replace")[:500])
                 return False
 
             return output_path.exists()

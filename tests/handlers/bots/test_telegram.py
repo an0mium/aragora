@@ -261,9 +261,10 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/bots/telegram/webhookXYZ", "POST") is False
 
     def test_webhook_token_long_path(self, handler):
-        assert handler.can_handle(
-            "/api/v1/bots/telegram/webhook/some-long-token-value", "POST"
-        ) is True
+        assert (
+            handler.can_handle("/api/v1/bots/telegram/webhook/some-long-token-value", "POST")
+            is True
+        )
 
     def test_different_base(self, handler):
         assert handler.can_handle("/api/v2/bots/telegram/webhook", "POST") is False
@@ -280,64 +281,48 @@ class TestStatusEndpoint:
     @pytest.mark.asyncio
     async def test_status_returns_200(self, handler):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/telegram/status", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/telegram/status", {}, http_handler)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_status_body_has_platform(self, handler):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/telegram/status", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/telegram/status", {}, http_handler)
         body = _body(result)
         assert body["platform"] == "telegram"
 
     @pytest.mark.asyncio
     async def test_status_body_has_enabled_field(self, handler):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/telegram/status", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/telegram/status", {}, http_handler)
         body = _body(result)
         assert "enabled" in body
 
     @pytest.mark.asyncio
     async def test_status_has_token_configured(self, handler):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/telegram/status", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/telegram/status", {}, http_handler)
         body = _body(result)
         assert "token_configured" in body
 
     @pytest.mark.asyncio
     async def test_status_has_webhook_secret_configured(self, handler):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/telegram/status", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/telegram/status", {}, http_handler)
         body = _body(result)
         assert "webhook_secret_configured" in body
 
     @pytest.mark.asyncio
     async def test_status_has_webhook_token(self, handler):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/status", method="GET")
-        result = await handler.handle(
-            "/api/v1/bots/telegram/status", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/bots/telegram/status", {}, http_handler)
         body = _body(result)
         assert "webhook_token" in body
 
     @pytest.mark.asyncio
     async def test_handle_returns_none_for_non_status_get(self, handler):
-        http_handler = MockHTTPHandler(
-            path="/api/v1/bots/telegram/webhook", method="GET"
-        )
-        result = await handler.handle(
-            "/api/v1/bots/telegram/webhook", {}, http_handler
-        )
+        http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/webhook", method="GET")
+        result = await handler.handle("/api/v1/bots/telegram/webhook", {}, http_handler)
         assert result is None
 
 
@@ -448,56 +433,56 @@ class TestWebhookPost:
     def test_message_update(self, handler, handler_module):
         update = _message_update(text="Hello bot")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
     def test_callback_query_update(self, handler, handler_module):
         update = _callback_query_update()
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True or body.get("ok") is False  # vote might fail
 
     def test_inline_query_update(self, handler, handler_module):
         update = _inline_query_update()
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
     def test_edited_message_update(self, handler, handler_module):
         update = _edited_message_update()
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
     def test_unknown_update_type(self, handler, handler_module):
         update = {"update_id": 999, "channel_post": {"text": "hi"}}
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -506,42 +491,40 @@ class TestWebhookPost:
         http_handler.rfile = io.BytesIO(b"not json")
         http_handler.headers["Content-Length"] = "8"
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         assert _status(result) == 400
 
     def test_body_too_large(self, handler, handler_module):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/webhook")
         http_handler.headers["Content-Length"] = str(11 * 1024 * 1024)
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         assert _status(result) == 413
 
     def test_invalid_content_length(self, handler, handler_module):
         http_handler = MockHTTPHandler(path="/api/v1/bots/telegram/webhook")
         http_handler.headers["Content-Length"] = "not-a-number"
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         assert _status(result) == 400
 
     def test_secret_verification_failure(self, handler, handler_module):
         update = _message_update()
         http_handler = _make_webhook_handler(update, secret_token="wrong")
         with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", "correct-secret"):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         assert _status(result) == 401
 
     def test_handle_post_returns_none_for_unknown_path(self, handler):
@@ -562,12 +545,12 @@ class TestTokenVerifiedWebhook:
         update = _message_update(text="Via token webhook")
         http_handler = _make_webhook_handler(update)
         token = "valid-token-123"
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", token), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                f"/api/v1/bots/telegram/webhook/{token}", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", token),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post(f"/api/v1/bots/telegram/webhook/{token}", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -585,12 +568,12 @@ class TestTokenVerifiedWebhook:
         update = _message_update()
         http_handler = _make_webhook_handler(update)
         token = "abcdef123456"
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", token), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                f"/api/v1/bots/telegram/webhook/{token}", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", token),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post(f"/api/v1/bots/telegram/webhook/{token}", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -606,12 +589,12 @@ class TestCommandStart:
     def test_start_returns_ok(self, handler, handler_module):
         update = _command_message_update(command="/start", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -622,12 +605,12 @@ class TestCommandHelp:
     def test_help_returns_ok(self, handler, handler_module):
         update = _command_message_update(command="/help", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -638,12 +621,12 @@ class TestCommandDebate:
     def test_debate_with_topic_starts_debate(self, handler, handler_module):
         update = _command_message_update(command="/debate", args="Is Python better?")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("debate_started") is True
@@ -652,12 +635,12 @@ class TestCommandDebate:
     def test_debate_without_topic_prompts_user(self, handler, handler_module):
         update = _command_message_update(command="/debate", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         # Should not start a debate
@@ -666,12 +649,12 @@ class TestCommandDebate:
     def test_debate_whitespace_only_topic(self, handler, handler_module):
         update = _command_message_update(command="/debate", args="   ")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert "debate_started" not in body or body.get("debate_started") is not True
@@ -683,12 +666,12 @@ class TestCommandPlan:
     def test_plan_starts_debate_with_integrity_config(self, handler, handler_module):
         update = _command_message_update(command="/plan", args="Build a rate limiter")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("debate_started") is True
@@ -696,12 +679,12 @@ class TestCommandPlan:
     def test_plan_no_topic(self, handler, handler_module):
         update = _command_message_update(command="/plan", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -710,16 +693,14 @@ class TestCommandImplement:
     """Tests for /implement command."""
 
     def test_implement_starts_debate_with_execute_mode(self, handler, handler_module):
-        update = _command_message_update(
-            command="/implement", args="Refactor the API"
-        )
+        update = _command_message_update(command="/implement", args="Refactor the API")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("debate_started") is True
@@ -731,12 +712,12 @@ class TestCommandStatus:
     def test_status_returns_ok(self, handler, handler_module):
         update = _command_message_update(command="/status", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -747,12 +728,12 @@ class TestCommandAsk:
     def test_ask_starts_debate(self, handler, handler_module):
         update = _command_message_update(command="/ask", args="What is Python?")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("debate_started") is True
@@ -764,12 +745,12 @@ class TestCommandAragora:
     def test_aragora_starts_debate(self, handler, handler_module):
         update = _command_message_update(command="/aragora", args="Test topic")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("debate_started") is True
@@ -781,12 +762,12 @@ class TestCommandUnknown:
     def test_unknown_command_returns_ok(self, handler, handler_module):
         update = _command_message_update(command="/foobar", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -803,29 +784,29 @@ class TestCallbackQuery:
         update = _callback_query_update(data="vote:debate-abc:agree")
         http_handler = _make_webhook_handler(update)
         mock_store = MagicMock()
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store), \
-             patch("aragora.audit.unified.audit_data"):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store),
+            patch("aragora.audit.unified.audit_data"),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body.get("vote_recorded") is True or body["ok"] is True
 
     def test_vote_callback_consensus_import_error(self, handler, handler_module):
         update = _callback_query_update(data="vote:debate-abc:agree")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch.dict("sys.modules", {"aragora.memory.consensus": None}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch.dict("sys.modules", {"aragora.memory.consensus": None}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("vote_recorded") is False
@@ -835,25 +816,25 @@ class TestCallbackQuery:
         http_handler = _make_webhook_handler(update)
         mock_store = MagicMock()
         mock_store.record_vote.side_effect = RuntimeError("DB error")
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is False
 
     def test_non_vote_callback_acknowledged(self, handler, handler_module):
         update = _callback_query_update(data="unknown:action")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("callback_handled") is True
@@ -862,14 +843,14 @@ class TestCallbackQuery:
         """Vote with only action, no debate_id or vote_option."""
         update = _callback_query_update(data="vote")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch.dict("sys.modules", {"aragora.memory.consensus": None}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch.dict("sys.modules", {"aragora.memory.consensus": None}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         # Should still handle gracefully
         assert "ok" in body
@@ -877,11 +858,11 @@ class TestCallbackQuery:
     def test_empty_callback_data(self, handler, handler_module):
         update = _callback_query_update(data="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -897,22 +878,22 @@ class TestInlineQuery:
     def test_inline_query_returns_ok(self, handler, handler_module):
         update = _inline_query_update(query_text="search term")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
     def test_inline_query_empty_text(self, handler, handler_module):
         update = _inline_query_update(query_text="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1097,11 +1078,11 @@ class TestHandleMessage:
             },
         }
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1116,11 +1097,11 @@ class TestHandleMessage:
             },
         }
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1131,11 +1112,11 @@ class TestHandleMessage:
             entities=[{"type": "bot_command", "offset": 4, "length": 5}],
         )
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("handled") == "message"
@@ -1147,11 +1128,11 @@ class TestHandleMessage:
             entities=[{"type": "mention", "offset": 0, "length": 5}],
         )
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("handled") == "message"
@@ -1159,11 +1140,11 @@ class TestHandleMessage:
     def test_message_in_group_chat(self, handler, handler_module):
         update = _message_update(text="group message", chat_type="group")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1180,11 +1161,11 @@ class TestHandleMessage:
             },
         }
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1287,27 +1268,35 @@ class TestRBACPermissions:
 
     def test_rbac_not_available_non_production(self, handler, handler_module):
         """When RBAC is unavailable and not production, should pass."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.telegram.rbac_fail_closed", return_value=False):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.telegram.rbac_fail_closed", return_value=False),
+        ):
             # Should not raise
             handler._check_bot_permission("debates:create", user_id="telegram:123")
 
     def test_rbac_not_available_production(self, handler, handler_module):
         """When RBAC is unavailable in production, should raise."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", False), \
-             patch("aragora.server.handlers.bots.telegram.rbac_fail_closed", return_value=True):
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.bots.telegram.rbac_fail_closed", return_value=True),
+        ):
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="telegram:123")
 
     def test_rbac_available_permission_granted(self, handler, handler_module):
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             mock_check.return_value = None
             handler._check_bot_permission("debates:create", user_id="telegram:123")
 
     def test_rbac_available_permission_denied(self, handler, handler_module):
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             mock_check.side_effect = PermissionError("Denied")
             with pytest.raises(PermissionError):
                 handler._check_bot_permission("debates:create", user_id="telegram:123")
@@ -1315,8 +1304,10 @@ class TestRBACPermissions:
     def test_rbac_with_auth_context_in_context(self, handler, handler_module):
         """When auth_context is provided in context dict, it should be used."""
         mock_auth_ctx = MagicMock()
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission(
                 "debates:create",
                 context={"auth_context": mock_auth_ctx},
@@ -1325,8 +1316,10 @@ class TestRBACPermissions:
 
     def test_rbac_no_user_id_no_context(self, handler, handler_module):
         """When no user_id and no auth_context, check_permission not called."""
-        with patch.object(handler_module, "RBAC_AVAILABLE", True), \
-             patch.object(handler_module, "check_permission") as mock_check:
+        with (
+            patch.object(handler_module, "RBAC_AVAILABLE", True),
+            patch.object(handler_module, "check_permission") as mock_check,
+        ):
             handler._check_bot_permission("debates:create")
             mock_check.assert_not_called()
 
@@ -1334,16 +1327,17 @@ class TestRBACPermissions:
         """Debate RBAC denial produces permission_denied error."""
         update = _command_message_update(command="/debate", args="test topic")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch.object(
-                 handler, "_check_bot_permission",
-                 side_effect=PermissionError("Denied"),
-             ):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch.object(
+                handler,
+                "_check_bot_permission",
+                side_effect=PermissionError("Denied"),
+            ),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is False
         assert body.get("error") == "permission_denied"
@@ -1351,17 +1345,18 @@ class TestRBACPermissions:
     def test_vote_permission_denied(self, handler, handler_module):
         update = _callback_query_update(data="vote:debate-abc:agree")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch.object(
-                 handler, "_check_bot_permission",
-                 side_effect=PermissionError("Denied"),
-             ), \
-             patch.object(handler, "_answer_callback_query"):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch.object(
+                handler,
+                "_check_bot_permission",
+                side_effect=PermissionError("Denied"),
+            ),
+            patch.object(handler, "_answer_callback_query"),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is False
         assert body.get("error") == "permission_denied"
@@ -1397,9 +1392,11 @@ class TestPlatformConfigStatus:
     """Tests for _get_platform_config_status."""
 
     def test_all_configured(self, handler, handler_module):
-        with patch.object(handler_module, "TELEGRAM_BOT_TOKEN", "token123"), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", "secret123"), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", "webhooktoken12345678"):
+        with (
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", "token123"),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", "secret123"),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", "webhooktoken12345678"),
+        ):
             status = handler._get_platform_config_status()
         assert status["token_configured"] is True
         assert status["webhook_secret_configured"] is True
@@ -1408,9 +1405,11 @@ class TestPlatformConfigStatus:
         assert status["webhook_token"].endswith("...")
 
     def test_none_configured(self, handler, handler_module):
-        with patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", ""):
+        with (
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", ""),
+        ):
             status = handler._get_platform_config_status()
         assert status["token_configured"] is False
         assert status["webhook_secret_configured"] is False
@@ -1476,7 +1475,9 @@ class TestStartDebateAsync:
     def test_attachments_parameter_accepted(self, handler):
         with patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "yes"}):
             debate_id = handler._start_debate_async(
-                12345, 67890, "Topic",
+                12345,
+                67890,
+                "Topic",
                 attachments=[{"type": "document", "file_id": "doc1"}],
             )
         assert isinstance(debate_id, str)
@@ -1484,7 +1485,9 @@ class TestStartDebateAsync:
     def test_decision_integrity_parameter_accepted(self, handler):
         with patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "yes"}):
             debate_id = handler._start_debate_async(
-                12345, 67890, "Topic",
+                12345,
+                67890,
+                "Topic",
                 decision_integrity={"include_receipt": True},
             )
         assert isinstance(debate_id, str)
@@ -1506,9 +1509,11 @@ class TestWebhookExceptionHandling:
         http_handler.headers["Content-Length"] = str(len(body_bytes))
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
 
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch.object(handler, "_handle_message", side_effect=ValueError("bad data")):
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch.object(handler, "_handle_message", side_effect=ValueError("bad data")),
+        ):
             result = handler._handle_webhook(http_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -1521,9 +1526,11 @@ class TestWebhookExceptionHandling:
         http_handler.headers["Content-Length"] = str(len(body_bytes))
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
 
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch.object(handler, "_handle_message", side_effect=KeyError("missing")):
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch.object(handler, "_handle_message", side_effect=KeyError("missing")),
+        ):
             result = handler._handle_webhook(http_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -1536,9 +1543,11 @@ class TestWebhookExceptionHandling:
         http_handler.headers["Content-Length"] = str(len(body_bytes))
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
 
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch.object(handler, "_handle_message", side_effect=TypeError("wrong type")):
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch.object(handler, "_handle_message", side_effect=TypeError("wrong type")),
+        ):
             result = handler._handle_webhook(http_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -1551,9 +1560,11 @@ class TestWebhookExceptionHandling:
         http_handler.headers["Content-Length"] = str(len(body_bytes))
         http_handler.headers["X-Telegram-Bot-Api-Secret-Token"] = ""
 
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch.object(handler, "_handle_message", side_effect=OSError("io error")):
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch.object(handler, "_handle_message", side_effect=OSError("io error")),
+        ):
             result = handler._handle_webhook(http_handler)
         body = _body(result)
         assert _status(result) == 200
@@ -1571,11 +1582,11 @@ class TestEditedMessage:
     def test_edited_message_handled(self, handler, handler_module):
         update = _edited_message_update(text="Edited text")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1594,12 +1605,12 @@ class TestEditedMessage:
             },
         }
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1616,12 +1627,12 @@ class TestHandleCommandEdgeCases:
         """Commands are lowercased before routing."""
         update = _command_message_update(command="/HELP", args="")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1634,12 +1645,12 @@ class TestHandleCommandEdgeCases:
             entities=[{"type": "bot_command", "offset": 0, "length": 13}],
         )
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1658,14 +1669,14 @@ class TestHandleVoteEdgeCases:
         http_handler = _make_webhook_handler(update)
         mock_store = MagicMock()
         mock_store.record_vote.side_effect = AttributeError("no record_vote")
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is False
 
@@ -1674,14 +1685,14 @@ class TestHandleVoteEdgeCases:
         http_handler = _make_webhook_handler(update)
         mock_store = MagicMock()
         mock_store.record_vote.side_effect = ValueError("invalid vote")
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is False
 
@@ -1690,14 +1701,14 @@ class TestHandleVoteEdgeCases:
         http_handler = _make_webhook_handler(update)
         mock_store = MagicMock()
         mock_store.record_vote.side_effect = KeyError("missing key")
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}), \
-             patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"), \
-             patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+            patch("aragora.server.handlers.bots.telegram.TelegramHandler._answer_callback_query"),
+            patch("aragora.memory.consensus.ConsensusStore", return_value=mock_store),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is False
 
@@ -1739,15 +1750,22 @@ class TestDecisionIntegrity:
 
     def test_plan_sets_include_receipt(self, handler, handler_module):
         """The /plan command sets include_receipt=True."""
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}), \
-             patch.object(handler, "_start_debate_async", return_value="test-id") as mock_start, \
-             patch.object(handler, "_send_message"):
-            handler._cmd_debate(12345, 67890, "topic", decision_integrity={
-                "include_receipt": True,
-                "include_plan": True,
-            })
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+            patch.object(handler, "_start_debate_async", return_value="test-id") as mock_start,
+            patch.object(handler, "_send_message"),
+        ):
+            handler._cmd_debate(
+                12345,
+                67890,
+                "topic",
+                decision_integrity={
+                    "include_receipt": True,
+                    "include_plan": True,
+                },
+            )
         call_kwargs = mock_start.call_args
         di = call_kwargs[1].get("decision_integrity") if call_kwargs[1] else None
         if di is None and len(call_kwargs[0]) > 4:
@@ -1759,14 +1777,14 @@ class TestDecisionIntegrity:
         """The /implement command sets execution_mode=execute."""
         update = _command_message_update(command="/implement", args="Do something")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}), \
-             patch.object(handler, "_start_debate_async", return_value="test-id") as mock_start, \
-             patch.object(handler, "_send_message"):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+            patch.object(handler, "_start_debate_async", return_value="test-id") as mock_start,
+            patch.object(handler, "_send_message"),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         mock_start.assert_called_once()
         # Verify decision_integrity was passed
         call_args = mock_start.call_args
@@ -1776,14 +1794,14 @@ class TestDecisionIntegrity:
         """The /debate command does not set decision_integrity."""
         update = _command_message_update(command="/debate", args="Simple question")
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}), \
-             patch.object(handler, "_start_debate_async", return_value="test-id") as mock_start, \
-             patch.object(handler, "_send_message"):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+            patch.object(handler, "_start_debate_async", return_value="test-id") as mock_start,
+            patch.object(handler, "_send_message"),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         call_kwargs = mock_start.call_args
         # For /debate, decision_integrity should be None
         di = call_kwargs[1].get("decision_integrity") if call_kwargs[1] else None
@@ -1800,17 +1818,27 @@ class TestFallbackQueueDebate:
 
     @pytest.mark.asyncio
     async def test_fallback_import_error_falls_to_direct(self, handler):
-        with patch("aragora.server.debate_origin.register_debate_origin", side_effect=RuntimeError("skip")), \
-             patch.dict("sys.modules", {"aragora.queue": None}), \
-             patch.object(handler, "_run_debate_direct", return_value="direct-id"):
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=RuntimeError("skip"),
+            ),
+            patch.dict("sys.modules", {"aragora.queue": None}),
+            patch.object(handler, "_run_debate_direct", return_value="direct-id"),
+        ):
             result = await handler._fallback_queue_debate(12345, 67890, "Topic", "fb-id")
         assert result == "direct-id"
 
     @pytest.mark.asyncio
     async def test_fallback_runtime_error(self, handler):
-        with patch("aragora.server.debate_origin.register_debate_origin", side_effect=RuntimeError("fail")), \
-             patch.dict("sys.modules", {"aragora.queue": None}), \
-             patch.object(handler, "_run_debate_direct", return_value="direct-id"):
+        with (
+            patch(
+                "aragora.server.debate_origin.register_debate_origin",
+                side_effect=RuntimeError("fail"),
+            ),
+            patch.dict("sys.modules", {"aragora.queue": None}),
+            patch.object(handler, "_run_debate_direct", return_value="direct-id"),
+        ):
             result = await handler._fallback_queue_debate(12345, 67890, "Topic", "fb-id")
         assert isinstance(result, str)
 
@@ -1853,15 +1881,19 @@ class TestFullWebhookFlow:
     def test_message_with_document_attachment(self, handler, handler_module):
         update = _message_update(
             text="Check this file",
-            document={"file_id": "doc123", "file_name": "report.pdf", "mime_type": "application/pdf"},
+            document={
+                "file_id": "doc123",
+                "file_name": "report.pdf",
+                "mime_type": "application/pdf",
+            },
             caption="Important document",
         )
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1881,12 +1913,12 @@ class TestFullWebhookFlow:
             },
         }
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test", "PYTEST_CURRENT_TEST": "yes"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
         assert body.get("debate_started") is True
@@ -1901,12 +1933,12 @@ class TestFullWebhookFlow:
             ],
         )
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.object(handler_module, "TELEGRAM_BOT_TOKEN", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1914,11 +1946,11 @@ class TestFullWebhookFlow:
         """Empty JSON object as update body."""
         update = {}
         http_handler = _make_webhook_handler(update)
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None), \
-             patch.dict("os.environ", {"ARAGORA_ENV": "test"}):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", None),
+            patch.dict("os.environ", {"ARAGORA_ENV": "test"}),
+        ):
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1927,9 +1959,7 @@ class TestFullWebhookFlow:
         update = _message_update(text="Authenticated message")
         http_handler = _make_webhook_handler(update, secret_token="correct-secret")
         with patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", "correct-secret"):
-            result = handler.handle_post(
-                "/api/v1/bots/telegram/webhook", {}, http_handler
-            )
+            result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True
 
@@ -1938,10 +1968,10 @@ class TestFullWebhookFlow:
         update = _message_update(text="Double auth")
         token = "valid-url-token"
         http_handler = _make_webhook_handler(update, secret_token="correct-secret")
-        with patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", token), \
-             patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", "correct-secret"):
-            result = handler.handle_post(
-                f"/api/v1/bots/telegram/webhook/{token}", {}, http_handler
-            )
+        with (
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_TOKEN", token),
+            patch.object(handler_module, "TELEGRAM_WEBHOOK_SECRET", "correct-secret"),
+        ):
+            result = handler.handle_post(f"/api/v1/bots/telegram/webhook/{token}", {}, http_handler)
         body = _body(result)
         assert body["ok"] is True

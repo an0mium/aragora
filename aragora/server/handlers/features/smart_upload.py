@@ -249,7 +249,7 @@ try:
         auto_error_response,  # noqa: F401
         error_response,
         json_response,
-    handle_errors,
+        handle_errors,
     )
     from ..utils.rate_limit import rate_limit  # noqa: F401
     from aragora.rbac.decorators import require_permission

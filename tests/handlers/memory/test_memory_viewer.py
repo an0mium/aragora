@@ -140,13 +140,13 @@ def _make_continuum(
 @pytest.fixture
 def handler():
     """Create a MemoryHandler with mocked dependencies."""
-    with patch(
-        "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-    ), patch(
-        "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
-    ), patch(
-        "aragora.server.handlers.memory.memory_progressive.run_async",
-        side_effect=lambda coro: coro,
+    with (
+        patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+        patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
+        patch(
+            "aragora.server.handlers.memory.memory_progressive.run_async",
+            side_effect=lambda coro: coro,
+        ),
     ):
         from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -163,13 +163,13 @@ def handler_with_continuum():
     ]
     continuum = _make_continuum(entries=entries)
 
-    with patch(
-        "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-    ), patch(
-        "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
-    ), patch(
-        "aragora.server.handlers.memory.memory_progressive.run_async",
-        side_effect=lambda coro: coro,
+    with (
+        patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+        patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
+        patch(
+            "aragora.server.handlers.memory.memory_progressive.run_async",
+            side_effect=lambda coro: coro,
+        ),
     ):
         from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -375,9 +375,7 @@ class TestPathNormalization:
 class TestViewerRoute:
     """Tests for the /api/v1/memory/viewer route through MemoryHandler.handle."""
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_viewer_route_returns_html(self, mock_limiter, handler):
         """GET /api/v1/memory/viewer returns the HTML viewer."""
         mock_limiter.is_allowed.return_value = True
@@ -391,9 +389,7 @@ class TestViewerRoute:
         html = result.body.decode("utf-8")
         assert "Memory Viewer" in html
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_viewer_route_rate_limited(self, mock_limiter, handler):
         """GET /api/v1/memory/viewer returns 429 when rate limited."""
         mock_limiter.is_allowed.return_value = False
@@ -404,9 +400,7 @@ class TestViewerRoute:
         assert result is not None
         assert result.status_code == 429
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_viewer_via_legacy_path(self, mock_limiter, handler):
         """GET /api/memory/viewer also returns the HTML viewer after normalization."""
         mock_limiter.is_allowed.return_value = True
@@ -427,9 +421,7 @@ class TestViewerRoute:
 class TestSearchIndexRoute:
     """Tests for /api/v1/memory/search-index route."""
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -440,10 +432,9 @@ class TestSearchIndexRoute:
 
         continuum = _make_continuum(entries=[])
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -457,33 +448,26 @@ class TestSearchIndexRoute:
             body = _body(result)
             assert "q" in body.get("error", "").lower() or "query" in body.get("error", "").lower()
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_search_index_no_continuum(self, mock_limiter):
         """Search index returns 503 when continuum not available."""
         mock_limiter.is_allowed.return_value = True
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/search-index", {"q": "test"}, mock_http
-            )
+            result = h.handle("/api/v1/memory/search-index", {"q": "test"}, mock_http)
 
             assert result is not None
             assert result.status_code == 503
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -492,26 +476,21 @@ class TestSearchIndexRoute:
         """Search index returns 503 when continuum not in context."""
         mock_limiter.is_allowed.return_value = True
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/search-index", {"q": "test"}, mock_http
-            )
+            result = h.handle("/api/v1/memory/search-index", {"q": "test"}, mock_http)
 
             assert result is not None
             assert result.status_code == 503
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -526,10 +505,9 @@ class TestSearchIndexRoute:
         ]
         continuum = _make_continuum(entries=entries)
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -551,9 +529,7 @@ class TestSearchIndexRoute:
             assert body["results"][0]["source"] == "continuum"
             continuum.retrieve.assert_called_once()
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -565,10 +541,9 @@ class TestSearchIndexRoute:
         entries = [_MockMemoryEntry(id="mem-001", content="Memory")]
         continuum = _make_continuum(entries=entries)
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -593,9 +568,7 @@ class TestSearchIndexRoute:
             assert len(body["external_results"]) == 1
             h._search_supermemory.assert_called_once()
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -607,10 +580,9 @@ class TestSearchIndexRoute:
         entries = []
         continuum = _make_continuum(entries=entries)
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -634,9 +606,7 @@ class TestSearchIndexRoute:
             assert len(body["external_results"]) == 1
             h._search_claude_mem.assert_called_once()
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -646,16 +616,12 @@ class TestSearchIndexRoute:
         mock_limiter.is_allowed.return_value = False
         mock_http = _http()
 
-        result = handler.handle(
-            "/api/v1/memory/search-index", {"q": "test"}, mock_http
-        )
+        result = handler.handle("/api/v1/memory/search-index", {"q": "test"}, mock_http)
 
         assert result is not None
         assert result.status_code == 429
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -670,10 +636,9 @@ class TestSearchIndexRoute:
         continuum.hybrid_search = MagicMock(return_value=[hybrid_result])
         continuum.get_many.return_value = [entry]
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -693,9 +658,7 @@ class TestSearchIndexRoute:
             assert body["count"] == 1
             assert body["results"][0]["id"] == "mem-001"
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -706,19 +669,16 @@ class TestSearchIndexRoute:
 
         continuum = _make_continuum(entries=[])
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": continuum})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/search-index", {"q": "nonexistent"}, mock_http
-            )
+            result = h.handle("/api/v1/memory/search-index", {"q": "nonexistent"}, mock_http)
 
             assert result is not None
             assert result.status_code == 200
@@ -735,9 +695,7 @@ class TestSearchIndexRoute:
 class TestSearchTimelineRoute:
     """Tests for /api/v1/memory/search-timeline route."""
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -748,10 +706,9 @@ class TestSearchTimelineRoute:
 
         continuum = _make_continuum()
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -765,17 +722,14 @@ class TestSearchTimelineRoute:
             body = _body(result)
             assert "anchor_id" in body.get("error", "").lower()
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_timeline_no_continuum(self, mock_limiter):
         """Timeline returns 503 when continuum not available."""
         mock_limiter.is_allowed.return_value = True
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -791,9 +745,7 @@ class TestSearchTimelineRoute:
             assert result is not None
             assert result.status_code == 503
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -804,10 +756,9 @@ class TestSearchTimelineRoute:
 
         continuum = _make_continuum(has_timeline=False)
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -823,9 +774,7 @@ class TestSearchTimelineRoute:
             assert result is not None
             assert result.status_code == 501
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -837,10 +786,9 @@ class TestSearchTimelineRoute:
         continuum = _make_continuum()
         continuum.get_timeline_entries.return_value = None
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -856,9 +804,7 @@ class TestSearchTimelineRoute:
             assert result is not None
             assert result.status_code == 404
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -878,10 +824,9 @@ class TestSearchTimelineRoute:
             "after": [after_entry],
         }
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -902,9 +847,7 @@ class TestSearchTimelineRoute:
             assert len(body["before"]) == 1
             assert len(body["after"]) == 1
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_timeline_rate_limited(self, mock_limiter, handler):
         """Timeline returns 429 when rate limited."""
         mock_limiter.is_allowed.return_value = False
@@ -928,9 +871,7 @@ class TestSearchTimelineRoute:
 class TestEntriesRoute:
     """Tests for /api/v1/memory/entries route."""
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -941,10 +882,9 @@ class TestEntriesRoute:
 
         continuum = _make_continuum()
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -958,9 +898,7 @@ class TestEntriesRoute:
             body = _body(result)
             assert "ids" in body.get("error", "").lower()
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -971,50 +909,40 @@ class TestEntriesRoute:
 
         continuum = _make_continuum()
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": continuum})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/entries", {"ids": ""}, mock_http
-            )
+            result = h.handle("/api/v1/memory/entries", {"ids": ""}, mock_http)
 
             assert result is not None
             assert result.status_code == 400
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_entries_no_continuum(self, mock_limiter):
         """Entries returns 503 when continuum not available."""
         mock_limiter.is_allowed.return_value = True
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", False),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/entries", {"ids": "mem-001"}, mock_http
-            )
+            result = h.handle("/api/v1/memory/entries", {"ids": "mem-001"}, mock_http)
 
             assert result is not None
             assert result.status_code == 503
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -1025,26 +953,21 @@ class TestEntriesRoute:
 
         continuum = _make_continuum(has_get_many=False)
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": continuum})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/entries", {"ids": "mem-001"}, mock_http
-            )
+            result = h.handle("/api/v1/memory/entries", {"ids": "mem-001"}, mock_http)
 
             assert result is not None
             assert result.status_code == 501
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -1061,19 +984,16 @@ class TestEntriesRoute:
         )
         continuum = _make_continuum(entries=[entry])
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
             h = MemoryHandler(server_context={"continuum_memory": continuum})
             mock_http = _http()
 
-            result = h.handle(
-                "/api/v1/memory/entries", {"ids": "mem-001"}, mock_http
-            )
+            result = h.handle("/api/v1/memory/entries", {"ids": "mem-001"}, mock_http)
 
             assert result is not None
             assert result.status_code == 200
@@ -1084,9 +1004,7 @@ class TestEntriesRoute:
             assert body["entries"][0]["id"] == "mem-001"
             assert "content" in body["entries"][0]
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     @patch(
         "aragora.server.handlers.memory.memory_progressive.run_async",
         side_effect=lambda coro: coro,
@@ -1101,10 +1019,9 @@ class TestEntriesRoute:
         ]
         continuum = _make_continuum(entries=entries)
 
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 
@@ -1123,17 +1040,13 @@ class TestEntriesRoute:
             assert body["count"] == 2
             assert body["ids"] == ["mem-001", "mem-002"]
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_entries_rate_limited(self, mock_limiter, handler):
         """Entries returns 429 when rate limited."""
         mock_limiter.is_allowed.return_value = False
         mock_http = _http()
 
-        result = handler.handle(
-            "/api/v1/memory/entries", {"ids": "mem-001"}, mock_http
-        )
+        result = handler.handle("/api/v1/memory/entries", {"ids": "mem-001"}, mock_http)
 
         assert result is not None
         assert result.status_code == 429
@@ -1244,34 +1157,26 @@ class TestUtilityMethods:
 class TestPostOnlyEndpoints:
     """Tests for endpoints that reject GET requests."""
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_consolidate_rejects_get(self, mock_limiter, handler):
         """GET on consolidate returns 405 Method Not Allowed."""
         mock_limiter.is_allowed.return_value = True
         mock_http = _http()
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/consolidate", {}, mock_http
-        )
+        result = handler.handle("/api/v1/memory/continuum/consolidate", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 405
         body = _body(result)
         assert "POST" in body.get("error", "")
 
-    @patch(
-        "aragora.server.handlers.memory.memory._retrieve_limiter"
-    )
+    @patch("aragora.server.handlers.memory.memory._retrieve_limiter")
     def test_cleanup_rejects_get(self, mock_limiter, handler):
         """GET on cleanup returns 405 Method Not Allowed."""
         mock_limiter.is_allowed.return_value = True
         mock_http = _http()
 
-        result = handler.handle(
-            "/api/v1/memory/continuum/cleanup", {}, mock_http
-        )
+        result = handler.handle("/api/v1/memory/continuum/cleanup", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 405
@@ -1293,10 +1198,9 @@ class TestHandlerInit:
 
     def test_init_with_server_context(self):
         """Handler initializes with provided server context."""
-        with patch(
-            "aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier
-        ), patch(
-            "aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True
+        with (
+            patch("aragora.server.handlers.memory.memory.MemoryTier", _MemoryTier),
+            patch("aragora.server.handlers.memory.memory.CONTINUUM_AVAILABLE", True),
         ):
             from aragora.server.handlers.memory.memory import MemoryHandler
 

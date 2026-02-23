@@ -92,9 +92,7 @@ def mock_gmail_connector():
     connector.refresh_token = "gmail-refresh-token-xyz"
     connector.access_token = "gmail-access-token-xyz"
     connector.token_expiry = _NOW
-    connector.get_user_info = AsyncMock(
-        return_value={"emailAddress": "user@gmail.com"}
-    )
+    connector.get_user_info = AsyncMock(return_value={"emailAddress": "user@gmail.com"})
     return connector
 
 
@@ -103,7 +101,9 @@ def mock_outlook_connector():
     """Create a mock OutlookConnector."""
     connector = MagicMock()
     connector.is_configured = True
-    connector.get_oauth_url.return_value = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=xxx"
+    connector.get_oauth_url.return_value = (
+        "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=xxx"
+    )
     connector.authenticate = AsyncMock(return_value=True)
     connector.refresh_token = "outlook-refresh-token-xyz"
     connector.access_token = "outlook-access-token-xyz"
@@ -132,9 +132,12 @@ class TestHandleGmailOAuthUrl:
     async def test_success_returns_auth_url(self, mock_gmail_connector):
         mock_module = MagicMock()
         mock_module.GmailConnector = MagicMock(return_value=mock_gmail_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_gmail_oauth_url,
             )
@@ -152,9 +155,12 @@ class TestHandleGmailOAuthUrl:
     async def test_success_generates_state_when_not_provided(self, mock_gmail_connector):
         mock_module = MagicMock()
         mock_module.GmailConnector = MagicMock(return_value=mock_gmail_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_gmail_oauth_url,
             )
@@ -194,9 +200,12 @@ class TestHandleGmailOAuthUrl:
         mock_connector.is_configured = False
         mock_module = MagicMock()
         mock_module.GmailConnector = MagicMock(return_value=mock_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_gmail_oauth_url,
             )
@@ -213,7 +222,9 @@ class TestHandleGmailOAuthUrl:
     async def test_import_error_returns_503(self):
         from aragora.server.handlers.features.unified_inbox import accounts as mod
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
             if "gmail" in name.lower():
@@ -233,15 +244,21 @@ class TestHandleGmailOAuthUrl:
     async def test_state_with_special_characters(self, mock_gmail_connector):
         mock_module = MagicMock()
         mock_module.GmailConnector = MagicMock(return_value=mock_gmail_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_gmail_oauth_url,
             )
 
             result = await handle_gmail_oauth_url(
-                {"redirect_uri": "http://localhost/callback", "state": "state-with-special/chars&="},
+                {
+                    "redirect_uri": "http://localhost/callback",
+                    "state": "state-with-special/chars&=",
+                },
                 "tenant-1",
             )
             assert result["success"] is True
@@ -260,9 +277,12 @@ class TestHandleOutlookOAuthUrl:
     async def test_success_returns_auth_url(self, mock_outlook_connector):
         mock_module = MagicMock()
         mock_module.OutlookConnector = MagicMock(return_value=mock_outlook_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.outlook": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.outlook": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_outlook_oauth_url,
             )
@@ -280,9 +300,12 @@ class TestHandleOutlookOAuthUrl:
     async def test_success_generates_state_when_not_provided(self, mock_outlook_connector):
         mock_module = MagicMock()
         mock_module.OutlookConnector = MagicMock(return_value=mock_outlook_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.outlook": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.outlook": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_outlook_oauth_url,
             )
@@ -321,9 +344,12 @@ class TestHandleOutlookOAuthUrl:
         mock_connector.is_configured = False
         mock_module = MagicMock()
         mock_module.OutlookConnector = MagicMock(return_value=mock_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.outlook": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.outlook": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_outlook_oauth_url,
             )
@@ -340,7 +366,9 @@ class TestHandleOutlookOAuthUrl:
     async def test_import_error_returns_503(self):
         from aragora.server.handlers.features.unified_inbox import accounts as mod
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
             if "outlook" in name.lower():
@@ -373,19 +401,22 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(return_value=mock_sync_service),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_gmail_connector),
-            ),
-            "aragora.storage.gmail_token_store": MagicMock(
-                GmailUserState=MagicMock(),
-                get_gmail_token_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(return_value=mock_sync_service),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_gmail_connector),
+                ),
+                "aragora.storage.gmail_token_store": MagicMock(
+                    GmailUserState=MagicMock(),
+                    get_gmail_token_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -411,15 +442,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -444,15 +478,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -477,15 +514,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -507,10 +547,15 @@ class TestConnectGmail:
         account = _make_account(account_id="abcd1234-rest-of-id", provider=EmailProvider.GMAIL)
 
         # Patch builtins to fail on gmail imports
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
-            if "aragora.connectors.email" in name or "aragora.connectors.enterprise.communication.gmail" in name:
+            if (
+                "aragora.connectors.email" in name
+                or "aragora.connectors.enterprise.communication.gmail" in name
+            ):
                 raise ImportError("Not available")
             return original_import(name, *args, **kwargs)
 
@@ -540,15 +585,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -572,15 +620,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -604,15 +655,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -636,15 +690,18 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -675,19 +732,22 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL, email="")
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(return_value=mock_sync_service),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.gmail_token_store": MagicMock(
-                GmailUserState=MagicMock(),
-                get_gmail_token_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(return_value=mock_sync_service),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.gmail_token_store": MagicMock(
+                    GmailUserState=MagicMock(),
+                    get_gmail_token_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -721,19 +781,22 @@ class TestConnectGmail:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(return_value=mock_sync_service),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.gmail_token_store": MagicMock(
-                GmailUserState=MagicMock(),
-                get_gmail_token_store=MagicMock(return_value=mock_token_store),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(return_value=mock_sync_service),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.gmail_token_store": MagicMock(
+                    GmailUserState=MagicMock(),
+                    get_gmail_token_store=MagicMock(return_value=mock_token_store),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -765,19 +828,22 @@ class TestConnectGmail:
 
         account = _make_account(account_id="acct-sync-test", provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(return_value=mock_sync_service),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.gmail_token_store": MagicMock(
-                GmailUserState=MagicMock(),
-                get_gmail_token_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(return_value=mock_sync_service),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.gmail_token_store": MagicMock(
+                    GmailUserState=MagicMock(),
+                    get_gmail_token_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -815,19 +881,22 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(return_value=mock_sync_service),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_outlook_connector),
-            ),
-            "aragora.storage.integration_store": MagicMock(
-                IntegrationConfig=MagicMock(),
-                get_integration_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(return_value=mock_sync_service),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_outlook_connector),
+                ),
+                "aragora.storage.integration_store": MagicMock(
+                    IntegrationConfig=MagicMock(),
+                    get_integration_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -853,15 +922,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -886,15 +958,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -919,15 +994,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -948,10 +1026,15 @@ class TestConnectOutlook:
         """When OutlookSyncService import fails, should use mock mode."""
         account = _make_account(account_id="abcd1234-rest-of-id", provider=EmailProvider.OUTLOOK)
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
-            if "aragora.connectors.email" in name or "aragora.connectors.enterprise.communication.outlook" in name:
+            if (
+                "aragora.connectors.email" in name
+                or "aragora.connectors.enterprise.communication.outlook" in name
+            ):
                 raise ImportError("Not available")
             return original_import(name, *args, **kwargs)
 
@@ -981,15 +1064,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1013,15 +1099,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1045,15 +1134,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1077,15 +1169,18 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1118,19 +1213,22 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(return_value=mock_sync_service),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.integration_store": MagicMock(
-                IntegrationConfig=MagicMock(),
-                get_integration_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(return_value=mock_sync_service),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.integration_store": MagicMock(
+                    IntegrationConfig=MagicMock(),
+                    get_integration_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1156,28 +1254,29 @@ class TestConnectOutlook:
         mock_connector.refresh_token = "refresh-token"
         mock_connector.access_token = "access-token"
         mock_connector.token_expiry = _NOW
-        mock_connector.get_user_info = AsyncMock(
-            return_value={"mail": "", "userPrincipalName": ""}
-        )
+        mock_connector.get_user_info = AsyncMock(return_value={"mail": "", "userPrincipalName": ""})
 
         mock_sync_service = AsyncMock()
         mock_sync_service.start = AsyncMock()
 
         account = _make_account(provider=EmailProvider.OUTLOOK, email="")
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(return_value=mock_sync_service),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.integration_store": MagicMock(
-                IntegrationConfig=MagicMock(),
-                get_integration_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(return_value=mock_sync_service),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.integration_store": MagicMock(
+                    IntegrationConfig=MagicMock(),
+                    get_integration_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1201,9 +1300,7 @@ class TestConnectOutlook:
         mock_connector.refresh_token = "refresh-token"
         mock_connector.access_token = "access-token"
         mock_connector.token_expiry = _NOW
-        mock_connector.get_user_info = AsyncMock(
-            return_value={"mail": "user@outlook.com"}
-        )
+        mock_connector.get_user_info = AsyncMock(return_value={"mail": "user@outlook.com"})
 
         mock_sync_service = AsyncMock()
         mock_sync_service.start = AsyncMock()
@@ -1213,19 +1310,22 @@ class TestConnectOutlook:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(return_value=mock_sync_service),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.integration_store": MagicMock(
-                IntegrationConfig=MagicMock(),
-                get_integration_store=MagicMock(return_value=mock_integration_store),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(return_value=mock_sync_service),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.integration_store": MagicMock(
+                    IntegrationConfig=MagicMock(),
+                    get_integration_store=MagicMock(return_value=mock_integration_store),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1249,28 +1349,29 @@ class TestConnectOutlook:
         mock_connector.refresh_token = "refresh-token"
         mock_connector.access_token = "access-token"
         mock_connector.token_expiry = _NOW
-        mock_connector.get_user_info = AsyncMock(
-            return_value={"mail": "user@outlook.com"}
-        )
+        mock_connector.get_user_info = AsyncMock(return_value={"mail": "user@outlook.com"})
 
         mock_sync_service = AsyncMock()
         mock_sync_service.start = AsyncMock()
 
         account = _make_account(account_id="acct-outlook-sync", provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(return_value=mock_sync_service),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.integration_store": MagicMock(
-                IntegrationConfig=MagicMock(),
-                get_integration_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(return_value=mock_sync_service),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.integration_store": MagicMock(
+                    IntegrationConfig=MagicMock(),
+                    get_integration_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1488,9 +1589,12 @@ class TestSecurityEdgeCases:
         """Path traversal in redirect_uri should be passed through (validation is server-side)."""
         mock_module = MagicMock()
         mock_module.GmailConnector = MagicMock(return_value=mock_gmail_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_gmail_oauth_url,
             )
@@ -1508,9 +1612,12 @@ class TestSecurityEdgeCases:
         """Injection attempt in redirect_uri."""
         mock_module = MagicMock()
         mock_module.OutlookConnector = MagicMock(return_value=mock_outlook_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.outlook": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.outlook": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_outlook_oauth_url,
             )
@@ -1561,9 +1668,12 @@ class TestSecurityEdgeCases:
         """Unicode characters in state parameter."""
         mock_module = MagicMock()
         mock_module.GmailConnector = MagicMock(return_value=mock_gmail_connector)
-        with patch.dict("sys.modules", {
-            "aragora.connectors.enterprise.communication.gmail": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.enterprise.communication.gmail": mock_module,
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 handle_gmail_oauth_url,
             )
@@ -1611,10 +1721,15 @@ class TestEdgeCases:
         """In mock mode, email is derived from first 8 chars of account id."""
         account = _make_account(account_id="12345678abcdef", provider=EmailProvider.GMAIL)
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
-            if "aragora.connectors.email" in name or "aragora.connectors.enterprise.communication.gmail" in name:
+            if (
+                "aragora.connectors.email" in name
+                or "aragora.connectors.enterprise.communication.gmail" in name
+            ):
                 raise ImportError("Not available")
             return original_import(name, *args, **kwargs)
 
@@ -1640,10 +1755,15 @@ class TestEdgeCases:
         """In mock mode, email is derived from first 8 chars of account id."""
         account = _make_account(account_id="abcdef1234567890", provider=EmailProvider.OUTLOOK)
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fake_import(name, *args, **kwargs):
-            if "aragora.connectors.email" in name or "aragora.connectors.enterprise.communication.outlook" in name:
+            if (
+                "aragora.connectors.email" in name
+                or "aragora.connectors.enterprise.communication.outlook" in name
+            ):
                 raise ImportError("Not available")
             return original_import(name, *args, **kwargs)
 
@@ -1680,19 +1800,22 @@ class TestEdgeCases:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(return_value=mock_sync_service),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.gmail_token_store": MagicMock(
-                GmailUserState=MagicMock(),
-                get_gmail_token_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(return_value=mock_sync_service),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.gmail_token_store": MagicMock(
+                    GmailUserState=MagicMock(),
+                    get_gmail_token_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -1717,7 +1840,10 @@ class TestEdgeCases:
         mock_connector.access_token = "access-token"
         mock_connector.token_expiry = _NOW
         mock_connector.get_user_info = AsyncMock(
-            return_value={"mail": "preferred@outlook.com", "userPrincipalName": "fallback@outlook.com"}
+            return_value={
+                "mail": "preferred@outlook.com",
+                "userPrincipalName": "fallback@outlook.com",
+            }
         )
 
         mock_sync_service = AsyncMock()
@@ -1725,19 +1851,22 @@ class TestEdgeCases:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(return_value=mock_sync_service),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-            "aragora.storage.integration_store": MagicMock(
-                IntegrationConfig=MagicMock(),
-                get_integration_store=MagicMock(return_value=AsyncMock()),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(return_value=mock_sync_service),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+                "aragora.storage.integration_store": MagicMock(
+                    IntegrationConfig=MagicMock(),
+                    get_integration_store=MagicMock(return_value=AsyncMock()),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )
@@ -1809,12 +1938,15 @@ class TestParametrizedOAuthValidation:
     """Parametrized tests for OAuth URL parameter validation."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("params", [
-        {},
-        {"redirect_uri": ""},
-        {"redirect_uri": None},
-        {"state": "some-state"},
-    ])
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {},
+            {"redirect_uri": ""},
+            {"redirect_uri": None},
+            {"state": "some-state"},
+        ],
+    )
     async def test_gmail_oauth_invalid_params(self, params):
         from aragora.server.handlers.features.unified_inbox.accounts import (
             handle_gmail_oauth_url,
@@ -1826,12 +1958,15 @@ class TestParametrizedOAuthValidation:
         assert result["status_code"] == 400
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("params", [
-        {},
-        {"redirect_uri": ""},
-        {"redirect_uri": None},
-        {"state": "some-state"},
-    ])
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {},
+            {"redirect_uri": ""},
+            {"redirect_uri": None},
+            {"state": "some-state"},
+        ],
+    )
     async def test_outlook_oauth_invalid_params(self, params):
         from aragora.server.handlers.features.unified_inbox.accounts import (
             handle_outlook_oauth_url,
@@ -1842,12 +1977,15 @@ class TestParametrizedOAuthValidation:
         assert result["status_code"] == 400
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("error_cls", [
-        ConnectionError,
-        TimeoutError,
-        OSError,
-        ValueError,
-    ])
+    @pytest.mark.parametrize(
+        "error_cls",
+        [
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+        ],
+    )
     async def test_gmail_connect_various_errors(self, error_cls, mock_schedule_persist):
         """All caught error types should return failure."""
         mock_connector = MagicMock()
@@ -1855,15 +1993,18 @@ class TestParametrizedOAuthValidation:
 
         account = _make_account(provider=EmailProvider.GMAIL)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                GmailSyncService=MagicMock(),
-                GmailSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.gmail": MagicMock(
-                GmailConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    GmailSyncService=MagicMock(),
+                    GmailSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.gmail": MagicMock(
+                    GmailConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_gmail,
             )
@@ -1879,12 +2020,15 @@ class TestParametrizedOAuthValidation:
             assert result["success"] is False
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("error_cls", [
-        ConnectionError,
-        TimeoutError,
-        OSError,
-        ValueError,
-    ])
+    @pytest.mark.parametrize(
+        "error_cls",
+        [
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+        ],
+    )
     async def test_outlook_connect_various_errors(self, error_cls, mock_schedule_persist):
         """All caught error types should return failure."""
         mock_connector = MagicMock()
@@ -1892,15 +2036,18 @@ class TestParametrizedOAuthValidation:
 
         account = _make_account(provider=EmailProvider.OUTLOOK)
 
-        with patch.dict("sys.modules", {
-            "aragora.connectors.email": MagicMock(
-                OutlookSyncService=MagicMock(),
-                OutlookSyncConfig=MagicMock(return_value=MagicMock()),
-            ),
-            "aragora.connectors.enterprise.communication.outlook": MagicMock(
-                OutlookConnector=MagicMock(return_value=mock_connector),
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.connectors.email": MagicMock(
+                    OutlookSyncService=MagicMock(),
+                    OutlookSyncConfig=MagicMock(return_value=MagicMock()),
+                ),
+                "aragora.connectors.enterprise.communication.outlook": MagicMock(
+                    OutlookConnector=MagicMock(return_value=mock_connector),
+                ),
+            },
+        ):
             from aragora.server.handlers.features.unified_inbox.accounts import (
                 connect_outlook,
             )

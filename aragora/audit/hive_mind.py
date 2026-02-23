@@ -547,7 +547,10 @@ class AuditHiveMind:
         start_time = time.time()
 
         logger.info(
-            "HiveMind audit starting: session=%s chunks=%s workers=%s", session.id, len(chunks), len(self.workers)
+            "HiveMind audit starting: session=%s chunks=%s workers=%s",
+            session.id,
+            len(chunks),
+            len(self.workers),
         )
 
         # Phase 1: Decompose into tasks

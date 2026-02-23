@@ -77,9 +77,7 @@ class TestLifecycle:
         assert bare_engine.get_trigger("test").enabled is False
 
     @pytest.mark.asyncio
-    async def test_disabled_trigger_does_not_fire(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_disabled_trigger_does_not_fire(self, bare_engine: MemoryTriggerEngine) -> None:
         action = AsyncMock()
         trigger = MemoryTrigger(name="test", event="e", action=action, enabled=False)
         bare_engine.register(trigger)
@@ -96,9 +94,7 @@ class TestLifecycle:
 class TestBuiltinTriggers:
     @pytest.mark.asyncio
     async def test_high_surprise_investigate(self, engine: MemoryTriggerEngine) -> None:
-        triggered = await engine.fire(
-            "high_surprise", {"item_id": "x", "surprise": 0.85}
-        )
+        triggered = await engine.fire("high_surprise", {"item_id": "x", "surprise": 0.85})
         assert "high_surprise_investigate" in triggered
 
     @pytest.mark.asyncio
@@ -111,16 +107,12 @@ class TestBuiltinTriggers:
 
     @pytest.mark.asyncio
     async def test_contradiction_detected(self, engine: MemoryTriggerEngine) -> None:
-        triggered = await engine.fire(
-            "contradiction", {"description": "A contradicts B"}
-        )
+        triggered = await engine.fire("contradiction", {"description": "A contradicts B"})
         assert "contradiction_detected" in triggered
 
     @pytest.mark.asyncio
     async def test_consolidation_merge(self, engine: MemoryTriggerEngine) -> None:
-        triggered = await engine.fire(
-            "consolidation", {"item_count": 5, "avg_surprise": 0.1}
-        )
+        triggered = await engine.fire("consolidation", {"item_count": 5, "avg_surprise": 0.1})
         assert "consolidation_merge" in triggered
 
     @pytest.mark.asyncio
@@ -140,15 +132,11 @@ class TestConditionFiltering:
     @pytest.mark.asyncio
     async def test_condition_blocks_trigger(self, engine: MemoryTriggerEngine) -> None:
         # high_surprise trigger requires surprise > 0.7
-        triggered = await engine.fire(
-            "high_surprise", {"item_id": "x", "surprise": 0.3}
-        )
+        triggered = await engine.fire("high_surprise", {"item_id": "x", "surprise": 0.3})
         assert "high_surprise_investigate" not in triggered
 
     @pytest.mark.asyncio
-    async def test_stale_knowledge_needs_both_conditions(
-        self, engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_stale_knowledge_needs_both_conditions(self, engine: MemoryTriggerEngine) -> None:
         # Only days_since_access > 7 but confidence is high
         triggered = await engine.fire(
             "stale_knowledge",
@@ -157,19 +145,13 @@ class TestConditionFiltering:
         assert "stale_knowledge_revalidate" not in triggered
 
     @pytest.mark.asyncio
-    async def test_consolidation_needs_min_items(
-        self, engine: MemoryTriggerEngine
-    ) -> None:
-        triggered = await engine.fire(
-            "consolidation", {"item_count": 1, "avg_surprise": 0.1}
-        )
+    async def test_consolidation_needs_min_items(self, engine: MemoryTriggerEngine) -> None:
+        triggered = await engine.fire("consolidation", {"item_count": 1, "avg_surprise": 0.1})
         assert "consolidation_merge" not in triggered
 
     @pytest.mark.asyncio
     async def test_pattern_wrong_trend(self, engine: MemoryTriggerEngine) -> None:
-        triggered = await engine.fire(
-            "new_pattern", {"surprise_ema_trend": "increasing"}
-        )
+        triggered = await engine.fire("new_pattern", {"surprise_ema_trend": "increasing"})
         assert "pattern_emergence" not in triggered
 
     @pytest.mark.asyncio
@@ -197,9 +179,7 @@ class TestConditionFiltering:
 
 class TestMultipleTriggers:
     @pytest.mark.asyncio
-    async def test_two_triggers_same_event(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_two_triggers_same_event(self, bare_engine: MemoryTriggerEngine) -> None:
         action1 = AsyncMock()
         action2 = AsyncMock()
         bare_engine.register(MemoryTrigger(name="t1", event="e", action=action1))
@@ -211,9 +191,7 @@ class TestMultipleTriggers:
         action2.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_different_events_dont_cross(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_different_events_dont_cross(self, bare_engine: MemoryTriggerEngine) -> None:
         action1 = AsyncMock()
         action2 = AsyncMock()
         bare_engine.register(MemoryTrigger(name="t1", event="e1", action=action1))
@@ -225,41 +203,25 @@ class TestMultipleTriggers:
         action2.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_one_disabled_one_enabled(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_one_disabled_one_enabled(self, bare_engine: MemoryTriggerEngine) -> None:
         action1 = AsyncMock()
         action2 = AsyncMock()
-        bare_engine.register(
-            MemoryTrigger(name="t1", event="e", action=action1, enabled=False)
-        )
-        bare_engine.register(
-            MemoryTrigger(name="t2", event="e", action=action2, enabled=True)
-        )
+        bare_engine.register(MemoryTrigger(name="t1", event="e", action=action1, enabled=False))
+        bare_engine.register(MemoryTrigger(name="t2", event="e", action=action2, enabled=True))
 
         triggered = await bare_engine.fire("e", {})
         assert triggered == ["t2"]
 
     @pytest.mark.asyncio
-    async def test_three_triggers_mixed_conditions(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_three_triggers_mixed_conditions(self, bare_engine: MemoryTriggerEngine) -> None:
         actions = [AsyncMock(), AsyncMock(), AsyncMock()]
         bare_engine.register(
-            MemoryTrigger(
-                name="t1", event="e", condition=lambda c: True, action=actions[0]
-            )
+            MemoryTrigger(name="t1", event="e", condition=lambda c: True, action=actions[0])
         )
         bare_engine.register(
-            MemoryTrigger(
-                name="t2", event="e", condition=lambda c: False, action=actions[1]
-            )
+            MemoryTrigger(name="t2", event="e", condition=lambda c: False, action=actions[1])
         )
-        bare_engine.register(
-            MemoryTrigger(
-                name="t3", event="e", condition=None, action=actions[2]
-            )
-        )
+        bare_engine.register(MemoryTrigger(name="t3", event="e", condition=None, action=actions[2]))
 
         triggered = await bare_engine.fire("e", {})
         assert "t1" in triggered
@@ -274,9 +236,7 @@ class TestMultipleTriggers:
 
 class TestErrorIsolation:
     @pytest.mark.asyncio
-    async def test_action_error_doesnt_block_next(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_action_error_doesnt_block_next(self, bare_engine: MemoryTriggerEngine) -> None:
         failing = AsyncMock(side_effect=RuntimeError("boom"))
         working = AsyncMock()
         bare_engine.register(MemoryTrigger(name="fail", event="e", action=failing))
@@ -296,9 +256,7 @@ class TestErrorIsolation:
 
         working = AsyncMock()
         bare_engine.register(
-            MemoryTrigger(
-                name="bad", event="e", condition=bad_condition, action=AsyncMock()
-            )
+            MemoryTrigger(name="bad", event="e", condition=bad_condition, action=AsyncMock())
         )
         bare_engine.register(MemoryTrigger(name="ok", event="e", action=working))
 
@@ -307,9 +265,7 @@ class TestErrorIsolation:
         working.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_action_error_logged_in_fire_log(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_action_error_logged_in_fire_log(self, bare_engine: MemoryTriggerEngine) -> None:
         failing = AsyncMock(side_effect=ValueError("oops"))
         bare_engine.register(MemoryTrigger(name="fail", event="e", action=failing))
 
@@ -345,9 +301,7 @@ class TestErrorIsolation:
 
 class TestFireLog:
     @pytest.mark.asyncio
-    async def test_fire_log_records_success(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_fire_log_records_success(self, bare_engine: MemoryTriggerEngine) -> None:
         action = AsyncMock()
         bare_engine.register(MemoryTrigger(name="test", event="e", action=action))
         await bare_engine.fire("e", {})
@@ -359,9 +313,7 @@ class TestFireLog:
         assert log[0].error is None
 
     @pytest.mark.asyncio
-    async def test_fire_log_accumulates(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_fire_log_accumulates(self, bare_engine: MemoryTriggerEngine) -> None:
         bare_engine.register(MemoryTrigger(name="test", event="e", action=AsyncMock()))
         await bare_engine.fire("e", {})
         await bare_engine.fire("e", {})
@@ -377,9 +329,7 @@ class TestFireLog:
         assert bare_engine.get_fire_log() == []
 
     @pytest.mark.asyncio
-    async def test_fire_log_no_action_trigger(
-        self, bare_engine: MemoryTriggerEngine
-    ) -> None:
+    async def test_fire_log_no_action_trigger(self, bare_engine: MemoryTriggerEngine) -> None:
         bare_engine.register(MemoryTrigger(name="test", event="e", action=None))
         await bare_engine.fire("e", {})
 

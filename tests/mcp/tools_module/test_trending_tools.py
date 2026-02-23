@@ -7,7 +7,6 @@ import pytest
 from aragora.mcp.tools_module.trending import list_trending_topics_tool
 
 
-
 class TestListTrendingTopicsTool:
     """Tests for list_trending_topics_tool."""
 

@@ -232,9 +232,7 @@ class TestMFASetup:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_mfa_setup(hi, http())
         assert _status(result) == 403
 
@@ -387,9 +385,7 @@ class TestMFAEnable:
         from aragora.server.handlers.base import error_response
 
         hi, store = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_mfa_enable(hi, http(body={"code": "123456"}))
         assert _status(result) == 403
 
@@ -559,9 +555,7 @@ class TestMFADisable:
         from aragora.server.handlers.base import error_response
 
         hi, _ = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_mfa_disable(hi, http(body={"code": "123456"}))
         assert _status(result) == 403
 
@@ -685,9 +679,7 @@ class TestMFADisable:
         user = MockUser(mfa_enabled=True, mfa_secret=secret)
         store.get_user_by_id.return_value = user
         code = self._make_valid_code(secret)
-        result = handle_mfa_disable(
-            hi, http(body={"code": code, "password": "wrong-password"})
-        )
+        result = handle_mfa_disable(hi, http(body={"code": code, "password": "wrong-password"}))
         # Code is valid, so should succeed even though password is wrong
         assert _status(result) == 200
 
@@ -723,9 +715,7 @@ class TestMFAVerify:
         mock_bl.return_value = bl
 
         code = self._make_valid_code(secret)
-        result = handle_mfa_verify(
-            hi, http(body={"code": code, "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": code, "pending_token": "pt-valid"}))
         assert _status(result) == 200
         body = _body(result)
         assert body["message"] == "MFA verification successful"
@@ -735,7 +725,9 @@ class TestMFAVerify:
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_blacklists_pending_token(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_blacklists_pending_token(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         import pyotp
 
         hi, store = handler_instance
@@ -784,7 +776,9 @@ class TestMFAVerify:
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_backup_code_removes_used_hash(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_backup_code_removes_used_hash(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         import pyotp
 
         hi, store = handler_instance
@@ -803,9 +797,7 @@ class TestMFAVerify:
         bl = MagicMock()
         mock_bl.return_value = bl
 
-        handle_mfa_verify(
-            hi, http(body={"code": backup_code, "pending_token": "pt-valid"})
-        )
+        handle_mfa_verify(hi, http(body={"code": backup_code, "pending_token": "pt-valid"}))
         call_kwargs = store.update_user.call_args[1]
         remaining_hashes = json.loads(call_kwargs["mfa_backup_codes"])
         assert backup_hash not in remaining_hashes
@@ -814,7 +806,9 @@ class TestMFAVerify:
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_backup_code_warning_when_low(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_backup_code_warning_when_low(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         import pyotp
 
         hi, store = handler_instance
@@ -844,7 +838,9 @@ class TestMFAVerify:
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_backup_code_no_warning_when_enough(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_backup_code_no_warning_when_enough(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         import pyotp
 
         hi, store = handler_instance
@@ -882,9 +878,7 @@ class TestMFAVerify:
             return real_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", mock_import)
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": "pt"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": "pt"}))
         assert _status(result) == 503
 
     def test_verify_invalid_json_body(self, handler_instance):
@@ -897,17 +891,13 @@ class TestMFAVerify:
 
     def test_verify_missing_code(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_mfa_verify(
-            hi, http(body={"pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"pending_token": "pt-valid"}))
         assert _status(result) == 400
         assert "code" in _body(result)["error"].lower()
 
     def test_verify_empty_code(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_mfa_verify(
-            hi, http(body={"code": "", "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "", "pending_token": "pt-valid"}))
         assert _status(result) == 400
 
     def test_verify_missing_pending_token(self, handler_instance, http):
@@ -918,29 +908,26 @@ class TestMFAVerify:
 
     def test_verify_empty_pending_token(self, handler_instance, http):
         hi, _ = handler_instance
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": ""})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": ""}))
         assert _status(result) == 400
 
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_verify_invalid_pending_token(self, mock_validate, handler_instance, http):
         hi, _ = handler_instance
         mock_validate.return_value = None
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": "bad-token"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": "bad-token"}))
         assert _status(result) == 401
-        assert "expired" in _body(result)["error"].lower() or "invalid" in _body(result)["error"].lower()
+        assert (
+            "expired" in _body(result)["error"].lower()
+            or "invalid" in _body(result)["error"].lower()
+        )
 
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_verify_user_not_found(self, mock_validate, handler_instance, http):
         hi, store = handler_instance
         mock_validate.return_value = MockPendingPayload()
         store.get_user_by_id.return_value = None
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": "pt-valid"}))
         assert _status(result) == 404
 
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
@@ -949,9 +936,7 @@ class TestMFAVerify:
         mock_validate.return_value = MockPendingPayload()
         user = MockUser(mfa_enabled=False, mfa_secret=None)
         store.get_user_by_id.return_value = user
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": "pt-valid"}))
         assert _status(result) == 400
         assert "not enabled" in _body(result)["error"].lower()
 
@@ -961,9 +946,7 @@ class TestMFAVerify:
         mock_validate.return_value = MockPendingPayload()
         user = MockUser(mfa_enabled=True, mfa_secret=None)
         store.get_user_by_id.return_value = user
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": "pt-valid"}))
         assert _status(result) == 400
 
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
@@ -975,9 +958,7 @@ class TestMFAVerify:
         user = MockUser(mfa_enabled=True, mfa_secret=secret, mfa_backup_codes=None)
         store.get_user_by_id.return_value = user
         mock_validate.return_value = MockPendingPayload()
-        result = handle_mfa_verify(
-            hi, http(body={"code": "000000", "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "000000", "pending_token": "pt-valid"}))
         assert _status(result) == 400
         assert "invalid" in _body(result)["error"].lower()
 
@@ -1007,15 +988,15 @@ class TestMFAVerify:
         hi = AuthHandler(server_context={})
         hi._check_permission = MagicMock(return_value=None)
         mock_validate.return_value = MockPendingPayload()
-        result = handle_mfa_verify(
-            hi, http(body={"code": "123456", "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": "123456", "pending_token": "pt-valid"}))
         assert _status(result) == 503
 
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_backup_code_blacklists_token(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_backup_code_blacklists_token(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         import pyotp
 
         hi, store = handler_instance
@@ -1033,9 +1014,7 @@ class TestMFAVerify:
         bl = MagicMock()
         mock_bl.return_value = bl
 
-        handle_mfa_verify(
-            hi, http(body={"code": backup_code, "pending_token": "pt-pending"})
-        )
+        handle_mfa_verify(hi, http(body={"code": backup_code, "pending_token": "pt-pending"}))
         bl.revoke_token.assert_called_once_with("pt-pending")
 
 
@@ -1101,9 +1080,7 @@ class TestMFABackupCodes:
         from aragora.server.handlers.base import error_response
 
         hi, _ = handler_instance
-        hi._check_permission = MagicMock(
-            return_value=error_response("Permission denied", 403)
-        )
+        hi._check_permission = MagicMock(return_value=error_response("Permission denied", 403))
         result = handle_mfa_backup_codes(hi, http(body={"code": "123456"}))
         assert _status(result) == 403
 
@@ -1231,7 +1208,9 @@ class TestMFAFlowIntegration:
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_returns_user_dict(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_returns_user_dict(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         """Verify response includes user dict from user.to_dict()."""
         import pyotp
 
@@ -1245,9 +1224,7 @@ class TestMFAFlowIntegration:
         mock_bl.return_value = bl
 
         code = pyotp.TOTP(secret).now()
-        result = handle_mfa_verify(
-            hi, http(body={"code": code, "pending_token": "pt-valid"})
-        )
+        result = handle_mfa_verify(hi, http(body={"code": code, "pending_token": "pt-valid"}))
         body = _body(result)
         assert body["user"]["email"] == "verify@test.com"
         assert body["user"]["id"] == "user-001"
@@ -1255,15 +1232,21 @@ class TestMFAFlowIntegration:
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_verify_creates_token_pair_with_user_fields(self, mock_validate, mock_create, mock_bl, handler_instance, http):
+    def test_verify_creates_token_pair_with_user_fields(
+        self, mock_validate, mock_create, mock_bl, handler_instance, http
+    ):
         """Verify that create_token_pair is called with the correct user fields."""
         import pyotp
 
         hi, store = handler_instance
         secret = pyotp.random_base32()
         user = MockUser(
-            id="u-42", email="token@test.com", org_id="org-99",
-            role="editor", mfa_enabled=True, mfa_secret=secret,
+            id="u-42",
+            email="token@test.com",
+            org_id="org-99",
+            role="editor",
+            mfa_enabled=True,
+            mfa_secret=secret,
         )
         store.get_user_by_id.return_value = user
         mock_validate.return_value = MockPendingPayload(sub="u-42")

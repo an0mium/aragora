@@ -20,23 +20,23 @@ from aragora.debate.presets import (
 # Constants
 # ---------------------------------------------------------------------------
 
-ALL_PRESET_NAMES = sorted([
-    "sme",
-    "enterprise",
-    "minimal",
-    "audit",
-    "healthcare",
-    "visual",
-    "compliance",
-    "research",
-    "diverse",
-    "financial",
-])
+ALL_PRESET_NAMES = sorted(
+    [
+        "sme",
+        "enterprise",
+        "minimal",
+        "audit",
+        "healthcare",
+        "visual",
+        "compliance",
+        "research",
+        "diverse",
+        "financial",
+    ]
+)
 
 # Presets that contain a _post_debate_preset key in the raw data
-PRESETS_WITH_POST_DEBATE = [
-    name for name, cfg in _PRESETS.items() if "_post_debate_preset" in cfg
-]
+PRESETS_WITH_POST_DEBATE = [name for name, cfg in _PRESETS.items() if "_post_debate_preset" in cfg]
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +143,7 @@ class TestGetPresetPostDebateConfig:
         ):
             # Patch the import inside get_preset to raise ImportError
             import aragora.debate.presets as presets_mod
+
             original_get = presets_mod.get_preset
 
             def patched_get(name: str):
@@ -255,9 +256,7 @@ class TestApplyPreset:
         assert result["budget_downgrade_models"] is True
 
     def test_overrides_dict_takes_precedence(self) -> None:
-        result = apply_preset(
-            "minimal", overrides={"enable_stability_detection": False}
-        )
+        result = apply_preset("minimal", overrides={"enable_stability_detection": False})
         assert result["enable_stability_detection"] is False
 
     def test_overrides_adds_new_keys(self) -> None:

@@ -518,7 +518,7 @@ def setup_arena_hooks(
         for config in configs:
             errors = loader.validate_config(config)
             if errors:
-                logger.warning("Hook '%s' validation failed: %s", config.name, '; '.join(errors))
+                logger.warning("Hook '%s' validation failed: %s", config.name, "; ".join(errors))
             else:
                 valid_configs.append(config)
         configs = valid_configs

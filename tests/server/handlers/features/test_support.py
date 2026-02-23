@@ -471,9 +471,7 @@ class TestGetTicket:
     @pytest.mark.asyncio
     async def test_get_ticket_not_found(self, handler, _seed_zendesk_connection):
         mock_connector = AsyncMock()
-        mock_connector.get_ticket = AsyncMock(
-            side_effect=ValueError("Ticket not found")
-        )
+        mock_connector.get_ticket = AsyncMock(side_effect=ValueError("Ticket not found"))
         handler._get_connector = AsyncMock(return_value=mock_connector)
 
         req = FakeRequest(method="GET", path="/api/v1/support/zendesk/tickets/99999")

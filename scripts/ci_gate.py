@@ -64,10 +64,14 @@ def check_gh_available() -> bool:
 def get_ci_status(branch: str = "main") -> list[CIStatus]:
     """Check current CI run status for a branch."""
     result = run_gh(
-        "run", "list",
-        "--branch", branch,
-        "--limit", "5",
-        "--json", "databaseId,name,status,conclusion,headBranch,url,createdAt",
+        "run",
+        "list",
+        "--branch",
+        branch,
+        "--limit",
+        "5",
+        "--json",
+        "databaseId,name,status,conclusion,headBranch,url,createdAt",
     )
     if result.returncode != 0:
         logger.warning("Failed to check CI status: %s", result.stderr)
@@ -82,16 +86,18 @@ def get_ci_status(branch: str = "main") -> list[CIStatus]:
     for run in runs:
         status = run.get("status", "")
         is_running = status in ("queued", "in_progress")
-        statuses.append(CIStatus(
-            is_running=is_running,
-            run_id=run.get("databaseId"),
-            workflow_name=run.get("name", ""),
-            status=status,
-            conclusion=run.get("conclusion", ""),
-            branch=run.get("headBranch", ""),
-            url=run.get("url", ""),
-            started_at=run.get("createdAt", ""),
-        ))
+        statuses.append(
+            CIStatus(
+                is_running=is_running,
+                run_id=run.get("databaseId"),
+                workflow_name=run.get("name", ""),
+                status=status,
+                conclusion=run.get("conclusion", ""),
+                branch=run.get("headBranch", ""),
+                url=run.get("url", ""),
+                started_at=run.get("createdAt", ""),
+            )
+        )
 
     return statuses
 
@@ -120,10 +126,7 @@ def wait_for_ci(branch: str = "main", max_minutes: float = MAX_WAIT_MINUTES) -> 
         elapsed = (time.time() - start) / 60
         remaining = max_minutes - elapsed
         names = ", ".join(r.workflow_name for r in running)
-        print(
-            f"  CI in progress: {names} "
-            f"({elapsed:.1f}m elapsed, {remaining:.1f}m remaining)"
-        )
+        print(f"  CI in progress: {names} ({elapsed:.1f}m elapsed, {remaining:.1f}m remaining)")
         time.sleep(POLL_INTERVAL_SECONDS)
 
     return False
@@ -213,37 +216,35 @@ def print_status(branch: str = "main") -> None:
             "in_progress": "🔵",
             "completed": "🟢" if s.conclusion == "success" else "🔴",
         }.get(s.status, "⚪")
-        print(
-            f"  {s.workflow_name:<30} "
-            f"{status_icon} {s.status:<12} "
-            f"{s.conclusion:<12} "
-            f"{s.url}"
-        )
+        print(f"  {s.workflow_name:<30} {status_icon} {s.status:<12} {s.conclusion:<12} {s.url}")
     print()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="CI-aware push gate — prevents push conflicts"
-    )
+    parser = argparse.ArgumentParser(description="CI-aware push gate — prevents push conflicts")
     parser.add_argument(
-        "--branch", default="main",
+        "--branch",
+        default="main",
         help="Branch to push (default: main)",
     )
     parser.add_argument(
-        "--remote", default="origin",
+        "--remote",
+        default="origin",
         help="Remote to push to (default: origin)",
     )
     parser.add_argument(
-        "--status", action="store_true",
+        "--status",
+        action="store_true",
         help="Just check CI status, don't push",
     )
     parser.add_argument(
-        "--wait", action="store_true",
+        "--wait",
+        action="store_true",
         help="Wait for running CI to complete before pushing",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Push even if CI is running",
     )
     args = parser.parse_args()

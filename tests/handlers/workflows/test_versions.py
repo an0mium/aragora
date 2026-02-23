@@ -335,8 +335,10 @@ class TestRestoreWorkflowVersion:
     async def test_calls_get_store(self):
         """Verifies _get_store is called to obtain the store."""
         store = _make_mock_store()
-        with patch(f"{PATCH_MODULE}._get_store", return_value=store) as get_store_mock, \
-             patch(f"{PATCH_MODULE}.update_workflow", new_callable=AsyncMock):
+        with (
+            patch(f"{PATCH_MODULE}._get_store", return_value=store) as get_store_mock,
+            patch(f"{PATCH_MODULE}.update_workflow", new_callable=AsyncMock),
+        ):
             await restore_workflow_version("wf_1", "1.0.0")
             get_store_mock.assert_called_once()
 
@@ -359,16 +361,19 @@ class TestModuleExports:
     def test_exports_get_workflow_versions(self):
         """get_workflow_versions is in __all__."""
         from aragora.server.handlers.workflows.versions import __all__ as exports
+
         assert "get_workflow_versions" in exports
 
     def test_exports_restore_workflow_version(self):
         """restore_workflow_version is in __all__."""
         from aragora.server.handlers.workflows.versions import __all__ as exports
+
         assert "restore_workflow_version" in exports
 
     def test_exports_count(self):
         """Exactly 2 items are exported."""
         from aragora.server.handlers.workflows.versions import __all__ as exports
+
         assert len(exports) == 2
 
 

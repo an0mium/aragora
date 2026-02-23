@@ -84,9 +84,7 @@ class MockHTTPHandler:
     """Lightweight mock HTTP handler for global knowledge tests."""
 
     command: str = "GET"
-    headers: dict[str, str] = field(
-        default_factory=lambda: {"Content-Length": "0"}
-    )
+    headers: dict[str, str] = field(default_factory=lambda: {"Content-Length": "0"})
     rfile: Any = field(default_factory=lambda: io.BytesIO(b""))
 
     @classmethod
@@ -297,13 +295,15 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_success(self, handler, mock_mound):
         """Successfully storing a verified fact returns 201 with node_id."""
-        http = MockHTTPHandler.with_body({
-            "content": "The Earth orbits the Sun",
-            "source": "astronomy-textbook",
-            "confidence": 0.99,
-            "evidence_ids": ["ev-001", "ev-002"],
-            "topics": ["astronomy", "physics"],
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "The Earth orbits the Sun",
+                "source": "astronomy-textbook",
+                "confidence": 0.99,
+                "evidence_ids": ["ev-001", "ev-002"],
+                "topics": ["astronomy", "physics"],
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
         body = _body(result)
@@ -315,10 +315,12 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_minimal_body(self, handler, mock_mound):
         """Store with only required fields (content, source) succeeds."""
-        http = MockHTTPHandler.with_body({
-            "content": "Water boils at 100C",
-            "source": "chemistry-101",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Water boils at 100C",
+                "source": "chemistry-101",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
         body = _body(result)
@@ -328,54 +330,64 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_default_confidence(self, handler, mock_mound):
         """Default confidence is 0.9 when not specified."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "source",
+            }
+        )
         handler._handle_store_verified_fact(http)
         call_kwargs = mock_mound.store_verified_fact.call_args.kwargs
         assert call_kwargs["confidence"] == 0.9
 
     def test_store_verified_fact_custom_confidence(self, handler, mock_mound):
         """Custom confidence is forwarded to mound."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "source",
-            "confidence": 0.75,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "source",
+                "confidence": 0.75,
+            }
+        )
         handler._handle_store_verified_fact(http)
         call_kwargs = mock_mound.store_verified_fact.call_args.kwargs
         assert call_kwargs["confidence"] == 0.75
 
     def test_store_verified_fact_default_evidence_ids(self, handler, mock_mound):
         """Default evidence_ids is empty list when not specified."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "source",
+            }
+        )
         handler._handle_store_verified_fact(http)
         call_kwargs = mock_mound.store_verified_fact.call_args.kwargs
         assert call_kwargs["evidence_ids"] == []
 
     def test_store_verified_fact_default_topics(self, handler, mock_mound):
         """Default topics is empty list when not specified."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "source",
+            }
+        )
         handler._handle_store_verified_fact(http)
         call_kwargs = mock_mound.store_verified_fact.call_args.kwargs
         assert call_kwargs["topics"] == []
 
     def test_store_verified_fact_forwards_correct_kwargs(self, handler, mock_mound):
         """All parameters are correctly forwarded to mound.store_verified_fact."""
-        http = MockHTTPHandler.with_body({
-            "content": "Test fact",
-            "source": "test-source",
-            "confidence": 0.8,
-            "evidence_ids": ["ev-1"],
-            "topics": ["topic-a"],
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Test fact",
+                "source": "test-source",
+                "confidence": 0.8,
+                "evidence_ids": ["ev-1"],
+                "topics": ["topic-a"],
+            }
+        )
         handler._handle_store_verified_fact(http)
         call_kwargs = mock_mound.store_verified_fact.call_args.kwargs
         assert call_kwargs["content"] == "Test fact"
@@ -387,9 +399,11 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_missing_content_returns_400(self, handler):
         """Missing content returns 400."""
-        http = MockHTTPHandler.with_body({
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 400
         body = _body(result)
@@ -397,18 +411,22 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_empty_content_returns_400(self, handler):
         """Empty string content returns 400."""
-        http = MockHTTPHandler.with_body({
-            "content": "",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 400
 
     def test_store_verified_fact_missing_source_returns_400(self, handler):
         """Missing source returns 400."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 400
         body = _body(result)
@@ -416,10 +434,12 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_empty_source_returns_400(self, handler):
         """Empty string source returns 400."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 400
 
@@ -441,10 +461,12 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler_no_mound._handle_store_verified_fact(http)
         assert _status(result) == 503
         body = _body(result)
@@ -452,19 +474,23 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_auth_failure_returns_401(self, handler_no_auth):
         """Auth failure returns 401."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler_no_auth._handle_store_verified_fact(http)
         assert _status(result) == 401
 
     def test_store_verified_fact_non_admin_no_global_write_returns_403(self, handler_non_admin):
         """Non-admin user without global_write permission returns 403."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler_non_admin._handle_store_verified_fact(http)
         assert _status(result) == 403
         body = _body(result)
@@ -472,10 +498,12 @@ class TestStoreVerifiedFact:
 
     def test_store_verified_fact_global_writer_succeeds(self, handler_global_writer, mock_mound):
         """User with global_write permission (but not admin) can store facts."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler_global_writer._handle_store_verified_fact(http)
         assert _status(result) == 201
         body = _body(result)
@@ -484,70 +512,84 @@ class TestStoreVerifiedFact:
     def test_store_verified_fact_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=KeyError("missing"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 500
 
     def test_store_verified_fact_value_error_returns_500(self, handler, mock_mound):
         """ValueError from mound returns 500."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=ValueError("bad data"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 500
 
     def test_store_verified_fact_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=OSError("disk fail"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 500
 
     def test_store_verified_fact_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=TypeError("wrong type"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 500
 
     def test_store_verified_fact_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=RuntimeError("runtime"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 500
 
     def test_store_verified_fact_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=AttributeError("attr"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 500
 
     @patch("aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_fact")
     def test_store_verified_fact_tracks_metrics(self, mock_track, handler, mock_mound):
         """track_global_fact is called with action='store' on success."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         handler._handle_store_verified_fact(http)
         mock_track.assert_called_once_with(action="store")
 
@@ -555,10 +597,12 @@ class TestStoreVerifiedFact:
     def test_store_verified_fact_no_metrics_on_error(self, mock_track, handler, mock_mound):
         """track_global_fact is NOT called when mound raises error."""
         mock_mound.store_verified_fact = AsyncMock(side_effect=RuntimeError("fail"))
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         handler._handle_store_verified_fact(http)
         mock_track.assert_not_called()
 
@@ -566,10 +610,12 @@ class TestStoreVerifiedFact:
         """User.id attribute is used for verified_by."""
         user = MockUser(id="user-from-id", user_id="user-from-user-id")
         h = GlobalKnowledgeTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = h._handle_store_verified_fact(http)
         body = _body(result)
         assert body["verified_by"] == "user-from-id"
@@ -581,10 +627,12 @@ class TestStoreVerifiedFact:
         user.user_id = "fallback-user"
         user.permissions = ["admin"]
         h = GlobalKnowledgeTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = h._handle_store_verified_fact(http)
         body = _body(result)
         assert body["verified_by"] == "fallback-user"
@@ -594,10 +642,12 @@ class TestStoreVerifiedFact:
         user = MagicMock(spec=[])
         user.permissions = ["admin"]
         h = GlobalKnowledgeTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = h._handle_store_verified_fact(http)
         body = _body(result)
         assert body["verified_by"] == "unknown"
@@ -618,13 +668,16 @@ class TestStoreVerifiedFact:
 
             def require_admin_or_error(self, handler):
                 from aragora.server.handlers.base import error_response
+
                 return None, error_response("Not admin", 403)
 
         h = HandlerAdminPerm()
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "some-source",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "some-source",
+            }
+        )
         result = h._handle_store_verified_fact(http)
         assert _status(result) == 201
 
@@ -840,11 +893,13 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_success(self, handler, mock_mound):
         """Successfully promoting an item returns 201 with global_id."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-local-001",
-            "workspace_id": "ws-001",
-            "reason": "High-confidence verified fact",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-local-001",
+                "workspace_id": "ws-001",
+                "reason": "High-confidence verified fact",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 201
         body = _body(result)
@@ -856,11 +911,13 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_forwards_correct_kwargs(self, handler, mock_mound):
         """All parameters are correctly forwarded to mound.promote_to_global."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-abc",
-            "workspace_id": "ws-xyz",
-            "reason": "Important discovery",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-abc",
+                "workspace_id": "ws-xyz",
+                "reason": "Important discovery",
+            }
+        )
         handler._handle_promote_to_global(http)
         call_kwargs = mock_mound.promote_to_global.call_args.kwargs
         assert call_kwargs["item_id"] == "item-abc"
@@ -870,10 +927,12 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_missing_item_id_returns_400(self, handler):
         """Missing item_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
         body = _body(result)
@@ -881,20 +940,24 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_empty_item_id_returns_400(self, handler):
         """Empty string item_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
 
     def test_promote_to_global_missing_workspace_id_returns_400(self, handler):
         """Missing workspace_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
         body = _body(result)
@@ -902,20 +965,24 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_empty_workspace_id_returns_400(self, handler):
         """Empty string workspace_id returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
 
     def test_promote_to_global_missing_reason_returns_400(self, handler):
         """Missing reason returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
         body = _body(result)
@@ -923,11 +990,13 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_empty_reason_returns_400(self, handler):
         """Empty string reason returns 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
 
@@ -949,11 +1018,13 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_no_mound_returns_503(self, handler_no_mound):
         """Missing mound returns 503."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler_no_mound._handle_promote_to_global(http)
         assert _status(result) == 503
         body = _body(result)
@@ -961,22 +1032,26 @@ class TestPromoteToGlobal:
 
     def test_promote_to_global_auth_failure_returns_401(self, handler_no_auth):
         """Auth failure returns 401."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler_no_auth._handle_promote_to_global(http)
         assert _status(result) == 401
 
     def test_promote_to_global_value_error_returns_404(self, handler, mock_mound):
         """ValueError from promote_to_global returns 404 (item not found)."""
         mock_mound.promote_to_global = AsyncMock(side_effect=ValueError("Not found"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "missing-item",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "missing-item",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 404
         body = _body(result)
@@ -985,66 +1060,78 @@ class TestPromoteToGlobal:
     def test_promote_to_global_key_error_returns_500(self, handler, mock_mound):
         """KeyError from mound returns 500."""
         mock_mound.promote_to_global = AsyncMock(side_effect=KeyError("missing"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 500
 
     def test_promote_to_global_os_error_returns_500(self, handler, mock_mound):
         """OSError from mound returns 500."""
         mock_mound.promote_to_global = AsyncMock(side_effect=OSError("disk fail"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 500
 
     def test_promote_to_global_type_error_returns_500(self, handler, mock_mound):
         """TypeError from mound returns 500."""
         mock_mound.promote_to_global = AsyncMock(side_effect=TypeError("wrong type"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 500
 
     def test_promote_to_global_runtime_error_returns_500(self, handler, mock_mound):
         """RuntimeError from mound returns 500."""
         mock_mound.promote_to_global = AsyncMock(side_effect=RuntimeError("runtime"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 500
 
     def test_promote_to_global_attribute_error_returns_500(self, handler, mock_mound):
         """AttributeError from mound returns 500."""
         mock_mound.promote_to_global = AsyncMock(side_effect=AttributeError("attr"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 500
 
     @patch("aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_fact")
     def test_promote_to_global_tracks_metrics(self, mock_track, handler, mock_mound):
         """track_global_fact is called with action='promote' on success."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         handler._handle_promote_to_global(http)
         mock_track.assert_called_once_with(action="promote")
 
@@ -1052,11 +1139,13 @@ class TestPromoteToGlobal:
     def test_promote_to_global_no_metrics_on_not_found(self, mock_track, handler, mock_mound):
         """track_global_fact is NOT called when item not found (ValueError)."""
         mock_mound.promote_to_global = AsyncMock(side_effect=ValueError("Not found"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "missing",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "missing",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         handler._handle_promote_to_global(http)
         mock_track.assert_not_called()
 
@@ -1064,11 +1153,13 @@ class TestPromoteToGlobal:
     def test_promote_to_global_no_metrics_on_error(self, mock_track, handler, mock_mound):
         """track_global_fact is NOT called when mound raises error."""
         mock_mound.promote_to_global = AsyncMock(side_effect=RuntimeError("fail"))
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         handler._handle_promote_to_global(http)
         mock_track.assert_not_called()
 
@@ -1077,11 +1168,13 @@ class TestPromoteToGlobal:
         user = MagicMock(spec=[])
         user.user_id = "fallback-user"
         h = GlobalKnowledgeTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = h._handle_promote_to_global(http)
         body = _body(result)
         assert body["promoted_by"] == "fallback-user"
@@ -1090,11 +1183,13 @@ class TestPromoteToGlobal:
         """User without id or user_id falls back to 'unknown'."""
         user = MagicMock(spec=[])
         h = GlobalKnowledgeTestHandler(mound=mock_mound, user=user)
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Some reason",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Some reason",
+            }
+        )
         result = h._handle_promote_to_global(http)
         body = _body(result)
         assert body["promoted_by"] == "unknown"
@@ -1360,10 +1455,12 @@ class TestGlobalKnowledgeSecurity:
 
     def test_store_fact_path_traversal_in_content(self, handler, mock_mound):
         """Path traversal in content is stored as-is (not interpreted)."""
-        http = MockHTTPHandler.with_body({
-            "content": "../../etc/passwd",
-            "source": "test",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "../../etc/passwd",
+                "source": "test",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
         body = _body(result)
@@ -1371,10 +1468,12 @@ class TestGlobalKnowledgeSecurity:
 
     def test_store_fact_script_injection_in_content(self, handler, mock_mound):
         """Script injection in content is stored as-is (not executed)."""
-        http = MockHTTPHandler.with_body({
-            "content": "<script>alert('xss')</script>",
-            "source": "test",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "<script>alert('xss')</script>",
+                "source": "test",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
         body = _body(result)
@@ -1382,10 +1481,12 @@ class TestGlobalKnowledgeSecurity:
 
     def test_store_fact_sql_injection_in_source(self, handler, mock_mound):
         """SQL injection in source is stored as-is (not executed)."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "'; DROP TABLE facts; --",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "'; DROP TABLE facts; --",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
         body = _body(result)
@@ -1393,40 +1494,44 @@ class TestGlobalKnowledgeSecurity:
 
     def test_promote_path_traversal_in_item_id(self, handler, mock_mound):
         """Path traversal in item_id is passed through (mound handles validation)."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "../../secret-item",
-            "workspace_id": "ws-001",
-            "reason": "Testing",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "../../secret-item",
+                "workspace_id": "ws-001",
+                "reason": "Testing",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         # Should succeed (mound is responsible for validating IDs)
         assert _status(result) == 201
 
     def test_query_global_injection_in_query(self, handler, mock_mound):
         """Injection attempts in query string are passed through safely."""
-        result = handler._handle_query_global(
-            {"query": "'; DROP TABLE knowledge; --"}
-        )
+        result = handler._handle_query_global({"query": "'; DROP TABLE knowledge; --"})
         assert _status(result) == 200
         call_kwargs = mock_mound.query_global_knowledge.call_args.kwargs
         assert call_kwargs["query"] == "'; DROP TABLE knowledge; --"
 
     def test_store_fact_unicode_content(self, handler, mock_mound):
         """Unicode content is handled correctly."""
-        http = MockHTTPHandler.with_body({
-            "content": "The universe is vast. It contains many stars and galaxies.",
-            "source": "encyclopaedia",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "The universe is vast. It contains many stars and galaxies.",
+                "source": "encyclopaedia",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
 
     def test_store_fact_very_large_content(self, handler, mock_mound):
         """Very large content is accepted (handler doesn't enforce size limit)."""
         large_content = "x" * 100000
-        http = MockHTTPHandler.with_body({
-            "content": large_content,
-            "source": "test",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": large_content,
+                "source": "test",
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
         call_kwargs = mock_mound.store_verified_fact.call_args.kwargs
@@ -1434,13 +1539,15 @@ class TestGlobalKnowledgeSecurity:
 
     def test_store_fact_null_values_in_optional_fields(self, handler, mock_mound):
         """Null values in optional fields are treated as defaults."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "test",
-            "confidence": None,
-            "evidence_ids": None,
-            "topics": None,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "test",
+                "confidence": None,
+                "evidence_ids": None,
+                "topics": None,
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         # None confidence gets data.get("confidence", 0.9) -> None passed to mound
         # This tests that the handler doesn't crash
@@ -1448,11 +1555,13 @@ class TestGlobalKnowledgeSecurity:
 
     def test_promote_null_values_in_required_fields(self, handler):
         """Null values in required fields return 400."""
-        http = MockHTTPHandler.with_body({
-            "item_id": None,
-            "workspace_id": "ws-001",
-            "reason": "Test",
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": None,
+                "workspace_id": "ws-001",
+                "reason": "Test",
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 400
 
@@ -1547,22 +1656,26 @@ class TestParameterEdgeCases:
 
     def test_store_fact_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in request body are ignored."""
-        http = MockHTTPHandler.with_body({
-            "content": "Some fact",
-            "source": "test",
-            "extra_field": "should be ignored",
-            "another_extra": 42,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "content": "Some fact",
+                "source": "test",
+                "extra_field": "should be ignored",
+                "another_extra": 42,
+            }
+        )
         result = handler._handle_store_verified_fact(http)
         assert _status(result) == 201
 
     def test_promote_extra_fields_ignored(self, handler, mock_mound):
         """Extra fields in promote request are ignored."""
-        http = MockHTTPHandler.with_body({
-            "item_id": "item-001",
-            "workspace_id": "ws-001",
-            "reason": "Testing",
-            "unknown_param": True,
-        })
+        http = MockHTTPHandler.with_body(
+            {
+                "item_id": "item-001",
+                "workspace_id": "ws-001",
+                "reason": "Testing",
+                "unknown_param": True,
+            }
+        )
         result = handler._handle_promote_to_global(http)
         assert _status(result) == 201

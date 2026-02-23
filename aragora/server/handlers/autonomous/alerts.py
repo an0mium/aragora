@@ -130,7 +130,9 @@ class AlertHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized listing alerts: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden listing alerts: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -191,7 +193,9 @@ class AlertHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized acknowledging alert: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden acknowledging alert: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -244,7 +248,9 @@ class AlertHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized resolving alert: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden resolving alert: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -313,7 +319,9 @@ class AlertHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized setting threshold: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden setting threshold: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
@@ -393,7 +401,9 @@ class AlertHandler:
 
         except UnauthorizedError as e:
             logger.warning("Unauthorized checking metric: %s", e)
-            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
+            return web.json_response(
+                {"success": False, "error": "Authentication required"}, status=401
+            )
         except ForbiddenError as e:
             logger.warning("Forbidden checking metric: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)

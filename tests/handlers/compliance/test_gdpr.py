@@ -146,7 +146,9 @@ class MockDeletionReport:
 class MockLegalHold:
     """Mock legal hold with user_ids attribute."""
 
-    def __init__(self, hold_id: str = "hold-1", user_ids: list[str] | None = None, reason: str = "litigation"):
+    def __init__(
+        self, hold_id: str = "hold-1", user_ids: list[str] | None = None, reason: str = "litigation"
+    ):
         self.hold_id = hold_id
         self.user_ids = user_ids or ["user-42"]
         self.reason = reason
@@ -550,18 +552,14 @@ class TestRTBF:
     async def test_requires_user_id(self, handler):
         """Missing user_id returns 400."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_successful_rtbf(self, handler, _patch_stores):
         """Successful RTBF request returns scheduled status with operations."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         # Status should be scheduled (or failed if scheduler is minimal mock)
         assert body["user_id"] == "user-99"
@@ -571,12 +569,8 @@ class TestRTBF:
     @pytest.mark.asyncio
     async def test_rtbf_with_custom_grace_period(self, handler, _patch_stores):
         """Custom grace_period_days is reflected in response."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-99", "grace_period_days": 7}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99", "grace_period_days": 7})
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             assert body["grace_period_days"] == 7
@@ -585,9 +579,7 @@ class TestRTBF:
     async def test_rtbf_default_grace_period_30_days(self, handler, _patch_stores):
         """Default grace period is 30 days."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             assert body["grace_period_days"] == 30
@@ -595,12 +587,8 @@ class TestRTBF:
     @pytest.mark.asyncio
     async def test_rtbf_custom_reason(self, handler, _patch_stores):
         """Custom reason is included in response."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-99", "reason": "Account closure"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99", "reason": "Account closure"})
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         assert body["reason"] == "Account closure"
 
@@ -608,9 +596,7 @@ class TestRTBF:
     async def test_rtbf_default_reason(self, handler, _patch_stores):
         """Default reason is 'User request'."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         assert body["reason"] == "User request"
 
@@ -618,9 +604,7 @@ class TestRTBF:
     async def test_rtbf_includes_export_by_default(self, handler, _patch_stores):
         """include_export defaults to true, generating an export operation."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             operation_names = [op["operation"] for op in body.get("operations", [])]
@@ -630,12 +614,8 @@ class TestRTBF:
     @pytest.mark.asyncio
     async def test_rtbf_without_export(self, handler, _patch_stores):
         """include_export=false skips the export step."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "user-99", "include_export": False}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99", "include_export": False})
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             operation_names = [op["operation"] for op in body.get("operations", [])]
@@ -645,9 +625,7 @@ class TestRTBF:
     async def test_rtbf_operations_include_revoke_consents(self, handler, _patch_stores):
         """RTBF always includes revoke_consents operation."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             operation_names = [op["operation"] for op in body.get("operations", [])]
@@ -657,9 +635,7 @@ class TestRTBF:
     async def test_rtbf_operations_include_schedule_deletion(self, handler, _patch_stores):
         """RTBF always includes schedule_deletion operation."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             operation_names = [op["operation"] for op in body.get("operations", [])]
@@ -669,9 +645,7 @@ class TestRTBF:
     async def test_rtbf_deletion_scheduled_is_iso_format(self, handler, _patch_stores):
         """deletion_scheduled field is in ISO format."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             datetime.fromisoformat(body["deletion_scheduled"])
@@ -680,9 +654,7 @@ class TestRTBF:
     async def test_rtbf_message_contains_deletion_date(self, handler, _patch_stores):
         """Response message mentions the deletion date."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             assert "permanently deleted" in body["message"]
@@ -691,9 +663,7 @@ class TestRTBF:
     async def test_rtbf_logs_audit_event(self, handler, _patch_stores):
         """RTBF logs an audit event."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("status") == "scheduled":
             _patch_stores["audit_store"].log_event.assert_called()
@@ -703,9 +673,7 @@ class TestRTBF:
         """If audit logging fails, the RTBF request still succeeds."""
         _patch_stores["audit_store"].log_event.side_effect = RuntimeError("Audit DB down")
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         # Should still succeed or fall back gracefully
         assert body["user_id"] == "user-99"
@@ -716,9 +684,7 @@ class TestRTBF:
         _patch_stores["scheduler"].schedule_deletion.side_effect = RuntimeError("Scheduler down")
 
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         # The handler catches RuntimeError and returns 500
         # The status should be "failed" since the exception is caught
@@ -728,9 +694,7 @@ class TestRTBF:
     async def test_rtbf_export_url_format(self, handler, _patch_stores):
         """Export URL follows the expected pattern."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "user-99"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         if body.get("export_url"):
             assert body["export_url"].startswith("/api/v2/compliance/exports/rtbf-")
@@ -748,9 +712,7 @@ class TestListDeletions:
     async def test_list_deletions_empty(self, handler, _patch_stores):
         """List deletions with no scheduled deletions returns empty list."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         # May succeed or fail depending on DeletionStatus import
         status = _status(result)
         if status == 200:
@@ -772,9 +734,7 @@ class TestListDeletions:
     async def test_list_deletions_default_limit_50(self, handler, _patch_stores):
         """Default limit is 50."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         if _status(result) == 200:
             body = _body(result)
             assert body["filters"]["limit"] == 50
@@ -783,9 +743,7 @@ class TestListDeletions:
     async def test_list_deletions_custom_limit(self, handler, _patch_stores):
         """Custom limit is respected."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {"limit": "25"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {"limit": "25"}, mock_h)
         if _status(result) == 200:
             body = _body(result)
             assert body["filters"]["limit"] == 25
@@ -794,9 +752,7 @@ class TestListDeletions:
     async def test_list_deletions_limit_capped_at_200(self, handler, _patch_stores):
         """Limit is capped at 200."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {"limit": "999"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {"limit": "999"}, mock_h)
         if _status(result) == 200:
             body = _body(result)
             assert body["filters"]["limit"] == 200
@@ -808,9 +764,7 @@ class TestListDeletions:
         _patch_stores["scheduler"].store.get_all_requests.return_value = [del_req]
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         if _status(result) == 200:
             body = _body(result)
             assert body["count"] == 1
@@ -821,9 +775,7 @@ class TestListDeletions:
         _patch_stores["scheduler"].store.get_all_requests.side_effect = RuntimeError("DB down")
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         assert _status(result) == 500
 
 
@@ -853,9 +805,7 @@ class TestGetDeletion:
         _patch_stores["scheduler"].store.get_request.return_value = del_req
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "deletion" in body
@@ -867,9 +817,7 @@ class TestGetDeletion:
         _patch_stores["scheduler"].store.get_request.side_effect = RuntimeError("DB down")
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -879,9 +827,7 @@ class TestGetDeletion:
         _patch_stores["scheduler"].store.get_request.return_value = del_req
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/my-custom-id", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/my-custom-id", {}, mock_h)
         _patch_stores["scheduler"].store.get_request.assert_called_with("my-custom-id")
 
 
@@ -940,7 +886,9 @@ class TestCancelDeletion:
             "/api/v2/compliance/gdpr/deletions/del-001/cancel", {}, mock_h
         )
         assert _status(result) == 200
-        _patch_stores["scheduler"].cancel_deletion.assert_called_with("del-001", "User changed mind")
+        _patch_stores["scheduler"].cancel_deletion.assert_called_with(
+            "del-001", "User changed mind"
+        )
 
     @pytest.mark.asyncio
     async def test_cancel_default_reason(self, handler, _patch_stores):
@@ -957,7 +905,9 @@ class TestCancelDeletion:
         result = await handler.handle(
             "/api/v2/compliance/gdpr/deletions/del-001/cancel", {}, mock_h
         )
-        _patch_stores["scheduler"].cancel_deletion.assert_called_with("del-001", "Administrator cancelled")
+        _patch_stores["scheduler"].cancel_deletion.assert_called_with(
+            "del-001", "Administrator cancelled"
+        )
 
     @pytest.mark.asyncio
     async def test_cancel_logs_audit_event(self, handler, _patch_stores):
@@ -1026,7 +976,9 @@ class TestCancelDeletion:
         result = await handler.handle(
             "/api/v2/compliance/gdpr/deletions/my-del-id/cancel", {}, mock_h
         )
-        _patch_stores["scheduler"].cancel_deletion.assert_called_with("my-del-id", "Administrator cancelled")
+        _patch_stores["scheduler"].cancel_deletion.assert_called_with(
+            "my-del-id", "Administrator cancelled"
+        )
 
 
 # ============================================================================
@@ -1041,18 +993,14 @@ class TestCoordinatedDeletion:
     async def test_requires_user_id(self, handler):
         """Missing user_id returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"reason": "GDPR"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_requires_reason(self, handler):
         """Missing reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "u1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1062,12 +1010,8 @@ class TestCoordinatedDeletion:
         hold = MockLegalHold(hold_id="hold-1", user_ids=["u1"])
         _patch_stores["hold_manager"].get_active_holds.return_value = [hold]
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 409
         body = _body(result)
         assert "legal hold" in body["error"].lower()
@@ -1079,12 +1023,8 @@ class TestCoordinatedDeletion:
         # No holds match this user
         _patch_stores["hold_manager"].get_active_holds.return_value = []
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 409
 
     @pytest.mark.asyncio
@@ -1093,12 +1033,8 @@ class TestCoordinatedDeletion:
         report = MockDeletionReport(success=True)
         _patch_stores["coordinator"].execute_coordinated_deletion = AsyncMock(return_value=report)
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "Coordinated deletion completed" in body["message"]
@@ -1114,9 +1050,7 @@ class TestCoordinatedDeletion:
             "POST",
             body={"user_id": "u1", "reason": "GDPR", "dry_run": True},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert "Dry run" in body["message"]
@@ -1127,12 +1061,8 @@ class TestCoordinatedDeletion:
         report = MockDeletionReport(success=True)
         _patch_stores["coordinator"].execute_coordinated_deletion = AsyncMock(return_value=report)
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         _patch_stores["coordinator"].execute_coordinated_deletion.assert_called_once()
         call_kwargs = _patch_stores["coordinator"].execute_coordinated_deletion.call_args[1]
         assert call_kwargs["delete_from_backups"] is True
@@ -1147,9 +1077,7 @@ class TestCoordinatedDeletion:
             "POST",
             body={"user_id": "u1", "reason": "GDPR", "delete_from_backups": False},
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         call_kwargs = _patch_stores["coordinator"].execute_coordinated_deletion.call_args[1]
         assert call_kwargs["delete_from_backups"] is False
 
@@ -1159,12 +1087,8 @@ class TestCoordinatedDeletion:
         report = MockDeletionReport(success=True)
         _patch_stores["coordinator"].execute_coordinated_deletion = AsyncMock(return_value=report)
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 200
         _patch_stores["audit_store"].log_event.assert_called()
 
@@ -1175,12 +1099,8 @@ class TestCoordinatedDeletion:
         _patch_stores["coordinator"].execute_coordinated_deletion = AsyncMock(return_value=report)
         _patch_stores["audit_store"].log_event.side_effect = RuntimeError("Audit fail")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1190,12 +1110,8 @@ class TestCoordinatedDeletion:
             side_effect=RuntimeError("Coordinator down")
         )
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 500
 
 
@@ -1213,9 +1129,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["summary"]["total_processed"] == 0
@@ -1234,9 +1148,7 @@ class TestExecutePendingDeletions:
         )
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         body = _body(result)
         assert _status(result) == 200
         assert body["summary"]["total_processed"] == 2
@@ -1249,9 +1161,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         call_kwargs = _patch_stores["coordinator"].process_pending_deletions.call_args[1]
         assert call_kwargs["include_backups"] is True
 
@@ -1261,9 +1171,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={"include_backups": False})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         call_kwargs = _patch_stores["coordinator"].process_pending_deletions.call_args[1]
         assert call_kwargs["include_backups"] is False
 
@@ -1273,9 +1181,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         call_kwargs = _patch_stores["coordinator"].process_pending_deletions.call_args[1]
         assert call_kwargs["limit"] == 100
 
@@ -1285,9 +1191,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={"limit": 50})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         call_kwargs = _patch_stores["coordinator"].process_pending_deletions.call_args[1]
         assert call_kwargs["limit"] == 50
 
@@ -1297,9 +1201,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={"limit": 999})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         call_kwargs = _patch_stores["coordinator"].process_pending_deletions.call_args[1]
         assert call_kwargs["limit"] == 500
 
@@ -1309,9 +1211,7 @@ class TestExecutePendingDeletions:
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         assert _status(result) == 200
         _patch_stores["audit_store"].log_event.assert_called()
 
@@ -1323,9 +1223,7 @@ class TestExecutePendingDeletions:
         )
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1333,14 +1231,10 @@ class TestExecutePendingDeletions:
         """Message includes the number of processed deletions."""
         result1 = MagicMock(success=True)
         result1.to_dict.return_value = {}
-        _patch_stores["coordinator"].process_pending_deletions = AsyncMock(
-            return_value=[result1]
-        )
+        _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[result1])
 
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         body = _body(result)
         assert "1" in body["message"]
 
@@ -1357,9 +1251,7 @@ class TestListBackupExclusions:
     async def test_empty_list(self, handler, _patch_stores):
         """No exclusions returns empty list."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["exclusions"] == []
@@ -1375,9 +1267,7 @@ class TestListBackupExclusions:
         _patch_stores["coordinator"].get_backup_exclusion_list.return_value = exclusions
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 200
         body = _body(result)
         assert body["count"] == 2
@@ -1386,9 +1276,7 @@ class TestListBackupExclusions:
     async def test_default_limit_100(self, handler, _patch_stores):
         """Default limit is 100."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         _patch_stores["coordinator"].get_backup_exclusion_list.assert_called_with(limit=100)
 
     @pytest.mark.asyncio
@@ -1415,9 +1303,7 @@ class TestListBackupExclusions:
         _patch_stores["coordinator"].get_backup_exclusion_list.side_effect = RuntimeError("down")
 
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 500
 
 
@@ -1433,29 +1319,21 @@ class TestAddBackupExclusion:
     async def test_requires_user_id(self, handler):
         """Missing user_id returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"reason": "GDPR"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_requires_reason(self, handler):
         """Missing reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "u1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_success_returns_201(self, handler, _patch_stores):
         """Successful exclusion returns 201."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 201
         body = _body(result)
         assert body["user_id"] == "u1"
@@ -1464,35 +1342,25 @@ class TestAddBackupExclusion:
     @pytest.mark.asyncio
     async def test_success_message(self, handler, _patch_stores):
         """Successful exclusion returns confirmation message."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         body = _body(result)
         assert "backup exclusion" in body["message"].lower()
 
     @pytest.mark.asyncio
     async def test_calls_coordinator(self, handler, _patch_stores):
         """Calls coordinator.add_to_backup_exclusion_list."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
+        _patch_stores["coordinator"].add_to_backup_exclusion_list.assert_called_with(
+            "u1", "GDPR request"
         )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
-        _patch_stores["coordinator"].add_to_backup_exclusion_list.assert_called_with("u1", "GDPR request")
 
     @pytest.mark.asyncio
     async def test_logs_audit_event(self, handler, _patch_stores):
         """Exclusion logs audit event."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 201
         _patch_stores["audit_store"].log_event.assert_called()
 
@@ -1501,12 +1369,8 @@ class TestAddBackupExclusion:
         """Audit log failure does not break the exclusion."""
         _patch_stores["audit_store"].log_event.side_effect = RuntimeError("Audit fail")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 201
 
     @pytest.mark.asyncio
@@ -1514,12 +1378,8 @@ class TestAddBackupExclusion:
         """Coordinator error returns 500."""
         _patch_stores["coordinator"].add_to_backup_exclusion_list.side_effect = RuntimeError("down")
 
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR request"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR request"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 500
 
 
@@ -1856,18 +1716,14 @@ class TestGDPRRouteDispatch:
     async def test_gdpr_export_route(self, handler):
         """GET gdpr-export routes to _gdpr_export."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr-export", {"user_id": "u1"}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr-export", {"user_id": "u1"}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_rtbf_route(self, handler, _patch_stores):
         """POST right-to-be-forgotten routes correctly."""
         mock_h = _MockHTTPHandler("POST", body={"user_id": "u1"})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         body = _body(result)
         assert body["user_id"] == "u1"
 
@@ -1875,9 +1731,7 @@ class TestGDPRRouteDispatch:
     async def test_deletions_list_route(self, handler, _patch_stores):
         """GET deletions routes to _list_deletions."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions", {}, mock_h)
         assert _status(result) in (200, 500)
 
     @pytest.mark.asyncio
@@ -1885,9 +1739,7 @@ class TestGDPRRouteDispatch:
         """GET deletions/:id routes to _get_deletion."""
         _patch_stores["scheduler"].store.get_request.return_value = None
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h)
         assert _status(result) in (404, 500)
 
     @pytest.mark.asyncio
@@ -1903,13 +1755,9 @@ class TestGDPRRouteDispatch:
     @pytest.mark.asyncio
     async def test_coordinated_deletion_route(self, handler, _patch_stores):
         """POST coordinated-deletion routes correctly."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "test"}
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "test"})
         # Will go into coordinator which may raise
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) in (200, 500)
 
     @pytest.mark.asyncio
@@ -1917,29 +1765,21 @@ class TestGDPRRouteDispatch:
         """POST execute-pending routes correctly."""
         _patch_stores["coordinator"].process_pending_deletions = AsyncMock(return_value=[])
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/execute-pending", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/execute-pending", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_backup_exclusions_list_route(self, handler, _patch_stores):
         """GET backup-exclusions routes correctly."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_backup_exclusions_add_route(self, handler, _patch_stores):
         """POST backup-exclusions routes correctly."""
-        mock_h = _MockHTTPHandler(
-            "POST", body={"user_id": "u1", "reason": "GDPR"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        mock_h = _MockHTTPHandler("POST", body={"user_id": "u1", "reason": "GDPR"})
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 201
 
 
@@ -1955,54 +1795,42 @@ class TestEdgeCases:
     async def test_empty_body_on_post_endpoint(self, handler):
         """Empty body on RTBF endpoint returns 400 (no user_id)."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_coordinated_deletion_missing_both_fields(self, handler):
         """Missing both user_id and reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/coordinated-deletion", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_backup_exclusion_missing_both_fields(self, handler):
         """Missing both user_id and reason returns 400."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/backup-exclusions", {}, mock_h)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_wrong_method_for_gdpr_export(self, handler):
         """POST to gdpr-export returns 404."""
         mock_h = _MockHTTPHandler("POST", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr-export", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr-export", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_to_rtbf_returns_404(self, handler):
         """GET to right-to-be-forgotten returns 404."""
         mock_h = _MockHTTPHandler("GET")
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_delete_method_on_deletions_returns_404(self, handler):
         """DELETE on /deletions/:id returns 404 (only POST cancel is valid)."""
         mock_h = _MockHTTPHandler("DELETE", body={})
-        result = await handler.handle(
-            "/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h
-        )
+        result = await handler.handle("/api/v2/compliance/gdpr/deletions/del-001", {}, mock_h)
         assert _status(result) == 404
 
     @pytest.mark.asyncio

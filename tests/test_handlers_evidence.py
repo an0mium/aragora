@@ -267,7 +267,9 @@ class TestListEvidence:
         self, evidence_handler, mock_evidence_store, mock_handler
     ):
         """Test listing evidence filtered by minimum reliability."""
-        result = evidence_handler.handle("/api/v1/evidence", {"min_reliability": "0.7"}, mock_handler)
+        result = evidence_handler.handle(
+            "/api/v1/evidence", {"min_reliability": "0.7"}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -378,7 +380,9 @@ class TestSearchEvidence:
     """Tests for POST /api/evidence/search endpoint."""
 
     @pytest.mark.asyncio
-    async def test_search_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
+    async def test_search_evidence_success(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test searching evidence with query."""
         mock_handler.rfile.read.return_value = b'{"query": "climate change"}'
         mock_handler.headers = {"Content-Length": "28", "Content-Type": "application/json"}
@@ -458,7 +462,9 @@ class TestCollectEvidence:
         """Test collecting evidence for a topic."""
         body = {"task": "Research quantum computing advances"}
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post(
+                "/api/v1/evidence/collect", {}, mock_handler
+            )
 
         assert result is not None
         # May return 200 on success or 500 if async collection has issues in test
@@ -470,7 +476,9 @@ class TestCollectEvidence:
         with patch.object(
             evidence_handler, "read_json_body_validated", return_value=({"task": ""}, None)
         ):
-            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post(
+                "/api/v1/evidence/collect", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 400
@@ -486,7 +494,9 @@ class TestCollectEvidence:
             "connectors": ["arxiv", "semantic_scholar"],
         }
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post(
+                "/api/v1/evidence/collect", {}, mock_handler
+            )
 
         assert result is not None
 
@@ -501,7 +511,9 @@ class TestCollectEvidence:
             "round": 1,
         }
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post(
+                "/api/v1/evidence/collect", {}, mock_handler
+            )
 
         assert result is not None
 
@@ -515,7 +527,9 @@ class TestAssociateEvidence:
     """Tests for POST /api/evidence/debate/:debate_id endpoint."""
 
     @pytest.mark.asyncio
-    async def test_associate_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
+    async def test_associate_evidence_success(
+        self, evidence_handler, mock_evidence_store, mock_handler
+    ):
         """Test associating evidence with a debate."""
         body = {"evidence_ids": ["ev-123", "ev-456"]}
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):

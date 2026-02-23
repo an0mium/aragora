@@ -566,7 +566,9 @@ class TestRoute:
     def test_route_empty_task(self, mock_get, handler, mock_router):
         mock_get.return_value = mock_router
         http = _MockHTTPHandler()
-        result = handler.handle_post("/api/v1/ml/route", {"task": "", "available_agents": ["a"]}, http)
+        result = handler.handle_post(
+            "/api/v1/ml/route", {"task": "", "available_agents": ["a"]}, http
+        )
         assert _status(result) == 400
 
     @patch("aragora.server.handlers.ml._get_ml_component")
@@ -581,7 +583,9 @@ class TestRoute:
     def test_route_empty_agents(self, mock_get, handler, mock_router):
         mock_get.return_value = mock_router
         http = _MockHTTPHandler()
-        result = handler.handle_post("/api/v1/ml/route", {"task": "test", "available_agents": []}, http)
+        result = handler.handle_post(
+            "/api/v1/ml/route", {"task": "test", "available_agents": []}, http
+        )
         assert _status(result) == 400
 
     @patch("aragora.server.handlers.ml._get_ml_component")
@@ -895,7 +899,9 @@ class TestExportTraining:
             "debates": [{"task": "test", "consensus": "agreed"}],
             "format": "json",
         }
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["format"] == "json"
@@ -910,18 +916,24 @@ class TestExportTraining:
             "debates": [{"task": "test", "consensus": "agreed"}],
             "format": "jsonl",
         }
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["format"] == "jsonl"
         assert isinstance(body["data"], str)
 
     @patch("aragora.server.handlers.ml._get_ml_component")
-    def test_export_default_format_is_json(self, mock_get, handler, mock_exporter, mock_user_with_train):
+    def test_export_default_format_is_json(
+        self, mock_get, handler, mock_exporter, mock_user_with_train
+    ):
         mock_get.return_value = mock_exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "test", "consensus": "agreed"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["format"] == "json"
@@ -930,14 +942,18 @@ class TestExportTraining:
     def test_export_component_unavailable(self, mock_get, handler, mock_user_with_train):
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         assert _status(result) == 503
 
     @patch("aragora.server.handlers.ml._get_ml_component")
     def test_export_missing_debates(self, mock_get, handler, mock_exporter, mock_user_with_train):
         mock_get.return_value = mock_exporter
         http = _MockHTTPHandler()
-        result = handler.handle_post("/api/v1/ml/export-training", {}, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", {}, http, user=mock_user_with_train
+        )
         assert _status(result) == 400
         assert "debates" in _body(result)["error"].lower()
 
@@ -945,7 +961,9 @@ class TestExportTraining:
     def test_export_empty_debates(self, mock_get, handler, mock_exporter, mock_user_with_train):
         mock_get.return_value = mock_exporter
         http = _MockHTTPHandler()
-        result = handler.handle_post("/api/v1/ml/export-training", {"debates": []}, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", {"debates": []}, http, user=mock_user_with_train
+        )
         assert _status(result) == 400
 
     @patch("aragora.server.handlers.ml._get_ml_component")
@@ -955,7 +973,9 @@ class TestExportTraining:
         mock_get.return_value = mock_exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         assert _status(result) == 500
 
     @patch("aragora.server.handlers.ml._get_ml_component")
@@ -964,7 +984,9 @@ class TestExportTraining:
         mock_get.return_value = mock_exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         assert _status(result) == 400
 
     @patch("aragora.server.handlers.ml._get_ml_component")
@@ -973,7 +995,9 @@ class TestExportTraining:
         mock_get.return_value = mock_exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         assert _status(result) == 500
 
     def test_export_permission_denied_no_user(self, handler):
@@ -990,7 +1014,9 @@ class TestExportTraining:
         """User without ml:train permission gets 403."""
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_no_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_no_train
+        )
         assert _status(result) == 403
 
 
@@ -1417,8 +1443,12 @@ class TestResponseFormatting:
         """Score values are rounded to 3 decimal places."""
         scorer = MagicMock()
         scorer.score.return_value = MockQualityScore(
-            overall=0.777777, coherence=0.888888, completeness=0.999999,
-            relevance=0.111111, clarity=0.222222, confidence=0.333333,
+            overall=0.777777,
+            coherence=0.888888,
+            completeness=0.999999,
+            relevance=0.111111,
+            clarity=0.222222,
+            confidence=0.333333,
         )
         mock_get.return_value = scorer
         http = _MockHTTPHandler()
@@ -1436,7 +1466,8 @@ class TestResponseFormatting:
         """Consensus prediction values are rounded to 3 decimal places."""
         predictor = MagicMock()
         predictor.predict.return_value = MockConsensusPrediction(
-            probability=0.123456, confidence=0.654321,
+            probability=0.123456,
+            confidence=0.654321,
         )
         mock_get.return_value = predictor
         http = _MockHTTPHandler()
@@ -1548,7 +1579,9 @@ class TestAdditionalErrors:
         mock_get.return_value = exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         assert _status(result) == 400
 
     @patch("aragora.server.handlers.ml.has_permission", return_value=True)
@@ -1559,7 +1592,9 @@ class TestAdditionalErrors:
         mock_get.return_value = exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}]}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         assert _status(result) == 500
 
     @patch("aragora.server.handlers.ml._get_ml_component")
@@ -1628,7 +1663,9 @@ class TestExportMultipleExamples:
         mock_get.return_value = exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}], "format": "json"}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         body = _body(result)
         assert body["examples"] == 3
         assert len(body["data"]) == 3
@@ -1644,7 +1681,9 @@ class TestExportMultipleExamples:
         mock_get.return_value = exporter
         http = _MockHTTPHandler()
         data = {"debates": [{"task": "t"}], "format": "jsonl"}
-        result = handler.handle_post("/api/v1/ml/export-training", data, http, user=mock_user_with_train)
+        result = handler.handle_post(
+            "/api/v1/ml/export-training", data, http, user=mock_user_with_train
+        )
         body = _body(result)
         assert body["examples"] == 2
         assert "\n" in body["data"]

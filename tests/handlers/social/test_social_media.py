@@ -364,7 +364,10 @@ class TestYouTubeCallback:
             method="GET",
         )
         assert _status(result) == 400
-        assert "expired" in _body(result)["error"].lower() or "invalid" in _body(result)["error"].lower()
+        assert (
+            "expired" in _body(result)["error"].lower()
+            or "invalid" in _body(result)["error"].lower()
+        )
 
     def test_expired_state(self, handler_module, handler_cls, mock_http_handler):
         yt = _make_youtube_connector()
@@ -509,7 +512,9 @@ class TestYouTubeCallback:
                 method="GET",
             )
         # Second attempt with same state should fail
-        handler_module._store_oauth_state("another-state")  # need a new valid state to ensure we're testing consumption
+        handler_module._store_oauth_state(
+            "another-state"
+        )  # need a new valid state to ensure we're testing consumption
         result = h.handle(
             "/api/v1/youtube/callback",
             {"code": "code-456", "state": state},
@@ -621,7 +626,11 @@ class TestPublishToTwitter:
 
     def test_debate_found_by_slug(self, handler_module):
         tw = _make_twitter_connector()
-        tw.post_tweet.return_value = {"success": True, "tweet_id": "123", "url": "https://x.com/123"}
+        tw.post_tweet.return_value = {
+            "success": True,
+            "tweet_id": "123",
+            "url": "https://x.com/123",
+        }
         storage = _make_storage(
             debate=None,
             slug_debate={"task": "Test debate", "agents": ["claude"], "verdict": "Yes"},
@@ -630,9 +639,22 @@ class TestPublishToTwitter:
         http = self._mock_http()
         mock_formatter = MagicMock()
         mock_formatter.return_value.format_single_tweet.return_value = "A tweet"
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch("aragora.server.handlers.social.social_media.DebateContentFormatter", mock_formatter, create=True), \
-             patch.dict("sys.modules", {"aragora.connectors.twitter_poster": MagicMock(DebateContentFormatter=mock_formatter)}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch(
+                "aragora.server.handlers.social.social_media.DebateContentFormatter",
+                mock_formatter,
+                create=True,
+            ),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.twitter_poster": MagicMock(
+                        DebateContentFormatter=mock_formatter
+                    )
+                },
+            ),
+        ):
             result = h.handle_post("/api/v1/debates/my-slug/publish/twitter", {}, http)
         assert _status(result) == 200
 
@@ -650,8 +672,16 @@ class TestPublishToTwitter:
 
     def test_single_tweet_success(self, handler_module):
         tw = _make_twitter_connector()
-        tw.post_tweet.return_value = {"success": True, "tweet_id": "t-1", "url": "https://x.com/t-1"}
-        debate = {"task": "Should we use microservices?", "agents": ["claude", "gpt"], "verdict": "Yes"}
+        tw.post_tweet.return_value = {
+            "success": True,
+            "tweet_id": "t-1",
+            "url": "https://x.com/t-1",
+        }
+        debate = {
+            "task": "Should we use microservices?",
+            "agents": ["claude", "gpt"],
+            "verdict": "Yes",
+        }
         storage = _make_storage(debate=debate)
         h = self._make_handler(twitter_connector=tw, storage=storage)
         http = self._mock_http({"thread_mode": False})
@@ -662,8 +692,10 @@ class TestPublishToTwitter:
         mock_formatter_cls.return_value = mock_formatter
         twitter_poster_mod = MagicMock(DebateContentFormatter=mock_formatter_cls)
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/twitter", {}, http)
 
         assert _status(result) == 200
@@ -686,8 +718,10 @@ class TestPublishToTwitter:
         mock_formatter_cls.return_value = mock_formatter
         twitter_poster_mod = MagicMock(DebateContentFormatter=mock_formatter_cls)
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/twitter", {}, http)
 
         assert _status(result) == 200
@@ -709,8 +743,10 @@ class TestPublishToTwitter:
         mock_formatter_cls.return_value = mock_formatter
         twitter_poster_mod = MagicMock(DebateContentFormatter=mock_formatter_cls)
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/twitter", {}, http)
 
         assert _status(result) == 500
@@ -748,8 +784,10 @@ class TestPublishToTwitter:
         mock_formatter_cls.return_value = mock_formatter
         twitter_poster_mod = MagicMock(DebateContentFormatter=mock_formatter_cls)
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/twitter", {}, http)
 
         assert _status(result) == 200
@@ -773,8 +811,10 @@ class TestPublishToTwitter:
         mock_formatter_cls.return_value = mock_formatter
         twitter_poster_mod = MagicMock(DebateContentFormatter=mock_formatter_cls)
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.twitter_poster": twitter_poster_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/twitter", {}, http)
 
         assert _status(result) == 200
@@ -784,9 +824,7 @@ class TestPublishToTwitter:
         tw = _make_twitter_connector()
         h = self._make_handler(twitter_connector=tw)
         http = self._mock_http()
-        result = h.handle_post(
-            "/api/v1/debates/../../etc/passwd/publish/twitter", {}, http
-        )
+        result = h.handle_post("/api/v1/debates/../../etc/passwd/publish/twitter", {}, http)
         assert _status(result) == 400
 
     def test_unmatched_post_path(self, handler_module):
@@ -923,8 +961,10 @@ class TestPublishToYouTube:
         yt_uploader_mod = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = MagicMock()
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/youtube", {}, http)
 
         assert _status(result) == 500
@@ -932,7 +972,11 @@ class TestPublishToYouTube:
 
     def test_successful_upload(self, handler_module):
         yt = _make_youtube_connector(remaining_quota=8000)
-        yt.upload.return_value = {"success": True, "video_id": "v-abc", "url": "https://youtu.be/v-abc"}
+        yt.upload.return_value = {
+            "success": True,
+            "video_id": "v-abc",
+            "url": "https://youtu.be/v-abc",
+        }
         debate = {"task": "Microservices debate", "agents": ["claude", "gpt"], "verdict": "Yes"}
         storage = _make_storage(debate=debate)
         audio = _make_audio_store(exists=True)
@@ -946,8 +990,10 @@ class TestPublishToYouTube:
         metadata_cls = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = metadata_cls
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/youtube", {}, http)
 
         assert _status(result) == 200
@@ -972,8 +1018,10 @@ class TestPublishToYouTube:
         yt_uploader_mod = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = MagicMock()
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/youtube", {}, http)
 
         assert _status(result) == 500
@@ -1018,8 +1066,10 @@ class TestPublishToYouTube:
         yt_uploader_mod = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = MagicMock()
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/youtube", {}, http)
 
         assert _status(result) == 200
@@ -1049,8 +1099,10 @@ class TestPublishToYouTube:
         metadata_cls = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = metadata_cls
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/youtube", {}, http)
 
         assert _status(result) == 200
@@ -1064,7 +1116,11 @@ class TestPublishToYouTube:
     def test_default_metadata(self, handler_module):
         yt = _make_youtube_connector()
         yt.upload.return_value = {"success": True, "video_id": "v-1"}
-        debate = {"task": "Climate change", "agents": ["claude", "gpt"], "verdict": "Reduce emissions"}
+        debate = {
+            "task": "Climate change",
+            "agents": ["claude", "gpt"],
+            "verdict": "Reduce emissions",
+        }
         storage = _make_storage(debate=debate)
         audio = _make_audio_store(exists=True)
         vgen = _make_video_generator()
@@ -1077,8 +1133,10 @@ class TestPublishToYouTube:
         metadata_cls = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = metadata_cls
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/d1/publish/youtube", {}, http)
 
         assert _status(result) == 200
@@ -1104,9 +1162,7 @@ class TestPublishToYouTube:
         yt = _make_youtube_connector()
         h = self._make_handler(youtube_connector=yt)
         http = self._mock_http()
-        result = h.handle_post(
-            "/api/v1/debates/../../etc/passwd/publish/youtube", {}, http
-        )
+        result = h.handle_post("/api/v1/debates/../../etc/passwd/publish/youtube", {}, http)
         assert _status(result) == 400
 
     def test_debate_found_by_slug_fallback(self, handler_module):
@@ -1126,8 +1182,10 @@ class TestPublishToYouTube:
         yt_uploader_mod = MagicMock()
         yt_uploader_mod.YouTubeVideoMetadata = MagicMock()
 
-        with patch.object(handler_module, "_run_async", side_effect=lambda x: x), \
-             patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}):
+        with (
+            patch.object(handler_module, "_run_async", side_effect=lambda x: x),
+            patch.dict("sys.modules", {"aragora.connectors.youtube_uploader": yt_uploader_mod}),
+        ):
             result = h.handle_post("/api/v1/debates/my-slug/publish/youtube", {}, http)
 
         assert _status(result) == 200

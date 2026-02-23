@@ -181,8 +181,14 @@ def _build_synthesis_prompt(
     Returns:
         Formatted prompt string.
     """
-    thesis_claims = "\n".join(f"- {c}" for c in thesis.key_claims) if thesis.key_claims else "(none extracted)"
-    antithesis_claims = "\n".join(f"- {c}" for c in antithesis.key_claims) if antithesis.key_claims else "(none extracted)"
+    thesis_claims = (
+        "\n".join(f"- {c}" for c in thesis.key_claims) if thesis.key_claims else "(none extracted)"
+    )
+    antithesis_claims = (
+        "\n".join(f"- {c}" for c in antithesis.key_claims)
+        if antithesis.key_claims
+        else "(none extracted)"
+    )
 
     return f"""You are tasked with generating a dialectical synthesis from two opposing debate positions.
 
@@ -195,7 +201,7 @@ def _build_synthesis_prompt(
 Key claims:
 {thesis_claims}
 
-Supporters: {', '.join(thesis.supporting_agents) if thesis.supporting_agents else 'none'}
+Supporters: {", ".join(thesis.supporting_agents) if thesis.supporting_agents else "none"}
 
 ## Antithesis ({antithesis.agent})
 {antithesis.content}
@@ -203,7 +209,7 @@ Supporters: {', '.join(thesis.supporting_agents) if thesis.supporting_agents els
 Key claims:
 {antithesis_claims}
 
-Supporters: {', '.join(antithesis.supporting_agents) if antithesis.supporting_agents else 'none'}
+Supporters: {", ".join(antithesis.supporting_agents) if antithesis.supporting_agents else "none"}
 
 ## Your Task
 Generate a SYNTHESIS that:
@@ -350,8 +356,7 @@ class DialecticalSynthesizer:
 
         if len(positions) < self.config.min_opposing_positions:
             logger.info(
-                "dialectical_synthesis_skip reason=insufficient_positions "
-                "found=%d required=%d",
+                "dialectical_synthesis_skip reason=insufficient_positions found=%d required=%d",
                 len(positions),
                 self.config.min_opposing_positions,
             )
@@ -378,9 +383,7 @@ class DialecticalSynthesizer:
 
         for attempt in range(self.config.max_synthesis_attempts):
             try:
-                synthesis_text = await self._generate_synthesis(
-                    agent, thesis, antithesis, task
-                )
+                synthesis_text = await self._generate_synthesis(agent, thesis, antithesis, task)
                 if synthesis_text:
                     break
             except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
@@ -396,8 +399,8 @@ class DialecticalSynthesizer:
             return None
 
         # Step 4: Parse structured output
-        parsed_synthesis, elements_thesis, elements_antithesis, novel = (
-            _parse_synthesis_output(synthesis_text)
+        parsed_synthesis, elements_thesis, elements_antithesis, novel = _parse_synthesis_output(
+            synthesis_text
         )
 
         # Step 5: Validate synthesis
@@ -620,9 +623,29 @@ class DialecticalSynthesizer:
                 claim_words = set(claim.lower().split())
                 # Remove common words
                 significant_words = claim_words - {
-                    "the", "a", "an", "is", "are", "was", "were", "be",
-                    "to", "of", "in", "for", "on", "and", "or", "it",
-                    "that", "this", "with", "as", "at", "by", "from",
+                    "the",
+                    "a",
+                    "an",
+                    "is",
+                    "are",
+                    "was",
+                    "were",
+                    "be",
+                    "to",
+                    "of",
+                    "in",
+                    "for",
+                    "on",
+                    "and",
+                    "or",
+                    "it",
+                    "that",
+                    "this",
+                    "with",
+                    "as",
+                    "at",
+                    "by",
+                    "from",
                 }
                 if significant_words:
                     matches = sum(1 for w in significant_words if w in synthesis_lower)
@@ -639,9 +662,7 @@ class DialecticalSynthesizer:
             score += 0.1
 
         # Agent name references
-        agents_mentioned = sum(
-            1 for p in positions if p.agent.lower() in synthesis_lower
-        )
+        agents_mentioned = sum(1 for p in positions if p.agent.lower() in synthesis_lower)
         if agents_mentioned >= 2:
             score += 0.1
 

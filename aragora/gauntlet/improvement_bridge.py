@@ -100,10 +100,7 @@ def findings_to_goals(
 
     # Filter by minimum severity
     min_priority = _SEVERITY_PRIORITY.get(min_severity, 3)
-    filtered = [
-        f for f in findings
-        if _SEVERITY_PRIORITY.get(_get_severity(f), 5) <= min_priority
-    ]
+    filtered = [f for f in findings if _SEVERITY_PRIORITY.get(_get_severity(f), 5) <= min_priority]
 
     goals: list[ImprovementGoal] = []
     for i, finding in enumerate(filtered[:max_goals]):
@@ -147,7 +144,8 @@ def findings_to_goals(
     goals.sort(key=lambda g: g.priority)
     logger.info(
         "gauntlet_to_goals findings=%d goals=%d top_severity=%s",
-        len(findings), len(goals),
+        len(findings),
+        len(goals),
         goals[0].severity if goals else "none",
     )
     return goals

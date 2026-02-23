@@ -522,10 +522,7 @@ class TestGetRecentActivityLegacy:
 
     def test_domains_limited_to_10(self):
         now = _now_iso()
-        debates = [
-            _make_debate(f"d{i}", domain=f"domain_{i}", created_at=now)
-            for i in range(15)
-        ]
+        debates = [_make_debate(f"d{i}", domain=f"domain_{i}", created_at=now) for i in range(15)]
         result = get_recent_activity_legacy(None, 24, debates)
         assert len(result["domains_active"]) <= 10
 
@@ -988,9 +985,7 @@ class TestConsistency:
 
     def test_patterns_match(self):
         debates = [
-            _make_debate(
-                "d1", disagreement_report={"types": ["factual"]}, early_stopped=True
-            ),
+            _make_debate("d1", disagreement_report={"types": ["factual"]}, early_stopped=True),
             _make_debate("d2", disagreement_report={"types": ["ethical"]}),
             _make_debate("d3", early_stopped=True),
         ]
@@ -1019,9 +1014,7 @@ class TestConsistency:
         legacy_sum = get_summary_metrics_legacy(None, [])
         legacy_act = get_recent_activity_legacy(None, 24, [])
         legacy_pat = get_debate_patterns([])
-        single_sum, single_act, single_pat = process_debates_single_pass(
-            [], None, 24
-        )
+        single_sum, single_act, single_pat = process_debates_single_pass([], None, 24)
 
         assert legacy_sum["total_debates"] == single_sum["total_debates"] == 0
         assert legacy_act["debates_last_period"] == single_act["debates_last_period"] == 0

@@ -735,13 +735,9 @@ class TestListPlatformTickets:
     """Tests for GET /api/v1/support/{platform}/tickets."""
 
     @pytest.mark.asyncio
-    async def test_list_zendesk_tickets(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_list_zendesk_tickets(self, handler, zendesk_connected, mock_zendesk_connector):
         """Lists tickets from a specific platform."""
-        mock_zendesk_connector.get_tickets = AsyncMock(
-            return_value=[_make_mock_ticket()]
-        )
+        mock_zendesk_connector.get_tickets = AsyncMock(return_value=[_make_mock_ticket()])
 
         request = MockRequest(method="GET", path="/api/v1/support/zendesk/tickets")
         result = await handler.handle_request(request)
@@ -815,15 +811,11 @@ class TestGetTicket:
     """Tests for GET /api/v1/support/{platform}/tickets/{id}."""
 
     @pytest.mark.asyncio
-    async def test_get_zendesk_ticket(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_get_zendesk_ticket(self, handler, zendesk_connected, mock_zendesk_connector):
         """Fetches single Zendesk ticket with comments."""
         ticket = _make_mock_ticket(42, "Bug report")
         mock_zendesk_connector.get_ticket = AsyncMock(return_value=ticket)
-        mock_zendesk_connector.get_ticket_comments = AsyncMock(
-            return_value=[_make_mock_comment()]
-        )
+        mock_zendesk_connector.get_ticket_comments = AsyncMock(return_value=[_make_mock_comment()])
 
         request = MockRequest(method="GET", path="/api/v1/support/zendesk/tickets/42")
         result = await handler.handle_request(request)
@@ -921,9 +913,7 @@ class TestCreateTicket:
     """Tests for POST /api/v1/support/{platform}/tickets."""
 
     @pytest.mark.asyncio
-    async def test_create_zendesk_ticket(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_create_zendesk_ticket(self, handler, zendesk_connected, mock_zendesk_connector):
         """Creates a Zendesk ticket."""
         mock_zendesk_connector.create_ticket = AsyncMock(
             return_value=_make_mock_ticket(99, "New ticket")
@@ -1042,9 +1032,7 @@ class TestCreateTicket:
         self, handler, zendesk_connected, mock_zendesk_connector
     ):
         """Returns 500 when connector fails to create ticket."""
-        mock_zendesk_connector.create_ticket = AsyncMock(
-            side_effect=ConnectionError("API error")
-        )
+        mock_zendesk_connector.create_ticket = AsyncMock(side_effect=ConnectionError("API error"))
 
         request = MockRequest(
             method="POST",
@@ -1100,9 +1088,7 @@ class TestUpdateTicket:
     """Tests for PUT /api/v1/support/{platform}/tickets/{id}."""
 
     @pytest.mark.asyncio
-    async def test_update_zendesk_ticket(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_update_zendesk_ticket(self, handler, zendesk_connected, mock_zendesk_connector):
         """Updates a Zendesk ticket."""
         mock_zendesk_connector.update_ticket = AsyncMock(
             return_value=_make_mock_ticket(42, status="solved")
@@ -1156,9 +1142,7 @@ class TestUpdateTicket:
         mock_intercom_connector.close_conversation.assert_awaited_once_with("conv-1")
 
     @pytest.mark.asyncio
-    async def test_update_intercom_open(
-        self, handler, intercom_connected, mock_intercom_connector
-    ):
+    async def test_update_intercom_open(self, handler, intercom_connected, mock_intercom_connector):
         """Updates Intercom conversation status to open."""
         conv = _make_mock_intercom_conversation("conv-1", state="open")
         mock_intercom_connector.open_conversation = AsyncMock()
@@ -1209,9 +1193,7 @@ class TestUpdateTicket:
         self, handler, zendesk_connected, mock_zendesk_connector
     ):
         """Returns 500 when connector fails to update."""
-        mock_zendesk_connector.update_ticket = AsyncMock(
-            side_effect=ConnectionError("API down")
-        )
+        mock_zendesk_connector.update_ticket = AsyncMock(side_effect=ConnectionError("API down"))
 
         request = MockRequest(
             method="PUT",
@@ -1246,9 +1228,7 @@ class TestReplyToTicket:
     """Tests for POST /api/v1/support/{platform}/tickets/{id}/reply."""
 
     @pytest.mark.asyncio
-    async def test_reply_zendesk(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_reply_zendesk(self, handler, zendesk_connected, mock_zendesk_connector):
         """Adds a reply to a Zendesk ticket."""
         mock_zendesk_connector.add_ticket_comment = AsyncMock()
 
@@ -1263,9 +1243,7 @@ class TestReplyToTicket:
         assert "reply" in _body(result)["message"].lower()
 
     @pytest.mark.asyncio
-    async def test_reply_freshdesk(
-        self, handler, freshdesk_connected, mock_freshdesk_connector
-    ):
+    async def test_reply_freshdesk(self, handler, freshdesk_connected, mock_freshdesk_connector):
         """Adds a reply to a Freshdesk ticket."""
         mock_freshdesk_connector.reply_to_ticket = AsyncMock()
 
@@ -1279,9 +1257,7 @@ class TestReplyToTicket:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_reply_intercom(
-        self, handler, intercom_connected, mock_intercom_connector
-    ):
+    async def test_reply_intercom(self, handler, intercom_connected, mock_intercom_connector):
         """Adds a reply to an Intercom conversation."""
         mock_intercom_connector.reply_to_conversation = AsyncMock()
 
@@ -1295,9 +1271,7 @@ class TestReplyToTicket:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
-    async def test_reply_helpscout(
-        self, handler, helpscout_connected, mock_helpscout_connector
-    ):
+    async def test_reply_helpscout(self, handler, helpscout_connected, mock_helpscout_connector):
         """Adds a reply to a Help Scout conversation."""
         mock_helpscout_connector.add_reply = AsyncMock()
 
@@ -1336,13 +1310,9 @@ class TestReplyToTicket:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_reply_connector_error(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_reply_connector_error(self, handler, zendesk_connected, mock_zendesk_connector):
         """Returns 500 when reply fails."""
-        mock_zendesk_connector.add_ticket_comment = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        mock_zendesk_connector.add_ticket_comment = AsyncMock(side_effect=ConnectionError("fail"))
 
         request = MockRequest(
             method="POST",
@@ -1388,9 +1358,7 @@ class TestGetMetrics:
         assert body["platforms"] == {}
 
     @pytest.mark.asyncio
-    async def test_metrics_with_platform(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_metrics_with_platform(self, handler, zendesk_connected, mock_zendesk_connector):
         """Computes metrics from connected platform tickets."""
         mock_zendesk_connector.get_tickets = AsyncMock(
             return_value=[
@@ -1420,13 +1388,9 @@ class TestGetMetrics:
         assert _body(result)["period_days"] == 30
 
     @pytest.mark.asyncio
-    async def test_metrics_platform_error(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_metrics_platform_error(self, handler, zendesk_connected, mock_zendesk_connector):
         """Handles platform errors gracefully in metrics."""
-        mock_zendesk_connector.get_tickets = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        mock_zendesk_connector.get_tickets = AsyncMock(side_effect=ConnectionError("fail"))
 
         request = MockRequest(method="GET", path="/api/v1/support/metrics")
         result = await handler.handle_request(request)
@@ -1502,9 +1466,7 @@ class TestTriageTickets:
             assert results[0]["urgency_score"] >= results[1]["urgency_score"]
 
     @pytest.mark.asyncio
-    async def test_triage_result_fields(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_triage_result_fields(self, handler, zendesk_connected, mock_zendesk_connector):
         """Each triage result has required analysis fields."""
         ticket = _make_mock_ticket(1, "Bug report", description="Error on login page")
         mock_zendesk_connector.get_ticket = AsyncMock(return_value=ticket)
@@ -1537,15 +1499,11 @@ class TestAutoRespond:
     """Tests for POST /api/v1/support/auto-respond."""
 
     @pytest.mark.asyncio
-    async def test_auto_respond_success(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_auto_respond_success(self, handler, zendesk_connected, mock_zendesk_connector):
         """Generates response suggestions for a ticket."""
         ticket = _make_mock_ticket(1, "Login issue")
         mock_zendesk_connector.get_ticket = AsyncMock(return_value=ticket)
-        mock_zendesk_connector.get_ticket_comments = AsyncMock(
-            return_value=[_make_mock_comment()]
-        )
+        mock_zendesk_connector.get_ticket_comments = AsyncMock(return_value=[_make_mock_comment()])
 
         request = MockRequest(
             method="POST",
@@ -1605,9 +1563,7 @@ class TestAutoRespond:
         self, handler, zendesk_connected, mock_zendesk_connector
     ):
         """Returns 404 when ticket cannot be fetched."""
-        mock_zendesk_connector.get_ticket = AsyncMock(
-            side_effect=ConnectionError("not found")
-        )
+        mock_zendesk_connector.get_ticket = AsyncMock(side_effect=ConnectionError("not found"))
 
         request = MockRequest(
             method="POST",
@@ -1661,9 +1617,7 @@ class TestSearchTickets:
     """Tests for POST /api/v1/support/search."""
 
     @pytest.mark.asyncio
-    async def test_search_zendesk(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_search_zendesk(self, handler, zendesk_connected, mock_zendesk_connector):
         """Searches Zendesk tickets."""
         mock_zendesk_connector.search_tickets = AsyncMock(
             return_value=[_make_mock_ticket(1, "Login bug")]
@@ -1682,9 +1636,7 @@ class TestSearchTickets:
         assert body["total"] >= 1
 
     @pytest.mark.asyncio
-    async def test_search_freshdesk(
-        self, handler, freshdesk_connected, mock_freshdesk_connector
-    ):
+    async def test_search_freshdesk(self, handler, freshdesk_connected, mock_freshdesk_connector):
         """Searches Freshdesk tickets."""
         mock_freshdesk_connector.search_tickets = AsyncMock(
             return_value=[_make_mock_freshdesk_ticket(1, "Payment issue")]
@@ -1714,13 +1666,9 @@ class TestSearchTickets:
         assert _body(result)["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_search_connector_error(
-        self, handler, zendesk_connected, mock_zendesk_connector
-    ):
+    async def test_search_connector_error(self, handler, zendesk_connected, mock_zendesk_connector):
         """Handles search errors gracefully."""
-        mock_zendesk_connector.search_tickets = AsyncMock(
-            side_effect=ConnectionError("fail")
-        )
+        mock_zendesk_connector.search_tickets = AsyncMock(side_effect=ConnectionError("fail"))
 
         request = MockRequest(
             method="POST",
@@ -1768,7 +1716,10 @@ class TestCircuitBreaker:
         request = MockRequest(
             method="POST",
             path="/api/v1/support/connect",
-            _body={"platform": "zendesk", "credentials": {"subdomain": "t", "email": "e", "api_token": "k"}},
+            _body={
+                "platform": "zendesk",
+                "credentials": {"subdomain": "t", "email": "e", "api_token": "k"},
+            },
         )
         result = await handler.handle_request(request)
 
@@ -2087,9 +2038,7 @@ class TestPathParameterExtraction:
     """Tests for correct path parsing and parameter extraction."""
 
     @pytest.mark.asyncio
-    async def test_extracts_platform_from_disconnect_path(
-        self, handler, zendesk_connected
-    ):
+    async def test_extracts_platform_from_disconnect_path(self, handler, zendesk_connected):
         """Correctly extracts platform name from DELETE path."""
         request = MockRequest(method="DELETE", path="/api/v1/support/zendesk")
         result = await handler.handle_request(request)
@@ -2102,9 +2051,7 @@ class TestPathParameterExtraction:
         self, handler, zendesk_connected, mock_zendesk_connector
     ):
         """Correctly extracts ticket_id from PUT path."""
-        mock_zendesk_connector.update_ticket = AsyncMock(
-            return_value=_make_mock_ticket(555)
-        )
+        mock_zendesk_connector.update_ticket = AsyncMock(return_value=_make_mock_ticket(555))
 
         request = MockRequest(
             method="PUT",

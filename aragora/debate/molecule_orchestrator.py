@@ -434,7 +434,10 @@ class MoleculeOrchestrator:
         # Log retry status
         if can_retry:
             logger.info(
-                "Molecule %s failed but can retry (attempt %s/%s)", molecule_id, molecule.attempts, molecule.max_attempts
+                "Molecule %s failed but can retry (attempt %s/%s)",
+                molecule_id,
+                molecule.attempts,
+                molecule.max_attempts,
             )
         else:
             logger.warning("Molecule %s failed with no retries remaining", molecule_id)
@@ -551,7 +554,9 @@ class MoleculeOrchestrator:
             mol["molecule_id"] for mol in state.get("molecules", [])
         ]
 
-        logger.info("Restored %s molecules for debate %s", len(state.get('molecules', [])), debate_id)
+        logger.info(
+            "Restored %s molecules for debate %s", len(state.get("molecules", [])), debate_id
+        )
 
 
 # Singleton instance

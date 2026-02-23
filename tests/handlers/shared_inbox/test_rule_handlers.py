@@ -186,7 +186,9 @@ class TestCreateRoutingRule:
             assert rule_id in _routing_rules
 
     @pytest.mark.asyncio
-    async def test_create_with_all_optional_fields(self, mock_stores, rate_limiter, valid_rule_result):
+    async def test_create_with_all_optional_fields(
+        self, mock_stores, rate_limiter, valid_rule_result
+    ):
         """All optional fields are passed through and stored."""
         with patch(f"{MODULE}.validate_routing_rule", return_value=valid_rule_result):
             result = await handle_create_routing_rule(
@@ -225,7 +227,9 @@ class TestCreateRoutingRule:
         assert result["retry_after"] == 31  # int(30.0) + 1
 
     @pytest.mark.asyncio
-    async def test_create_workspace_rule_limit_exceeded(self, mock_stores, rate_limiter, valid_rule_result):
+    async def test_create_workspace_rule_limit_exceeded(
+        self, mock_stores, rate_limiter, valid_rule_result
+    ):
         """Returns error when workspace has max rules."""
         # Pre-populate with MAX_RULES_PER_WORKSPACE rules
         with _storage_lock:
@@ -509,7 +513,9 @@ class TestCreateRoutingRule:
         assert "\x00" not in desc
 
     @pytest.mark.asyncio
-    async def test_create_no_description_remains_none(self, mock_stores, rate_limiter, valid_rule_result):
+    async def test_create_no_description_remains_none(
+        self, mock_stores, rate_limiter, valid_rule_result
+    ):
         """Description is None when not provided."""
         with patch(f"{MODULE}.validate_routing_rule", return_value=valid_rule_result):
             result = await handle_create_routing_rule(

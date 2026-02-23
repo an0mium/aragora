@@ -202,9 +202,7 @@ class TestCalibrationIntegration:
         )
         verifier.verify(debate_id="d-1", outcome_correct=True)
 
-        mock_update.assert_called_once_with(
-            ["claude", "gpt4"], 0.85, True, "security", "d-1"
-        )
+        mock_update.assert_called_once_with(["claude", "gpt4"], 0.85, True, "security", "d-1")
 
     @patch("aragora.debate.outcome_verifier.OutcomeVerifier._update_elo")
     def test_verify_calls_elo_update(self, mock_elo, verifier):

@@ -97,7 +97,9 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
         token = auth_header[7:]
         token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
         logger.info(
-            "[AUTH_DEBUG] extract_user_from_request: Bearer token found, length=%s, fingerprint=%s", len(token), token_fingerprint
+            "[AUTH_DEBUG] extract_user_from_request: Bearer token found, length=%s, fingerprint=%s",
+            len(token),
+            token_fingerprint,
         )
 
         # Check if it's an API key
@@ -110,7 +112,9 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
         payload = validate_access_token(token)
         if payload:
             logger.info(
-                "[AUTH_DEBUG] JWT validated successfully: user_id=%s, email=%s", payload.user_id, payload.email
+                "[AUTH_DEBUG] JWT validated successfully: user_id=%s, email=%s",
+                payload.user_id,
+                payload.email,
             )
             context.authenticated = True
             context.user_id = payload.user_id

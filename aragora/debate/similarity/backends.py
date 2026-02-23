@@ -454,7 +454,9 @@ class SentenceTransformerBackend(SimilarityBackend):
 
         except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
             logger.warning(
-                "Failed to load NLI model '%s': %s. Falling back to pattern-based contradiction detection.", nli_model_name, e
+                "Failed to load NLI model '%s': %s. Falling back to pattern-based contradiction detection.",
+                nli_model_name,
+                e,
             )
             self.nli_model = None
             self.use_nli = False

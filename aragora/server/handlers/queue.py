@@ -201,7 +201,9 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         try:
             self.check_permission(auth_context, permission)
         except ForbiddenError:
-            logger.warning("Queue permission denied: %s for user %s", permission, auth_context.user_id)
+            logger.warning(
+                "Queue permission denied: %s for user %s", permission, auth_context.user_id
+            )
             return error_response("Permission denied", 403)
 
         query_params: dict[str, Any] = {}

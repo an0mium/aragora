@@ -185,7 +185,10 @@ class SlackIntegration:
                         # Server error - retry with backoff
                         text = await response.text()
                         logger.warning(
-                            "Slack server error (attempt %s): %s - %s", attempt + 1, response.status, text
+                            "Slack server error (attempt %s): %s - %s",
+                            attempt + 1,
+                            response.status,
+                            text,
                         )
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()
@@ -360,7 +363,9 @@ class SlackIntegration:
 
         if confidence < self.config.min_consensus_confidence:
             logger.debug(
-                "Skipping consensus alert: confidence %s < %s", confidence, self.config.min_consensus_confidence
+                "Skipping consensus alert: confidence %s < %s",
+                confidence,
+                self.config.min_consensus_confidence,
             )
             return True
 

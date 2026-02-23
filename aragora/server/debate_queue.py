@@ -543,7 +543,10 @@ class DebateQueue:
             batch.status = BatchStatus.COMPLETED
 
         logger.info(
-            "Batch %s completed: %s/%s succeeded", batch.batch_id, len(batch.items) - failed - cancelled, len(batch.items)
+            "Batch %s completed: %s/%s succeeded",
+            batch.batch_id,
+            len(batch.items) - failed - cancelled,
+            len(batch.items),
         )
 
         # Trigger webhook if configured
@@ -587,7 +590,9 @@ class DebateQueue:
                 )
                 if response.status_code >= 400:
                     logger.warning(
-                        "Webhook failed for batch %s: status=%s", batch.batch_id, response.status_code
+                        "Webhook failed for batch %s: status=%s",
+                        batch.batch_id,
+                        response.status_code,
                     )
                 else:
                     logger.info("Webhook sent for batch %s", batch.batch_id)

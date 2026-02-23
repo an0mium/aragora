@@ -46,13 +46,17 @@ class WorkflowStreamEmitter:
         self._counter = 0
 
     def add_client(
-        self, ws: web.WebSocketResponse, workflow_id: str,
+        self,
+        ws: web.WebSocketResponse,
+        workflow_id: str,
     ) -> str:
         """Add a WebSocket client watching a workflow."""
         self._counter += 1
         client_id = f"wf_{self._counter}_{int(time.time())}"
         self._clients[client_id] = WorkflowStreamClient(
-            ws=ws, client_id=client_id, workflow_id=workflow_id,
+            ws=ws,
+            client_id=client_id,
+            workflow_id=workflow_id,
         )
         logger.info("Workflow stream client connected: %s for %s", client_id, workflow_id)
         return client_id
@@ -74,7 +78,7 @@ class WorkflowStreamEmitter:
         history = self._event_history.setdefault(workflow_id, [])
         history.append(event_dict)
         if len(history) > self._max_history:
-            self._event_history[workflow_id] = history[-self._max_history:]
+            self._event_history[workflow_id] = history[-self._max_history :]
 
         event_json = json.dumps(event_dict)
         disconnected: list[str] = []
@@ -91,37 +95,59 @@ class WorkflowStreamEmitter:
             self.remove_client(cid)
 
     async def emit_step_started(
-        self, workflow_id: str, step_id: str, step_name: str,
+        self,
+        workflow_id: str,
+        step_id: str,
+        step_name: str,
     ) -> None:
         """Emit WORKFLOW_STEP_START event."""
-        await self.emit(workflow_id, StreamEventType.PIPELINE_STEP_PROGRESS, {
-            "step_id": step_id,
-            "step_name": step_name,
-            "status": "started",
-        })
+        await self.emit(
+            workflow_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "step_id": step_id,
+                "step_name": step_name,
+                "status": "started",
+            },
+        )
 
     async def emit_step_completed(
-        self, workflow_id: str, step_id: str, step_name: str,
+        self,
+        workflow_id: str,
+        step_id: str,
+        step_name: str,
         output: dict[str, Any] | None = None,
     ) -> None:
         """Emit WORKFLOW_STEP_COMPLETE event."""
-        await self.emit(workflow_id, StreamEventType.PIPELINE_STEP_PROGRESS, {
-            "step_id": step_id,
-            "step_name": step_name,
-            "status": "completed",
-            "output": output or {},
-        })
+        await self.emit(
+            workflow_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "step_id": step_id,
+                "step_name": step_name,
+                "status": "completed",
+                "output": output or {},
+            },
+        )
 
     async def emit_step_failed(
-        self, workflow_id: str, step_id: str, step_name: str, error: str = "",
+        self,
+        workflow_id: str,
+        step_id: str,
+        step_name: str,
+        error: str = "",
     ) -> None:
         """Emit WORKFLOW_STEP_FAILED event."""
-        await self.emit(workflow_id, StreamEventType.PIPELINE_STEP_PROGRESS, {
-            "step_id": step_id,
-            "step_name": step_name,
-            "status": "failed",
-            "error": error,
-        })
+        await self.emit(
+            workflow_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "step_id": step_id,
+                "step_name": step_name,
+                "status": "failed",
+                "error": error,
+            },
+        )
 
     def get_history(self, workflow_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get recent event history for a workflow."""
@@ -177,12 +203,14 @@ async def workflow_websocket_handler(request: web.Request) -> web.WebSocketRespo
     emitter = get_workflow_emitter()
     client_id = emitter.add_client(ws, workflow_id)
 
-    await ws.send_json({
-        "type": "connected",
-        "client_id": client_id,
-        "workflow_id": workflow_id,
-        "timestamp": time.time(),
-    })
+    await ws.send_json(
+        {
+            "type": "connected",
+            "client_id": client_id,
+            "workflow_id": workflow_id,
+            "timestamp": time.time(),
+        }
+    )
 
     try:
         async for msg in ws:
@@ -197,11 +225,13 @@ async def workflow_websocket_handler(request: web.Request) -> web.WebSocketRespo
                     elif msg_type == "get_history":
                         limit = data.get("limit", 100)
                         history = emitter.get_history(workflow_id, limit)
-                        await ws.send_json({
-                            "type": "history",
-                            "events": history,
-                            "count": len(history),
-                        })
+                        await ws.send_json(
+                            {
+                                "type": "history",
+                                "events": history,
+                                "count": len(history),
+                            }
+                        )
 
                 except json.JSONDecodeError:
                     await ws.send_json({"type": "error", "message": "Invalid JSON"})

@@ -45,6 +45,7 @@ async def _parse(response: web.Response) -> dict:
 
 class _MockSeverity(Enum):
     """Mock alert severity for tests."""
+
     INFO = "info"
     LOW = "low"
     MEDIUM = "medium"
@@ -201,7 +202,9 @@ class TestListActive:
         alerts = [
             _make_alert(alert_id="a-1", title="Alert 1"),
             _make_alert(alert_id="a-2", title="Alert 2", severity=_MockSeverity.CRITICAL),
-            _make_alert(alert_id="a-3", title="Alert 3", acknowledged=True, acknowledged_by="admin"),
+            _make_alert(
+                alert_id="a-3", title="Alert 3", acknowledged=True, acknowledged_by="admin"
+            ),
         ]
         install_analyzer.get_active_alerts.return_value = alerts
 
@@ -261,9 +264,17 @@ class TestListActive:
 
         data = await _parse(resp)
         expected_keys = {
-            "id", "severity", "title", "description", "source",
-            "timestamp", "acknowledged", "acknowledged_by",
-            "debate_triggered", "debate_id", "metadata",
+            "id",
+            "severity",
+            "title",
+            "description",
+            "source",
+            "timestamp",
+            "acknowledged",
+            "acknowledged_by",
+            "debate_triggered",
+            "debate_id",
+            "metadata",
         }
         assert expected_keys == set(data["alerts"][0].keys())
 
@@ -1461,11 +1472,7 @@ class TestRegisterRoutes:
         app = web.Application()
         AlertHandler.register_routes(app)
 
-        route_count = sum(
-            1
-            for r in app.router.routes()
-            if hasattr(r, "resource") and r.resource
-        )
+        route_count = sum(1 for r in app.router.routes() if hasattr(r, "resource") and r.resource)
         # 1 GET (active) + 4 POST + 1 HEAD auto-added for GET = 6
         assert route_count == 6
 
@@ -1564,9 +1571,7 @@ class TestSecurityEdgeCases:
         resp = await AlertHandler.acknowledge(req)
 
         assert resp.status == 404
-        install_analyzer.acknowledge_alert.assert_called_once_with(
-            "../../../etc/passwd", "admin"
-        )
+        install_analyzer.acknowledge_alert.assert_called_once_with("../../../etc/passwd", "admin")
 
     @pytest.mark.asyncio
     async def test_sql_injection_in_alert_id(self, install_analyzer):

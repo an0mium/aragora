@@ -295,7 +295,10 @@ class DocumentConnector(Connector):
                 doc.metadata["parsed_at"] = datetime.now().isoformat()
                 self._parsed_docs[doc_id] = doc
                 logger.info(
-                    "Parsed document: %s (%s chunks, %s tables)", path.name, len(doc.chunks), len(doc.tables)
+                    "Parsed document: %s (%s chunks, %s tables)",
+                    path.name,
+                    len(doc.chunks),
+                    len(doc.tables),
                 )
                 return doc
 

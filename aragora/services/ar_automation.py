@@ -462,7 +462,10 @@ class ARAutomation:
         invoice.updated_at = datetime.now()
 
         logger.info(
-            "Sent invoice %s to %s (email=%s)", invoice.invoice_number, invoice.customer_email, 'sent' if email_sent else 'not sent'
+            "Sent invoice %s to %s (email=%s)",
+            invoice.invoice_number,
+            invoice.customer_email,
+            "sent" if email_sent else "not sent",
         )
         return True
 
@@ -738,7 +741,10 @@ class ARAutomation:
         self._reminder_history.append(reminder)
 
         logger.info(
-            "Sent %s reminder for invoice %s (email=%s)", level.value, invoice.invoice_number, 'sent' if reminder['emailSent'] else 'not sent'
+            "Sent %s reminder for invoice %s (email=%s)",
+            level.value,
+            invoice.invoice_number,
+            "sent" if reminder["emailSent"] else "not sent",
         )
         return reminder
 
@@ -1085,7 +1091,10 @@ class ARAutomation:
         invoice.updated_at = datetime.now()
 
         logger.info(
-            "Recorded payment $%s for invoice %s, balance: $%s", amount, invoice.invoice_number, invoice.balance
+            "Recorded payment $%s for invoice %s, balance: $%s",
+            amount,
+            invoice.invoice_number,
+            invoice.balance,
         )
         return invoice
 
@@ -1221,7 +1230,9 @@ class ARAutomation:
             else:
                 failed += 1
 
-        logger.info("Bulk reminders complete: %s sent, %s skipped, %s failed", sent, skipped, failed)
+        logger.info(
+            "Bulk reminders complete: %s sent, %s skipped, %s failed", sent, skipped, failed
+        )
 
         return {
             "sent": sent,

@@ -425,7 +425,10 @@ def classify_and_assign_agents_sync(
     agent_string = classifier.get_agent_string(classification)
 
     logger.info(
-        "Question classified: category=%s, complexity=%s, personas=%s", classification.category, classification.complexity, classification.recommended_personas
+        "Question classified: category=%s, complexity=%s, personas=%s",
+        classification.category,
+        classification.complexity,
+        classification.recommended_personas,
     )
 
     return agent_string, classification
@@ -452,7 +455,10 @@ async def classify_and_assign_agents(
     agent_string = classifier.get_agent_string(classification)
 
     logger.info(
-        "Question classified: category=%s, complexity=%s, personas=%s", classification.category, classification.complexity, classification.recommended_personas
+        "Question classified: category=%s, complexity=%s, personas=%s",
+        classification.category,
+        classification.complexity,
+        classification.recommended_personas,
     )
 
     return agent_string, classification

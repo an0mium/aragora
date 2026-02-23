@@ -183,9 +183,7 @@ class TestInjectContext:
         result = await adapter.inject_context(topic="deployment")
 
         # Token estimate = sum of len(content) // 4 for each observation
-        expected_tokens = sum(
-            len(c) // 4 for c in result.context_content
-        )
+        expected_tokens = sum(len(c) // 4 for c in result.context_content)
         assert result.total_tokens_estimate == expected_tokens
 
 

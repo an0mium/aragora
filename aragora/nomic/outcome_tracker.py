@@ -221,7 +221,9 @@ async def _lightweight_debate_runner(
 
         return {
             "consensus_reached": result.consensus_reached,
-            "rounds": result.rounds_completed if hasattr(result, "rounds_completed") else expected_rounds,
+            "rounds": result.rounds_completed
+            if hasattr(result, "rounds_completed")
+            else expected_rounds,
             "tokens_used": getattr(result, "total_tokens", expected_rounds * agent_count * 500),
             "brier_scores": brier_scores or [0.25] * agent_count,
         }
@@ -295,9 +297,7 @@ class NomicOutcomeTracker:
             runner = PRReviewRunner()
             review = await runner.review_diff(diff=diff, label=label)
 
-            has_critical = any(
-                f.severity == "critical" for f in getattr(review, "findings", [])
-            )
+            has_critical = any(f.severity == "critical" for f in getattr(review, "findings", []))
             return {
                 "passed": not has_critical and review.error is None,
                 "findings_count": len(getattr(review, "findings", [])),
@@ -515,7 +515,7 @@ class NomicOutcomeTracker:
                     continue
 
                 # Extract the metric name: "outcome_consensus_rate_delta" -> "consensus_rate"
-                metric_name = key[len("outcome_"):-len("_delta")]
+                metric_name = key[len("outcome_") : -len("_delta")]
 
                 if metric_name in higher_is_better and delta < 0:
                     regressed_metrics.append(metric_name)
@@ -533,11 +533,13 @@ class NomicOutcomeTracker:
                             recommendation = "review"
                         break
 
-                regressions.append({
-                    "cycle_id": cycle.cycle_id,
-                    "regressed_metrics": regressed_metrics,
-                    "recommendation": recommendation,
-                })
+                regressions.append(
+                    {
+                        "cycle_id": cycle.cycle_id,
+                        "regressed_metrics": regressed_metrics,
+                        "recommendation": recommendation,
+                    }
+                )
 
         return regressions
 
@@ -585,7 +587,7 @@ class NomicOutcomeTracker:
         if all_brier:
             mean_brier = sum(all_brier) / len(all_brier)
             variance = sum((b - mean_brier) ** 2 for b in all_brier) / len(all_brier)
-            cal_spread = variance ** 0.5
+            cal_spread = variance**0.5
 
         metrics = DebateMetrics(
             consensus_rate=consensus_count / n,

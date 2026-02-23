@@ -329,9 +329,16 @@ class TestConnectedAccount:
     def test_to_dict_keys(self):
         d = _make_account().to_dict()
         expected_keys = {
-            "id", "provider", "email_address", "display_name",
-            "status", "connected_at", "last_sync", "total_messages",
-            "unread_count", "sync_errors",
+            "id",
+            "provider",
+            "email_address",
+            "display_name",
+            "status",
+            "connected_at",
+            "last_sync",
+            "total_messages",
+            "unread_count",
+            "sync_errors",
         }
         assert set(d.keys()) == expected_keys
 
@@ -434,10 +441,23 @@ class TestUnifiedMessage:
     def test_to_dict_keys(self):
         d = _make_message().to_dict()
         expected_keys = {
-            "id", "account_id", "provider", "external_id", "subject",
-            "sender", "recipients", "cc", "received_at", "snippet",
-            "is_read", "is_starred", "has_attachments", "labels",
-            "thread_id", "priority", "triage",
+            "id",
+            "account_id",
+            "provider",
+            "external_id",
+            "subject",
+            "sender",
+            "recipients",
+            "cc",
+            "received_at",
+            "snippet",
+            "is_read",
+            "is_starred",
+            "has_attachments",
+            "labels",
+            "thread_id",
+            "priority",
+            "triage",
         }
         assert set(d.keys()) == expected_keys
 
@@ -515,9 +535,15 @@ class TestTriageResult:
     def test_to_dict_keys(self):
         d = _make_triage().to_dict()
         expected_keys = {
-            "message_id", "recommended_action", "confidence", "rationale",
-            "suggested_response", "delegate_to", "schedule_for",
-            "agents_involved", "debate_summary",
+            "message_id",
+            "recommended_action",
+            "confidence",
+            "rationale",
+            "suggested_response",
+            "delegate_to",
+            "schedule_for",
+            "agents_involved",
+            "debate_summary",
         }
         assert set(d.keys()) == expected_keys
 
@@ -570,10 +596,16 @@ class TestInboxStats:
     def test_to_dict_keys(self):
         d = _make_stats().to_dict()
         expected_keys = {
-            "total_accounts", "total_messages", "unread_count",
-            "messages_by_priority", "messages_by_provider",
-            "avg_response_time_hours", "pending_triage",
-            "sync_health", "top_senders", "hourly_volume",
+            "total_accounts",
+            "total_messages",
+            "unread_count",
+            "messages_by_priority",
+            "messages_by_provider",
+            "avg_response_time_hours",
+            "pending_triage",
+            "sync_health",
+            "top_senders",
+            "hourly_volume",
         }
         assert set(d.keys()) == expected_keys
 

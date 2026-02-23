@@ -264,7 +264,10 @@ class TestExtractCredentialId:
         assert handler._extract_credential_id("/api/v1/gateway/credentials/cred_abc/") == "cred_abc"
 
     def test_rotate_path_extracts_id(self, handler):
-        assert handler._extract_credential_id("/api/v1/gateway/credentials/cred_abc/rotate") == "cred_abc"
+        assert (
+            handler._extract_credential_id("/api/v1/gateway/credentials/cred_abc/rotate")
+            == "cred_abc"
+        )
 
     def test_base_path_returns_none(self, handler):
         assert handler._extract_credential_id("/api/v1/gateway/credentials") is None
@@ -366,7 +369,13 @@ class TestValidateCredentialType:
         assert "Invalid credential_type" in err
 
     def test_valid_credential_types_constant(self):
-        assert VALID_CREDENTIAL_TYPES == {"api_key", "oauth_token", "bearer_token", "basic_auth", "custom"}
+        assert VALID_CREDENTIAL_TYPES == {
+            "api_key",
+            "oauth_token",
+            "bearer_token",
+            "basic_auth",
+            "custom",
+        }
 
 
 # ===========================================================================
@@ -428,11 +437,13 @@ class TestStoreCredential:
     """Test POST /api/v1/gateway/credentials."""
 
     def test_store_success(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "my-svc",
-            "credential_type": "api_key",
-            "value": "secret-key-abc",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "my-svc",
+                "credential_type": "api_key",
+                "value": "secret-key-abc",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 201
         body = _body(result)
@@ -446,15 +457,17 @@ class TestStoreCredential:
         assert "secret-key-abc" not in json.dumps(body)
 
     def test_store_with_optional_fields(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-opt",
-            "credential_type": "oauth_token",
-            "value": "tok-123",
-            "tenant_id": "ten-1",
-            "scopes": ["read"],
-            "expires_at": "2028-12-31T00:00:00Z",
-            "metadata": {"env": "prod"},
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-opt",
+                "credential_type": "oauth_token",
+                "value": "tok-123",
+                "tenant_id": "ten-1",
+                "scopes": ["read"],
+                "expires_at": "2028-12-31T00:00:00Z",
+                "metadata": {"env": "prod"},
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 201
         body = _body(result)
@@ -464,11 +477,13 @@ class TestStoreCredential:
         assert "value" not in body
 
     def test_store_persists_in_memory(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-mem",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-mem",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         cred_id = _body(result)["credential_id"]
         assert cred_id in handler._credentials
@@ -477,126 +492,152 @@ class TestStoreCredential:
         assert "value" not in meta
 
     def test_store_calls_proxy(self, handler_with_proxy, proxy):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-prx",
-            "credential_type": "bearer_token",
-            "value": "bearer-val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-prx",
+                "credential_type": "bearer_token",
+                "value": "bearer-val",
+            }
+        )
         result = handler_with_proxy.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 201
         proxy.store.assert_called_once()
 
     def test_store_proxy_runtime_error(self, handler_with_proxy, proxy):
         proxy.store.side_effect = RuntimeError("connection refused")
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-err",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-err",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler_with_proxy.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 500
         assert "failed" in _body(result).get("error", "").lower()
 
     def test_store_proxy_os_error(self, handler_with_proxy, proxy):
         proxy.store.side_effect = OSError("disk full")
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-os",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-os",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler_with_proxy.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 500
 
     def test_store_proxy_attribute_error(self, handler_with_proxy, proxy):
         proxy.store.side_effect = AttributeError("missing method")
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-attr",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-attr",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler_with_proxy.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 500
 
     def test_store_proxy_type_error(self, handler_with_proxy, proxy):
         proxy.store.side_effect = TypeError("wrong type")
-        http = _MockHTTPHandler(body={
-            "service_name": "svc-typ",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc-typ",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler_with_proxy.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 500
 
     def test_store_missing_service_name(self, handler):
-        http = _MockHTTPHandler(body={
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
         assert "service_name" in _body(result).get("error", "").lower()
 
     def test_store_missing_credential_type(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc",
+                "value": "val",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
         assert "credential_type" in _body(result).get("error", "").lower()
 
     def test_store_missing_value(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc",
-            "credential_type": "api_key",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc",
+                "credential_type": "api_key",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
         assert "value" in _body(result).get("error", "").lower()
 
     def test_store_empty_value(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc",
-            "credential_type": "api_key",
-            "value": "",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc",
+                "credential_type": "api_key",
+                "value": "",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
 
     def test_store_whitespace_only_value(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc",
-            "credential_type": "api_key",
-            "value": "   ",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc",
+                "credential_type": "api_key",
+                "value": "   ",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
 
     def test_store_non_string_value(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc",
-            "credential_type": "api_key",
-            "value": 42,
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc",
+                "credential_type": "api_key",
+                "value": 42,
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
 
     def test_store_invalid_service_name(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "-bad",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "-bad",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
         assert "Invalid service_name" in _body(result).get("error", "")
 
     def test_store_invalid_credential_type(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "svc",
-            "credential_type": "password",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "svc",
+                "credential_type": "password",
+                "value": "val",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 400
         assert "Invalid credential_type" in _body(result).get("error", "")
@@ -612,7 +653,9 @@ class TestStoreCredential:
         assert _status(result) == 400
 
     def test_store_non_matching_path_returns_none(self, handler):
-        http = _MockHTTPHandler(body={"service_name": "s", "credential_type": "api_key", "value": "v"})
+        http = _MockHTTPHandler(
+            body={"service_name": "s", "credential_type": "api_key", "value": "v"}
+        )
         result = handler.handle_post("/api/v1/debates", {}, http)
         assert result is None
 
@@ -739,9 +782,7 @@ class TestDeleteCredential:
 
     def test_delete_success(self, seeded_handler):
         http = _MockHTTPHandler()
-        result = seeded_handler.handle_delete(
-            "/api/v1/gateway/credentials/cred_test001", {}, http
-        )
+        result = seeded_handler.handle_delete("/api/v1/gateway/credentials/cred_test001", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["credential_id"] == "cred_test001"
@@ -750,9 +791,7 @@ class TestDeleteCredential:
 
     def test_delete_not_found(self, handler):
         http = _MockHTTPHandler()
-        result = handler.handle_delete(
-            "/api/v1/gateway/credentials/cred_missing", {}, http
-        )
+        result = handler.handle_delete("/api/v1/gateway/credentials/cred_missing", {}, http)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -830,9 +869,7 @@ class TestRotateCredential:
 
     def test_rotate_marks_old_as_rotated(self, seeded_handler):
         http = _MockHTTPHandler(body={"value": "new-val"})
-        seeded_handler.handle_post(
-            "/api/v1/gateway/credentials/cred_test001/rotate", {}, http
-        )
+        seeded_handler.handle_post("/api/v1/gateway/credentials/cred_test001/rotate", {}, http)
         assert seeded_handler._credentials["cred_test001"]["status"] == "rotated"
 
     def test_rotate_creates_new_entry(self, seeded_handler):
@@ -861,9 +898,7 @@ class TestRotateCredential:
 
     def test_rotate_not_found(self, handler):
         http = _MockHTTPHandler(body={"value": "val"})
-        result = handler.handle_post(
-            "/api/v1/gateway/credentials/cred_missing/rotate", {}, http
-        )
+        result = handler.handle_post("/api/v1/gateway/credentials/cred_missing/rotate", {}, http)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -991,11 +1026,13 @@ class TestHandlePostDispatch:
     """Test that handle_post() correctly dispatches POST requests."""
 
     def test_post_dispatches_to_store(self, handler):
-        http = _MockHTTPHandler(body={
-            "service_name": "dispatch-svc",
-            "credential_type": "api_key",
-            "value": "val",
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "dispatch-svc",
+                "credential_type": "api_key",
+                "value": "val",
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert _status(result) == 201
 
@@ -1022,9 +1059,7 @@ class TestHandleDeleteDispatch:
 
     def test_delete_dispatches_to_delete(self, seeded_handler):
         http = _MockHTTPHandler()
-        result = seeded_handler.handle_delete(
-            "/api/v1/gateway/credentials/cred_test001", {}, http
-        )
+        result = seeded_handler.handle_delete("/api/v1/gateway/credentials/cred_test001", {}, http)
         assert _status(result) == 200
 
     def test_delete_non_matching_returns_none(self, handler):
@@ -1078,16 +1113,19 @@ class TestModuleExports:
 
     def test_exports_contain_handler(self):
         from aragora.server.handlers import gateway_credentials_handler as mod
+
         assert "GatewayCredentialsHandler" in mod.__all__
 
     def test_exports_contain_circuit_breaker_functions(self):
         from aragora.server.handlers import gateway_credentials_handler as mod
+
         assert "get_gateway_credentials_circuit_breaker" in mod.__all__
         assert "get_gateway_credentials_circuit_breaker_status" in mod.__all__
         assert "reset_gateway_credentials_circuit_breaker" in mod.__all__
 
     def test_exports_count(self):
         from aragora.server.handlers import gateway_credentials_handler as mod
+
         assert len(mod.__all__) == 4
 
 
@@ -1161,21 +1199,25 @@ class TestValueNeverLeaked:
 
     def test_store_response_no_value(self, handler):
         secret = "ultra-secret-key-12345"
-        http = _MockHTTPHandler(body={
-            "service_name": "sec-svc",
-            "credential_type": "api_key",
-            "value": secret,
-        })
+        http = _MockHTTPHandler(
+            body={
+                "service_name": "sec-svc",
+                "credential_type": "api_key",
+                "value": secret,
+            }
+        )
         result = handler.handle_post("/api/v1/gateway/credentials", {}, http)
         assert secret not in json.dumps(_body(result))
 
     def test_list_response_no_value(self, handler):
         secret = "list-secret-key"
-        http_store = _MockHTTPHandler(body={
-            "service_name": "sec-svc",
-            "credential_type": "api_key",
-            "value": secret,
-        })
+        http_store = _MockHTTPHandler(
+            body={
+                "service_name": "sec-svc",
+                "credential_type": "api_key",
+                "value": secret,
+            }
+        )
         handler.handle_post("/api/v1/gateway/credentials", {}, http_store)
 
         http_list = _MockHTTPHandler()
@@ -1184,11 +1226,13 @@ class TestValueNeverLeaked:
 
     def test_get_response_no_value(self, handler):
         secret = "get-secret-key"
-        http_store = _MockHTTPHandler(body={
-            "service_name": "sec-svc",
-            "credential_type": "api_key",
-            "value": secret,
-        })
+        http_store = _MockHTTPHandler(
+            body={
+                "service_name": "sec-svc",
+                "credential_type": "api_key",
+                "value": secret,
+            }
+        )
         store_result = handler.handle_post("/api/v1/gateway/credentials", {}, http_store)
         cred_id = _body(store_result)["credential_id"]
 
@@ -1206,11 +1250,13 @@ class TestValueNeverLeaked:
 
     def test_in_memory_store_no_value(self, handler):
         secret = "mem-secret"
-        http_store = _MockHTTPHandler(body={
-            "service_name": "sec-svc",
-            "credential_type": "api_key",
-            "value": secret,
-        })
+        http_store = _MockHTTPHandler(
+            body={
+                "service_name": "sec-svc",
+                "credential_type": "api_key",
+                "value": secret,
+            }
+        )
         handler.handle_post("/api/v1/gateway/credentials", {}, http_store)
         for meta in handler._credentials.values():
             assert "value" not in meta
@@ -1227,11 +1273,13 @@ class TestEndToEndLifecycle:
 
     def test_full_lifecycle(self, handler):
         # 1. Store
-        http_store = _MockHTTPHandler(body={
-            "service_name": "lifecycle-svc",
-            "credential_type": "api_key",
-            "value": "initial-secret",
-        })
+        http_store = _MockHTTPHandler(
+            body={
+                "service_name": "lifecycle-svc",
+                "credential_type": "api_key",
+                "value": "initial-secret",
+            }
+        )
         store_result = handler.handle_post("/api/v1/gateway/credentials", {}, http_store)
         assert _status(store_result) == 201
         cred_id = _body(store_result)["credential_id"]
@@ -1241,7 +1289,9 @@ class TestEndToEndLifecycle:
         assert _body(list_result)["total"] == 1
 
         # 3. Get by ID
-        get_result = handler.handle(f"/api/v1/gateway/credentials/{cred_id}", {}, _MockHTTPHandler())
+        get_result = handler.handle(
+            f"/api/v1/gateway/credentials/{cred_id}", {}, _MockHTTPHandler()
+        )
         assert _status(get_result) == 200
         assert _body(get_result)["credential_id"] == cred_id
 

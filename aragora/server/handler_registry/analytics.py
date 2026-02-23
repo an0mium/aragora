@@ -76,19 +76,13 @@ CanvasPipelineHandler = _safe_import(
 )
 
 # Idea Canvas
-IdeaCanvasHandler = _safe_import(
-    "aragora.server.handlers.idea_canvas", "IdeaCanvasHandler"
-)
+IdeaCanvasHandler = _safe_import("aragora.server.handlers.idea_canvas", "IdeaCanvasHandler")
 
 # Goal Canvas
-GoalCanvasHandler = _safe_import(
-    "aragora.server.handlers.goal_canvas", "GoalCanvasHandler"
-)
+GoalCanvasHandler = _safe_import("aragora.server.handlers.goal_canvas", "GoalCanvasHandler")
 
 # Action Canvas
-ActionCanvasHandler = _safe_import(
-    "aragora.server.handlers.action_canvas", "ActionCanvasHandler"
-)
+ActionCanvasHandler = _safe_import("aragora.server.handlers.action_canvas", "ActionCanvasHandler")
 
 # Orchestration Canvas
 OrchestrationCanvasHandler = _safe_import(
@@ -111,19 +105,13 @@ ProvenanceExplorerHandler = _safe_import(
 )
 
 # Outcome Tracking
-OutcomeHandler = _safe_import(
-    "aragora.server.handlers.governance.outcomes", "OutcomeHandler"
-)
+OutcomeHandler = _safe_import("aragora.server.handlers.governance.outcomes", "OutcomeHandler")
 
 # Decision Benchmarking
-BenchmarkingHandler = _safe_import(
-    "aragora.server.handlers.benchmarking", "BenchmarkingHandler"
-)
+BenchmarkingHandler = _safe_import("aragora.server.handlers.benchmarking", "BenchmarkingHandler")
 
 # Decision Playbooks
-PlaybookHandler = _safe_import(
-    "aragora.server.handlers.playbooks", "PlaybookHandler"
-)
+PlaybookHandler = _safe_import("aragora.server.handlers.playbooks", "PlaybookHandler")
 
 # =============================================================================
 # Analytics Handler Registry Entries

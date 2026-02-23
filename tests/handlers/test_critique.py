@@ -308,9 +308,7 @@ class TestCritiquePatterns:
         mock_store.get_stats.return_value = {}
         mock_get_store.return_value = mock_store
 
-        handler.handle(
-            "/api/critiques/patterns", {"min_success": "0.8"}, mock_http_handler
-        )
+        handler.handle("/api/critiques/patterns", {"min_success": "0.8"}, mock_http_handler)
 
         mock_store.retrieve_patterns.assert_called_once_with(min_success_rate=0.8, limit=10)
 
@@ -364,9 +362,7 @@ class TestCritiquePatterns:
         mock_store.get_stats.return_value = {}
         mock_get_store.return_value = mock_store
 
-        handler.handle(
-            "/api/critiques/patterns", {"min_success": "2.0"}, mock_http_handler
-        )
+        handler.handle("/api/critiques/patterns", {"min_success": "2.0"}, mock_http_handler)
 
         # Bounded to max_val=1.0
         mock_store.retrieve_patterns.assert_called_once_with(min_success_rate=1.0, limit=10)
@@ -379,9 +375,7 @@ class TestCritiquePatterns:
         mock_store.get_stats.return_value = {}
         mock_get_store.return_value = mock_store
 
-        handler.handle(
-            "/api/critiques/patterns", {"min_success": "-1.0"}, mock_http_handler
-        )
+        handler.handle("/api/critiques/patterns", {"min_success": "-1.0"}, mock_http_handler)
 
         # Bounded to min_val=0.0
         mock_store.retrieve_patterns.assert_called_once_with(min_success_rate=0.0, limit=10)
@@ -407,9 +401,7 @@ class TestCritiquePatterns:
         mock_store.get_stats.return_value = {}
         mock_get_store.return_value = mock_store
 
-        handler.handle(
-            "/api/critiques/patterns", {"min_success": "abc"}, mock_http_handler
-        )
+        handler.handle("/api/critiques/patterns", {"min_success": "abc"}, mock_http_handler)
 
         # Falls back to default=0.5
         mock_store.retrieve_patterns.assert_called_once_with(min_success_rate=0.5, limit=10)
@@ -778,9 +770,7 @@ class TestAgentReputation:
         mock_store = MockCritiqueStore(agent_reputation=rep)
         mock_get_store.return_value = mock_store
 
-        result = handler.handle(
-            "/api/agent/claude-3.5-sonnet/reputation", {}, mock_http_handler
-        )
+        result = handler.handle("/api/agent/claude-3.5-sonnet/reputation", {}, mock_http_handler)
         body = _body(result)
 
         assert _status(result) == 200
@@ -936,8 +926,10 @@ class TestRateLimiting:
         now = time.time()
         _critique_limiter._buckets["10.0.0.1"] = [now] * 61
 
-        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True), \
-             patch("aragora.server.handlers.critique.get_critique_store") as mock_get_store:
+        with (
+            patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
+            patch("aragora.server.handlers.critique.get_critique_store") as mock_get_store,
+        ):
             mock_store = MockCritiqueStore(archive_stats={"archived": 0, "by_type": {}})
             mock_get_store.return_value = mock_store
 
@@ -1015,7 +1007,9 @@ class TestNomicDirPropagation:
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
     @patch("aragora.server.handlers.critique.get_critique_store")
-    def test_nomic_dir_none_when_not_in_context(self, mock_get_store, handler_no_dir, mock_http_handler):
+    def test_nomic_dir_none_when_not_in_context(
+        self, mock_get_store, handler_no_dir, mock_http_handler
+    ):
         mock_store = MockCritiqueStore(archive_stats={"archived": 0, "by_type": {}})
         mock_get_store.return_value = mock_store
 
@@ -1145,9 +1139,7 @@ class TestEdgeCases:
         mock_store.get_stats.return_value = {}
         mock_get_store.return_value = mock_store
 
-        handler.handle(
-            "/api/critiques/patterns", {"min_success": "0.0"}, mock_http_handler
-        )
+        handler.handle("/api/critiques/patterns", {"min_success": "0.0"}, mock_http_handler)
 
         mock_store.retrieve_patterns.assert_called_once_with(min_success_rate=0.0, limit=10)
 
@@ -1159,9 +1151,7 @@ class TestEdgeCases:
         mock_store.get_stats.return_value = {}
         mock_get_store.return_value = mock_store
 
-        handler.handle(
-            "/api/critiques/patterns", {"min_success": "1.0"}, mock_http_handler
-        )
+        handler.handle("/api/critiques/patterns", {"min_success": "1.0"}, mock_http_handler)
 
         mock_store.retrieve_patterns.assert_called_once_with(min_success_rate=1.0, limit=10)
 
@@ -1207,7 +1197,9 @@ class TestEdgeCases:
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
     @patch("aragora.server.handlers.critique.get_critique_store")
-    def test_pattern_with_special_characters_in_text(self, mock_get_store, handler, mock_http_handler):
+    def test_pattern_with_special_characters_in_text(
+        self, mock_get_store, handler, mock_http_handler
+    ):
         patterns = [MockPattern("logic", 'Pattern with "quotes" & <special> chars', 0.9, 5)]
         mock_store = MockCritiqueStore(
             patterns=patterns,

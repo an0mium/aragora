@@ -298,9 +298,7 @@ class TestCreateWorkspace:
         result = handler._handle_create_workspace(req)
         assert _status(result) == 403
 
-    def test_create_workspace_no_org_id(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_create_workspace_no_org_id(self, handler, make_handler_request, mock_workspace_module):
         """When auth context has no org_id, should return 400."""
         mock_workspace_module.extract_user_from_request.return_value.org_id = None
 
@@ -320,9 +318,7 @@ class TestCreateWorkspace:
         assert _status(result) == 400
         assert "organization_id" in _error(result).lower()
 
-    def test_create_workspace_cross_tenant_blocked(
-        self, handler, make_handler_request
-    ):
+    def test_create_workspace_cross_tenant_blocked(self, handler, make_handler_request):
         """Attempting to create a workspace in another org should be rejected."""
         req = make_handler_request(
             method="POST",
@@ -332,9 +328,7 @@ class TestCreateWorkspace:
         assert _status(result) == 403
         assert "another organization" in _error(result).lower()
 
-    def test_create_workspace_same_org_id_allowed(
-        self, handler, make_handler_request
-    ):
+    def test_create_workspace_same_org_id_allowed(self, handler, make_handler_request):
         """Specifying the same org_id as the user's own should be allowed."""
         req = make_handler_request(
             method="POST",
@@ -343,9 +337,7 @@ class TestCreateWorkspace:
         result = handler._handle_create_workspace(req)
         assert _status(result) == 201
 
-    def test_create_workspace_no_org_id_in_body_is_ok(
-        self, handler, make_handler_request
-    ):
+    def test_create_workspace_no_org_id_in_body_is_ok(self, handler, make_handler_request):
         """Not specifying organization_id in body is fine (uses auth context)."""
         req = make_handler_request(
             method="POST",
@@ -407,9 +399,7 @@ class TestCreateWorkspace:
 
     def test_create_workspace_emits_handler_event(self, handler, make_handler_request):
         """Verify that creating a workspace emits a CREATED event."""
-        with patch(
-            "aragora.server.handlers.workspace.crud.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.workspace.crud.emit_handler_event") as mock_emit:
             req = make_handler_request(method="POST", body={"name": "WS"})
             handler._handle_create_workspace(req)
 
@@ -420,9 +410,7 @@ class TestCreateWorkspace:
             assert call_args[0][2] == {"workspace_id": "ws-new-001"}
             assert call_args[1]["user_id"] == "test-user-001"
 
-    def test_create_workspace_rbac_checks_write_permission(
-        self, handler, make_handler_request
-    ):
+    def test_create_workspace_rbac_checks_write_permission(self, handler, make_handler_request):
         """Verify create workspace uses PERM_WORKSPACE_WRITE."""
         captured_perms = []
 
@@ -488,9 +476,7 @@ class TestListWorkspaces:
             "name": "Workspace 1",
             "organization_id": "test-org-001",
         }
-        handler._mock_isolation_manager.list_workspaces = AsyncMock(
-            return_value=[ws]
-        )
+        handler._mock_isolation_manager.list_workspaces = AsyncMock(return_value=[ws])
 
         req = make_handler_request()
         result = handler._handle_list_workspaces(req, {})
@@ -507,9 +493,7 @@ class TestListWorkspaces:
             ws.to_dict.return_value = {"id": f"ws-{i}", "name": f"WS {i}"}
             workspaces.append(ws)
 
-        handler._mock_isolation_manager.list_workspaces = AsyncMock(
-            return_value=workspaces
-        )
+        handler._mock_isolation_manager.list_workspaces = AsyncMock(return_value=workspaces)
 
         req = make_handler_request()
         result = handler._handle_list_workspaces(req, {})
@@ -547,38 +531,26 @@ class TestListWorkspaces:
         result = handler._handle_list_workspaces(req, {})
         assert _status(result) == 403
 
-    def test_list_workspaces_cross_tenant_blocked(
-        self, handler, make_handler_request
-    ):
+    def test_list_workspaces_cross_tenant_blocked(self, handler, make_handler_request):
         """Attempting to list workspaces for another org should be rejected."""
         req = make_handler_request()
-        result = handler._handle_list_workspaces(
-            req, {"organization_id": "other-org-999"}
-        )
+        result = handler._handle_list_workspaces(req, {"organization_id": "other-org-999"})
         assert _status(result) == 403
         assert "another organization" in _error(result).lower()
 
-    def test_list_workspaces_same_org_id_allowed(
-        self, handler, make_handler_request
-    ):
+    def test_list_workspaces_same_org_id_allowed(self, handler, make_handler_request):
         """Specifying the user's own org_id should succeed."""
         req = make_handler_request()
-        result = handler._handle_list_workspaces(
-            req, {"organization_id": "test-org-001"}
-        )
+        result = handler._handle_list_workspaces(req, {"organization_id": "test-org-001"})
         assert _status(result) == 200
 
-    def test_list_workspaces_no_org_filter_is_ok(
-        self, handler, make_handler_request
-    ):
+    def test_list_workspaces_no_org_filter_is_ok(self, handler, make_handler_request):
         """Not providing organization_id in query is fine."""
         req = make_handler_request()
         result = handler._handle_list_workspaces(req, {})
         assert _status(result) == 200
 
-    def test_list_workspaces_rbac_checks_read_permission(
-        self, handler, make_handler_request
-    ):
+    def test_list_workspaces_rbac_checks_read_permission(self, handler, make_handler_request):
         """Verify list workspaces uses PERM_WORKSPACE_READ."""
         captured_perms = []
 
@@ -602,9 +574,7 @@ class TestListWorkspaces:
         assert _status(result) == 500
 
     def test_list_workspaces_os_error(self, handler, make_handler_request):
-        handler._mock_isolation_manager.list_workspaces = AsyncMock(
-            side_effect=OSError("io fail")
-        )
+        handler._mock_isolation_manager.list_workspaces = AsyncMock(side_effect=OSError("io fail"))
 
         req = make_handler_request()
         result = handler._handle_list_workspaces(req, {})
@@ -628,14 +598,10 @@ class TestListWorkspaces:
         result = handler._handle_list_workspaces(req, {})
         assert _status(result) == 400
 
-    def test_list_workspaces_none_org_id_in_query_allowed(
-        self, handler, make_handler_request
-    ):
+    def test_list_workspaces_none_org_id_in_query_allowed(self, handler, make_handler_request):
         """None value for organization_id should be treated as no filter."""
         req = make_handler_request()
-        result = handler._handle_list_workspaces(
-            req, {"organization_id": None}
-        )
+        result = handler._handle_list_workspaces(req, {"organization_id": None})
         # None is falsy, so the cross-tenant check should not trigger
         assert _status(result) == 200
 
@@ -696,9 +662,7 @@ class TestGetWorkspace:
         result = handler._handle_get_workspace(req, "ws-1")
         assert _status(result) == 401
 
-    def test_get_workspace_rbac_denied(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_get_workspace_rbac_denied(self, handler, make_handler_request, mock_workspace_module):
         from aragora.server.handlers.base import error_response
 
         handler._check_rbac_permission = lambda h, p, a: error_response("Forbidden", 403)
@@ -711,17 +675,13 @@ class TestGetWorkspace:
         self, handler, make_handler_request, mock_workspace_module
     ):
         exc_class = mock_workspace_module.AccessDeniedException
-        handler._mock_isolation_manager.get_workspace = AsyncMock(
-            side_effect=exc_class("denied")
-        )
+        handler._mock_isolation_manager.get_workspace = AsyncMock(side_effect=exc_class("denied"))
 
         req = make_handler_request(path="/api/v1/workspaces/ws-1")
         result = handler._handle_get_workspace(req, "ws-1")
         assert _status(result) == 403
 
-    def test_get_workspace_rbac_checks_read_permission(
-        self, handler, make_handler_request
-    ):
+    def test_get_workspace_rbac_checks_read_permission(self, handler, make_handler_request):
         """Verify get workspace uses PERM_WORKSPACE_READ."""
         self._setup_workspace(handler)
         captured_perms = []
@@ -912,9 +872,7 @@ class TestDeleteWorkspace:
 
     def test_delete_workspace_emits_handler_event(self, handler, make_handler_request):
         """Verify that deleting a workspace emits a DELETED event."""
-        with patch(
-            "aragora.server.handlers.workspace.crud.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.workspace.crud.emit_handler_event") as mock_emit:
             req = make_handler_request(method="DELETE")
             handler._handle_delete_workspace(req, "ws-del-001")
 
@@ -924,9 +882,7 @@ class TestDeleteWorkspace:
             assert call_args[0][2] == {"workspace_id": "ws-del-001"}
             assert call_args[1]["user_id"] == "test-user-001"
 
-    def test_delete_workspace_rbac_checks_delete_permission(
-        self, handler, make_handler_request
-    ):
+    def test_delete_workspace_rbac_checks_delete_permission(self, handler, make_handler_request):
         """Verify delete workspace uses PERM_WORKSPACE_DELETE."""
         captured_perms = []
 
@@ -1053,18 +1009,14 @@ class TestSecurityEdgeCases:
         # "   " is truthy, so it passes the `if not name` check
         assert _status(result) == 201
 
-    def test_list_workspaces_empty_org_id_in_query(
-        self, handler, make_handler_request
-    ):
+    def test_list_workspaces_empty_org_id_in_query(self, handler, make_handler_request):
         """Empty string org_id in query params should not trigger cross-tenant check."""
         req = make_handler_request()
         result = handler._handle_list_workspaces(req, {"organization_id": ""})
         # Empty string is falsy, so the check `if requested_org_id` is False
         assert _status(result) == 200
 
-    def test_create_workspace_org_id_empty_in_body(
-        self, handler, make_handler_request
-    ):
+    def test_create_workspace_org_id_empty_in_body(self, handler, make_handler_request):
         """Empty string organization_id in body should not trigger cross-tenant check."""
         req = make_handler_request(
             method="POST",
@@ -1111,9 +1063,7 @@ class TestCrossCuttingBehavior:
         req2 = make_handler_request(path="/api/v1/workspaces/ws-1")
         assert _status(handler._handle_get_workspace(req2, "ws-1")) == 401
 
-    def test_all_endpoints_respect_rbac(
-        self, handler, make_handler_request, mock_workspace_module
-    ):
+    def test_all_endpoints_respect_rbac(self, handler, make_handler_request, mock_workspace_module):
         """All endpoints should respect RBAC permission denial."""
         from aragora.server.handlers.base import error_response
 
@@ -1137,9 +1087,7 @@ class TestCrossCuttingBehavior:
 
     def test_create_and_delete_both_emit_events(self, handler, make_handler_request):
         """Both create and delete should emit handler events."""
-        with patch(
-            "aragora.server.handlers.workspace.crud.emit_handler_event"
-        ) as mock_emit:
+        with patch("aragora.server.handlers.workspace.crud.emit_handler_event") as mock_emit:
             req1 = make_handler_request(method="POST", body={"name": "WS"})
             handler._handle_create_workspace(req1)
             assert mock_emit.call_count == 1
@@ -1172,9 +1120,7 @@ class TestCrossCuttingBehavior:
 
         handler._mock_audit_log.log.assert_not_called()
 
-    def test_cross_tenant_prevention_on_create(
-        self, handler, make_handler_request
-    ):
+    def test_cross_tenant_prevention_on_create(self, handler, make_handler_request):
         """Verify cross-tenant prevention is applied on workspace creation."""
         req = make_handler_request(
             method="POST",
@@ -1183,12 +1129,8 @@ class TestCrossCuttingBehavior:
         result = handler._handle_create_workspace(req)
         assert _status(result) == 403
 
-    def test_cross_tenant_prevention_on_list(
-        self, handler, make_handler_request
-    ):
+    def test_cross_tenant_prevention_on_list(self, handler, make_handler_request):
         """Verify cross-tenant prevention is applied on workspace listing."""
         req = make_handler_request()
-        result = handler._handle_list_workspaces(
-            req, {"organization_id": "malicious-org"}
-        )
+        result = handler._handle_list_workspaces(req, {"organization_id": "malicious-org"})
         assert _status(result) == 403

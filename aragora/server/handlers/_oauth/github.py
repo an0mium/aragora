@@ -121,7 +121,14 @@ class GitHubOAuthMixin:
             token_data = self._exchange_github_code(code)
             if inspect.isawaitable(token_data):
                 token_data = await token_data
-        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (
+            httpx.HTTPError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
             logger.error("GitHub token exchange failed: %s", e)
             return self._redirect_with_error("Failed to exchange authorization code")
 
@@ -138,7 +145,15 @@ class GitHubOAuthMixin:
             user_info = self._get_github_user_info(access_token)
             if inspect.isawaitable(user_info):
                 user_info = await user_info
-        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, json.JSONDecodeError) as e:
+        except (
+            httpx.HTTPError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+            json.JSONDecodeError,
+        ) as e:
             logger.error("Failed to get GitHub user info: %s", e)
             return self._redirect_with_error("Failed to get user info from GitHub")
 

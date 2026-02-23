@@ -107,13 +107,18 @@ class AnalyticsDashboardHandler(
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    "Permission denied: %s for user %s: %s", permission_key, context.user_id, decision.reason
+                    "Permission denied: %s for user %s: %s",
+                    permission_key,
+                    context.user_id,
+                    decision.reason,
                 )
                 record_rbac_check(permission_key, granted=False)
                 return error_response("Permission denied", 403)
             record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
-            logger.warning("Permission denied: %s for user %s: %s", permission_key, context.user_id, e)
+            logger.warning(
+                "Permission denied: %s for user %s: %s", permission_key, context.user_id, e
+            )
             record_rbac_check(permission_key, granted=False)
             return error_response("Permission denied", 403)
 

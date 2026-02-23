@@ -130,9 +130,7 @@ class TestExtractFromIdeas:
         # Add 5 support nodes
         for i in range(5):
             nodes.append({"id": f"s{i}", "label": f"supporter {i}", "data": {}})
-        edges = [
-            {"source": f"s{i}", "target": "main", "type": "support"} for i in range(5)
-        ]
+        edges = [{"source": f"s{i}", "target": "main", "type": "support"} for i in range(5)]
         canvas = _make_idea_canvas(nodes=nodes, edges=edges)
         result = extractor.extract_from_ideas(canvas)
         # The main node should rank highest and get critical priority
@@ -258,19 +256,23 @@ class TestExtractFromRawIdeas:
         assert "Improve database performance" in result.goals[0].title
 
     def test_multiple_ideas(self, extractor):
-        result = extractor.extract_from_raw_ideas([
-            "optimize database queries",
-            "add caching layer",
-            "improve API response times",
-        ])
+        result = extractor.extract_from_raw_ideas(
+            [
+                "optimize database queries",
+                "add caching layer",
+                "improve API response times",
+            ]
+        )
         assert len(result.goals) >= 1
 
     def test_keyword_linking(self, extractor):
         """Ideas sharing >= 3 non-stop words get a relates_to edge."""
-        result = extractor.extract_from_raw_ideas([
-            "improve database query performance significantly fast",
-            "enhance database query optimization performance fast",
-        ])
+        result = extractor.extract_from_raw_ideas(
+            [
+                "improve database query performance significantly fast",
+                "enhance database query optimization performance fast",
+            ]
+        )
         # With edges, connectivity affects scoring
         assert len(result.goals) >= 1
 

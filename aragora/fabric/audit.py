@@ -148,7 +148,10 @@ class AuditStore:
         """
         self._append_log(self._policy_file, log)
         logger.debug(
-            "Policy decision logged: trace_id=%s, agent=%s, effect=%s", log.trace_id, log.agent_id, log.effect.value
+            "Policy decision logged: trace_id=%s, agent=%s, effect=%s",
+            log.trace_id,
+            log.agent_id,
+            log.effect.value,
         )
 
     def log_budget_decision(self, log: BudgetDecisionLog) -> None:
@@ -160,7 +163,10 @@ class AuditStore:
         """
         self._append_log(self._budget_file, log)
         logger.debug(
-            "Budget decision logged: trace_id=%s, agent=%s, allowed=%s", log.trace_id, log.agent_id, log.allowed
+            "Budget decision logged: trace_id=%s, agent=%s, allowed=%s",
+            log.trace_id,
+            log.agent_id,
+            log.allowed,
         )
 
     def log_task_event(self, log: TaskExecutionLog) -> None:
@@ -172,7 +178,10 @@ class AuditStore:
         """
         self._append_log(self._task_file, log)
         logger.debug(
-            "Task event logged: trace_id=%s, task=%s, event=%s", log.trace_id, log.task_id, log.event_type
+            "Task event logged: trace_id=%s, task=%s, event=%s",
+            log.trace_id,
+            log.task_id,
+            log.event_type,
         )
 
     def _append_log(

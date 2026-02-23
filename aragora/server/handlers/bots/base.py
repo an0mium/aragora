@@ -230,7 +230,10 @@ class BotHandlerMixin:
             return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
             logger.warning(
-                "%s operation access denied (permission=%s): %s", self.bot_platform.title(), permission, e
+                "%s operation access denied (permission=%s): %s",
+                self.bot_platform.title(),
+                permission,
+                e,
             )
             logger.warning("Handler error: %s", e)
             return error_response("Permission denied", 403, code=BotErrorCode.PERMISSION_DENIED)
@@ -307,7 +310,9 @@ class BotHandlerMixin:
         if content_length <= 0:
             return b""
         if content_length > self._MAX_BODY_SIZE:
-            raise ValueError(f"Request body too large: {content_length} bytes (max {self._MAX_BODY_SIZE})")
+            raise ValueError(
+                f"Request body too large: {content_length} bytes (max {self._MAX_BODY_SIZE})"
+            )
         return handler.rfile.read(content_length)
 
     def _parse_json_body(

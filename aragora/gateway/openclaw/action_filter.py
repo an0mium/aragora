@@ -616,7 +616,10 @@ class ActionFilter:
         self._stats_lock = threading.Lock()
 
         logger.info(
-            "ActionFilter initialized for tenant=%s with %s allowed actions, %s rules", tenant_id, len(self._allowed_actions), len(self._rules)
+            "ActionFilter initialized for tenant=%s with %s allowed actions, %s rules",
+            tenant_id,
+            len(self._allowed_actions),
+            len(self._rules),
         )
 
     # =========================================================================
@@ -1125,7 +1128,11 @@ class ActionFilter:
                 self._audit_log = self._audit_log[-10000:]
 
         logger.debug(
-            "Audit: action=%s allowed=%s risk=%s tenant=%s", decision.action, decision.allowed, decision.risk_level.value, self._tenant_id
+            "Audit: action=%s allowed=%s risk=%s tenant=%s",
+            decision.action,
+            decision.allowed,
+            decision.risk_level.value,
+            self._tenant_id,
         )
 
     def get_audit_log(

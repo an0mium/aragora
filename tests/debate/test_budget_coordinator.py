@@ -116,7 +116,7 @@ class TestCheckBudgetBeforeDebate:
             with patch.dict(
                 sys.modules,
                 {
-                    **{key: None for key in saved_modules},
+                    **dict.fromkeys(saved_modules),
                     "aragora.billing.budget_manager": None,
                 },
             ):

@@ -666,15 +666,19 @@ class TestGetSystemMetrics:
             ctx={"debate_storage": debate_storage},
             user_store=user_store,
         )
-        with patch(
-            "aragora.resilience.get_circuit_breaker_status",
-            return_value={"status": "healthy"},
-        ), patch(
-            "aragora.server.handlers.admin.cache.get_cache_stats",
-            return_value={"hits": 10},
-        ), patch(
-            "aragora.server.middleware.rate_limit.get_rate_limiter",
-            return_value=mock_limiter,
+        with (
+            patch(
+                "aragora.resilience.get_circuit_breaker_status",
+                return_value={"status": "healthy"},
+            ),
+            patch(
+                "aragora.server.handlers.admin.cache.get_cache_stats",
+                return_value={"hits": 10},
+            ),
+            patch(
+                "aragora.server.middleware.rate_limit.get_rate_limiter",
+                return_value=mock_limiter,
+            ),
         ):
             result = h._get_system_metrics(http())
 
@@ -1338,15 +1342,19 @@ class TestEdgeCases:
             ctx={"debate_storage": debate_storage},
             user_store=user_store,
         )
-        with patch(
-            "aragora.resilience.get_circuit_breaker_status",
-            side_effect=RuntimeError("fail"),
-        ), patch(
-            "aragora.server.handlers.admin.cache.get_cache_stats",
-            side_effect=RuntimeError("fail"),
-        ), patch(
-            "aragora.server.middleware.rate_limit.get_rate_limiter",
-            side_effect=RuntimeError("fail"),
+        with (
+            patch(
+                "aragora.resilience.get_circuit_breaker_status",
+                side_effect=RuntimeError("fail"),
+            ),
+            patch(
+                "aragora.server.handlers.admin.cache.get_cache_stats",
+                side_effect=RuntimeError("fail"),
+            ),
+            patch(
+                "aragora.server.middleware.rate_limit.get_rate_limiter",
+                side_effect=RuntimeError("fail"),
+            ),
         ):
             result = h._get_system_metrics(http())
 

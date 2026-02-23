@@ -103,9 +103,7 @@ class TestReadinessProbe:
                     "aragora.server.unified_server.is_server_ready",
                     return_value=True,
                 ):
-                    with patch(
-                        "aragora.server.handler_registry.core.get_route_index"
-                    ) as mock_ri:
+                    with patch("aragora.server.handler_registry.core.get_route_index") as mock_ri:
                         mock_ri.return_value._exact_routes = {"/healthz": True}
                         result = await health_handler.handle("/readyz", {}, None)
 
@@ -124,9 +122,7 @@ class TestReadinessProbe:
                     "aragora.server.unified_server.is_server_ready",
                     return_value=True,
                 ):
-                    with patch(
-                        "aragora.server.handler_registry.core.get_route_index"
-                    ) as mock_ri:
+                    with patch("aragora.server.handler_registry.core.get_route_index") as mock_ri:
                         mock_ri.return_value._exact_routes = {"/healthz": True}
                         result = await health_handler.handle("/readyz", {}, None)
 

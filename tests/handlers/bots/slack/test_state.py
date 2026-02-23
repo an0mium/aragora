@@ -287,7 +287,10 @@ class TestGetSlackIntegration:
         with patch.dict("os.environ", {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"}):
             with patch(f"{STATE_MODULE}.SlackConnector", mock_connector_cls, create=True):
                 # We need to patch the import itself
-                with patch.dict(sys.modules, {"aragora.connectors.slack": types.ModuleType("aragora.connectors.slack")}):
+                with patch.dict(
+                    sys.modules,
+                    {"aragora.connectors.slack": types.ModuleType("aragora.connectors.slack")},
+                ):
                     sys.modules["aragora.connectors.slack"].SlackConnector = mock_connector_cls
                     result = state_module.get_slack_integration()
 
@@ -301,7 +304,10 @@ class TestGetSlackIntegration:
         mock_connector_cls.return_value = mock_instance
 
         with patch.dict("os.environ", {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/x"}):
-            with patch.dict(sys.modules, {"aragora.connectors.slack": types.ModuleType("aragora.connectors.slack")}):
+            with patch.dict(
+                sys.modules,
+                {"aragora.connectors.slack": types.ModuleType("aragora.connectors.slack")},
+            ):
                 sys.modules["aragora.connectors.slack"].SlackConnector = mock_connector_cls
                 state_module.get_slack_integration()
 
@@ -315,7 +321,9 @@ class TestGetSlackIntegration:
             saved = sys.modules.pop("aragora.connectors.slack", None)
             saved2 = sys.modules.pop("aragora.connectors", None)
             try:
-                with patch("builtins.__import__", side_effect=_import_blocker("aragora.connectors.slack")):
+                with patch(
+                    "builtins.__import__", side_effect=_import_blocker("aragora.connectors.slack")
+                ):
                     result = state_module.get_slack_integration()
                 assert result is None
             finally:
@@ -389,9 +397,7 @@ class TestGetDebateVoteCounts:
 
     def test_many_voters(self, state_module):
         """Stress test with many voters."""
-        state_module._user_votes["d1"] = {
-            f"user-{i}": f"agent-{i % 5}" for i in range(100)
-        }
+        state_module._user_votes["d1"] = {f"user-{i}": f"agent-{i % 5}" for i in range(100)}
         result = state_module.get_debate_vote_counts("d1")
         assert sum(result.values()) == 100
         assert len(result) == 5

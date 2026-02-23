@@ -91,7 +91,9 @@ def _run_pipeline_dry_run(ideas: list[str]) -> None:
 
         # Stage 1: Ideas
         if result.ideas_canvas:
-            node_count = len(result.ideas_canvas.nodes) if hasattr(result.ideas_canvas, "nodes") else 0
+            node_count = (
+                len(result.ideas_canvas.nodes) if hasattr(result.ideas_canvas, "nodes") else 0
+            )
             print(f"\nStage 1 - Ideas Canvas: {node_count} nodes")
 
         # Stage 2: Goals
@@ -202,7 +204,9 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         decomposer = TaskDecomposer(config=DecomposerConfig(complexity_threshold=4))
         decomposition = decomposer.analyze(goal)
 
-        print(f"\nComplexity: {decomposition.complexity_score}/10 ({decomposition.complexity_level})")
+        print(
+            f"\nComplexity: {decomposition.complexity_score}/10 ({decomposition.complexity_level})"
+        )
         print(f"Subtasks: {len(decomposition.subtasks)}")
 
         for i, subtask in enumerate(decomposition.subtasks, 1):
@@ -230,9 +234,7 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
 
         planner = MetaPlanner(MetaPlannerConfig(quick_mode=True))
-        prioritized_goals = asyncio.run(
-            planner.prioritize_work(objective=goal)
-        )
+        prioritized_goals = asyncio.run(planner.prioritize_work(objective=goal))
 
         print(f"\nPrioritized goals ({len(prioritized_goals)}):")
         for pg in prioritized_goals:

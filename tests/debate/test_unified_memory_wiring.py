@@ -186,13 +186,15 @@ class TestUnifiedMemoryHandler:
         gw = AsyncMock()
         gw.query = AsyncMock(return_value=FakeResponse())
         handler = UnifiedMemoryHandler(gateway=gw)
-        await handler.handle_search({
-            "query": "test",
-            "limit": 5,
-            "min_confidence": 0.5,
-            "sources": ["km"],
-            "dedup": False,
-        })
+        await handler.handle_search(
+            {
+                "query": "test",
+                "limit": 5,
+                "min_confidence": 0.5,
+                "sources": ["km"],
+                "dedup": False,
+            }
+        )
         call_args = gw.query.call_args[0][0]
         assert call_args.query == "test"
         assert call_args.limit == 5

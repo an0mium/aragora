@@ -7,6 +7,7 @@ Covers:
 - Debate scan: arena fallback, import error graceful degradation
 - BranchCoordinator integration
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,6 +27,7 @@ from aragora.nomic.semantic_conflict_detector import (
 # ConflictType
 # ============================================================
 
+
 class TestConflictType:
     def test_enum_values(self):
         assert ConflictType.SIGNATURE_BREAK.value == "signature_break"
@@ -41,6 +43,7 @@ class TestConflictType:
 # SemanticConflict
 # ============================================================
 
+
 class TestSemanticConflict:
     def test_creation(self):
         sc = SemanticConflict(
@@ -54,7 +57,8 @@ class TestSemanticConflict:
 
     def test_confidence_default(self):
         sc = SemanticConflict(
-            source_branch="a", target_branch="b",
+            source_branch="a",
+            target_branch="b",
             conflict_type=ConflictType.IMPORT_CYCLE,
             description="cycle",
         )
@@ -62,7 +66,8 @@ class TestSemanticConflict:
 
     def test_affected_files_default(self):
         sc = SemanticConflict(
-            source_branch="a", target_branch="b",
+            source_branch="a",
+            target_branch="b",
             conflict_type=ConflictType.IMPORT_CYCLE,
             description="cycle",
         )
@@ -72,6 +77,7 @@ class TestSemanticConflict:
 # ============================================================
 # Static Scan
 # ============================================================
+
 
 class TestStaticScan:
     def test_signature_change_detected(self):
@@ -86,7 +92,11 @@ def process(data, mode, verbose=False):
     pass
 """
         conflicts = detector._check_signature_conflicts(
-            "aragora/foo.py", content_a, content_b, "branch_a", "branch_b",
+            "aragora/foo.py",
+            content_a,
+            content_b,
+            "branch_a",
+            "branch_b",
         )
         assert len(conflicts) >= 1
         assert conflicts[0].conflict_type == ConflictType.SIGNATURE_BREAK
@@ -100,7 +110,11 @@ def process(data, mode):
     pass
 """
         conflicts = detector._check_signature_conflicts(
-            "aragora/foo.py", content, content, "branch_a", "branch_b",
+            "aragora/foo.py",
+            content,
+            content,
+            "branch_a",
+            "branch_b",
         )
         assert len(conflicts) == 0
 
@@ -116,7 +130,11 @@ async def fetch(url):
     pass
 """
         conflicts = detector._check_signature_conflicts(
-            "aragora/client.py", content_a, content_b, "branch_a", "branch_b",
+            "aragora/client.py",
+            content_a,
+            content_b,
+            "branch_a",
+            "branch_b",
         )
         # Should detect assumption clash
         assumption_conflicts = [
@@ -137,7 +155,11 @@ from aragora.baz import qux
 """
         # Import conflicts are checked for cross-referencing modules
         conflicts = detector._check_import_conflicts(
-            "aragora/module.py", content_a, content_b, "branch_a", "branch_b",
+            "aragora/module.py",
+            content_a,
+            content_b,
+            "branch_a",
+            "branch_b",
         )
         # May or may not find cross-imports depending on module names
         assert isinstance(conflicts, list)
@@ -169,6 +191,7 @@ from aragora.baz import qux
 # Debate Scan
 # ============================================================
 
+
 class TestDebateScan:
     def test_arena_import_error_graceful(self):
         detector = SemanticConflictDetector(Path("/tmp"), enable_debate=True)
@@ -186,7 +209,8 @@ class TestDebateScan:
         with patch.dict("sys.modules", {"aragora.debate.orchestrator": mock_arena_module}):
             static = [
                 SemanticConflict(
-                    source_branch="a", target_branch="b",
+                    source_branch="a",
+                    target_branch="b",
                     conflict_type=ConflictType.IMPORT_CYCLE,
                     description="test",
                     confidence=0.3,
@@ -205,6 +229,7 @@ class TestDebateScan:
 # ============================================================
 # BranchCoordinator Integration
 # ============================================================
+
 
 class TestBranchCoordinatorIntegration:
     def test_semantic_detector_wired_in(self, tmp_path):

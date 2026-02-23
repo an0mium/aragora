@@ -489,9 +489,13 @@ class TestPrioritizeWorkAsync:
         # Import error will trigger heuristic fallback.
         # Mock scan_code_markers and _gather_codebase_hints to avoid scanning
         # the entire repo filesystem (causes hangs in CI).
-        with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}), \
-             patch("aragora.compat.openclaw.next_steps_runner.scan_code_markers", return_value=([], 0)), \
-             patch.object(planner, "_gather_codebase_hints", return_value={}):
+        with (
+            patch.dict("sys.modules", {"aragora.debate.orchestrator": None}),
+            patch(
+                "aragora.compat.openclaw.next_steps_runner.scan_code_markers", return_value=([], 0)
+            ),
+            patch.object(planner, "_gather_codebase_hints", return_value={}),
+        ):
             goals = await planner.prioritize_work(
                 objective="Maximize SME utility",
                 available_tracks=[Track.SME, Track.QA],
@@ -959,7 +963,9 @@ class TestOutcomeFeedbackIntegration:
             patch(
                 "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
                 side_effect=ImportError("skip KM"),
-            ) if False else patch(
+            )
+            if False
+            else patch(
                 "aragora.nomic.outcome_tracker.NomicOutcomeTracker.get_regression_history",
                 return_value=regressions,
             ) as mock_reg,
@@ -986,8 +992,7 @@ class TestOutcomeFeedbackIntegration:
 
         # Check that regressions were injected
         regression_entries = [
-            f for f in enriched.past_failures_to_avoid
-            if "[outcome_regression]" in f
+            f for f in enriched.past_failures_to_avoid if "[outcome_regression]" in f
         ]
         assert len(regression_entries) == 2
 
@@ -1033,8 +1038,7 @@ class TestOutcomeFeedbackIntegration:
             )
 
         regression_entries = [
-            f for f in enriched.past_failures_to_avoid
-            if "[outcome_regression]" in f
+            f for f in enriched.past_failures_to_avoid if "[outcome_regression]" in f
         ]
         assert len(regression_entries) == 0
 
@@ -1161,10 +1165,9 @@ class TestHeuristicCodebaseHints:
 
         security_goals = [g for g in goals if g.track == Track.SECURITY]
         assert len(security_goals) >= 1
-        assert any(
-            "aragora/security/encryption.py" in g.file_hints
-            for g in security_goals
-        ), f"Expected file_hints to contain encryption.py, got {[g.file_hints for g in security_goals]}"
+        assert any("aragora/security/encryption.py" in g.file_hints for g in security_goals), (
+            f"Expected file_hints to contain encryption.py, got {[g.file_hints for g in security_goals]}"
+        )
 
     def test_heuristic_graceful_without_indexer(self):
         """When CodebaseIndexer import fails, goals should still be generated with empty file_hints."""
@@ -1247,9 +1250,7 @@ class TestHeuristicCodebaseHints:
             return_value=mock_indexer,
         ):
             planner = MetaPlanner(config=MetaPlannerConfig())
-            goals = planner._heuristic_prioritize(
-                "improve sme dashboard", [Track.SME, Track.QA]
-            )
+            goals = planner._heuristic_prioritize("improve sme dashboard", [Track.SME, Track.QA])
 
         assert len(goals) >= 1
         for goal in goals:
@@ -1273,9 +1274,7 @@ class TestHeuristicCodebaseHints:
             return_value=mock_indexer,
         ):
             planner = MetaPlanner(config=MetaPlannerConfig())
-            result = planner._gather_codebase_hints(
-                "consensus detection", [Track.CORE, Track.QA]
-            )
+            result = planner._gather_codebase_hints("consensus detection", [Track.CORE, Track.QA])
 
         assert isinstance(result, dict)
         # All keys should be Track enum values

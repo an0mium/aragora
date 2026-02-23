@@ -37,9 +37,7 @@ def _make_result(**overrides):
     result.participants = ["claude", "gpt4"]
     result.grounded_verdict = None
     result.total_cost_usd = overrides.get("total_cost_usd", 0.15)
-    result.per_agent_cost = overrides.get(
-        "per_agent_cost", {"claude": 0.08, "gpt4": 0.07}
-    )
+    result.per_agent_cost = overrides.get("per_agent_cost", {"claude": 0.08, "gpt4": 0.07})
     result.explanation = None
     result.messages = []
     result.winner = None
@@ -69,16 +67,12 @@ class TestCostInDebateResults:
         )
         config = _make_config()
 
-        with patch(
-            "aragora.server.debate_controller.run_async", return_value=result
-        ), patch(
-            "aragora.server.debate_controller.update_debate_status"
-        ) as mock_update, patch(
-            "aragora.server.debate_controller.create_arena_hooks"
-        ), patch(
-            "aragora.server.debate_controller.wrap_agent_for_streaming"
-        ), patch(
-            "aragora.storage.receipt_store.get_receipt_store"
+        with (
+            patch("aragora.server.debate_controller.run_async", return_value=result),
+            patch("aragora.server.debate_controller.update_debate_status") as mock_update,
+            patch("aragora.server.debate_controller.create_arena_hooks"),
+            patch("aragora.server.debate_controller.wrap_agent_for_streaming"),
+            patch("aragora.storage.receipt_store.get_receipt_store"),
         ):
             controller.factory.create_arena.return_value = MagicMock()
             controller.factory.create_arena.return_value.protocol = MagicMock()
@@ -102,16 +96,12 @@ class TestCostInDebateResults:
         result = _make_result(total_cost_usd=0.0, per_agent_cost={})
         config = _make_config()
 
-        with patch(
-            "aragora.server.debate_controller.run_async", return_value=result
-        ), patch(
-            "aragora.server.debate_controller.update_debate_status"
-        ) as mock_update, patch(
-            "aragora.server.debate_controller.create_arena_hooks"
-        ), patch(
-            "aragora.server.debate_controller.wrap_agent_for_streaming"
-        ), patch(
-            "aragora.storage.receipt_store.get_receipt_store"
+        with (
+            patch("aragora.server.debate_controller.run_async", return_value=result),
+            patch("aragora.server.debate_controller.update_debate_status") as mock_update,
+            patch("aragora.server.debate_controller.create_arena_hooks"),
+            patch("aragora.server.debate_controller.wrap_agent_for_streaming"),
+            patch("aragora.storage.receipt_store.get_receipt_store"),
         ):
             controller.factory.create_arena.return_value = MagicMock()
             controller.factory.create_arena.return_value.protocol = MagicMock()
@@ -131,21 +121,15 @@ class TestCostInDebateResults:
 
     def test_per_agent_cost_dict_format(self, controller):
         """per_agent_cost should be a dict mapping agent name to cost."""
-        result = _make_result(
-            per_agent_cost={"claude": 0.08, "gpt4": 0.07, "mistral": 0.03}
-        )
+        result = _make_result(per_agent_cost={"claude": 0.08, "gpt4": 0.07, "mistral": 0.03})
         config = _make_config()
 
-        with patch(
-            "aragora.server.debate_controller.run_async", return_value=result
-        ), patch(
-            "aragora.server.debate_controller.update_debate_status"
-        ) as mock_update, patch(
-            "aragora.server.debate_controller.create_arena_hooks"
-        ), patch(
-            "aragora.server.debate_controller.wrap_agent_for_streaming"
-        ), patch(
-            "aragora.storage.receipt_store.get_receipt_store"
+        with (
+            patch("aragora.server.debate_controller.run_async", return_value=result),
+            patch("aragora.server.debate_controller.update_debate_status") as mock_update,
+            patch("aragora.server.debate_controller.create_arena_hooks"),
+            patch("aragora.server.debate_controller.wrap_agent_for_streaming"),
+            patch("aragora.storage.receipt_store.get_receipt_store"),
         ):
             controller.factory.create_arena.return_value = MagicMock()
             controller.factory.create_arena.return_value.protocol = MagicMock()
@@ -184,16 +168,12 @@ class TestCostInDebateResults:
 
         config = _make_config()
 
-        with patch(
-            "aragora.server.debate_controller.run_async", return_value=result
-        ), patch(
-            "aragora.server.debate_controller.update_debate_status"
-        ) as mock_update, patch(
-            "aragora.server.debate_controller.create_arena_hooks"
-        ), patch(
-            "aragora.server.debate_controller.wrap_agent_for_streaming"
-        ), patch(
-            "aragora.storage.receipt_store.get_receipt_store"
+        with (
+            patch("aragora.server.debate_controller.run_async", return_value=result),
+            patch("aragora.server.debate_controller.update_debate_status") as mock_update,
+            patch("aragora.server.debate_controller.create_arena_hooks"),
+            patch("aragora.server.debate_controller.wrap_agent_for_streaming"),
+            patch("aragora.storage.receipt_store.get_receipt_store"),
         ):
             controller.factory.create_arena.return_value = MagicMock()
             controller.factory.create_arena.return_value.protocol = MagicMock()
